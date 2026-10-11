@@ -7,6 +7,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -20,24 +25,51 @@ final class GdxAudioDevices {
     static final String CAPTURE_KEY = "audio_capture_device";
     private static final String DEFAULT = "";
     private static volatile List<String> captureDevices = List.of();
+    private static final ExecutorService OUTPUT_DISCOVERY_EXECUTOR =
+            Executors.newSingleThreadExecutor(task -> {
+                Thread worker = new Thread(task,
+                        "CoronaPoker-GDX-output-devices");
+                worker.setDaemon(true);
+                return worker;
+            });
 
     static final class OutputHotplugMonitor {
 
         private static final float POLL_SECONDS = 1f;
+        private final Supplier<List<String>> topologySource;
+        private final Executor topologyExecutor;
         private List<String> previousTopology;
+        private CompletableFuture<List<String>> pendingTopology;
         private boolean outputAvailable = true;
         private float elapsed;
 
+        OutputHotplugMonitor() {
+            this(GdxAudioDevices::availableOutputDevices,
+                    OUTPUT_DISCOVERY_EXECUTOR);
+        }
+
+        OutputHotplugMonitor(Supplier<List<String>> topologySource,
+                Executor topologyExecutor) {
+            this.topologySource = Objects.requireNonNull(topologySource,
+                    "topologySource");
+            this.topologyExecutor = Objects.requireNonNull(topologyExecutor,
+                    "topologyExecutor");
+        }
+
         boolean update(Properties properties, float deltaSeconds) {
-            if (previousTopology == null) {
-                acceptTopology(availableOutputDevices());
-                return false;
-            }
             elapsed += Math.max(0f, deltaSeconds);
-            if (elapsed < POLL_SECONDS) return false;
-            elapsed = 0f;
-            List<String> current = normalizedTopology(
-                    availableOutputDevices());
+            if (pendingTopology == null
+                    && (previousTopology == null
+                            || elapsed >= POLL_SECONDS)) {
+                elapsed = 0f;
+                pendingTopology = CompletableFuture.supplyAsync(
+                        topologySource, topologyExecutor)
+                        .exceptionally(unavailable -> List.of());
+            }
+            CompletableFuture<List<String>> completed = pendingTopology;
+            if (completed == null || !completed.isDone()) return false;
+            pendingTopology = null;
+            List<String> current = normalizedTopology(completed.join());
             if (!acceptTopology(current)) return false;
             refreshCaptureDevicesAsync();
             rebindConfiguredOutput(properties, current);
@@ -216,7 +248,7 @@ final class GdxAudioDevices {
                 : device;
     }
 
-    private static List<String> availableOutputDevices() {
+    static List<String> availableOutputDevices() {
         try {
             if (Gdx.audio == null) return List.of();
             String[] devices = Gdx.audio.getAvailableOutputDevices();

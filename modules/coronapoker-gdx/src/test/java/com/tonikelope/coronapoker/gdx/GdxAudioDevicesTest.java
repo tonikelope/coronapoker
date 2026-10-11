@@ -2,11 +2,14 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sound.sampled.LineUnavailableException;
 import org.junit.jupiter.api.Test;
 
@@ -80,6 +83,32 @@ final class GdxAudioDevicesTest {
         assertFalse(monitor.acceptTopology(List.of()));
         assertTrue(monitor.acceptTopology(List.of("Auriculares USB")));
         assertTrue(monitor.outputAvailable());
+    }
+
+    @Test
+    void hotplugEnumerationNeverRunsOnTheRenderUpdateCall() {
+        AtomicInteger reads = new AtomicInteger();
+        AtomicReference<Runnable> worker = new AtomicReference<>();
+        GdxAudioDevices.OutputHotplugMonitor monitor =
+                new GdxAudioDevices.OutputHotplugMonitor(() -> {
+                    reads.incrementAndGet();
+                    return List.of("Altavoces");
+                }, worker::set);
+
+        assertFalse(monitor.update(new Properties(), 0f));
+        assertEquals(0, reads.get(),
+                "render update must only schedule the OpenAL enumeration");
+        assertNotNull(worker.get());
+        worker.getAndSet(null).run();
+        assertFalse(monitor.update(new Properties(), 0f),
+                "the first topology establishes a baseline");
+        assertEquals(1, reads.get());
+        assertTrue(monitor.outputAvailable());
+
+        assertFalse(monitor.update(new Properties(), 1f));
+        assertEquals(1, reads.get(),
+                "the next poll must also remain off the render thread");
+        assertNotNull(worker.get());
     }
 
     @Test

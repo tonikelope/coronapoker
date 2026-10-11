@@ -1395,9 +1395,20 @@ public final class CoreGameTableFactory implements GameTableFactory {
             // sleep, the ordered wire shutdown can wait indefinitely while no
             // subsequent notifier is able to reach it.
             requestedCloseReason.set(TableSessionSummary.CloseReason.EXITED);
+            /*
+             * Capture and arm a public-only departure on the submitting
+             * thread.  Deferring this test to terminationExecutor left a
+             * narrow boundary race: the dealer could clear CALENTANDO and
+             * start the next cryptographic hand before the exit task ran.
+             * From that point the task had to use the ordinary seated-player
+             * path and the local projection diverged from the host that had
+             * correctly cancelled the reservation.
+             */
+            boolean passiveHotJoinExit = hotJoining
+                    && dealer.armPassiveHotJoinExit();
             terminationExecutor.execute(() -> {
                 try {
-                    if (hotJoining && local.isCalentando()) {
+                    if (passiveHotJoinExit) {
                         pauseCoordinator.resumeForShutdown();
                         notifyBettingWait(dealer);
                         dealer.requestPassiveHotJoinExit(() -> {

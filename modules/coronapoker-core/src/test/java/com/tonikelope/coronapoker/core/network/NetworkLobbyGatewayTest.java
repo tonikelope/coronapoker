@@ -669,7 +669,6 @@ class NetworkLobbyGatewayTest {
                     .get(2, TimeUnit.SECONDS);
             host.tableSession().toCompletableFuture().get(2,
                     TimeUnit.SECONDS);
-
             for (int attempt = 0;
                     attempt < NetworkLobbyGateway
                             .HANDSHAKE_REJECTION_BAN_THRESHOLD + 3;
@@ -688,6 +687,99 @@ class NetworkLobbyGatewayTest {
             assertTrue(host.networkBlocks().isEmpty(),
                     "valid signed clients refused by policy must never be IP-banned");
             assertEquals(2, host.snapshot().participants().size());
+        }
+    }
+
+    @Test void authenticatedHotJoinChurnIsThrottledWithoutBanningTheAddress()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> warmingContext
+                = new AtomicReference<>();
+        GameTableFactory tables = context -> {
+            (context.lobby().host() ? hostContext : warmingContext)
+                    .set(context);
+            return new TableSession(emptyTable(
+                    context.lobby().localNickname()), command -> { },
+                    new TableEventBridge(),
+                    () -> CompletableFuture.completedFuture(null));
+        };
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Anfitrion", "",
+                        "127.0.0.1", Integer.toString(port), null, false,
+                        false, null);
+        Path repeatedIdentity = temporary.resolve("hot-join-churn-client");
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("hot-join-churn-host"), tables);
+                LobbySession host = hostGateway.open(new NewGameRequest(
+                        connection, new NewGameTableDraft().snapshot()))
+                        .get(5, TimeUnit.SECONDS)) {
+            host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            await(() -> host.snapshot().participants().size() == 2);
+            host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                    .get(2, TimeUnit.SECONDS);
+            host.tableSession().toCompletableFuture().get(2,
+                    TimeUnit.SECONDS);
+            hostContext.get().channel().subscribe(inbound -> {
+                if (!"HOTJOIN_EXIT".equals(inbound.command())) return;
+                try {
+                    hostContext.get().channel().sendFromHost(
+                            inbound.peerNickname(), "HOTJOIN_EXITED")
+                            .toCompletableFuture().join();
+                } catch (java.io.IOException failure) {
+                    throw new IllegalStateException(failure);
+                }
+                hostContext.get().channel().retirePeerAfterExit(
+                        inbound.peerNickname());
+            });
+
+            for (int attempt = 0;
+                    attempt < NetworkLobbyGateway
+                            .MAX_HOT_JOIN_ADMISSIONS_PER_IDENTITY;
+                    attempt++) {
+                try (NetworkLobbyGateway late = new NetworkLobbyGateway(
+                            repeatedIdentity, tables);
+                        LobbySession warming = late.open(request(true,
+                                "Persistente", port)).get(5,
+                                        TimeUnit.SECONDS)) {
+                    await(() -> host.snapshot().participants().size() == 3);
+                    warming.tableSession().toCompletableFuture().get(5,
+                            TimeUnit.SECONDS);
+                    GameLaunchContext currentWarming = warmingContext.get();
+                    currentWarming.channel().sendToHost("HOTJOIN_EXIT")
+                            .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                    await(() -> host.snapshot().participants().size() == 2);
+                }
+                warmingContext.set(null);
+            }
+
+            try (NetworkLobbyGateway throttled = new NetworkLobbyGateway(
+                    repeatedIdentity, tables)) {
+                Exception rejected = assertThrows(Exception.class,
+                        () -> throttled.open(request(true, "Persistente",
+                                port)).get(5, TimeUnit.SECONDS));
+                assertEquals("Demasiadas entradas en caliente; inténtalo de nuevo en unos segundos",
+                        rootCause(rejected).getMessage());
+            }
+            assertEquals(2, host.snapshot().participants().size(),
+                    "a throttled observer must not allocate table state");
+            assertTrue(host.networkBlocks().isEmpty(),
+                    "authenticated churn must never become an IP ban");
+
+            try (NetworkLobbyGateway legitimate = new NetworkLobbyGateway(
+                        temporary.resolve("hot-join-shared-address-client"),
+                        tables);
+                    LobbySession admitted = legitimate.open(request(true,
+                            "Legitimo", port)).get(5, TimeUnit.SECONDS)) {
+                await(() -> host.snapshot().participants().size() == 3);
+                assertTrue(host.networkBlocks().isEmpty(),
+                        "another identity on the same address must remain eligible");
+            }
         }
     }
 

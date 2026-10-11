@@ -124,6 +124,22 @@ class GdxMultiprocessScenarioTest {
     }
 
     @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void freshHotJoinDuringRunItTwiceContinuesTheExactPublicRunout(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 0,
+                "live-hot-join-rit-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void freshHotJoinDuringOrdinaryShowdownContinuesTheExactSettlement(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 0,
+                "live-hot-join-showdown-bootstrap");
+    }
+
+    @Test
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void authoritativeBootstrapArrivingBeforeRendererAttachmentStillOpensTable(
             @TempDir Path root) throws Exception {
@@ -141,9 +157,49 @@ class GdxMultiprocessScenarioTest {
 
     @Test
     @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void freshHotJoinObservesLastHandButIsNeverAdmittedWithoutANextHand(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 1,
+                "live-hot-join-last-hand-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
     void twoConcurrentHotJoinsWarmAndEnterTheSameNextHand(
             @TempDir Path root) throws Exception {
         runTwoConcurrentHotJoinsScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 8, unit = TimeUnit.MINUTES)
+    void twoConcurrentHotJoinsDuringAllInShareOneExactPublicState(
+            @TempDir Path root) throws Exception {
+        runTwoConcurrentHotJoinsDuringState(root,
+                "live-hot-join-two-allin-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 8, unit = TimeUnit.MINUTES)
+    void twoConcurrentHotJoinsDuringRunItTwiceShareOneExactPublicState(
+            @TempDir Path root) throws Exception {
+        runTwoConcurrentHotJoinsDuringState(root,
+                "live-hot-join-two-rit-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 8, unit = TimeUnit.MINUTES)
+    void twoConcurrentHotJoinsDuringPauseShareOneExactPublicState(
+            @TempDir Path root) throws Exception {
+        runTwoConcurrentHotJoinsDuringState(root,
+                "live-hot-join-two-paused-bootstrap");
+    }
+
+    @Test
+    @Timeout(value = 8, unit = TimeUnit.MINUTES)
+    void twoConcurrentHotJoinsDuringShowdownShareOneExactPublicState(
+            @TempDir Path root) throws Exception {
+        runTwoConcurrentHotJoinsDuringState(root,
+                "live-hot-join-two-showdown-bootstrap");
     }
 
     @Test
@@ -151,6 +207,20 @@ class GdxMultiprocessScenarioTest {
     void oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted(
             @TempDir Path root) throws Exception {
         runConcurrentHotJoinExitScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void oneConcurrentHotJoinCanChurnWhileAnotherKeepsWarming(
+            @TempDir Path root) throws Exception {
+        runConcurrentHotJoinChurnScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 12, unit = TimeUnit.MINUTES)
+    void twoConcurrentHotJoinsCanRepeatedlyLeaveAndReenterTogether(
+            @TempDir Path root) throws Exception {
+        runDualConcurrentHotJoinChurnScenario(root);
     }
 
     @Test
@@ -1034,6 +1104,12 @@ class GdxMultiprocessScenarioTest {
         int totalClients = incumbentClients + 1;
         int initialPlayers = 1 + incumbentClients + bots;
         String newcomerNickname = "client" + totalClients;
+        boolean publicRunoutBootstrap
+                = "live-hot-join-allin-bootstrap".equals(scenario)
+                || "live-hot-join-rit-bootstrap".equals(scenario)
+                || "live-hot-join-showdown-bootstrap".equals(scenario);
+        boolean lastHandBootstrap
+                = "live-hot-join-last-hand-bootstrap".equals(scenario);
         List<NodeProcess> nodes = new ArrayList<>();
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
@@ -1052,15 +1128,39 @@ class GdxMultiprocessScenarioTest {
             assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players="
                             + initialPlayers,
                     Duration.ofSeconds(45)), host.diagnostic());
+            NodeProcess newcomer = null;
+            if (publicRunoutBootstrap) {
+                newcomer = startNode(root.resolve(
+                        "client-" + totalClients), "client",
+                        newcomerNickname, port, totalClients, bots, 3,
+                        scenario, "late-standby");
+                nodes.add(newcomer);
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_STANDBY nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
             host.send("START_GAME");
             assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
                     Duration.ofSeconds(90)), host.diagnostic());
+            if (publicRunoutBootstrap) {
+                for (int index = 1; index <= incumbentClients; index++) {
+                    NodeProcess incumbent = nodes.get(index);
+                    assertTrue(incumbent.await(
+                            "CP_GDX_E2E_HOT_JOIN_GATE",
+                            Duration.ofSeconds(90)), incumbent.diagnostic());
+                }
+            }
 
-            NodeProcess newcomer = startNode(root.resolve(
-                    "client-" + totalClients), "client",
-                    newcomerNickname, port, totalClients, bots, 3,
-                    scenario, "late");
-            nodes.add(newcomer);
+            if (newcomer == null) {
+                newcomer = startNode(root.resolve(
+                        "client-" + totalClients), "client",
+                        newcomerNickname, port, totalClients, bots, 3,
+                        scenario, "late");
+                nodes.add(newcomer);
+            } else {
+                newcomer.send("CONNECT_HOT_JOIN");
+            }
             assertTrue(newcomer.await(
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick="
                             + newcomerNickname,
@@ -1071,10 +1171,24 @@ class GdxMultiprocessScenarioTest {
                                 + newcomerNickname
                                 + " cards=public outcome=true timer=none",
                         Duration.ofSeconds(45)), newcomer.diagnostic());
-            } else {
+            } else if (!publicRunoutBootstrap) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_REMOTE_CARD_BACKS nick="
                                 + newcomerNickname,
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
+            if ("live-hot-join-rit-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_RIT_BOOTSTRAP nick="
+                                + newcomerNickname
+                                + " board=side-a timer=none",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
+            if ("live-hot-join-showdown-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_SHOWDOWN_BOOTSTRAP nick="
+                                + newcomerNickname
+                                + " cards=public result=true timer=none",
                         Duration.ofSeconds(45)), newcomer.diagnostic());
             }
             if ("live-hot-join-flop-bootstrap".equals(scenario)) {
@@ -1094,7 +1208,19 @@ class GdxMultiprocessScenarioTest {
                         "CP_GDX_E2E_HOT_JOIN_PAUSED_BOOTSTRAP paused=true",
                         Duration.ofSeconds(45)), newcomer.diagnostic());
             }
+            if (lastHandBootstrap) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_LAST_HAND_BOOTSTRAP enabled=true",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
+            assertIncumbentRingExcludesWarmingSeat(nodes,
+                    incumbentClients + 1, newcomerNickname);
             host.send("RELEASE_HOT_JOIN");
+            if (publicRunoutBootstrap) {
+                for (int index = 1; index <= incumbentClients; index++) {
+                    nodes.get(index).send("RELEASE_HOT_JOIN");
+                }
+            }
             assertTrue(host.await(
                     "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick="
                             + newcomerNickname,
@@ -1109,9 +1235,21 @@ class GdxMultiprocessScenarioTest {
                                 + newcomerNickname,
                         Duration.ofSeconds(45)), incumbent.diagnostic());
             }
-            if (!"live-hot-join-allin-bootstrap".equals(scenario)) {
+            if (!publicRunoutBootstrap) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(120)), newcomer.diagnostic());
+            }
+            if ("live-hot-join-rit-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_RIT_STREAM_COMPLETE nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(120)), newcomer.diagnostic());
+            }
+            if ("live-hot-join-showdown-bootstrap".equals(scenario)) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_SHOWDOWN_STREAM_COMPLETE nick="
                                 + newcomerNickname,
                         Duration.ofSeconds(120)), newcomer.diagnostic());
             }
@@ -1121,16 +1259,26 @@ class GdxMultiprocessScenarioTest {
                         + newcomerNickname,
                         Duration.ofSeconds(120)), newcomer.diagnostic());
             }
-            assertTrue(newcomer.await(
-                    "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
-                            + newcomerNickname,
-                    Duration.ofSeconds(150)), newcomer.diagnostic());
+            if (lastHandBootstrap) {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_LAST_HAND_COMPLETE nick="
+                                + newcomerNickname + " admitted=false",
+                        Duration.ofSeconds(150)), newcomer.diagnostic());
+                assertTrue(!newcomer.contains(
+                        "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
+                                + newcomerNickname), newcomer.diagnostic());
+            } else {
+                assertTrue(newcomer.await(
+                        "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
+                                + newcomerNickname,
+                        Duration.ofSeconds(150)), newcomer.diagnostic());
 
-            for (NodeProcess node : nodes) {
-                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
-                        Duration.ofSeconds(150)), node.diagnostic());
+                for (NodeProcess node : nodes) {
+                    assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                            Duration.ofSeconds(150)), node.diagnostic());
+                }
+                assertMatchingCircularSeatRings(nodes);
             }
-            assertMatchingCircularSeatRings(nodes);
 
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
@@ -1158,6 +1306,33 @@ class GdxMultiprocessScenarioTest {
             assertEquals(expected, node.canonicalCryptoRing(),
                     "visual and cryptographic rings diverged\n"
                     + node.diagnostic());
+        }
+    }
+
+    private static void assertIncumbentRingExcludesWarmingSeat(
+            List<NodeProcess> nodes, int incumbentCount,
+            String warmingNickname) {
+        assertIncumbentRingExcludesWarmingSeats(nodes, incumbentCount,
+                Set.of(warmingNickname));
+    }
+
+    private static void assertIncumbentRingExcludesWarmingSeats(
+            List<NodeProcess> nodes, int incumbentCount,
+            Set<String> warmingNicknames) {
+        List<String> expected = nodes.get(0).canonicalCryptoRing();
+        assertTrue(!expected.isEmpty(), nodes.get(0).diagnostic());
+        assertTrue(Collections.disjoint(expected, warmingNicknames),
+                "CALENTANDO entered the live cryptographic ring\n"
+                + nodes.get(0).diagnostic());
+        for (int index = 1; index < incumbentCount; index++) {
+            NodeProcess incumbent = nodes.get(index);
+            List<String> actual = incumbent.canonicalCryptoRing();
+            assertEquals(expected, actual,
+                    "incumbent cryptographic rings diverged while the new "
+                    + "seat was only CALENTANDO\n" + incumbent.diagnostic());
+            assertTrue(Collections.disjoint(actual, warmingNicknames),
+                    "CALENTANDO entered an incumbent cryptographic ring\n"
+                    + incumbent.diagnostic());
         }
     }
 
@@ -1210,6 +1385,125 @@ class GdxMultiprocessScenarioTest {
             for (NodeProcess newcomer : List.of(newcomer1, newcomer2)) {
                 assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_TIMER_SYNC",
                         Duration.ofSeconds(150)), newcomer.diagnostic());
+                assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_ADMITTED",
+                        Duration.ofSeconds(210)), newcomer.diagnostic());
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(210)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(nodes);
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
+                        Duration.ofSeconds(300)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
+                        node.diagnostic());
+                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                        node.diagnostic());
+                assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                        node.diagnostic());
+                for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                    assertTrue(!node.contains(fatal),
+                            fatal + "\n" + node.diagnostic());
+                }
+            }
+        } finally {
+            for (NodeProcess node : nodes) node.close();
+        }
+    }
+
+    private static void runTwoConcurrentHotJoinsDuringState(Path root,
+            String scenario) throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        boolean allIn = scenario.endsWith("allin-bootstrap");
+        boolean rit = scenario.endsWith("rit-bootstrap");
+        boolean showdown = scenario.endsWith("showdown-bootstrap");
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 3, 0, 3, scenario);
+            nodes.add(host);
+            awaitHostReady(host);
+            NodeProcess incumbent = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 3, 0, 3, scenario);
+            nodes.add(incumbent);
+            assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), incumbent.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=2",
+                    Duration.ofSeconds(45)), host.diagnostic());
+
+            NodeProcess newcomer1 = startNode(root.resolve("client-2"),
+                    "client", "client2", port, 3, 0, 3, scenario,
+                    "late-standby");
+            NodeProcess newcomer2 = startNode(root.resolve("client-3"),
+                    "client", "client3", port, 3, 0, 3, scenario,
+                    "late-standby");
+            nodes.add(newcomer1);
+            nodes.add(newcomer2);
+            for (NodeProcess newcomer : List.of(newcomer1, newcomer2)) {
+                assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_STANDBY",
+                        Duration.ofSeconds(45)), newcomer.diagnostic());
+            }
+
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
+                    Duration.ofSeconds(120)), host.diagnostic());
+            if (allIn || rit || showdown) {
+                assertTrue(incumbent.await("CP_GDX_E2E_HOT_JOIN_GATE",
+                        Duration.ofSeconds(120)), incumbent.diagnostic());
+            }
+
+            newcomer1.send("CONNECT_HOT_JOIN");
+            newcomer2.send("CONNECT_HOT_JOIN");
+            for (NodeProcess newcomer : List.of(newcomer1, newcomer2)) {
+                assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_WARMING",
+                        Duration.ofSeconds(120)), newcomer.diagnostic());
+                String expectedMarker = allIn
+                        ? "CP_GDX_E2E_HOT_JOIN_ALL_IN_BOOTSTRAP"
+                        : rit ? "CP_GDX_E2E_HOT_JOIN_RIT_BOOTSTRAP"
+                        : showdown
+                                ? "CP_GDX_E2E_HOT_JOIN_SHOWDOWN_BOOTSTRAP"
+                                : "CP_GDX_E2E_HOT_JOIN_PAUSED_BOOTSTRAP";
+                assertTrue(newcomer.await(expectedMarker,
+                        Duration.ofSeconds(60)), newcomer.diagnostic());
+            }
+            String fingerprint1 = newcomer1.valueAfter(
+                    "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client2 value=");
+            String fingerprint2 = newcomer2.valueAfter(
+                    "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client3 value=");
+            assertEquals(fingerprint1, fingerprint2,
+                    "concurrent CALENTANDO clients bootstrapped different "
+                    + "public hand states\n" + newcomer1.diagnostic()
+                    + "\n" + newcomer2.diagnostic());
+            assertIncumbentRingExcludesWarmingSeats(nodes, 2,
+                    Set.of("client2", "client3"));
+
+            host.send("RELEASE_HOT_JOIN");
+            if (allIn || rit || showdown) {
+                incumbent.send("RELEASE_HOT_JOIN");
+            }
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_SERVER_NOTIFIED nick=client3",
+                    Duration.ofSeconds(60)), host.diagnostic());
+            for (NodeProcess newcomer : List.of(newcomer1, newcomer2)) {
+                if (!allIn && !rit && !showdown) {
+                    assertTrue(newcomer.await(
+                            "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC",
+                            Duration.ofSeconds(150)), newcomer.diagnostic());
+                }
+                if (rit) {
+                    assertTrue(newcomer.await(
+                            "CP_GDX_E2E_HOT_JOIN_RIT_STREAM_COMPLETE",
+                            Duration.ofSeconds(150)), newcomer.diagnostic());
+                }
+                if (showdown) {
+                    assertTrue(newcomer.await(
+                            "CP_GDX_E2E_HOT_JOIN_SHOWDOWN_STREAM_COMPLETE",
+                            Duration.ofSeconds(150)), newcomer.diagnostic());
+                }
                 assertTrue(newcomer.await("CP_GDX_E2E_HOT_JOIN_ADMITTED",
                         Duration.ofSeconds(210)), newcomer.diagnostic());
             }
@@ -1309,6 +1603,280 @@ class GdxMultiprocessScenarioTest {
             }
         } finally {
             if (exiting != null) exiting.close();
+            for (NodeProcess node : survivors) node.close();
+        }
+    }
+
+    private static void runConcurrentHotJoinChurnScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> survivors = new ArrayList<>();
+        List<NodeProcess> incarnations = new ArrayList<>();
+        NodeProcess finalIncarnation = null;
+        try {
+            String scenario = "live-hot-join-two-churn";
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 3, 1, 3, scenario);
+            survivors.add(host);
+            awaitHostReady(host);
+            NodeProcess incumbent = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 3, 1, 3, scenario);
+            survivors.add(incumbent);
+            assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), incumbent.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=3",
+                    Duration.ofSeconds(45)), host.diagnostic());
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
+                    Duration.ofSeconds(90)), host.diagnostic());
+
+            NodeProcess stable = startNode(root.resolve("client-2"),
+                    "client", "client2", port, 3, 1, 3, scenario, "late");
+            survivors.add(stable);
+            Path ownerHome = root.resolve("client-3-owner");
+            NodeProcess first = startNode(ownerHome, "client", "client3",
+                    port, 3, 1, 3, scenario, "late-exit");
+            incarnations.add(first);
+            assertTrue(stable.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
+                    Duration.ofSeconds(105)), stable.diagnostic());
+            assertTrue(first.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client3",
+                    Duration.ofSeconds(105)), first.diagnostic());
+            assertIncumbentRingExcludesWarmingSeats(survivors, 2,
+                    Set.of("client2", "client3"));
+
+            host.send("EXIT_HOT_JOIN");
+            first.send("EXIT_HOT_JOIN");
+            assertTrue(first.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXITED nick=client3",
+                    Duration.ofSeconds(60)), first.diagnostic());
+            assertEquals(0, first.awaitExit(Duration.ofSeconds(20)),
+                    first.diagnostic());
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client3",
+                    Duration.ofSeconds(60)), host.diagnostic());
+            assertTrue(incumbent.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client3",
+                    Duration.ofSeconds(60)), incumbent.diagnostic());
+
+            for (int cycle = 1; cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
+                boolean finalCycle = cycle == HOT_JOIN_CHURN_CYCLES;
+                NodeProcess incarnation = startNode(ownerHome, "client",
+                        "client3", port, 3, 1, 3, scenario,
+                        finalCycle ? "late-reentry" : "late-exit");
+                incarnations.add(incarnation);
+                assertTrue(incarnation.await(
+                        "CP_GDX_E2E_HOT_JOIN_WARMING nick=client3",
+                        Duration.ofSeconds(105)), incarnation.diagnostic());
+                host.send("REENTER_HOT_JOIN");
+                String warming = "CP_GDX_E2E_HOT_JOIN_CHURN_WARMING "
+                        + "nick=client3 cycle=" + cycle;
+                assertTrue(host.await(warming, Duration.ofSeconds(60)),
+                        host.diagnostic());
+                assertTrue(incumbent.await(warming,
+                        Duration.ofSeconds(60)), incumbent.diagnostic());
+                if (!finalCycle) {
+                    host.send("EXIT_HOT_JOIN");
+                    incarnation.send("EXIT_HOT_JOIN");
+                    assertTrue(incarnation.await(
+                            "CP_GDX_E2E_HOT_JOIN_EXITED nick=client3",
+                            Duration.ofSeconds(60)),
+                            incarnation.diagnostic());
+                    assertEquals(0, incarnation.awaitExit(
+                            Duration.ofSeconds(20)), incarnation.diagnostic());
+                    String exited
+                            = "CP_GDX_E2E_HOT_JOIN_CHURN_EXIT_OBSERVED "
+                            + "nick=client3 cycle=" + cycle;
+                    assertTrue(host.await(exited, Duration.ofSeconds(60)),
+                            host.diagnostic());
+                    assertTrue(incumbent.await(exited,
+                            Duration.ofSeconds(60)), incumbent.diagnostic());
+                } else {
+                    finalIncarnation = incarnation;
+                }
+            }
+
+            assertTrue(finalIncarnation.await(
+                    "CP_GDX_E2E_HOT_JOIN_REENTRY_ADMITTED nick=client3",
+                    Duration.ofSeconds(210)), finalIncarnation.diagnostic());
+            assertTrue(stable.await(
+                    "CP_GDX_E2E_HOT_JOIN_ADMITTED nick=client2",
+                    Duration.ofSeconds(210)), stable.diagnostic());
+            List<NodeProcess> completing = new ArrayList<>(survivors);
+            completing.add(finalIncarnation);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(240)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
+                        Duration.ofSeconds(300)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
+                        node.diagnostic());
+            }
+            List<NodeProcess> audited = new ArrayList<>(survivors);
+            audited.addAll(incarnations);
+            for (NodeProcess node : audited) {
+                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                        node.diagnostic());
+                assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                        node.diagnostic());
+                for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                    assertTrue(!node.contains(fatal),
+                            fatal + "\n" + node.diagnostic());
+                }
+            }
+        } finally {
+            for (NodeProcess node : incarnations) node.close();
+            for (NodeProcess node : survivors) node.close();
+        }
+    }
+
+    private static void runDualConcurrentHotJoinChurnScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> survivors = new ArrayList<>();
+        List<NodeProcess> incarnations = new ArrayList<>();
+        NodeProcess finalFirst = null;
+        NodeProcess finalSecond = null;
+        try {
+            String scenario = "live-hot-join-dual-churn";
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 3, 1, 3, scenario);
+            survivors.add(host);
+            awaitHostReady(host);
+            NodeProcess incumbent = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 3, 1, 3, scenario);
+            survivors.add(incumbent);
+            assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), incumbent.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=3",
+                    Duration.ofSeconds(45)), host.diagnostic());
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
+                    Duration.ofSeconds(90)), host.diagnostic());
+
+            Path firstHome = root.resolve("client-2-owner");
+            Path secondHome = root.resolve("client-3-owner");
+            NodeProcess first = startNode(firstHome, "client", "client2",
+                    port, 3, 1, 3, scenario, "late-exit");
+            NodeProcess second = startNode(secondHome, "client", "client3",
+                    port, 3, 1, 3, scenario, "late-exit");
+            incarnations.add(first);
+            incarnations.add(second);
+            assertTrue(first.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
+                    Duration.ofSeconds(105)), first.diagnostic());
+            assertTrue(second.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client3",
+                    Duration.ofSeconds(105)), second.diagnostic());
+            assertIncumbentRingExcludesWarmingSeats(survivors, 2,
+                    Set.of("client2", "client3"));
+
+            host.send("EXIT_HOT_JOIN");
+            first.send("EXIT_HOT_JOIN");
+            second.send("EXIT_HOT_JOIN");
+            for (NodeProcess node : List.of(first, second)) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_EXITED",
+                        Duration.ofSeconds(60)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
+                        node.diagnostic());
+            }
+            assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client3",
+                    Duration.ofSeconds(60)), host.diagnostic());
+            assertTrue(incumbent.await(
+                    "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client3",
+                    Duration.ofSeconds(60)), incumbent.diagnostic());
+
+            for (int cycle = 1; cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
+                boolean finalCycle = cycle == HOT_JOIN_CHURN_CYCLES;
+                NodeProcess firstIncarnation = startNode(firstHome, "client",
+                        "client2", port, 3, 1, 3, scenario,
+                        finalCycle ? "late-reentry" : "late-exit");
+                NodeProcess secondIncarnation = startNode(secondHome, "client",
+                        "client3", port, 3, 1, 3, scenario,
+                        finalCycle ? "late-reentry" : "late-exit");
+                incarnations.add(firstIncarnation);
+                incarnations.add(secondIncarnation);
+                assertTrue(firstIncarnation.await(
+                        "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
+                        Duration.ofSeconds(105)),
+                        firstIncarnation.diagnostic());
+                assertTrue(secondIncarnation.await(
+                        "CP_GDX_E2E_HOT_JOIN_WARMING nick=client3",
+                        Duration.ofSeconds(105)),
+                        secondIncarnation.diagnostic());
+                host.send("REENTER_HOT_JOIN");
+                String warming = "CP_GDX_E2E_HOT_JOIN_CHURN_WARMING "
+                        + "nick=client3 cycle=" + cycle;
+                assertTrue(host.await(warming, Duration.ofSeconds(60)),
+                        host.diagnostic());
+                assertTrue(incumbent.await(warming,
+                        Duration.ofSeconds(60)), incumbent.diagnostic());
+                if (!finalCycle) {
+                    host.send("EXIT_HOT_JOIN");
+                    firstIncarnation.send("EXIT_HOT_JOIN");
+                    secondIncarnation.send("EXIT_HOT_JOIN");
+                    for (NodeProcess node : List.of(firstIncarnation,
+                            secondIncarnation)) {
+                        assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_EXITED",
+                                Duration.ofSeconds(60)), node.diagnostic());
+                        assertEquals(0, node.awaitExit(
+                                Duration.ofSeconds(20)), node.diagnostic());
+                    }
+                    String exited
+                            = "CP_GDX_E2E_HOT_JOIN_CHURN_EXIT_OBSERVED "
+                            + "nick=client3 cycle=" + cycle;
+                    assertTrue(host.await(exited, Duration.ofSeconds(60)),
+                            host.diagnostic());
+                    assertTrue(incumbent.await(exited,
+                            Duration.ofSeconds(60)), incumbent.diagnostic());
+                } else {
+                    finalFirst = firstIncarnation;
+                    finalSecond = secondIncarnation;
+                }
+            }
+
+            for (NodeProcess node : List.of(finalFirst, finalSecond)) {
+                assertTrue(node.await(
+                        "CP_GDX_E2E_HOT_JOIN_REENTRY_ADMITTED",
+                        Duration.ofSeconds(240)), node.diagnostic());
+            }
+            List<NodeProcess> completing = new ArrayList<>(survivors);
+            completing.add(finalFirst);
+            completing.add(finalSecond);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_SEAT_RING",
+                        Duration.ofSeconds(240)), node.diagnostic());
+            }
+            assertMatchingCircularSeatRings(completing);
+            for (NodeProcess node : completing) {
+                assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
+                        Duration.ofSeconds(300)), node.diagnostic());
+                assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
+                        node.diagnostic());
+            }
+            for (NodeProcess node : incarnations) {
+                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                        node.diagnostic());
+                assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                        node.diagnostic());
+                for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                    assertTrue(!node.contains(fatal),
+                            fatal + "\n" + node.diagnostic());
+                }
+            }
+        } finally {
+            for (NodeProcess node : incarnations) node.close();
             for (NodeProcess node : survivors) node.close();
         }
     }
@@ -3599,12 +4167,15 @@ class GdxMultiprocessScenarioTest {
             int port, int clients, int bots, int hands, String scenario,
             String phase) throws IOException {
         Files.createDirectories(home);
+        Path processTemp = home.resolve("tmp");
+        Files.createDirectories(processTemp);
         String java = Path.of(System.getProperty("java.home"), "bin", "java")
                 .toString();
         String classpath = System.getProperty("surefire.test.class.path",
                 System.getProperty("java.class.path"));
         ProcessBuilder builder = new ProcessBuilder(java,
                 "-Duser.home=" + home.toAbsolutePath(),
+                "-Djava.io.tmpdir=" + processTemp.toAbsolutePath(),
                 "-Dcoronapoker.qa.handchainTrace="
                         + Boolean.getBoolean(
                                 "coronapoker.qa.handchainTrace"),

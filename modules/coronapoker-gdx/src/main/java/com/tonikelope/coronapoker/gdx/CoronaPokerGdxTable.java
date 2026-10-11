@@ -13,8 +13,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.Graphics.DisplayMode;
-import com.badlogic.gdx.Graphics.Monitor;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.files.FileHandle;
@@ -166,7 +164,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = legacyHandNameKeys();
     private static final int STAR_COUNT = 150;
     private static final int SEAT_COUNT = 10;
-    private static final int FRAME_SAMPLE_COUNT = 720;
     private static final float DEFAULT_CARD_FLIP_SECONDS = 0.620f;
     private static final float CARD_FLIP_END_DELAY_SECONDS = 0.100f;
     // Match the original GDX demo: the flop flips as a readable cascade, with
@@ -668,7 +665,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color CLOCK_GLOW = new Color(0xffa51f44);
     private static final long LATENCY_STALE_MILLIS = 15_000L;
 
-    private int detectedRefreshRate;
     private final GdxTableViewState liveState;
     private final TableCommandSink commands;
     private final Runnable onReady;
@@ -688,10 +684,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final boolean tableRebuyAllowed;
     private final boolean tableHost;
     private final boolean startupIntroOnly;
+    private final GdxNetworkBlockCache networkBlockCache;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
-    private final float[] frameSamples = new float[FRAME_SAMPLE_COUNT];
-    private final float[] frameScratch = new float[FRAME_SAMPLE_COUNT];
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final GdxTooltipDelay latencyTooltipDelay =
@@ -1050,13 +1045,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float totalTime;
     private float volumeOverlayUntil;
     private float sceneTime;
-    private float statsClock;
-    private float monitorRefreshPollClock;
-    private String activeMonitorName = "";
     private float shuffleSoundDurationSeconds;
     private long shuffleSoundId = -1L;
-    private int frameCursor;
-    private int frameCount;
     private boolean intro = true;
     private boolean startupSequenceSkipped;
     private int creationPhase = -1;
@@ -1073,7 +1063,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean readySignalled;
     private boolean introVisibleSignalled;
     private boolean introLightsSignalled;
-    private String statsText = "Midiendo frame pacing...";
     private LivePositionRotation livePositionRotation;
     private final List<LiveActionChip> liveActionChips = new ArrayList<>();
     private PendingCollectBets pendingCollectBets;
@@ -1882,7 +1871,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Objects.requireNonNull(liveState,
                     "A product GDX table requires authoritative live state");
         }
-        this.detectedRefreshRate = detectedRefreshRate;
         this.liveState = liveState;
         this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
@@ -1891,6 +1879,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
         this.preferences = preferences;
         this.lobby = lobby;
+        networkBlockCache = new GdxNetworkBlockCache(
+                this::authoritativeNetworkBlocks);
         this.identityTrust = Objects.requireNonNull(identityTrust,
                 "identityTrust");
         tableProperties = preferences == null
@@ -4488,7 +4478,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         audioPreview.update(delta);
         updateTextDeleteRepeat(delta);
-        updateWindowMonitorRefresh(delta);
         if (startupIntroOnly) {
             renderStartupIntroFrame(delta);
             return;
@@ -4496,8 +4485,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         Objects.requireNonNull(liveState,
                 "A product table frame requires authoritative live state");
-        networkBlocksAvailable = tableHost
-                && !activeNetworkBlocks().isEmpty();
+        networkBlockCache.update(delta, tableHost && lobby != null);
+        networkBlocksAvailable = !networkBlockCache.current().isEmpty();
         updateLivePositionRotation();
         updateLiveActionChip();
         updateLiveChipBatch();
@@ -4517,7 +4506,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateVoiceRecording();
         updateRecoveryStopTransition();
         updateAudioCueWaits();
-        recordFrame(delta);
         if (activeDialog != null) {
             activeDialog.setTimerPaused(totalTime,
                     liveState.snapshot().paused());
@@ -4661,7 +4649,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         updateStars(delta);
-        recordFrame(delta);
 
         ScreenUtils.clear(BACKGROUND_BOTTOM, true);
         viewport.apply();
@@ -6613,6 +6600,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<NetworkBlock> activeNetworkBlocks() {
+        return networkBlockCache.current();
+    }
+
+    private List<NetworkBlock> authoritativeNetworkBlocks() {
         if (!tableHost || lobby == null) return List.of();
         try {
             return lobby.networkBlocks();
@@ -6652,8 +6643,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (failure != null) {
                         networkBlockError = gameText.translate(
                                 "gdx.network_blocks.remove_failed");
-                    } else if (activeNetworkBlocks().isEmpty()) {
-                        closeNetworkBlocks();
+                    } else {
+                        networkBlockCache.removeLocally(address);
+                        networkBlockCache.refreshNow(true);
+                        if (activeNetworkBlocks().isEmpty()) {
+                            closeNetworkBlocks();
+                        }
                     }
                 }));
     }
@@ -22230,51 +22225,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         data.setScale(originalScaleX, originalScaleY);
     }
 
-    private void recordFrame(float delta) {
-        frameSamples[frameCursor] = delta * 1000f;
-        frameCursor = (frameCursor + 1) % frameSamples.length;
-        frameCount = Math.min(frameCount + 1, frameSamples.length);
-        statsClock += delta;
-        if (statsClock < 0.5f || frameCount < 30) {
-            return;
-        }
-        statsClock = 0f;
-        System.arraycopy(frameSamples, 0, frameScratch, 0, frameCount);
-        Arrays.sort(frameScratch, 0, frameCount);
-        float p99 = frameScratch[Math.min(frameCount - 1, (int) (frameCount * 0.99f))];
-        float worst = frameScratch[frameCount - 1];
-        statsText = Gdx.graphics.getFramesPerSecond() + " FPS  |  p99 "
-                + String.format("%.2f", p99) + " ms  |  max "
-                + String.format("%.2f", worst) + " ms  |  monitor "
-                + detectedRefreshRate + " Hz";
-    }
-
-    /** Keeps the windowed safety cap aligned with the monitor containing the window. */
-    private void updateWindowMonitorRefresh(float delta) {
-        monitorRefreshPollClock += delta;
-        if (monitorRefreshPollClock < 0.35f) {
-            return;
-        }
-        monitorRefreshPollClock = 0f;
-        Monitor monitor = Gdx.graphics.getMonitor();
-        if (monitor == null) {
-            return;
-        }
-        DisplayMode mode = Gdx.graphics.getDisplayMode(monitor);
-        if (mode == null || mode.refreshRate <= 0) {
-            return;
-        }
-        boolean changed = !monitor.name.equals(activeMonitorName)
-                || detectedRefreshRate != mode.refreshRate;
-        if (!changed) {
-            return;
-        }
-        activeMonitorName = monitor.name;
-        detectedRefreshRate = mode.refreshRate;
-        // The application shell owns the live FPS cap. This table only keeps
-        // the active refresh rate for its diagnostics overlay.
-    }
-
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
@@ -22293,6 +22243,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** Releases whichever creation phases completed before the scene opened. */
     void disposeFailedCreation() {
         disposed = true;
+        networkBlockCache.clear();
         cancelShufflePreparation();
         disposeSafely(creationFontGenerator);
         creationFontGenerator = null;
@@ -22408,6 +22359,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     public void dispose() {
         audioPreview.stop();
         disposed = true;
+        networkBlockCache.clear();
         cancelShufflePreparation();
         CompletableFuture<Void> closingSummaryBarrier = finalSummaryBarrier;
         finalSummaryBarrier = null;

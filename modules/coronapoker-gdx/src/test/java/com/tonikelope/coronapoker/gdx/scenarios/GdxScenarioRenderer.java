@@ -60,6 +60,9 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean gateConsumed = new AtomicBoolean();
     private final AtomicBoolean heldAction = new AtomicBoolean();
     private final AtomicBoolean gateNextPartialHand = new AtomicBoolean();
+    private final AtomicBoolean gateNextRunItTwiceBoard
+            = new AtomicBoolean();
+    private final AtomicBoolean gateNextHandResult = new AtomicBoolean();
     private final AtomicReference<CompletableFuture<Void>>
             heldPresentation = new AtomicReference<>();
     private final AtomicBoolean sawLocalControls = new AtomicBoolean();
@@ -89,6 +92,8 @@ final class GdxScenarioRenderer implements TableRenderer {
             = new AtomicBoolean();
     private final AtomicBoolean runItTwiceSideBSettledAtEnd
             = new AtomicBoolean();
+    private final AtomicBoolean completedRunItTwice
+            = new AtomicBoolean();
     private final List<Integer> runItTwiceSideBDeals
             = new CopyOnWriteArrayList<>();
     private final AtomicLong immediateRebuyHand = new AtomicLong(-1L);
@@ -109,6 +114,9 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawHotJoinPlayerAction = new AtomicBoolean();
     private final AtomicBoolean sawHotJoinCommunityReveal
             = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinPartialHand
+            = new AtomicBoolean();
+    private final AtomicBoolean sawHotJoinSettlement = new AtomicBoolean();
     private final Set<String> warmingAwaitingAdmission
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.concurrent.ConcurrentHashMap<String, Integer>
@@ -259,6 +267,16 @@ final class GdxScenarioRenderer implements TableRenderer {
         heldPresentation.set(null);
     }
 
+    void gateOnNextRunItTwiceBoard() {
+        gateNextRunItTwiceBoard.set(true);
+        heldPresentation.set(null);
+    }
+
+    void gateOnNextHandResult() {
+        gateNextHandResult.set(true);
+        heldPresentation.set(null);
+    }
+
     @Override
     public synchronized CompletionStage<Void> open(TableSnapshot initialState) {
         GdxTableViewState projection = new GdxTableViewState(initialState);
@@ -331,6 +349,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                     && player.decision() == TableSnapshot.Decision.FOLD)) {
                 sawBootstrappedFoldedSeat.set(true);
             }
+            seedRunItTwiceBoardFromHotJoin(hotJoinState);
         } else if (sawHotJoinState.get()
                 && event instanceof TableVisualEvent.TurnTimer timer
                 && timer.phase() == TableVisualEvent.TurnTimer.Phase.START) {
@@ -344,6 +363,7 @@ final class GdxScenarioRenderer implements TableRenderer {
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
             if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {
+                resetCompletedRunItTwiceHand();
                 long previousHand = lastPreparedHand.getAndSet(
                         boundary.handId());
                 assertTrue(boundary.handId() > 0L,
@@ -410,6 +430,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                             projection.runItTwicePotPrefix(),
                             "RIT END replaced the settled CARA B label");
                     runItTwiceSideBSettledAtEnd.set(true);
+                    completedRunItTwice.set(currentRunItTwiceIsComplete());
                 }
             }
         }
@@ -465,6 +486,15 @@ final class GdxScenarioRenderer implements TableRenderer {
                         + "face-up community card");
             }
             sawHotJoinCommunityReveal.set(true);
+        }
+        if (sawHotJoinState.get() && local != null && local.spectator()
+                && event instanceof TableVisualEvent.PartialHand) {
+            sawHotJoinPartialHand.set(true);
+        }
+        if (sawHotJoinState.get() && local != null && local.spectator()
+                && (event instanceof TableVisualEvent.Payout
+                || event instanceof TableVisualEvent.PayoutBatch)) {
+            sawHotJoinSettlement.set(true);
         }
         if (local != null && local.spectator()) {
             sawLocalSpectator.set(true);
@@ -650,6 +680,20 @@ final class GdxScenarioRenderer implements TableRenderer {
                     "a presentation gate is already active");
             return gate;
         }
+        if (event instanceof TableVisualEvent.RunItTwiceBoard
+                && gateNextRunItTwiceBoard.compareAndSet(true, false)) {
+            CompletableFuture<Void> gate = new CompletableFuture<>();
+            assertTrue(heldPresentation.compareAndSet(null, gate),
+                    "a presentation gate is already active");
+            return gate;
+        }
+        if (event instanceof TableVisualEvent.HandResult
+                && gateNextHandResult.compareAndSet(true, false)) {
+            CompletableFuture<Void> gate = new CompletableFuture<>();
+            assertTrue(heldPresentation.compareAndSet(null, gate),
+                    "a presentation gate is already active");
+            return gate;
+        }
         return CompletableFuture.completedFuture(null);
     }
 
@@ -799,6 +843,10 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     boolean completedRunItTwiceBoards() {
+        return completedRunItTwice.get() || currentRunItTwiceIsComplete();
+    }
+
+    private boolean currentRunItTwiceIsComplete() {
         return runItTwiceSideASequence.get() > 0L
                 && runItTwiceSideBSequence.get()
                 > runItTwiceSideASequence.get()
@@ -812,6 +860,22 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && runItTwiceSideBSettled.get()
                 && runItTwiceSideBSettledAtEnd.get()
                 && runItTwiceSideBDeals.equals(List.of(0, 1, 2, 3, 4));
+    }
+
+    private void resetCompletedRunItTwiceHand() {
+        if (!runItTwiceSideBSettledAtEnd.get()) {
+            return;
+        }
+        runItTwiceSideASequence.set(0L);
+        runItTwiceSideBSequence.set(0L);
+        runItTwiceSideAPot.set(null);
+        runItTwiceSideBPot.set(null);
+        runItTwiceSideAPrefix.set(null);
+        runItTwiceSideBPrefix.set(null);
+        runItTwiceSideASettled.set(false);
+        runItTwiceSideBSettled.set(false);
+        runItTwiceSideBSettledAtEnd.set(false);
+        runItTwiceSideBDeals.clear();
     }
 
     /**
@@ -928,6 +992,40 @@ final class GdxScenarioRenderer implements TableRenderer {
     boolean firstHotJoinStateIsPaused() {
         TableSnapshot snapshot = firstHotJoinState.get();
         return snapshot != null && snapshot.paused();
+    }
+
+    String firstHotJoinPublicFingerprint() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null) return "missing";
+        String cards = snapshot.communityCards().stream()
+                .map(card -> card.code() + ':' + card.visible() + ':'
+                + card.faceUp())
+                .collect(java.util.stream.Collectors.joining(","));
+        String players = snapshot.players().stream()
+                .filter(player -> !player.warming())
+                .sorted(java.util.Comparator.comparing(
+                        TableSnapshot.PlayerSnapshot::nickname))
+                .map(player -> player.nickname() + ':' + player.stack()
+                + ':' + player.streetBet() + ':' + player.potContribution()
+                + ':' + player.active() + ':' + player.spectator() + ':'
+                + player.exited() + ':' + player.position() + ':'
+                + player.decision() + ':' + player.actionKind() + ':'
+                + player.holeCards().stream().map(card -> card.code() + '/'
+                + card.visible() + '/' + card.faceUp()).collect(
+                        java.util.stream.Collectors.joining(",")))
+                .collect(java.util.stream.Collectors.joining(";"));
+        String canonical = snapshot.street() + "|" + snapshot.pot() + "|"
+                + snapshot.currentTurnNickname() + "|" + snapshot.paused()
+                + "|" + snapshot.presentation().potPrefix() + "|" + cards
+                + "|" + players;
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new AssertionError(impossible);
+        }
     }
 
     boolean hasHotJoinDurableTableStatus() {
@@ -1055,6 +1153,11 @@ final class GdxScenarioRenderer implements TableRenderer {
         return projection != null && projection.snapshot().paused();
     }
 
+    boolean isLastHand() {
+        GdxTableViewState projection = state.get();
+        return projection != null && projection.lastHand();
+    }
+
     boolean sawPaused() {
         return sawPaused.get();
     }
@@ -1105,6 +1208,18 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .filter(TableSnapshot.PlayerSnapshot::warming)
                 .map(TableSnapshot.PlayerSnapshot::nickname)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    boolean firstHotJoinLocalIsWarming() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null) {
+            return false;
+        }
+        return snapshot.players().stream()
+                .filter(player -> player.nickname().equals(
+                        snapshot.localNickname()))
+                .anyMatch(player -> player.warming()
+                        && player.spectator() && !player.exited());
     }
 
     double stackOf(String nickname) {
@@ -1509,6 +1624,81 @@ final class GdxScenarioRenderer implements TableRenderer {
         publicOutcome = publicOutcome || snapshot.players().stream()
                 .anyMatch(player -> player.presentation().resultResolved());
         return publicReveals >= 2 && exactAllIn && publicOutcome;
+    }
+
+    boolean firstHotJoinHasRunItTwicePresentation() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null || !snapshot.currentTurnNickname().isBlank()
+                || snapshot.pot() <= 0d) {
+            return false;
+        }
+        long publicReveals = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .filter(player -> player.presentation().showingCards())
+                .filter(player -> player.holeCards().size() == 2)
+                .filter(player -> player.holeCards().stream().allMatch(card
+                        -> card.visible() && card.faceUp()
+                        && !card.code().isBlank()))
+                .count();
+        boolean exactAllIn = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .anyMatch(player -> player.decision()
+                        == TableSnapshot.Decision.ALL_IN
+                        && player.actionKind()
+                        == TableSnapshot.ActionKind.ALL_IN);
+        String sideA = presentationText().translate(
+                "runittwice.pot_label_a");
+        String expected = presentationText().translate(
+                "runittwice.pot_label_full", sideA);
+        return publicReveals >= 2 && exactAllIn
+                && expected.equals(snapshot.presentation().potPrefix());
+    }
+
+    private void seedRunItTwiceBoardFromHotJoin(
+            TableVisualEvent.HotJoinState hotJoinState) {
+        TableSnapshot snapshot = hotJoinState.snapshot();
+        String sideA = presentationText().translate(
+                "runittwice.pot_label_a");
+        String expected = presentationText().translate(
+                "runittwice.pot_label_full", sideA);
+        if (snapshot.pot() <= 0d
+                || !expected.equals(snapshot.presentation().potPrefix())) {
+            return;
+        }
+        runItTwiceSideASequence.compareAndSet(0L, hotJoinState.sequence());
+        runItTwiceSideAPot.compareAndSet(null, snapshot.pot());
+        runItTwiceSideAPrefix.compareAndSet(null,
+                snapshot.presentation().potPrefix());
+    }
+
+    boolean sawHotJoinPartialHand() {
+        return sawHotJoinPartialHand.get();
+    }
+
+    boolean firstHotJoinHasShowdownPresentation() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null
+                || snapshot.street() != TableSnapshot.Street.SHOWDOWN
+                || !snapshot.currentTurnNickname().isBlank()) {
+            return false;
+        }
+        long publicReveals = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .filter(player -> player.presentation().showingCards())
+                .filter(player -> player.holeCards().size() == 2)
+                .filter(player -> player.holeCards().stream().allMatch(card
+                        -> card.visible() && card.faceUp()
+                        && !card.code().isBlank()))
+                .count();
+        boolean publicResult = snapshot.players().stream()
+                .filter(player -> !player.spectator() && !player.exited())
+                .anyMatch(player -> player.presentation().resultResolved()
+                        || !player.presentation().publicHandName().isBlank());
+        return publicReveals >= 2 && publicResult;
+    }
+
+    boolean sawHotJoinSettlement() {
+        return sawHotJoinSettlement.get();
     }
 
     private void assertWarmingContinuity(TableSnapshot snapshot,

@@ -1002,7 +1002,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             CorePlayerController player = pending.player();
             GamePlayerController previous = nick2player.get(nickname);
             if (previous != null) {
-                if (!previous.isExit()) {
+                if (previous == player && previous.isCalentando()) {
+                    /*
+                     * A passive newcomer can learn about another concurrent
+                     * CALENTANDO before its own recovered dealer has seated
+                     * the host-provided ring. In that case the authenticated
+                     * pending controller is installed early so the recovered
+                     * SEATS frame has a real controller for every nickname.
+                     * It is still CALENTANDO and outside the crypto ring; this
+                     * boundary now completes, rather than duplicates, it.
+                     */
+                } else if (!previous.isExit()) {
                     LOGGER.log(Level.WARNING,
                             "HOT JOIN: discarded {0}; canonical seat is still active",
                             nickname);
@@ -1026,7 +1036,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             });
             player.bindCommittedRebuy(() -> consumeCommittedRebuy(
                     nickname, player.getStack()));
-            players().add(player);
+            if (!players().contains(player)) {
+                players().add(player);
+            }
             peers().put(nickname, pending.peer());
             nick2player.put(nickname, player);
             gameSession().table().putPlayer(player.getState());
@@ -5884,27 +5896,55 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * termination fence, which prevents both a new-hand transition and the
      * misleading "no players remain" game-over branch.</p>
      */
+    boolean armPassiveHotJoinExit() {
+        GamePlayerController local = localPlayer();
+        if (gameSession().isHost() || local == null) return false;
+        synchronized (protocol_state_lock) {
+            if (!local.isCalentando()
+                    && !passive_hot_join_exit_requested) {
+                return false;
+            }
+            passive_hot_join_exit_requested = true;
+            termination_pending = true;
+            protocol_state_lock.notifyAll();
+        }
+        return true;
+    }
+
     void requestPassiveHotJoinExit(Runnable confirmedNotification) {
         java.util.Objects.requireNonNull(confirmedNotification,
                 "confirmedNotification");
         GamePlayerController local = localPlayer();
-        if (gameSession().isHost() || local == null || !local.isCalentando()) {
+        if (gameSession().isHost() || local == null
+                || !passive_hot_join_exit_requested) {
             throw new IllegalStateException(
                     "Only a warming hot-join observer can use HOTJOIN_EXIT");
         }
 
-        passive_hot_join_exit_requested = true;
-        setTerminationPending();
-        confirmedNotification.run();
-        game_transport.awaitHostExitAcceptance(true);
-
-        // Commit the terminal state before setExit(): the run loop must see the
-        // finished transmission first and can therefore never enter its normal
-        // game-over/no-players branch for this observer-only departure.
-        setFin_de_la_transmision(true);
-        local.setExit();
-        game_transport.closeHostConnection();
-        game_window.finishTransmission(false);
+        try {
+            confirmedNotification.run();
+            game_transport.awaitHostExitAcceptance(true);
+        } catch (RuntimeException notificationFailure) {
+            /*
+             * A departing observer is outside the live hand and crypto ring.
+             * If its final notification loses the socket race, contain the
+             * failure locally and let the host's definitive-loss watchdog
+             * retire the reservation.  Escalating this to a table failure is
+             * strictly worse and cannot repair any authoritative state.
+             */
+            LOGGER.log(Level.FINE,
+                    "Unable to confirm warming-observer departure; closing locally",
+                    notificationFailure);
+        } finally {
+            // Commit the terminal state before setExit(): the run loop must see
+            // the finished transmission first and can therefore never enter
+            // its normal game-over/no-players branch for this observer-only
+            // departure.
+            setFin_de_la_transmision(true);
+            local.setExit();
+            game_transport.closeHostConnection();
+            game_window.finishTransmission(false);
+        }
     }
 
     private void sendLocalExitOnce(boolean confirmation) {
@@ -13025,6 +13065,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
+        if (passive_hot_join_exit_requested) {
+            return false;
+        }
+
         java.util.List<GamePeerController> admittedHotJoins
                 = admitPendingHotJoins();
         awaitAdmittedHotJoinsReady(admittedHotJoins);
@@ -13081,6 +13125,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     jugador.setSpectatorBB(true);
                 }
             } else if (!jugador.isExit() && jugador.isCalentando()) {
+                if (jugador == localPlayer()
+                        && passive_hot_join_exit_requested) {
+                    return false;
+                }
                 // Admission always ends CALENTANDO at this hand boundary.
                 // A zero-stack identity remains an ordinary spectator so it
                 // can request a normal rebuy instead of being trapped forever
@@ -22411,27 +22459,104 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sentarParticipantes() {
+    private boolean sentarParticipantes() {
+
+        if (hot_join_observer && !gameSession().isHost()) {
+            java.util.HashSet<String> installed = players().stream()
+                    .map(GamePlayerController::getNickname)
+                    .collect(java.util.stream.Collectors.toCollection(
+                            java.util.HashSet::new));
+            for (String nickname : this.nicks_permutados) {
+                if (installed.contains(nickname)) continue;
+                PendingHotJoin pending = pending_hot_joins.stream()
+                        .filter(candidate -> nickname.equals(
+                                candidate.player().getNickname()))
+                        .findFirst().orElse(null);
+                if (pending != null) {
+                    players().add(pending.player());
+                    installed.add(nickname);
+                }
+            }
+        }
+
+        if (this.nicks_permutados.length != players().size()) {
+            LOGGER.log(Level.SEVERE,
+                    "Recovered seat/controller mismatch; closing only this observer "
+                    + "before seating (seats={0}, controllers={1})",
+                    new Object[]{this.nicks_permutados.length,
+                        players().size()});
+            setFin_de_la_transmision(true);
+            if (!gameSession().isHost()) {
+                game_transport.closeHostConnection();
+            }
+            return false;
+        }
 
         String pivote = gameSession().localNickname();
 
         int i = 0;
 
-        while (!this.nicks_permutados[i].equals(pivote)) {
+        while (i < this.nicks_permutados.length
+                && !this.nicks_permutados[i].equals(pivote)) {
             i++;
         }
+        if (i == this.nicks_permutados.length) {
+            LOGGER.log(Level.SEVERE,
+                    "Recovered seat ring does not contain the local observer; "
+                    + "closing only this client before seating");
+            setFin_de_la_transmision(true);
+            if (!gameSession().isHost()) {
+                game_transport.closeHostConnection();
+            }
+            return false;
+        }
+
+        java.util.LinkedHashMap<String, GamePlayerController> byNickname
+                = new java.util.LinkedHashMap<>();
+        for (GamePlayerController player : players()) {
+            if (byNickname.put(player.getNickname(), player) != null) {
+                LOGGER.log(Level.SEVERE,
+                        "Duplicate controller identity while seating {0}; "
+                        + "closing only this table instance",
+                        player.getNickname());
+                setFin_de_la_transmision(true);
+                if (!gameSession().isHost()) {
+                    game_transport.closeHostConnection();
+                }
+                return false;
+            }
+        }
+        java.util.ArrayList<GamePlayerController> orderedPlayers
+                = new java.util.ArrayList<>(this.nicks_permutados.length);
+        for (int j = 0; j < this.nicks_permutados.length; j++) {
+            String nickname = this.nicks_permutados[
+                    (j + i) % this.nicks_permutados.length];
+            GamePlayerController player = byNickname.remove(nickname);
+            if (player == null) {
+                LOGGER.log(Level.SEVERE,
+                        "Missing authenticated controller for recovered seat {0}; "
+                        + "closing only this observer before seating",
+                        nickname);
+                setFin_de_la_transmision(true);
+                if (!gameSession().isHost()) {
+                    game_transport.closeHostConnection();
+                }
+                return false;
+            }
+            orderedPlayers.add(player);
+        }
+        players().clear();
+        players().addAll(orderedPlayers);
 
         String sentados_msg = "\n*********************\n";
 
-        for (int j = 0; j < this.nicks_permutados.length; j++) {
-
-            GamePlayerController seatedPlayer = players().get(j);
-            seatedPlayer.setNickname(this.nicks_permutados[(j + i) % this.nicks_permutados.length]);
-            // Swing remote seats discover whether they are bots from the nickname's
-            // Participant inside setNickname(), so their automated provider does not
-            // exist yet when the Crupier constructor performs its initial binding.
-            // Bind again after seating, which is the first point where every frontend
-            // has finished constructing the controller behind this canonical seat.
+        for (GamePlayerController seatedPlayer : players()) {
+            // Controllers carry authenticated player identity and cannot be
+            // treated as anonymous visual slots. Reorder the controllers into
+            // the canonical circular seating while preserving each nickname;
+            // rebaptizing them is unsafe when several HOTJOIN identities arrive
+            // concurrently because transport/signature callbacks remain bound
+            // to the original controller.
             seatedPlayer.bindDealer(this);
             gameSession().table().putPlayer(seatedPlayer.getState());
             try {
@@ -22449,6 +22574,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 .log(Level.INFO, "{0}*********************\n", new Object[]{sentados_msg
         });
 
+        return true;
     }
 
     public void disableAllPlayersTimeout() {
@@ -26665,7 +26791,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             return;
         }
-        sentarParticipantes();
+        if (!sentarParticipantes()) {
+            return;
+        }
 
         // recuperarDatosClavePartida() builds a provisional lookup before the
         // seat draw so recovery can hydrate every controller.  Seating reuses

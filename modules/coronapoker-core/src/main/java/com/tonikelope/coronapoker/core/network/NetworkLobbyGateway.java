@@ -90,6 +90,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final long HANDSHAKE_REJECTION_WINDOW_MS = 30_000L;
     static final long HANDSHAKE_ADDRESS_BAN_MS = 120_000L;
     static final long HANDSHAKE_ADDRESS_RETENTION_MS = 600_000L;
+    static final int MAX_HOT_JOIN_ADMISSIONS_PER_IDENTITY = 10;
+    static final int MAX_HOT_JOIN_ADMISSIONS_GLOBAL = 64;
+    static final int MAX_TRACKED_HOT_JOIN_IDENTITIES = 4_096;
+    static final long HOT_JOIN_ADMISSION_WINDOW_MS = 30_000L;
+    static final long HOT_JOIN_IDENTITY_COOLDOWN_MS = 60_000L;
+    static final long HOT_JOIN_IDENTITY_RETENTION_MS = 600_000L;
     static final int MAX_PUBLIC_KEY_BYTES = 256;
     static final int MAX_SESSION_ID_BYTES = 64;
     static final int MAX_COMMAND_BYTES = 16 * 1024 * 1024;
@@ -324,6 +330,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         HANDSHAKE_REJECTION_WINDOW_MS,
                         HANDSHAKE_ADDRESS_BAN_MS,
                         HANDSHAKE_ADDRESS_RETENTION_MS);
+        private final AuthenticatedHotJoinAdmissionGuard hotJoinAdmissionGuard
+                = new AuthenticatedHotJoinAdmissionGuard(
+                        MAX_HOT_JOIN_ADMISSIONS_PER_IDENTITY,
+                        MAX_HOT_JOIN_ADMISSIONS_GLOBAL,
+                        MAX_TRACKED_HOT_JOIN_IDENTITIES,
+                        HOT_JOIN_ADMISSION_WINDOW_MS,
+                        HOT_JOIN_IDENTITY_COOLDOWN_MS,
+                        HOT_JOIN_IDENTITY_RETENTION_MS);
         private volatile String password;
         private volatile ServerSocket serverSocket;
         private volatile UpnpPortMapping upnpMapping;
@@ -768,6 +782,20 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                     publicKey)) {
                         connection.writeEncrypted("IDENTITYMISMATCH");
                         return;
+                    }
+                    if (hotJoin) {
+                        AuthenticatedHotJoinAdmissionGuard.Decision decision
+                                = hotJoinAdmissionGuard.acquire(
+                                        identityRateKey(publicKey),
+                                        System.currentTimeMillis());
+                        if (!decision.admitted()) {
+                            long retrySeconds = Math.max(1L,
+                                    (decision.retryAfterMillis() + 999L)
+                                    / 1_000L);
+                            connection.writeEncrypted("HOTJOINTHROTTLED#"
+                                    + retrySeconds);
+                            return;
+                        }
                     }
                     connection.remoteNickname = nickname;
                     Path avatar = saveAvatar(parts[2], nickname, coronaDirectory);
@@ -2985,9 +3013,19 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             case "NICKFAIL" -> "El nick ya está en uso";
             case "NICKUNAUTHORIZED" -> "El nick contiene caracteres reservados";
             case "IDENTITYMISMATCH" -> "La identidad no corresponde al propietario de este nick";
+            case "HOTJOINTHROTTLED" -> "Demasiadas entradas en caliente; inténtalo de nuevo en unos segundos";
             default -> "El servidor rechazó la conexión";
         };
         return new IOException(message);
+    }
+
+    private static String identityRateKey(byte[] publicKey) {
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(publicKey));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
     private static String b64(String text) {

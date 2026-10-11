@@ -139,11 +139,18 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-flop-bootstrap".equals(config.scenario)
                     || "live-hot-join-folded-bootstrap".equals(config.scenario)
                     || "live-hot-join-allin-bootstrap".equals(config.scenario)
+                    || "live-hot-join-rit-bootstrap".equals(config.scenario)
+                    || "live-hot-join-showdown-bootstrap".equals(
+                            config.scenario)
                     || "live-hot-join-pre-attach-bootstrap".equals(
                             config.scenario)
                     || "live-hot-join-paused-bootstrap".equals(config.scenario)
+                    || "live-hot-join-last-hand-bootstrap".equals(
+                            config.scenario)
                     || "live-hot-join-two".equals(config.scenario)
-                    || "live-hot-join-two-exit".equals(config.scenario)) {
+                    || "live-hot-join-dual-churn".equals(config.scenario)
+                    || config.scenario.startsWith(
+                            "live-hot-join-two-")) {
                 if ("late-impostor".equals(config.phase)) {
                     runRejectedHotJoinIdentity(config, home, database);
                     return;
@@ -300,6 +307,18 @@ public final class GdxMultiprocessNodeMain {
 
     private static void runLiveHotJoin(Config config, Path home,
             DatabaseService database) throws Exception {
+        if ("late-standby".equals(config.phase)) {
+            /*
+             * Complex public presentation states are intentionally short.
+             * Warm the real client JVM before the authoritative table reaches
+             * the requested state, then open the production gateway only on
+             * command. This measures the network/bootstrap path rather than
+             * spending the renderer's bounded presentation barrier starting
+             * another Java process.
+             */
+            marker("HOT_JOIN_STANDBY", "nick=" + config.nickname);
+            requireCommand("CONNECT_HOT_JOIN");
+        }
         boolean stopWhileWarming = "live-hot-join-stop".equals(
                 config.scenario);
         boolean concurrentExit = "live-hot-join-two-exit".equals(
@@ -325,18 +344,31 @@ public final class GdxMultiprocessNodeMain {
                 config.scenario);
         boolean laterHandReentry = "live-hot-join-reentry-later".equals(
                 config.scenario);
-        boolean churnReentry = "live-hot-join-reentry-churn".equals(
+        boolean dualChurn = "live-hot-join-dual-churn".equals(
                 config.scenario);
+        boolean churnReentry = "live-hot-join-reentry-churn".equals(
+                config.scenario)
+                || "live-hot-join-two-churn".equals(config.scenario)
+                || dualChurn;
         boolean flopBootstrap = "live-hot-join-flop-bootstrap".equals(
                 config.scenario);
         boolean foldedBootstrap = "live-hot-join-folded-bootstrap".equals(
                 config.scenario);
-        boolean allInBootstrap = "live-hot-join-allin-bootstrap".equals(
-                config.scenario);
-        boolean pausedBootstrap = "live-hot-join-paused-bootstrap".equals(
-                config.scenario);
+        boolean allInBootstrap = config.scenario.endsWith(
+                "allin-bootstrap");
+        boolean ritBootstrap = config.scenario.endsWith(
+                "rit-bootstrap");
+        boolean showdownBootstrap
+                = config.scenario.endsWith("showdown-bootstrap");
+        boolean publicRunoutBootstrap = allInBootstrap || ritBootstrap
+                || showdownBootstrap;
+        boolean pausedBootstrap = config.scenario.endsWith(
+                "paused-bootstrap");
+        boolean lastHandBootstrap
+                = "live-hot-join-last-hand-bootstrap".equals(config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
-                || concurrentExit;
+                || config.scenario.startsWith("live-hot-join-two-")
+                || dualChurn;
         boolean reenterWhileWarming = crashReentry
                 || laterHandReentry
                 || churnReentry
@@ -357,8 +389,11 @@ public final class GdxMultiprocessNodeMain {
                 && "late-exit".equals(config.phase);
         int visibleExpectedPlayers = config.clients + config.bots + 1;
         int finalExpectedPlayers = config.clients + config.bots
-                + (exitWhileWarming ? 0 : 1);
+                + (exitWhileWarming || lastHandBootstrap ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
+        Set<String> churnNicknames = dualChurn
+                ? Set.of("client" + (config.clients - 1), newcomerNickname)
+                : Set.of(newcomerNickname);
         boolean thisWarmingIncarnationExits = exitWhileWarming
                 && (!twoLate || newcomerNickname.equals(config.nickname));
         GdxGameLogSink gameLog = new GdxGameLogSink();
@@ -367,9 +402,13 @@ public final class GdxMultiprocessNodeMain {
                 = new AtomicReference<>();
         AtomicReference<GdxScenarioRenderer> scenarioRenderer
                 = new AtomicReference<>();
+        AtomicInteger runItTwiceVotes = new AtomicInteger();
+        AtomicInteger runItTwiceDialogResolutions = new AtomicInteger();
+        AtomicReference<GdxTableDialog> runItTwiceDialog
+                = new AtomicReference<>();
         try (NetworkLobbyGateway gateway = gateway(config,
                     home.resolve("network"), database, productTable,
-                    new AtomicInteger(), new AtomicReference<>(),
+                    runItTwiceVotes, runItTwiceDialog,
                     scenarioRenderer, gameLog);
              LobbySession lobby = gateway.open(request(config))
                      .get(20, TimeUnit.SECONDS)) {
@@ -409,14 +448,21 @@ public final class GdxMultiprocessNodeMain {
             if (allInBootstrap && !late) {
                 renderer.enableAllInEveryHand();
             }
+            if (ritBootstrap && !late) {
+                renderer.allInOnHand(1L);
+            }
             if (foldedBootstrap && !late
                     && "client1".equals(config.nickname)) {
                 renderer.foldAutomatically(true);
             }
-            if (config.host()) {
-                if (allInBootstrap) {
-                    renderer.gateOnNextPartialHand();
-                } else if (flopBootstrap || foldedBootstrap) {
+            if (allInBootstrap && !late) {
+                renderer.gateOnNextPartialHand();
+            } else if (ritBootstrap && !late) {
+                renderer.gateOnNextRunItTwiceBoard();
+            } else if (showdownBootstrap && !late) {
+                renderer.gateOnNextHandResult();
+            } else if (config.host()) {
+                if (flopBootstrap || foldedBootstrap) {
                     renderer.gateActionOnStreetAtOrAfterHand(1L,
                             TableSnapshot.Street.FLOP);
                 } else {
@@ -432,6 +478,35 @@ public final class GdxMultiprocessNodeMain {
             }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
+            if (ritBootstrap && !late) {
+                resolveRunItTwiceDialog(productTable, runItTwiceVotes,
+                        runItTwiceDialogResolutions);
+                await(renderer::hasHeldPresentation,
+                        Duration.ofSeconds(90),
+                        "live hot-join RIT board gate");
+                marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand()
+                        + " state=RIT_SIDE_A");
+                String release = readCommand();
+                if (!"RELEASE_HOT_JOIN".equals(release)) {
+                    throw new IllegalStateException(
+                            "expected RELEASE_HOT_JOIN, received " + release);
+                }
+                renderer.releaseHeldPresentation();
+            }
+            if ((allInBootstrap || showdownBootstrap) && !late
+                    && !config.host()) {
+                await(renderer::hasHeldPresentation,
+                        Duration.ofSeconds(90),
+                        "peer live hot-join public runout gate");
+                marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand()
+                        + (showdownBootstrap ? " state=SHOWDOWN" : ""));
+                String release = readCommand();
+                if (!"RELEASE_HOT_JOIN".equals(release)) {
+                    throw new IllegalStateException(
+                            "expected RELEASE_HOT_JOIN, received " + release);
+                }
+                renderer.releaseHeldPresentation();
+            }
 
             if (foldedBootstrap && late) {
                 await(renderer::sawBootstrappedFoldedSeat,
@@ -442,11 +517,11 @@ public final class GdxMultiprocessNodeMain {
             }
 
             if (config.host()) {
-                if (allInBootstrap) {
+                if (allInBootstrap || showdownBootstrap) {
                     await(renderer::hasHeldPresentation,
                             Duration.ofSeconds(90),
-                            "live hot-join all-in presentation gate");
-                } else {
+                            "live hot-join public presentation gate");
+                } else if (!ritBootstrap) {
                     await(renderer::hasHeldAction, Duration.ofSeconds(60),
                             "live hot-join action gate");
                 }
@@ -455,11 +530,18 @@ public final class GdxMultiprocessNodeMain {
                     await(renderer::isPaused, Duration.ofSeconds(30),
                             "paused hot-join bootstrap gate");
                 }
-                marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
-                requireCommand(stopWhileWarming ? "STOP_HOT_JOIN"
-                        : exitWhileWarming || reenterWhileWarming
-                                ? "EXIT_HOT_JOIN"
-                        : "RELEASE_HOT_JOIN");
+                if (lastHandBootstrap) {
+                    table.commands().submit(new TableCommand.SetLastHand(true));
+                    await(renderer::isLastHand, Duration.ofSeconds(30),
+                            "last-hand hot-join bootstrap gate");
+                }
+                if (!ritBootstrap) {
+                    marker("HOT_JOIN_GATE", "hand=" + renderer.currentHand());
+                    requireCommand(stopWhileWarming ? "STOP_HOT_JOIN"
+                            : exitWhileWarming || reenterWhileWarming
+                                    ? "EXIT_HOT_JOIN"
+                            : "RELEASE_HOT_JOIN");
+                }
                 /*
                  * During an all-in runout the held presentation can end at
                  * the same boundary at which the newcomer is admitted.  The
@@ -472,7 +554,7 @@ public final class GdxMultiprocessNodeMain {
                  */
                 await(() -> renderer.warmingNicknames().contains(
                                 newcomerNickname)
-                                || allInBootstrap
+                                || publicRunoutBootstrap
                                 && renderer.activeNicknames().contains(
                                         newcomerNickname),
                         Duration.ofSeconds(45),
@@ -492,10 +574,19 @@ public final class GdxMultiprocessNodeMain {
                 if (stopWhileWarming) {
                     table.commands().submit(new TableCommand.StopGame());
                 } else if (exitWhileWarming || reenterWhileWarming) {
-                    await(() -> !renderer.activeNicknames().contains(
-                                    newcomerNickname),
+                    await(() -> java.util.Collections.disjoint(
+                                    renderer.activeNicknames(),
+                                    churnNicknames),
                             warmingRemovalTimeout,
                             "server warming-seat removal");
+                    if (churnReentry) {
+                        await(() -> lobby.snapshot().participants().stream()
+                                        .map(participant
+                                                -> participant.nickname())
+                                        .noneMatch(churnNicknames::contains),
+                                warmingRemovalTimeout,
+                                "server transport retirement after warming exit");
+                    }
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname);
                     if (reenterWhileWarming) {
@@ -503,8 +594,8 @@ public final class GdxMultiprocessNodeMain {
                             for (int cycle = 1;
                                     cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
                                 requireCommand("REENTER_HOT_JOIN");
-                                await(() -> renderer.warmingNicknames().contains(
-                                                newcomerNickname),
+                                await(() -> renderer.warmingNicknames()
+                                                .containsAll(churnNicknames),
                                         Duration.ofSeconds(60),
                                         "churn hot-join reentry " + cycle);
                                 assertHotJoinCapital(renderer,
@@ -520,10 +611,20 @@ public final class GdxMultiprocessNodeMain {
                                                 newcomerNickname));
                                 if (cycle < HOT_JOIN_CHURN_CYCLES) {
                                     requireCommand("EXIT_HOT_JOIN");
-                                    await(() -> !renderer.activeNicknames()
-                                                    .contains(newcomerNickname),
+                                    await(() -> java.util.Collections.disjoint(
+                                                    renderer.activeNicknames(),
+                                                    churnNicknames),
                                             Duration.ofSeconds(60),
                                             "churn warming-seat removal "
+                                            + cycle);
+                                    await(() -> lobby.snapshot().participants()
+                                                    .stream()
+                                                    .map(participant
+                                                            -> participant.nickname())
+                                                    .noneMatch(
+                                                            churnNicknames::contains),
+                                            Duration.ofSeconds(60),
+                                            "churn transport retirement "
                                             + cycle);
                                     marker("HOT_JOIN_CHURN_EXIT_OBSERVED",
                                             "nick=" + newcomerNickname
@@ -573,9 +674,9 @@ public final class GdxMultiprocessNodeMain {
                                 Duration.ofSeconds(30),
                                 "resume after paused hot-join bootstrap");
                     }
-                    if (allInBootstrap) {
+                    if (allInBootstrap || showdownBootstrap) {
                         renderer.releaseHeldPresentation();
-                    } else {
+                    } else if (!ritBootstrap) {
                         renderer.releaseHeldAction();
                     }
                 }
@@ -635,9 +736,12 @@ public final class GdxMultiprocessNodeMain {
                 try {
                     await(() -> renderer.sawHotJoinState()
                                     && renderer.sawLocalSpectator()
-                                    && renderer.warmingNicknames().contains(
+                                    && (renderer.warmingNicknames().contains(
                                             config.nickname)
-                                    && !gameLog.snapshot().lines().isEmpty(),
+                                    || publicRunoutBootstrap
+                                    && renderer.firstHotJoinLocalIsWarming())
+                                    && (publicRunoutBootstrap
+                                    || !gameLog.snapshot().lines().isEmpty()),
                             Duration.ofSeconds(45), "public warming state");
                 } catch (IllegalStateException timeout) {
                     throw new IllegalStateException(timeout.getMessage()
@@ -668,6 +772,9 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(30),
                         "durable table status in hot-join bootstrap");
                 marker("HOT_JOIN_TABLE_STATUS", "hand=live blinds=canonical");
+                marker("HOT_JOIN_PUBLIC_FINGERPRINT", "nick="
+                        + config.nickname + " value="
+                        + renderer.firstHotJoinPublicFingerprint());
                 if (allInBootstrap) {
                     if (!renderer.firstHotJoinHasAllInPresentation()) {
                         throw new AssertionError(
@@ -678,6 +785,24 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_ALL_IN_BOOTSTRAP", "nick="
                             + config.nickname
                             + " cards=public outcome=true timer=none");
+                } else if (ritBootstrap) {
+                    if (!renderer.firstHotJoinHasRunItTwicePresentation()) {
+                        throw new AssertionError(
+                                "first hot-join snapshot lost the active "
+                                + "RIT side-A board and half-pot state");
+                    }
+                    marker("HOT_JOIN_RIT_BOOTSTRAP", "nick="
+                            + config.nickname
+                            + " board=side-a timer=none");
+                } else if (showdownBootstrap) {
+                    if (!renderer.firstHotJoinHasShowdownPresentation()) {
+                        throw new AssertionError(
+                                "first hot-join snapshot lost ordinary "
+                                + "showdown cards or its public result");
+                    }
+                    marker("HOT_JOIN_SHOWDOWN_BOOTSTRAP", "nick="
+                            + config.nickname
+                            + " cards=public result=true timer=none");
                 } else {
                     try {
                         await(renderer::activeRemoteCardSlotsAreSafeBacks,
@@ -697,6 +822,11 @@ public final class GdxMultiprocessNodeMain {
                                 "hot joiner did not receive the paused table state");
                     }
                     marker("HOT_JOIN_PAUSED_BOOTSTRAP", "paused=true");
+                }
+                if (lastHandBootstrap) {
+                    await(renderer::isLastHand, Duration.ofSeconds(30),
+                            "last-hand status in hot-join bootstrap");
+                    marker("HOT_JOIN_LAST_HAND_BOOTSTRAP", "enabled=true");
                 }
                 if (flopBootstrap) {
                     if (!renderer.firstHotJoinCommunityCardsAreFaceUp(3)) {
@@ -721,7 +851,7 @@ public final class GdxMultiprocessNodeMain {
                             "faceUp=3 remoteBacks=true pendingBacks=true");
                 }
                 bootstrapLogLines.set(gameLog.snapshot().lines().size());
-                if (!allInBootstrap) {
+                if (!publicRunoutBootstrap) {
                     await(renderer::sawHotJoinTimerStart,
                             Duration.ofSeconds(30),
                             "current turn timer in hot-join bootstrap");
@@ -752,7 +882,7 @@ public final class GdxMultiprocessNodeMain {
                     return;
                 }
                 if (!stopWhileWarming && !thisWarmingIncarnationExits) {
-                    if (!allInBootstrap) {
+                    if (!publicRunoutBootstrap) {
                         await(renderer::sawHotJoinPlayerAction,
                                 Duration.ofSeconds(90),
                                 "ordinary player-action event while warming");
@@ -774,7 +904,7 @@ public final class GdxMultiprocessNodeMain {
                         marker("HOT_JOIN_REENTRY_BOARD_STABLE", "faceUp="
                                 + expectedFaceUp);
                     }
-                    if (!allInBootstrap
+                    if (!publicRunoutBootstrap
                             && (flopBootstrap || config.clients() > 1)) {
                         await(renderer::sawHotJoinCommunityReveal,
                                 Duration.ofSeconds(90),
@@ -789,6 +919,23 @@ public final class GdxMultiprocessNodeMain {
                     }
                     marker("HOT_JOIN_TIMER_SYNC", "nick="
                             + config.nickname);
+                    if (ritBootstrap) {
+                        await(() -> renderer.completedRunItTwiceBoards()
+                                        && renderer.sawHotJoinPartialHand(),
+                                Duration.ofSeconds(90),
+                                "continued RIT boards and Monte Carlo after "
+                                + "hot-join bootstrap");
+                        marker("HOT_JOIN_RIT_STREAM_COMPLETE", "nick="
+                                + config.nickname);
+                    }
+                    if (showdownBootstrap) {
+                        await(renderer::sawHotJoinSettlement,
+                                Duration.ofSeconds(90),
+                                "ordinary showdown settlement after hot-join "
+                                + "bootstrap");
+                        marker("HOT_JOIN_SHOWDOWN_STREAM_COMPLETE", "nick="
+                                + config.nickname);
+                    }
                     if (exitAtAdmission) {
                         await(() -> renderer.playingNicknames().contains(
                                         config.nickname)
@@ -820,16 +967,18 @@ public final class GdxMultiprocessNodeMain {
                                 + " phase=admission");
                         return;
                     }
-                    await(() -> renderer.playingNicknames().contains(
-                                config.nickname)
-                                && renderer.hasLocalDealAfter(1L),
-                            Duration.ofSeconds(120),
-                            "next-hand hot admission");
-                    marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
-                    if (reenterWhileWarming) {
-                        marker("HOT_JOIN_REENTRY_ADMITTED", "nick="
-                                + config.nickname + " stack="
-                                + renderer.stackOf(config.nickname));
+                    if (!lastHandBootstrap) {
+                        await(() -> renderer.playingNicknames().contains(
+                                    config.nickname)
+                                    && renderer.hasLocalDealAfter(1L),
+                                Duration.ofSeconds(120),
+                                "next-hand hot admission");
+                        marker("HOT_JOIN_ADMITTED", "nick=" + config.nickname);
+                        if (reenterWhileWarming) {
+                            marker("HOT_JOIN_REENTRY_ADMITTED", "nick="
+                                    + config.nickname + " stack="
+                                    + renderer.stackOf(config.nickname));
+                        }
                     }
                 }
             } else {
@@ -847,8 +996,9 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
                             + newcomerNickname + " phase=admission");
                 } else if (exitWhileWarming || reenterWhileWarming) {
-                    await(() -> !renderer.activeNicknames().contains(
-                                    newcomerNickname),
+                    await(() -> java.util.Collections.disjoint(
+                                    renderer.activeNicknames(),
+                                    churnNicknames),
                             warmingRemovalTimeout,
                             "incumbent warming-seat removal");
                     marker("HOT_JOIN_EXIT_OBSERVED", "nick="
@@ -857,15 +1007,16 @@ public final class GdxMultiprocessNodeMain {
                         if (churnReentry) {
                             for (int cycle = 1;
                                     cycle <= HOT_JOIN_CHURN_CYCLES; cycle++) {
-                                await(() -> renderer.warmingNicknames().contains(
-                                                newcomerNickname),
+                                await(() -> renderer.warmingNicknames()
+                                                .containsAll(churnNicknames),
                                         Duration.ofSeconds(60),
                                         "incumbent churn reentry " + cycle);
                                 marker("HOT_JOIN_CHURN_WARMING", "nick="
                                         + newcomerNickname + " cycle=" + cycle);
                                 if (cycle < HOT_JOIN_CHURN_CYCLES) {
-                                    await(() -> !renderer.activeNicknames()
-                                                    .contains(newcomerNickname),
+                                    await(() -> java.util.Collections.disjoint(
+                                                    renderer.activeNicknames(),
+                                                    churnNicknames),
                                             Duration.ofSeconds(60),
                                             "incumbent churn removal " + cycle);
                                     marker("HOT_JOIN_CHURN_EXIT_OBSERVED",
@@ -891,14 +1042,20 @@ public final class GdxMultiprocessNodeMain {
             // consensus check for every process.
             boolean remainsForAdmission = !stopWhileWarming
                     && (!exitWhileWarming || concurrentExit)
-                    && !exitAtAdmission;
+                    && !exitAtAdmission && !lastHandBootstrap;
             if (remainsForAdmission) {
                 String admittedNickname = concurrentExit
                         ? "client1" : newcomerNickname;
                 await(() -> renderer.playingNicknames().contains(
                                 admittedNickname)
                                 && !renderer.warmingNicknames().contains(
-                                        admittedNickname),
+                                        admittedNickname)
+                                && (!dualChurn
+                                || churnNicknames.stream().allMatch(nickname
+                                        -> renderer.playingNicknames().contains(
+                                                nickname)
+                                        && !renderer.warmingNicknames()
+                                                .contains(nickname))),
                         Duration.ofSeconds(120),
                         "canonical hot-join seat admission");
                 emitSeatRingMarker(config, renderer);
@@ -927,10 +1084,19 @@ public final class GdxMultiprocessNodeMain {
                 throw new AssertionError(
                         "hot-join settlement does not contain all players");
             }
-            if (late && gameLog.snapshot().lines().size()
+            if (late && !publicRunoutBootstrap
+                    && gameLog.snapshot().lines().size()
                     <= bootstrapLogLines.get()) {
                 throw new AssertionError(
                         "hot joiner did not receive live log updates");
+            }
+            if (lastHandBootstrap && late) {
+                if (renderer.playingNicknames().contains(config.nickname)) {
+                    throw new AssertionError(
+                            "last-hand observer was admitted without a next hand");
+                }
+                marker("HOT_JOIN_LAST_HAND_COMPLETE", "nick="
+                        + config.nickname + " admitted=false");
             }
             marker("HOT_JOIN_COMPLETE", "role=" + config.role
                     + " nick=" + config.nickname + " hands="
@@ -3004,7 +3170,8 @@ public final class GdxMultiprocessNodeMain {
             return immediateRebuyGateway(config, data, database);
         }
         if ("allin-rit".equals(config.scenario)
-                || "rit-network-cut".equals(config.scenario)) {
+                || "rit-network-cut".equals(config.scenario)
+                || config.scenario.endsWith("rit-bootstrap")) {
             GameDecisionSink decisions = new GdxGameDecisionSink(
                     GameText.keys(), dialog -> {
                         if (!"RUN IT TWICE".equals(dialog.title())) {
@@ -3173,6 +3340,22 @@ public final class GdxMultiprocessNodeMain {
         if (votes.get() != 1) {
             throw new AssertionError("expected one native GDX RIT vote, got "
                     + votes.get());
+        }
+    }
+
+    private static void resolveRunItTwiceDialog(
+            AtomicReference<CoronaPokerGdxTable> productTable,
+            AtomicInteger votes, AtomicInteger resolutions) throws Exception {
+        await(() -> productTable.get() != null, Duration.ofSeconds(10),
+                "native GDX table");
+        CoronaPokerGdxTable table = productTable.get();
+        await(() -> {
+            table.advanceDialogState();
+            return votes.get() == 1 && table.hasActiveDialog();
+        }, Duration.ofSeconds(60), "native GDX RIT dialog");
+        resolveRunItTwiceDialog(table, resolutions);
+        if (votes.get() != 1 || resolutions.get() != 1) {
+            throw new AssertionError("expected one native GDX RIT choice");
         }
     }
 
@@ -3594,7 +3777,8 @@ public final class GdxMultiprocessNodeMain {
             table.setBotRebuy(false);
         }
         if ("allin-rit".equals(config.scenario)
-                || "rit-network-cut".equals(config.scenario)) {
+                || "rit-network-cut".equals(config.scenario)
+                || config.scenario.endsWith("rit-bootstrap")) {
             table.setRunItTwice(true);
         }
         if ("straddle-post".equals(config.scenario)

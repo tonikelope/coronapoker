@@ -414,6 +414,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean avatarSelectionPending;
     private LobbySession lobbySession;
     private LobbySnapshot lobby;
+    private GdxNetworkBlockCache networkBlockCache;
     private AutoCloseable lobbySubscription;
     private String lobbyChatDraft = "";
     private long selectedLobbyChatSequence = -1L;
@@ -928,6 +929,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         refreshPointerFromDevice();
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
+        if (networkBlockCache != null) {
+            networkBlockCache.update(frameDelta,
+                    lobby != null && lobby.host());
+        }
         statsPickerScroll += (statsPickerScrollTarget - statsPickerScroll)
                 * Math.min(1f, frameDelta * 14f);
         if (Math.abs(statsPickerScrollTarget - statsPickerScroll) < 0.1f) {
@@ -1428,6 +1433,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearLobbyScreenState();
         lobbySession = Objects.requireNonNull(session, "session");
         lobby = session.snapshot();
+        networkBlockCache = new GdxNetworkBlockCache(session::networkBlocks);
+        networkBlockCache.refreshNow(lobby.host());
         lobbyChatDraft = "";
         selectedLobbyChatSequence = -1L;
         lobbyTextSendAllowedAt = 0f;
@@ -5778,13 +5785,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private List<NetworkBlock> activeNetworkBlocks() {
-        LobbySession session = lobbySession;
-        if (session == null || lobby == null || !lobby.host()) return List.of();
-        try {
-            return session.networkBlocks();
-        } catch (RuntimeException unavailable) {
-            return List.of();
-        }
+        return networkBlockCache == null || lobby == null || !lobby.host()
+                ? List.of() : networkBlockCache.current();
     }
 
     private void openNetworkBlocks() {
@@ -5815,9 +5817,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     if (failure != null) {
                         networkBlockError = gameText.translate(
                                 "gdx.network_blocks.remove_failed");
-                    } else if (activeNetworkBlocks().isEmpty()) {
-                        networkBlocksOpen = false;
-                        networkBlocksScroll = 0f;
+                    } else {
+                        if (networkBlockCache != null) {
+                            networkBlockCache.removeLocally(address);
+                            networkBlockCache.refreshNow(lobby != null
+                                    && lobby.host());
+                        }
+                        if (activeNetworkBlocks().isEmpty()) {
+                            networkBlocksOpen = false;
+                            networkBlocksScroll = 0f;
+                        }
                     }
                 }));
     }
@@ -6960,6 +6969,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         networkBlocksScroll = 0f;
         networkBlockPendingAddress = null;
         networkBlockError = "";
+        if (networkBlockCache != null) networkBlockCache.clear();
+        networkBlockCache = null;
         lobbyImageClearConfirmation = false;
         lobbyEmojiPickerOpen = false;
         lobbyImageMode = false;

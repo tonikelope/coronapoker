@@ -10,7 +10,7 @@ The effect is already cheap while inactive: `drawAllInSeatFlames()` reuses its
 seat list and returns before opening any render pass when no visible seat owns
 an ALL-IN action.
 
-The implementation on this branch removes transient flame-bound allocations,
+The current implementation removes transient flame-bound allocations,
 reuses each active seat's opacity/avatar position across every pass and caches
 the immutable per-particle constants used by the embers. The same conservative
 pattern is applied to the winner glow: its active-seat list is reused and its
@@ -132,7 +132,7 @@ but do not address the dominant procedural fragment-shader cost.
 5. Reject the optimisation if frame-time variance increases or if the atlas
    introduces resampling softness, edge seams or allocation spikes.
 
-The focused `GdxTableViewStateTest` suite compiles the renderer and passes all
-202 tests. Automated tests do not constitute visual or GPU-time certification.
-The implemented changes are deliberately limited to invariant caching and
-storage reuse so that the render inputs remain the same.
+The focused `GdxTableViewStateTest` suite compiles the renderer and verifies the
+effect's state and geometry contracts. Automated tests do not constitute visual
+or GPU-time certification. The implemented changes are deliberately limited to
+invariant caching and storage reuse so that the render inputs remain the same.

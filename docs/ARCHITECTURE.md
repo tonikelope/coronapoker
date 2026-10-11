@@ -130,6 +130,28 @@ The boundary therefore has a small runtime cost:
 - one typed event for each relevant game state change
 - an animation completion only where the engine must wait for presentation
 
+### Live hot join cutover
+
+Live hot join uses the same table scene, renderer and ordered event path as an
+incumbent player. It does not create a reduced GDX game for the warming client.
+
+When the host accepts an authenticated connection during an active hand,
+`NetworkLobbyGateway` admits that identity in the explicit warming role. The
+host then sends one complete public `TableSnapshot` through `HOTJOIN_STATE`.
+`CoreGameTableFactory.HotJoinSync` buffers any newer public visual events while
+that snapshot is in flight and follows it with the ordered `HOTJOIN_EVENT`
+tail. Events already represented by the snapshot are discarded at the
+cutover, which prevents an older deal or fold event from repainting newer
+state.
+
+On the client, `TableEventBridge.publishAuthoritative` introduces the bootstrap
+into the ordinary presentation sequence. `GdxTableViewState` replaces its
+provisional projection once, clears hand-scoped visual caches and then consumes
+the same `TableVisualEvent` stream as every other table role. The warming seat
+therefore sees the current public board, card backs, actions, pots, timers,
+pause state and later animations without receiving private cards or acting in
+the current hand. Admission to play happens only at a following hand boundary.
+
 ## Maven modules
 
 ![CoronaPoker module map](diagrams/coronapoker-module-map.png)

@@ -33,10 +33,12 @@ From the repository root:
 ```
 
 This discovers Maven, verifies the Maven/JDK versions, performs a clean product
-build and runs the complete replayable non-bot suite. Use `.\qa.cmd build`
-only when a quick package with tests deliberately skipped is wanted. The
-explicit prerequisites, discovery order and lower-level Maven equivalents are
-documented in `../docs/TESTING.md`. No NetBeans installation is required.
+build and runs the normal product and architecture tests. Use
+`.\qa.cmd extended` to add the slower replayable non-bot suite. Use
+`.\qa.cmd build` only when a quick package with tests deliberately skipped is
+wanted. The explicit prerequisites, discovery order and lower-level Maven
+equivalents are documented in `../docs/TESTING.md`. No NetBeans installation is
+required.
 
 When Maven is already on `PATH`, `mvn clean verify` is the lower-level product
 gate. The tracked `.mvn/maven.config` uses the ignored checkout-local

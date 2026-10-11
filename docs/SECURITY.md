@@ -306,7 +306,7 @@ Every consensus anomaly is logged into `disputed_hands` (`DIVERGENT`, `MISSING`,
 
 ---
 
-## 7. Crash recovery & late joiners
+## 7. Crash recovery and live hot join
 
 ### 7.1 SQLite checkpoint
 
@@ -348,8 +348,37 @@ On `continue-last-game`:
 
 - The host reads SQLite, rebuilds dealer/SB/BB and re-derives blinds, and broadcasts a `RECOVERDATA` payload to every reconnecting client.
 - Each client reads its own SQLite, loads its fossil (if any), re-injects the SRA state, then absorbs the persisted actions to rebuild the `HandStateChain` and verify signatures along the way.
-- Recovery is **per-peer**: a late joiner who was never in the in-progress hand watches it as a passive observer (no cards dealt, no actions requested) and joins normally on the next hand. Cross-checking `preflop_players` from the host map against the local nick is what distinguishes a returning participant from an observer ([`Crupier.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java) `recuperarDatosClavePartida` client branch).
+- Recovery is **per-peer**. Cross-checking `preflop_players` from the host map against the authenticated local nick distinguishes a returning participant in the recovered hand from someone who was not part of it ([`Crupier.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java) `recuperarDatosClavePartida` client branch). A peer outside that hand may observe public state but cannot acquire private cards or an action in progress.
 - The RECOVERDATA payload is deserialized with a strict `ObjectInputFilter` that allow-lists only the map scaffolding and boxed primitives it actually carries (`HashMap` and its internals, `Map.Entry`, `String`, `Number` and the numeric / `Boolean` boxes, plus the primitive types) and denies everything else, capped at 10 MB, 20 levels deep, and 10 000 references / array elements max. This blocks classic Java deserialization gadget chains.
+
+### 7.4 Live hot join
+
+Live hot join is a separate active-table path rather than a shortcut through
+crash recovery. The policy is enabled by default when a table is created. The
+host may change it while the game is running, and that change applies to later
+connection attempts without ejecting anyone already admitted.
+
+Admission still passes the normal exact-version gate, encrypted channel setup
+and persistent Ed25519 identity proof. A reconnecting nick must prove ownership
+of the same identity. Reusing only the visible nick is not enough to take over a
+seat or its stack.
+
+An accepted peer enters as **WARMING UP** for the current hand. The host sends
+one authoritative public `HOTJOIN_STATE` snapshot followed by the same ordered
+public presentation events used by incumbent GDX tables. The bootstrap includes
+the canonical seat order, folded and active state, remote card backs, revealed
+community cards, pot and bets, current action timing, pause state and public
+showdown or all-in information. Events that race the snapshot are buffered and
+released only if they are newer than its sequence frontier, so the client
+cannot rewind an already reconstructed scene.
+
+WARMING UP is not an ordinary spectator role and not a member of the current
+hand's cryptographic ring. The peer receives no private cards, sends no betting
+action, cannot rebuy and does not sign the current hand. At the next eligible
+hand boundary the seat joins the normal game and cryptographic ring. A player
+who leaves during a hand is audited as folded and any reentry is WARMING UP.
+Reentry can never restore action in the hand that was left. An authenticated
+returning identity keeps its existing stack for later admission.
 
 ---
 
@@ -399,7 +428,11 @@ The threat here is different from cheating. The adversary is a peer who already 
 
 **1. Identity binding at the choke point.** Every response subcommand that carries a nick is bound to the connection's **authenticated** nick before it is acted on. The queued set (`NICK_BOUND_SUBCOMMANDS`: `ACTION`, `REBUY`, `BUYIN`, `RESP_SHOWDOWN_KEY`, `DECK_CASCADE_RESP`, `DECK_ROTATION_RESP`, `RESP_SRA_UNLOCK_CHAIN`, `RIT_VOTE_RESP`, `SEAT_COMMIT`, `SEAT_REVEAL`) is bound before it ever enters `received_commands`, while `SHOWCARDS`, `HANDVERIFY` and `STRADDLE_RESP` run the same nick check in their own dedicated handlers instead of the queue. A peer cannot act, vote, override an economy value, suppress a reveal or poison the deal **in another peer's name**. A mismatch adds a strike and can AUTO-EXPEL.
 
-**2. Inbound rate limit and AUTO-EXPEL.** Inbound text commands pass a per-peer **size cap** and **token bucket** before the command switch. Every `GAME` frame is critical. If it exceeds the size or rate budget, the authenticated connection is closed explicitly. It is never silently discarded while the hand continues. Expendable non-game traffic may be dropped and adds a strike, and enough strikes AUTO-EXPEL the peer while the table plays on. The thresholds are far above any real game, so an honest client never trips them. The **binary channel** (voice notes and the stats-sync database) is handled inline on the reader thread and never passed through the text bucket, so it has its **own** generous token bucket. A binary flood is **dropped without a strike**. A large but legitimate stats burst is indistinguishable from abuse, and dropping is harmless because imports are idempotent and resume next session. Bounding the arrival rate bounds the downstream work (threads, disk, relay bandwidth) to a constant. The per-frame work is already size-capped. One layer earlier, before any peer is even authenticated, the accept loop bounds **concurrent handshakes** with a semaphore (`handshake_slots`). A fresh connection only proceeds to its EC key exchange if a slot is free. Otherwise it is dropped at once. A connection flood therefore cannot spawn unbounded threads or key generations, and a legitimate join simply retries. This matters least in the "invited colleagues" model (no anonymous scanners) but closes the pre-auth exhaustion vector anyway.
+**2. Inbound rate limit and AUTO-EXPEL.** Inbound text commands pass a per-peer **size cap** and **token bucket** before the command switch. Every `GAME` frame is critical. If it exceeds the size or rate budget, the authenticated connection is closed explicitly. It is never silently discarded while the hand continues. Expendable non-game traffic may be dropped and adds a strike, and enough strikes AUTO-EXPEL the peer while the table plays on. The thresholds are far above any real game, so an honest client never trips them. The **binary channel** (voice notes and the stats-sync database) is handled inline on the reader thread and never passed through the text bucket, so it has its **own** generous token bucket. A binary flood is **dropped without a strike**. A large but legitimate stats burst is indistinguishable from abuse, and dropping is harmless because imports are idempotent and resume next session. Bounding the arrival rate bounds the downstream work (threads, disk, relay bandwidth) to a constant. The per-frame work is already size-capped.
+
+One layer earlier, before any peer is authenticated, `ConnectionAdmissionGuard` bounds concurrent handshakes globally and per source address. A fresh connection proceeds to its EC key exchange only while capacity is available. Global exhaustion or excess concurrent attempts from one address are refused immediately and do not create a block by themselves. This distinction preserves legitimate full-table tests and invited players who share one NAT address.
+
+Repeated rejected handshakes from one address within the configured window do create a temporary `CONNECTION_ABUSE` block. Successful authentication clears that address's rejection history. Active blocks are host-local and are never broadcast to peers. The host can inspect their address, reason and remaining time in the waiting room or from the in-game quick bar, and can remove a block immediately. Those controls remain hidden when no block exists. The quarantine therefore contains repeated hostile pre-authentication work without turning ordinary capacity pressure into a persistent ban.
 
 Remote avatars have a separate pre-rasterization choke point (`AvatarIO`). Strict Base64 and decoded-byte caps are checked before allocation. PNG/JPEG/GIF metadata is inspected without rasterizing and bounded by dimensions, frame count, logical GIF canvas and total canvas work. Files and thumbnails live in one owned room-session directory with serialized close/write/delete lifecycle. All four remote ingress paths use this helper. Clients also apply `MAX_PARTICIPANTES`, exact/NFC collision checks and atomic admission to `NEWUSER` and every `USERSLIST` entry before avatar allocation. An impossible host roster closes the channel.
 

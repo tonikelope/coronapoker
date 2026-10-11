@@ -4,14 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -209,6 +214,48 @@ class QaBaselineWiringTest {
     }
 
     @Test
+    void everyDrawioSourceHasAnExactResolutionPngExport() throws IOException {
+        Path diagrams = locateRoot().resolve("docs/diagrams");
+        Map<String, int[]> expectedDimensions = Map.of(
+                "bot-architecture", new int[]{2873, 1789},
+                "bot-decision-flow", new int[]{2852, 3070},
+                "coronapoker-frontend-uml", new int[]{2314, 1335},
+                "coronapoker-module-map", new int[]{1714, 1268},
+                "crypto-architecture", new int[]{3014, 2602},
+                "crypto-hand-sequence", new int[]{3341, 19444},
+                "dos-resistance", new int[]{3051, 1665},
+                "testing-certification-flow", new int[]{2976, 1954});
+        Set<String> sources;
+        Set<String> exports;
+        try (var paths = Files.list(diagrams)) {
+            sources = paths.filter(path -> path.getFileName().toString()
+                    .endsWith(".drawio"))
+                    .map(path -> baseName(path, ".drawio"))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        try (var paths = Files.list(diagrams)) {
+            exports = paths.filter(path -> path.getFileName().toString()
+                    .endsWith(".png"))
+                    .map(path -> baseName(path, ".png"))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+
+        assertEquals(expectedDimensions.keySet(), sources,
+                "Draw.io source catalogue changed without updating the export contract");
+        assertEquals(sources, exports,
+                "every Draw.io source must have one PNG export with the same base name");
+        for (var expected : expectedDimensions.entrySet()) {
+            Path png = diagrams.resolve(expected.getKey() + ".png");
+            BufferedImage image = ImageIO.read(png.toFile());
+            assertTrue(image != null, "PNG export is unreadable: " + png);
+            assertEquals(expected.getValue()[0], image.getWidth(),
+                    "PNG width changed: " + png);
+            assertEquals(expected.getValue()[1], image.getHeight(),
+                    "PNG height changed: " + png);
+        }
+    }
+
+    @Test
     void publicDocumentationStaysVersionAgnosticAndUsesPlainProse()
             throws IOException {
         Path root = locateRoot();
@@ -253,6 +300,11 @@ class QaBaselineWiringTest {
             }
         }
         assertFalse(fencedCode, "unclosed code fence in " + document);
+    }
+
+    private static String baseName(Path path, String extension) {
+        String name = path.getFileName().toString();
+        return name.substring(0, name.length() - extension.length());
     }
 
     private static void assertLauncher(Path root, String launcher, String script) throws IOException {

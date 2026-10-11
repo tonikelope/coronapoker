@@ -41,7 +41,7 @@ final class GdxSettingsChrome {
     static void draw(ShapeRenderer shapes, GdxSettingsLayout.Frame frame,
             int sectionCount, int subpageCount, int activeSection,
             int activeSubpage, Vector2 pointer, boolean restoreVisible,
-            float alpha) {
+            boolean restoreEnabled, float alpha) {
         Rectangle panel = frame.panel();
         Rectangle content = frame.content();
 
@@ -102,7 +102,8 @@ final class GdxSettingsChrome {
                 GdxUiButtonStyle.Tone.NEUTRAL, pointer, alpha);
         if (restoreVisible) {
             drawFooterButton(shapes, frame.restoreButton(),
-                    GdxUiButtonStyle.Tone.NEUTRAL, pointer, alpha);
+                    GdxUiButtonStyle.Tone.NEUTRAL, pointer, restoreEnabled,
+                    alpha);
         }
         drawFooterButton(shapes, frame.saveButton(),
                 GdxUiButtonStyle.Tone.FEATURED, pointer, alpha);
@@ -111,10 +112,17 @@ final class GdxSettingsChrome {
     private static void drawFooterButton(ShapeRenderer shapes,
             Rectangle bounds, GdxUiButtonStyle.Tone tone, Vector2 pointer,
             float alpha) {
+        drawFooterButton(shapes, bounds, tone, pointer, true, alpha);
+    }
+
+    private static void drawFooterButton(ShapeRenderer shapes,
+            Rectangle bounds, GdxUiButtonStyle.Tone tone, Vector2 pointer,
+            boolean enabled, float alpha) {
         GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
-                bounds.width, bounds.height, tone, true,
-                contains(bounds, pointer) ? 1f : 0f,
-                contains(bounds, pointer) && pointerPressed(), alpha);
+                bounds.width, bounds.height, tone, enabled,
+                enabled && contains(bounds, pointer) ? 1f : 0f,
+                enabled && contains(bounds, pointer) && pointerPressed(),
+                alpha);
     }
 
     private static boolean pointerPressed() {

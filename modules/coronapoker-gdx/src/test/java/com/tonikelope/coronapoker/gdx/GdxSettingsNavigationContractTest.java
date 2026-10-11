@@ -15,13 +15,14 @@ final class GdxSettingsNavigationContractTest {
         assertEquals(List.of("CIEGAS", "COMPRA", "RECOMPRA", "BOTS",
                 "PARTIDA", "REGLAS"),
                 GdxSettingsContract.WAITING_ROOM_GAME_PAGES);
-        assertEquals(List.of("TIMBA", "CIEGAS", "COMPRA", "BOTS"),
+        assertEquals(GdxSettingsContract.WAITING_ROOM_GAME_PAGES,
                 GdxSettingsContract.LIVE_TABLE_GAME_PAGES);
     }
 
     @Test
     void liveTableSettingsExcludeFastAccessSessionOperations() {
-        assertEquals(List.of("TIMBA", "CIEGAS", "COMPRA", "BOTS"),
+        assertEquals(List.of("CIEGAS", "COMPRA", "RECOMPRA", "BOTS",
+                "PARTIDA", "REGLAS"),
                 CoronaPokerGdxTable.settingsGamePageLabels());
     }
 

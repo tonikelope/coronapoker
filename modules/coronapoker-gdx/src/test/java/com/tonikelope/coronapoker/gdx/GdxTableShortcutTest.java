@@ -299,16 +299,21 @@ final class GdxTableShortcutTest {
     void defaultMarkersFollowTheEditedShortcutPage() {
         GdxShortcutBindings bindings = bindings();
         assertTrue(bindings.isDefault(GdxShortcutBindings.PAUSE));
+        assertTrue(bindings.allDefaults());
 
         bindings.beginEdit();
         assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.K,
                         true, false, false));
         assertFalse(bindings.isDefault(GdxShortcutBindings.PAUSE));
+        assertFalse(bindings.allDefaults());
         GdxShortcutBindings.ShortcutEntry pause
                 = bindings.editableEntries().get(0);
         assertEquals("ALT + K", pause.display());
         assertEquals("PAUSAR LA TIMBA", pause.markedDescription());
+
+        bindings.resetAllEdits();
+        assertTrue(bindings.allDefaults());
     }
 
     private static GdxShortcutBindings bindings() {

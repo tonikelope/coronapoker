@@ -18,6 +18,9 @@ final class GdxSettingsStyle {
     static final float TITLE_FONT_BORDER = 0.35f;
     static final int HEADING_FONT_SIZE = 30;
     static final float HEADING_FONT_BORDER = 0.2f;
+    /** Dedicated glyph size for the compact minus/plus settings buttons. */
+    static final int STEPPER_SIGN_FONT_SIZE = 38;
+    static final float STEPPER_SIGN_FONT_BORDER = 0.2f;
     static final int ACTION_FONT_SIZE = 26;
     static final float ACTION_FONT_BORDER = 0.2f;
     static final int BODY_FONT_SIZE = 24;

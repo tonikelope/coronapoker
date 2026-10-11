@@ -75,6 +75,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Year;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -116,7 +117,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             STARTUP_PRESENTATION_FADE_OUT_START_SECONDS
                     + STARTUP_PRESENTATION_FADE_OUT_SECONDS;
     private static final String STARTUP_PRESENTATION_TITLE =
-            "Tonikelope Solutions S.L.";
+            startupPresentationTitle(Year.now().getValue());
     private static final String STARTUP_PRESENTATION_SUBTITLE = "presents";
     static final float FINAL_AMOUNT_ROLL_SECONDS = 1.5f;
     static final float FINAL_AMOUNT_BLINK_STEP_SECONDS = 0.13f;
@@ -309,17 +310,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int EMOJI_ROWS = 5;
     private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
-    private static final String[] SETTINGS_SESSION_ACTIONS = {
-        "Pantalla completa", "Visor de capturas", "Registro de la timba",
-        "Reglas de Robert", "Marcar última mano",
-        "Forzar reconexión de jugadores", "Detener timba",
-        "Salir de la timba"
-    };
-    private static final String[] SETTINGS_SESSION_ACTION_KEYS = {
-        "fullscreen", "screenshots", "game_log", "robert_rules",
-        "last_hand", "force_reconnect", "stop_game",
-        "leave_game"
-    };
     /** AUTO/action preferences shown before the editable key bindings. */
     private static final int SETTINGS_CONTROL_ROWS = 6;
     private static final float SETTINGS_DEBUG_LINE_HEIGHT = 25f;
@@ -925,6 +915,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont dialogAmountFont;
     private BitmapFont settingsTitleFont;
     private BitmapFont settingsHeadingFont;
+    private BitmapFont settingsStepperSignFont;
     private BitmapFont settingsActionFont;
     private BitmapFont settingsBodyFont;
     private BitmapFont settingsSmallFont;
@@ -2379,15 +2370,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void restoreTableAudioDefaults() {
         Properties properties = tableSettingsProperties();
-        GdxSettingsContract.restoreAudioDefaults(properties, tableHost,
+        GdxSettingsContract.TogglePage page = settingsAudioPage();
+        GdxSettingsContract.restoreAudioPageDefaults(properties,
+                settingsAudioPage, tableHost,
                 GdxAudioDevices.hasCaptureDevices());
-        if (tableHost) {
+        if (tableHost && GdxSettingsContract.hasVoiceRetention(page)) {
             settingsTextToSpeechDraft = true;
             settingsVoiceMessagesDraft = true;
         }
         GdxAudioDevices.applyConfiguredOutput(properties);
-        audioControl.setEnabled(true, false);
-        effectsVolume = 0.8f;
+        audioControl.setEnabled(tablePreference("sonidos", true), false);
+        effectsVolume = GdxSettingsContract.masterVolume(properties);
         musicVolume = 0.40f * effectsVolume;
         if (musicEnabled()) backgroundMusic.play();
         else backgroundMusic.pause();
@@ -2398,7 +2391,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void restoreTableAppearanceDefaults() {
         Properties properties = tableSettingsProperties();
-        GdxSettingsContract.restoreAppearanceDefaults(properties, true);
+        GdxSettingsContract.restoreAppearancePageDefaults(properties,
+                settingsAppearancePage, true);
         GdxDisplayModeController.apply(GdxWindowMode.configured(properties));
         if (presentationSettings != null) {
             liveDeck = availableDeck(presentationSettings.deck());
@@ -2409,6 +2403,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean settingsSectionHasRestoreDefaults() {
         return GdxSettingsContract.hasRestoreDefaults(settingsSection());
+    }
+
+    private boolean currentSettingsSubsectionAtDefaults() {
+        return switch (settingsSection()) {
+            case APPEARANCE -> GdxSettingsContract.appearancePageAtDefaults(
+                    tableSettingsProperties(), settingsAppearancePage, true);
+            case AUDIO -> {
+                boolean defaults = GdxSettingsContract.audioPageAtDefaults(
+                        tableSettingsProperties(), settingsAudioPage,
+                        tableHost, GdxAudioDevices.hasCaptureDevices(),
+                        audioControl.enabled());
+                if (defaults && tableHost && GdxSettingsContract
+                        .hasVoiceRetention(settingsAudioPage())) {
+                    defaults = settingsTextToSpeechDraft
+                            && settingsVoiceMessagesDraft;
+                }
+                yield defaults;
+            }
+            case SHORTCUTS -> shortcutBindings.allDefaults();
+            case GAME, DEBUG -> true;
+        };
     }
 
     private void restoreCurrentSettingsSectionDefaults() {
@@ -2732,17 +2747,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 13 -> settingsHeadingFont = font(creationFontGenerator,
                     GdxSettingsStyle.HEADING_FONT_SIZE,
                     GdxSettingsStyle.HEADING_FONT_BORDER);
-            case 14 -> settingsActionFont = font(creationFontGenerator,
+            case 14 -> settingsStepperSignFont = font(creationFontGenerator,
+                    GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
+                    GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER);
+            case 15 -> settingsActionFont = font(creationFontGenerator,
                     GdxSettingsStyle.ACTION_FONT_SIZE,
                     GdxSettingsStyle.ACTION_FONT_BORDER);
-            case 15 -> settingsBodyFont = font(creationFontGenerator,
+            case 16 -> settingsBodyFont = font(creationFontGenerator,
                     GdxSettingsStyle.BODY_FONT_SIZE, 0f);
-            case 16 -> settingsSmallFont = font(creationFontGenerator,
+            case 17 -> settingsSmallFont = font(creationFontGenerator,
                     GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
-            case 17 -> settingsTinyFont = font(creationFontGenerator,
+            case 18 -> settingsTinyFont = font(creationFontGenerator,
                     GdxSettingsStyle.TINY_FONT_SIZE, 0f);
-            case 18 -> potFont = font(creationFontGenerator, 38, 0f);
-            case 19 -> {
+            case 19 -> potFont = font(creationFontGenerator, 38, 0f);
+            case 20 -> {
                 dialogAmountFont = font(creationFontGenerator, 50, 0f);
                 disposeCreationFontGenerator();
                 return true;
@@ -3034,6 +3052,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return GdxAdaptiveFontQuality.generate(generator, size, border,
                 color, borderColor,
                 "\u2660\u2665\u2666\u2663"
+                + "\u2013"
                 + "\u2500\u2502\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c"
                 + "\u2550\u2551\u2554\u2557\u255a\u255d",
                 profile);
@@ -3110,6 +3129,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsHeadingFont = replaceFont(settingsHeadingFont,
                     font(generator, GdxSettingsStyle.HEADING_FONT_SIZE,
                             GdxSettingsStyle.HEADING_FONT_BORDER, profile));
+            settingsStepperSignFont = replaceFont(settingsStepperSignFont,
+                    font(generator, GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
+                            GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER,
+                            profile));
             settingsActionFont = replaceFont(settingsActionFont,
                     font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
                             GdxSettingsStyle.ACTION_FONT_BORDER, profile));
@@ -4710,6 +4733,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    static String startupPresentationTitle(int currentYear) {
+        return "© 2020–" + Math.max(2020, currentYear)
+                + " Tonikelope Solutions S. L.";
+    }
+
     static float startupPresentationAlpha(float timeSeconds) {
         if (timeSeconds <= STARTUP_PRESENTATION_DELAY_SECONDS) return 0f;
         float presentationTime = timeSeconds
@@ -4883,6 +4911,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Closing a layer can set uiLayer to UI_NONE. Return immediately:
             // otherwise this very same ESC reaches handleLiveTableInput below
             // and the default ESC shortcut folds in the same frame.
+            return;
+        }
+        if ((Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_ENTER))
+                && consumeForegroundConfirmation()) {
             return;
         }
         if (GdxShortcutBindings.FULLSCREEN.equals(shortcutAction)
@@ -5066,6 +5099,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "Unsupported foreground UI layer: " + uiLayer);
         }
         return true;
+    }
+
+    private boolean consumeForegroundConfirmation() {
+        if (uiLayer == UI_CHAT && tableImageClearConfirmation) {
+            confirmTableImageHistoryClear();
+            return true;
+        }
+        if (uiLayer == UI_SETTINGS && voiceNotesOpen
+                && (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation)) {
+            if (!voiceNotesLoading) confirmTableVoiceNoteDeletion();
+            return true;
+        }
+        return false;
     }
 
     private boolean liveCardContains(float x, float y) {
@@ -15128,15 +15175,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return GdxSettingsContract.LIVE_TABLE_GAME_PAGES;
     }
 
-    static List<String> settingsSessionActionLabels() {
-        return List.copyOf(Arrays.asList(SETTINGS_SESSION_ACTIONS.clone()));
-    }
-
-    private String settingsSessionActionLabel(int index) {
-        return settingsGameText("session.action."
-                + SETTINGS_SESSION_ACTION_KEYS[index]);
-    }
-
     private boolean hasRemoteHumanPeers() {
         return tableChat != null && tableChat.snapshot().participants().stream()
                 .anyMatch(participant -> !participant.local()
@@ -15508,54 +15546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
             }
-        } else if (contentPage == 3) {
-            GdxSettingsLayout.GameColumns columns =
-                    GdxSettingsLayout.gameColumns(contentX, rowW);
-            GdxSettingsLayout.SplitRow handRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstRowY, 0));
-            Rectangle handLimit = handRow.left();
-            Rectangle handCount = handRow.right();
-            Rectangle iwtsth = columns.right(firstRowY, 0);
-            Rectangle runItTwice = columns.right(firstRowY, 1);
-            Rectangle rabbit = columns.right(firstRowY, 2);
-            Rectangle hotJoin = columns.right(firstRowY, 3);
-            if (GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                    lobby != null) && hotJoin.contains(x, y)) {
-                runSwitchAction(settingsHotJoinDraft,
-                        () -> settingsHotJoinDraft = !settingsHotJoinDraft);
-                return;
-            }
-            if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
-                    liveSettingsDraft)) {
-                return;
-            }
-            if (iwtsth.contains(x, y)) {
-                boolean enabled = liveSettingsDraft.iwtsth();
-                runSwitchAction(enabled, () -> liveSettingsDraft =
-                        liveSettingsDraft.withIwtsth(!enabled));
-                return;
-            }
-            if (GdxLiveSettingsPolicy.canEditRunItTwice(tableHost,
-                    liveSettingsDraft,
-                    liveState != null && liveState.runItTwiceLocked())
-                    && runItTwice.contains(x, y)) {
-                boolean enabled = liveSettingsDraft.runItTwice();
-                runSwitchAction(enabled, () -> liveSettingsDraft =
-                        liveSettingsDraft.withRunItTwice(!enabled));
-                return;
-            }
-            if (rabbit.contains(x, y)) {
-                adjustDraftRabbitHunting(settingsStepperDirection(x,
-                        rabbit.x, rabbit.width));
-                return;
-            }
-            if (handLimit.contains(x, y)
-                    || liveSettingsDraft.hands() != -1
-                    && handCount.contains(x, y)) {
-                openDraftHandLimitDialog();
-                return;
-            }
-        } else if (contentPage == 4
+        } else if (contentPage == 3
                 && GdxLiveSettingsPolicy.canEditGameRules(tableHost,
                         liveSettingsDraft)) {
             GdxSettingsLayout.GameColumns columns =
@@ -15642,70 +15633,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
         } else if (contentPage == 7) {
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                    firstRowY, SETTINGS_SESSION_ACTIONS.length,
-                    settingsGameScroll);
-            settingsGameScroll = rows.offset();
-            Rectangle rowViewport = settingsRowsViewport(content, firstRowY);
-            for (int row = rows.firstIndex();
-                    row < rows.lastExclusive(); row++) {
-                if (!rowViewport.contains(x, y)
-                        || !contains(x, y, contentX,
-                                rows.rowY(row), rowW,
-                                GdxSettingsLayout.ROW_HEIGHT)
-                        || !settingsSessionActionEnabled(row)) {
-                    continue;
-                }
-                switch (row) {
-                    case 0 -> runSwitchAction(
-                            GdxDisplayModeController.isFullscreenLike(),
-                            this::toggleFullscreen);
-                    case 1 -> {
-                        requestCancelTableSettings(this::openScreenshotViewer);
-                    }
-                    case 2 -> {
-                        requestCancelTableSettings(() -> {
-                            gameLogScroll = 0;
-                            openUiLayer(UI_GAME_LOG);
-                        });
-                    }
-                    case 3 -> {
-                        requestCancelTableSettings(() -> Gdx.net.openURI(
-                                GdxHandGeneratorModel.ROBERT_RULES_URL));
-                    }
-                    case 4 -> {
-                        requestCancelTableSettings(this::requestLastHandChange);
-                    }
-                    case 5 -> {
-                        requestCancelTableSettings(this::requestForceReconnect);
-                    }
-                    case 6 -> {
-                        requestCancelTableSettings(this::requestStopGame);
-                    }
-                    case 7 -> {
-                        requestCancelTableSettings(this::requestExit);
-                    }
-                    default -> {
-                    }
-                }
+            Rectangle handLimit = settingsGameRow(contentX, firstRowY,
+                    rowW, 0);
+            Rectangle handCount = settingsGameRow(contentX, firstRowY,
+                    rowW, 1);
+            Rectangle hotJoin = settingsGameRow(contentX, firstRowY,
+                    rowW, 5);
+            if (GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                    lobby != null) && hotJoin.contains(x, y)) {
+                runSwitchAction(settingsHotJoinDraft,
+                        () -> settingsHotJoinDraft = !settingsHotJoinDraft);
+                return;
+            }
+            if (GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                    liveSettingsDraft)
+                    && (handLimit.contains(x, y)
+                    || liveSettingsDraft.hands() != -1
+                    && handCount.contains(x, y))) {
+                openDraftHandLimitDialog();
                 return;
             }
         } else if (contentPage == 8) {
-            List<GdxShortcutBindings.ShortcutEntry> entries
-                    = shortcutBindings.editableEntries(gameText);
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                    firstRowY, entries.size(), shortcutScroll);
-            shortcutScroll = rows.offset();
-            Rectangle rowViewport = settingsRowsViewport(content, firstRowY);
-            for (int row = rows.firstIndex(); row < rows.lastExclusive();
-                    row++) {
-                float rowY = rows.rowY(row);
-                if (rowViewport.contains(x, y)
-                        && contains(x, y, contentX, rowY, rowW, 62f)) {
-                    shortcutCaptureId = entries.get(row).id();
-                    shortcutStatus = "prompt";
-                    return;
-                }
+            if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                    liveSettingsDraft)) return;
+            Rectangle iwtsth = settingsGameRow(contentX, firstRowY,
+                    rowW, 0);
+            Rectangle runItTwice = settingsGameRow(contentX, firstRowY,
+                    rowW, 1);
+            Rectangle rabbit = settingsGameRow(contentX, firstRowY,
+                    rowW, 2);
+            if (iwtsth.contains(x, y)) {
+                boolean enabled = liveSettingsDraft.iwtsth();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withIwtsth(!enabled));
+                return;
+            }
+            if (GdxLiveSettingsPolicy.canEditRunItTwice(tableHost,
+                    liveSettingsDraft,
+                    liveState != null && liveState.runItTwiceLocked())
+                    && runItTwice.contains(x, y)) {
+                boolean enabled = liveSettingsDraft.runItTwice();
+                runSwitchAction(enabled, () -> liveSettingsDraft =
+                        liveSettingsDraft.withRunItTwice(!enabled));
+                return;
+            }
+            if (rabbit.contains(x, y)) {
+                adjustDraftRabbitHunting(settingsStepperDirection(x,
+                        rabbit.x, rabbit.width));
+                return;
             }
         } else if (contentPage == 9
                 && settingsDebugCopyButton().contains(x, y)) {
@@ -15717,6 +15692,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (settingsSectionHasRestoreDefaults()
+                && !currentSettingsSubsectionAtDefaults()
                 && frame.restoreButton().contains(x, y)) {
             restoreCurrentSettingsSectionDefaults();
             return;
@@ -15738,6 +15714,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float width, int row) {
         return GdxSettingsLayout.optionRow(x, y, width,
                 row >= 1 && row <= 3);
+    }
+
+    /** Full-width Game row shared with the waiting-room settings hierarchy. */
+    private static Rectangle settingsGameRow(float x, float firstY,
+            float width, int row) {
+        return new Rectangle(x,
+                firstY - row * GdxSettingsLayout.ROW_STRIDE,
+                width, GdxSettingsLayout.ROW_HEIGHT);
     }
 
     private static boolean settingsStepperValueContains(float pointerX,
@@ -15868,14 +15852,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.LIVE_TABLE_GAME_PAGES.size() - 1);
             case SHORTCUTS -> 2;
             case DEBUG -> 9;
-        };
-    }
-
-    private boolean settingsSessionActionEnabled(int row) {
-        return switch (row) {
-            case 4, 6 -> tableHost;
-            case 5 -> tableHost && hasRemoteHumanPeers();
-            default -> true;
         };
     }
 
@@ -16226,15 +16202,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (contains(x, y, panelX + panelW - 346f, panelY + 38f,
                 300f, 68f)) {
-            if (preferences != null) {
-                GdxChatImageHistory.clear(tableProperties);
-            }
-            tableImageHistory = List.of();
-            tableGalleryMedia.clear();
-            if (preferences != null) preferences.saveDeferred();
-            tableImageClearConfirmation = false;
-            chatError = "";
+            confirmTableImageHistoryClear();
         }
+    }
+
+    private void confirmTableImageHistoryClear() {
+        if (preferences != null) {
+            GdxChatImageHistory.clear(tableProperties);
+        }
+        tableImageHistory = List.of();
+        tableGalleryMedia.clear();
+        if (preferences != null) preferences.saveDeferred();
+        tableImageClearConfirmation = false;
+        chatError = "";
     }
 
     private void drawTableImageClearConfirmation() {
@@ -18086,9 +18066,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(0f, 0f, 0f, 0.28f * alpha);
         shapes.rect(0f, 0f, width, height);
+        boolean restoreVisible = settingsSectionHasRestoreDefaults();
+        boolean restoreEnabled = restoreVisible
+                && !currentSettingsSubsectionAtDefaults();
         GdxSettingsChrome.draw(shapes, frame, sections.size(),
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
-                pointer, settingsSectionHasRestoreDefaults(), alpha);
+                pointer, restoreVisible, restoreEnabled, alpha);
 
         Rectangle settingsContentClip = settingsRowsViewport(content,
                 firstRowY);
@@ -18134,14 +18117,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameText.translate("ui.cancelar"),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 POT_GOLD, alpha);
-        if (settingsSectionHasRestoreDefaults()) {
+        if (restoreVisible) {
             Rectangle restore = frame.restoreButton();
             drawFittedCenteredInBox(settingsSmallFont,
                     gameText.translate("gdx.settings.restore_defaults")
                             .toUpperCase(Locale.forLanguageTag(
                                     gameText.language())),
                     restore.x, restore.y, restore.width, restore.height,
-                    POT_GOLD, alpha);
+                    restoreEnabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
         }
         drawFittedCenteredInBox(settingsActionFont,
                 gameText.translate("ui.guardar"),
@@ -18192,47 +18175,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private SettingsLockHover settingsLockHover(float x, float firstY,
             float width) {
         int page = settingsContentPage();
-        if (page < 3 || page > 6) return null;
+        if (page < 3 || page > 8) return null;
         Rectangle content = currentSettingsContent();
         Rectangle viewportBounds = settingsRowsViewport(content, firstY);
         if (!viewportBounds.contains(pointer)) return null;
-        GdxSettingsLayout.GameColumns columns =
-                GdxSettingsLayout.gameColumns(x, width);
         if (page == 3) {
-            GdxSettingsLayout.SplitRow handRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 0));
-            GdxSettingsLayout.SplitRow thinkRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 1));
-            SettingsLockHover fixed = firstHoveredLock(
-                    "gdx.settings.game.locked_during_game", "round-fixed",
-                    thinkRow.left(), thinkRow.right(),
-                    columns.left(firstY, 2));
-            if (fixed != null) return fixed;
-            if (!tableHost || liveSettingsDraft == null) {
-                String key = !tableHost
-                        ? "gdx.settings.game.server_only"
-                        : "gdx.settings.game.locked_during_game";
-                return firstHoveredLock(key, "round-server",
-                        handRow.left(), handRow.right(),
-                        columns.right(firstY, 0),
-                        columns.right(firstY, 1), columns.right(firstY, 2),
-                        columns.right(firstY, 3));
-            }
-            if (liveState != null && liveState.runItTwiceLocked()) {
-                return hoveredLock(columns.right(firstY, 1),
-                        "gdx.settings.game.locked_during_game", "rit-locked");
-            }
-            if (!GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                    lobby != null)) {
-                return hoveredLock(columns.right(firstY, 3),
-                        tableHost
-                                ? "gdx.settings.game.locked_during_game"
-                                : "gdx.settings.game.server_only",
-                        "hot-join-policy");
-            }
-            return null;
-        }
-        if (page == 4) {
+            GdxSettingsLayout.GameColumns columns =
+                    GdxSettingsLayout.gameColumns(x, width);
             SettingsLockHover manage = hoveredLock(columns.left(firstY, 4),
                     "gdx.settings.game.locked_during_game", "blind-manage");
             if (manage != null) return manage;
@@ -18249,27 +18198,69 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return null;
         }
-        if (page == 5) {
-            GdxSettingsLayout.SplitRow range =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 2));
+        if (page == 4) {
             return firstHoveredLock("gdx.settings.game.locked_during_game",
-                    "purchase-fixed", columns.left(firstY, 0),
-                    columns.left(firstY, 1), range.left(), range.right(),
-                    columns.right(firstY, 0),
-                    columns.right(firstY, 1), columns.right(firstY, 2),
-                    columns.right(firstY, 3));
+                    "purchase-fixed", settingsGameRow(x, firstY, width, 0),
+                    settingsGameRow(x, firstY, width, 1),
+                    settingsGameRow(x, firstY, width, 2),
+                    settingsGameRow(x, firstY, width, 3),
+                    settingsGameRow(x, firstY, width, 4));
         }
-        if (!tableHost || liveSettingsDraft == null) {
+        if (page == 5) {
+            return firstHoveredLock("gdx.settings.game.locked_during_game",
+                    "rebuy-fixed", settingsGameRow(x, firstY, width, 0),
+                    settingsGameRow(x, firstY, width, 1),
+                    settingsGameRow(x, firstY, width, 2));
+        }
+        if (page == 6 && (!tableHost || liveSettingsDraft == null)) {
             String key = !tableHost ? "gdx.settings.game.server_only"
                     : "gdx.settings.game.locked_during_game";
             return firstHoveredLock(key, "bots-server",
-                    new Rectangle(x, firstY, width,
-                            GdxSettingsLayout.ROW_HEIGHT),
-                    new Rectangle(x, firstY - GdxSettingsLayout.ROW_STRIDE,
-                            width, GdxSettingsLayout.ROW_HEIGHT),
-                    new Rectangle(x,
-                            firstY - 2f * GdxSettingsLayout.ROW_STRIDE,
-                            width, GdxSettingsLayout.ROW_HEIGHT));
+                    settingsGameRow(x, firstY, width, 0),
+                    settingsGameRow(x, firstY, width, 1),
+                    settingsGameRow(x, firstY, width, 2));
+        }
+        if (page == 7) {
+            SettingsLockHover fixed = firstHoveredLock(
+                    "gdx.settings.game.locked_during_game", "round-fixed",
+                    settingsGameRow(x, firstY, width, 2),
+                    settingsGameRow(x, firstY, width, 3),
+                    settingsGameRow(x, firstY, width, 4));
+            if (fixed != null) return fixed;
+            if (!tableHost || liveSettingsDraft == null) {
+                String key = !tableHost
+                        ? "gdx.settings.game.server_only"
+                        : "gdx.settings.game.locked_during_game";
+                SettingsLockHover host = firstHoveredLock(key,
+                        "round-server",
+                        settingsGameRow(x, firstY, width, 0),
+                        settingsGameRow(x, firstY, width, 1));
+                if (host != null) return host;
+            }
+            if (!GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                    lobby != null)) {
+                return hoveredLock(settingsGameRow(x, firstY, width, 5),
+                        tableHost
+                                ? "gdx.settings.game.locked_during_game"
+                                : "gdx.settings.game.server_only",
+                        "hot-join-policy");
+            }
+            return null;
+        }
+        if (page == 8) {
+            if (!tableHost || liveSettingsDraft == null) {
+                String key = !tableHost
+                        ? "gdx.settings.game.server_only"
+                        : "gdx.settings.game.locked_during_game";
+                return firstHoveredLock(key, "rules-server",
+                        settingsGameRow(x, firstY, width, 0),
+                        settingsGameRow(x, firstY, width, 1),
+                        settingsGameRow(x, firstY, width, 2));
+            }
+            if (liveState != null && liveState.runItTwiceLocked()) {
+                return hoveredLock(settingsGameRow(x, firstY, width, 1),
+                        "gdx.settings.game.locked_during_game", "rit-locked");
+            }
         }
         return null;
     }
@@ -18957,55 +18948,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (contentPage == 3) {
             boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
                     tableHost, liveSettingsDraft);
-            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
-                    tableHost, liveSettingsDraft,
-                    liveState != null && liveState.runItTwiceLocked());
-            GdxSettingsLayout.GameColumns columns =
-                    GdxSettingsLayout.gameColumns(x, width);
-            GdxSettingsLayout.SplitRow handRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 0));
-            GdxSettingsLayout.SplitRow thinkRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 1));
-            Rectangle handLimit = handRow.left();
-            Rectangle handCount = handRow.right();
-            Rectangle thinkTime = thinkRow.left();
-            Rectangle thinkSeconds = thinkRow.right();
-            Rectangle showdown = columns.left(firstY, 2);
-            Rectangle iwtsth = columns.right(firstY, 0);
-            Rectangle runItTwice = columns.right(firstY, 1);
-            Rectangle rabbit = columns.right(firstY, 2);
-            Rectangle hotJoin = columns.right(firstY, 3);
-            boolean limited = liveSettingsDraft != null
-                    && liveSettingsDraft.hands() != -1;
-            drawSettingsToggleShape(handLimit.x, handLimit.y, handLimit.width,
-                    limited, enabled, alpha);
-            drawSettingsChoiceShape(handCount.x, handCount.y, handCount.width,
-                    enabled && limited, alpha);
-            drawSettingsToggleShape(thinkTime.x, thinkTime.y, thinkTime.width,
-                    liveSettingsDraft != null
-                            && liveSettingsDraft.thinkTimeEnabled(),
-                    false, alpha);
-            drawSettingsStepperShape(thinkSeconds.x, thinkSeconds.y,
-                    thinkSeconds.width, false, alpha);
-            drawSettingsStepperShape(showdown.x, showdown.y, showdown.width,
-                    false, alpha);
-            drawSettingsToggleShape(iwtsth.x, iwtsth.y, iwtsth.width,
-                    liveSettingsDraft != null && liveSettingsDraft.iwtsth(),
-                    enabled, alpha);
-            drawSettingsToggleShape(runItTwice.x, runItTwice.y,
-                    runItTwice.width,
-                    liveSettingsDraft != null
-                    && liveSettingsDraft.runItTwice(), runItTwiceEnabled,
-                    alpha);
-            drawSettingsStepperShape(rabbit.x, rabbit.y, rabbit.width,
-                    enabled, alpha);
-            drawSettingsToggleShape(hotJoin.x, hotJoin.y, hotJoin.width,
-                    settingsHotJoinDraft,
-                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                            lobby != null), alpha);
-        } else if (contentPage == 4) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
             Rectangle structure = columns.left(firstY, 0);
@@ -19044,19 +18986,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     capToggle.width, capped, enabled && increasing, alpha);
             drawSettingsStepperShape(cap.x, cap.y, cap.width,
                     enabled && capped, alpha);
-        } else if (contentPage == 5) {
-            GdxSettingsLayout.GameColumns columns =
-                    GdxSettingsLayout.gameColumns(x, width);
-            Rectangle fixedBuyin = columns.left(firstY, 0);
-            Rectangle initialBuyin = columns.left(firstY, 1);
-            GdxSettingsLayout.SplitRow range =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 2));
-            Rectangle minimumBuyin = range.left();
-            Rectangle maximumBuyin = range.right();
-            Rectangle rebuy = columns.right(firstY, 0);
-            Rectangle playerLimit = columns.right(firstY, 1);
-            Rectangle maximumRebuys = columns.right(firstY, 2);
-            Rectangle rebuyCap = columns.right(firstY, 3);
+        } else if (contentPage == 4) {
+            Rectangle fixedBuyin = settingsGameRow(x, firstY, width, 0);
+            Rectangle initialBuyin = settingsGameRow(x, firstY, width, 1);
+            Rectangle minimumBuyin = settingsGameRow(x, firstY, width, 2);
+            Rectangle maximumBuyin = settingsGameRow(x, firstY, width, 3);
+            Rectangle rebuyCap = settingsGameRow(x, firstY, width, 4);
             drawSettingsToggleShape(fixedBuyin.x, fixedBuyin.y,
                     fixedBuyin.width, liveSettingsDraft != null
                             && liveSettingsDraft.fixedBuyin(), false, alpha);
@@ -19066,6 +19001,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     minimumBuyin.width, false, alpha);
             drawSettingsStepperShape(maximumBuyin.x, maximumBuyin.y,
                     maximumBuyin.width, false, alpha);
+            drawSettingsStepperShape(rebuyCap.x, rebuyCap.y,
+                    rebuyCap.width, false, alpha);
+        } else if (contentPage == 5) {
+            Rectangle rebuy = settingsGameRow(x, firstY, width, 0);
+            Rectangle playerLimit = settingsGameRow(x, firstY, width, 1);
+            Rectangle maximumRebuys = settingsGameRow(x, firstY, width, 2);
             drawSettingsToggleShape(rebuy.x, rebuy.y, rebuy.width,
                     liveSettingsDraft != null && liveSettingsDraft.rebuy(),
                     false, alpha);
@@ -19075,8 +19016,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     alpha);
             drawSettingsStepperShape(maximumRebuys.x, maximumRebuys.y,
                     maximumRebuys.width, false, alpha);
-            drawSettingsStepperShape(rebuyCap.x, rebuyCap.y,
-                    rebuyCap.width, false, alpha);
         } else if (contentPage == 6) {
             boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
                     tableHost, liveSettingsDraft);
@@ -19091,41 +19030,51 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && liveSettingsDraft.botBalanceToHumans(), enabled,
                     alpha);
         } else if (contentPage == 7) {
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(
-                    currentSettingsContent(), firstY,
-                    SETTINGS_SESSION_ACTIONS.length, settingsGameScroll);
-            settingsGameScroll = rows.offset();
-            for (int row = rows.firstIndex();
-                    row < rows.lastExclusive(); row++) {
-                boolean enabled = settingsSessionActionEnabled(row);
-                if (row == 0 || row == 4) {
-                    boolean on = row == 0
-                            ? GdxDisplayModeController.isFullscreenLike()
-                            : liveState != null && liveState.lastHand();
-                    drawSettingsToggleShape(x, rows.rowY(row), width, on,
-                            enabled, alpha);
-                } else {
-                    drawCanonicalSettingsRow(x, rows.rowY(row), width,
-                            GdxSettingsLayout.ROW_HEIGHT,
-                            settingsSessionActionEnabled(row), alpha);
-                }
-            }
-            drawSettingsRowScrollbarShape(x + width + 12f, rows, alpha);
+            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
+                    tableHost, liveSettingsDraft);
+            Rectangle handLimit = settingsGameRow(x, firstY, width, 0);
+            Rectangle handCount = settingsGameRow(x, firstY, width, 1);
+            Rectangle thinkTime = settingsGameRow(x, firstY, width, 2);
+            Rectangle thinkSeconds = settingsGameRow(x, firstY, width, 3);
+            Rectangle showdown = settingsGameRow(x, firstY, width, 4);
+            Rectangle hotJoin = settingsGameRow(x, firstY, width, 5);
+            boolean limited = liveSettingsDraft != null
+                    && liveSettingsDraft.hands() != -1;
+            drawSettingsToggleShape(handLimit.x, handLimit.y, handLimit.width,
+                    limited, enabled, alpha);
+            drawSettingsStepperShape(handCount.x, handCount.y, handCount.width,
+                    enabled && limited, alpha);
+            drawSettingsToggleShape(thinkTime.x, thinkTime.y, thinkTime.width,
+                    liveSettingsDraft != null
+                            && liveSettingsDraft.thinkTimeEnabled(),
+                    false, alpha);
+            drawSettingsStepperShape(thinkSeconds.x, thinkSeconds.y,
+                    thinkSeconds.width, false, alpha);
+            drawSettingsStepperShape(showdown.x, showdown.y, showdown.width,
+                    false, alpha);
+            drawSettingsToggleShape(hotJoin.x, hotJoin.y, hotJoin.width,
+                    settingsHotJoinDraft,
+                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                            lobby != null), alpha);
         } else if (contentPage == 8) {
-            List<GdxShortcutBindings.ShortcutEntry> entries
-                    = shortcutBindings.editableEntries(gameText);
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(
-                    currentSettingsContent(), firstY, entries.size(),
-                    shortcutScroll);
-            shortcutScroll = rows.offset();
-            for (int row = rows.firstIndex(); row < rows.lastExclusive();
-                    row++) {
-                GdxShortcutBindings.ShortcutEntry entry
-                        = entries.get(row);
-                drawSettingsShortcutShape(x, rows.rowY(row), width,
-                        entry.id().equals(shortcutCaptureId), alpha);
-            }
-            drawSettingsRowScrollbarShape(x + width + 12f, rows, alpha);
+            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
+                    tableHost, liveSettingsDraft);
+            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
+                    tableHost, liveSettingsDraft,
+                    liveState != null && liveState.runItTwiceLocked());
+            Rectangle iwtsth = settingsGameRow(x, firstY, width, 0);
+            Rectangle runItTwice = settingsGameRow(x, firstY, width, 1);
+            Rectangle rabbit = settingsGameRow(x, firstY, width, 2);
+            drawSettingsToggleShape(iwtsth.x, iwtsth.y, iwtsth.width,
+                    liveSettingsDraft != null && liveSettingsDraft.iwtsth(),
+                    enabled, alpha);
+            drawSettingsToggleShape(runItTwice.x, runItTwice.y,
+                    runItTwice.width,
+                    liveSettingsDraft != null
+                            && liveSettingsDraft.runItTwice(),
+                    runItTwiceEnabled, alpha);
+            drawSettingsStepperShape(rabbit.x, rabbit.y, rabbit.width,
+                    enabled, alpha);
         } else {
             drawSettingsDebugShape(x, firstY, width, alpha);
         }
@@ -19266,13 +19215,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 alpha);
         drawCanonicalSettingsEmbeddedButton(row.plusButton(), enabled,
                 alpha);
-        Color line = new Color(enabled ? GdxSettingsStyle.LINE_RGBA
-                : GdxSettingsStyle.DISABLED_LINE_RGBA);
-        shapes.setColor(line.r, line.g, line.b, line.a * alpha);
-        shapes.rect(row.value().x, row.value().y + 8f, 2f,
-                row.value().height - 16f);
-        shapes.rect(row.value().x + row.value().width,
-                row.value().y + 8f, 2f, row.value().height - 16f);
     }
 
     private void drawCanonicalSettingsEmbeddedButton(Rectangle bounds,
@@ -19364,10 +19306,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 Float.compare(effectsVolume, 0.8f) == 0),
                         percentage.x, percentage.y, percentage.width,
                         percentage.height, POT_GOLD, alpha);
-                drawFittedCenteredInBox(settingsHeadingFont, "-",
+                drawFittedCenteredInBox(settingsStepperSignFont, "-",
                         minus.x, minus.y, minus.width, minus.height,
                         Color.WHITE, alpha);
-                drawFittedCenteredInBox(settingsHeadingFont, "+",
+                drawFittedCenteredInBox(settingsStepperSignFont, "+",
                         plus.x, plus.y, plus.width, plus.height,
                         Color.WHITE, alpha);
                 registerPointerRepeatHit(minus.x, minus.y, minus.width,
@@ -19403,7 +19345,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsContract.markDefault(
                                 option.label(gameText),
                                 settingsOptionDisplayedValue(option)
-                                        == option.fallback()),
+                                        == GdxSettingsContract
+                                                .displayedFallback(option)),
                         enabled, alpha);
             }
             if (GdxSettingsContract.hasVoiceRetention(page)) {
@@ -19589,7 +19532,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxSettingsContract.markDefault(
                                         option.label(gameText),
                                         settingsOptionDisplayedValue(option)
-                                                == option.fallback()),
+                                            == GdxSettingsContract
+                                                    .displayedFallback(option)),
                                 enabled, alpha);
                     }
                 }
@@ -19651,60 +19595,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         warning ? FOLD_RED : CYAN, alpha);
             }
         } else if (contentPage == 3) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
-            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
-                    tableHost, liveSettingsDraft,
-                    liveState != null && liveState.runItTwiceLocked());
-            GdxSettingsLayout.GameColumns columns =
-                    GdxSettingsLayout.gameColumns(x, width);
-            GdxSettingsLayout.SplitRow handRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 0));
-            GdxSettingsLayout.SplitRow thinkRow =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 1));
-            Rectangle handLimit = handRow.left();
-            Rectangle handCount = handRow.right();
-            Rectangle thinkTime = thinkRow.left();
-            Rectangle thinkSeconds = thinkRow.right();
-            Rectangle showdown = columns.left(firstY, 2);
-            Rectangle iwtsth = columns.right(firstY, 0);
-            Rectangle runItTwice = columns.right(firstY, 1);
-            Rectangle rabbit = columns.right(firstY, 2);
-            Rectangle hotJoin = columns.right(firstY, 3);
-            boolean limited = liveSettingsDraft != null
-                    && liveSettingsDraft.hands() != -1;
-            drawSettingsRowText(handLimit.x, handLimit.y, handLimit.width,
-                    settingsGameText("row.hand_limit"), enabled, alpha);
-            drawSettingsRowText(handCount.x, handCount.y, handCount.width,
-                    settingsGameText("row.hand_count") + "  -  "
-                            + handLimitSettingLabel(), enabled && limited,
-                    alpha);
-            drawSettingsRowText(thinkTime.x, thinkTime.y, thinkTime.width,
-                    settingsGameText("row.think_time"), false, alpha);
-            drawSettingsStepperText(thinkSeconds.x, thinkSeconds.y,
-                    thinkSeconds.width, settingsGameText("row.think_seconds"),
-                    liveSettingsDraft == null ? "—"
-                            : liveSettingsDraft.thinkTime() + " S",
-                    false, alpha);
-            drawSettingsStepperText(showdown.x, showdown.y, showdown.width,
-                    settingsGameText("row.showdown_seconds"),
-                    liveSettingsDraft == null ? "—"
-                            : liveSettingsDraft.showdownTime() + " S",
-                    false, alpha);
-            drawSettingsRowText(iwtsth.x, iwtsth.y, iwtsth.width,
-                    settingsGameText("row.iwtsth"), enabled, alpha);
-            drawSettingsRowText(runItTwice.x, runItTwice.y,
-                    runItTwice.width,
-                    settingsGameText("row.run_it_twice"),
-                    runItTwiceEnabled, alpha);
-            drawSettingsStepperText(rabbit.x, rabbit.y, rabbit.width,
-                    settingsGameText("row.rabbit_hunting"), rabbitRuleLabel(),
-                    enabled, alpha);
-            drawSettingsRowText(hotJoin.x, hotJoin.y, hotJoin.width,
-                    settingsGameText("row.allow_hot_join"),
-                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                            lobby != null), alpha);
-        } else if (contentPage == 4) {
             boolean enabled = tableHost && liveSettingsDraft != null;
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
@@ -19764,19 +19654,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     : formatAmount(
                                             liveSettingsDraft.blindCap()),
                     enabled && capped, alpha);
-        } else if (contentPage == 5) {
-            GdxSettingsLayout.GameColumns columns =
-                    GdxSettingsLayout.gameColumns(x, width);
-            Rectangle fixedBuyin = columns.left(firstY, 0);
-            Rectangle initialBuyin = columns.left(firstY, 1);
-            GdxSettingsLayout.SplitRow range =
-                    GdxSettingsLayout.splitGameRow(columns.left(firstY, 2));
-            Rectangle minimumBuyin = range.left();
-            Rectangle maximumBuyin = range.right();
-            Rectangle rebuy = columns.right(firstY, 0);
-            Rectangle playerLimit = columns.right(firstY, 1);
-            Rectangle maximumRebuys = columns.right(firstY, 2);
-            Rectangle rebuyCap = columns.right(firstY, 3);
+        } else if (contentPage == 4) {
+            Rectangle fixedBuyin = settingsGameRow(x, firstY, width, 0);
+            Rectangle initialBuyin = settingsGameRow(x, firstY, width, 1);
+            Rectangle minimumBuyin = settingsGameRow(x, firstY, width, 2);
+            Rectangle maximumBuyin = settingsGameRow(x, firstY, width, 3);
+            Rectangle rebuyCap = settingsGameRow(x, firstY, width, 4);
             drawSettingsRowText(fixedBuyin.x, fixedBuyin.y,
                     fixedBuyin.width, settingsGameText("row.fixed_buyin"),
                     false, alpha);
@@ -19797,6 +19680,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveSettingsDraft == null ? "—"
                             : liveSettingsDraft.buyinMaxBb() + " BB",
                     false, alpha);
+            drawSettingsStepperText(rebuyCap.x, rebuyCap.y,
+                    rebuyCap.width, settingsGameText("row.rebuy_cap"),
+                    liveSettingsDraft == null ? "—"
+                            : liveSettingsDraft.rebuyCapPolicy() == 0
+                                    ? "BUY-IN"
+                                    : settingsGameText("value.highest_stack"),
+                    false, alpha);
+        } else if (contentPage == 5) {
+            Rectangle rebuy = settingsGameRow(x, firstY, width, 0);
+            Rectangle playerLimit = settingsGameRow(x, firstY, width, 1);
+            Rectangle maximumRebuys = settingsGameRow(x, firstY, width, 2);
             drawSettingsRowText(rebuy.x, rebuy.y, rebuy.width,
                     settingsGameText("row.rebuy"), false, alpha);
             drawSettingsRowText(playerLimit.x, playerLimit.y,
@@ -19810,13 +19704,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     ? settingsGameText("value.no_limit")
                                     : Integer.toString(
                                             liveSettingsDraft.rebuyLimit()),
-                    false, alpha);
-            drawSettingsStepperText(rebuyCap.x, rebuyCap.y,
-                    rebuyCap.width, settingsGameText("row.rebuy_cap"),
-                    liveSettingsDraft == null ? "—"
-                            : liveSettingsDraft.rebuyCapPolicy() == 0
-                                    ? "BUY-IN"
-                                    : settingsGameText("value.highest_stack"),
                     false, alpha);
         } else if (contentPage == 6) {
             boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
@@ -19832,49 +19719,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsRowText(x, firstY - 140f, width,
                     settingsGameText("row.bot_balance"), enabled, alpha);
         } else if (contentPage == 7) {
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(
-                    currentSettingsContent(), firstY,
-                    SETTINGS_SESSION_ACTIONS.length, settingsGameScroll);
-            settingsGameScroll = rows.offset();
-            for (int row = rows.firstIndex();
-                    row < rows.lastExclusive(); row++) {
-                boolean enabled = settingsSessionActionEnabled(row);
-                Color color = row >= 6 ? CONTEXT_EXIT
-                        : row == 4 && liveState != null && liveState.lastHand()
-                                ? STACK_GREEN : Color.WHITE;
-                drawSettingsRowText(x, rows.rowY(row), width,
-                        settingsSessionActionLabel(row),
-                        color, enabled, alpha * 0.94f);
-            }
+            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
+                    tableHost, liveSettingsDraft);
+            Rectangle handLimit = settingsGameRow(x, firstY, width, 0);
+            Rectangle handCount = settingsGameRow(x, firstY, width, 1);
+            Rectangle thinkTime = settingsGameRow(x, firstY, width, 2);
+            Rectangle thinkSeconds = settingsGameRow(x, firstY, width, 3);
+            Rectangle showdown = settingsGameRow(x, firstY, width, 4);
+            Rectangle hotJoin = settingsGameRow(x, firstY, width, 5);
+            boolean limited = liveSettingsDraft != null
+                    && liveSettingsDraft.hands() != -1;
+            drawSettingsRowText(handLimit.x, handLimit.y, handLimit.width,
+                    settingsGameText("row.hand_limit"), enabled, alpha);
+            drawSettingsStepperText(handCount.x, handCount.y, handCount.width,
+                    settingsGameText("row.hand_count"),
+                    handLimitSettingLabel(), enabled && limited, alpha);
+            drawSettingsRowText(thinkTime.x, thinkTime.y, thinkTime.width,
+                    settingsGameText("row.think_time"), false, alpha);
+            drawSettingsStepperText(thinkSeconds.x, thinkSeconds.y,
+                    thinkSeconds.width, settingsGameText("row.think_seconds"),
+                    liveSettingsDraft == null ? "—"
+                            : liveSettingsDraft.thinkTime() + " S",
+                    false, alpha);
+            drawSettingsStepperText(showdown.x, showdown.y, showdown.width,
+                    settingsGameText("row.showdown_seconds"),
+                    liveSettingsDraft == null ? "—"
+                            : liveSettingsDraft.showdownTime() + " S",
+                    false, alpha);
+            drawSettingsRowText(hotJoin.x, hotJoin.y, hotJoin.width,
+                    settingsGameText("row.allow_hot_join"),
+                    GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
+                            lobby != null), alpha);
         } else if (contentPage == 8) {
-            List<GdxShortcutBindings.ShortcutEntry> entries
-                    = shortcutBindings.editableEntries(gameText);
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(
-                    currentSettingsContent(), firstY, entries.size(),
-                    shortcutScroll);
-            shortcutScroll = rows.offset();
-            for (int row = rows.firstIndex(); row < rows.lastExclusive();
-                    row++) {
-                GdxShortcutBindings.ShortcutEntry entry
-                        = entries.get(row);
-                boolean capturing = entry.id().equals(shortcutCaptureId);
-                drawSettingsShortcutText(x, rows.rowY(row), width,
-                        capturing ? uppercase(gameText.translate(
-                                "gdx.settings.shortcut.press_key"))
-                                : entry.display(),
-                        uppercase(entry.markedDescription()), capturing,
-                        alpha);
-            }
-            if (!shortcutStatus.isBlank()) {
-                boolean warning = shortcutStatus.equals("conflict")
-                        || shortcutStatus.equals("unsupported");
-                drawFittedCenteredInBox(settingsSmallFont,
-                        uppercase(gameText.translate(
-                                "gdx.settings.shortcut.status."
-                                        + shortcutStatus)),
-                        x, firstY + 64f, width, 20f,
-                        warning ? FOLD_RED : CYAN, alpha);
-            }
+            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
+                    tableHost, liveSettingsDraft);
+            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
+                    tableHost, liveSettingsDraft,
+                    liveState != null && liveState.runItTwiceLocked());
+            Rectangle iwtsth = settingsGameRow(x, firstY, width, 0);
+            Rectangle runItTwice = settingsGameRow(x, firstY, width, 1);
+            Rectangle rabbit = settingsGameRow(x, firstY, width, 2);
+            drawSettingsRowText(iwtsth.x, iwtsth.y, iwtsth.width,
+                    settingsGameText("row.iwtsth"), enabled, alpha);
+            drawSettingsRowText(runItTwice.x, runItTwice.y,
+                    runItTwice.width, settingsGameText("row.run_it_twice"),
+                    runItTwiceEnabled, alpha);
+            drawSettingsStepperText(rabbit.x, rabbit.y, rabbit.width,
+                    settingsGameText("row.rabbit_hunting"), rabbitRuleLabel(),
+                    enabled, alpha);
         } else if (contentPage == 9) {
             Rectangle copy = settingsDebugCopyButton();
             drawFittedCenteredInBox(settingsSmallFont, uppercase(gameText.translate(
@@ -20078,13 +19970,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color valueColor = enabled ? POT_GOLD : SETTINGS_DISABLED;
         drawLeftInBox(settingsSmallFont, label, row.label().x, row.label().y,
                 row.label().width, row.label().height, labelColor, alpha);
-        drawFittedCenteredInBox(settingsHeadingFont, "-", row.minusButton().x,
+        drawFittedCenteredInBox(settingsStepperSignFont, "-",
+                row.minusButton().x,
                 row.value().y, row.minusButton().width, row.value().height,
                 labelColor, alpha);
         drawFittedCenteredInBox(settingsBodyFont, value, row.value().x,
                 row.value().y, row.value().width, row.value().height,
                 valueColor, alpha);
-        drawFittedCenteredInBox(settingsHeadingFont, "+", row.plusButton().x,
+        drawFittedCenteredInBox(settingsStepperSignFont, "+",
+                row.plusButton().x,
                 row.value().y, row.plusButton().width, row.value().height,
                 labelColor, alpha);
         if (enabled) {
@@ -22589,6 +22483,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         dialogAmountFont.dispose();
         settingsTitleFont.dispose();
         settingsHeadingFont.dispose();
+        settingsStepperSignFont.dispose();
         settingsActionFont.dispose();
         settingsBodyFont.dispose();
         settingsSmallFont.dispose();

@@ -381,6 +381,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxModalBackdropBlur modalBackdropBlur;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
+    private BitmapFont settingsStepperSignFont;
     private BitmapFont actionFont;
     private BitmapFont uiFont;
     private BitmapFont volumeOverlayFont;
@@ -794,6 +795,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void rebuildFonts(GdxAdaptiveFontQuality.Profile profile) {
         BitmapFont nextTitle;
         BitmapFont nextHeading;
+        BitmapFont nextStepperSign;
         BitmapFont nextAction;
         BitmapFont nextUi;
         BitmapFont nextVolume;
@@ -808,6 +810,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsStyle.TITLE_FONT_BORDER, profile);
             nextHeading = font(generator, GdxSettingsStyle.HEADING_FONT_SIZE,
                     GdxSettingsStyle.HEADING_FONT_BORDER, profile);
+            nextStepperSign = font(generator,
+                    GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
+                    GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER, profile);
             nextAction = font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
                     GdxSettingsStyle.ACTION_FONT_BORDER, profile);
             nextUi = font(generator, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
@@ -833,6 +838,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         disposeFont(titleFont);
         disposeFont(headingFont);
+        disposeFont(settingsStepperSignFont);
         disposeFont(actionFont);
         disposeFont(uiFont);
         disposeFont(volumeOverlayFont);
@@ -842,6 +848,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         disposeFont(fpsFont);
         titleFont = nextTitle;
         headingFont = nextHeading;
+        settingsStepperSignFont = nextStepperSign;
         actionFont = nextAction;
         uiFont = nextUi;
         volumeOverlayFont = nextVolume;
@@ -4103,20 +4110,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     ? gameText.translate(aboutModUpdateStatusKey)
                     : gameText.translate("gdx.about.mod_loaded",
                             presentationSettings.modDisplayName());
-            textFit(tinyFont, modLabel,
+            textFit(smallFont, modLabel,
                     WIDTH / 2f, ABOUT_LOGO_Y - 14f,
                     Color.WHITE, true, 620f);
         }
 
-        centeredWrappedText(tinyFont,
+        centeredWrappedText(smallFont,
                 gameText.translate("about.gracias_1"), WIDTH / 2f,
-                682f, w - 130f, 21f, 2, MUTED);
-        centeredWrappedText(tinyFont,
+                682f, w - 130f, 24f, 2, MUTED);
+        centeredWrappedText(smallFont,
                 gameText.translate("about.gracias_2"), WIDTH / 2f,
-                653f, w - 130f, 21f, 2, MUTED);
-        centeredWrappedText(tinyFont,
+                653f, w - 130f, 24f, 2, MUTED);
+        centeredWrappedText(smallFont,
                 gameText.translate("about.centimos"), WIDTH / 2f,
-                624f, w - 130f, 21f, 2, MUTED);
+                624f, w - 130f, 24f, 2, MUTED);
 
         textFit(headingFont, gameText.translate("about.dedicado"),
                 WIDTH / 2f, ABOUT_MEMORIAL_CENTER_Y,
@@ -4128,14 +4135,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             "about.musica_stats", "about.musica_about"
         };
         for (String key : musicKeys) {
-            centeredWrappedText(tinyFont, gameText.translate(key),
-                    WIDTH / 2f, musicY, w - 150f, 20f, 2, MUTED);
+            centeredWrappedText(smallFont, gameText.translate(key),
+                    WIDTH / 2f, musicY, w - 150f, 24f, 2, MUTED);
             musicY -= ABOUT_MUSIC_LINE_GAP;
         }
 
-        centeredWrappedText(tinyFont, gameText.translate("about.copyright"),
+        centeredWrappedText(smallFont, gameText.translate("about.copyright"),
                 WIDTH / 2f, ABOUT_COPYRIGHT_Y,
-                w - 150f, 18f, 1, MUTED);
+                w - 150f, 22f, 1, MUTED);
         hit(WIDTH / 2f - 30f, 235f, 60f, 60f,
                 () -> openExternalUri(ABOUT_RULES_URI,
                         "gdx.about.open_failed"));
@@ -4147,16 +4154,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float buildWidth = footerWidth * 0.18f;
         float runtimeWidth = footerWidth * 0.24f;
         float systemWidth = footerWidth - buildWidth - runtimeWidth;
-        textFit(tinyFont, "Jn 8:32",
+        textFit(smallFont, "Jn 8:32",
                 footerStart + buildWidth / 2f, 174f,
                 MUTED, true, buildWidth - 30f);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
-        textFit(tinyFont, runtime,
+        textFit(smallFont, runtime,
                 footerStart + buildWidth + runtimeWidth / 2f, 174f,
                 MUTED, true, runtimeWidth - 30f);
         String system = aboutSystemText();
-        textFit(tinyFont, system,
+        textFit(smallFont, system,
                 footerStart + buildWidth + runtimeWidth + systemWidth / 2f,
                 174f, MUTED, true, systemWidth - 30f);
         hit(footerStart + buildWidth + runtimeWidth, 152f,
@@ -7174,18 +7181,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void restoreFrontendAudioDefaults() {
-        GdxSettingsContract.restoreAudioDefaults(initialProperties,
+        GdxSettingsContract.restoreAudioPageDefaults(initialProperties,
+                settingsAudioPage,
                 frontendMayEditGlobalCommunicationRules(),
                 GdxAudioDevices.hasCaptureDevices());
         GdxAudioDevices.applyConfiguredOutput(initialProperties);
-        audioControl.setEnabled(true, false);
+        audioControl.setEnabled(preferenceBoolean("sonidos", true), false);
         syncMusicForSurface();
         playFrontendSwitchSound(true);
     }
 
     private void restoreFrontendAppearanceDefaults() {
-        GdxSettingsContract.restoreAppearanceDefaults(initialProperties,
-                true);
+        GdxSettingsContract.restoreAppearancePageDefaults(initialProperties,
+                settingsAppearancePage, true);
         GdxDisplayModeController.apply(GdxWindowMode.configured(
                 initialProperties));
         refreshFeltFromSettings();
@@ -7195,6 +7203,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean settingsSectionHasRestoreDefaults() {
         return GdxSettingsContract.hasRestoreDefaults(
                 settingsSession.section());
+    }
+
+    private boolean currentSettingsSubsectionAtDefaults() {
+        return switch (settingsSession.section()) {
+            case APPEARANCE -> GdxSettingsContract.appearancePageAtDefaults(
+                    initialProperties, settingsAppearancePage, true);
+            case AUDIO -> GdxSettingsContract.audioPageAtDefaults(
+                    initialProperties, settingsAudioPage,
+                    frontendMayEditGlobalCommunicationRules(),
+                    GdxAudioDevices.hasCaptureDevices(),
+                    audioControl.enabled());
+            case SHORTCUTS -> shortcutBindings.allDefaults();
+            case GAME, DEBUG -> true;
+        };
     }
 
     private void restoreCurrentFrontendSettingsSectionDefaults() {
@@ -7278,9 +7300,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float contentW = content.width;
         float contentH = content.height;
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
+        boolean restoreEnabled = restoreVisible
+                && !currentSettingsSubsectionAtDefaults();
         GdxSettingsChrome.draw(shapes, frame, sections.size(),
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
-                pointer, restoreVisible, 1f);
+                pointer, restoreVisible, restoreEnabled, 1f);
 
         // Keep title and subtitle in independent vertical bands. Their fonts
         // have different ascenders, so baseline-only spacing can overlap even
@@ -7357,9 +7381,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(actionFont,
                     uppercase(gameText.translate("gdx.settings.restore_defaults")),
                     restore.x + restore.width / 2f,
-                    restore.y + restore.height / 2f + 8f, GOLD, true,
+                    restore.y + restore.height / 2f + 8f,
+                    restoreEnabled ? GOLD : DISABLED, true,
                     restore.width - 30f);
-            if (!lobbyCommandPending) {
+            if (!lobbyCommandPending && restoreEnabled) {
                 hit(restore.x, restore.y, restore.width, restore.height,
                         this::restoreCurrentFrontendSettingsSectionDefaults);
             }
@@ -7416,7 +7441,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsContract.isChildOption(page, option));
             toggle(row.x, row.y, row.width,
                     GdxSettingsContract.markDefault(option.label(gameText),
-                            value == option.fallback()), value,
+                            value == GdxSettingsContract.displayedFallback(
+                                    option)), value,
                     action, enabled);
             GdxSettingsContract.AudioPreview preview =
                     GdxSettingsContract.audioPreview(option,
@@ -7547,10 +7573,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 slider.height, 6f);
         themedButton(minus.x, minus.y, minus.width, minus.height, "-",
                 ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(-0.05f), true);
+                () -> adjustFrontendMasterVolume(-0.05f), true,
+                settingsStepperSignFont);
         themedButton(plus.x, plus.y, plus.width, plus.height, "+",
                 ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(0.05f), true);
+                () -> adjustFrontendMasterVolume(0.05f), true,
+                settingsStepperSignFont);
     }
 
     private void drawAppearanceSettings(float x, float y, float w, float h) {
@@ -7682,7 +7710,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.isChildOption(page, option));
                 toggle(rowBounds.x, rowBounds.y, rowBounds.width,
                         GdxSettingsContract.markDefault(option.label(gameText),
-                                value == option.fallback()), value,
+                                value == GdxSettingsContract.displayedFallback(
+                                        option)), value,
                         () -> togglePreference(option.key(),
                                 option.fallback()), enabled);
                 performanceTooltip(rowBounds, option.key());
@@ -7803,23 +7832,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 minusBounds.width, minusBounds.height, enabled);
         embeddedButtonSurface(plusBounds.x, plusBounds.y,
                 plusBounds.width, plusBounds.height, enabled);
-        shapes.setColor(new Color(0x31445fff));
-        shapes.rect(valueBounds.x, valueBounds.y + 8f, 2f,
-                valueBounds.height - 16f);
-        shapes.rect(valueBounds.x + valueBounds.width,
-                valueBounds.y + 8f, 2f, valueBounds.height - 16f);
         textFit(smallFont, label, row.label().x,
                 row.label().y + row.label().height / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false,
                 row.label().width);
-        text(headingFont, "-", minusBounds.x + minusBounds.width / 2f,
+        text(settingsStepperSignFont, "-",
+                minusBounds.x + minusBounds.width / 2f,
                 minusBounds.y + minusBounds.height / 2f + 14f,
                 enabled ? Color.WHITE : DISABLED, true);
         textFit(uiFont, value, valueBounds.x + valueBounds.width / 2f,
                 valueBounds.y + valueBounds.height / 2f + 11f,
                 enabled ? GOLD : DISABLED, true,
                 valueBounds.width - 12f);
-        text(headingFont, "+", plusBounds.x + plusBounds.width / 2f,
+        text(settingsStepperSignFont, "+",
+                plusBounds.x + plusBounds.width / 2f,
                 plusBounds.y + plusBounds.height / 2f + 14f,
                 enabled ? Color.WHITE : DISABLED, true);
         if (enabled) {
@@ -8127,11 +8153,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled ? Color.WHITE : DISABLED, false, w * 0.50f);
         float controlsX = x + w * 0.62f;
         themedButton(controlsX, y + 10f, 48f, 48f, "-",
-                ButtonTone.NEUTRAL, minus, enabled);
+                ButtonTone.NEUTRAL, minus, enabled,
+                settingsStepperSignFont);
         textFit(uiFont, Integer.toString(value), controlsX + 100f, y + 44f,
                 enabled ? GOLD : DISABLED, true, 82f);
         themedButton(x + w - 70f, y + 10f, 48f, 48f, "+",
-                ButtonTone.NEUTRAL, plus, enabled);
+                ButtonTone.NEUTRAL, plus, enabled,
+                settingsStepperSignFont);
     }
 
     private String settingsBlindLevel() {
@@ -11973,7 +12001,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
         }
-        if (keycode == Input.Keys.ESCAPE) {
+        if (GdxDialogKeyboard.isConfirm(keycode)
+                && acceptActiveFrontendDialog()) {
+            return true;
+        }
+        if (GdxDialogKeyboard.isCancel(keycode)) {
             if (dropdown != Dropdown.NONE) {
                 dropdown = Dropdown.NONE;
                 return true;
@@ -12092,35 +12124,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // action owned by the SALIR button (and by the window-close flow).
             return true;
         }
-        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
-                && ("lobbyChat".equals(activeField)
-                        || "lobbyImage".equals(activeField))) {
-            sendLobbyComposer();
-            return true;
-        }
-        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
-                && lobbyPasswordDialog
-                && "lobbyPassword".equals(activeField)) {
-            submitLobbyPassword();
-            return true;
-        }
-        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
-                && presetDialog == PresetDialog.NAME
-                && "presetName".equals(activeField)) {
-            submitPresetName();
-            return true;
-        }
-        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
-                && "blindStructureName".equals(activeField)) {
-            submitBlindStructureName();
-            return true;
-        }
-        if ((keycode == Input.Keys.ENTER || keycode == Input.Keys.NUMPAD_ENTER)
-                && statsSyncExclusionsOpen
-                && "statsExcludeNicks".equals(activeField)) {
-            saveStatsSyncExclusions();
-            return true;
-        }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsConfirmation == StatsConfirmation.NONE
                 && !statsSyncExclusionsOpen && activeField == null
@@ -12231,6 +12234,104 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static boolean isTextDeletionKey(int keycode) {
         return keycode == Input.Keys.BACKSPACE
                 || keycode == Input.Keys.FORWARD_DEL;
+    }
+
+    /**
+     * Routes Enter to the visible positive action before any surface-level
+     * shortcut can see it. This mirrors pointer priority and prevents a modal
+     * confirmation from also activating the table or screen below it.
+     */
+    private boolean acceptActiveFrontendDialog() {
+        if (settingsRestartNotice) {
+            settingsRestartNotice = false;
+            return true;
+        }
+        if (surface == Surface.SCREENSHOTS && screenshotDeleteConfirmation) {
+            if (!screenshotOperationPending) deleteCurrentScreenshot();
+            return true;
+        }
+        if (surface == Surface.STATS
+                && statsConfirmation != StatsConfirmation.NONE) {
+            if (!statsLoading) confirmStatsDeletion();
+            return true;
+        }
+        if (surface == Surface.MENU && updatePromptOpen) {
+            if (!updateInstalling) {
+                if (updatePromptForMod) startModUpdateHandoff();
+                else startUpdateHandoff();
+            }
+            return true;
+        }
+        if (surface == Surface.SETTINGS && voiceNotesOpen
+                && (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation)) {
+            if (!voiceNotesLoading) confirmVoiceNoteDeletion();
+            return true;
+        }
+        if (surface == Surface.SETTINGS && settingsDiscardConfirmation) {
+            finishClosingSettings(false);
+            return true;
+        }
+        if (surface == Surface.LOBBY && lobbyImageClearConfirmation) {
+            clearLobbyImageHistory();
+            return true;
+        }
+        if (surface == Surface.LOBBY && lobbyConfirmation != null) {
+            confirmLobbyAction();
+            return true;
+        }
+        if (surface == Surface.LOBBY && lobbyPasswordDialog) {
+            submitLobbyPassword();
+            return true;
+        }
+        if (surface == Surface.NEW_GAME
+                && presetDialog == PresetDialog.NAME) {
+            submitPresetName();
+            return true;
+        }
+        if (surface == Surface.NEW_GAME
+                && presetDialog == PresetDialog.OVERWRITE) {
+            confirmOverwritePreset();
+            return true;
+        }
+        if (surface == Surface.NEW_GAME
+                && presetDialog == PresetDialog.DELETE) {
+            confirmDeletePreset();
+            return true;
+        }
+        if ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+                && (blindStructureDialog == BlindStructureDialog.NAME_NEW
+                || blindStructureDialog == BlindStructureDialog.NAME_DUPLICATE
+                || blindStructureDialog == BlindStructureDialog.NAME_RENAME)) {
+            submitBlindStructureName();
+            return true;
+        }
+        if ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+                && blindStructureDialog == BlindStructureDialog.DELETE) {
+            blindStructureEditor.deleteSelected();
+            blindStructureDialog = BlindStructureDialog.EDITOR;
+            return true;
+        }
+        if ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+                && blindStructureDialog == BlindStructureDialog.EDITOR) {
+            if (blindStructureEditor.dirty()) saveBlindStructures();
+            return true;
+        }
+        if (surface == Surface.STATS && statsSyncExclusionsOpen) {
+            saveStatsSyncExclusions();
+            return true;
+        }
+        if (("lobbyChat".equals(activeField)
+                || "lobbyImage".equals(activeField))
+                && surface == Surface.LOBBY) {
+            sendLobbyComposer();
+            return true;
+        }
+        if (surface == Surface.SETTINGS) {
+            closeSettings(true);
+            return true;
+        }
+        return false;
     }
 
     private void updateTextDeleteRepeat() {
@@ -12600,6 +12701,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         modalBackdropBlur.dispose();
         titleFont.dispose();
         headingFont.dispose();
+        settingsStepperSignFont.dispose();
         actionFont.dispose();
         uiFont.dispose();
         volumeOverlayFont.dispose();

@@ -12,6 +12,7 @@ final class GdxSettingsStyleTest {
     void canonicalTypographyMatchesTheMainSettingsScreen() {
         assertEquals(58, GdxSettingsStyle.TITLE_FONT_SIZE);
         assertEquals(30, GdxSettingsStyle.HEADING_FONT_SIZE);
+        assertEquals(38, GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE);
         assertEquals(26, GdxSettingsStyle.ACTION_FONT_SIZE);
         assertEquals(24, GdxSettingsStyle.BODY_FONT_SIZE);
         assertEquals(18, GdxSettingsStyle.SMALL_FONT_SIZE);

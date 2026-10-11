@@ -192,6 +192,12 @@ final class GdxShortcutBindings {
                 definition.fallback);
     }
 
+    synchronized boolean allDefaults() {
+        return definitions.values().stream().allMatch(definition ->
+                Objects.equals(current.get(definition.id),
+                        definition.fallback));
+    }
+
     synchronized Assignment assign(String id, int gdxKeyCode, boolean alt,
             boolean control, boolean shift) {
         Definition target = definitions.get(id);

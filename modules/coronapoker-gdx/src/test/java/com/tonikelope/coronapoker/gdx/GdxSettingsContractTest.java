@@ -556,6 +556,25 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void audioRestoreAndDirtyStateAreScopedToTheVisibleSubsection() {
+        Properties properties = new Properties();
+        properties.setProperty("master_volume", "0.25");
+        properties.setProperty("musica_about", "false");
+        properties.setProperty("sonido_apostar", "false");
+
+        GdxSettingsContract.restoreAudioPageDefaults(properties, 1,
+                true, true);
+
+        assertEquals("0.25", properties.getProperty("master_volume"));
+        assertEquals("true", properties.getProperty("musica_about"));
+        assertEquals("false", properties.getProperty("sonido_apostar"));
+        assertTrue(GdxSettingsContract.audioPageAtDefaults(properties, 1,
+                true, true, true));
+        assertFalse(GdxSettingsContract.audioPageAtDefaults(properties, 0,
+                true, true, true));
+    }
+
+    @Test
     void globalCommunicationRowsAreIdentifiedForHostOnlyEditing() {
         java.util.Map<String, GdxSettingsContract.ToggleOption> options =
                 GdxSettingsContract.AUDIO_PAGES.stream()
@@ -619,6 +638,41 @@ final class GdxSettingsContractTest {
         assertEquals("4", properties.getProperty("gdx_msaa_samples"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
         assertEquals("true", properties.getProperty("gdx_vsync"));
+    }
+
+    @Test
+    void appearanceRestoreAndDirtyStateAreScopedToTheVisibleSubsection() {
+        Properties properties = new Properties();
+        properties.setProperty("baraja", "goliat4");
+        properties.setProperty("gdx_fps_limit", "240");
+        properties.setProperty("animaciones", "false");
+
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1,
+                true);
+
+        assertEquals("goliat4", properties.getProperty("baraja"));
+        assertEquals("120", properties.getProperty("gdx_fps_limit"));
+        assertEquals("false", properties.getProperty("animaciones"));
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties,
+                1, true));
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
+                0, true));
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
+                3, true));
+    }
+
+    @Test
+    void invertedAudioOptionsUseTheirDisplayedFactoryValue() {
+        GdxSettingsContract.ToggleOption inverted =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                        .flatMap(page -> page.options().stream())
+                        .filter(option -> "audio_block_tts_local".equals(
+                                option.key()))
+                        .findFirst().orElseThrow();
+
+        assertTrue(GdxSettingsContract.displayedFallback(inverted));
+        assertTrue(GdxSettingsContract.displayedValue(inverted,
+                new Properties(), true));
     }
 
     @Test

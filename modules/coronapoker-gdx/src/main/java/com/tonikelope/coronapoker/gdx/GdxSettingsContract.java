@@ -158,8 +158,13 @@ final class GdxSettingsContract {
      */
     static final List<String> WAITING_ROOM_GAME_PAGES = List.of(
             "CIEGAS", "COMPRA", "RECOMPRA", "BOTS", "PARTIDA", "REGLAS");
-    static final List<String> LIVE_TABLE_GAME_PAGES = List.of(
-            "TIMBA", "CIEGAS", "COMPRA", "BOTS");
+    /**
+     * The live table exposes the same semantic pages, order and hierarchy as
+     * the waiting room. Controls which cannot safely change mid-hand are
+     * disabled in place instead of moving into a different two-column UI.
+     */
+    static final List<String> LIVE_TABLE_GAME_PAGES =
+            List.copyOf(WAITING_ROOM_GAME_PAGES);
 
     static List<String> subpageLabels(Section section,
             List<String> gamePages, int shortcutEntries,
@@ -521,6 +526,10 @@ final class GdxSettingsContract {
         return option.inverted() ? !stored : stored;
     }
 
+    static boolean displayedFallback(ToggleOption option) {
+        return option.inverted() ? !option.fallback() : option.fallback();
+    }
+
     static boolean hasVoiceRetention(TogglePage page) {
         return page == AUDIO_VOICE_CHAT_PAGE;
     }
@@ -667,56 +676,166 @@ final class GdxSettingsContract {
      */
     static void restoreAudioDefaults(Properties properties,
             boolean includeGlobalRules, boolean microphoneAvailable) {
-        properties.setProperty("master_volume",
-                Float.toString(DEFAULT_MASTER_VOLUME));
-        for (TogglePage page : AUDIO_PAGES) {
-            for (ToggleOption option : page.options()) {
-                if (!includeGlobalRules
-                        && ("tts_server".equals(option.key())
-                        || "voice_messages".equals(option.key()))) {
-                    continue;
-                }
-                properties.setProperty(option.key(),
-                        Boolean.toString(option.fallback()));
-            }
+        for (int page = 0; page < AUDIO_PAGES.size(); page++) {
+            restoreAudioPageDefaults(properties, page, includeGlobalRules,
+                    microphoneAvailable);
         }
-        properties.setProperty("audio_mic_enabled",
-                Boolean.toString(microphoneAvailable));
-        properties.setProperty("audio_voice_note_retention_days", "90");
-        properties.setProperty(GdxAudioDevices.OUTPUT_KEY, "");
-        properties.setProperty(GdxAudioDevices.CAPTURE_KEY, "");
+    }
+
+    /** Restores only the currently visible Audio subsection. */
+    static void restoreAudioPageDefaults(Properties properties, int pageIndex,
+            boolean includeGlobalRules, boolean microphoneAvailable) {
+        int index = Math.max(0, Math.min(pageIndex, AUDIO_PAGES.size() - 1));
+        TogglePage page = AUDIO_PAGES.get(index);
+        if (index == 0) {
+            properties.setProperty("master_volume",
+                    Float.toString(DEFAULT_MASTER_VOLUME));
+        }
+        for (ToggleOption option : page.options()) {
+            if (isGlobalCommunicationRule(option)
+                    && !includeGlobalRules) continue;
+            boolean fallback = "audio_mic_enabled".equals(option.key())
+                    ? microphoneAvailable : option.fallback();
+            properties.setProperty(option.key(), Boolean.toString(fallback));
+        }
+        if (hasVoiceRetention(page)) {
+            properties.setProperty("audio_voice_note_retention_days", "90");
+        }
+        if (hasAudioDevices(page)) {
+            properties.setProperty(GdxAudioDevices.OUTPUT_KEY, "");
+            properties.setProperty(GdxAudioDevices.CAPTURE_KEY, "");
+        }
+    }
+
+    static boolean audioPageAtDefaults(Properties properties, int pageIndex,
+            boolean includeGlobalRules, boolean microphoneAvailable,
+            boolean masterSound) {
+        int index = Math.max(0, Math.min(pageIndex, AUDIO_PAGES.size() - 1));
+        TogglePage page = AUDIO_PAGES.get(index);
+        if (index == 0 && (Float.compare(masterVolume(properties),
+                DEFAULT_MASTER_VOLUME) != 0 || !masterSound)) {
+            return false;
+        }
+        for (ToggleOption option : page.options()) {
+            if (isGlobalCommunicationRule(option)
+                    && !includeGlobalRules) continue;
+            boolean expected = "audio_mic_enabled".equals(option.key())
+                    ? microphoneAvailable : option.fallback();
+            boolean actual = "sonidos".equals(option.key())
+                    ? masterSound : Boolean.parseBoolean(
+                            properties.getProperty(option.key(),
+                                    Boolean.toString(option.fallback())));
+            if (actual != expected) return false;
+        }
+        if (hasVoiceRetention(page)
+                && voiceRetentionDays(properties) != 90) return false;
+        return !hasAudioDevices(page)
+                || (properties.getProperty(GdxAudioDevices.OUTPUT_KEY, "")
+                        .isBlank()
+                && properties.getProperty(GdxAudioDevices.CAPTURE_KEY, "")
+                        .isBlank());
     }
 
     /** Restores only settings that have a real GDX appearance consumer. */
     static void restoreAppearanceDefaults(Properties properties,
             boolean includeStartupGraphics) {
-        // GDX uses the approved visual reference's Goliat deck as its product
-        // default. Every other shared appearance value
-        // below mirrors Swing's factory reset.
-        properties.setProperty("baraja", "goliat");
-        properties.setProperty("trasera", "default");
-        properties.setProperty("color_tapete", "verde");
-        properties.setProperty("nivel_luz", "50");
-        properties.setProperty("gdx_vsync",
-                Boolean.toString(DEFAULT_VSYNC));
-        properties.setProperty("gdx_fps_limit",
-                Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
-        properties.setProperty("gdx_show_fps", "false");
-        for (TogglePage page : APPEARANCE_PAGES) {
-            for (ToggleOption option : page.options()) {
-                properties.setProperty(option.key(),
-                        Boolean.toString(option.fallback()));
+        for (int page = 0; page < APPEARANCE_PAGES.size() + 2; page++) {
+            restoreAppearancePageDefaults(properties, page,
+                    includeStartupGraphics);
+        }
+    }
+
+    /** Restores only the currently visible Appearance subsection. */
+    static void restoreAppearancePageDefaults(Properties properties,
+            int pageIndex, boolean includeStartupGraphics) {
+        int maximum = APPEARANCE_PAGES.size() + 1;
+        int index = Math.max(0, Math.min(pageIndex, maximum));
+        if (index == 0) {
+            // GDX's approved visual reference uses the Goliat deck.
+            properties.setProperty("baraja", "goliat");
+            properties.setProperty("trasera", "default");
+            properties.setProperty("color_tapete", "verde");
+            properties.setProperty("nivel_luz", "50");
+            return;
+        }
+        if (index == 1) {
+            properties.setProperty("gdx_vsync",
+                    Boolean.toString(DEFAULT_VSYNC));
+            properties.setProperty("gdx_fps_limit",
+                    Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
+            properties.setProperty("gdx_show_fps", "false");
+            if (includeStartupGraphics) {
+                properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
+                        GdxWindowMode.BORDERLESS.persistedValue());
+                properties.setProperty("gdx_msaa_samples", "4");
+            }
+            return;
+        }
+        TogglePage page = APPEARANCE_PAGES.get(index - 2);
+        for (ToggleOption option : page.options()) {
+            properties.setProperty(option.key(),
+                    Boolean.toString(option.fallback()));
+        }
+        if (page == APPEARANCE_ANIMATIONS_PAGE) {
+            for (GdxAppearanceOptions.Choice choice
+                    : GdxAppearanceOptions.ANIMATION_CHOICES) {
+                properties.setProperty(choice.key(), choice.fallback());
             }
         }
-        for (GdxAppearanceOptions.Choice choice
-                : GdxAppearanceOptions.ANIMATION_CHOICES) {
-            properties.setProperty(choice.key(), choice.fallback());
+    }
+
+    static boolean appearancePageAtDefaults(Properties properties,
+            int pageIndex, boolean includeStartupGraphics) {
+        int maximum = APPEARANCE_PAGES.size() + 1;
+        int index = Math.max(0, Math.min(pageIndex, maximum));
+        if (index == 0) {
+            return stringAtDefault(properties, "baraja", "goliat")
+                    && stringAtDefault(properties, "trasera", "default")
+                    && stringAtDefault(properties, "color_tapete", "verde")
+                    && stringAtDefault(properties, "nivel_luz", "50");
         }
-        if (includeStartupGraphics) {
-            properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
-                    GdxWindowMode.BORDERLESS.persistedValue());
-            properties.setProperty("gdx_msaa_samples", "4");
+        if (index == 1) {
+            boolean runtime = booleanAtDefault(properties, "gdx_vsync",
+                    DEFAULT_VSYNC)
+                    && stringAtDefault(properties, "gdx_fps_limit",
+                            Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
+                    && booleanAtDefault(properties, "gdx_show_fps", false);
+            return runtime && (!includeStartupGraphics
+                    || stringAtDefault(properties,
+                            GdxWindowMode.PREFERENCE_KEY,
+                            GdxWindowMode.BORDERLESS.persistedValue())
+                    && stringAtDefault(properties, "gdx_msaa_samples", "4"));
         }
+        TogglePage page = APPEARANCE_PAGES.get(index - 2);
+        for (ToggleOption option : page.options()) {
+            if (!booleanAtDefault(properties, option.key(),
+                    option.fallback())) return false;
+        }
+        if (page == APPEARANCE_ANIMATIONS_PAGE) {
+            for (GdxAppearanceOptions.Choice choice
+                    : GdxAppearanceOptions.ANIMATION_CHOICES) {
+                if (!stringAtDefault(properties, choice.key(),
+                        choice.fallback())) return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isGlobalCommunicationRule(ToggleOption option) {
+        return "tts_server".equals(option.key())
+                || "voice_messages".equals(option.key());
+    }
+
+    private static boolean booleanAtDefault(Properties properties, String key,
+            boolean fallback) {
+        return Boolean.parseBoolean(properties.getProperty(key,
+                Boolean.toString(fallback))) == fallback;
+    }
+
+    private static boolean stringAtDefault(Properties properties, String key,
+            String fallback) {
+        return fallback.equalsIgnoreCase(properties.getProperty(key,
+                fallback).strip());
     }
 
     static int voiceRetentionDays(Properties properties) {

@@ -6,6 +6,7 @@ import com.tonikelope.coronapoker.core.game.HandState;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.game.PlayerState;
 import com.tonikelope.coronapoker.core.game.TableState;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.ToIntFunction;
 
@@ -72,6 +73,57 @@ public final class TableSnapshotMapper {
                         rebuyPhase(state.rebuyPhase()),
                         state.immediateRebuyAmount(),
                         state.publicActionLabel()));
+    }
+
+    /**
+     * Rewinds only the presentation part of a settled hand until its ordered
+     * payout event is accepted. Gameplay deliberately keeps winnings in
+     * {@code pendingPayment}; the ordinary mapping above exposes the resulting
+     * final stack so a renderer attaching after the payout is current. During
+     * the showdown dwell, however, the pot has not visibly moved yet and both
+     * sides of that transfer must describe the same instant.
+     */
+    public static TableSnapshot beforePendingPayout(TableSnapshot settled,
+            double visiblePot, Map<String, Double> stacksBeforePayout,
+            Map<String, Double> contributionsBeforePayout) {
+        Objects.requireNonNull(settled, "settled");
+        Objects.requireNonNull(stacksBeforePayout, "stacksBeforePayout");
+        Objects.requireNonNull(contributionsBeforePayout,
+                "contributionsBeforePayout");
+        double pot = MoneyMath.clean(visiblePot);
+        if (MoneyMath.compare(pot, 0d) < 0) {
+            throw new IllegalArgumentException("Visible pot cannot be negative");
+        }
+        java.util.List<TableSnapshot.PlayerSnapshot> players
+                = settled.players().stream().map(player -> {
+                    Double stack = stacksBeforePayout.get(player.nickname());
+                    Double contribution = contributionsBeforePayout.get(
+                            player.nickname());
+                    if (stack == null && contribution == null) return player;
+                    return withSettlementAmounts(player,
+                            stack == null ? player.stack()
+                                    : MoneyMath.clean(stack),
+                            contribution == null ? player.potContribution()
+                                    : MoneyMath.clean(contribution));
+                }).toList();
+        return new TableSnapshot(settled.revision(), settled.localNickname(),
+                settled.street(), pot, settled.currentTurnNickname(),
+                settled.paused(), players, settled.communityCards(),
+                settled.presentation());
+    }
+
+    private static TableSnapshot.PlayerSnapshot withSettlementAmounts(
+            TableSnapshot.PlayerSnapshot source, double stack,
+            double contribution) {
+        return new TableSnapshot.PlayerSnapshot(source.nickname(), stack,
+                source.streetBet(), contribution, source.active(),
+                source.spectator(), source.exited(), source.timedOut(),
+                source.latency(), source.previousLatency(),
+                source.reconnectionCount(), source.telemetryAt(),
+                source.winner(), source.underTheGun(), source.position(),
+                source.decision(), source.actionKind(), source.lastAction(),
+                source.handName(), source.holeCards(), source.buyIn(),
+                source.rebuyCount(), source.warming(), source.presentation());
     }
 
     public static TableSnapshot.CardSnapshot card(CardState.Snapshot state) {

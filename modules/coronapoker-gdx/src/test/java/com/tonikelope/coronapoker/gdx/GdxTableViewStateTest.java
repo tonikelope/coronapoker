@@ -2848,6 +2848,40 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void endBoundaryKeepsExactPotAndPrePayoutStackUntilBatchArrives() {
+        TableSnapshot.PlayerSnapshot winner = new TableSnapshot.PlayerSnapshot(
+                "winner", 0.3d, 0d, 10d, true, false, false, false,
+                0, 0, 0, 0L, true, TableSnapshot.Position.DEALER,
+                "", "DOBLE PAREJA", List.of());
+        TableSnapshot.PlayerSnapshot loserA = new TableSnapshot.PlayerSnapshot(
+                "loser-a", 0d, 0d, 10d, true, false, false, false,
+                0, 0, 0, 0L, false, TableSnapshot.Position.BIG_BLIND,
+                "", "PAREJA", List.of());
+        TableSnapshot.PlayerSnapshot loserB = new TableSnapshot.PlayerSnapshot(
+                "loser-b", 0d, 0d, 10d, true, false, false, false,
+                0, 0, 0, 0L, false, TableSnapshot.Position.SMALL_BLIND,
+                "", "PAREJA", List.of());
+        TableSnapshot before = new TableSnapshot(1L, "loser",
+                TableSnapshot.Street.SHOWDOWN, 30d, "", false,
+                List.of(winner, loserA, loserB), List.of());
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.END, before));
+
+        assertEquals(30d, state.snapshot().pot(), 0.000_001d);
+        assertEquals(0.3d, player(state, "winner").stack(), 0.000_001d,
+                "the winner cannot spend chips that have not visibly landed");
+
+        state.apply(new TableVisualEvent.PayoutBatch(2L, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "winner", 30d, 0d, 30.3d)), 0d, 0d));
+
+        assertEquals(0d, state.snapshot().pot());
+        assertEquals(30.3d, player(state, "winner").stack(), 0.000_001d);
+    }
+
+    @Test
     void returnedResidualSidePotDoesNotCreateAWinner() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 

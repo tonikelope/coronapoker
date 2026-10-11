@@ -83,10 +83,11 @@ final class GdxTableViewState {
      */
     private final java.util.Set<String> foldedThisHand = new HashSet<>();
     /*
-     * A HandBoundary.END snapshot is the dealer's exact logical state after
-     * payout/reset and therefore legitimately has no transient showdown label.
-     * Keep the already ordered HandResult presentation alongside (not merged
-     * back into the authoritative snapshot) until PREPARE starts the next hand.
+     * A HandBoundary.END snapshot is the dealer's exact visible state for the
+     * showdown dwell: the complete pot and pre-payout stacks are retained,
+     * while transient result labels still belong to the ordered HandResult
+     * events. Keep those labels alongside the snapshot until PREPARE starts
+     * the next hand.
      */
     private final Map<String, String> resolvedHandNames = new HashMap<>();
     private final Map<String, Boolean> resolvedHandWinners = new HashMap<>();
@@ -1245,13 +1246,11 @@ final class GdxTableViewState {
 
     private void applyHandBoundary(TableVisualEvent.HandBoundary boundary) {
         TableSnapshot boundarySnapshot = boundary.snapshot();
-        // END is published after the dealer has closed the accounting model
-        // (whose canonical pot is already zero), but before the visible
-        // showdown payout flies to the winners.  Swing kept the last painted
-        // Run It Twice half on screen throughout that interval.  Replacing the
-        // whole projection here produced the impossible "BOTE (CARA-B): 0"
-        // captured in a real game.  The following Payout event remains the
-        // single owner of clearing the board prefix and moving the pot.
+        // Run It Twice publishes each board payout before END and keeps the
+        // final board label visible during the showdown dwell. Replacing its
+        // already-paid pot with the canonical zero would produce the
+        // impossible "BOTE (CARA-B): 0" captured in a real game. The ordered
+        // board payout remains the owner of that visible amount.
         if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.END
                 && !runItTwicePotPrefix.isBlank()) {
             boundarySnapshot = copySnapshot(boundarySnapshot,

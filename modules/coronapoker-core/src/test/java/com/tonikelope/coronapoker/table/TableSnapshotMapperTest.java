@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.PlayerState;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class TableSnapshotMapperTest {
@@ -110,5 +111,40 @@ class TableSnapshotMapperTest {
         assertTrue(mapped.spectator());
         assertTrue(mapped.warming());
         assertEquals(0d, mapped.stack());
+    }
+
+    @Test
+    void pendingPayoutProjectionDoesNotCreditTheWinnerBeforeCollection() {
+        PlayerState winner = new PlayerState("winner");
+        winner.setStack(0.3d);
+        winner.setPendingPayment(30d);
+        winner.setWinner(true);
+        PlayerState loserA = new PlayerState("loser-a");
+        loserA.setStack(0d);
+        PlayerState loserB = new PlayerState("loser-b");
+        loserB.setStack(0d);
+
+        TableSnapshot settled = new TableSnapshot(9L, "loser",
+                TableSnapshot.Street.SHOWDOWN, 0d, "", false,
+                List.of(TableSnapshotMapper.player(winner.snapshot()),
+                        TableSnapshotMapper.player(loserA.snapshot()),
+                        TableSnapshotMapper.player(loserB.snapshot())),
+                List.of());
+
+        TableSnapshot beforePayout = TableSnapshotMapper.beforePendingPayout(
+                settled, 30d,
+                Map.of("winner", 0.3d, "loser-a", 0d, "loser-b", 0d),
+                Map.of("winner", 10d, "loser-a", 10d, "loser-b", 10d));
+
+        assertEquals(30d, beforePayout.pot(), 0.000_001d);
+        assertEquals(0.3d, beforePayout.players().get(0).stack(), 0.000_001d,
+                "the winner must not own the pot before the payout event");
+        assertEquals(0d, beforePayout.players().get(1).stack());
+        assertEquals(10d, beforePayout.players().get(0).potContribution());
+        assertEquals(10d, beforePayout.players().get(1).potContribution());
+        assertEquals(10d, beforePayout.players().get(2).potContribution());
+        assertTrue(beforePayout.players().get(0).winner());
+        assertEquals(30.3d, settled.players().get(0).stack(), 0.000_001d,
+                "the settled snapshot remains the post-payout authority");
     }
 }

@@ -427,7 +427,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 await(() -> hostRenderer.winnerResultPublished()
                                 && clientRenderer.winnerResultPublished()
                                 && hostRenderer.handEnded()
-                                && clientRenderer.handEnded(),
+                                && clientRenderer.handEnded()
+                                && hostRenderer.payoutPublished()
+                                && clientRenderer.payoutPublished(),
                         Duration.ofSeconds(25));
                 hostRenderer.assertImmediateWinnerResult();
                 clientRenderer.assertImmediateWinnerResult();
@@ -3381,6 +3383,18 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 new AtomicReference<>();
         private final AtomicReference<String> winnerNickname =
                 new AtomicReference<>();
+        private final AtomicReference<Double> winnerStackAtResult =
+                new AtomicReference<>();
+        private final AtomicReference<Double> winnerStackAtEnd =
+                new AtomicReference<>();
+        private final AtomicReference<Double> winnerStackAtPayout =
+                new AtomicReference<>();
+        private final AtomicReference<Double> potAtEnd =
+                new AtomicReference<>();
+        private final AtomicReference<Double> potAtPayout =
+                new AtomicReference<>();
+        private final AtomicReference<Double> investedAtEnd =
+                new AtomicReference<>();
 
         UncontestedHandRenderer(TableSession table) {
             this.table = table;
@@ -3411,6 +3425,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     && result.winner()) {
                 winnerNickname.compareAndSet(null, result.nickname());
                 winnerResultOrder.compareAndSet(-1, order);
+                winnerStackAtResult.compareAndSet(null,
+                        player(projection, result.nickname()).stack());
                 String local = projection.snapshot().localNickname();
                 localOutcomeAtResult.set(CoronaPokerGdxTable.localHandOutcome(
                         projection.resolvedHandWinner(local),
@@ -3418,10 +3434,27 @@ class GdxNetworkHumanProjectionIntegrationTest {
             } else if (event instanceof TableVisualEvent.Payout
                     || event instanceof TableVisualEvent.PayoutBatch) {
                 payoutOrder.compareAndSet(-1, order);
+                potAtPayout.compareAndSet(null, projection.snapshot().pot());
+                String winner = winnerNickname.get();
+                if (winner != null) {
+                    winnerStackAtPayout.compareAndSet(null,
+                            player(projection, winner).stack());
+                }
             } else if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 endBoundaryOrder.compareAndSet(-1, order);
+                potAtEnd.compareAndSet(null, projection.snapshot().pot());
+                investedAtEnd.compareAndSet(null,
+                        projection.snapshot().players().stream()
+                                .mapToDouble(TableSnapshot.PlayerSnapshot
+                                        ::potContribution)
+                                .sum());
+                String winner = winnerNickname.get();
+                if (winner != null) {
+                    winnerStackAtEnd.compareAndSet(null,
+                            player(projection, winner).stack());
+                }
             }
             return CompletableFuture.completedFuture(null);
         }
@@ -3436,16 +3469,39 @@ class GdxNetworkHumanProjectionIntegrationTest {
             return endBoundaryOrder.get() > 0;
         }
 
+        boolean payoutPublished() {
+            return payoutOrder.get() > 0;
+        }
+
+        private static TableSnapshot.PlayerSnapshot player(
+                GdxTableViewState projection, String nickname) {
+            return projection.snapshot().players().stream()
+                    .filter(candidate -> candidate.nickname().equals(nickname))
+                    .findFirst().orElseThrow();
+        }
+
         void assertImmediateWinnerResult() {
             assertTrue(winnerResultOrder.get() > 0,
                     "the uncontested winner was never published");
-            assertTrue(payoutOrder.get() < 0
-                            || payoutOrder.get() > winnerResultOrder.get(),
+            assertTrue(payoutOrder.get() > winnerResultOrder.get(),
                     "the GDX winner verdict must be visible before the "
                             + "delayed pot payout");
             assertTrue(endBoundaryOrder.get() > winnerResultOrder.get(),
                     "the GDX winner verdict must be visible before the "
                             + "hand enters its between-hands phase");
+            assertTrue(payoutOrder.get() > endBoundaryOrder.get(),
+                    "the pot cannot land before END exposes the showdown dwell");
+            assertEquals(winnerStackAtResult.get(), winnerStackAtEnd.get(),
+                    "END must not credit the winner before the pot flies");
+            assertEquals(0.3d, potAtEnd.get(), 0.000_001d,
+                    "END must preserve the complete pot, including both blinds");
+            assertEquals(0.3d, investedAtEnd.get(), 0.000_001d,
+                    "END must preserve each seat's investment until payout");
+            assertEquals(0d, potAtPayout.get(), 0.000_001d,
+                    "the payout event must empty the visible pot");
+            assertEquals(winnerStackAtEnd.get() + 0.3d,
+                    winnerStackAtPayout.get(), 0.000_001d,
+                    "the winner stack must change exactly when the pot lands");
             if (winnerNickname.get().equals(localNickname.get())) {
                 assertEquals(Boolean.TRUE, localOutcomeAtResult.get(),
                         "the sole survivor must see the winning outcome");

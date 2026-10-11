@@ -617,7 +617,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /** Public-only state; no concealed pocket code can cross this boundary. */
     public TableSnapshot publicHotJoinSnapshot() {
-        TableSnapshot base = tableSnapshot();
+        boolean payoutPending = this.showdown_payout_pending;
+        TableSnapshot base = pendingPayoutPresentation(tableSnapshot(),
+                payoutPending);
         java.util.List<TableSnapshot.PlayerSnapshot> publicPlayers
                 = publicPlayers(base.players());
         java.util.List<TableSnapshot.CardSnapshot> board
@@ -642,7 +644,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String potPrefix = this.rit_pot_board_tag == null ? ""
                 : game_text.translate("runittwice.pot_label_full",
                         this.rit_pot_board_tag);
-        double publicPot = this.rit_pot_board_tag == null
+        double publicPot = payoutPending
+                ? base.pot()
+                : this.rit_pot_board_tag == null
                 ? MoneyMath.clean(this.bote_total)
                 : splitPotForRunItTwice(this.bote_total)[0];
         return new TableSnapshot(base.revision(), base.localNickname(),
@@ -1160,16 +1164,45 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * a plausible-looking hand of its own.
      */
     private TableSnapshot handBoundarySnapshot(TableSnapshot.Street street) {
-        TableSnapshot base = tableSnapshot();
+        boolean payoutPending = this.showdown_payout_pending;
+        TableSnapshot base = pendingPayoutPresentation(tableSnapshot(),
+                payoutPending);
         java.util.List<TableSnapshot.CardSnapshot> board
                 = java.util.Arrays.stream(communityCards())
                         .map(GameCardController::getState)
                         .map(state -> state.snapshot())
                         .map(TableSnapshotMapper::card)
                         .toList();
+        double visiblePot = payoutPending
+                ? base.pot() : MoneyMath.clean(this.bote_total);
         return new TableSnapshot(base.revision(), base.localNickname(), street,
-                MoneyMath.clean(this.bote_total), "", base.paused(),
+                visiblePot, "", base.paused(),
                 base.players(), board);
+    }
+
+    private TableSnapshot pendingPayoutPresentation(TableSnapshot settled,
+            boolean payoutPending) {
+        if (!payoutPending) return settled;
+        java.util.Map<String, Double> rawStacks = new java.util.HashMap<>();
+        for (GamePlayerController player : players()) {
+            if (player != null) {
+                rawStacks.put(player.getNickname(), player.getStack());
+            }
+        }
+        return TableSnapshotMapper.beforePendingPayout(settled,
+                this.showdown_presentation_pot, rawStacks,
+                this.showdown_presentation_investments);
+    }
+
+    private boolean hasPendingShowdownPayout() {
+        if (this.rit_board_payouts_presented) return false;
+        for (GamePlayerController player : players()) {
+            if (player != null
+                    && MoneyMath.compare(player.getPagar(), 0d) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private java.util.List<GamePlayerController> remotePlayers() {
@@ -3858,6 +3891,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile int conta_mano = 0;
     private volatile int conta_accion = 0;
     private volatile double bote_total = 0;
+    // Exact public pot shown between HandBoundary.END and the ordered payout.
+    // The accounting model has already moved that money into pagar at that
+    // point, so bote_total itself is zero and cannot represent the visible
+    // instant without losing collected dead money (blinds/antes).
+    private volatile double showdown_presentation_pot = 0d;
+    private volatile boolean showdown_payout_pending = false;
+    private volatile java.util.Map<String, Double>
+            showdown_presentation_investments = java.util.Map.of();
     private volatile double apuestas = 0;
     private volatile double ciega_grande;
     private volatile double ciega_pequeña;
@@ -6548,10 +6589,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!transfers.isEmpty()) {
-                awaitAttachedTableEvent(sequence
-                        -> new TableVisualEvent.PayoutBatch(sequence,
-                                transfers, 0d, 0d),
+                awaitAttachedTableEvent(sequence -> {
+                    // Change the snapshot phase before this sequence becomes
+                    // observable. A hot-join cutover that includes the payout
+                    // must sample final stacks; an earlier cutover samples the
+                    // pre-payout pot and receives this buffered event.
+                    this.showdown_payout_pending = false;
+                    return new TableVisualEvent.PayoutBatch(sequence,
+                            transfers, 0d, 0d);
+                },
                         "Showdown payout presentation barrier failed");
+            } else {
+                this.showdown_payout_pending = false;
             }
             return;
         }
@@ -6562,6 +6611,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || this.game_recovered != 0
                 || isFin_de_la_transmision()
                 || localPlayer().isExit()) {
+            this.showdown_payout_pending = false;
             return;
         }
 
@@ -6578,6 +6628,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         if (payouts.isEmpty()) {
+            this.showdown_payout_pending = false;
             return;
         }
 
@@ -6595,6 +6646,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING,
                     "Classic showdown-payout presentation barrier failed", ex);
+        } finally {
+            this.showdown_payout_pending = false;
         }
     }
 
@@ -13272,6 +13325,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // silenced, re-enable it at the start of the new hand.
         this.rit_suppress_showdown_sql = false;
         this.rit_board_payouts_presented = false;
+        this.showdown_payout_pending = false;
+        this.showdown_presentation_pot = 0d;
+        this.showdown_presentation_investments = java.util.Map.of();
         this.returned_side_pot_payouts.clear();
         // Same defensive reasoning: after a MISDEAL this Crupier has no more hands
         // (fin_de_la_transmision stays raised), but a fresh hand should never start marked
@@ -26978,6 +27034,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.bote.genSidePots();
                             badbeat = false;
                             double sql_bote_total = this.bote_total;
+                            this.showdown_presentation_pot
+                                    = MoneyMath.clean(sql_bote_total);
+                            java.util.Map<String, Double> visibleInvestments
+                                    = new java.util.LinkedHashMap<>();
+                            for (GamePlayerController player : players()) {
+                                if (player != null) {
+                                    visibleInvestments.put(player.getNickname(),
+                                            MoneyMath.clean(player.getBote()));
+                                }
+                            }
+                            this.showdown_presentation_investments
+                                    = java.util.Map.copyOf(visibleInvestments);
 
                             // One fail-closed pre-payout barrier covers every terminal path:
                             // all-fold, sole survivor, showdown and run-it-twice.
@@ -27405,6 +27473,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
 
+                        this.showdown_payout_pending
+                                = hasPendingShowdownPayout();
                         awaitAttachedTableEvent(sequence
                                 -> new TableVisualEvent.HandBoundary(
                                 sequence, this.conta_mano,

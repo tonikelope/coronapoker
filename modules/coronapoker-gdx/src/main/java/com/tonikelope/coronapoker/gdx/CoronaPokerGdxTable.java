@@ -3891,6 +3891,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 captureShowdownInvestments();
+                // END now carries the exact whole pot that is still visible
+                // before payout. Action contributions are already included in
+                // that amount; retaining this renderer-local cache would count
+                // the final street twice (and used to hide collected blinds
+                // when the old zero-pot END snapshot replaced the model).
+                livePotContributions.clear();
             }
             if (event instanceof TableVisualEvent.RunItTwiceBoard board
                     && board.side()

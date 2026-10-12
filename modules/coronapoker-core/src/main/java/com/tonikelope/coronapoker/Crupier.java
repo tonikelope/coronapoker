@@ -171,10 +171,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameBotService bot_service;
     private final GameEntropySource game_entropy;
     private final TableEventBridge table_events;
-    private final java.util.concurrent.ConcurrentLinkedQueue<PendingHotJoin>
-            pending_hot_joins = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private final Object pending_hot_join_lock = new Object();
+    private final java.util.ArrayDeque<PendingHotJoin> pending_hot_joins
+            = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<PendingHotJoin> sealed_hot_joins
+            = new java.util.ArrayDeque<>();
     private final java.util.Set<String> pending_hot_join_nicks
-            = java.util.concurrent.ConcurrentHashMap.newKeySet();
+            = new java.util.HashSet<>();
     // Durable provenance: true only when this database derived the seating
     // itself through commit-reveal (never merely from a recovery SEATS frame).
     private volatile boolean local_seat_ring_verified;
@@ -512,25 +515,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void queueHotJoin(CorePlayerController player,
             GamePeerController peer, Runnable afterAdmission,
             java.util.function.Function<String,
-                    java.util.concurrent.CompletionStage<Void>> boundaryRelay) {
+                    java.util.concurrent.CompletionStage<Void>> boundaryRelay,
+            java.util.function.IntPredicate boundaryReady,
+            Runnable boundaryFailure) {
         java.util.Objects.requireNonNull(player, "player");
         java.util.Objects.requireNonNull(peer, "peer");
         String nickname = player.getNickname();
         GamePlayerController previous = nick2player.get(nickname);
-        if (!nickname.equals(peer.getNick())
-                || nickname.equals(gameSession().localNickname())
-                || previous != null && !previous.isExit()
-                || !pending_hot_join_nicks.add(nickname)) {
-            throw new IllegalArgumentException("Duplicate or invalid hot join: "
-                    + nickname);
-        }
         player.setCalentando(game_text.translate("game.calentando"));
-        pending_hot_joins.add(new PendingHotJoin(player, peer,
+        PendingHotJoin pending = new PendingHotJoin(player, peer,
                 afterAdmission == null ? () -> { } : afterAdmission,
                 boundaryRelay == null
                         ? ignored -> java.util.concurrent.CompletableFuture
                                 .completedFuture(null)
-                        : boundaryRelay));
+                        : boundaryRelay,
+                boundaryReady == null ? ignored -> true : boundaryReady,
+                boundaryFailure == null ? () -> { } : boundaryFailure);
+        synchronized (pending_hot_join_lock) {
+            if (!nickname.equals(peer.getNick())
+                    || nickname.equals(gameSession().localNickname())
+                    || previous != null && !previous.isExit()
+                    || !pending_hot_join_nicks.add(nickname)) {
+                throw new IllegalArgumentException(
+                        "Duplicate or invalid hot join: " + nickname);
+            }
+            pending_hot_joins.addLast(pending);
+        }
         LOGGER.log(Level.INFO, "HOT JOIN: queued {0} for the next boundary",
                 nickname);
         publishReplicatedSeatRoster();
@@ -538,14 +548,143 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /** Removes a newcomer that disconnected before its admission boundary. */
     public void cancelHotJoin(String nickname) {
-        if (nickname == null || !pending_hot_join_nicks.remove(nickname)) {
+        if (!removeHotJoinReservation(nickname)) {
             return;
         }
-        pending_hot_joins.removeIf(pending
-                -> pending.player().getNickname().equals(nickname));
+        removeInstalledRemoteWarmingSeat(nickname);
         LOGGER.log(Level.INFO,
                 "HOT JOIN: cancelled warming reservation for {0}", nickname);
         publishReplicatedSeatRoster();
+    }
+
+    private boolean removeHotJoinReservation(String nickname) {
+        if (nickname == null) return false;
+        synchronized (pending_hot_join_lock) {
+            if (!pending_hot_join_nicks.remove(nickname)) return false;
+            pending_hot_joins.removeIf(pending
+                    -> pending.player().getNickname().equals(nickname));
+            sealed_hot_joins.removeIf(pending
+                    -> pending.player().getNickname().equals(nickname));
+            return true;
+        }
+    }
+
+    private java.util.List<PendingHotJoin> hotJoinSnapshot() {
+        synchronized (pending_hot_join_lock) {
+            java.util.ArrayList<PendingHotJoin> snapshot
+                    = new java.util.ArrayList<>(sealed_hot_joins);
+            snapshot.addAll(pending_hot_joins);
+            return java.util.List.copyOf(snapshot);
+        }
+    }
+
+    private java.util.List<PendingHotJoin> sealedHotJoinSnapshot() {
+        synchronized (pending_hot_join_lock) {
+            return java.util.List.copyOf(sealed_hot_joins);
+        }
+    }
+
+    private java.util.Set<String> unsealedHotJoinNickSnapshot() {
+        synchronized (pending_hot_join_lock) {
+            java.util.LinkedHashSet<String> result
+                    = new java.util.LinkedHashSet<>();
+            for (PendingHotJoin pending : pending_hot_joins) {
+                result.add(pending.player().getNickname());
+            }
+            return java.util.Set.copyOf(result);
+        }
+    }
+
+    /**
+     * Freezes the host's exact next-hand newcomer generation. Arrivals after
+     * this point remain pending for the following hand and cannot be admitted
+     * by a boundary whose balance roster did not include them.
+     */
+    private void sealPendingHotJoinsForBoundary() {
+        synchronized (pending_hot_join_lock) {
+            sealed_hot_joins.addAll(pending_hot_joins);
+            pending_hot_joins.clear();
+        }
+    }
+
+    /**
+     * Reconstructs the host-sealed generation on an incumbent from the
+     * authenticated balance roster. HOTJOIN and START_SRA_CASCADE are ordered,
+     * but a later arrival may already be queued locally when this thread
+     * consumes the boundary; it must stay pending for the following hand.
+     */
+    private void sealPendingHotJoinsForBoundary(
+            java.util.Set<String> boundaryRoster) {
+        synchronized (pending_hot_join_lock) {
+            java.util.Iterator<PendingHotJoin> iterator
+                    = pending_hot_joins.iterator();
+            while (iterator.hasNext()) {
+                PendingHotJoin pending = iterator.next();
+                if (boundaryRoster.contains(pending.player().getNickname())) {
+                    sealed_hot_joins.addLast(pending);
+                    iterator.remove();
+                }
+            }
+        }
+    }
+
+    private java.util.List<PendingHotJoin> drainSealedHotJoins() {
+        synchronized (pending_hot_join_lock) {
+            java.util.List<PendingHotJoin> result
+                    = java.util.List.copyOf(sealed_hot_joins);
+            sealed_hot_joins.clear();
+            return result;
+        }
+    }
+
+    /**
+     * A second late entrant can already be installed in another newcomer's
+     * recovered public model when it leaves before admission.  It never
+     * belonged to that hand or crypto ring, so retiring the reservation must
+     * also retire that provisional controller.  The identity and role checks
+     * deliberately make this incapable of removing the local seat or an
+     * admitted player.
+     */
+    private boolean removeInstalledRemoteWarmingSeat(String nickname) {
+        return removeInstalledRemoteProvisionalSeat(nickname, false);
+    }
+
+    private boolean removeInstalledRemoteProvisionalSeat(String nickname,
+            boolean authenticatedBoundary) {
+        if (nickname == null
+                || nickname.equals(gameSession().localNickname())) {
+            return false;
+        }
+        GamePlayerController installed = nick2player.get(nickname);
+        /*
+         * A passive newcomer's reconstructed roles are presentation data from
+         * the observed hand, not proof of membership in the following one.
+         * At the authenticated boundary the host roster is the authority: any
+         * omitted remote seat (active-looking, spectator or CALENTANDO) is no
+         * longer part of the canonical next-hand table.  The local identity is
+         * guarded above and an ordinary cancellation still requires the
+         * mutable CALENTANDO role.
+         */
+        boolean boundaryOnlyObserver = authenticatedBoundary
+                && installed != null;
+        if (installed == null
+                || !installed.isCalentando() && !boundaryOnlyObserver) {
+            return false;
+        }
+        players().remove(installed);
+        peers().remove(nickname);
+        nick2player.remove(nickname, installed);
+        gameSession().table().removePlayer(nickname);
+        auditor.remove(nickname);
+        rebuy_committed.remove(nickname);
+        rebuy_counts.remove(nickname);
+        String[] seats = this.nicks_permutados;
+        if (seats != null) {
+            this.nicks_permutados = java.util.Arrays.stream(seats)
+                    .filter(seat -> !nickname.equals(seat))
+                    .toArray(String[]::new);
+        }
+        return true;
     }
 
     /**
@@ -781,7 +920,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             throw new IllegalStateException("Hot-join seats are not available");
         }
         java.util.List<String> planned = plannedSeatRing(
-                pending_hot_joins.stream()
+                hotJoinSnapshot().stream()
                         .map(pending -> pending.player().getNickname())
                         .toList());
         StringBuilder command = new StringBuilder("SEATS#")
@@ -805,7 +944,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 = new java.util.ArrayList<>();
         java.util.LinkedHashMap<String, PendingHotJoin> warming
                 = new java.util.LinkedHashMap<>();
-        for (PendingHotJoin pending : pending_hot_joins) {
+        for (PendingHotJoin pending : hotJoinSnapshot()) {
             warming.put(pending.player().getNickname(), pending);
         }
         for (TableSnapshot.PlayerSnapshot player : basePlayers) {
@@ -996,13 +1135,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private java.util.List<GamePeerController> admitPendingHotJoins() {
-        PendingHotJoin pending;
         boolean admitted = false;
         java.util.List<GamePeerController> admittedPeers
                 = new java.util.ArrayList<>();
-        while ((pending = pending_hot_joins.poll()) != null) {
+        for (PendingHotJoin pending : drainSealedHotJoins()) {
             String nickname = pending.player().getNickname();
-            pending_hot_join_nicks.remove(nickname);
+            synchronized (pending_hot_join_lock) {
+                pending_hot_join_nicks.remove(nickname);
+            }
             CorePlayerController player = pending.player();
             GamePlayerController previous = nick2player.get(nickname);
             if (previous != null) {
@@ -1066,13 +1206,73 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private record PendingHotJoin(CorePlayerController player,
             GamePeerController peer, Runnable afterAdmission,
             java.util.function.Function<String,
-                    java.util.concurrent.CompletionStage<Void>> boundaryRelay) {
+                    java.util.concurrent.CompletionStage<Void>> boundaryRelay,
+            java.util.function.IntPredicate boundaryReady,
+            Runnable boundaryFailure) {
     }
 
-    private void relayBoundaryToPendingHotJoins(String command) {
-        for (PendingHotJoin pending : pending_hot_joins) {
-            pending.boundaryRelay().apply(command);
-        }
+    private void relayBoundaryToPendingHotJoins(String command,
+            int nextHand) {
+        long deadline = System.currentTimeMillis()
+                + HAND_READY_PROGRESS_TIMEOUT_MS;
+        java.util.HashMap<String, java.util.concurrent.CompletableFuture<Void>>
+                inFlight = new java.util.HashMap<>();
+        do {
+            java.util.List<PendingHotJoin> awaiting
+                    = sealedHotJoinSnapshot().stream()
+                            .filter(pending
+                                    -> !pending.boundaryReady().test(nextHand))
+                            .toList();
+            if (awaiting.isEmpty()) return;
+
+            for (PendingHotJoin pending : awaiting) {
+                String nickname = pending.player().getNickname();
+                java.util.concurrent.CompletableFuture<Void> delivery
+                        = inFlight.get(nickname);
+                /*
+                 * Never join a transport delivery on the dealer thread. A
+                 * disconnected generation deliberately leaves that Future
+                 * pending while it attempts recovery; an unbounded join here
+                 * would defeat the progress deadline and freeze every healthy
+                 * participant. Keep at most one transport attempt in flight.
+                 * Once its ACK completes without the stronger HOTJOIN_READY,
+                 * repeat the semantic barrier: the dealer suppresses exact
+                 * duplicates only after applying the first one.
+                 */
+                if (delivery == null || delivery.isDone()) {
+                    if (delivery != null && delivery.isCompletedExceptionally()) {
+                        LOGGER.log(Level.FINE,
+                                "Retrying next-hand boundary for warming peer {0}",
+                                nickname);
+                    }
+                    try {
+                        inFlight.put(nickname,
+                                pending.boundaryRelay().apply(command)
+                                        .toCompletableFuture());
+                    } catch (RuntimeException failure) {
+                        LOGGER.log(Level.FINE,
+                                "Unable to queue next-hand boundary for warming peer "
+                                        + nickname,
+                                failure);
+                    }
+                }
+            }
+
+            if (System.currentTimeMillis() >= deadline) {
+                for (PendingHotJoin pending : sealedHotJoinSnapshot()) {
+                    if (!pending.boundaryReady().test(nextHand)) {
+                        LOGGER.log(Level.SEVERE,
+                                "HOT JOIN: peer {0} did not apply boundary for hand {1}; cancelling admission",
+                                new Object[]{pending.player().getNickname(),
+                                    nextHand});
+                        pending.boundaryFailure().run();
+                    }
+                }
+                return;
+            }
+            game_async.park(Math.min(100L, Math.max(1L,
+                    deadline - System.currentTimeMillis())));
+        } while (!tableWaitCancelled());
     }
 
     /**
@@ -1084,7 +1284,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void relayTerminationToPendingHotJoins(String command) {
         java.util.ArrayList<java.util.concurrent.CompletableFuture<Void>>
                 deliveries = new java.util.ArrayList<>();
-        for (PendingHotJoin pending : pending_hot_joins) {
+        for (PendingHotJoin pending : hotJoinSnapshot()) {
             deliveries.add(pending.boundaryRelay().apply(command)
                     .toCompletableFuture());
         }
@@ -12023,20 +12223,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * current GamePlayerController objects overlay them and add recovery-lobby newcomers.
      */
     private Map<String, double[]> collectNextHandBalanceRows() {
+        java.util.Set<String> deferredHotJoins
+                = new java.util.HashSet<>(unsealedHotJoinNickSnapshot());
+        deferredHotJoins.removeAll(this.current_hand_balance_roster);
         java.util.Set<String> renderedPlayers = new java.util.HashSet<>();
         for (GamePlayerController player : players()) {
-            if (player != null) {
+            if (player != null
+                    && !deferredHotJoins.contains(player.getNickname())) {
                 renderedPlayers.add(player.getNickname());
             }
         }
-        for (PendingHotJoin pending : pending_hot_joins) {
+        for (PendingHotJoin pending : sealedHotJoinSnapshot()) {
             renderedPlayers.add(pending.player().getNickname());
         }
         validateCommittedRebuyTargets(rebuy_committed, renderedPlayers);
         Map<String, double[]> rows = new LinkedHashMap<>();
         for (Map.Entry<String, Double[]> entry : this.auditor.entrySet()) {
             Double[] value = entry.getValue();
-            if (value != null && value.length >= 2
+            if (!deferredHotJoins.contains(entry.getKey())
+                    && value != null && value.length >= 2
                     && value[0] != null && value[1] != null) {
                 rows.put(entry.getKey(), new double[]{
                     MoneyMath.clean(value[0]), value[1],
@@ -12045,7 +12250,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         for (GamePlayerController player : players()) {
-            if (player != null) {
+            if (player != null
+                    && !deferredHotJoins.contains(player.getNickname())) {
                 rows.put(player.getNickname(), projectNextHandBalanceRow(
                         player.getStack(), player.getPagar(), player.getBuyin(),
                         getRebuyCount(player.getNickname()),
@@ -12057,7 +12263,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // snapshot is the atomic opening balance of the *next* hand. Include
         // them before admission so host, incumbents and newcomer verify the
         // same roster without mutating the active hand retroactively.
-        for (PendingHotJoin pending : pending_hot_joins) {
+        for (PendingHotJoin pending : sealedHotJoinSnapshot()) {
             GamePlayerController player = pending.player();
             GamePlayerController previous = nick2player.get(
                     player.getNickname());
@@ -12131,6 +12337,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return true;
         }
 
+        RecoveryBalanceReconciler.Result decoded
+                = RecoveryBalanceReconciler.parseObserver(wire,
+                        java.util.Set.of());
+        if (!decoded.isOk()) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: malformed next-hand balance barrier: {0}",
+                    decoded.error());
+            return false;
+        }
+        String canonical = RecoveryBalanceReconciler.encode(decoded);
+        if (!canonical.equals(wire)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: non-canonical next-hand balance snapshot");
+            return false;
+        }
+
+        /*
+         * Recreate the host's exact sealed admission generation before
+         * projecting local balances. A HOTJOIN that raced behind this boundary
+         * is intentionally absent from its roster and remains pending for the
+         * next hand instead of poisoning exact reconciliation.
+         */
+        sealPendingHotJoinsForBoundary(decoded.balances().keySet());
+
         Map<String, double[]> localRows;
         try {
             localRows = collectNextHandBalanceRows();
@@ -12139,11 +12369,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "Cannot validate next-hand balance snapshot", ex);
             return false;
         }
+        String localNickname = gameSession().localNickname();
         RecoveryBalanceReconciler.Result verified = passiveObserver
-                ? RecoveryBalanceReconciler.parseObserver(wire, localRows.keySet())
+                ? RecoveryBalanceReconciler.parseObserver(wire,
+                        java.util.Set.of(localNickname))
                 : RecoveryBalanceReconciler.reconcileExact(wire, localRows);
-        if (!verified.isOk()
-                || !verified.balances().keySet().equals(localRows.keySet())) {
+        java.util.Set<String> hostRoster = verified.isOk()
+                ? verified.balances().keySet() : java.util.Set.of();
+        java.util.Set<String> omittedLocalPlayers
+                = new java.util.LinkedHashSet<>(localRows.keySet());
+        omittedLocalPlayers.removeAll(hostRoster);
+        boolean observerRosterMatches = !passiveObserver
+                || localRows.keySet().containsAll(hostRoster)
+                && hostRoster.contains(localNickname);
+        if (!verified.isOk() || !observerRosterMatches
+                || !passiveObserver
+                && !hostRoster.equals(localRows.keySet())) {
             if (presentation_settings.testMode()) {
                 LOGGER.log(Level.SEVERE,
                         "QA NEXT_HAND_BALANCE_REJECT hand={0} passive={1} local={2} wire={3}",
@@ -12155,14 +12396,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
-        String canonical = RecoveryBalanceReconciler.encode(verified);
-        if (!canonical.equals(wire)) {
-            LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: non-canonical next-hand balance snapshot");
-            return false;
-        }
-
         if (passiveObserver) {
+            /*
+             * HOTJOIN_CANCELLED and this authenticated boundary use separate
+             * network paths and can race.  Once the host has sealed a roster
+             * without a stale remote seat, converge immediately instead of
+             * rejecting the valid boundary or carrying a ghost controller
+             * into the next hand. The authenticated host boundary is the only
+             * reliable next-hand roster for a passive observer; reconstructed
+             * roles belong to the hand it merely watched. The local identity
+             * is mandatory above, so only remote seats can be removed here.
+             */
+            for (String nickname : omittedLocalPlayers) {
+                removeHotJoinReservation(nickname);
+                removeInstalledRemoteProvisionalSeat(nickname, true);
+            }
             Map<String, Double[]> replacementAuditor = new LinkedHashMap<>();
             for (Map.Entry<String, RecoveryBalanceReconciler.Balance> entry
                     : verified.balances().entrySet()) {
@@ -12213,6 +12461,122 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    private boolean awaitHotJoinActivation(int expectedHand) {
+        long waitStarted = System.currentTimeMillis();
+        boolean pauseNoticeShown = false;
+        while (!tableWaitCancelled()) {
+            synchronized (received_commands) {
+                java.util.ArrayList<String> rejected
+                        = new java.util.ArrayList<>();
+                boolean active = false;
+                while (!received_commands.isEmpty()) {
+                    String command = received_commands.poll();
+                    if (command.startsWith("__LOCAL_REBUY_BARRIER__#")) {
+                        // A semantic START_SRA_CASCADE retry owns the same local
+                        // ordering marker as its boundary. The first accepted
+                        // boundary has already drained every rebuy through that
+                        // sequence, so its retry marker is now redundant.
+                        continue;
+                    }
+                    String[] fields = command.split("#", -1);
+                    if (fields.length >= 3
+                            && "START_SRA_CASCADE".equals(fields[2])) {
+                        if (!startCascadeSignalHasCurrentShape(fields)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed duplicate START_SRA_CASCADE; closing host channel");
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        int boundaryHand;
+                        try {
+                            boundaryHand = Integer.parseInt(fields[3]);
+                        } catch (NumberFormatException malformed) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed duplicate START_SRA_CASCADE hand; closing host channel",
+                                    malformed);
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        if (boundaryHand != expectedHand
+                                || !java.util.Objects.equals(fields[4],
+                                        next_hand_balance_wire)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Conflicting START_SRA_CASCADE retry while activating hot join; closing host channel");
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        // The host deliberately retries this semantic barrier
+                        // until HOTJOIN_READY. Deduplicate only here, after the
+                        // dealer has authenticated and applied the first copy.
+                        continue;
+                    }
+                    if (fields.length >= 3
+                            && "HOTJOIN_ACTIVE".equals(fields[2])) {
+                        if (fields.length != 4) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed HOTJOIN_ACTIVE; closing host channel");
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        int activeHand;
+                        try {
+                            activeHand = Integer.parseInt(fields[3]);
+                        } catch (NumberFormatException malformed) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Malformed HOTJOIN_ACTIVE hand; closing host channel",
+                                    malformed);
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        if (activeHand != expectedHand) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Unexpected HOTJOIN_ACTIVE hand: expected {0}, received {1}",
+                                    new Object[]{expectedHand, activeHand});
+                            received_commands.reject(command);
+                            setFin_de_la_transmision(true);
+                            game_transport.closeHostConnection();
+                            return false;
+                        }
+                        active = true;
+                        break;
+                    }
+                    rejected.add(command);
+                }
+                if (!rejected.isEmpty()) {
+                    restoreRejectedCommands(rejected);
+                }
+                if (active) {
+                    LOGGER.log(Level.INFO,
+                            "HOT JOIN: server activated local seat for hand {0}",
+                            expectedHand);
+                    return true;
+                }
+                try {
+                    received_commands.wait(WAIT_QUEUES);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+            if (gameSession().isPaused()) {
+                waitStarted = System.currentTimeMillis();
+            }
+            pauseNoticeShown = avisarMesaParada(waitStarted,
+                    pauseNoticeShown);
+        }
+        return false;
+    }
+
     private void readyForNextHand(boolean discardObservedHandCommands) {
         if (tableWaitCancelled()) {
             return;
@@ -12228,7 +12592,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             //
             // A newcomer added to an already-open recovery has no such wire
             // yet. It deliberately falls through to the ordinary barrier
-            // below, sends HAND_READY and waits for the host to close the
+            // below, sends provisional HAND_READY and waits for the host to close the
             // recovered hand. This presence check is the protocol distinction
             // between the two paths; treating a missing wire as fatal used to
             // close valid recovery newcomers before their first playable hand.
@@ -12252,8 +12616,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (tableWaitCancelled()) {
                 return;
             }
+            LOGGER.log(Level.INFO,
+                    "HOT JOIN: sending boundary readiness for hand {0}",
+                    this.conta_mano + 1);
+            int activationHand = this.conta_mano + 1;
             this.sendGAMECommandToServer(
-                    "HAND_READY#" + String.valueOf(this.conta_mano + 1));
+                    "HOTJOIN_READY#" + activationHand);
+            awaitHotJoinActivation(activationHand);
             return;
         }
         // Between-hands cleanup of the pocket-card cache and the pending command queue. The
@@ -12413,10 +12782,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (tableWaitCancelled()) {
                     return;
                 }
+                /*
+                 * This is the admission linearization point. The same frozen
+                 * generation is encoded in the balance barrier, relayed to
+                 * warming sockets and consumed by admitPendingHotJoins(). A
+                 * concurrent arrival is left in pending_hot_joins for the
+                 * following hand.
+                 */
+                sealPendingHotJoinsForBoundary();
                 String boundaryWire = "*";
                 synchronized (lock_rebuynow) {
                     commitPendingRebuysForBoundary();
-                    if (!this.current_hand_balance_roster.isEmpty()) {
+                    if (!this.current_hand_balance_roster.isEmpty()
+                            || !sealedHotJoinSnapshot().isEmpty()) {
                         try {
                             boundaryWire = RecoveryBalanceReconciler.encodeLocal(
                                     collectNextHandBalanceRows());
@@ -12441,9 +12819,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         boundaryCommand, null, true);
                 // A warming connection is outside the active peer map. Relay
                 // exactly this closing boundary to it; ordinary traffic stays
-                // blocked until it applies recovery and answers HAND_READY for
+                // blocked until it applies recovery and answers HOTJOIN_READY for
                 // its first playable hand.
-                relayBoundaryToPendingHotJoins(boundaryCommand);
+                relayBoundaryToPendingHotJoins(boundaryCommand, nextHand);
             }
 
         } else {
@@ -12526,8 +12904,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (tableWaitCancelled()) {
                                     return;
                                 }
+                                LOGGER.log(Level.INFO,
+                                        "HOT JOIN: sending boundary readiness for hand {0}",
+                                        nextHand);
                                 this.sendGAMECommandToServer(
-                                        "HAND_READY#" + nextHand);
+                                        "HOTJOIN_READY#" + nextHand);
+                                if (!awaitHotJoinActivation(nextHand)) {
+                                    return;
+                                }
                             }
                             serverCommitted = true;
                         } else if (discardObservedHandCommands
@@ -13076,7 +13460,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean NUEVA_MANO() {
-        final boolean leavingPassiveObservedHand = this.passive_recovery_observer;
+        /*
+         * passive_recovery_observer is an iteration flag and is deliberately
+         * reset below.  hot_join_observer is the stable protocol identity
+         * until HOTJOIN_ACTIVE.  A boundary may arrive while recovery is
+         * crossing between two NUEVA_MANO attempts; keying mailbox cleanup
+         * only to the transient flag could then clear an already authenticated
+         * START_SRA_CASCADE and strand the newcomer in CALENTANDO forever.
+         */
+        final boolean leavingPassiveObservedHand
+                = this.passive_recovery_observer
+                || this.hot_join_observer && !gameSession().isHost();
         // Cleared on every attempt. recuperarDatosClavePartida sets it again only
         // for the narrowly-defined newcomer-observing-an-open-recovered-hand case.
         this.passive_recovery_observer = false;
@@ -22524,7 +22918,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             java.util.HashSet::new));
             for (String nickname : this.nicks_permutados) {
                 if (installed.contains(nickname)) continue;
-                PendingHotJoin pending = pending_hot_joins.stream()
+                PendingHotJoin pending = hotJoinSnapshot().stream()
                         .filter(candidate -> nickname.equals(
                                 candidate.player().getNickname()))
                         .findFirst().orElse(null);

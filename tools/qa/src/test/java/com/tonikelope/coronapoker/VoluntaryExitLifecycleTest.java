@@ -10,8 +10,10 @@ class VoluntaryExitLifecycleTest {
     @Test
     void acceptedCommunityTestamentSurvivesSocketAndParticipantTeardown() throws Exception {
         String source = Files.readString(sourceRoot().resolve("Crupier.java"));
-        String acceptedExit = methodBody(source,
+        String strictExit = methodBody(source,
                 "public void remotePlayerQuit(String nick, String testamento,");
+        String acceptedExit = methodBody(source,
+                "Runnable afterLocalAcceptance)");
         String abruptExit = methodBody(source, "public void remotePlayerQuit(String nick)");
         String quit = acceptedExit;
         String testament = methodBody(source, "getTestamentoCriptografico(String nick)");
@@ -23,8 +25,8 @@ class VoluntaryExitLifecycleTest {
                 "remotePlayerQuit must retain the validated community testament");
         assertTrue(quit.contains("exited_consensus_participants.add(nick)"),
                 "every observed departure must stop requiring impossible future receipts");
-        assertTrue(acceptedExit.contains("pocketSignature)"),
-                "the strict EXIT handler path must register the departure");
+        assertTrue(strictExit.contains("pocketSignature, null)"),
+                "the strict EXIT handler path must delegate to the common accepted-exit transition");
         assertTrue(abruptExit.contains("null, null, null)"),
                 "socket loss and automatic expulsion must register a departure without inventing a testament");
         assertTrue(quit.indexOf("rememberExitCommunityTestament")

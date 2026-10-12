@@ -882,13 +882,13 @@ public final class GdxMultiprocessNodeMain {
                     return;
                 }
                 if (!stopWhileWarming && !thisWarmingIncarnationExits) {
-                    if (!publicRunoutBootstrap) {
+                    if (!publicRunoutBootstrap && !churnReentry) {
                         await(renderer::sawHotJoinPlayerAction,
                                 Duration.ofSeconds(90),
                                 "ordinary player-action event while warming");
+                        marker("HOT_JOIN_VISUAL_STREAM", "nick="
+                                + config.nickname);
                     }
-                    marker("HOT_JOIN_VISUAL_STREAM", "nick="
-                            + config.nickname);
                     int expectedFaceUp = crashReentry || laterHandReentry
                             || churnReentry
                             ? 0 : 4;
@@ -904,7 +904,7 @@ public final class GdxMultiprocessNodeMain {
                         marker("HOT_JOIN_REENTRY_BOARD_STABLE", "faceUp="
                                 + expectedFaceUp);
                     }
-                    if (!publicRunoutBootstrap
+                    if (!publicRunoutBootstrap && !churnReentry
                             && (flopBootstrap || config.clients() > 1)) {
                         await(renderer::sawHotJoinCommunityReveal,
                                 Duration.ofSeconds(90),
@@ -1150,8 +1150,13 @@ public final class GdxMultiprocessNodeMain {
             marker("READY", "role=" + config.role + " nick="
                     + config.nickname + " phase=" + config.phase);
             if (config.host()) {
+                // Every configured remote human starts in the lobby for this
+                // scenario. Waiting for the old intermediate count was racy:
+                // two fast clients could move the snapshot from host+one to
+                // host+two before this predicate sampled it, leaving an exact
+                // equality that could never become true again.
                 await(() -> lobby.snapshot().participants().size()
-                                == config.clients,
+                                == config.clients + 1,
                         Duration.ofSeconds(30),
                         "active-reentry initial humans");
                 for (int index = 0; index < config.bots; index++) {
@@ -1367,8 +1372,12 @@ public final class GdxMultiprocessNodeMain {
             marker("READY", "role=" + config.role + " nick="
                     + config.nickname + " phase=" + config.phase);
             if (config.host()) {
+                // All remote candidates are initial participants. Observe the
+                // complete human roster rather than a transient host+N-1
+                // count, which can be skipped when connections finish close
+                // together on a fast machine.
                 await(() -> lobby.snapshot().participants().size()
-                                == config.clients,
+                                == config.clients + 1,
                         Duration.ofSeconds(30),
                         "busted-reentry initial humans");
                 for (int index = 0; index < config.bots; index++) {

@@ -421,6 +421,29 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         immediateRebuySource.incrementAndGet());
             }
         }
+        for (LobbyParticipant participant : lobby.participants()) {
+            if (participant.local() || !participant.warming()) continue;
+            String nickname = participant.nickname();
+            CorePlayerController newcomer = CorePlayerController.remote(
+                    nickname);
+            initializePlayer(newcomer, initialConfiguration.buyin());
+            GamePeerController newcomerPeer = new GameChannelPeerController(
+                    nickname, context.channel(), transport.confirmations(),
+                    participant.identityPublicKey(), participant.latency(),
+                    participant.previousLatency());
+            hotJoin.register(nickname);
+            dealer.queueHotJoin(newcomer, newcomerPeer,
+                    () -> {
+                        immediateRebuySources.put(nickname,
+                                immediateRebuySource.incrementAndGet());
+                        peers.put(nickname, newcomerPeer);
+                        hotJoin.completeAdmission(nickname);
+                    },
+                    commandBody -> hotJoin.sendBoundary(nickname,
+                            commandBody),
+                    hand -> hotJoin.isBoundaryReady(nickname, hand),
+                    () -> hotJoin.rejectBoundaryTimeout(nickname));
+        }
         AtomicReference<TableSessionSummary.CloseReason> requestedCloseReason
                 = new AtomicReference<>(
                         TableSessionSummary.CloseReason.COMPLETED);
@@ -445,10 +468,21 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     byte[] identitySignature = Base64.getDecoder().decode(
                             fields[4]);
                     if (nickname.isEmpty() || identityKey.length == 0
-                            || identitySignature.length == 0
-                            || peers.containsKey(nickname)) {
+                            || identitySignature.length == 0) {
                         throw new IllegalArgumentException(
                                 "Invalid or duplicate HOTJOIN participant");
+                    }
+                    if (hotJoin.isWarming(nickname)) {
+                        // A simultaneous late join can already be present in
+                        // this client's authoritative USERSLIST. Its warming
+                        // reservation was reconstructed during table creation;
+                        // the ordered HOTJOIN frame is then an idempotent
+                        // confirmation, not a second participant.
+                        return;
+                    }
+                    if (peers.containsKey(nickname)) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN participant is already active");
                     }
                     CorePlayerController newcomer
                             = CorePlayerController.remote(nickname);
@@ -468,7 +502,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 hotJoin.completeAdmission(nickname);
                             },
                             commandBody -> hotJoin.sendBoundary(nickname,
-                                    commandBody));
+                                    commandBody),
+                            hand -> hotJoin.isBoundaryReady(nickname, hand),
+                            () -> hotJoin.rejectBoundaryTimeout(nickname));
                     if (lobby.host()) {
                         hotJoin.bootstrap(nickname);
                     }
@@ -580,6 +616,20 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         // that peer admit a ghost seat at the next boundary and
                         // diverge the crypto ring from the host.
                         hotJoin.disconnect(nickname);
+                        return;
+                    }
+                    if (!peers.containsKey(nickname)) {
+                        /*
+                         * HOTJOIN_CANCELLED and the lobby's generic DELUSER
+                         * describe the same pre-admission departure and share
+                         * the ordered channel. If the dedicated lifecycle frame
+                         * won the race, the warming reservation is already gone
+                         * and this DELUSER is an idempotent duplicate. Never let
+                         * it fall through to the active-hand dealer: there is no
+                         * seated player, testament or crypto-ring transition to
+                         * apply, and doing so can poison/close the table channel
+                         * before the next-hand admission barrier arrives.
+                         */
                         return;
                     }
                 } catch (RuntimeException invalid) {
@@ -992,14 +1042,63 @@ public final class CoreGameTableFactory implements GameTableFactory {
             }
             if (!lobby.host()
                     && command.command().startsWith("START_SRA_CASCADE#")) {
-                long rebuyBoundary = immediateRebuyRelaySequence.get();
-                synchronized (dealer.getReceived_commands()) {
-                    if (dealer.enqueueRemoteRebuyBarrier(rebuyBoundary,
-                            context.channel()::close)) {
-                        dealer.enqueueReceivedCommand(envelope,
-                                context.channel()::close);
+                try {
+                    String[] fields = envelope.split("#", -1);
+                    if (!Crupier.startCascadeSignalHasCurrentShape(fields)) {
+                        throw new IllegalArgumentException(
+                                "Malformed START_SRA_CASCADE boundary");
                     }
-                    dealer.getReceived_commands().notifyAll();
+                    Integer.parseInt(fields[3]);
+                    long rebuyBoundary = immediateRebuyRelaySequence.get();
+                    synchronized (dealer.getReceived_commands()) {
+                        boolean barrierQueued
+                                = dealer.enqueueRemoteRebuyBarrier(
+                                        rebuyBoundary,
+                                        context.channel()::close);
+                        boolean boundaryQueued = barrierQueued
+                                && dealer.enqueueReceivedCommand(envelope,
+                                        context.channel()::close);
+                        if (!boundaryQueued) {
+                            context.channel().close();
+                        }
+                        dealer.getReceived_commands().notifyAll();
+                    }
+                } catch (RuntimeException invalid) {
+                    java.util.logging.Logger.getLogger(
+                            CoreGameTableFactory.class.getName()).log(
+                                    java.util.logging.Level.SEVERE,
+                                    "Rejected START_SRA_CASCADE boundary",
+                                    invalid);
+                    context.channel().close();
+                }
+                return;
+            }
+            if (lobby.host()
+                    && command.command().startsWith("HOTJOIN_READY#")) {
+                try {
+                    java.util.logging.Logger.getLogger(
+                            CoreGameTableFactory.class.getName()).log(
+                            java.util.logging.Level.INFO,
+                            "HOT JOIN: received boundary readiness from {0}: {1}",
+                            new Object[]{command.peerNickname(),
+                                command.command()});
+                    if (!hotJoin.acceptBoundaryReady(
+                            command.peerNickname(), envelope)) {
+                        throw new IllegalArgumentException(
+                                "HOTJOIN_READY source is not warming");
+                    }
+                    if (peers.containsKey(command.peerNickname())) {
+                        hotJoin.completeAdmission(command.peerNickname());
+                    }
+                } catch (RuntimeException invalid) {
+                    java.util.logging.Logger.getLogger(
+                            CoreGameTableFactory.class.getName()).log(
+                            java.util.logging.Level.SEVERE,
+                            "Rejected authenticated HOTJOIN_READY from "
+                            + command.peerNickname() + ": "
+                            + command.command(), invalid);
+                    context.channel().retirePeerAfterExit(
+                            command.peerNickname());
                 }
                 return;
             }
@@ -1010,9 +1109,6 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 command.peerNickname(), envelope)) {
                             throw new IllegalArgumentException(
                                     "HAND_READY source is not warming");
-                        }
-                        if (peers.containsKey(command.peerNickname())) {
-                            hotJoin.completeAdmission(command.peerNickname());
                         }
                     } else if (peers.containsKey(command.peerNickname())) {
                         dealer.acceptRemoteHandReady(command.peerNickname(),
@@ -1292,6 +1388,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         players.add(local);
         for (LobbyParticipant participant : lobby.participants()) {
             if (participant.local()) continue;
+            if (participant.warming()) continue;
             java.util.Random botRandom = participant.bot()
                     ? entropy.botDecisionRandom(participant.nickname()) : null;
             CorePlayerController player = participant.bot()
@@ -1322,6 +1419,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         Map<String, GamePeerController> peers = Collections.synchronizedMap(
                 new LinkedHashMap<>());
         for (LobbyParticipant participant : lobby.participants()) {
+            if (participant.warming() && !participant.local()) continue;
             GamePeerController peer;
             if (participant.local()) {
                 peer = null;
@@ -1340,14 +1438,17 @@ public final class CoreGameTableFactory implements GameTableFactory {
     private static TableSnapshot initialSnapshot(LobbySnapshot lobby, int buyin,
             boolean hotJoining) {
         List<TableSnapshot.PlayerSnapshot> players = lobby.participants().stream()
-                .map(participant -> new TableSnapshot.PlayerSnapshot(
-                participant.nickname(), buyin, 0d, 0d,
-                !(hotJoining && participant.local()),
-                hotJoining && participant.local(), false,
-                false, LobbyParticipant.NO_LATENCY,
-                LobbyParticipant.NO_LATENCY, 0, 0L,
-                false, false, TableSnapshot.Position.NONE, "", "",
-                List.of(), buyin, 0, hotJoining && participant.local()))
+                .map(participant -> {
+                    boolean warming = participant.warming()
+                            || hotJoining && participant.local();
+                    return new TableSnapshot.PlayerSnapshot(
+                            participant.nickname(), buyin, 0d, 0d,
+                            !warming, warming, false,
+                            false, LobbyParticipant.NO_LATENCY,
+                            LobbyParticipant.NO_LATENCY, 0, 0L,
+                            false, false, TableSnapshot.Position.NONE, "", "",
+                            List.of(), buyin, 0, warming);
+                })
                 .toList();
         return new TableSnapshot(0L, lobby.localNickname(),
                 TableSnapshot.Street.WAITING, 0d, "", false, players,
@@ -1832,6 +1933,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
         private final Set<String> warming = ConcurrentHashMap.newKeySet();
         private final ConcurrentMap<String, String> earlyReady
                 = new ConcurrentHashMap<>();
+        private final ConcurrentMap<String, Integer> boundaryReady
+                = new ConcurrentHashMap<>();
         /*
          * A warming peer has exactly one state bootstrap followed by the same
          * ordered public presentation events as every other GDX table.  Keep
@@ -1995,6 +2098,20 @@ public final class CoreGameTableFactory implements GameTableFactory {
             return true;
         }
 
+        boolean acceptBoundaryReady(String nickname, String envelope) {
+            if (!host || !warming.contains(nickname)) return false;
+            int incomingHand = readyHand(envelope, "HOTJOIN_READY");
+            boundaryReady.compute(nickname, (ignored, previous) -> {
+                if (previous != null && incomingHand < previous) {
+                    throw new IllegalArgumentException(
+                            "Regressive HOTJOIN_READY from " + nickname);
+                }
+                return previous != null && incomingHand == previous
+                        ? previous : incomingHand;
+            });
+            return true;
+        }
+
         void completeAdmission(String nickname) {
             /*
              * Admission is a replicated dealer transition, not a consequence
@@ -2008,31 +2125,73 @@ public final class CoreGameTableFactory implements GameTableFactory {
              * Retire the replicated warming presentation on every non-host
              * node as soon as its dealer admits the canonical seat. The host
              * keeps both presentation relay and the transport gate until it
-             * has the matching HAND_READY: opening ordinary GAME traffic
-             * before recovery is confirmed would let the first playable hand
-             * overtake the newcomer's bootstrap.
+             * has HOTJOIN_READY, which is emitted only after the newcomer has
+             * applied the authenticated START_SRA_CASCADE boundary. A plain
+             * HAND_READY is provisional and must never open ordinary GAME
+             * traffic before recovery is confirmed.
              */
             if (host) {
-                String envelope = earlyReady.get(nickname);
-                if (envelope == null
-                        || readyHand(envelope) != dealer.getMano() + 1) {
+                Integer hand = boundaryReady.get(nickname);
+                if (hand == null || hand != dealer.getMano() + 1) {
+                    LOGGER.log(java.util.logging.Level.INFO,
+                            "HOT JOIN: deferring activation for {0}; ready hand={1}, expected={2}",
+                            new Object[]{nickname, hand,
+                                dealer.getMano() + 1});
                     return;
                 }
-                dealer.acceptRemoteHandReady(nickname, envelope);
-                earlyReady.remove(nickname, envelope);
+                dealer.acceptRemoteHandReady(nickname,
+                        "GAME#0#HAND_READY#" + hand);
+                boundaryReady.remove(nickname, hand);
+                earlyReady.remove(nickname);
+                try {
+                    /*
+                     * The transport ACK for HOTJOIN_READY proves that the
+                     * frame reached the ordered channel, not that this
+                     * consumer has already activated the peer. Send a
+                     * server-authenticated semantic barrier before opening
+                     * ordinary traffic. The per-peer outbox preserves this
+                     * frame ahead of POSITIONS and every other hand command.
+                     */
+                    channel.sendFromHost(nickname,
+                            "HOTJOIN_ACTIVE#" + hand)
+                            .whenComplete((ignored, failure) -> {
+                                if (failure != null) {
+                                    disconnectDefinitiveLoss(nickname);
+                                }
+                            });
+                } catch (java.io.IOException failure) {
+                    disconnectDefinitiveLoss(nickname);
+                    return;
+                }
             }
             forgetPresentation(nickname);
             channel.activatePeer(nickname);
+            LOGGER.log(java.util.logging.Level.INFO,
+                    "HOT JOIN: activated {0} for ordinary game traffic",
+                    nickname);
         }
 
         boolean isWarming(String nickname) {
             return warming.contains(nickname);
         }
 
+        boolean isBoundaryReady(String nickname, int hand) {
+            return warming.contains(nickname)
+                    && boundaryReady.getOrDefault(nickname, -1) == hand;
+        }
+
+        void rejectBoundaryTimeout(String nickname) {
+            disconnect(nickname);
+            channel.retirePeerAfterExit(nickname);
+        }
+
         java.util.concurrent.CompletionStage<Void> sendBoundary(
                 String nickname, String command) {
             if (!warming.contains(nickname)) {
-                return CompletableFuture.completedFuture(null);
+                return CompletableFuture.failedFuture(
+                        new IllegalStateException(
+                                "Hot-join reservation is no longer active: "
+                                + nickname));
             }
             try {
                 java.util.concurrent.CompletionStage<Void> delivery
@@ -2050,14 +2209,19 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
 
         private static int readyHand(String envelope) {
+            return readyHand(envelope, "HAND_READY");
+        }
+
+        private static int readyHand(String envelope, String command) {
             String[] fields = envelope.split("#", -1);
             if (fields.length != 4 || !"GAME".equals(fields[0])
-                    || !"HAND_READY".equals(fields[2])) {
-                throw new IllegalArgumentException("Malformed HAND_READY");
+                    || !command.equals(fields[2])) {
+                throw new IllegalArgumentException("Malformed " + command);
             }
             int hand = Integer.parseInt(fields[3]);
             if (hand < 1) {
-                throw new IllegalArgumentException("Invalid HAND_READY hand");
+                throw new IllegalArgumentException(
+                        "Invalid " + command + " hand");
             }
             return hand;
         }
@@ -2065,6 +2229,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         boolean disconnect(String nickname) {
             boolean removed = forgetPresentation(nickname);
             earlyReady.remove(nickname);
+            boundaryReady.remove(nickname);
             Crupier current = dealer;
             if (removed && current != null) {
                 // Every pre-admission loss converges here, including an
@@ -2096,6 +2261,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 removed = warming.remove(nickname);
             }
             earlyReady.remove(nickname);
+            boundaryReady.remove(nickname);
             Crupier current = dealer;
             if (removed && current != null) {
                 current.cancelHotJoin(nickname);
@@ -2248,6 +2414,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 presentationCutovers.clear();
             }
             earlyReady.clear();
+            boundaryReady.clear();
             if (scheduler != null) scheduler.shutdownNow();
         }
 

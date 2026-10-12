@@ -87,7 +87,7 @@ final class SqlGameLookupTest {
         String source = Files.readString(sourceRoot().resolve("Crupier.java"));
         int run = source.indexOf("public void run()");
         int defer = source.indexOf("create_client_recovery_game = true", run);
-        int seat = source.indexOf("sentarParticipantes();", run);
+        int seat = source.indexOf("sentarParticipantes()", run);
         int indexPlayers = source.indexOf("nick2player.put(jugador.getNickname(), jugador)", seat);
         int create = source.indexOf("if (create_client_recovery_game", indexPlayers);
         int insert = source.indexOf("sqlNewGame()", create);

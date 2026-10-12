@@ -7,7 +7,7 @@ import java.util.Objects;
 public record LobbyParticipant(String nickname, Path avatar, boolean local,
         boolean host, boolean bot, boolean connected, boolean asyncWaiting,
         boolean secure, int latency, int previousLatency,
-        byte[] identityPublicKey, byte[] sessionFingerprint) {
+        byte[] identityPublicKey, byte[] sessionFingerprint, boolean warming) {
 
     public static final int NO_LATENCY = -2;
 
@@ -41,7 +41,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean host, boolean bot, boolean connected, boolean asyncWaiting,
             boolean secure, int latency, int previousLatency) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
-                secure, latency, previousLatency, null, null);
+                secure, latency, previousLatency, null, null, false);
     }
 
     /** Backwards-compatible constructor for identity-aware participants. */
@@ -50,7 +50,18 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean secure, int latency, int previousLatency,
             byte[] identityPublicKey) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
-                secure, latency, previousLatency, identityPublicKey, null);
+                secure, latency, previousLatency, identityPublicKey, null,
+                false);
+    }
+
+    /** Backwards-compatible constructor for session-fingerprint callers. */
+    public LobbyParticipant(String nickname, Path avatar, boolean local,
+            boolean host, boolean bot, boolean connected, boolean asyncWaiting,
+            boolean secure, int latency, int previousLatency,
+            byte[] identityPublicKey, byte[] sessionFingerprint) {
+        this(nickname, avatar, local, host, bot, connected, asyncWaiting,
+                secure, latency, previousLatency, identityPublicKey,
+                sessionFingerprint, false);
     }
 
     @Override

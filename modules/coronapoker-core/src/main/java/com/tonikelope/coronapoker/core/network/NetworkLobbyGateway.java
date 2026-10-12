@@ -1563,6 +1563,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                     user.length > 3 ? user[3] : "*",
                                     user.length > 4 ? user[4] : "*");
                             peers.put(nickname, peer);
+                            if (user.length > 5 && "1".equals(user[5])) {
+                                warmingPeers.add(nickname);
+                            }
                         }
                     }
                     publishCurrent();
@@ -1573,6 +1576,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         throw new IOException("Malformed HOTJOIN frame");
                     }
                     String nickname = text64(parts[3]);
+                    warmingPeers.add(nickname);
                     if (findNormalized(nickname) == null) {
                         Path avatar = saveAvatar(parts[4], nickname,
                                 coronaDirectory);
@@ -1763,7 +1767,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         .append('|').append(peer.identityPublicKey == null ? "*"
                                 : Base64.getEncoder().encodeToString(peer.identityPublicKey))
                         .append('|').append(peer.identitySignature == null ? "*"
-                                : Base64.getEncoder().encodeToString(peer.identitySignature));
+                                : Base64.getEncoder().encodeToString(peer.identitySignature))
+                        .append('|').append(warmingPeers.contains(peer.nickname)
+                                ? '1' : '0');
             }
             if (users.length() > "USERSLIST#".length()) sendGame(newcomer, users.toString());
         }
@@ -1990,7 +1996,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                     : peer.connection.secondaryLatency(),
                             peer.identityPublicKey,
                             peer.connection == null ? null
-                                    : peer.connection.sessionFingerprint())).toList();
+                                    : peer.connection.sessionFingerprint(),
+                            warmingPeers.contains(peer.nickname))).toList();
             return new LobbySnapshot(localNickname, serverNickname, endpoint,
                     host, phase, effectiveDetail == null ? "" : effectiveDetail,
                     participants, List.copyOf(chat), tableSettings, recovering, chatNotifications);

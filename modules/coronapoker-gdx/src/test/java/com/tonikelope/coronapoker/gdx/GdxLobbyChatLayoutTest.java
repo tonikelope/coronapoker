@@ -146,6 +146,12 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void lobbyVoiceButtonOwnsOneStablePressAndHoldTarget() {
+        assertEquals(new Rectangle(1175f, 215f, 85f, 70f),
+                GdxFrontendScreen.lobbyVoiceButtonBounds());
+    }
+
+    @Test
     void everyLobbyInformationRowStaysInsideItsFrameAtMaximumOccupancy() {
         int maximumVisibleRows = 3;
         float bottom = GdxFrontendScreen.LOBBY_GAME_INFO_Y;

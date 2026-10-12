@@ -146,6 +146,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_ROSTER_COUNT_X = 1828f;
     static final float LOBBY_ROSTER_COUNT_BASELINE = 799f;
     static final float LOBBY_ROSTER_COUNT_WIDTH = 72f;
+    static final float LOBBY_VOICE_X = 1175f;
+    static final float LOBBY_VOICE_Y = 215f;
+    static final float LOBBY_VOICE_WIDTH = 85f;
+    static final float LOBBY_VOICE_HEIGHT = 70f;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
     private static final URI PUBLIC_ADDRESS_URI = URI.create(
             "https://api.ipify.org");
@@ -438,6 +442,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean lobbyVoiceOpening;
     private boolean lobbyVoiceLive;
     private boolean lobbyVoiceStopping;
+    private final GdxPointerHold lobbyVoicePointer = new GdxPointerHold();
     private float lobbyVoiceLiveAt;
     private String lobbyVoiceStatus = "";
     private float lobbyVoiceStatusAt;
@@ -4644,10 +4649,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
                     if (lobbyImageMode) refreshLobbyHistoryMedia();
                 });
-        compactButton(1175f, 215f, 85f, 70f,
+        compactButton(LOBBY_VOICE_X, LOBBY_VOICE_Y,
+                LOBBY_VOICE_WIDTH, LOBBY_VOICE_HEIGHT,
                 uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
                         ? "audio.preview_parar" : "gdx.lobby.voice")), false,
-                this::toggleLobbyVoiceRecording, canUseLobbyVoice()
+                () -> { }, canUseLobbyVoice()
                         && !lobbyCommandPending && !lobbyVoiceStopping);
         compactButton(1270f, 215f, 95f, 70f,
                 uppercase(gameText.translate("ui.enviar")), true,
@@ -6573,12 +6579,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 filteredTexture("images/emoji_chat/" + value + ".png"));
     }
 
-    private void toggleLobbyVoiceRecording() {
-        if (lobbyVoiceRecorder == null) {
-            beginLobbyVoiceRecording();
-        } else {
-            finishLobbyVoiceRecording(false);
-        }
+    static Rectangle lobbyVoiceButtonBounds() {
+        return new Rectangle(LOBBY_VOICE_X, LOBBY_VOICE_Y,
+                LOBBY_VOICE_WIDTH, LOBBY_VOICE_HEIGHT);
     }
 
     private boolean canUseLobbyVoice() {
@@ -6677,6 +6680,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void cancelLobbyVoiceRecording() {
+        lobbyVoicePointer.clear();
         GdxVoiceRecorder recorder = lobbyVoiceRecorder;
         if (recorder == null) return;
         recorder.abort();
@@ -11039,7 +11043,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     labelColor, true);
         } else {
             textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
-                    labelColor, true, w - 30f);
+                    labelColor, true,
+                    GdxUiButtonStyle.labelContentWidth(w));
         }
         if (enabled) {
             if ("-".equals(label) || "+".equals(label)) {
@@ -11774,6 +11779,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
+        Rectangle voiceBounds = lobbyVoiceButtonBounds();
+        if (!blockingModal && surface == Surface.LOBBY
+                && button == Input.Buttons.LEFT
+                && voiceBounds.contains(pointer)) {
+            boolean enabled = canUseLobbyVoice() && !lobbyCommandPending
+                    && !lobbyVoiceStopping && lobbyVoiceRecorder == null;
+            if (enabled && lobbyVoicePointer.capture(pointerIndex, button)) {
+                pressedHit = new Hit(voiceBounds, () -> { }, false);
+                beginLobbyVoiceRecording();
+            }
+            return true;
+        }
         if ((!blockingModal || statsPicker != StatsPicker.NONE)
                 && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y)) {
@@ -11844,6 +11861,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (lobbyVoicePointer.owns(pointerIndex, Input.Buttons.LEFT)) {
+            return true;
+        }
         if (scrollDrag != ScrollDrag.NONE) {
             updateScrollDrag(pointer.x, pointer.y);
             return true;
@@ -11863,6 +11883,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (lobbyVoicePointer.release(pointerIndex, button)) {
+            pressedHit = null;
+            clearPointerRepeat();
+            pointerSelectionField = null;
+            finishLobbyVoiceRecording(false);
+            return true;
+        }
         boolean passwordWasRevealed = revealedPasswordField != null;
         revealedPasswordField = null;
         Hit released = pressedHit;
@@ -12792,6 +12819,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (lobbyVoicePointer.release(p, b)) {
+            pressedHit = null;
+            clearPointerRepeat();
+            finishLobbyVoiceRecording(true);
+            return true;
+        }
         pressedHit = null;
         clearPointerRepeat();
         return hasBlockingFrontendModal();

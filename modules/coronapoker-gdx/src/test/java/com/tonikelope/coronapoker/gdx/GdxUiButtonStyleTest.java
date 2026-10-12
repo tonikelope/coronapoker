@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
@@ -31,5 +32,14 @@ final class GdxUiButtonStyleTest {
         assertTrue(hover.r >= idle.r && hover.g >= idle.g
                 && hover.b >= idle.b,
                 "the semantic palette must brighten instead of turning cyan");
+    }
+
+    @Test
+    void textualLabelsAlwaysKeepAVisibleHorizontalSafeArea() {
+        assertEquals(14f, GdxUiButtonStyle.labelHorizontalInset(80f));
+        assertEquals(52f, GdxUiButtonStyle.labelContentWidth(80f));
+        assertEquals(26f, GdxUiButtonStyle.labelHorizontalInset(220f));
+        assertEquals(168f, GdxUiButtonStyle.labelContentWidth(220f));
+        assertTrue(GdxUiButtonStyle.labelContentWidth(220f) < 220f);
     }
 }

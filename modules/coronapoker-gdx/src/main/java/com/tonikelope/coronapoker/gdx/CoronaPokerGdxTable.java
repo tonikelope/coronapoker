@@ -867,8 +867,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean voiceOpening;
     private boolean voiceLive;
     private boolean voiceStopping;
-    private boolean micPointerHeld;
-    private int micPointerIndex = -1;
+    private final GdxPointerHold voicePointer = new GdxPointerHold();
     private float voiceLiveAt;
     private float voiceStatusAt;
     private float voiceStatusSeconds = VOICE_STATUS_SECONDS;
@@ -1412,8 +1411,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (visibleFastAccessActionAt(fastIndex)
                         == FastAccessAction.VOICE
                         && fastButtonEnabled(fastIndex)) {
-                    micPointerHeld = true;
-                    micPointerIndex = pointerIndex;
+                    voicePointer.capture(pointerIndex, button);
                     beginVoiceRecording();
                     return true;
                 }
@@ -1501,7 +1499,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
-            if (micPointerHeld && micPointerIndex == pointerIndex) return true;
+            if (voicePointer.owns(pointerIndex, Input.Buttons.LEFT)) return true;
             if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
@@ -1558,10 +1556,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
-            if (voicePointerReleaseMatches(micPointerHeld, micPointerIndex,
-                    pointerIndex, button)) {
-                micPointerHeld = false;
-                micPointerIndex = -1;
+            if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(false);
                 fastBarExpanded = false;
                 return true;
@@ -1626,10 +1621,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
-            if (voicePointerReleaseMatches(micPointerHeld, micPointerIndex,
-                    pointerIndex, button)) {
-                micPointerHeld = false;
-                micPointerIndex = -1;
+            if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(true);
                 fastBarExpanded = false;
                 return true;
@@ -5912,7 +5904,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void handleLiveTableInput(String shortcutAction) {
         // A captured push-to-talk gesture owns both the polled press and its
         // release. This keeps the HUD underneath from seeing either half.
-        if (micPointerHeld) {
+        if (voicePointer.active()) {
             if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
                 primaryPointer.capturePressedGesture();
             }
@@ -6798,13 +6790,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     row.x + 600f, row.y + 14f,
                     row.width - 814f, row.height - 28f,
                     POT_GOLD, alpha);
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate(
                             "gdx.network_blocks.remove")),
                     row.x + row.width - 194f, row.y + 10f,
                     174f, row.height - 20f, Color.WHITE, alpha);
         }
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate("ui.cerrar")),
                 layout.closeButton().x, layout.closeButton().y,
                 layout.closeButton().width, layout.closeButton().height,
@@ -7030,15 +7022,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void cancelVoiceRecording() {
-        micPointerHeld = false;
-        micPointerIndex = -1;
+        voicePointer.clear();
         finishVoiceRecording(true);
-    }
-
-    static boolean voicePointerReleaseMatches(boolean held, int ownerPointer,
-            int releasedPointer, int button) {
-        return held && ownerPointer == releasedPointer
-                && button == Input.Buttons.LEFT;
     }
 
     private void resumeBackgroundAfterVoice() {
@@ -8005,8 +7990,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateVoiceRecording() {
         if (voiceLive && totalTime - voiceLiveAt >= VOICE_RECORD_MAX_SECONDS) {
-            micPointerHeld = false;
-            micPointerIndex = -1;
             finishVoiceRecording(false);
         }
         if (!voiceOpening && !voiceLive && !voiceStopping
@@ -16288,11 +16271,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "gdx.lobby.clear_images_confirm"),
                 message.x, message.y, message.width, message.height,
                 Color.WHITE, 1f);
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate("ui.cancelar")),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 Color.WHITE, 1f);
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate("gdx.lobby.clear")),
                 accept.x, accept.y, accept.width, accept.height,
                 Color.WHITE, 1f);
@@ -17230,7 +17213,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     width / 2f - 360f, bottom + 505f,
                     720f, 90f, new Color(0xe8edf4ff), alpha);
         }
-        drawFittedCenteredInBox(settingsStepperSignFont,
+        drawDialogButtonLabel(settingsStepperSignFont,
                 GdxUiDialogStyle.CLOSE_GLYPH,
                 left + 1812f, bottom + 1008f, 58f, 50f,
                 Color.WHITE, alpha);
@@ -17239,15 +17222,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle delete = screenshotDeleteBounds(width, height);
             float enabledAlpha = screenshotOperationPending
                     ? alpha * 0.45f : alpha;
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate(
                             "ui.copiar_imagen_portapapeles")),
-                    copy.x + 12f, copy.y + 5f, copy.width - 24f,
-                    copy.height - 10f, POT_GOLD, enabledAlpha);
-            drawFittedCenteredInBox(actionFont,
+                    copy.x, copy.y, copy.width, copy.height,
+                    POT_GOLD, enabledAlpha);
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate("ui.borrar_captura")),
-                    delete.x + 12f, delete.y + 5f, delete.width - 24f,
-                    delete.height - 10f, Color.WHITE, enabledAlpha);
+                    delete.x, delete.y, delete.width, delete.height,
+                    Color.WHITE, enabledAlpha);
         }
         batch.end();
     }
@@ -17630,12 +17613,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             "auto_call.sin_limite")), 1f);
         }
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
-            drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
+            drawDialogButtonLabel(actionFont, dialog.negativeLabel(),
                     negativeX, buttonY, negativeW, buttonH,
                     Color.WHITE, 1f);
         }
         if (dialog.showsPositive() && !dialog.waitingForExternalClose()) {
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     dialog.positiveLabel(),
                     acceptX, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
@@ -17771,17 +17754,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!dialog.local()) {
             boolean verified = identityTrust.isVerified(dialog.nickname(),
                     dialog.publicKey());
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate(verified
                             ? "ui.identicon.ya_verificada"
                             : "ui.identicon.verificar_button")),
-                    verifyX + 12f, buttonY + 12f,
-                    276f, 38f, Color.WHITE, 1f);
+                    verifyX, buttonY, 300f, 62f, Color.WHITE, 1f);
         }
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate("ui.cerrar")),
-                closeX + 12f, buttonY + 12f,
-                closeW - 24f, 38f, Color.WHITE, 1f);
+                closeX, buttonY, closeW, 62f, Color.WHITE, 1f);
         batch.end();
     }
 
@@ -17871,10 +17852,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (interactive) {
-            drawFittedCenteredInBox(actionFont, dialog.negativeLabel(),
+            drawDialogButtonLabel(actionFont, dialog.negativeLabel(),
                     panelX + 42f, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
-            drawFittedCenteredInBox(actionFont, dialog.positiveLabel(),
+            drawDialogButtonLabel(actionFont, dialog.positiveLabel(),
                     panelX + panelW - 272f, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
         }
@@ -18132,7 +18113,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 POT_GOLD, alpha);
         for (int i = 0; i < sections.size(); i++) {
             Rectangle tab = frame.mainTab(i);
-            drawFittedCenteredInBox(settingsActionFont,
+            drawDialogButtonLabel(settingsActionFont,
                     sections.get(i).label(gameText),
                     tab.x, tab.y, tab.width, tab.height,
                     Color.WHITE,
@@ -18140,7 +18121,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         for (int i = 0; i < subpages.size(); i++) {
             Rectangle tab = frame.subTab(i);
-            drawFittedCenteredInBox(settingsSmallFont, subpages.get(i),
+            drawDialogButtonLabel(settingsSmallFont, subpages.get(i),
                     tab.x, tab.y, tab.width, tab.height,
                     i == activeSubpage ? POT_GOLD : Color.WHITE,
                     (i == activeSubpage ? 1f : 0.70f) * alpha);
@@ -18150,20 +18131,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSettingsContentText(contentX, firstRowY, contentW, alpha);
         batch.flush();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
-        drawFittedCenteredInBox(settingsActionFont,
+        drawDialogButtonLabel(settingsActionFont,
                 gameText.translate("ui.cancelar"),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 POT_GOLD, alpha);
         if (restoreVisible) {
             Rectangle restore = frame.restoreButton();
-            drawFittedCenteredInBox(settingsSmallFont,
+            drawDialogButtonLabel(settingsSmallFont,
                     gameText.translate("gdx.settings.restore_defaults")
                             .toUpperCase(Locale.forLanguageTag(
                                     gameText.language())),
                     restore.x, restore.y, restore.width, restore.height,
                     restoreEnabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
         }
-        drawFittedCenteredInBox(settingsActionFont,
+        drawDialogButtonLabel(settingsActionFont,
                 gameText.translate("ui.guardar"),
                 save.x, save.y, save.width, save.height,
                 POT_GOLD, alpha);
@@ -18671,10 +18652,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             voiceNoteDeleteConfirmation.nickname());
             drawFittedCenteredInBox(uiFont, message, x + 80f, y + 450f,
                     w - 160f, 70f, Color.WHITE, 1f);
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate("ui.cancelar")),
                     x + 250f, y + 300f, 360f, 74f, Color.WHITE, 1f);
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate("audio.borrar_nota")),
                     x + w - 610f, y + 300f, 360f, 74f,
                     Color.WHITE, 1f);
@@ -18706,32 +18687,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         + tableVoiceDuration(entry.durationMillis()),
                         x + 500f, rowY - 18f, 320f, 48f,
                         Color.LIGHT_GRAY, 1f);
-                drawFittedCenteredInBox(actionFont,
+                drawDialogButtonLabel(actionFont,
                         uppercase(gameText.translate(entry.equals(
                                 voiceNotePlaying) ? "audio.preview_parar"
                                 : "audio.preview_escuchar")),
                         x + w - 420f, rowY - 42f, 160f, 64f,
                         Color.WHITE, 1f);
-                drawFittedCenteredInBox(actionFont,
+                drawDialogButtonLabel(actionFont,
                         uppercase(gameText.translate("audio.borrar_nota")),
                         x + w - 240f, rowY - 42f, 160f, 64f,
                         Color.WHITE, 1f);
                 rowY -= 102f;
             }
             if (pageCount > 1) {
-                drawFittedCenteredInBox(actionFont, "‹", x + 48f,
+                drawDialogButtonLabel(actionFont, "‹", x + 48f,
                         y + 42f, 80f, 58f, Color.WHITE, 1f);
                 drawFittedCenteredInBox(smallFont,
                         (voiceNotesPage + 1) + " / " + pageCount,
                         x + 138f, y + 42f, 84f, 58f,
                         Color.LIGHT_GRAY, 1f);
-                drawFittedCenteredInBox(actionFont, "›", x + 232f,
+                drawDialogButtonLabel(actionFont, "›", x + 232f,
                         y + 42f, 80f, 58f, Color.WHITE, 1f);
             }
         }
         if (voiceNoteDeleteConfirmation == null
                 && !voiceNotesPurgeConfirmation) {
-            drawFittedCenteredInBox(actionFont,
+            drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate("ui.cerrar")),
                     x + w - 260f, y + 36f, 210f, 68f,
                     Color.WHITE, 1f);
@@ -19393,10 +19374,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float actionY = rows.rowY(
                         GdxSettingsContract.voiceActionsRow(page));
                 float half = (width - 12f) / 2f;
-                drawFittedCenteredInBox(settingsSmallFont,
+                drawDialogButtonLabel(settingsSmallFont,
                         uppercase(gameText.translate("audio.ver_notas")),
                         x, actionY, half, 58f, Color.WHITE, alpha);
-                drawFittedCenteredInBox(settingsSmallFont,
+                drawDialogButtonLabel(settingsSmallFont,
                         uppercase(gameText.translate("audio.purgar_notas")),
                         x + half + 12f, actionY, half, 58f,
                         Color.WHITE, alpha);
@@ -19798,7 +19779,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     enabled, alpha);
         } else if (contentPage == 9) {
             Rectangle copy = settingsDebugCopyButton();
-            drawFittedCenteredInBox(settingsSmallFont, uppercase(gameText.translate(
+            drawDialogButtonLabel(settingsSmallFont, uppercase(gameText.translate(
                     "gdx.settings.debug.copy")), copy.x, copy.y,
                     copy.width, copy.height, Color.WHITE, alpha);
         }
@@ -20371,7 +20352,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "log.registro_de_la_timba")),
                 panelX + 34f, panelY + panelH - 72f,
                 panelW - 68f, 42f, Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont, uppercase(gameText.translate(
+        drawDialogButtonLabel(actionFont, uppercase(gameText.translate(
                 "ui.cerrar")),
                 panelX + panelW - 224f, panelY + 24f,
                 194f, 58f, Color.WHITE, alpha);
@@ -20765,21 +20746,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "gdx.lobby.image_gallery_help")),
                 header.help().x, header.help().y,
                 header.help().width, header.help().height, CYAN, alpha);
-        drawFittedCenteredInBox(settingsStepperSignFont,
+        drawDialogButtonLabel(settingsStepperSignFont,
                 GdxUiDialogStyle.CLOSE_GLYPH,
                 closeButton.x, closeButton.y,
                 closeButton.width, closeButton.height, Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+        drawDialogButtonLabel(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.search_images")),
                 searchButton.x, searchButton.y,
                 searchButton.width, searchButton.height, Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+        drawDialogButtonLabel(smallFont, uppercase(gameText.translate(
                 autoReceive ? "gdx.lobby.received_images_on"
                         : "gdx.lobby.received_images_off")),
                 autoReceiveButton.x, autoReceiveButton.y,
                 autoReceiveButton.width, autoReceiveButton.height,
                 Color.WHITE, alpha);
-        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+        drawDialogButtonLabel(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.clear")),
                 clearButton.x, clearButton.y,
                 clearButton.width, clearButton.height, Color.WHITE, alpha);
@@ -20832,12 +20813,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(smallFont, draft, panelX + 54f, inputY + 10f,
                 panelW - 456f, 40f,
                 chatDraft.isEmpty() ? Color.GRAY : Color.WHITE, alpha);
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate(chatImageMode
                         ? "gdx.table.chat.text" : "gdx.lobby.emoji")),
                 emojiX, inputY,
                 132f, 60f, POT_GOLD, alpha);
-        drawFittedCenteredInBox(actionFont,
+        drawDialogButtonLabel(actionFont,
                 uppercase(gameText.translate(chatSending
                         ? "gdx.table.chat.sending"
                         : "gdx.table.chat.send_url")), sendX, inputY,
@@ -21294,13 +21275,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         int pages = (EMOJI_COUNT + EMOJI_PAGE_SIZE - 1) / EMOJI_PAGE_SIZE;
-        drawFittedCenteredInBox(smallFont, "‹", pickerX + 18f,
+        drawDialogButtonLabel(smallFont, "‹", pickerX + 18f,
                 pickerY + 14f, 84f, 38f, Color.WHITE, alpha);
         drawFittedCenteredInBox(smallFont,
                 (emojiPage + 1) + " / " + pages,
                 pickerX + 120f, pickerY + 14f, 260f, 38f,
                 POT_GOLD, alpha);
-        drawFittedCenteredInBox(smallFont, "›", pickerX + 398f,
+        drawDialogButtonLabel(smallFont, "›", pickerX + 398f,
                 pickerY + 14f, 84f, 38f, Color.WHITE, alpha);
     }
 
@@ -21336,6 +21317,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 hover ? 1f : 0f,
                 hover && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
                 alpha);
+    }
+
+    private void drawDialogButtonLabel(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        boolean glyph = "-".equals(text) || "+".equals(text)
+                || "‹".equals(text) || "›".equals(text)
+                || GdxUiDialogStyle.CLOSE_GLYPH.equals(text);
+        float inset = glyph ? 0f
+                : GdxUiButtonStyle.labelHorizontalInset(width);
+        drawFittedCenteredInBox(font, text, x + inset, y,
+                glyph ? width : GdxUiButtonStyle.labelContentWidth(width),
+                height, color, alpha);
     }
 
     private void handleFinalSummaryInput() {
@@ -22440,8 +22434,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         GdxVoiceRecorder activeRecorder = voiceRecorder;
         voiceRecorder = null;
-        micPointerHeld = false;
-        micPointerIndex = -1;
+        voicePointer.clear();
         if (activeRecorder != null) activeRecorder.abort();
         if (textToSpeech != null) textToSpeech.close();
         GdxVoicePlayback.stop();

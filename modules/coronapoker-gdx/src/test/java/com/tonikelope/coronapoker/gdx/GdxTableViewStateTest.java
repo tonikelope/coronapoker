@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.math.Rectangle;
@@ -1097,18 +1096,6 @@ final class GdxTableViewStateTest {
                 width, height, width - 41f, 158f, 0, 12));
         assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 3, 12));
-    }
-
-    @Test
-    void voicePointerReleaseBelongsOnlyToItsCapturedLeftPointer() {
-        assertTrue(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
-                2, 2, Input.Buttons.LEFT));
-        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
-                2, 1, Input.Buttons.LEFT));
-        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
-                2, 2, Input.Buttons.RIGHT));
-        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(false,
-                2, 2, Input.Buttons.LEFT));
     }
 
     @Test

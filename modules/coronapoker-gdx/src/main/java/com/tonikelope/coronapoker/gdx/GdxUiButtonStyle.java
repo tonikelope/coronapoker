@@ -38,6 +38,20 @@ final class GdxUiButtonStyle {
     private GdxUiButtonStyle() {
     }
 
+    /**
+     * Canonical breathing room for every textual button label.
+     *
+     * <p>Small controls retain useful text area while regular dialog buttons
+     * always keep a clearly visible margin even with long translations.</p>
+     */
+    static float labelHorizontalInset(float width) {
+        return Math.min(26f, Math.max(14f, width * 0.12f));
+    }
+
+    static float labelContentWidth(float width) {
+        return Math.max(1f, width - 2f * labelHorizontalInset(width));
+    }
+
     static void draw(ShapeRenderer shapes, float x, float y, float width,
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha) {

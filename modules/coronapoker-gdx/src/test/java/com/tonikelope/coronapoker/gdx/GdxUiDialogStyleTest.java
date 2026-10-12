@@ -67,6 +67,10 @@ final class GdxUiDialogStyleTest {
         assertEquals(142f, layout.clearButton().width);
         assertEquals(52f, layout.closeButton().width);
         assertEquals(52f, layout.closeButton().height);
+        assertEquals(168f, GdxUiButtonStyle.labelContentWidth(
+                layout.searchButton().width));
+        assertEquals(107.92f, GdxUiButtonStyle.labelContentWidth(
+                layout.clearButton().width), 0.001f);
         assertTrue(layout.title().x + layout.title().width
                 < layout.searchButton().x);
         assertTrue(layout.searchButton().x + layout.searchButton().width

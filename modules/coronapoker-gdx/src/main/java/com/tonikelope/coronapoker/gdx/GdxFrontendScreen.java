@@ -387,12 +387,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont headingFont;
     private BitmapFont settingsStepperSignFont;
     private BitmapFont actionFont;
+    private BitmapFont buttonMediumFont;
+    private BitmapFont buttonCompactFont;
+    private BitmapFont buttonTinyFont;
     private BitmapFont uiFont;
     private BitmapFont volumeOverlayFont;
     private BitmapFont fpsFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
+    private GdxCrispButtonText.FontTiers actionButtonFontTiers;
+    private GdxCrispButtonText.FontTiers compactButtonFontTiers;
+    private final GdxCrispButtonText.Result crispButtonText =
+            new GdxCrispButtonText.Result();
     private GdxAdaptiveFontQuality.Profile fontQualityProfile;
     private GdxAdaptiveFontQuality.Profile pendingFontQualityProfile;
     private long fontQualityRefreshAfterNanos;
@@ -803,6 +810,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         BitmapFont nextHeading;
         BitmapFont nextStepperSign;
         BitmapFont nextAction;
+        BitmapFont nextButtonMedium;
+        BitmapFont nextButtonCompact;
+        BitmapFont nextButtonTiny;
         BitmapFont nextUi;
         BitmapFont nextVolume;
         BitmapFont nextSmall;
@@ -821,6 +831,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER, profile);
             nextAction = font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
                     GdxSettingsStyle.ACTION_FONT_BORDER, profile);
+            // Native two-pixel steps keep long button labels sharp. They are
+            // selected instead of scaling one atlas to an arbitrary fraction.
+            nextButtonMedium = font(generator, 22,
+                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
+            nextButtonCompact = font(generator, 20,
+                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
+            nextButtonTiny = font(generator, 16, 0f, profile);
             nextUi = font(generator, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
                     profile);
             // The volume feedback remains the same high-contrast McLaren face;
@@ -846,6 +863,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         disposeFont(headingFont);
         disposeFont(settingsStepperSignFont);
         disposeFont(actionFont);
+        disposeFont(buttonMediumFont);
+        disposeFont(buttonCompactFont);
+        disposeFont(buttonTinyFont);
         disposeFont(uiFont);
         disposeFont(volumeOverlayFont);
         disposeFont(smallFont);
@@ -856,12 +876,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         headingFont = nextHeading;
         settingsStepperSignFont = nextStepperSign;
         actionFont = nextAction;
+        buttonMediumFont = nextButtonMedium;
+        buttonCompactFont = nextButtonCompact;
+        buttonTinyFont = nextButtonTiny;
         uiFont = nextUi;
         volumeOverlayFont = nextVolume;
         smallFont = nextSmall;
         tinyFont = nextTiny;
         versionFont = nextVersion;
         fpsFont = nextFps;
+        actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                actionFont, uiFont, buttonMediumFont, buttonCompactFont,
+                smallFont, buttonTinyFont, tinyFont);
+        compactButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                smallFont, buttonTinyFont, tinyFont);
         fontQualityProfile = profile;
         pendingFontQualityProfile = null;
     }
@@ -7388,10 +7416,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Rectangle tab = frame.mainTab(i);
             Rectangle label = GdxSettingsLayout.mainTabLabel(tab);
             boolean active = settingsSession.tabIndex() == i;
-            textFit(actionFont, sections.get(i).label(gameText),
-                    label.x + label.width / 2f, tab.y + 32f,
-                    active ? Color.WHITE : MUTED,
-                    true, label.width - 8f);
+            crispButtonTextInBox(actionFont,
+                    sections.get(i).label(gameText),
+                    label.x, label.y, label.width, label.height,
+                    active ? Color.WHITE : MUTED);
             hit(tab.x, tab.y, tab.width, tab.height, () -> {
                 audioPreview.stop();
                 settingsSession.selectTab(selected);
@@ -7407,10 +7435,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             final int selected = i;
             Rectangle tab = frame.subTab(i);
             boolean active = i == activeSubpage;
-            textFit(smallFont, subpages.get(i),
-                    tab.x + tab.width / 2f, tab.y + 26f,
-                    active ? GOLD : MUTED,
-                    true, tab.width - 17f);
+            crispButtonTextInBox(smallFont, subpages.get(i),
+                    tab.x, tab.y, tab.width, tab.height,
+                    active ? GOLD : MUTED);
             hit(tab.x, tab.y, tab.width, tab.height,
                     () -> selectSettingsSubpage(selected));
         }
@@ -7439,35 +7466,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
 
         Rectangle cancel = frame.cancelButton();
-        textFit(actionFont, gameText.translate("ui.cancelar"),
-                cancel.x + cancel.width / 2f,
-                cancel.y + cancel.height / 2f + 8f, GOLD, true,
-                cancel.width - 30f);
+        crispButtonTextInBox(actionFont,
+                gameText.translate("ui.cancelar"), cancel.x, cancel.y,
+                cancel.width, cancel.height, GOLD);
         if (!lobbyCommandPending) {
             hit(cancel.x, cancel.y, cancel.width, cancel.height,
                     this::requestCancelSettings);
         }
         if (restoreVisible) {
             Rectangle restore = frame.restoreButton();
-            textFit(actionFont,
+            crispButtonTextInBox(actionFont,
                     uppercase(gameText.translate("gdx.settings.restore_defaults")),
-                    restore.x + restore.width / 2f,
-                    restore.y + restore.height / 2f + 8f,
-                    restoreEnabled ? GOLD : DISABLED, true,
-                    restore.width - 30f);
+                    restore.x, restore.y, restore.width, restore.height,
+                    restoreEnabled ? GOLD : DISABLED);
             if (!lobbyCommandPending && restoreEnabled) {
                 hit(restore.x, restore.y, restore.width, restore.height,
                         this::restoreCurrentFrontendSettingsSectionDefaults);
             }
         }
         Rectangle save = frame.saveButton();
-        textFit(actionFont,
+        crispButtonTextInBox(actionFont,
                 lobbyCommandPending
                         ? uppercase(gameText.translate("gdx.saving"))
                         : gameText.translate("ui.guardar"),
-                save.x + save.width / 2f,
-                save.y + save.height / 2f + 8f, GOLD, true,
-                save.width - 30f);
+                save.x, save.y, save.width, save.height, GOLD);
         if (!lobbyCommandPending) {
             hit(save.x, save.y, save.width, save.height,
                     () -> closeSettings(true));
@@ -11000,10 +11022,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         divider.a = enabled ? 0.28f : 0.18f;
         shapes.setColor(divider);
         shapes.rect(x + 58f, y + 10f, 2f, h - 20f);
-        textFit(actionFont, label, x + 72f, centerY + 8f,
-                GdxUiButtonStyle.labelColor(
-                        GdxUiButtonStyle.Tone.NEUTRAL, enabled),
-                false, w - 84f);
+        crispButtonTextInBox(actionFont, label, x + 72f, y,
+                w - 84f, h, GdxUiButtonStyle.labelColor(
+                        GdxUiButtonStyle.Tone.NEUTRAL, enabled));
     }
 
     private void drawPasswordLock(float centerX, float centerY,
@@ -11041,14 +11062,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
         if ("-".equals(label) || "+".equals(label)
                 || GdxUiDialogStyle.CLOSE_GLYPH.equals(label)) {
-            glyph.setText(labelFont, label);
-            text(labelFont, label, x + w / 2f,
-                    y + (h + glyph.height) / 2f,
-                    labelColor, true);
+            pixelSnappedTextInBox(labelFont, label, x, y, w, h,
+                    labelColor);
         } else {
-            textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
-                    labelColor, true,
-                    GdxUiButtonStyle.labelContentWidth(w));
+            crispButtonTextInBox(labelFont, label, x, y, w, h,
+                    labelColor);
         }
         if (enabled) {
             if ("-".equals(label) || "+".equals(label)) {
@@ -11090,9 +11108,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float labelW = w - 84f;
         Color labelColor = GdxUiButtonStyle.labelColor(
                 GdxUiButtonStyle.Tone.valueOf(tone.name()), enabled);
-        textFit(actionFont, label, labelX + labelW / 2f,
-                y + h / 2f + 8f, labelColor, true,
-                Math.max(0f, labelW - 30f));
+        crispButtonTextInBox(actionFont, label, labelX, y, labelW, h,
+                labelColor);
+    }
+
+    private void crispButtonTextInBox(BitmapFont preferred, String value,
+            float x, float y, float width, float height, Color color) {
+        GdxCrispButtonText.FontTiers tiers = preferred == smallFont
+                ? compactButtonFontTiers : actionButtonFontTiers;
+        GdxCrispButtonText.resolve(glyph, value, width, tiers,
+                crispButtonText);
+        pixelSnappedTextInBox(crispButtonText.font(), crispButtonText.text(),
+                x, y, width, height, color);
+    }
+
+    private void pixelSnappedTextInBox(BitmapFont font, String value,
+            float x, float y, float width, float height, Color color) {
+        glyph.setText(font, value);
+        float drawX = x + (width - glyph.width) / 2f;
+        float baselineY = y + (height + glyph.height) / 2f;
+        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
+                value, drawX, baselineY, new Color(color), false, false,
+                1f, true));
     }
 
     private void drawButtonIconColumn(float x, float y, float w, float h,
@@ -11621,15 +11658,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         item.font.setColor(item.color);
         glyph.setText(item.font, item.text);
         float x = item.centered ? item.x - glyph.width / 2f : item.x;
+        float y = item.y;
+        boolean previousIntegerPositions = item.font.usesIntegerPositions();
+        if (item.pixelSnapped) {
+            x = GdxCrispButtonText.snapX(x, viewport);
+            y = GdxCrispButtonText.snapY(y, viewport);
+            // BitmapFont's normal integer rounding happens in world space.
+            // Disable it for this draw so the physical-pixel coordinate above
+            // survives the 1080p-to-framebuffer viewport transform.
+            item.font.setUseIntegerPositions(false);
+        }
         if (item.italic) {
             float shear = 0.18f;
             italicTransform.idt();
             italicTransform.val[Matrix4.M01] = shear;
-            italicTransform.val[Matrix4.M03] = -shear * item.y;
+            italicTransform.val[Matrix4.M03] = -shear * y;
             batch.setTransformMatrix(italicTransform);
         }
-        item.font.draw(batch, item.text, x, item.y);
+        item.font.draw(batch, item.text, x, y);
         if (item.italic) batch.setTransformMatrix(identityTransform);
+        if (item.pixelSnapped) {
+            item.font.setUseIntegerPositions(previousIntegerPositions);
+        }
         item.font.getData().setScale(previousScaleX, previousScaleY);
     }
 
@@ -12806,6 +12856,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         headingFont.dispose();
         settingsStepperSignFont.dispose();
         actionFont.dispose();
+        buttonMediumFont.dispose();
+        buttonCompactFont.dispose();
+        buttonTinyFont.dispose();
         uiFont.dispose();
         volumeOverlayFont.dispose();
         smallFont.dispose();
@@ -12954,11 +13007,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered, boolean italic, float scale) {
+            Color color, boolean centered, boolean italic, float scale,
+            boolean pixelSnapped) {
 
         private TextItem(BitmapFont font, String text, float x, float y,
                 Color color, boolean centered, boolean italic) {
-            this(font, text, x, y, color, centered, italic, 1f);
+            this(font, text, x, y, color, centered, italic, 1f, false);
+        }
+
+        private TextItem(BitmapFont font, String text, float x, float y,
+                Color color, boolean centered, boolean italic, float scale) {
+            this(font, text, x, y, color, centered, italic, scale, false);
         }
     }
 

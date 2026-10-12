@@ -42,4 +42,15 @@ final class GdxUiButtonStyleTest {
         assertEquals(168f, GdxUiButtonStyle.labelContentWidth(220f));
         assertTrue(GdxUiButtonStyle.labelContentWidth(220f) < 220f);
     }
+
+    @Test
+    void nativeFontFallbackCanRecoverSpaceWithoutTouchingTheButtonEdge() {
+        assertEquals(12f,
+                GdxUiButtonStyle.minimumLabelHorizontalInset(80f));
+        assertEquals(56f, GdxUiButtonStyle.nativeLabelContentWidth(80f));
+        assertEquals(14f,
+                GdxUiButtonStyle.minimumLabelHorizontalInset(220f));
+        assertEquals(192f,
+                GdxUiButtonStyle.nativeLabelContentWidth(220f));
+    }
 }

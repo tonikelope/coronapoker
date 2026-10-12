@@ -946,6 +946,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont gameLogSuitFont;
     private BitmapFont startupPresentationFont;
     private BitmapFont startupPresentationSubtitleFont;
+    private GdxCrispButtonText.FontTiers settingsActionButtonFontTiers;
+    private GdxCrispButtonText.FontTiers actionButtonFontTiers;
+    private GdxCrispButtonText.FontTiers smallButtonFontTiers;
+    private GdxCrispButtonText.FontTiers settingsSmallButtonFontTiers;
+    private GdxCrispButtonText.FontTiers finalButtonFontTiers;
+    private final GdxCrispButtonText.Result crispButtonText =
+            new GdxCrispButtonText.Result();
     private GdxAdaptiveFontQuality.Profile fontQualityProfile;
     private GdxAdaptiveFontQuality.Profile pendingFontQualityProfile;
     private long fontQualityRefreshAfterNanos;
@@ -2807,6 +2814,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 19 -> potFont = font(creationFontGenerator, 38, 0f);
             case 20 -> {
                 dialogAmountFont = font(creationFontGenerator, 50, 0f);
+                rebuildButtonFontTiers();
                 disposeCreationFontGenerator();
                 return true;
             }
@@ -3190,6 +3198,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsTinyFont = replaceFont(settingsTinyFont,
                     font(generator, GdxSettingsStyle.TINY_FONT_SIZE, 0f,
                             profile));
+            rebuildButtonFontTiers();
         } finally {
             generator.dispose();
         }
@@ -3240,6 +3249,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         fontQualityProfile = profile;
         pendingFontQualityProfile = null;
+    }
+
+    private void rebuildButtonFontTiers() {
+        settingsActionButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                settingsActionFont, settingsBodyFont, actionFont, smallFont,
+                settingsSmallFont, settingsTinyFont);
+        actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                actionFont, smallFont, settingsSmallFont, settingsTinyFont);
+        smallButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                smallFont, settingsSmallFont, settingsTinyFont);
+        settingsSmallButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                settingsSmallFont, settingsTinyFont);
+        finalButtonFontTiers = new GdxCrispButtonText.FontTiers(
+                finalButtonFont, settingsBodyFont, actionFont, smallFont,
+                settingsSmallFont, settingsTinyFont);
     }
 
     private void refreshFontQualityIfDue() {
@@ -21425,14 +21449,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawDialogButtonLabel(BitmapFont font, String text,
             float x, float y, float width, float height,
             Color color, float alpha) {
-        boolean glyph = "-".equals(text) || "+".equals(text)
+        boolean symbol = "-".equals(text) || "+".equals(text)
                 || "‹".equals(text) || "›".equals(text)
                 || GdxUiDialogStyle.CLOSE_GLYPH.equals(text);
-        float inset = glyph ? 0f
-                : GdxUiButtonStyle.labelHorizontalInset(width);
-        drawFittedCenteredInBox(font, text, x + inset, y,
-                glyph ? width : GdxUiButtonStyle.labelContentWidth(width),
-                height, color, alpha);
+        if (symbol) {
+            drawPixelSnappedCenteredInBox(font, text, x, y, width, height,
+                    color, alpha);
+            return;
+        }
+        GdxCrispButtonText.resolve(glyph, text, width,
+                buttonFontTiers(font), crispButtonText);
+        drawPixelSnappedCenteredInBox(crispButtonText.font(),
+                crispButtonText.text(), x, y, width, height, color, alpha);
+    }
+
+    private GdxCrispButtonText.FontTiers buttonFontTiers(BitmapFont preferred) {
+        if (preferred == settingsActionFont) {
+            return settingsActionButtonFontTiers;
+        }
+        if (preferred == settingsSmallFont) {
+            return settingsSmallButtonFontTiers;
+        }
+        if (preferred == finalButtonFont) return finalButtonFontTiers;
+        if (preferred == smallFont) return smallButtonFontTiers;
+        return actionButtonFontTiers;
+    }
+
+    private void drawPixelSnappedCenteredInBox(BitmapFont font, String text,
+            float x, float y, float width, float height,
+            Color color, float alpha) {
+        font.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(font, text);
+        float drawX = GdxCrispButtonText.snapX(
+                x + (width - glyph.width) / 2f, viewport);
+        float drawY = GdxCrispButtonText.snapY(
+                y + (height + glyph.height) / 2f, viewport);
+        boolean previousIntegerPositions = font.usesIntegerPositions();
+        font.setUseIntegerPositions(false);
+        font.draw(batch, glyph, drawX, drawY);
+        font.setUseIntegerPositions(previousIntegerPositions);
+        font.setColor(Color.WHITE);
     }
 
     private void handleFinalSummaryInput() {
@@ -21748,7 +21804,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxUiButtonStyle.Tone.NEUTRAL, enabled);
             batch.setColor(navColor.r, navColor.g, navColor.b, alpha);
             batch.draw(navIcons[index], nav.x + 17f, nav.y + 12f, 30f, 30f);
-            drawFittedCenteredInBox(finalButtonFont, navLabels[index],
+            drawDialogButtonLabel(finalButtonFont, navLabels[index],
                     nav.x + 52f, nav.y + 6f, nav.width - 64f, 42f,
                     navColor, alpha);
         }

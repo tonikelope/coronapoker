@@ -52,6 +52,21 @@ final class GdxUiButtonStyle {
         return Math.max(1f, width - 2f * labelHorizontalInset(width));
     }
 
+    /**
+     * Smallest acceptable breathing room before choosing a smaller native
+     * button font.  This second boundary prevents the preferred safe area
+     * from forcing fractional glyph scaling while still keeping text visibly
+     * detached from the button edge.
+     */
+    static float minimumLabelHorizontalInset(float width) {
+        return Math.min(14f, Math.max(12f, width * 0.08f));
+    }
+
+    static float nativeLabelContentWidth(float width) {
+        return Math.max(1f,
+                width - 2f * minimumLabelHorizontalInset(width));
+    }
+
     static void draw(ShapeRenderer shapes, float x, float y, float width,
             float height, Tone tone, boolean enabled, float hoverAmount,
             boolean pressed, float alpha) {

@@ -154,7 +154,8 @@ starts only each scheduled scenario test in an isolated Maven process.
 ### Versioned local builds
 
 `qa.cmd build -IncrementVersion` increments the final numeric component of the
-current two-component product version before Maven starts. The runner updates
+current two-component product version before Maven starts. That component is
+bounded at 99: `25.99` advances to `26.0`, never to `25.100`. The runner updates
 the root and module POMs, QA reactor POMs, packaged version metadata, the Java
 fallback and its contract test as one validated set. It prints both the source
 and destination versions plus the number of updated files. The switch is

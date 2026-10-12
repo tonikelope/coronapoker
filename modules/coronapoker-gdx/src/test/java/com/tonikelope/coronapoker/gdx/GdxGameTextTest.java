@@ -239,6 +239,19 @@ final class GdxGameTextTest {
                 true, false, null));
     }
 
+    @Test
+    void updateCheckingModalTracksOnlyTheUnresolvedAsyncOperation() {
+        UpdateService.CheckResult unavailable = new UpdateService.CheckResult(
+                UpdateService.Status.UNAVAILABLE, null);
+
+        assertTrue(GdxFrontendScreen.updateCheckingModalVisible(true, null));
+        assertFalse(GdxFrontendScreen.updateCheckingModalVisible(false, null));
+        assertFalse(GdxFrontendScreen.updateCheckingModalVisible(
+                true, unavailable));
+        assertFalse(GdxFrontendScreen.updateCheckingModalVisible(
+                false, unavailable));
+    }
+
     private static Properties messages(String language) throws Exception {
         String resource = "/i18n/messages_" + language + ".properties";
         Properties values = new Properties();

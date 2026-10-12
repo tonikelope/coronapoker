@@ -86,6 +86,8 @@ final class ProductDistributionContractTest {
         assertTrue(runner.contains(
                 "if ($IncrementVersion -and $Action -ne 'build')"));
         assertTrue(runner.contains("Version increment: {0} -> {1}"));
+        assertTrue(runner.contains("if ($minor -ge 99)"),
+                "Version 25.99 must roll over to 26.0, never 25.100");
         for (String marker : Set.of(
                 "pom.xml",
                 "modules\\pom.xml",

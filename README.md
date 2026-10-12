@@ -376,11 +376,13 @@ complete product.
 
 `-IncrementVersion` is deliberately opt-in and valid only with `build`. Before
 Maven starts, it reads the current two-component product version, increments
-its final component, updates every canonical Maven, runtime metadata and Java
-version marker, verifies that they agree, and prints the source version, the
-destination version and the number of changed files. If the subsequent build
-fails, the increment remains visible in the working tree so it can be reviewed
-or corrected explicitly. The script never hides a partial release attempt.
+its final component through `.99` and then rolls over to the next `.0` (for
+example, `25.99` becomes `26.0`, never `25.100`). It updates every canonical
+Maven, runtime metadata and Java version marker, verifies that they agree, and
+prints the source version, the destination version and the number of changed
+files. If the subsequent build fails, the increment remains visible in the
+working tree so it can be reviewed or corrected explicitly. The script never
+hides a partial release attempt.
 
 GDX gameplay certification has one catalogue and one result. `fast`,
 `balanced` and `stress` execute exactly the same scenarios. They differ only in

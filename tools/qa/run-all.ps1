@@ -173,10 +173,18 @@ function Update-CoronaPokerProductVersion {
         throw "Cannot read the CoronaPoker version from $($script:rootPom)."
     }
 
-    $previous = $versionMatch.Groups[1].Value + '.' +
-        $versionMatch.Groups[2].Value
-    $next = $versionMatch.Groups[1].Value + '.' +
-        ([int]$versionMatch.Groups[2].Value + 1)
+    $major = [int]$versionMatch.Groups[1].Value
+    $minor = [int]$versionMatch.Groups[2].Value
+    $previous = $major.ToString() + '.' + $minor.ToString()
+    # CoronaPoker release versions use a bounded two-part counter. The final
+    # component ends at 99; the next release advances the first component and
+    # restarts at zero. Using -ge also repairs an accidentally overrun source
+    # version instead of ever publishing another .100 release.
+    $next = if ($minor -ge 99) {
+        ($major + 1).ToString() + '.0'
+    } else {
+        $major.ToString() + '.' + ($minor + 1).ToString()
+    }
     $versionFiles = @(
         'pom.xml',
         'modules\pom.xml',

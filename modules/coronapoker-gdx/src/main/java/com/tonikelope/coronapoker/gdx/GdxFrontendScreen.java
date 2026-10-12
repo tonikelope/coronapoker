@@ -1168,6 +1168,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.begin(ShapeRenderer.ShapeType.Filled);
             if (settingsRestartNotice) {
                 drawSettingsRestartNotice();
+            } else if (updateCheckingModalVisible()) {
+                drawUpdateCheckingDialog();
             } else if (aboutOpen) {
                 drawAboutDialog();
             } else if (updatePromptOpen) {
@@ -1321,7 +1323,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean hasVisibleFrontendModal() {
         return settingsRestartNotice
                 || (surface == Surface.MENU
-                        && (aboutOpen || updatePromptOpen))
+                        && (aboutOpen || updatePromptOpen
+                                || updateCheckingModalVisible()))
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || networkBlocksOpen
@@ -3908,6 +3911,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && result.status() == UpdateService.Status.UPDATE_AVAILABLE;
     }
 
+    static boolean updateCheckingModalVisible(boolean checkInFlight,
+            UpdateService.CheckResult result) {
+        return checkInFlight && result == null;
+    }
+
+    private boolean updateCheckingModalVisible() {
+        return surface == Surface.MENU && updateCheckingModalVisible(
+                updateCheckInFlight, updateResult);
+    }
+
     private void dismissUpdatePrompt() {
         if (updateInstalling) return;
         updatePromptOpen = false;
@@ -4115,6 +4128,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         ? this::startModUpdateHandoff
                         : this::startUpdateHandoff,
                 !updateInstalling);
+    }
+
+    private void drawUpdateCheckingDialog() {
+        hits.clear();
+        float panelX = 560f;
+        float panelY = 386f;
+        float panelW = 800f;
+        float panelH = 270f;
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
+                CYAN_DARK, 1f);
+        textFit(headingFont, uppercase(gameText.translate(
+                "ui.comprobando_actualizacion")),
+                WIDTH / 2f, panelY + 174f, GOLD, true, panelW - 100f);
+        drawIndeterminateProgressBar(panelX + 100f, panelY + 68f,
+                panelW - 200f, 18f, 170f, 0.52f, 9f);
     }
 
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
@@ -6304,21 +6332,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float trackY = 438f;
         float trackW = 600f;
         float trackH = 18f;
-        shapes.setColor(new Color(0x020813ff));
-        roundedRect(trackX, trackY, trackW, trackH, 9f);
-        shapes.setColor(LINE);
-        roundedRect(trackX + 2f, trackY + 2f, trackW - 4f,
-                trackH - 4f, 7f);
-        // Indeterminate motion: it represents real initialization without
-        // claiming a percentage that the core cannot measure.
-        float segmentW = 170f;
-        float travel = trackW - segmentW - 8f;
-        float phase = (elapsed * 0.52f) % 2f;
-        float eased = phase <= 1f ? phase : 2f - phase;
-        float segmentX = trackX + 4f + travel * eased;
-        shapes.setColor(CYAN);
-        roundedRect(segmentX, trackY + 4f, segmentW,
-                trackH - 8f, 5f);
+        drawIndeterminateProgressBar(trackX, trackY, trackW, trackH,
+                170f, 0.52f, 9f);
     }
 
     private void drawNewGameSubmissionOverlay() {
@@ -6341,22 +6356,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float trackY = panelY + 116f;
         float trackW = panelW - 160f;
         float trackH = 16f;
-        shapes.setColor(new Color(0x020813ff));
-        roundedRect(trackX, trackY, trackW, trackH, 8f);
-        shapes.setColor(LINE);
-        roundedRect(trackX + 2f, trackY + 2f, trackW - 4f,
-                trackH - 4f, 6f);
-        float segmentW = 150f;
-        float travel = trackW - segmentW - 8f;
-        float phase = (elapsed * 0.58f) % 2f;
-        float eased = phase <= 1f ? phase : 2f - phase;
-        shapes.setColor(CYAN);
-        roundedRect(trackX + 4f + travel * eased, trackY + 4f,
-                segmentW, trackH - 8f, 4f);
+        drawIndeterminateProgressBar(trackX, trackY, trackW, trackH,
+                150f, 0.58f, 8f);
 
         themedButton(panelX + 200f, panelY + 28f, 300f, 62f,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL, this::cancelOrReturnToMenu, true);
+    }
+
+    /**
+     * Shared real-work indicator. It deliberately reports no percentage when
+     * the underlying operation cannot provide reliable progress.
+     */
+    private void drawIndeterminateProgressBar(float trackX, float trackY,
+            float trackW, float trackH, float segmentW, float speed,
+            float radius) {
+        shapes.setColor(new Color(0x020813ff));
+        roundedRect(trackX, trackY, trackW, trackH, radius);
+        shapes.setColor(LINE);
+        roundedRect(trackX + 2f, trackY + 2f, trackW - 4f,
+                trackH - 4f, radius - 2f);
+        float travel = trackW - segmentW - 8f;
+        float phase = (elapsed * speed) % 2f;
+        float eased = phase <= 1f ? phase : 2f - phase;
+        shapes.setColor(CYAN);
+        roundedRect(trackX + 4f + travel * eased, trackY + 4f,
+                segmentW, trackH - 8f, radius - 4f);
     }
 
     private void kickSelectedParticipant() {

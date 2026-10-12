@@ -55,4 +55,27 @@ final class GdxUiDialogStyleTest {
         assertTrue(layout.title().y
                 > layout.message().y + layout.message().height);
     }
+
+    @Test
+    void galleryHeaderKeepsReadableActionsAndAnEmphaticCloseControl() {
+        GdxUiDialogStyle.GalleryHeaderLayout layout
+                = GdxUiDialogStyle.galleryHeaderLayout(
+                        390f, 180f, 1140f, 720f, true);
+
+        assertEquals(220f, layout.searchButton().width);
+        assertEquals(220f, layout.autoReceiveButton().width);
+        assertEquals(142f, layout.clearButton().width);
+        assertEquals(52f, layout.closeButton().width);
+        assertEquals(52f, layout.closeButton().height);
+        assertTrue(layout.title().x + layout.title().width
+                < layout.searchButton().x);
+        assertTrue(layout.searchButton().x + layout.searchButton().width
+                < layout.autoReceiveButton().x);
+        assertTrue(layout.autoReceiveButton().x
+                + layout.autoReceiveButton().width
+                < layout.clearButton().x);
+        assertTrue(layout.clearButton().x + layout.clearButton().width
+                < layout.closeButton().x);
+        assertEquals("\u00d7", GdxUiDialogStyle.CLOSE_GLYPH);
+    }
 }

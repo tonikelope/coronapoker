@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.math.Rectangle;
@@ -1043,7 +1044,7 @@ final class GdxTableViewStateTest {
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(1));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(2));
         assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(3));
-        assertTrue(CoronaPokerGdxTable.finalSummaryNavEnabled(4));
+        assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(4));
         assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(-1));
         assertFalse(CoronaPokerGdxTable.finalSummaryNavEnabled(5));
     }
@@ -1052,50 +1053,62 @@ final class GdxTableViewStateTest {
     void finalSummaryHitMapMatchesEveryEnabledTopButton() {
         float width = 1920f;
         float height = 1080f;
-        float gap = 18f;
-        float buttonWidth = Math.min(300f,
-                (width - 160f - gap * 4f) / 5f);
-        float start = (width - (buttonWidth * 5f + gap * 4f)) / 2f;
-        float y = height - 55f;
+        CoronaPokerGdxTable.FinalSummaryHeaderLayout layout
+                = CoronaPokerGdxTable.finalSummaryHeaderLayout(width, height);
 
-        assertEquals(0, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, start + buttonWidth / 2f, y));
-        assertEquals(1, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, start + buttonWidth + gap + buttonWidth / 2f, y));
-        assertEquals(2, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, start + 2f * (buttonWidth + gap)
-                        + buttonWidth / 2f, y));
-        assertEquals(3, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, start + 3f * (buttonWidth + gap)
-                        + buttonWidth / 2f, y));
+        for (int index = 0; index < 4; index++) {
+            Rectangle button = layout.navButton(index);
+            assertEquals(index, CoronaPokerGdxTable.finalSummaryActionAt(
+                    width, height, button.x + button.width / 2f,
+                    button.y + button.height / 2f));
+        }
+        Rectangle screenshots = layout.screenshotButton();
         assertEquals(4, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, start + 4f * (buttonWidth + gap)
-                        + buttonWidth / 2f, y));
+                height, screenshots.x + screenshots.width / 2f,
+                screenshots.y + screenshots.height / 2f));
+        Rectangle sound = layout.soundButton();
         assertEquals(5, CoronaPokerGdxTable.finalSummaryActionAt(width,
-                height, width - 51f, height - 55f));
+                height, sound.x + sound.width / 2f,
+                sound.y + sound.height / 2f));
+        assertTrue(layout.navStart() >= GdxFrontendScreen.MENU_LOGO_X
+                + GdxFrontendScreen.MENU_LOGO_WIDTH + 32f);
+        Rectangle last = layout.navButton(3);
+        assertTrue(last.x + last.width < layout.screenshotButton().x);
     }
 
     @Test
     void finalSummaryPointerTargetsOnlyEnabledButtonsAndAvailablePages() {
         float width = 1920f;
         float height = 1080f;
-        float gap = 18f;
-        float buttonWidth = Math.min(300f,
-                (width - 160f - gap * 4f) / 5f);
-        float start = (width - (buttonWidth * 5f + gap * 4f)) / 2f;
-        float y = height - 55f;
+        CoronaPokerGdxTable.FinalSummaryHeaderLayout layout
+                = CoronaPokerGdxTable.finalSummaryHeaderLayout(width, height);
+        Rectangle first = layout.navButton(0);
+        Rectangle stats = layout.navButton(2);
 
         assertEquals(0, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
-                width, height, start + buttonWidth / 2f, y, 0, 12));
+                width, height, first.x + first.width / 2f,
+                first.y + first.height / 2f, 0, 12));
         assertEquals(2, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
-                width, height, start + 2f * (buttonWidth + gap)
-                        + buttonWidth / 2f, y, 0, 12));
+                width, height, stats.x + stats.width / 2f,
+                stats.y + stats.height / 2f, 0, 12));
         assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 0, 12));
         assertEquals(7, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, width - 41f, 158f, 0, 12));
         assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 3, 12));
+    }
+
+    @Test
+    void voicePointerReleaseBelongsOnlyToItsCapturedLeftPointer() {
+        assertTrue(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
+                2, 2, Input.Buttons.LEFT));
+        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
+                2, 1, Input.Buttons.LEFT));
+        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(true,
+                2, 2, Input.Buttons.RIGHT));
+        assertFalse(CoronaPokerGdxTable.voicePointerReleaseMatches(false,
+                2, 2, Input.Buttons.LEFT));
     }
 
     @Test

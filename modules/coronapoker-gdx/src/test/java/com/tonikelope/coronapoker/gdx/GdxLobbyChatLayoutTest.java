@@ -25,10 +25,10 @@ final class GdxLobbyChatLayoutTest {
     void lobbyImageGalleryHasAStandardTopRightCloseControl() {
         Rectangle close = GdxFrontendScreen.lobbyImageGalleryCloseBounds(
                 525f, 315f, 840f, 430f);
-        assertEquals(1297f, close.x);
-        assertEquals(677f, close.y);
-        assertEquals(44f, close.width);
-        assertEquals(48f, close.height);
+        assertEquals(1285f, close.x);
+        assertEquals(587f, close.y);
+        assertEquals(52f, close.width);
+        assertEquals(52f, close.height);
         assertEquals(1,
                 GdxFrontendScreen.LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES);
     }

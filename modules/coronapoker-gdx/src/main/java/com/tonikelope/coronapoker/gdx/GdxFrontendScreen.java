@@ -1678,7 +1678,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("stats.estadisticas_2"), 2, false,
                 this::openStats);
         mainMenuButton(595f, 415f, 730f, 82f,
-                gameText.translate("menu.visor_capturas"), 6, false,
+                uppercase(gameText.translate("menu.visor_capturas")), 6, false,
                 this::openScreenshotViewer);
         mainMenuButton(595f, 310f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
@@ -1966,8 +1966,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         boolean modal = screenshotDeleteConfirmation;
-        themedButton(1812f, 1008f, 58f, 50f, "X", ButtonTone.NEUTRAL,
-                this::closeScreenshotViewer, !modal);
+        themedButton(1812f, 1008f, 58f, 50f,
+                GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
+                this::closeScreenshotViewer, !modal,
+                settingsStepperSignFont);
         if (screenshotIndex > 0) {
             screenshotNavigationButton(35f, 470f, 64f, 110f, -1,
                     () -> showRelativeScreenshot(-1), !modal);
@@ -2405,12 +2407,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     false, 210f);
             themedButton(1590f, 716f, 48f, 38f, "-", ButtonTone.NEUTRAL,
                     () -> adjustStatsChartZoom(-0.1f),
-                    statsChartZoom > 0.8f && !statsLoading);
+                    statsChartZoom > 0.8f && !statsLoading,
+                    settingsStepperSignFont);
             textFit(tinyFont, Math.round(statsChartZoom * 100f) + "%",
                     1690f, 742f, GOLD, true, 90f);
             themedButton(1742f, 716f, 48f, 38f, "+", ButtonTone.NEUTRAL,
                     () -> adjustStatsChartZoom(0.1f),
-                    statsChartZoom < 2f && !statsLoading);
+                    statsChartZoom < 2f && !statsLoading,
+                    settingsStepperSignFont);
         }
         if (statsLoading) {
             textFit(headingFont, gameText.translate("gdx.lobby.media_loading"),
@@ -2607,8 +2611,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiDialogStyle.drawPanel(shapes, 480f, 145f, 960f, 790f,
                 CYAN_DARK, 1f);
         textFit(headingFont, title, 514f, 906f, GOLD, false, 892f);
-        themedButton(1350f, 865f, 54f, 48f, "X", ButtonTone.NEUTRAL,
-                () -> statsPicker = StatsPicker.NONE, true);
+        themedButton(1350f, 865f, 54f, 48f,
+                GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
+                () -> statsPicker = StatsPicker.NONE, true,
+                settingsStepperSignFont);
 
         int itemCount = statsPickerItemCount(statsPicker);
         statsPickerScrollMaximum = statsPickerMaximumScroll(itemCount);
@@ -6374,14 +6380,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyImageGallery(float x, float y, float w, float h) {
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
+        GdxUiDialogStyle.GalleryHeaderLayout header
+                = GdxUiDialogStyle.galleryHeaderLayout(x, y, w, h, false);
         textFit(smallFont, uppercase(gameText.translate(
-                "gdx.lobby.image_gallery")), x + 24f,
-                y + h - 28f, GOLD, false, w - 410f);
+                "gdx.lobby.image_gallery")), header.title().x,
+                header.title().y + 27f, GOLD, false, header.title().width);
         textFit(tinyFont, gameText.translate("gdx.lobby.image_gallery_help"),
-                x + 24f, y + h - 58f, MUTED, false, w - 410f);
+                header.help().x, header.help().y + 19f, MUTED, false,
+                header.help().width);
         boolean autoReceive = GdxChatImageHistory.autoReceive(
                 initialProperties);
-        themedButton(x + w - 436f, y + h - 68f, 220f, 48f,
+        Rectangle autoReceiveButton = header.autoReceiveButton();
+        themedButton(autoReceiveButton.x, autoReceiveButton.y,
+                autoReceiveButton.width, autoReceiveButton.height,
                 uppercase(gameText.translate(autoReceive
                         ? "gdx.lobby.received_images_on"
                         : "gdx.lobby.received_images_off")),
@@ -6391,14 +6402,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             !autoReceive);
                     if (preferences != null) preferences.saveDeferred();
                 }, true);
-        themedButton(x + w - 206f, y + h - 68f, 128f, 48f,
+        Rectangle clear = header.clearButton();
+        themedButton(clear.x, clear.y, clear.width, clear.height,
                 uppercase(gameText.translate("gdx.lobby.clear")),
                 ButtonTone.NEUTRAL,
                 () -> lobbyImageClearConfirmation = true,
                 !lobbyImageHistory.isEmpty());
-        Rectangle close = lobbyImageGalleryCloseBounds(x, y, w, h);
-        themedButton(close.x, close.y, close.width, close.height, "\u00d7",
-                ButtonTone.DANGER, this::closeLobbyImageGallery, true);
+        Rectangle close = header.closeButton();
+        themedButton(close.x, close.y, close.width, close.height,
+                GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
+                this::closeLobbyImageGallery, true,
+                settingsStepperSignFont);
 
         // Present the complete dialog chrome for one frame before adding the
         // potentially cold thumbnail grid. This avoids the first-open flash
@@ -6497,7 +6511,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     static Rectangle lobbyImageGalleryCloseBounds(float x, float y,
             float width, float height) {
-        return new Rectangle(x + width - 68f, y + height - 68f, 44f, 48f);
+        return GdxUiDialogStyle.galleryHeaderLayout(x, y, width, height,
+                false).closeButton();
     }
 
     private void drawLobbyEmojiPicker(float x, float y, float w, float h) {
@@ -11016,8 +11031,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
                 hoverAmount, down, 1f);
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
-        textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
-                labelColor, true, w - 30f);
+        if ("-".equals(label) || "+".equals(label)
+                || GdxUiDialogStyle.CLOSE_GLYPH.equals(label)) {
+            glyph.setText(labelFont, label);
+            text(labelFont, label, x + w / 2f,
+                    y + (h + glyph.height) / 2f,
+                    labelColor, true);
+        } else {
+            textFit(labelFont, label, x + w / 2f, y + h / 2f + 8f,
+                    labelColor, true, w - 30f);
+        }
         if (enabled) {
             if ("-".equals(label) || "+".equals(label)) {
                 repeatHit(x, y, w, h, action);

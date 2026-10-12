@@ -14,6 +14,7 @@ final class GdxUiDialogStyle {
     static final int INSET_RGBA = 0x08182870;
     static final float BACKDROP_ALPHA = 0.68f;
     static final float NOTICE_MESSAGE_SCALE = 1.08f;
+    static final String CLOSE_GLYPH = "\u00d7";
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
@@ -64,6 +65,43 @@ final class GdxUiDialogStyle {
     record ConfirmationLayout(Rectangle panel, Rectangle title,
             Rectangle message, Rectangle negativeButton,
             Rectangle positiveButton) {
+    }
+
+    /**
+     * Keeps image-gallery header actions large enough for translated labels
+     * and leaves a real gap before the close control.  The same geometry is
+     * consumed by painting and hit testing, so the visible button can never
+     * drift away from its pointer target.
+     */
+    static GalleryHeaderLayout galleryHeaderLayout(float x, float y,
+            float width, float height, boolean includeSearch) {
+        float top = y + height - (includeSearch ? 80f : 158f);
+        float controlHeight = 52f;
+        float gap = 12f;
+        Rectangle close = new Rectangle(x + width - 80f, top,
+                52f, controlHeight);
+        Rectangle clear = new Rectangle(close.x - gap - 142f, top,
+                142f, controlHeight);
+        Rectangle autoReceive = new Rectangle(clear.x - gap - 220f, top,
+                220f, controlHeight);
+        Rectangle search = includeSearch
+                ? new Rectangle(autoReceive.x - gap - 220f, top,
+                        220f, controlHeight)
+                : new Rectangle(autoReceive.x, top, 0f, controlHeight);
+        float actionsLeft = includeSearch ? search.x : x + width - 34f;
+        Rectangle title = new Rectangle(x + 34f,
+                includeSearch ? top + 7f : y + height - 73f,
+                Math.max(0f, actionsLeft - x - 54f), 38f);
+        Rectangle help = new Rectangle(x + 35f,
+                includeSearch ? top - 29f : y + height - 108f,
+                Math.max(0f, actionsLeft - x - 55f), 25f);
+        return new GalleryHeaderLayout(title, help, search, autoReceive,
+                clear, close);
+    }
+
+    record GalleryHeaderLayout(Rectangle title, Rectangle help,
+            Rectangle searchButton, Rectangle autoReceiveButton,
+            Rectangle clearButton, Rectangle closeButton) {
     }
 
     /**

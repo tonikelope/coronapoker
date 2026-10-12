@@ -214,6 +214,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
     private static final int ALL_IN_EMBER_COUNT = 25;
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
+    static final float DERIVED_POT_OVERLAY_ALPHA = 0.70f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
@@ -2338,7 +2339,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     gameText.translate("gdx.settings.msaa_restart.message"),
                     com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
                     860, 0, false, "",
-                    gameText.translate("ui.aceptar")));
+                    uppercase(gameText.translate("ui.aceptar"))));
         }
     }
 
@@ -2355,7 +2356,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 "gdx.settings.hot_join_update_failed"),
                                         com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
                                         860, 0, false, "",
-                                        gameText.translate("ui.aceptar"))));
+                                        uppercase(gameText.translate(
+                                                "ui.aceptar")))));
                     });
         } catch (RuntimeException failure) {
             showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
@@ -2364,7 +2366,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             "gdx.settings.hot_join_update_failed"),
                     com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
                     860, 0, false, "",
-                    gameText.translate("ui.aceptar")));
+                    uppercase(gameText.translate("ui.aceptar"))));
         }
     }
 
@@ -8029,7 +8031,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         Math.min(260f, hoveredLabel.length() * 13f));
                 float tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
                         viewport.getWorldWidth() - tipW - 8f);
-                drawFittedCenteredInBox(smallFont,
+                drawFittedCenteredInBox(settingsSmallFont,
                         fastButtonEnabled(hovered)
                                 ? hoveredLabel
                                 : hoveredLabel + " - " + uppercase(
@@ -8659,7 +8661,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Overlay overlay : overlays) {
-            shapes.setColor(0f, 0f, 0f, 0.90f);
+            shapes.setColor(0f, 0f, 0f, DERIVED_POT_OVERLAY_ALPHA);
             roundedRect(overlay.x(), overlay.y(), overlay.width(),
                     overlay.height(), overlay.height() / 2f);
         }
@@ -8671,12 +8673,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
                         overlay.label(), overlay.x() + 10f,
                         overlay.y() + 5f, overlay.width() - 20f,
-                        overlay.height() - 10f, Color.WHITE, 1f);
+                        overlay.height() - 10f, Color.WHITE,
+                        DERIVED_POT_OVERLAY_ALPHA);
             } else {
                 drawFittedCenteredInBox(localOutcomeFont, overlay.label(),
                         overlay.x() + 10f, overlay.y() + 5f,
                         overlay.width() - 20f, overlay.height() - 10f,
-                        Color.WHITE, 1f);
+                        Color.WHITE, DERIVED_POT_OVERLAY_ALPHA);
             }
         }
         batch.end();
@@ -9741,7 +9744,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int latency = effectiveLatencyMillis(player);
         String value = latency < 0 ? "—" : Integer.toString(latency);
         String label = gameText.translate("gdx.table.latency_tooltip", value);
-        glyph.setText(smallFont, label);
+        glyph.setText(settingsSmallFont, label);
         float width = Math.max(132f, glyph.width + 30f);
         float height = 40f;
         float dotX = hoveredSeat.x - 42f;
@@ -9763,7 +9766,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
+        drawFittedCenteredInBox(settingsSmallFont, label,
+                x + 10f, y + 5f,
                 width - 20f, height - 10f, Color.WHITE, 1f);
         batch.end();
     }
@@ -9779,7 +9783,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (!audioOutputTooltipDelay.ready("table-no-audio-output")) return;
         String label = gameText.translate("gdx.audio.no_output_device");
-        glyph.setText(smallFont, label);
+        glyph.setText(settingsSmallFont, label);
         float width = Math.max(210f, glyph.width + 30f);
         float height = 40f;
         float x = MathUtils.clamp(pointer.x - width / 2f, 10f,
@@ -9795,7 +9799,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
+        drawFittedCenteredInBox(settingsSmallFont, label,
+                x + 10f, y + 5f,
                 width - 20f, height - 10f, Color.WHITE, 1f);
         batch.end();
     }
@@ -10865,13 +10870,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!paused && !userLightsOff) return;
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
-        int lightLevel = 50;
+        int lightLevel = GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL;
         if (preferences != null) {
             try {
                 lightLevel = Integer.parseInt(tableProperties
-                        .getProperty("nivel_luz", "50"));
+                        .getProperty("nivel_luz", Integer.toString(
+                                GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL)));
             } catch (NumberFormatException ignored) {
-                lightLevel = 50;
+                lightLevel = GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL;
             }
         }
         lightLevel = MathUtils.clamp(lightLevel, 10, 90);
@@ -11130,14 +11136,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(handX + 3f, y + 3f,
                     handWidth - 7f, height - 6f, 7f);
         }
-        shapes.setColor(BUTTON_LINE.r, BUTTON_LINE.g, BUTTON_LINE.b, 0.76f);
-        shapes.rect(communitySoundX - padding / 2f,
-                y + 6f, 2f, height - 12f);
-        shapes.rect(communityLightsX - padding / 2f,
-                y + 6f, 2f, height - 12f);
-        shapes.rect(communityPauseX - padding / 2f,
-                y + 6f, 2f, height - 12f);
-        shapes.rect(handX - padding / 2f, y + 6f, 2f, height - 12f);
         drawHudActionSurface(communitySoundX, communitySoundY,
                 communitySoundWidth, communitySoundHeight,
                 outputAvailable ? SEAT_RIM : LATENCY_RED,
@@ -15038,7 +15036,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.rect(x + 10f, y + height - 3f, width - 20f, 2f);
         shapes.end();
         batch.begin();
-        drawFittedCenteredInBox(smallFont, label, x + 10f, y + 5f,
+        drawFittedCenteredInBox(settingsSmallFont, label,
+                x + 10f, y + 5f,
                 width - 20f, height - 10f, Color.WHITE, 1f);
         batch.end();
     }
@@ -17732,13 +17731,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             "auto_call.sin_limite")), 1f);
         }
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
-            drawDialogButtonLabel(actionFont, dialog.negativeLabel(),
+            drawDialogButtonLabel(actionFont,
+                    uppercase(dialog.negativeLabel()),
                     negativeX, buttonY, negativeW, buttonH,
                     Color.WHITE, 1f);
         }
         if (dialog.showsPositive() && !dialog.waitingForExternalClose()) {
             drawDialogButtonLabel(actionFont,
-                    dialog.positiveLabel(),
+                    uppercase(dialog.positiveLabel()),
                     acceptX, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
         }
@@ -18252,7 +18252,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.flush();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
         drawDialogButtonLabel(settingsActionFont,
-                gameText.translate("ui.cancelar"),
+                uppercase(gameText.translate("ui.cancelar")),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 POT_GOLD, alpha);
         if (restoreVisible) {
@@ -19569,8 +19569,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.lightLevelLabel(
                                         tableSettingsProperties()),
-                                "50".equals(tableSettingsProperties()
-                                        .getProperty("nivel_luz", "50"))),
+                                Integer.toString(GdxAppearanceOptions
+                                        .DEFAULT_LIGHT_LEVEL).equals(
+                                        tableSettingsProperties().getProperty(
+                                                "nivel_luz",
+                                                Integer.toString(
+                                                        GdxAppearanceOptions
+                                                                .DEFAULT_LIGHT_LEVEL)))),
                         alpha);
             } else if (settingsAppearancePage == 1) {
                 float rowStride = GdxSettingsLayout.rowStride(

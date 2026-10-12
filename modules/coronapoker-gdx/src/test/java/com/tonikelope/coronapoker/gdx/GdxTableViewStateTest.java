@@ -197,6 +197,8 @@ final class GdxTableViewStateTest {
                 "an uncontested overbet return is not a numbered-pot win");
         assertEquals("POT #2", CoronaPokerGdxTable.sidePotOverlayLabel(
                 false, true, List.of(2), new GdxGameText("en")));
+        assertEquals(0.70f, CoronaPokerGdxTable.DERIVED_POT_OVERLAY_ALPHA,
+                0.000_001f);
     }
 
     @Test

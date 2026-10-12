@@ -277,6 +277,17 @@ final class GdxTableDialogTest {
         assertTrue(recovery.message().startsWith("REBUILDING"));
     }
 
+    @Test
+    void dialogActionsAreAlwaysNormalizedToUppercase() {
+        GdxTableDialog dialog = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "CONFIRMACIÓN", "mensaje",
+                GameDialogSink.Icon.NONE, 0, 0, false,
+                "Cancelar", "Aceptar");
+
+        assertEquals("CANCELAR", dialog.negativeLabel());
+        assertEquals("ACEPTAR", dialog.positiveLabel());
+    }
+
     private static GdxTableDialog dialog(GdxTableDialog.Kind kind, int seconds) {
         return new GdxTableDialog(kind, "mensaje", GameDialogSink.Icon.NONE,
                 0, seconds);

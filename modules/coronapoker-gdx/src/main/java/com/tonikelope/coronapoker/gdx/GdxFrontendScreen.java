@@ -5894,7 +5894,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::copyLobbyPasswordDraft,
                 !lobbyCommandPending && !lobbyPasswordDraft.isBlank());
         themedButton(950f, 370f, 165f, 64f,
-                gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
                 this::closeLobbyPasswordDialog, !lobbyCommandPending);
         themedButton(1130f, 370f, 165f, 64f,
                 gameText.translate("ui.guardar"), ButtonTone.POSITIVE,
@@ -7492,7 +7493,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         Rectangle cancel = frame.cancelButton();
         crispButtonTextInBox(actionFont,
-                gameText.translate("ui.cancelar"), cancel.x, cancel.y,
+                uppercase(gameText.translate("ui.cancelar")),
+                cancel.x, cancel.y,
                 cancel.width, cancel.height, GOLD);
         if (!lobbyCommandPending) {
             hit(cancel.x, cancel.y, cancel.width, cancel.height,
@@ -7739,8 +7741,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsContract.markDefault(
                             GdxAppearanceOptions.lightLevelLabel(
                                     initialProperties),
-                            "50".equals(initialProperties.getProperty(
-                                    "nivel_luz", "50"))),
+                            Integer.toString(GdxAppearanceOptions
+                                    .DEFAULT_LIGHT_LEVEL).equals(
+                                    initialProperties.getProperty(
+                                            "nivel_luz", Integer.toString(
+                                                    GdxAppearanceOptions
+                                                            .DEFAULT_LIGHT_LEVEL)))),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
             return;
@@ -9280,7 +9286,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     gameText.translate("gdx.newgame.profile_name"), presetNameDraft,
                     "presetName", false);
             themedButton(660f, 385f, 270f, 64f,
-                    gameText.translate("ui.cancelar"),
+                    uppercase(gameText.translate("ui.cancelar")),
                     ButtonTone.NEUTRAL, this::closePresetDialog, true);
             themedButton(990f, 385f, 270f, 64f,
                     gameText.translate("ui.guardar"),
@@ -9305,7 +9311,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 "gdx.newgame.overwrite_profile_question", name)),
                 960f, 535f, Color.WHITE, true, 700f);
         themedButton(660f, 405f, 270f, 64f,
-                gameText.translate("ui.cancelar"),
+                uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL, this::closePresetDialog, true);
         themedButton(990f, 405f, 270f, 64f,
                 presetDialog == PresetDialog.DELETE
@@ -9780,7 +9786,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         button(275f, 155f, 300f, 66f,
-                gameText.translate("ui.cancelar"), false,
+                uppercase(gameText.translate("ui.cancelar")), false,
                 this::closeBlindStructureEditor, true);
         themedButton(1320f, 155f, 300f, 66f,
                 gameText.translate("ui.guardar"),
@@ -9855,7 +9861,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     clearActiveField();
                 }, true);
         themedButton(990f, 385f, 270f, 64f,
-                gameText.translate("ui.aceptar"),
+                uppercase(gameText.translate("ui.aceptar")),
                 ButtonTone.POSITIVE, this::submitBlindStructureName,
                 !blindStructureNameDraft.isBlank());
     }
@@ -10086,7 +10092,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(joining ? 1040f : 1165f,
                 joining ? 165f : createFooterY,
                 joining ? 240f : 250f, 70f,
-                gameText.translate("ui.cancelar"), ButtonTone.NEUTRAL,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
                 this::cancelOrReturnToMenu, true);
         themedButton(joining ? 1310f : 1445f,
                 joining ? 165f : createFooterY,

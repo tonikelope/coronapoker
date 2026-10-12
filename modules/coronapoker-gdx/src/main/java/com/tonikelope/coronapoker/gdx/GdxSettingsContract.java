@@ -755,7 +755,8 @@ final class GdxSettingsContract {
             properties.setProperty("baraja", "goliat");
             properties.setProperty("trasera", "default");
             properties.setProperty("color_tapete", "verde");
-            properties.setProperty("nivel_luz", "50");
+            properties.setProperty("nivel_luz", Integer.toString(
+                    GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
             return;
         }
         if (index == 1) {
@@ -792,7 +793,9 @@ final class GdxSettingsContract {
             return stringAtDefault(properties, "baraja", "goliat")
                     && stringAtDefault(properties, "trasera", "default")
                     && stringAtDefault(properties, "color_tapete", "verde")
-                    && stringAtDefault(properties, "nivel_luz", "50");
+                    && stringAtDefault(properties, "nivel_luz",
+                            Integer.toString(
+                                    GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
         }
         if (index == 1) {
             boolean runtime = booleanAtDefault(properties, "gdx_vsync",

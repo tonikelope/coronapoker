@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -223,9 +224,9 @@ final class GdxTableDialog {
         this.seconds = Math.max(0, seconds);
         this.timeoutAccepts = timeoutAccepts;
         this.negativeLabel = Objects.requireNonNull(negativeLabel,
-                "negativeLabel");
+                "negativeLabel").toUpperCase(Locale.ROOT);
         this.positiveLabel = Objects.requireNonNull(positiveLabel,
-                "positiveLabel");
+                "positiveLabel").toUpperCase(Locale.ROOT);
         this.minimumAmount = minimumAmount;
         this.maximumAmount = Math.max(minimumAmount, maximumAmount);
         amountStep = kind == Kind.AUTO_CALL ? 5

@@ -620,7 +620,7 @@ final class GdxSettingsContractTest {
         assertEquals("goliat", properties.getProperty("baraja"));
         assertEquals("default", properties.getProperty("trasera"));
         assertEquals("verde", properties.getProperty("color_tapete"));
-        assertEquals("50", properties.getProperty("nivel_luz"));
+        assertEquals("35", properties.getProperty("nivel_luz"));
         assertEquals("false", properties.getProperty("gdx_show_fps"));
         assertEquals("true", properties.getProperty("animaciones"));
         assertEquals("true", properties.getProperty(

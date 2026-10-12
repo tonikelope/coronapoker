@@ -11,6 +11,7 @@ final class GdxAppearanceOptions {
     private static final int LIGHT_MIN = 10;
     private static final int LIGHT_MAX = 90;
     private static final int LIGHT_STEP = 5;
+    static final int DEFAULT_LIGHT_LEVEL = 35;
 
     record Choice(String key, String label, List<String> values,
             List<String> labels, String fallback, boolean numericNearest) {
@@ -156,12 +157,12 @@ final class GdxAppearanceOptions {
     private static int lightLevel(Properties properties) {
         try {
             int configured = Integer.parseInt(properties.getProperty(
-                    "nivel_luz", "50"));
+                    "nivel_luz", Integer.toString(DEFAULT_LIGHT_LEVEL)));
             int clamped = Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, configured));
             return LIGHT_MIN + Math.round((clamped - LIGHT_MIN)
                     / (float) LIGHT_STEP) * LIGHT_STEP;
         } catch (NumberFormatException invalid) {
-            return 50;
+            return DEFAULT_LIGHT_LEVEL;
         }
     }
 

@@ -183,6 +183,41 @@ final class GdxSettingsLayout {
         return new StepperRow(bounds, label, controls, minus, value, plus);
     }
 
+    /**
+     * Canonical text geometry for a toggle that also exposes its state.
+     * The state shares the horizontal centre used by stepper values, while
+     * retaining a safe gap before the switch at the far right.
+     */
+    static ToggleRow toggleRow(float x, float y, float width,
+            float height) {
+        StepperRow stepper = stepperRow(x, y, width, height);
+        float switchX = x + width - GdxSettingsStyle.TOGGLE_WIDTH
+                - GdxSettingsStyle.TOGGLE_RIGHT_INSET;
+        float valueCenter = stepper.value().x + stepper.value().width / 2f;
+        float valueWidth = Math.min(220f, Math.max(150f, width * 0.16f));
+        float valueX = Math.min(valueCenter - valueWidth / 2f,
+                switchX - 20f - valueWidth);
+        Rectangle value = new Rectangle(valueX, y + 5f,
+                valueWidth, height - 10f);
+        Rectangle label = new Rectangle(x + 20f, y + 5f,
+                Math.max(0f, value.x - x - 32f), height - 10f);
+        return new ToggleRow(new Rectangle(x, y, width, height), label,
+                value, new Rectangle(switchX,
+                        y + GdxSettingsStyle.TOGGLE_BOTTOM_INSET,
+                        GdxSettingsStyle.TOGGLE_WIDTH,
+                        GdxSettingsStyle.TOGGLE_HEIGHT));
+    }
+
+    /** Text bounds reserve one consistent icon lane on every primary tab. */
+    static Rectangle mainTabLabel(Rectangle tab) {
+        return new Rectangle(tab.x + 42f, tab.y, tab.width - 52f,
+                tab.height);
+    }
+
+    static Rectangle mainTabIcon(Rectangle tab) {
+        return new Rectangle(tab.x + 17f, tab.y + 13f, 22f, 22f);
+    }
+
     /** Canonical two-column grid used by every dense Game settings page. */
     static GameColumns gameColumns(float rowX, float rowWidth) {
         float columnWidth = (rowWidth - GAME_COLUMN_GAP) / 2f;
@@ -330,6 +365,10 @@ final class GdxSettingsLayout {
             return pointerX > value.x
                     && pointerX < value.x + value.width;
         }
+    }
+
+    record ToggleRow(Rectangle bounds, Rectangle label, Rectangle value,
+            Rectangle toggle) {
     }
 
     record GameColumns(float leftX, float rightX, float width) {

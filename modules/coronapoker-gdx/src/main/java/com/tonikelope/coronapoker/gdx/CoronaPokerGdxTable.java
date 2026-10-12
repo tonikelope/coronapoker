@@ -81,6 +81,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Base64;
+import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -130,6 +131,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float FINAL_SUMMARY_TEXT_SHIFT_Y = -64f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
             STARTUP_PRESENTATION_END_SECONDS;
+    private static final float INTRO_CARD_CLEAR_START =
+            STARTUP_PRESENTATION_END_SECONDS + 0.02f;
+    private static final float INTRO_CARD_CLEAR_STAGGER_SECONDS = 0.34f;
+    private static final float INTRO_CARD_CLEAR_SECONDS = 0.78f;
+    private static final float INTRO_LOGO_PULSE_START_SECONDS = 2.28f;
+    private static final int INTRO_LOGO_PULSE_COUNT = 6;
     private static final float INTRO_LOGO_DOCK_START =
             INTRO_LIGHT_SWITCH_TIME + 1.42f;
     private static final float INTRO_LOGO_DOCK_SECONDS = 1.28f;
@@ -139,12 +146,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float INTRO_CARD_APPEAR_SECONDS = 0.28f;
     private static final float INTRO_DARKNESS_ALPHA = 0.78f;
     private static final int INTRO_CARD_COUNT = 52;
-    private static final float INTRO_CARD_CLEAR_START =
-            STARTUP_PRESENTATION_END_SECONDS + 0.02f;
     private static final String[] INTRO_CARD_RANKS = {
         "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"
     };
     private static final String[] INTRO_CARD_SUITS = {"C", "D", "P", "T"};
+    private static final float[] INTRO_CARD_ANCHOR_X = {
+        -0.46f, 0f, 0.46f, -0.46f, 0.46f, -0.46f, 0f, 0.46f
+    };
+    private static final float[] INTRO_CARD_ANCHOR_Y = {
+        -0.48f, -0.48f, -0.48f, 0f, 0f, 0.48f, 0.48f, 0.48f
+    };
     private static final Color STARTUP_PRESENTATION_TEXT_COLOR =
             new Color(0xe9edf3ff);
     private static final String[] FAST_BUTTON_ICON_PATHS = {
@@ -269,6 +280,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int QUICK_CHAT_HISTORY_LIMIT = 200;
     private static final float QUICK_CHAT_WIDTH_RATIO = 0.30f;
     private static final float QUICK_CHAT_SCREEN_MARGIN = 18f;
+    /** Clears the canonical bottom-left version signature with a 10 px gap. */
+    static final float QUICK_CHAT_PANEL_Y = 32f;
+    private static final Color QUICK_CHAT_TOGGLE_ON = new Color(0x2f8f6bff);
+    private static final Color QUICK_CHAT_TOGGLE_KNOB = new Color(0xe4f5ebff);
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     private static final float VOICE_STATUS_SECONDS = 2.8f;
@@ -971,6 +986,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture rabbitCardBack;
     private Texture rabbitRevealOverlay;
     private Texture[] introCardFaces;
+    private final IntroCardLayout introCardLayout;
+    private final Color introShadeTop = new Color();
+    private final Color introShadeBottom = new Color();
     private Texture[] flyingChips;
     private Texture pot;
     private StreamingGifTextureAnimation gameOverAnimation;
@@ -1938,6 +1956,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? NewGameTableDraft.BotDifficulty.MEDIUM
                         : lobby.snapshot().tableSettings().botDifficulty();
         this.startupIntroOnly = startupIntroOnly;
+        introCardLayout = startupIntroOnly
+                ? introCardLayout(System.nanoTime()
+                        ^ Integer.toUnsignedLong(System.identityHashCode(this)))
+                : null;
         // The only product scene without an authoritative table snapshot is
         // the startup intro; every table frame is state/event driven.
         intro = startupIntroOnly;
@@ -2614,8 +2636,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } finally {
                 startupFontGenerator.dispose();
             }
-            defaultCardBack = cardTexture(
-                    "images/decks/goliat/hq/trasera.jpg");
+            String introBackDeck = presentationSettings == null
+                    ? availableDeck(liveDeck)
+                    : availableDeck(presentationSettings.cardBackDeck());
+            defaultCardBack = deckCardTexture(introBackDeck, "trasera.jpg");
             introCardFaces = new Texture[INTRO_CARD_COUNT];
             for (int card = 0; card < INTRO_CARD_COUNT; card++) {
                 introCardFaces[card] = liveCardFace(introCardCode(card));
@@ -4736,6 +4760,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 - (iconWidth + gap + titleWidth) / 2f;
 
         batch.begin();
+        // Explicitly restore the ordinary sprite shader before the logo. The
+        // card shader is deliberately changed once per card below.
+        batch.setShader(null);
         batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(startupPresentationSpadeTexture, rowLeft,
                 titleCenterY - iconHeight / 2f, iconWidth, iconHeight);
@@ -7580,11 +7607,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Gdx.gl.glEnable(GL20.GL_BLEND);
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
+            introShadeBottom.set(FELT_SHADE_BOTTOM.r,
+                    FELT_SHADE_BOTTOM.g, FELT_SHADE_BOTTOM.b,
+                    FELT_SHADE_BOTTOM.a * backdropAlpha);
+            introShadeTop.set(FELT_SHADE_TOP.r, FELT_SHADE_TOP.g,
+                    FELT_SHADE_TOP.b, FELT_SHADE_TOP.a * backdropAlpha);
             shapes.rect(0, 0, width, height,
-                    scaledAlpha(FELT_SHADE_BOTTOM, backdropAlpha),
-                    scaledAlpha(FELT_SHADE_BOTTOM, backdropAlpha),
-                    scaledAlpha(FELT_SHADE_TOP, backdropAlpha),
-                    scaledAlpha(FELT_SHADE_TOP, backdropAlpha));
+                    introShadeBottom, introShadeBottom,
+                    introShadeTop, introShadeTop);
             shapes.end();
 
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
@@ -7607,11 +7637,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 MathUtils.clamp(sceneTime / 0.82f, 0f, 1f));
         float dock = introLogoDockProgress(sceneTime);
         float cardsAppear = introCardAppearProgress(sceneTime);
-        float pulseTime = Math.max(0f, sceneTime - 2.28f);
-        float pulse = pulseTime <= 0f ? 0f
-                : (float) Math.pow(Math.max(0f,
-                        MathUtils.sin(pulseTime * MathUtils.PI2 * 1.55f)), 3d)
-                * MathUtils.clamp(1f - pulseTime / 2.25f, 0f, 1f);
+        float pulse = introLogoPulse(sceneTime);
         float centerLogoWidth = Math.min(760f, width * 0.48f);
         float centerLogoHeight = centerLogoWidth * logo.getHeight() / logo.getWidth();
         float centerLogoX = width / 2f;
@@ -7634,10 +7660,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.draw(logo, logoX - logoWidth / 2f,
                 logoY - logoHeight / 2f, logoWidth, logoHeight);
 
-        for (int card = 0; card < INTRO_CARD_COUNT; card++) {
-            drawIntroCard(card, width, height, centerLogoX, centerLogoY,
-                    centerLogoWidth, centerLogoHeight,
-                    cardsAppear * (1f - dock));
+        if (sceneTime < introCardClearEndSeconds()) {
+            for (int slot = 0; slot < INTRO_CARD_COUNT; slot++) {
+                drawIntroCard(introCardLayout.cards().get(slot), width, height,
+                        centerLogoX, centerLogoY,
+                        centerLogoWidth, centerLogoHeight,
+                        cardsAppear * (1f - dock));
+            }
         }
         batch.setShader(null);
         batch.setColor(Color.WHITE);
@@ -7660,6 +7689,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Interpolation.smoother.apply(MathUtils.clamp(
                 (timeSeconds - INTRO_LOGO_DOCK_START)
                         / INTRO_LOGO_DOCK_SECONDS, 0f, 1f));
+    }
+
+    static float introLogoPulse(float timeSeconds) {
+        if (timeSeconds <= INTRO_LOGO_PULSE_START_SECONDS
+                || timeSeconds >= INTRO_LOGO_DOCK_START) {
+            return 0f;
+        }
+        float duration = INTRO_LOGO_DOCK_START
+                - INTRO_LOGO_PULSE_START_SECONDS;
+        float cycles = (timeSeconds - INTRO_LOGO_PULSE_START_SECONDS)
+                / duration * INTRO_LOGO_PULSE_COUNT;
+        return (float) Math.pow(Math.max(0f,
+                MathUtils.sin(cycles * MathUtils.PI2)), 3d);
+    }
+
+    static float introCardClearEndSeconds() {
+        return INTRO_CARD_CLEAR_START + INTRO_CARD_CLEAR_STAGGER_SECONDS
+                + INTRO_CARD_CLEAR_SECONDS;
     }
 
     static float introLightProgress(float timeSeconds) {
@@ -7689,44 +7736,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
     }
 
-    private static Color scaledAlpha(Color color, float alphaScale) {
-        return new Color(color.r, color.g, color.b, color.a * alphaScale);
-    }
-
-    private void drawIntroCard(int card, float width, float height,
+    private void drawIntroCard(IntroCardPlacement placement,
+            float width, float height,
             float logoX, float logoY, float logoWidth, float logoHeight,
             float transitionAlpha) {
         Texture cardBack = defaultCardBack;
-        Texture cardFace = introCardFaces[card];
+        Texture cardFace = introCardFaces[placement.card()];
         float cardW = MathUtils.clamp(width * 0.082f, 118f, 192f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
-        float targetX = logoX + (introHash(card, 2f) - 0.5f)
-                * logoWidth * 0.94f;
-        float targetY = logoY + (introHash(card, 3f) - 0.5f)
+        float targetX = logoX + placement.xNormalised() * logoWidth;
+        float targetY = logoY + placement.yNormalised()
                 * Math.max(logoHeight * 0.90f, cardH * 1.32f);
         float x = targetX;
         float y = targetY;
-        float targetRotation = (introHash(card, 6f) - 0.5f) * 72f;
-        float rotation = targetRotation;
-        float scale = 0.94f + introHash(card, 5f) * 0.12f;
+        float rotation = placement.rotation();
+        float scale = placement.scale();
         float alpha = transitionAlpha;
 
         float clearDelay = INTRO_CARD_CLEAR_START
-                + introHash(card, 9f) * 0.34f;
-        float clearRaw = MathUtils.clamp((sceneTime - clearDelay) / 0.78f, 0f, 1f);
+                + placement.clearDelay() * INTRO_CARD_CLEAR_STAGGER_SECONDS;
+        float clearRaw = MathUtils.clamp((sceneTime - clearDelay)
+                / INTRO_CARD_CLEAR_SECONDS, 0f, 1f);
         if (clearRaw > 0f) {
             float clear = Interpolation.pow2In.apply(clearRaw);
-            float exitAngle = MathUtils.PI2 * introHash(card, 4f);
+            float exitAngle = MathUtils.PI2 * placement.exitAngle();
             float awayX = MathUtils.cos(exitAngle);
             float awayY = MathUtils.sin(exitAngle);
             float tangentX = -awayY;
             float tangentY = awayX;
-            float sweep = Math.max(width, height) * (0.78f + introHash(card, 8f) * 0.28f);
+            float sweep = Math.max(width, height)
+                    * placement.sweepScale();
             float arc = MathUtils.sin(clearRaw * MathUtils.PI)
-                    * (introHash(card, 1f) - 0.5f) * 240f;
+                    * placement.arc();
             x += awayX * sweep * clear + tangentX * arc;
             y += awayY * sweep * clear + tangentY * arc;
-            rotation += (card % 2 == 0 ? 1f : -1f) * clear * 520f;
+            rotation += placement.spin() * clear;
             scale *= 1f - clear * 0.12f;
             alpha *= 1f - Interpolation.pow2In.apply(
                     MathUtils.clamp((clearRaw - 0.72f) / 0.28f, 0f, 1f));
@@ -7734,9 +7778,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         float canvasW = cardW * 1.5f;
         float canvasH = cardH * 1.5f;
-        // Startup has deliberately no table session.  Its cards are a purely
-        // visual composition and therefore use the explicit bundled back;
-        // never route them through the live-table deck selection contract.
+        // Startup has deliberately no table session, but its visual deck and
+        // back still come from the same persisted presentation settings as
+        // the rest of the game.
         useIntroPerspectiveCardShader(cardFace, MathUtils.PI, cardH / cardW);
         batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(cardBack, x - canvasW / 2f, y - canvasH / 2f,
@@ -7750,10 +7794,61 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 + INTRO_CARD_SUITS[card / INTRO_CARD_RANKS.length];
     }
 
-    private static float introHash(int index, float salt) {
-        float value = MathUtils.sin((index + 1f) * 12.9898f
-                + salt * 78.233f) * 43758.547f;
-        return value - (float) Math.floor(value);
+    /**
+     * Builds one stable composition per startup. Eight lightly jittered edge
+     * anchors preserve the original pile envelope without turning it into an
+     * opaque grid; all remaining cards keep the original irregular spread.
+     * Every run also shuffles card identity/draw order and exit trajectories.
+     */
+    static IntroCardLayout introCardLayout(long seed) {
+        SplittableRandom random = new SplittableRandom(seed);
+        int[] order = new int[INTRO_CARD_COUNT];
+        for (int card = 0; card < order.length; card++) order[card] = card;
+        for (int card = order.length - 1; card > 0; card--) {
+            int other = random.nextInt(card + 1);
+            int value = order[card];
+            order[card] = order[other];
+            order[other] = value;
+        }
+        ArrayList<IntroCardPlacement> cards = new ArrayList<>(
+                INTRO_CARD_COUNT);
+        for (int slot = 0; slot < INTRO_CARD_COUNT; slot++) {
+            float x;
+            float y;
+            if (slot < INTRO_CARD_ANCHOR_X.length) {
+                x = INTRO_CARD_ANCHOR_X[slot]
+                        + randomRange(random, -0.01f, 0.01f);
+                y = INTRO_CARD_ANCHOR_Y[slot]
+                        + randomRange(random, -0.01f, 0.01f);
+            } else {
+                x = randomRange(random, -0.47f, 0.47f);
+                y = randomRange(random, -0.50f, 0.50f);
+            }
+            cards.add(new IntroCardPlacement(order[slot], x, y,
+                    randomRange(random, -36f, 36f),
+                    randomRange(random, 0.94f, 1.06f),
+                    (float) random.nextDouble(),
+                    (float) random.nextDouble(),
+                    randomRange(random, 0.78f, 1.06f),
+                    randomRange(random, -120f, 120f),
+                    (random.nextBoolean() ? 1f : -1f)
+                    * randomRange(random, 430f, 610f)));
+        }
+        return new IntroCardLayout(List.copyOf(cards));
+    }
+
+    private static float randomRange(SplittableRandom random, float minimum,
+            float maximum) {
+        return (float) random.nextDouble(minimum, maximum);
+    }
+
+    record IntroCardPlacement(int card, float xNormalised,
+            float yNormalised, float rotation, float scale,
+            float clearDelay, float exitAngle, float sweepScale,
+            float arc, float spin) {
+    }
+
+    record IntroCardLayout(List<IntroCardPlacement> cards) {
     }
 
     private void drawTableScene() {
@@ -16324,12 +16419,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         return MathUtils.clamp(visualTop - QUICK_CHAT_SCREEN_MARGIN,
                 170f, viewport.getWorldHeight()
-                        - 2f * QUICK_CHAT_SCREEN_MARGIN);
+                        - QUICK_CHAT_PANEL_Y - QUICK_CHAT_SCREEN_MARGIN);
     }
 
     private Rectangle tableChatInputBounds() {
         if (!chatImageMode) {
-            return new Rectangle(32f, 32f, quickChatWidth() - 28f, 42f);
+            return new Rectangle(QUICK_CHAT_SCREEN_MARGIN + 14f,
+                    QUICK_CHAT_PANEL_Y + 14f,
+                    quickChatWidth() - 28f, 42f);
         }
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
@@ -16342,8 +16439,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Rectangle quickChatHistoryBounds() {
-        float panelX = 18f;
-        float panelY = 18f;
+        float panelX = QUICK_CHAT_SCREEN_MARGIN;
+        float panelY = QUICK_CHAT_PANEL_Y;
         return new Rectangle(panelX + 14f, panelY + 100f,
                 quickChatWidth() - 28f, quickChatHeight() - 114f);
     }
@@ -16466,8 +16563,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleQuickChatClick(float x, float y) {
-        float panelX = 18f;
-        float panelY = 18f;
+        float panelX = QUICK_CHAT_SCREEN_MARGIN;
+        float panelY = QUICK_CHAT_PANEL_Y;
         float panelW = quickChatWidth();
         float panelH = quickChatHeight();
         LobbyChatMessage voice = quickChatVoiceAt(x, y);
@@ -18113,9 +18210,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 POT_GOLD, alpha);
         for (int i = 0; i < sections.size(); i++) {
             Rectangle tab = frame.mainTab(i);
+            Rectangle label = GdxSettingsLayout.mainTabLabel(tab);
             drawDialogButtonLabel(settingsActionFont,
                     sections.get(i).label(gameText),
-                    tab.x, tab.y, tab.width, tab.height,
+                    label.x, label.y, label.width, label.height,
                     Color.WHITE,
                     (i == settingsSession.tabIndex() ? 1f : 0.72f) * alpha);
         }
@@ -19947,13 +20045,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsToggleText(float x, float y, float width,
             String label, String value, boolean enabled, float alpha) {
-        float valueWidth = Math.min(300f, Math.max(170f, width * 0.24f));
-        drawLeftInBox(settingsSmallFont, label, x + 20f, y + 5f,
-                width - valueWidth - 126f, 58f,
+        GdxSettingsLayout.ToggleRow layout = GdxSettingsLayout.toggleRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        drawLeftInBox(settingsSmallFont, label, layout.label().x,
+                layout.label().y, layout.label().width,
+                layout.label().height,
                 enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
         drawFittedCenteredInBox(settingsBodyFont, value,
-                x + width - valueWidth - 110f, y + 5f,
-                valueWidth, 58f, enabled ? POT_GOLD : SETTINGS_DISABLED,
+                layout.value().x, layout.value().y,
+                layout.value().width, layout.value().height,
+                enabled ? POT_GOLD : SETTINGS_DISABLED,
                 alpha);
     }
 
@@ -20836,8 +20937,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawQuickChatDialog() {
         float alpha = uiFade();
-        float panelX = 18f;
-        float panelY = 18f;
+        float panelX = QUICK_CHAT_SCREEN_MARGIN;
+        float panelY = QUICK_CHAT_PANEL_Y;
         float panelW = quickChatWidth();
         float panelH = quickChatHeight();
         float historyX = panelX + 14f;
@@ -20881,9 +20982,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 inputY + 8f, 27f, alpha);
         float switchX = panelX + panelW - 58f;
         float switchY = panelY + 65f;
-        shapes.setColor(quickChatAutoClose ? STACK_GREEN : BUTTON_LINE);
+        shapes.setColor(quickChatAutoClose
+                ? QUICK_CHAT_TOGGLE_ON : BUTTON_LINE);
         roundedRect(switchX, switchY, 38f, 20f, 10f);
-        shapes.setColor(Color.WHITE);
+        shapes.setColor(quickChatAutoClose
+                ? QUICK_CHAT_TOGGLE_KNOB : Color.LIGHT_GRAY);
         shapes.circle(quickChatAutoClose ? switchX + 28f : switchX + 10f,
                 switchY + 10f, 7f, 24);
         if (quickChatScrollMaximum > 0f) {
@@ -20961,8 +21064,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
 
         batch.begin();
-        drawLeftInBox(smallFont, uppercase(gameText.translate(
-                "gdx.table.chat.close_on_send")),
+        drawLeftInBox(smallFont, gameText.translate(
+                "gdx.table.chat.close_on_send"),
                 panelX + 18f, panelY + 58f,
                 panelW - 92f, 34f, Color.LIGHT_GRAY, alpha);
         String draft = chatDraft.isEmpty()
@@ -21476,20 +21579,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static FinalSummaryHeaderLayout finalSummaryHeaderLayout(float width,
             float height) {
         float navGap = 18f;
-        Rectangle sound = new Rectangle(width - 74f, height - 78f,
+        Rectangle sound = new Rectangle(width - 74f, height - 96f,
                 46f, 46f);
         Rectangle screenshots = new Rectangle(sound.x - 56f, sound.y,
                 46f, 46f);
         float navAreaLeft = GdxFrontendScreen.MENU_LOGO_X
                 + GdxFrontendScreen.MENU_LOGO_WIDTH + 32f;
         float navAreaRight = screenshots.x - 24f;
-        float navAreaWidth = Math.max(0f, navAreaRight - navAreaLeft);
+        // The four principal actions belong to the whole screen, not to the
+        // leftover strip between logo and accessories. Use symmetric safe
+        // insets so the group is genuinely centred while staying clear of
+        // both fixed edge clusters at narrow resolutions.
+        float safeInset = Math.max(navAreaLeft, width - navAreaRight);
+        float navAreaWidth = Math.max(0f, width - 2f * safeInset);
         float navWidth = Math.min(300f,
                 Math.max(80f, (navAreaWidth - navGap * 3f) / 4f));
         float navRowWidth = navWidth * 4f + navGap * 3f;
-        float navStart = navAreaLeft
-                + Math.max(0f, (navAreaWidth - navRowWidth) / 2f);
-        return new FinalSummaryHeaderLayout(navStart, height - 82f,
+        float navStart = (width - navRowWidth) / 2f;
+        return new FinalSummaryHeaderLayout(navStart, height - 100f,
                 navWidth, navGap, screenshots, sound);
     }
 

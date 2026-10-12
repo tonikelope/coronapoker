@@ -7386,11 +7386,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (int i = 0; i < sections.size(); i++) {
             final int selected = i;
             Rectangle tab = frame.mainTab(i);
+            Rectangle label = GdxSettingsLayout.mainTabLabel(tab);
             boolean active = settingsSession.tabIndex() == i;
             textFit(actionFont, sections.get(i).label(gameText),
-                    tab.x + tab.width / 2f, tab.y + 32f,
+                    label.x + label.width / 2f, tab.y + 32f,
                     active ? Color.WHITE : MUTED,
-                    true, tab.width - 24f);
+                    true, label.width - 8f);
             hit(tab.x, tab.y, tab.width, tab.height, () -> {
                 audioPreview.stop();
                 settingsSession.selectTab(selected);
@@ -10580,9 +10581,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
                 enabled && pressed(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
                 1f);
-        float valueWidth = valueLabel == null ? 0f
-                : Math.min(300f, Math.max(170f, w * 0.24f));
-        float labelWidth = Math.max(0f, w - 132f - valueWidth);
+        GdxSettingsLayout.ToggleRow layout = valueLabel == null ? null
+                : GdxSettingsLayout.toggleRow(x, y, w,
+                        GdxSettingsLayout.ROW_HEIGHT);
+        float labelWidth = layout == null ? Math.max(0f, w - 132f)
+                : layout.label().width;
         if (wrapLabel) {
             List<String> lines = wrapText(labelFont, label, labelWidth, 2);
             float baseline = lines.size() > 1 ? y + 48f : y + 42f;
@@ -10596,9 +10599,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     enabled ? Color.WHITE : DISABLED, false, labelWidth);
         }
         if (valueLabel != null) {
-            textFit(uiFont, valueLabel,
-                    x + w - 110f - valueWidth / 2f, y + 43f,
-                    enabled ? GOLD : DISABLED, true, valueWidth - 18f);
+            textFit(uiFont, valueLabel, layout.value().x
+                    + layout.value().width / 2f, y + 43f,
+                    enabled ? GOLD : DISABLED, true,
+                    layout.value().width - 12f);
         }
         float target = value && enabled ? 1f : 0f;
         String animationKey = GdxToggleMotion.stableKey(

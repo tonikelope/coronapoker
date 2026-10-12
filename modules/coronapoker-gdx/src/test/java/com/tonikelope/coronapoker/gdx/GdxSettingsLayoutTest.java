@@ -125,6 +125,36 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void toggleStateAlignsWithStepperValuesWithoutTouchingTheSwitch() {
+        GdxSettingsLayout.StepperRow stepper = GdxSettingsLayout.stepperRow(
+                100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.ToggleRow toggle = GdxSettingsLayout.toggleRow(
+                100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);
+
+        assertEquals(stepper.value().x + stepper.value().width / 2f,
+                toggle.value().x + toggle.value().width / 2f);
+        assertTrue(toggle.label().x + toggle.label().width
+                < toggle.value().x);
+        assertTrue(toggle.value().x + toggle.value().width
+                < toggle.toggle().x);
+    }
+
+    @Test
+    void primaryTabIconAndLabelOwnSeparateSafeLanes() {
+        Rectangle tab = GdxSettingsLayout.frame(
+                1920f, 1080f, 4, 6).mainTab(0);
+        Rectangle icon = GdxSettingsLayout.mainTabIcon(tab);
+        Rectangle label = GdxSettingsLayout.mainTabLabel(tab);
+
+        assertTrue(tab.contains(icon));
+        assertTrue(label.x >= tab.x);
+        assertTrue(label.y >= tab.y);
+        assertTrue(label.x + label.width <= tab.x + tab.width);
+        assertTrue(label.y + label.height <= tab.y + tab.height);
+        assertTrue(icon.x + icon.width < label.x);
+    }
+
+    @Test
     void canonicalFirstRowKeepsItsOutlineBelowTheSettingsClipTop() {
         GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
                 1920f, 1080f, 4, 5);

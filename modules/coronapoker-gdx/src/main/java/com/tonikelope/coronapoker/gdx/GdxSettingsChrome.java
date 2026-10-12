@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
@@ -34,6 +35,7 @@ final class GdxSettingsChrome {
     private static final Color TAB = new Color(0x0b1729b8);
     private static final Color ACTIVE_TAB = new Color(0x123047e8);
     private static final Color ACTIVE_SUBTAB = new Color(0x171b1de8);
+    private static final Color TAB_ICON = new Color(0xa8bdd5ff);
 
     private GdxSettingsChrome() {
     }
@@ -67,6 +69,7 @@ final class GdxSettingsChrome {
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,
                         tab.width - 20f, 3f, 2f);
             }
+            drawMainTabIcon(shapes, index, tab, active, hover, alpha);
         }
 
         Rectangle firstMainTab = frame.mainTab(0);
@@ -123,6 +126,64 @@ final class GdxSettingsChrome {
                 enabled && contains(bounds, pointer) ? 1f : 0f,
                 enabled && contains(bounds, pointer) && pointerPressed(),
                 alpha);
+    }
+
+    /** Compact vector icons keep every settings host visually identical. */
+    private static void drawMainTabIcon(ShapeRenderer shapes, int index,
+            Rectangle tab, boolean active, boolean hover, float alpha) {
+        Rectangle icon = GdxSettingsLayout.mainTabIcon(tab);
+        Color color = active ? GOLD : hover ? CYAN : TAB_ICON;
+        shapes.setColor(color.r, color.g, color.b,
+                (active ? 1f : 0.82f) * alpha);
+        float cx = icon.x + icon.width / 2f;
+        float cy = icon.y + icon.height / 2f;
+        switch (index) {
+            case 0 -> {
+                // Appearance: a small polished sparkle/sun.
+                shapes.circle(cx, cy, 4.2f, 18);
+                for (int ray = 0; ray < 8; ray++) {
+                    float angle = ray * MathUtils.PI / 4f;
+                    shapes.rectLine(cx + MathUtils.cos(angle) * 6.5f,
+                            cy + MathUtils.sin(angle) * 6.5f,
+                            cx + MathUtils.cos(angle) * 10f,
+                            cy + MathUtils.sin(angle) * 10f, 1.8f);
+                }
+            }
+            case 1 -> {
+                // Audio: speaker and two understated sound waves.
+                shapes.rect(icon.x + 1f, cy - 4f, 5f, 8f);
+                shapes.triangle(icon.x + 5f, cy - 4f,
+                        icon.x + 12f, cy - 9f,
+                        icon.x + 12f, cy + 9f);
+                shapes.rectLine(icon.x + 15f, cy - 5f,
+                        icon.x + 18f, cy - 2f, 1.8f);
+                shapes.rectLine(icon.x + 18f, cy - 2f,
+                        icon.x + 18f, cy + 2f, 1.8f);
+                shapes.rectLine(icon.x + 18f, cy + 2f,
+                        icon.x + 15f, cy + 5f, 1.8f);
+            }
+            case 2 -> {
+                // Controls: compact gamepad silhouette.
+                roundedRect(shapes, icon.x + 1f, icon.y + 5f,
+                        icon.width - 2f, 13f, 5f);
+                shapes.setColor(TAB.r, TAB.g, TAB.b, alpha);
+                shapes.rect(icon.x + 5f, cy - 1.2f, 7f, 2.4f);
+                shapes.rect(icon.x + 7.3f, cy - 3.5f, 2.4f, 7f);
+                shapes.circle(icon.x + 16f, cy + 2f, 1.8f, 12);
+                shapes.circle(icon.x + 19f, cy - 2f, 1.8f, 12);
+            }
+            default -> {
+                // Debug: a bug, matching the diagnostic nature of the tab.
+                roundedRect(shapes, cx - 5f, cy - 6f, 10f, 13f, 4f);
+                shapes.circle(cx, cy + 8f, 3.5f, 16);
+                for (int leg = -1; leg <= 1; leg += 2) {
+                    shapes.rectLine(cx - 5f, cy + leg * 3.5f,
+                            cx - 10f, cy + leg * 6f, 1.6f);
+                    shapes.rectLine(cx + 5f, cy + leg * 3.5f,
+                            cx + 10f, cy + leg * 6f, 1.6f);
+                }
+            }
+        }
     }
 
     private static boolean pointerPressed() {

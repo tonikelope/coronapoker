@@ -205,6 +205,12 @@ The runnable output is `target/CoronaPoker_<version>.jar`. Use
 A focused product test can be selected without failing the other modules for
 having no matching class:
 
+On PowerShell, keep Maven system properties such as `-Dtest=...` and
+`-Dsurefire.failIfNoSpecifiedTests=false` inside single quotes. Passing the
+latter unquoted to a Windows `.cmd` launcher can strip its `-Dsurefire` prefix,
+so Maven reports the remainder as an unknown lifecycle phase before running any
+test.
+
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
   '-Dtest=GdxScenarioContractTest' `
@@ -639,6 +645,18 @@ input, corrupt preferences, malformed XML or cooperative thread interruption,
 so an isolated `WARNING` or `SEVERE` line is not by itself a failed test. On
 recent JDKs, SQLite can also print a native-access warning. Judge these lines in
 context: Maven's test counts, final build result and exit code are authoritative.
+
+When the suite is launched inside a restricted Windows application sandbox,
+JUnit's temporary directories may resolve below
+`AppData\\Local\\Packages\\sandbox...\\AC\\Temp`. If many otherwise unrelated
+tests fail together with `AccessDeniedException` while moving
+`*.properties.tmp-*` files or creating `identity_*.ed25519`, the sandbox has
+blocked the test fixtures' normal temporary-file writes. This is not a valid
+product result: rerun the unchanged command from a normal PowerShell session
+(or the approved unrestricted test environment) and judge that run by its
+test totals, final Maven result and exit code. A genuine product failure must
+still be investigated rather than dismissed merely because it also mentions a
+filesystem path.
 
 ### GDX scenario output
 

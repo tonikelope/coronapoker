@@ -1073,6 +1073,23 @@ final class GdxTableViewStateTest {
                 + GdxFrontendScreen.MENU_LOGO_WIDTH + 32f);
         Rectangle last = layout.navButton(3);
         assertTrue(last.x + last.width < layout.screenshotButton().x);
+        float rowWidth = layout.navWidth() * 4f + layout.navGap() * 3f;
+        assertEquals(width / 2f, layout.navStart() + rowWidth / 2f,
+                0.000_001f,
+                "the principal final-summary actions centre on the screen");
+        assertTrue(layout.navButton(0).y + layout.navButton(0).height
+                <= height - 46f,
+                "top actions must remain below the FPS badge lane");
+        assertEquals(layout.navButton(0).y + 4f,
+                layout.screenshotButton().y,
+                "compact accessories retain their own baseline");
+    }
+
+    @Test
+    void quickChatClearsTheCanonicalVersionSignature() {
+        assertTrue(CoronaPokerGdxTable.QUICK_CHAT_PANEL_Y
+                >= GdxProductVersionBrand.top()
+                + GdxProductVersionBrand.QUICK_ACCESS_GAP);
     }
 
     @Test

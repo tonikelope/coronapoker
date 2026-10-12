@@ -887,9 +887,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         fpsFont = nextFps;
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 actionFont, uiFont, buttonMediumFont, buttonCompactFont,
-                smallFont, buttonTinyFont, tinyFont);
+                smallFont, buttonTinyFont, tinyFont, versionFont);
         compactButtonFontTiers = new GdxCrispButtonText.FontTiers(
-                smallFont, buttonTinyFont, tinyFont);
+                smallFont, buttonTinyFont, tinyFont, versionFont);
         fontQualityProfile = profile;
         pendingFontQualityProfile = null;
     }

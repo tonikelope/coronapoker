@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(530, spanishKeys.size(),
+        assertEquals(533, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -199,6 +199,25 @@ final class GdxGameTextTest {
                 text.translate("about.titulo"));
         assertEquals("Hecho a mano en España y con amor por tonikelope (c) 2020",
                 text.translate("about.hecho_a_mano"));
+    }
+
+    @Test
+    void finalSummaryUsesShortNavigationCopyInBothLanguages() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("REGISTRO", CoronaPokerGdxTable
+                .finalSummaryNavLabel(1, true, spanish));
+        assertEquals("CONTINUAR TIMBA", CoronaPokerGdxTable
+                .finalSummaryNavLabel(3, true, spanish));
+        assertEquals("RECONECTAR", CoronaPokerGdxTable
+                .finalSummaryNavLabel(3, false, spanish));
+        assertEquals("GAME LOG", CoronaPokerGdxTable
+                .finalSummaryNavLabel(1, true, english));
+        assertEquals("CONTINUE GAME", CoronaPokerGdxTable
+                .finalSummaryNavLabel(3, true, english));
+        assertEquals("RECONNECT", CoronaPokerGdxTable
+                .finalSummaryNavLabel(3, false, english));
     }
 
     @Test

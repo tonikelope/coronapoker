@@ -3254,16 +3254,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void rebuildButtonFontTiers() {
         settingsActionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 settingsActionFont, settingsBodyFont, actionFont, smallFont,
-                settingsSmallFont, settingsTinyFont);
+                settingsSmallFont, settingsTinyFont, versionFont);
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
-                actionFont, smallFont, settingsSmallFont, settingsTinyFont);
+                actionFont, smallFont, settingsSmallFont, settingsTinyFont,
+                versionFont);
         smallButtonFontTiers = new GdxCrispButtonText.FontTiers(
-                smallFont, settingsSmallFont, settingsTinyFont);
+                smallFont, settingsSmallFont, settingsTinyFont, versionFont);
         settingsSmallButtonFontTiers = new GdxCrispButtonText.FontTiers(
-                settingsSmallFont, settingsTinyFont);
+                settingsSmallFont, settingsTinyFont, versionFont);
         finalButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 finalButtonFont, settingsBodyFont, actionFont, smallFont,
-                settingsSmallFont, settingsTinyFont);
+                settingsSmallFont, settingsTinyFont, versionFont);
     }
 
     private void refreshFontQualityIfDue() {
@@ -21789,12 +21790,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Texture[] navIcons = {finalMenuIcon, finalLogIcon,
             finalStatsIcon, finalContinueIcon};
         String[] navLabels = {
-            uppercase(gameText.translate("ui.menu_principal")),
-            uppercase(gameText.translate("log.registro_de_la_timba")),
-            uppercase(gameText.translate("stats.estadisticas")),
-            uppercase(gameText.translate(tableHost
-                    ? "game.continuar_esta_timba"
-                    : "gdx.final.reconnect_server"))
+            finalSummaryNavLabel(0, tableHost, gameText),
+            finalSummaryNavLabel(1, tableHost, gameText),
+            finalSummaryNavLabel(2, tableHost, gameText),
+            finalSummaryNavLabel(3, tableHost, gameText)
         };
         for (int index = 0; index < 4; index++) {
             Rectangle nav = header.navButton(index);
@@ -22181,6 +22180,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean finalSummaryNavEnabled(int index) {
         return index >= 0 && index < 4;
+    }
+
+    static String finalSummaryNavLabel(int index, boolean tableHost,
+            GdxGameText text) {
+        String key = switch (index) {
+            case 0 -> "ui.menu_principal";
+            case 1 -> "gdx.final.nav.log";
+            case 2 -> "stats.estadisticas";
+            case 3 -> tableHost
+                    ? "gdx.final.nav.continue"
+                    : "gdx.final.nav.reconnect";
+            default -> throw new IllegalArgumentException(
+                    "Unsupported final-summary navigation index " + index);
+        };
+        return uppercase(text.translate(key), text);
     }
 
     private static String finalSummaryTitle(

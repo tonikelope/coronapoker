@@ -78,7 +78,10 @@ final class GdxCrispButtonText {
             String value, float maxWidth) {
         glyph.setText(font, value);
         if (glyph.width <= maxWidth) return value;
-        String suffix = "…";
+        // McLaren does not expose a visible ellipsis glyph on every generated
+        // atlas. Three ASCII stops guarantee that an exceptional truncation
+        // is visible instead of looking like a silently clipped label.
+        String suffix = "...";
         glyph.setText(font, suffix);
         if (glyph.width > maxWidth) return "";
         int end = value.length();

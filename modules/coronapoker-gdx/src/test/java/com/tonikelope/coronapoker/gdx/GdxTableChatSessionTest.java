@@ -117,6 +117,14 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void quickChatAutoCloseSwitchFollowsItsLabelAndStaysInsideThePanel() {
+        assertEquals(250f, CoronaPokerGdxTable.quickChatAutoCloseSwitchX(
+                100f, 720f, 120f), 0.001f);
+        assertEquals(762f, CoronaPokerGdxTable.quickChatAutoCloseSwitchX(
+                100f, 720f, 2_000f), 0.001f);
+    }
+
+    @Test
     void mediaConfirmationPreservesItsAspectRatioInsideAnyTarget() {
         com.badlogic.gdx.math.Rectangle target =
                 new com.badlogic.gdx.math.Rectangle(100f, 200f, 286f, 120f);

@@ -141,7 +141,7 @@ final class GdxGameTextTest {
                 text.translate("gdx.card_viewer.close_hint"));
         assertEquals("THE SCREENSHOT FOLDER COULD NOT BE READ",
                 text.translate("gdx.screenshot.folder_failed"));
-        assertEquals("close after sending",
+        assertEquals("Close after sending",
                 text.translate("gdx.table.chat.close_on_send"));
         assertEquals("TOTAL BET",
                 text.translate("gdx.table.hud.total_bet"));

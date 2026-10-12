@@ -21005,7 +21005,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 visibleDraft, alpha);
         drawTableInputCaret(panelX + 27f + visibleDraft.caretOffset(),
                 inputY + 8f, 27f, alpha);
-        float switchX = panelX + panelW - 58f;
+        String autoCloseLabel = gameText.translate(
+                "gdx.table.chat.close_on_send");
+        glyph.setText(settingsTinyFont, autoCloseLabel);
+        float switchX = quickChatAutoCloseSwitchX(panelX, panelW,
+                glyph.width);
         float switchY = panelY + 65f;
         shapes.setColor(quickChatAutoClose
                 ? QUICK_CHAT_TOGGLE_ON : BUTTON_LINE);
@@ -21089,10 +21093,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
 
         batch.begin();
-        drawLeftInBox(smallFont, gameText.translate(
-                "gdx.table.chat.close_on_send"),
+        drawLeftInBox(settingsTinyFont, autoCloseLabel,
                 panelX + 18f, panelY + 58f,
-                panelW - 92f, 34f, Color.LIGHT_GRAY, alpha);
+                Math.max(1f, switchX - panelX - 28f), 34f,
+                Color.LIGHT_GRAY, alpha);
         String draft = chatDraft.isEmpty()
                 ? gameText.translate("gdx.table.chat.quick_placeholder")
                 : visibleDraft.text();
@@ -21115,6 +21119,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             default -> message.content();
         };
         return message.nickname() + ": " + content;
+    }
+
+    static float quickChatAutoCloseSwitchX(float panelX, float panelWidth,
+            float labelWidth) {
+        float afterLabel = panelX + 18f + Math.max(0f, labelWidth) + 12f;
+        return Math.min(panelX + panelWidth - 58f, afterLabel);
     }
 
     static float seatChatNoticeDuration(LobbyChatMessage.Type type,

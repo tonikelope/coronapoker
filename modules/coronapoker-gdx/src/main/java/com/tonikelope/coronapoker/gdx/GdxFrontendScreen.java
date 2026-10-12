@@ -284,6 +284,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
     static final float ABOUT_MUSIC_LINE_GAP = 29f;
     static final float ABOUT_COPYRIGHT_Y = 326f;
+    static final float ABOUT_COPYRIGHT_LINE_HEIGHT = 22f;
+    static final int ABOUT_COPYRIGHT_MAX_LINES = 2;
     static final float ABOUT_CONTENT_WIDTH = 1060f;
     static final float HAND_GENERATOR_PANEL_X = 410f;
     static final float HAND_GENERATOR_PANEL_Y = 178f;
@@ -4263,7 +4265,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         centeredWrappedText(smallFont, gameText.translate("about.copyright"),
                 WIDTH / 2f, ABOUT_COPYRIGHT_Y,
-                w - 150f, 22f, 1, MUTED);
+                w - 150f, ABOUT_COPYRIGHT_LINE_HEIGHT,
+                ABOUT_COPYRIGHT_MAX_LINES, MUTED);
         hit(WIDTH / 2f - 30f, 235f, 60f, 60f,
                 () -> openExternalUri(ABOUT_RULES_URI,
                         "gdx.about.open_failed"));

@@ -40,7 +40,12 @@ final class GdxAboutEasterEggTest {
         assertTrue(lastMusicLine
                 - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
                 "the copyright note must not overlap the last music credit");
-        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_Y - 226f >= 80f,
+        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_MAX_LINES >= 2,
+                "the full email address needs a second line when required");
+        float copyrightBottom = GdxFrontendScreen.ABOUT_COPYRIGHT_Y
+                - (GdxFrontendScreen.ABOUT_COPYRIGHT_MAX_LINES - 1)
+                * GdxFrontendScreen.ABOUT_COPYRIGHT_LINE_HEIGHT;
+        assertTrue(copyrightBottom - 226f >= 58f,
                 "copyright and handmade credits need breathing room");
     }
 

@@ -807,7 +807,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int gameLogLineCount;
     private final Map<String, List<GdxGameLogFormatter.Run>> gameLogRunCache
             = new HashMap<>();
-    private boolean gameLogScrollDragging;
     private int gameLogSelectionAnchor = -1;
     private int gameLogSelectionCaret = -1;
     private boolean gameLogSelectionDragging;
@@ -830,8 +829,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<GdxDebugLogFormatter.Line> settingsDebugVisualCache =
             List.of();
     private float settingsDebugWrapWidth = -1f;
-    private boolean settingsDebugScrollDragging;
-    private boolean settingsRowScrollDragging;
     private final GdxVoiceNoteLibrary voiceNoteLibrary =
             new GdxVoiceNoteLibrary();
     private final GdxAudioPreview audioPreview = new GdxAudioPreview();
@@ -878,7 +875,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean quickChatVoicePaused;
     private float quickChatScroll;
     private float quickChatScrollMaximum;
-    private boolean quickChatScrollDragging;
+    private TableScrollDrag tableScrollDrag = TableScrollDrag.NONE;
+    private final GdxPointerHold tableScrollPointer = new GdxPointerHold();
+    private float tableScrollGrabOffset;
     private int quickChatMessageCount;
     private volatile GdxVoiceRecorder voiceRecorder;
     private boolean voiceOpening;
@@ -1418,6 +1417,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // an InputMultiplexer can never deliver it underneath.
                 return true;
             }
+            if (tableScrollPointer.active()) return true;
             if (button == Input.Buttons.LEFT && uiLayer == UI_NONE
                     && fastBarExpanded && liveState != null
                     && voiceRecorder == null && !voiceStopping) {
@@ -1448,18 +1448,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (finalSummary != null && uiLayer == UI_SCREENSHOTS) return true;
+            if (uiLayer == UI_NETWORK_BLOCKS
+                    && button == Input.Buttons.LEFT) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                if (networkBlocksScrollTrackContains(pointer.x, pointer.y)
+                        && beginTableScrollDrag(TableScrollDrag.NETWORK_BLOCKS,
+                                pointer.y, pointerIndex, button)) {
+                    return true;
+                }
+            }
             if (uiLayer == UI_SETTINGS && button == Input.Buttons.LEFT) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (settingsRowScrollTrackContains(pointer.x, pointer.y)) {
-                    settingsRowScrollDragging = true;
-                    updateSettingsRowScrollFromTrack(pointer.y);
-                    return true;
+                    return beginTableScrollDrag(TableScrollDrag.SETTINGS_ROWS,
+                            pointer.y, pointerIndex, button);
                 }
                 if (settingsDebugTrackContains(pointer.x, pointer.y)) {
-                    settingsDebugScrollDragging = true;
-                    updateSettingsDebugScrollFromTrack(pointer.y);
-                    return true;
+                    return beginTableScrollDrag(TableScrollDrag.SETTINGS_DEBUG,
+                            pointer.y, pointerIndex, button);
                 }
             }
             if (uiLayer == UI_CHAT && !blocksTableUtilities(activeDialog)
@@ -1468,9 +1476,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport.unproject(pointer);
                 if (!chatImageMode
                         && quickChatScrollTrackContains(pointer.x, pointer.y)) {
-                    quickChatScrollDragging = true;
-                    updateQuickChatScrollFromTrack(pointer.y);
-                    return true;
+                    return beginTableScrollDrag(TableScrollDrag.QUICK_CHAT,
+                            pointer.y, pointerIndex, button);
                 }
                 Rectangle input = tableChatInputBounds();
                 if (input.contains(pointer)) {
@@ -1499,9 +1506,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             pointer.set(screenX, screenY);
             viewport.unproject(pointer);
             if (gameLogTrackContains(pointer.x, pointer.y)) {
-                gameLogScrollDragging = true;
-                updateGameLogScrollFromTrack(pointer.y);
-                return true;
+                return beginTableScrollDrag(TableScrollDrag.GAME_LOG,
+                        pointer.y, pointerIndex, button);
             }
             int line = gameLogLineAt(pointer.x, pointer.y);
             if (line >= 0) {
@@ -1545,20 +1551,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 placeTableChatCaret(pointer.x, true);
                 return true;
             }
-            if (quickChatScrollDragging) {
-                updateQuickChatScrollFromTrack(pointer.y);
-                return true;
-            }
-            if (gameLogScrollDragging) {
-                updateGameLogScrollFromTrack(pointer.y);
-                return true;
-            }
-            if (settingsDebugScrollDragging) {
-                updateSettingsDebugScrollFromTrack(pointer.y);
-                return true;
-            }
-            if (settingsRowScrollDragging) {
-                updateSettingsRowScrollFromTrack(pointer.y);
+            if (tableScrollDrag != TableScrollDrag.NONE
+                    && tableScrollPointer.owns(pointerIndex,
+                            Input.Buttons.LEFT)) {
+                updateTableScrollDrag(pointer.y);
                 return true;
             }
             if (gameLogSelectionDragging) {
@@ -1580,10 +1576,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (tableIdentityDialog != null) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
-                quickChatScrollDragging = false;
-                gameLogScrollDragging = false;
-                settingsDebugScrollDragging = false;
-                settingsRowScrollDragging = false;
+                clearTableScrollDrag();
                 gameLogSelectionDragging = false;
                 feltClickCandidate = false;
                 return true;
@@ -1613,8 +1606,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chatPointerSelectionDragging = false;
                 return true;
             }
-            if (quickChatScrollDragging) {
-                quickChatScrollDragging = false;
+            if (tableScrollPointer.release(pointerIndex, button)) {
+                tableScrollDrag = TableScrollDrag.NONE;
+                tableScrollGrabOffset = 0f;
                 return true;
             }
             if (button == Input.Buttons.LEFT && feltClickCandidate) {
@@ -1624,12 +1618,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 registerEmptyFeltClick(pointer.x, pointer.y,
                         System.nanoTime());
             }
-            if (!gameLogScrollDragging && !settingsDebugScrollDragging
-                    && !settingsRowScrollDragging
-                    && !gameLogSelectionDragging) return false;
-            gameLogScrollDragging = false;
-            settingsDebugScrollDragging = false;
-            settingsRowScrollDragging = false;
+            if (!gameLogSelectionDragging) return false;
             gameLogSelectionDragging = false;
             return true;
         }
@@ -1642,6 +1631,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 fastBarExpanded = false;
                 return true;
             }
+            if (tableScrollPointer.release(pointerIndex, button)) {
+                tableScrollDrag = TableScrollDrag.NONE;
+                tableScrollGrabOffset = 0f;
+                return true;
+            }
+            chatPointerSelectionDragging = false;
+            gameLogSelectionDragging = false;
+            feltClickCandidate = false;
             return false;
         }
     };
@@ -6699,6 +6696,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void closeNetworkBlocks() {
         if (networkBlockPendingAddress != null) return;
+        if (tableScrollDrag == TableScrollDrag.NETWORK_BLOCKS) {
+            clearTableScrollDrag();
+        }
         networkBlocksScroll = 0f;
         networkBlockError = "";
         uiLayer = UI_NONE;
@@ -6751,6 +6751,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
         }
+    }
+
+    private boolean networkBlocksScrollTrackContains(float x, float y) {
+        GdxNetworkBlockDialogLayout.Layout layout
+                = GdxNetworkBlockDialogLayout.layout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (GdxNetworkBlockDialogLayout.maximumScroll(
+                activeNetworkBlocks().size(), layout.rows()) <= 0f) {
+            return false;
+        }
+        Rectangle track = layout.scrollbar();
+        return contains(x, y, track.x - 9f, track.y,
+                track.width + 18f, track.height);
     }
 
     private void drawNetworkBlocksDialog() {
@@ -6871,9 +6884,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 layout.rows());
         if (maximum <= 0f) return;
         Rectangle track = layout.scrollbar();
-        float content = layout.rows().height + maximum;
-        float thumb = Math.max(46f, track.height
-                * layout.rows().height / content);
+        float thumb = networkBlocksThumbHeight(layout, count);
         float progress = networkBlocksScroll / maximum;
         float thumbY = track.y + track.height - thumb
                 - progress * (track.height - thumb);
@@ -6881,6 +6892,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(track.x, track.y, track.width, track.height, 5f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
         roundedRect(track.x, thumbY, track.width, thumb, 5f);
+    }
+
+    private static float networkBlocksThumbHeight(
+            GdxNetworkBlockDialogLayout.Layout layout, int count) {
+        float maximum = GdxNetworkBlockDialogLayout.maximumScroll(count,
+                layout.rows());
+        if (maximum <= 0f) return layout.scrollbar().height;
+        return Math.max(46f, layout.scrollbar().height
+                * layout.rows().height / (layout.rows().height + maximum));
     }
 
     private void openTableImageGallery() {
@@ -15302,6 +15322,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void openUiLayer(int layer) {
+        if (uiLayer != layer) clearTableScrollDrag();
         uiLayer = layer;
         if (layer != UI_CHAT) chatEditMenuOpen = false;
         if (layer != UI_GAME_LOG) gameLogEditMenuOpen = false;
@@ -16050,9 +16071,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return;
         }
-        if (gameLogTrackContains(x, y)) {
-            updateGameLogScrollFromTrack(y);
-        }
     }
 
     private float gameLogMaximumScroll() {
@@ -16075,26 +16093,156 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 28f, logH - 16f);
     }
 
-    private void updateGameLogScrollFromTrack(float y) {
-        float height = viewport.getWorldHeight();
-        float panelH = Math.min(720f, height - 70f);
-        float panelY = (height - panelH) / 2f;
-        float logY = panelY + 105f;
-        float logH = panelH - 230f;
-        float trackY = logY + 14f;
-        float trackHeight = logH - 28f;
-        float maximum = gameLogMaximumScroll();
-        if (maximum == 0f) {
-            gameLogScroll = 0;
+    private boolean beginTableScrollDrag(TableScrollDrag type,
+            float pointerY, int pointerIndex, int button) {
+        TableScrollGeometry geometry = tableScrollGeometry(type);
+        if (geometry == null || geometry.maximum() <= 0f
+                || !tableScrollPointer.capture(pointerIndex, button)) {
+            return false;
+        }
+        float currentRatio = tableScrollValue(type) / geometry.maximum();
+        GdxScrollbarDrag.Capture capture = GdxScrollbarDrag.begin(pointerY,
+                geometry.trackStart(), geometry.trackLength(),
+                geometry.thumbLength(), currentRatio, geometry.inverted());
+        tableScrollDrag = type;
+        tableScrollGrabOffset = capture.grabOffset();
+        applyTableScrollRatio(capture.ratio(), geometry.maximum());
+        return true;
+    }
+
+    private void updateTableScrollDrag(float pointerY) {
+        TableScrollGeometry geometry = tableScrollGeometry(tableScrollDrag);
+        if (geometry == null || geometry.maximum() <= 0f) {
+            clearTableScrollDrag();
             return;
         }
-        int lineCount = gameLogLines().size();
-        float contentHeight = lineCount * GAME_LOG_LINE_HEIGHT;
-        float thumbHeight = Math.max(44f, trackHeight
-                * gameLogContentBounds().height
-                / Math.max(1f, contentHeight));
-        gameLogScroll = quickChatPixelScrollFromTrack(y, trackY,
-                trackHeight, thumbHeight, maximum);
+        float ratio = GdxScrollbarDrag.ratio(pointerY,
+                geometry.trackStart(), geometry.trackLength(),
+                geometry.thumbLength(), tableScrollGrabOffset,
+                geometry.inverted());
+        applyTableScrollRatio(ratio, geometry.maximum());
+    }
+
+    private TableScrollGeometry tableScrollGeometry(TableScrollDrag type) {
+        return switch (type) {
+            case GAME_LOG -> {
+                float height = viewport.getWorldHeight();
+                float panelH = Math.min(720f, height - 70f);
+                float panelY = (height - panelH) / 2f;
+                float logY = panelY + 105f;
+                float logH = panelH - 230f;
+                float trackHeight = logH - 28f;
+                float maximum = gameLogMaximumScroll();
+                float contentHeight = gameLogLines().size()
+                        * GAME_LOG_LINE_HEIGHT;
+                float thumb = maximum <= 0f ? trackHeight
+                        : Math.max(44f, trackHeight
+                                * gameLogContentBounds().height
+                                / Math.max(1f, contentHeight));
+                yield new TableScrollGeometry(logY + 14f, trackHeight,
+                        thumb, maximum, false);
+            }
+            case SETTINGS_ROWS -> {
+                SettingsRowScroll scroll = settingsRowScroll();
+                if (scroll == null || !scroll.rows().scrollable()) yield null;
+                GdxSettingsLayout.PixelRows rows = scroll.rows();
+                float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
+                        rows.viewportHeight(), rows.viewportHeight(),
+                        rows.contentHeight());
+                yield new TableScrollGeometry(rows.viewportBottom(),
+                        rows.viewportHeight(), thumb, rows.maximum(), true);
+            }
+            case SETTINGS_DEBUG -> {
+                int lineCount = settingsDebugVisualLines().size();
+                float maximum = settingsDebugMaximumPixelScroll(lineCount);
+                GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                        viewport.getWorldWidth(), viewport.getWorldHeight(),
+                        settingsSession.sections().size(),
+                        settingsSubpageLabels().size());
+                yield new TableScrollGeometry(frame.firstRowY() - 337f,
+                        SETTINGS_DEBUG_VIEWPORT_HEIGHT,
+                        settingsDebugThumbHeight(lineCount), maximum, false);
+            }
+            case QUICK_CHAT -> {
+                Rectangle history = quickChatHistoryBounds();
+                float trackHeight = history.height - 16f;
+                yield new TableScrollGeometry(history.y + 8f, trackHeight,
+                        quickChatScrollThumbHeight(trackHeight),
+                        quickChatScrollMaximum, false);
+            }
+            case NETWORK_BLOCKS -> {
+                GdxNetworkBlockDialogLayout.Layout layout
+                        = GdxNetworkBlockDialogLayout.layout(
+                                viewport.getWorldWidth(),
+                                viewport.getWorldHeight());
+                float maximum = GdxNetworkBlockDialogLayout.maximumScroll(
+                        activeNetworkBlocks().size(), layout.rows());
+                yield new TableScrollGeometry(layout.scrollbar().y,
+                        layout.scrollbar().height,
+                        networkBlocksThumbHeight(layout,
+                                activeNetworkBlocks().size()),
+                        maximum, true);
+            }
+            case NONE -> null;
+        };
+    }
+
+    private float tableScrollValue(TableScrollDrag type) {
+        return switch (type) {
+            case GAME_LOG -> gameLogScroll;
+            case SETTINGS_ROWS -> settingsRowScrollValue();
+            case SETTINGS_DEBUG -> settingsDebugScroll;
+            case QUICK_CHAT -> quickChatScroll;
+            case NETWORK_BLOCKS -> networkBlocksScroll;
+            case NONE -> 0f;
+        };
+    }
+
+    private void applyTableScrollRatio(float ratio, float maximum) {
+        float value = MathUtils.clamp(ratio, 0f, 1f) * maximum;
+        switch (tableScrollDrag) {
+            case GAME_LOG -> gameLogScroll = value;
+            case SETTINGS_ROWS -> {
+                if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
+                    settingsAudioScroll = value;
+                } else if (settingsSection()
+                        == GdxSettingsContract.Section.GAME) {
+                    settingsGameScroll = value;
+                } else if (settingsSection()
+                        == GdxSettingsContract.Section.SHORTCUTS) {
+                    shortcutScroll = value;
+                } else if (settingsSection()
+                        == GdxSettingsContract.Section.APPEARANCE) {
+                    settingsAppearanceScroll = value;
+                }
+            }
+            case SETTINGS_DEBUG -> settingsDebugScroll = value;
+            case QUICK_CHAT -> quickChatScroll = value;
+            case NETWORK_BLOCKS -> networkBlocksScroll = value;
+            case NONE -> { }
+        }
+    }
+
+    private float settingsRowScrollValue() {
+        if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
+            return settingsAudioScroll;
+        }
+        if (settingsSection() == GdxSettingsContract.Section.GAME) {
+            return settingsGameScroll;
+        }
+        if (settingsSection() == GdxSettingsContract.Section.SHORTCUTS) {
+            return shortcutScroll;
+        }
+        if (settingsSection() == GdxSettingsContract.Section.APPEARANCE) {
+            return settingsAppearanceScroll;
+        }
+        return 0f;
+    }
+
+    private void clearTableScrollDrag() {
+        tableScrollDrag = TableScrollDrag.NONE;
+        tableScrollGrabOffset = 0f;
+        tableScrollPointer.clear();
     }
 
     private boolean settingsDebugTrackContains(float x, float y) {
@@ -16161,42 +16309,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 scroll.rows().viewportBottom(),
                 GdxSettingsLayout.SCROLLBAR_HIT_WIDTH,
                 scroll.rows().viewportHeight());
-    }
-
-    private void updateSettingsRowScrollFromTrack(float y) {
-        SettingsRowScroll scroll = settingsRowScroll();
-        if (scroll == null) return;
-        GdxSettingsLayout.PixelRows rows = scroll.rows();
-        float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
-                rows.viewportHeight(), rows.viewportHeight(),
-                rows.contentHeight());
-        float offset = GdxSettingsLayout.pixelScrollFromScrollbar(y,
-                rows.viewportBottom(), rows.viewportHeight(), thumb,
-                rows.maximum());
-        if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
-            settingsAudioScroll = offset;
-        } else if (settingsSection()
-                == GdxSettingsContract.Section.APPEARANCE) {
-            settingsAppearanceScroll = offset;
-        } else if (settingsSection()
-                == GdxSettingsContract.Section.SHORTCUTS) {
-            shortcutScroll = offset;
-        } else if (settingsSection() == GdxSettingsContract.Section.GAME) {
-            settingsGameScroll = offset;
-        }
-    }
-
-    private void updateSettingsDebugScrollFromTrack(float y) {
-        int lineCount = settingsDebugVisualLines().size();
-        float maximum = settingsDebugMaximumPixelScroll(lineCount);
-        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
-                viewport.getWorldWidth(), viewport.getWorldHeight(),
-                settingsSession.sections().size(),
-                settingsSubpageLabels().size());
-        float thumbHeight = settingsDebugThumbHeight(lineCount);
-        settingsDebugScroll = quickChatPixelScrollFromTrack(y,
-                frame.firstRowY() - 337f, SETTINGS_DEBUG_VIEWPORT_HEIGHT,
-                thumbHeight, maximum);
     }
 
     private void handleChatClick(float x, float y) {
@@ -16455,15 +16567,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return quickChatScrollMaximum <= 0f ? trackHeight
                 : Math.max(34f, trackHeight * viewportHeight
                         / Math.max(1f, contentHeight));
-    }
-
-    private void updateQuickChatScrollFromTrack(float y) {
-        Rectangle history = quickChatHistoryBounds();
-        float trackY = history.y + 8f;
-        float trackHeight = history.height - 16f;
-        quickChatScroll = quickChatPixelScrollFromTrack(y, trackY,
-                trackHeight, quickChatScrollThumbHeight(trackHeight),
-                quickChatScrollMaximum);
     }
 
     private void openTableChatEditMenu(float x, float y) {
@@ -22914,6 +23017,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private enum RepeatOwner {
         HUD, SETTINGS, DIALOG
+    }
+
+    private enum TableScrollDrag {
+        NONE, GAME_LOG, SETTINGS_ROWS, SETTINGS_DEBUG, QUICK_CHAT,
+        NETWORK_BLOCKS
+    }
+
+    private record TableScrollGeometry(float trackStart, float trackLength,
+            float thumbLength, float maximum, boolean inverted) {
     }
 
     private record RepeatHit(Rectangle bounds, Runnable action,

@@ -522,6 +522,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
+    private final GdxPointerHold scrollPointer = new GdxPointerHold();
+    private float scrollDragGrabOffset;
     private String settingsShortcutCaptureId;
     private String settingsShortcutStatus = "";
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
@@ -597,6 +599,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float statsResultScrollThumbHeight;
     private float statsSummaryPlayersScroll;
     private float statsSummaryPlayersScrollTarget;
+    private float statsSummaryPlayersScrollMaximum;
+    private final Rectangle statsSummaryPlayersScrollTrack = new Rectangle();
+    private float statsSummaryPlayersScrollThumbHeight;
     private float statsChartZoom = 1f;
     private float statsChartPanX = 0.5f;
     private float statsChartPanY = 0.5f;
@@ -946,7 +951,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         surface = next;
         pressedHit = null;
         pointerSelectionField = null;
-        scrollDrag = ScrollDrag.NONE;
+        clearScrollDrag();
         clearPointerRepeat();
         refreshPointerFromDevice();
     }
@@ -3316,6 +3321,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float visibleHeight = viewportHeight - 10f;
         float contentHeight = safePlayers.size() * rowHeight;
         float maximum = statsSummaryPlayersMaximum(safePlayers.size());
+        statsSummaryPlayersScrollMaximum = maximum;
         statsSummaryPlayersScrollTarget = MathUtils.clamp(
                 statsSummaryPlayersScrollTarget, 0f, maximum);
         statsSummaryPlayersScroll = MathUtils.clamp(statsSummaryPlayersScroll,
@@ -3331,15 +3337,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float trackX = x + width - 10f;
             float trackY = bottom + 6f;
             float trackHeight = viewportHeight - 12f;
+            statsSummaryPlayersScrollTrack.set(trackX - 8f, trackY,
+                    21f, trackHeight);
             shapes.setColor(new Color(0x18304cff));
             roundedRect(trackX, trackY, 5f, trackHeight, 2.5f);
             float thumb = Math.max(18f,
                     trackHeight * visibleHeight / contentHeight);
+            statsSummaryPlayersScrollThumbHeight = thumb;
             float travel = trackHeight - thumb;
             float thumbY = trackY + travel
                     * (1f - statsSummaryPlayersScroll / maximum);
             shapes.setColor(CYAN);
             roundedRect(trackX, thumbY, 5f, thumb, 2.5f);
+        } else {
+            statsSummaryPlayersScrollTrack.set(0f, 0f, 0f, 0f);
+            statsSummaryPlayersScrollThumbHeight = 0f;
         }
     }
 
@@ -3920,7 +3932,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         editMenu = null;
         pressedHit = null;
         pointerSelectionField = null;
-        scrollDrag = ScrollDrag.NONE;
+        clearScrollDrag();
         clearPointerRepeat();
         clearActiveField();
     }
@@ -5960,6 +5972,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeNetworkBlocks() {
         if (networkBlockPendingAddress != null) return;
+        if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) clearScrollDrag();
         networkBlocksOpen = false;
         networkBlocksScroll = 0f;
         networkBlockError = "";
@@ -6068,9 +6081,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 layout.rows());
         if (maximum <= 0f) return;
         Rectangle track = layout.scrollbar();
-        float content = layout.rows().height + maximum;
-        float thumb = Math.max(46f, track.height
-                * layout.rows().height / content);
+        float thumb = networkBlocksThumbHeight(layout, count);
         float progress = networkBlocksScroll / maximum;
         float thumbY = track.y + track.height - thumb
                 - progress * (track.height - thumb);
@@ -11952,6 +11963,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
+        if (scrollPointer.active()) return true;
         Rectangle voiceBounds = lobbyVoiceButtonBounds(lobbyImageMode);
         if (!blockingModal && surface == Surface.LOBBY
                 && button == Input.Buttons.LEFT
@@ -11967,9 +11979,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean settingsOwnsPointer = surface == Surface.SETTINGS
                 && !settingsScrollBlockedByChildDialog();
         if ((!blockingModal || settingsOwnsPointer
-                || statsPicker != StatsPicker.NONE)
+                || statsPicker != StatsPicker.NONE || networkBlocksOpen)
                 && button == Input.Buttons.LEFT
-                && beginScrollDrag(pointer.x, pointer.y)) {
+                && beginScrollDrag(pointer.x, pointer.y,
+                        pointerIndex, button)) {
             return true;
         }
         if (editMenu != null) {
@@ -12040,7 +12053,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (lobbyVoicePointer.owns(pointerIndex, Input.Buttons.LEFT)) {
             return true;
         }
-        if (scrollDrag != ScrollDrag.NONE) {
+        if (scrollDrag != ScrollDrag.NONE
+                && scrollPointer.owns(pointerIndex, Input.Buttons.LEFT)) {
             updateScrollDrag(pointer.x, pointer.y);
             return true;
         }
@@ -12072,12 +12086,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pressedHit = null;
         clearPointerRepeat();
         pointerSelectionField = null;
-        if (surface == Surface.LOBBY
-                && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
+        if (scrollPointer.release(pointerIndex, button)) {
+            scrollDrag = ScrollDrag.NONE;
+            scrollDragGrabOffset = 0f;
             return true;
         }
-        if (scrollDrag != ScrollDrag.NONE) {
-            scrollDrag = ScrollDrag.NONE;
+        if (surface == Surface.LOBBY
+                && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
         if (released != null && !released.repeatable
@@ -12088,41 +12103,76 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return passwordWasRevealed || hasBlockingFrontendModal();
     }
 
-    private boolean beginScrollDrag(float x, float y) {
+    private boolean beginScrollDrag(float x, float y, int pointerIndex,
+            int button) {
+        if (networkBlocksOpen) {
+            GdxNetworkBlockDialogLayout.Layout layout
+                    = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
+            Rectangle track = layout.scrollbar();
+            float maximum = GdxNetworkBlockDialogLayout.maximumScroll(
+                    activeNetworkBlocks().size(), layout.rows());
+            float thumb = networkBlocksThumbHeight(layout,
+                    activeNetworkBlocks().size());
+            if (maximum > 0f && containsExpandedHorizontally(
+                    track, x, y, 9f)) {
+                return captureScrollDrag(ScrollDrag.NETWORK_BLOCKS,
+                        pointerIndex, button, y, track.y, track.height, thumb,
+                        networkBlocksScroll / maximum, true);
+            }
+            return false;
+        }
         if (surface == Surface.STATS && statsPicker != StatsPicker.NONE
                 && statsPickerScrollMaximum > 0f
                 && statsPickerScrollTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.STATS_PICKER;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.STATS_PICKER,
+                    pointerIndex, button, y, statsPickerScrollTrack.y,
+                    statsPickerScrollTrack.height,
+                    statsPickerScrollThumbHeight,
+                    statsPickerScroll / statsPickerScrollMaximum, true);
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsChartZoom > 1f
                 && statsChartHorizontalTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.STATS_CHART_HORIZONTAL;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.STATS_CHART_HORIZONTAL,
+                    pointerIndex, button, x, statsChartHorizontalTrack.x,
+                    statsChartHorizontalTrack.width,
+                    statsChartHorizontalThumbWidth, statsChartPanX, false);
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsChartZoom > 1f
                 && statsChartVerticalTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.STATS_CHART_VERTICAL;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.STATS_CHART_VERTICAL,
+                    pointerIndex, button, y, statsChartVerticalTrack.y,
+                    statsChartVerticalTrack.height,
+                    statsChartVerticalThumbHeight, statsChartPanY, true);
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsResultScrollMaximum > 0f
                 && statsResultScrollTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.STATS_RESULTS;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.STATS_RESULTS,
+                    pointerIndex, button, y, statsResultScrollTrack.y,
+                    statsResultScrollTrack.height,
+                    statsResultScrollThumbHeight,
+                    statsResultScroll / statsResultScrollMaximum, true);
+        }
+        if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
+                && statsSummaryPlayersScrollMaximum > 0f
+                && statsSummaryPlayersScrollTrack.contains(x, y)) {
+            return captureScrollDrag(ScrollDrag.STATS_SUMMARY_PLAYERS,
+                    pointerIndex, button, y,
+                    statsSummaryPlayersScrollTrack.y,
+                    statsSummaryPlayersScrollTrack.height,
+                    statsSummaryPlayersScrollThumbHeight,
+                    statsSummaryPlayersScroll
+                            / statsSummaryPlayersScrollMaximum, true);
         }
         if (surface == Surface.LOBBY && !lobbyImageMode
                 && !lobbyEmojiPickerOpen && lobbyChatScrollMaximum > 0
                 && lobbyChatScrollTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.LOBBY_CHAT;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.LOBBY_CHAT,
+                    pointerIndex, button, y, lobbyChatScrollTrack.y,
+                    lobbyChatScrollTrack.height, lobbyChatScrollThumbHeight,
+                    lobbyChatScroll / lobbyChatScrollMaximum, false);
         }
         if (surface == Surface.SETTINGS
                 && settingsRowScrollMaximum > 0
@@ -12133,76 +12183,122 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         == GdxSettingsContract.Section.AUDIO
                     || settingsSession.section()
                         == GdxSettingsContract.Section.SHORTCUTS)) {
-            scrollDrag = ScrollDrag.SETTINGS_ROWS;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.SETTINGS_ROWS,
+                    pointerIndex, button, y, settingsRowScrollTrack.y,
+                    settingsRowScrollTrack.height,
+                    settingsRowScrollThumbHeight,
+                    currentSettingsRowScroll() / settingsRowScrollMaximum,
+                    true);
         }
         if (surface == Surface.SETTINGS
                 && settingsSession.section()
                         == GdxSettingsContract.Section.DEBUG
                 && settingsDebugScrollMaximum > 0
                 && settingsDebugScrollTrack.contains(x, y)) {
-            scrollDrag = ScrollDrag.SETTINGS_DEBUG;
-            updateScrollDrag(x, y);
-            return true;
+            return captureScrollDrag(ScrollDrag.SETTINGS_DEBUG,
+                    pointerIndex, button, y, settingsDebugScrollTrack.y,
+                    settingsDebugScrollTrack.height,
+                    settingsDebugScrollThumbHeight,
+                    settingsDebugScroll / settingsDebugScrollMaximum, false);
         }
         return false;
     }
 
+    private boolean captureScrollDrag(ScrollDrag type, int pointerIndex,
+            int button, float coordinate, float trackStart, float trackLength,
+            float thumbLength, float currentRatio, boolean inverted) {
+        if (!scrollPointer.capture(pointerIndex, button)) return false;
+        GdxScrollbarDrag.Capture capture = GdxScrollbarDrag.begin(coordinate,
+                trackStart, trackLength, thumbLength, currentRatio, inverted);
+        scrollDrag = type;
+        scrollDragGrabOffset = capture.grabOffset();
+        applyScrollRatio(capture.ratio());
+        return true;
+    }
+
     private void updateScrollDrag(float x, float y) {
+        float progress;
         if (scrollDrag == ScrollDrag.STATS_PICKER) {
-            float travel = Math.max(1f, statsPickerScrollTrack.height
-                    - statsPickerScrollThumbHeight);
-            float progress = MathUtils.clamp((statsPickerScrollTrack.y
-                    + statsPickerScrollTrack.height
-                    - statsPickerScrollThumbHeight / 2f - y) / travel,
-                    0f, 1f);
-            statsPickerScrollTarget = progress * statsPickerScrollMaximum;
-            statsPickerScroll = statsPickerScrollTarget;
+            progress = GdxScrollbarDrag.ratio(y,
+                    statsPickerScrollTrack.y,
+                    statsPickerScrollTrack.height,
+                    statsPickerScrollThumbHeight,
+                    scrollDragGrabOffset, true);
         } else if (scrollDrag == ScrollDrag.STATS_CHART_HORIZONTAL) {
-            float travel = Math.max(1f, statsChartHorizontalTrack.width
-                    - statsChartHorizontalThumbWidth);
-            float progress = MathUtils.clamp((x
-                    - statsChartHorizontalTrack.x
-                    - statsChartHorizontalThumbWidth / 2f) / travel,
-                    0f, 1f);
-            statsChartPanX = statsChartPanTargetX = progress;
+            progress = GdxScrollbarDrag.ratio(x,
+                    statsChartHorizontalTrack.x,
+                    statsChartHorizontalTrack.width,
+                    statsChartHorizontalThumbWidth,
+                    scrollDragGrabOffset, false);
         } else if (scrollDrag == ScrollDrag.STATS_CHART_VERTICAL) {
-            float travel = Math.max(1f, statsChartVerticalTrack.height
-                    - statsChartVerticalThumbHeight);
-            float progress = MathUtils.clamp((statsChartVerticalTrack.y
-                    + statsChartVerticalTrack.height
-                    - statsChartVerticalThumbHeight / 2f - y) / travel,
-                    0f, 1f);
-            statsChartPanY = statsChartPanTargetY = progress;
+            progress = GdxScrollbarDrag.ratio(y,
+                    statsChartVerticalTrack.y,
+                    statsChartVerticalTrack.height,
+                    statsChartVerticalThumbHeight,
+                    scrollDragGrabOffset, true);
         } else if (scrollDrag == ScrollDrag.STATS_RESULTS) {
-            float travel = Math.max(1f, statsResultScrollTrack.height
-                    - statsResultScrollThumbHeight);
-            float progress = MathUtils.clamp((statsResultScrollTrack.y
-                    + statsResultScrollTrack.height
-                    - statsResultScrollThumbHeight / 2f - y) / travel,
-                    0f, 1f);
-            statsResultScrollTarget = progress * statsResultScrollMaximum;
-            statsResultScroll = statsResultScrollTarget;
+            progress = GdxScrollbarDrag.ratio(y,
+                    statsResultScrollTrack.y,
+                    statsResultScrollTrack.height,
+                    statsResultScrollThumbHeight,
+                    scrollDragGrabOffset, true);
+        } else if (scrollDrag == ScrollDrag.STATS_SUMMARY_PLAYERS) {
+            progress = GdxScrollbarDrag.ratio(y,
+                    statsSummaryPlayersScrollTrack.y,
+                    statsSummaryPlayersScrollTrack.height,
+                    statsSummaryPlayersScrollThumbHeight,
+                    scrollDragGrabOffset, true);
         } else if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
-            float travel = Math.max(1f, lobbyChatScrollTrack.height
-                    - lobbyChatScrollThumbHeight);
-            float progress = MathUtils.clamp((y - lobbyChatScrollTrack.y
-                    - lobbyChatScrollThumbHeight / 2f) / travel, 0f, 1f);
-            lobbyChatScroll = progress * lobbyChatScrollMaximum;
+            progress = GdxScrollbarDrag.ratio(y, lobbyChatScrollTrack.y,
+                    lobbyChatScrollTrack.height, lobbyChatScrollThumbHeight,
+                    scrollDragGrabOffset, false);
         } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
-            settingsDebugScroll = CoronaPokerGdxTable
-                    .quickChatPixelScrollFromTrack(
-                    y, settingsDebugScrollTrack.y,
+            progress = GdxScrollbarDrag.ratio(y,
+                    settingsDebugScrollTrack.y,
                     settingsDebugScrollTrack.height,
                     settingsDebugScrollThumbHeight,
-                    settingsDebugScrollMaximum);
+                    scrollDragGrabOffset, false);
         } else if (scrollDrag == ScrollDrag.SETTINGS_ROWS) {
-            float offset = GdxSettingsLayout.pixelScrollFromScrollbar(y,
+            progress = GdxScrollbarDrag.ratio(y,
                     settingsRowScrollTrack.y,
                     settingsRowScrollTrack.height,
                     settingsRowScrollThumbHeight,
-                    settingsRowScrollMaximum);
+                    scrollDragGrabOffset, true);
+        } else if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) {
+            GdxNetworkBlockDialogLayout.Layout layout
+                    = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
+            progress = GdxScrollbarDrag.ratio(y, layout.scrollbar().y,
+                    layout.scrollbar().height,
+                    networkBlocksThumbHeight(layout,
+                            activeNetworkBlocks().size()),
+                    scrollDragGrabOffset, true);
+        } else {
+            return;
+        }
+        applyScrollRatio(progress);
+    }
+
+    private void applyScrollRatio(float progress) {
+        if (scrollDrag == ScrollDrag.STATS_PICKER) {
+            statsPickerScrollTarget = progress * statsPickerScrollMaximum;
+            statsPickerScroll = statsPickerScrollTarget;
+        } else if (scrollDrag == ScrollDrag.STATS_CHART_HORIZONTAL) {
+            statsChartPanX = statsChartPanTargetX = progress;
+        } else if (scrollDrag == ScrollDrag.STATS_CHART_VERTICAL) {
+            statsChartPanY = statsChartPanTargetY = progress;
+        } else if (scrollDrag == ScrollDrag.STATS_RESULTS) {
+            statsResultScrollTarget = progress * statsResultScrollMaximum;
+            statsResultScroll = statsResultScrollTarget;
+        } else if (scrollDrag == ScrollDrag.STATS_SUMMARY_PLAYERS) {
+            statsSummaryPlayersScrollTarget = progress
+                    * statsSummaryPlayersScrollMaximum;
+            statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget;
+        } else if (scrollDrag == ScrollDrag.LOBBY_CHAT) {
+            lobbyChatScroll = progress * lobbyChatScrollMaximum;
+        } else if (scrollDrag == ScrollDrag.SETTINGS_DEBUG) {
+            settingsDebugScroll = progress * settingsDebugScrollMaximum;
+        } else if (scrollDrag == ScrollDrag.SETTINGS_ROWS) {
+            float offset = progress * settingsRowScrollMaximum;
             if (settingsSession.section()
                     == GdxSettingsContract.Section.APPEARANCE) {
                 settingsAppearanceScroll = offset;
@@ -12213,7 +12309,44 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     == GdxSettingsContract.Section.SHORTCUTS) {
                 settingsShortcutScroll = offset;
             }
+        } else if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) {
+            GdxNetworkBlockDialogLayout.Layout layout
+                    = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
+            networkBlocksScroll = progress
+                    * GdxNetworkBlockDialogLayout.maximumScroll(
+                            activeNetworkBlocks().size(), layout.rows());
         }
+    }
+
+    private float currentSettingsRowScroll() {
+        return switch (settingsSession.section()) {
+            case APPEARANCE -> settingsAppearanceScroll;
+            case AUDIO -> settingsAudioScroll;
+            case SHORTCUTS -> settingsShortcutScroll;
+            default -> 0f;
+        };
+    }
+
+    private static boolean containsExpandedHorizontally(Rectangle track,
+            float x, float y, float horizontalPadding) {
+        return x >= track.x - horizontalPadding
+                && x <= track.x + track.width + horizontalPadding
+                && y >= track.y && y <= track.y + track.height;
+    }
+
+    private static float networkBlocksThumbHeight(
+            GdxNetworkBlockDialogLayout.Layout layout, int count) {
+        float maximum = GdxNetworkBlockDialogLayout.maximumScroll(count,
+                layout.rows());
+        if (maximum <= 0f) return layout.scrollbar().height;
+        return Math.max(46f, layout.scrollbar().height
+                * layout.rows().height / (layout.rows().height + maximum));
+    }
+
+    private void clearScrollDrag() {
+        scrollDrag = ScrollDrag.NONE;
+        scrollDragGrabOffset = 0f;
+        scrollPointer.clear();
     }
 
     @Override
@@ -13006,6 +13139,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             finishLobbyVoiceRecording(true);
             return true;
         }
+        if (scrollPointer.release(p, b)) {
+            scrollDrag = ScrollDrag.NONE;
+            scrollDragGrabOffset = 0f;
+            pressedHit = null;
+            clearPointerRepeat();
+            return true;
+        }
         pressedHit = null;
         clearPointerRepeat();
         return hasBlockingFrontendModal();
@@ -13235,7 +13375,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum ScrollDrag {
         NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
-        STATS_RESULTS, STATS_CHART_HORIZONTAL, STATS_CHART_VERTICAL
+        STATS_RESULTS, STATS_SUMMARY_PLAYERS, STATS_CHART_HORIZONTAL,
+        STATS_CHART_VERTICAL, NETWORK_BLOCKS
     }
 
     private enum StatsMode {

@@ -146,10 +146,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_ROSTER_COUNT_X = 1828f;
     static final float LOBBY_ROSTER_COUNT_BASELINE = 799f;
     static final float LOBBY_ROSTER_COUNT_WIDTH = 72f;
-    static final float LOBBY_VOICE_X = 1175f;
-    static final float LOBBY_VOICE_Y = 215f;
-    static final float LOBBY_VOICE_WIDTH = 85f;
-    static final float LOBBY_VOICE_HEIGHT = 70f;
+    private static final float LOBBY_COMPOSER_X = 525f;
+    private static final float LOBBY_COMPOSER_Y = 215f;
+    private static final float LOBBY_COMPOSER_HEIGHT = 70f;
+    private static final float LOBBY_COMPOSER_GAP = 10f;
+    private static final float LOBBY_COMPOSER_ICON_WIDTH = 70f;
+    private static final float LOBBY_COMPOSER_SEND_X = 1270f;
+    private static final float LOBBY_COMPOSER_SEND_WIDTH = 95f;
+    private static final float LOBBY_TEXT_INPUT_WIDTH = 495f;
+    private static final float LOBBY_IMAGE_INPUT_WIDTH = 345f;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
     private static final URI PUBLIC_ADDRESS_URI = URI.create(
             "https://api.ipify.org");
@@ -366,6 +371,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture soundIcon;
     private Texture muteIcon;
     private Texture talkIcon;
+    private Texture lobbyImageIcon;
+    private Texture lobbyVoiceIcon;
     private Texture aboutMourningIcon;
     private Texture aboutBookIcon;
     private Texture aboutCrossIcon;
@@ -696,6 +703,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon = filteredTexture("images/sound.png");
         muteIcon = filteredTexture("images/mute.png");
         talkIcon = filteredTexture("images/talk.png");
+        lobbyImageIcon = filteredTexture("images/fast_panel/image.png");
+        lobbyVoiceIcon = filteredTexture("images/fast_panel/mic.png");
         aboutMourningIcon = filteredTexture("images/luto.png");
         aboutBookIcon = silhouetteTexture("images/open-book.png",
                 new Color(0xeaf8ffff));
@@ -1415,6 +1424,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // blocker and belongs exclusively to the main menu.
         return (surface == Surface.MENU && startupMenuWaitingForUpdate)
                 || hasVisibleFrontendModal();
+    }
+
+    /**
+     * Settings is itself a modal surface, but that must only shield the page
+     * behind it.  Its rows and scrollbars remain interactive until a child
+     * dialog is actually placed above them.
+     */
+    private boolean settingsScrollBlockedByChildDialog() {
+        return settingsRestartNotice || settingsDiscardConfirmation
+                || voiceNotesOpen
+                || blindStructureDialog != BlindStructureDialog.NONE;
     }
 
     void beginStartupReveal() {
@@ -4677,41 +4697,63 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (!lobbyEmojiPickerOpen) {
             drawLobbyMessages(state.chat(), 525f, 744f, 840f);
         }
-        drawLobbyChatInput(525f, 215f, 345f);
-        compactButton(880f, 215f, 95f, 70f,
-                uppercase(gameText.translate(lobbyImageMode
-                        ? "gdx.table.chat.text" : "gdx.lobby.emoji")), false,
-                () -> {
-                    boolean wasImageMode = lobbyImageMode;
-                    lobbyImageMode = false;
-                    lobbyImageClearConfirmation = false;
-                    lobbyEmojiPickerOpen = !wasImageMode
-                            && !lobbyEmojiPickerOpen;
-                    activateField("lobbyChat");
-                });
-        compactButton(985f, 215f, 180f, 70f,
-                uppercase(gameText.translate(lobbyImageMode
-                        ? "gdx.lobby.search_images" : "gdx.lobby.image")),
-                false,
-                () -> {
-                    if (lobbyImageMode) {
-                        openGoogleImages();
-                        return;
-                    }
-                    lobbyEmojiPickerOpen = false;
-                    lobbyImageMode = !lobbyImageMode;
-                    lobbyImageGalleryContentDelayFrames = lobbyImageMode
-                            ? LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES : 0;
-                    activateField(lobbyImageMode ? "lobbyImage" : "lobbyChat");
-                    if (lobbyImageMode) refreshLobbyHistoryMedia();
-                });
-        compactButton(LOBBY_VOICE_X, LOBBY_VOICE_Y,
-                LOBBY_VOICE_WIDTH, LOBBY_VOICE_HEIGHT,
-                uppercase(gameText.translate(lobbyVoiceLive || lobbyVoiceOpening
-                        ? "audio.preview_parar" : "gdx.lobby.voice")), false,
-                () -> { }, canUseLobbyVoice()
-                        && !lobbyCommandPending && !lobbyVoiceStopping);
-        compactButton(1270f, 215f, 95f, 70f,
+        Rectangle inputBounds = lobbyComposerInputBounds(lobbyImageMode);
+        Rectangle emojiBounds = lobbyComposerEmojiBounds(lobbyImageMode);
+        Rectangle imageBounds = lobbyComposerImageBounds(lobbyImageMode);
+        Rectangle voiceBounds = lobbyVoiceButtonBounds(lobbyImageMode);
+        drawLobbyChatInput(inputBounds.x, inputBounds.y, inputBounds.width);
+        Runnable toggleEmoji = () -> {
+            boolean wasImageMode = lobbyImageMode;
+            lobbyImageMode = false;
+            lobbyImageClearConfirmation = false;
+            lobbyEmojiPickerOpen = !wasImageMode && !lobbyEmojiPickerOpen;
+            activateField("lobbyChat");
+        };
+        Runnable toggleImages = () -> {
+            if (lobbyImageMode) {
+                openGoogleImages();
+                return;
+            }
+            lobbyEmojiPickerOpen = false;
+            lobbyImageMode = true;
+            lobbyImageGalleryContentDelayFrames =
+                    LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES;
+            activateField("lobbyImage");
+            refreshLobbyHistoryMedia();
+        };
+        if (lobbyImageMode) {
+            compactButton(emojiBounds.x, emojiBounds.y,
+                    emojiBounds.width, emojiBounds.height,
+                    uppercase(gameText.translate("gdx.table.chat.text")),
+                    false, toggleEmoji);
+            compactButton(imageBounds.x, imageBounds.y,
+                    imageBounds.width, imageBounds.height,
+                    uppercase(gameText.translate("gdx.lobby.search_images")),
+                    false, toggleImages);
+        } else {
+            compactIconButton(emojiBounds, lobbyEmojiTexture(1),
+                    "gdx.lobby.emoji", toggleEmoji, true, 44f);
+            compactIconButton(imageBounds, lobbyImageIcon,
+                    "gdx.lobby.image", toggleImages, true, 44f);
+        }
+        boolean voiceEnabled = canUseLobbyVoice() && !lobbyCommandPending
+                && !lobbyVoiceStopping;
+        if (lobbyImageMode) {
+            compactButton(voiceBounds.x, voiceBounds.y,
+                    voiceBounds.width, voiceBounds.height,
+                    uppercase(gameText.translate(lobbyVoiceLive
+                            || lobbyVoiceOpening
+                                    ? "audio.preview_parar"
+                                    : "gdx.lobby.voice")), false,
+                    () -> { }, voiceEnabled);
+        } else {
+            compactIconButton(voiceBounds, lobbyVoiceIcon,
+                    lobbyVoiceLive || lobbyVoiceOpening
+                            ? "audio.preview_parar" : "gdx.lobby.voice",
+                    () -> { }, voiceEnabled, 46f);
+        }
+        compactButton(LOBBY_COMPOSER_SEND_X, LOBBY_COMPOSER_Y,
+                LOBBY_COMPOSER_SEND_WIDTH, LOBBY_COMPOSER_HEIGHT,
                 uppercase(gameText.translate("ui.enviar")), true,
                 this::sendLobbyComposer,
                 !lobbyCommandPending && !(lobbyImageMode
@@ -6633,9 +6675,38 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 filteredTexture("images/emoji_chat/" + value + ".png"));
     }
 
+    static Rectangle lobbyComposerInputBounds(boolean imageMode) {
+        return new Rectangle(LOBBY_COMPOSER_X, LOBBY_COMPOSER_Y,
+                imageMode ? LOBBY_IMAGE_INPUT_WIDTH : LOBBY_TEXT_INPUT_WIDTH,
+                LOBBY_COMPOSER_HEIGHT);
+    }
+
+    static Rectangle lobbyComposerEmojiBounds(boolean imageMode) {
+        Rectangle input = lobbyComposerInputBounds(imageMode);
+        return new Rectangle(input.x + input.width + LOBBY_COMPOSER_GAP,
+                LOBBY_COMPOSER_Y,
+                imageMode ? 95f : LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_HEIGHT);
+    }
+
+    static Rectangle lobbyComposerImageBounds(boolean imageMode) {
+        Rectangle emoji = lobbyComposerEmojiBounds(imageMode);
+        return new Rectangle(emoji.x + emoji.width + LOBBY_COMPOSER_GAP,
+                LOBBY_COMPOSER_Y,
+                imageMode ? 180f : LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_HEIGHT);
+    }
+
+    static Rectangle lobbyVoiceButtonBounds(boolean imageMode) {
+        Rectangle image = lobbyComposerImageBounds(imageMode);
+        return new Rectangle(image.x + image.width + LOBBY_COMPOSER_GAP,
+                LOBBY_COMPOSER_Y,
+                imageMode ? 85f : LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_HEIGHT);
+    }
+
     static Rectangle lobbyVoiceButtonBounds() {
-        return new Rectangle(LOBBY_VOICE_X, LOBBY_VOICE_Y,
-                LOBBY_VOICE_WIDTH, LOBBY_VOICE_HEIGHT);
+        return lobbyVoiceButtonBounds(false);
     }
 
     private boolean canUseLobbyVoice() {
@@ -11023,6 +11094,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 action, enabled, smallFont);
     }
 
+    private void compactIconButton(Rectangle bounds, Texture icon,
+            String tooltipKey, Runnable action, boolean enabled,
+            float iconSize) {
+        compactButton(bounds.x, bounds.y, bounds.width, bounds.height,
+                "", false, action, enabled);
+        float size = Math.min(iconSize,
+                Math.min(bounds.width - 18f, bounds.height - 18f));
+        float tint = enabled ? 1f : 0.38f;
+        uiImages.add(new UiImageItem(icon,
+                bounds.x + (bounds.width - size) / 2f,
+                bounds.y + (bounds.height - size) / 2f,
+                size, size, new Color(tint, tint, tint, 1f)));
+        tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
+                tooltipKey);
+    }
+
     private void lobbyBotButton(float x, float y, float w, float h,
             String label, Runnable action, boolean enabled) {
         themedButton(x, y, w, h, label, ButtonTone.NEUTRAL,
@@ -11865,7 +11952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
-        Rectangle voiceBounds = lobbyVoiceButtonBounds();
+        Rectangle voiceBounds = lobbyVoiceButtonBounds(lobbyImageMode);
         if (!blockingModal && surface == Surface.LOBBY
                 && button == Input.Buttons.LEFT
                 && voiceBounds.contains(pointer)) {
@@ -11877,7 +11964,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
-        if ((!blockingModal || statsPicker != StatsPicker.NONE)
+        boolean settingsOwnsPointer = surface == Surface.SETTINGS
+                && !settingsScrollBlockedByChildDialog();
+        if ((!blockingModal || settingsOwnsPointer
+                || statsPicker != StatsPicker.NONE)
                 && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y)) {
             return true;
@@ -12850,6 +12940,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon.dispose();
         muteIcon.dispose();
         talkIcon.dispose();
+        lobbyImageIcon.dispose();
+        lobbyVoiceIcon.dispose();
         aboutMourningIcon.dispose();
         aboutBookIcon.dispose();
         aboutCrossIcon.dispose();
@@ -12940,6 +13032,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     amountY);
             return true;
         }
+        if (surface == Surface.SETTINGS && amountY != 0f
+                && !settingsScrollBlockedByChildDialog()) {
+            scrollActiveSettingsSection(amountY);
+            return true;
+        }
         if (hasBlockingFrontendModal() && dropdown == Dropdown.NONE) {
             return true;
         }
@@ -12990,52 +13087,73 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.LOBBY && amountY != 0f
                 && !lobbyImageMode && !lobbyEmojiPickerOpen) {
-            pointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(pointer);
-            if (pointer.x >= 525f && pointer.x <= 1365f
-                    && pointer.y >= 315f && pointer.y <= 744f) {
-                lobbyChatScroll = lobbyPixelScrollAfterWheel(lobbyChatScroll,
-                        lobbyChatScrollMaximum, amountY);
-                return true;
-            }
-        }
-        if (surface == Surface.SETTINGS && amountY != 0f
-                && settingsSession.section()
-                == GdxSettingsContract.Section.SHORTCUTS) {
-            settingsShortcutScroll = GdxSettingsLayout.pixelScrollAfterWheel(
-                    settingsShortcutScroll, settingsRowScrollMaximum,
-                    amountY);
+            lobbyChatScroll = lobbyPixelScrollAfterWheel(lobbyChatScroll,
+                    lobbyChatScrollMaximum, amountY);
             return true;
-        }
-        if (surface == Surface.SETTINGS && amountY != 0f
-                && settingsSession.section()
-                == GdxSettingsContract.Section.AUDIO) {
-            settingsAudioScroll = GdxSettingsLayout.pixelScrollAfterWheel(
-                    settingsAudioScroll, settingsRowScrollMaximum, amountY);
-            return true;
-        }
-        if (surface == Surface.SETTINGS && amountY != 0f
-                && settingsSession.section()
-                == GdxSettingsContract.Section.APPEARANCE
-                && settingsAppearancePage > 1) {
-            settingsAppearanceScroll = GdxSettingsLayout
-                    .pixelScrollAfterWheel(settingsAppearanceScroll,
-                            settingsRowScrollMaximum, amountY);
-            return true;
-        }
-        if (surface == Surface.SETTINGS && amountY != 0f
-                && settingsSession.section()
-                == GdxSettingsContract.Section.DEBUG) {
-            pointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(pointer);
-            if (settingsDebugViewport.contains(pointer)) {
-                settingsDebugScroll = lobbyPixelScrollAfterWheel(
-                        settingsDebugScroll, settingsDebugScrollMaximum,
-                        amountY);
-                return true;
-            }
         }
         return false;
+    }
+
+    private void scrollActiveSettingsSection(float amountY) {
+        GdxSettingsContract.Section section = settingsSession.section();
+        if (section == GdxSettingsContract.Section.DEBUG) {
+            settingsDebugScroll = lobbyPixelScrollAfterWheel(
+                    settingsDebugScroll, settingsDebugScrollMaximum,
+                    amountY);
+            return;
+        }
+        GdxSettingsLayout.PixelRows rows = currentSettingsPixelRows();
+        if (rows == null) return;
+        if (section == GdxSettingsContract.Section.SHORTCUTS) {
+            settingsShortcutScroll = GdxSettingsLayout.pixelScrollAfterWheel(
+                    settingsShortcutScroll, rows.maximum(), amountY);
+        } else if (section == GdxSettingsContract.Section.AUDIO) {
+            settingsAudioScroll = GdxSettingsLayout.pixelScrollAfterWheel(
+                    settingsAudioScroll, rows.maximum(), amountY);
+        } else if (section == GdxSettingsContract.Section.APPEARANCE) {
+            settingsAppearanceScroll = GdxSettingsLayout
+                    .pixelScrollAfterWheel(settingsAppearanceScroll,
+                            rows.maximum(), amountY);
+        }
+    }
+
+    /** Computes wheel limits from the active subsection, never from a stale frame. */
+    private GdxSettingsLayout.PixelRows currentSettingsPixelRows() {
+        int totalRows;
+        float offset;
+        GdxSettingsContract.Section section = settingsSession.section();
+        if (section == GdxSettingsContract.Section.SHORTCUTS) {
+            totalRows = shortcutBindings.editableEntries(gameText).size();
+            offset = settingsShortcutScroll;
+        } else if (section == GdxSettingsContract.Section.AUDIO) {
+            int pageIndex = MathUtils.clamp(settingsAudioPage, 0,
+                    GdxSettingsContract.AUDIO_PAGES.size() - 1);
+            totalRows = GdxSettingsContract.audioRowCount(
+                    GdxSettingsContract.AUDIO_PAGES.get(pageIndex));
+            offset = settingsAudioScroll;
+        } else if (section == GdxSettingsContract.Section.APPEARANCE
+                && settingsAppearancePage > 1) {
+            int pageIndex = MathUtils.clamp(settingsAppearancePage - 2, 0,
+                    GdxSettingsContract.APPEARANCE_PAGES.size() - 1);
+            totalRows = GdxSettingsContract.appearanceRowCount(
+                    GdxSettingsContract.APPEARANCE_PAGES.get(
+                            pageIndex));
+            offset = settingsAppearanceScroll;
+        } else {
+            return null;
+        }
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSections().size(), settingsSubpageLabels().size());
+        float firstRowY = frame.firstRowY();
+        if (section == GdxSettingsContract.Section.AUDIO
+                && settingsAudioPage == 0) {
+            firstRowY -= 74f;
+        }
+        return GdxSettingsLayout.pixelRows(firstRowY,
+                frame.content().y + 14f,
+                firstRowY + GdxSettingsLayout.ROW_HEIGHT,
+                totalRows, offset);
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,

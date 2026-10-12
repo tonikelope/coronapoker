@@ -1386,10 +1386,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return true;
                 }
                 if (settingsSection() == GdxSettingsContract.Section.DEBUG) {
-                    pointer.set(Gdx.input.getX(), Gdx.input.getY());
-                    viewport.unproject(pointer);
-                    if (!settingsDebugViewportContains(pointer.x,
-                            pointer.y)) return true;
                     float maximum = settingsDebugMaximumPixelScroll(
                             settingsDebugVisualLines().size());
                     // This view is anchored at the newest line when the offset
@@ -1400,18 +1396,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (uiLayer == UI_CHAT && !chatImageMode && amountY != 0f) {
-                pointer.set(Gdx.input.getX(), Gdx.input.getY());
-                viewport.unproject(pointer);
-                if (quickChatHistoryBounds().contains(pointer)) {
-                    quickChatScroll = quickChatPixelScrollAfterWheel(
-                            quickChatScroll, quickChatScrollMaximum, amountY);
-                    return true;
-                }
+                quickChatScroll = quickChatPixelScrollAfterWheel(
+                        quickChatScroll, quickChatScrollMaximum, amountY);
+                return true;
             }
             if (uiLayer != UI_GAME_LOG || amountY == 0f) return false;
-            pointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(pointer);
-            if (!gameLogContentBounds().contains(pointer)) return true;
             gameLogScroll = quickChatPixelScrollAfterWheel(gameLogScroll,
                     gameLogMaximumScroll(), amountY);
             return true;
@@ -16156,7 +16145,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && settingsAudioPage == 0 ? 70f : 0f);
         GdxSettingsLayout.PixelRows rows = settingsPixelRows(frame.content(),
                 firstY, total, offset);
-        if (!rows.scrollable()) return null;
         float rowX = frame.content().x
                 + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
         float rowWidth = frame.content().width
@@ -16167,7 +16155,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean settingsRowScrollTrackContains(float x, float y) {
         SettingsRowScroll scroll = settingsRowScroll();
-        return scroll != null && contains(x, y,
+        return scroll != null && scroll.rows().scrollable() && contains(x, y,
                 scroll.x() - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
                 - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f,
                 scroll.rows().viewportBottom(),
@@ -16196,19 +16184,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (settingsSection() == GdxSettingsContract.Section.GAME) {
             settingsGameScroll = offset;
         }
-    }
-
-    private boolean settingsDebugViewportContains(float x, float y) {
-        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
-                viewport.getWorldWidth(), viewport.getWorldHeight(),
-                settingsSession.sections().size(),
-                settingsSubpageLabels().size());
-        return contains(x, y, frame.content().x
-                        + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
-                frame.firstRowY() - 337f,
-                frame.content().width
-                        - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
-                SETTINGS_DEBUG_VIEWPORT_HEIGHT);
     }
 
     private void updateSettingsDebugScrollFromTrack(float y) {

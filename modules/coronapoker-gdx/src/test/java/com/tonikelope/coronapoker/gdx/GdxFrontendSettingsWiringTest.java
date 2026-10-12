@@ -120,6 +120,31 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void rootSettingsOwnTheirWheelAndScrollbarDespiteProtectingTheBackdrop()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int wheel = frontend.indexOf(
+                "public boolean scrolled(float amountX, float amountY)");
+        int settingsWheel = frontend.indexOf(
+                "if (surface == Surface.SETTINGS && amountY != 0f", wheel);
+        int modalShield = frontend.indexOf(
+                "if (hasBlockingFrontendModal() && dropdown == Dropdown.NONE)",
+                wheel);
+
+        assertTrue(wheel >= 0 && settingsWheel > wheel);
+        assertTrue(settingsWheel < modalShield,
+                "settings must route their wheel before the root-modal shield");
+        assertTrue(frontend.contains(
+                "boolean settingsOwnsPointer = surface == Surface.SETTINGS"));
+        assertTrue(frontend.contains(
+                "&& !settingsScrollBlockedByChildDialog();"));
+        assertTrue(frontend.contains("currentSettingsPixelRows()"),
+                "wheel limits must come from the current subsection rows");
+    }
+
+    @Test
     void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
         assertEquals(1f, GdxFrontendScreen.fittedTextScale(
                 100f, 120f, 0.72f));

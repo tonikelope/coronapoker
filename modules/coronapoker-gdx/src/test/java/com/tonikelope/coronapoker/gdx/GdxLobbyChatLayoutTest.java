@@ -147,8 +147,32 @@ final class GdxLobbyChatLayoutTest {
 
     @Test
     void lobbyVoiceButtonOwnsOneStablePressAndHoldTarget() {
-        assertEquals(new Rectangle(1175f, 215f, 85f, 70f),
+        assertEquals(new Rectangle(1190f, 215f, 70f, 70f),
                 GdxFrontendScreen.lobbyVoiceButtonBounds());
+        assertEquals(new Rectangle(1175f, 215f, 85f, 70f),
+                GdxFrontendScreen.lobbyVoiceButtonBounds(true));
+    }
+
+    @Test
+    void iconComposerGivesTheMessageFieldTheRecoveredHorizontalSpace() {
+        Rectangle textInput = GdxFrontendScreen
+                .lobbyComposerInputBounds(false);
+        Rectangle imageInput = GdxFrontendScreen
+                .lobbyComposerInputBounds(true);
+        Rectangle emoji = GdxFrontendScreen
+                .lobbyComposerEmojiBounds(false);
+        Rectangle image = GdxFrontendScreen
+                .lobbyComposerImageBounds(false);
+        Rectangle voice = GdxFrontendScreen.lobbyVoiceButtonBounds(false);
+
+        assertEquals(495f, textInput.width);
+        assertEquals(150f, textInput.width - imageInput.width);
+        assertEquals(10f, emoji.x - (textInput.x + textInput.width));
+        assertEquals(10f, image.x - (emoji.x + emoji.width));
+        assertEquals(10f, voice.x - (image.x + image.width));
+        assertEquals(70f, emoji.width);
+        assertEquals(70f, image.width);
+        assertEquals(70f, voice.width);
     }
 
     @Test

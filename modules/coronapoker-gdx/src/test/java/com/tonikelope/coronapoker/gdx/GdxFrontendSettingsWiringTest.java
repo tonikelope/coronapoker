@@ -151,6 +151,11 @@ final class GdxFrontendSettingsWiringTest {
                 "drawFittedCenteredInBox(actionFont, blinds,"));
         assertTrue(method.contains(
                 "drawFittedCenteredInBox(actionFont, hand,"));
+        assertFalse(method.contains("float iconX = communityPauseX"),
+                "The compact pause control must remain text-only");
+        assertTrue(method.contains(
+                "communityPauseX + 8f, communityPauseY + 5f"),
+                "The pause label must use the space freed by its old icon");
     }
 
     private static LobbySnapshot snapshot(boolean host,

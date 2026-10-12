@@ -213,6 +213,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float ALL_IN_FIRE_HEIGHT = 184f;
     private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
     private static final int ALL_IN_EMBER_COUNT = 25;
+    static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
@@ -7920,7 +7921,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // the authoritative pot must remain a tangible destination. Chips
             // are painted immediately afterwards so they cross the cinematic
             // and visibly land on this foreground pot surface.
-            drawPotPanelSurface();
+            drawPotPanelSurface(ALL_IN_CINEMATIC_POT_ALPHA);
         }
         // The physical chip flies above every money surface, including the
         // local HUD counter. Its counter changes on the same landing frame,
@@ -10630,6 +10631,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawPotPanelSurface() {
+        drawPotPanelSurface(1f);
+    }
+
+    private void drawPotPanelSurface(float alpha) {
+        float opacity = MathUtils.clamp(alpha, 0f, 1f);
         float pulse = liveAnimationsEnabled()
                 ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
         float basePotW = 76f;
@@ -10654,15 +10660,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.78f);
+        shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
+                0.78f * opacity);
         roundedRect(panelX - 2f, panelY - 2f,
                 panelWidth + 4f, panelHeight + 4f, 13f);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f);
+        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f * opacity);
         roundedRect(panelX, panelY, panelWidth, panelHeight, 11f);
         shapes.end();
 
         batch.begin();
-        batch.setColor(Color.WHITE);
+        batch.setColor(1f, 1f, 1f, opacity);
         float iconCenterX = panelX + 52f;
         float iconCenterY = panelY + panelHeight / 2f;
         batch.draw(pot, iconCenterX - potW / 2f, iconCenterY - potH / 2f,
@@ -10672,7 +10679,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredAtVisualY(potFont, potText,
                 textAreaX + textAreaWidth / 2f,
                 panelY + panelHeight / 2f,
-                textAreaWidth, POT_GOLD, 1f);
+                textAreaWidth, POT_GOLD, opacity);
         batch.setColor(Color.WHITE);
         batch.end();
 
@@ -11155,16 +11162,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             System.currentTimeMillis()));
         }
 
-        float iconX = communityPauseX + 26f;
-        float iconY = communityPauseY + height / 2f;
-        shapes.setColor(paused ? Color.WHITE : pauseColor);
-        if (paused) {
-            shapes.triangle(iconX - 6f, iconY - 8f,
-                    iconX - 6f, iconY + 8f, iconX + 8f, iconY);
-        } else {
-            shapes.rect(iconX - 8f, iconY - 8f, 5f, 16f);
-            shapes.rect(iconX + 3f, iconY - 8f, 5f, 16f);
-        }
         shapes.end();
 
         String blinds = communityBlindsText(gameText,
@@ -11215,8 +11212,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(actionFont,
                 uppercase(gameText.translate(paused
                         ? "gdx.table.resume" : "gdx.table.pause")),
-                communityPauseX + 46f, communityPauseY + 5f,
-                communityPauseWidth - 54f, communityPauseHeight - 10f,
+                communityPauseX + 8f, communityPauseY + 5f,
+                communityPauseWidth - 16f, communityPauseHeight - 10f,
                 paused ? Color.WHITE : Color.BLACK, 1f);
         batch.end();
     }

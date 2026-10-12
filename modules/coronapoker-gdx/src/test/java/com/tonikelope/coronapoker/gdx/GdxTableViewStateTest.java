@@ -2274,6 +2274,12 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void allInForegroundPotUsesTheRequestedHalfOpacity() {
+        assertEquals(0.50f,
+                CoronaPokerGdxTable.ALL_IN_CINEMATIC_POT_ALPHA);
+    }
+
+    @Test
     void disabledCallNeverBecomesAnUnlabelledWhiteButton() {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");

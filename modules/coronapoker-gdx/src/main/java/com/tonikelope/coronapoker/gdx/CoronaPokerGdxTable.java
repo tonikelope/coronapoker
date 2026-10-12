@@ -4591,6 +4591,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             modalBackdropBlur.endCaptureAndDraw(viewport, batch,
                     camera.combined, BACKGROUND_BOTTOM);
             modalBackdropCaptureActive = false;
+            drawUnifiedModalBackdrop();
         }
         if (shieldBackgroundPointer) {
             pointer.set(livePointerX, livePointerY);
@@ -4611,6 +4612,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawRecoveryStopOverlay();
         drawScreenshotToast();
         drawVolumeOverlay();
+        drawProductVersionBrand(1f);
         if (tablePreference("gdx_show_fps", false)) {
             drawFpsCounter(viewport.getWorldWidth(), viewport.getWorldHeight());
         }
@@ -4627,6 +4629,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean hasBlurredTableModal(boolean preparationModal) {
         return preparationModal || uiLayerUsesBackdropBlur(uiLayer,
                 chatImageMode)
+                || tableImageClearConfirmation
                 || blocksTableUtilities(activeDialog)
                 || tableIdentityDialog != null
                 || isClientTransportReconnecting()
@@ -6705,7 +6708,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, alpha);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
                 panel.width, panel.height, CYAN, alpha);
         shapes.setColor(0.20f, 0.07f, 0.09f, alpha);
@@ -7792,7 +7794,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSilentChatNotice();
         drawLatencyTooltip();
         drawAudioOutputUnavailableTooltip();
-        drawProductVersionBrand(1f);
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
     }
@@ -7933,6 +7934,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawProductVersionBrandInCurrentBatch(reveal);
         batch.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private void drawUnifiedModalBackdrop() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        GdxUiDialogStyle.drawBackdrop(shapes,
+                viewport.getWorldWidth(), viewport.getWorldHeight());
+        shapes.end();
     }
 
     private void drawProductVersionBrandInCurrentBatch(float reveal) {
@@ -10664,7 +10675,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, CYAN, 1f);
         shapes.setColor(PREPARATION_TRACK);
@@ -10724,8 +10734,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, (100 - lightLevel) / 100f);
-        shapes.rect(0f, 0f, width, height);
+        if (!paused) {
+            // Manual lights-off is a table effect. A pause is a modal and its
+            // darkness comes from the same canonical backdrop as every other
+            // modal, avoiding a second stacked shade of variable intensity.
+            shapes.setColor(0f, 0f, 0f, (100 - lightLevel) / 100f);
+            shapes.rect(0f, 0f, width, height);
+        }
         if (paused) {
             shapes.setColor(1f, 1f, 1f, 0.95f);
             shapes.rect(0f, bannerY, width, bannerHeight);
@@ -10792,7 +10807,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, accent, 1f);
         shapes.end();
@@ -10834,7 +10848,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, POT_GOLD, 1f);
         shapes.setColor(0.10f, 0.15f, 0.22f, 1f);
@@ -10875,7 +10888,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = (height - panelH) / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, LATENCY_ORANGE, 1f);
         shapes.end();
@@ -16190,19 +16202,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleTableImageClearConfirmationClick(float x, float y) {
-        float width = viewport.getWorldWidth();
-        float height = viewport.getWorldHeight();
-        float panelW = Math.min(760f, width - 80f);
-        float panelH = 300f;
-        float panelX = (width - panelW) / 2f;
-        float panelY = (height - panelH) / 2f;
-        if (contains(x, y, panelX + 46f, panelY + 38f,
-                300f, 68f)) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (layout.negativeButton().contains(x, y)) {
             tableImageClearConfirmation = false;
             return;
         }
-        if (contains(x, y, panelX + panelW - 346f, panelY + 38f,
-                300f, 68f)) {
+        if (layout.positiveButton().contains(x, y)) {
             confirmTableImageHistoryClear();
         }
     }
@@ -16221,41 +16228,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawTableImageClearConfirmation() {
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
-        float panelW = Math.min(760f, width - 80f);
-        float panelH = 300f;
-        float panelX = (width - panelW) / 2f;
-        float panelY = (height - panelH) / 2f;
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(width, height);
+        Rectangle panel = layout.panel();
+        Rectangle title = layout.title();
+        Rectangle message = layout.message();
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, CYAN, 1f);
-        drawDialogButton(panelX + 46f, panelY + 38f,
-                300f, 68f, BUTTON_LINE,
-                contains(pointer.x, pointer.y, panelX + 46f,
-                        panelY + 38f, 300f, 68f), 1f);
-        drawDialogButton(panelX + panelW - 346f, panelY + 38f,
-                300f, 68f, FOLD_RED,
-                contains(pointer.x, pointer.y, panelX + panelW - 346f,
-                        panelY + 38f, 300f, 68f), 1f);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN, 1f);
+        drawDialogButton(cancel.x, cancel.y, cancel.width, cancel.height,
+                BUTTON_LINE, cancel.contains(pointer), 1f);
+        drawDialogButton(accept.x, accept.y, accept.width, accept.height,
+                FOLD_RED, accept.contains(pointer), 1f);
         shapes.end();
         batch.begin();
         drawFittedCenteredInBox(uiFont,
                 uppercase(gameText.translate("ui.seguro")),
-                panelX + 30f, panelY + panelH - 78f,
-                panelW - 60f, 44f, POT_GOLD, 1f);
-        drawFittedCenteredInBox(smallFont, gameText.translate(
+                title.x, title.y, title.width, title.height,
+                POT_GOLD, 1f);
+        drawFittedCenteredInBox(uiFont, gameText.translate(
                 "gdx.lobby.clear_images_confirm"),
-                panelX + 46f, panelY + 132f,
-                panelW - 92f, 50f, Color.WHITE, 1f);
+                message.x, message.y, message.width, message.height,
+                Color.WHITE, 1f);
         drawFittedCenteredInBox(actionFont,
                 uppercase(gameText.translate("ui.cancelar")),
-                panelX + 46f, panelY + 38f,
-                300f, 68f, Color.WHITE, 1f);
+                cancel.x, cancel.y, cancel.width, cancel.height,
+                Color.WHITE, 1f);
         drawFittedCenteredInBox(actionFont,
                 uppercase(gameText.translate("gdx.lobby.clear")),
-                panelX + panelW - 346f, panelY + 38f,
-                300f, 68f, Color.WHITE, 1f);
+                accept.x, accept.y, accept.width, accept.height,
+                Color.WHITE, 1f);
         batch.end();
     }
 
@@ -16832,14 +16837,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle card = cardViewerBounds(texture.getWidth(),
                 texture.getHeight(), width, height);
 
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.80f * alpha);
-        shapes.rect(0f, 0f, width, height);
-        // The zoom deliberately has no surrounding plate or accent frame:
-        // only the card shader's own rounded silhouette remains visible.
-        shapes.end();
-
         batch.begin();
         batch.setColor(1f, 1f, 1f, alpha);
         if (cardViewerFaceUp) {
@@ -17354,7 +17351,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, accent, 1f);
         GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
@@ -17455,8 +17451,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        Rectangle title = new Rectangle(panelX + 42f,
-                panelY + panelH - 80f, panelW - 84f, 46f);
+        Rectangle title = GdxTableDialogLayout.title(
+                panelX, panelY, panelW, panelH);
         if (dialog.isZeroTrust()) {
             drawFittedCenteredInBox(uiFont, dialog.title(), title.x, title.y,
                     title.width, title.height, accent, 1f);
@@ -17495,24 +17491,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             BitmapFont.BitmapFontData dialogFontData = uiFont.getData();
             float originalScaleX = dialogFontData.scaleX;
             float originalScaleY = dialogFontData.scaleY;
-            float messageW = panelW - 112f;
-            float messageH = dialog.hasAmount() ? 86f : panelH - 240f;
-            glyph.setText(uiFont, dialog.message(), Color.WHITE,
-                    messageW, Align.center, true);
-            if (glyph.height > messageH) {
-                float fit = messageH / glyph.height;
-                dialogFontData.setScale(originalScaleX * fit,
-                        originalScaleY * fit);
-                glyph.setText(uiFont, dialog.message(), Color.WHITE,
-                        messageW, Align.center, true);
+            Rectangle messageBounds = dialog.hasAmount()
+                    ? new Rectangle(panelX + 56f, panelY + 263f,
+                            panelW - 112f, 86f)
+                    : GdxTableDialogLayout.standardMessage(
+                            panelX, panelY, panelW, panelH);
+            String message = dialog.isNotice()
+                    ? GdxUiDialogStyle.formatNoticeMessage(dialog.message())
+                    : dialog.message();
+            float requestedScale = dialog.isNotice()
+                    ? GdxUiDialogStyle.NOTICE_MESSAGE_SCALE : 1f;
+            dialogFontData.setScale(originalScaleX * requestedScale,
+                    originalScaleY * requestedScale);
+            glyph.setText(uiFont, message, Color.WHITE,
+                    messageBounds.width, Align.center, true);
+            if (glyph.height > messageBounds.height) {
+                float fit = messageBounds.height / glyph.height;
+                dialogFontData.setScale(originalScaleX * requestedScale * fit,
+                        originalScaleY * requestedScale * fit);
+                glyph.setText(uiFont, message, Color.WHITE,
+                        messageBounds.width, Align.center, true);
             }
             uiFont.setColor(Color.WHITE);
-            float messageX = panelX + 56f;
-            uiFont.draw(batch, glyph, messageX,
+            uiFont.draw(batch, glyph, messageBounds.x,
                 dialog.isHandLimit() ? panelY + 414f
-                        : dialog.hasAmount() ? panelY + 286f
-                        : panelY + 125f
-                                        + (panelH - 222f + glyph.height) / 2f);
+                        : messageBounds.y
+                                + (messageBounds.height + glyph.height) / 2f);
             uiFont.setColor(Color.WHITE);
             dialogFontData.setScale(originalScaleX, originalScaleY);
         }
@@ -17686,7 +17690,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, CYAN, 1f);
         GdxUiDialogStyle.drawInset(shapes, panelX + 40f, panelY + 122f,
@@ -17784,7 +17787,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        GdxUiDialogStyle.drawBackdrop(shapes, worldW, worldH, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, POT_GOLD, 1f);
         shapes.setColor(0f, 0f, 0f, 1f);
@@ -18065,8 +18067,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.28f * alpha);
-        shapes.rect(0f, 0f, width, height);
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
         boolean restoreEnabled = restoreVisible
                 && !currentSettingsSubsectionAtDefaults();
@@ -18426,12 +18426,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private void drawRecoveryDialog(GdxTableDialog dialog, float worldW,
             float worldH) {
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0f, 0f, 0f, 0.72f);
-        shapes.rect(0f, 0f, worldW, worldH);
-        shapes.end();
-
         StreamingGifTextureAnimation animation = recoveryAnimation(dialog);
         Texture frame = animation == null ? null
                 : animation.frameAt(dialog.elapsedSeconds(totalTime));
@@ -18584,8 +18578,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float h = panel.height;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, viewport.getWorldWidth(),
-                viewport.getWorldHeight(), 1f);
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN, 1f);
 
         if (voiceNoteDeleteConfirmation != null
@@ -20304,7 +20296,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, alpha);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, POT_GOLD, alpha);
         GdxUiDialogStyle.drawInset(shapes, logX, logY,
@@ -20670,7 +20661,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawBackdrop(shapes, width, height, alpha);
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                 panelW, panelH, CYAN, alpha);
         GdxUiDialogStyle.drawInset(shapes, historyX, historyY,
@@ -21735,7 +21725,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawCentered(uiFont, ">", width - 41f, 169f,
                     Color.WHITE, cardsReveal);
         }
-        drawProductVersionBrandInCurrentBatch(reveal);
         batch.setColor(Color.WHITE);
         batch.end();
 

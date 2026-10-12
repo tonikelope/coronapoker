@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 
 /** Shared glass material for every renderer-owned GDX dialog. */
 final class GdxUiDialogStyle {
@@ -11,6 +12,8 @@ final class GdxUiDialogStyle {
     // from turning the panel into an almost opaque second visual language.
     static final int PANEL_RGBA = 0x071321cc;
     static final int INSET_RGBA = 0x08182870;
+    static final float BACKDROP_ALPHA = 0.68f;
+    static final float NOTICE_MESSAGE_SCALE = 1.08f;
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
@@ -18,9 +21,62 @@ final class GdxUiDialogStyle {
     private GdxUiDialogStyle() {
     }
 
-    static void drawBackdrop(ShapeRenderer shapes, float width, float height,
-            float alpha) {
-        shapes.setColor(0.008f, 0.018f, 0.038f, 0.68f * alpha);
+    /**
+     * Preserves authored line breaks and gives a labelled explanation a
+     * stable semantic break. This avoids the renderer placing the first word
+     * of a conclusion at the end of the preceding line merely because one
+     * translated glyph happened to be narrower on a particular display.
+     */
+    static String formatNoticeMessage(String message) {
+        if (message == null) return "";
+        String value = message.replace("\r\n", "\n")
+                .replace('\r', '\n').strip();
+        if (value.indexOf('\n') >= 0) return value;
+        int colon = value.indexOf(':');
+        if (colon > 0 && colon + 1 < value.length()) {
+            String detail = value.substring(colon + 1).stripLeading();
+            if (!detail.isEmpty()) {
+                return value.substring(0, colon + 1).stripTrailing()
+                        + "\n" + detail;
+            }
+        }
+        return value;
+    }
+
+    static ConfirmationLayout confirmationLayout(float worldWidth,
+            float worldHeight) {
+        float panelWidth = 800f;
+        float panelHeight = 330f;
+        float panelX = (worldWidth - panelWidth) / 2f;
+        float panelY = (worldHeight - panelHeight) / 2f;
+        Rectangle panel = new Rectangle(panelX, panelY,
+                panelWidth, panelHeight);
+        return new ConfirmationLayout(panel,
+                new Rectangle(panelX + 40f, panelY + 232f,
+                        panelWidth - 80f, 48f),
+                new Rectangle(panelX + 50f, panelY + 132f,
+                        panelWidth - 100f, 78f),
+                new Rectangle(panelX + 75f, panelY + 55f, 300f, 75f),
+                new Rectangle(panelX + panelWidth - 375f,
+                        panelY + 55f, 300f, 75f));
+    }
+
+    record ConfirmationLayout(Rectangle panel, Rectangle title,
+            Rectangle message, Rectangle negativeButton,
+            Rectangle positiveButton) {
+    }
+
+    /**
+     * Paints the one canonical modal shade.
+     *
+     * <p>The shade deliberately has no transition alpha. A modal owns the
+     * frame from the instant it becomes visible; only its foreground chrome
+     * may animate. Keeping this here also prevents screens from inventing
+     * subtly different darkness values.</p>
+     */
+    static void drawBackdrop(ShapeRenderer shapes, float width,
+            float height) {
+        shapes.setColor(0.008f, 0.018f, 0.038f, BACKDROP_ALPHA);
         shapes.rect(0f, 0f, width, height);
     }
 

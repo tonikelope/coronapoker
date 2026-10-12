@@ -1055,11 +1055,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             drawNewGameScreen();
         }
-        if (!rootSurfaceModal) {
-            drawFrontendVersionLabel();
-            if (System.currentTimeMillis() < toastUntil) {
-                drawToast();
-            }
+        if (!rootSurfaceModal
+                && System.currentTimeMillis() < toastUntil) {
+            drawToast();
         }
         shapes.end();
 
@@ -1088,6 +1086,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (blurModalBackdrop) {
             modalBackdropBlur.endCaptureAndDraw(viewport, batch,
                     viewport.getCamera().combined, BACKGROUND);
+            drawUnifiedModalBackdrop();
         }
 
         if (!rootSurfaceModal) {
@@ -1268,6 +1267,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawScreenshotToastTopLayer();
         }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
+        drawFrontendVersionLabelTopLayer();
         if (preferenceBoolean("gdx_show_fps", false)) {
             drawFrontendFpsCounter();
         }
@@ -1367,10 +1367,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case NEW_GAME -> drawNewGameScreen();
             default -> { }
         }
-        // These global foreground elements historically belonged to the
-        // active surface. Keep them sharp instead of baking them into the
-        // blurred menu/lobby snapshot underneath it.
-        drawFrontendVersionLabel();
+        // Toasts belong to the active surface; the product signature is a
+        // global top layer and is composed once at the end of the frame.
         if (System.currentTimeMillis() < toastUntil) drawToast();
     }
 
@@ -2011,21 +2009,45 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
+    private GdxUiDialogStyle.ConfirmationLayout drawConfirmationChrome(
+            String title, String message) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(WIDTH, HEIGHT);
+        Rectangle panel = layout.panel();
+        Rectangle titleBounds = layout.title();
+        Rectangle messageBounds = layout.message();
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
+        textFit(headingFont, title, titleBounds.x,
+                titleBounds.y + titleBounds.height * 0.76f,
+                GOLD, false, titleBounds.width);
+
+        List<String> lines = wrapText(actionFont,
+                GdxUiDialogStyle.formatNoticeMessage(message),
+                messageBounds.width, 3);
+        float lineHeight = 34f;
+        float firstBaseline = messageBounds.y + messageBounds.height / 2f
+                + 12f + Math.max(0, lines.size() - 1) * lineHeight / 2f;
+        for (int index = 0; index < lines.size(); index++) {
+            textFit(actionFont, lines.get(index),
+                    messageBounds.x + messageBounds.width / 2f,
+                    firstBaseline - index * lineHeight,
+                    Color.WHITE, true, messageBounds.width);
+        }
+        return layout;
+    }
+
     private void drawScreenshotDeleteConfirmation() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 365f, 800f, 320f,
-                CYAN_DARK, 1f);
-        textFit(headingFont,
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
                 uppercase(gameText.translate("ui.borrar_captura")),
-                600f, 650f, GOLD, false, 720f);
-        centeredWrappedText(smallFont,
-                gameText.translate("ui.borrar_captura_confirm"),
-                WIDTH / 2f, 560f, 670f, 30f, 3, Color.WHITE);
-        themedButton(635f, 415f, 300f, 75f,
+                gameText.translate("ui.borrar_captura_confirm"));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> screenshotDeleteConfirmation = false, true);
-        themedButton(985f, 415f, 300f, 75f,
+        themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate("ui.aceptar")),
                 ButtonTone.DANGER, this::deleteCurrentScreenshot, true);
     }
@@ -2518,7 +2540,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsSyncExclusions() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 500f, 245f, 920f, 590f,
                 CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
@@ -2546,11 +2567,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsConfirmation() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, gameText.translate("ui.seguro"), 594f, 651f,
-                GOLD, false, 732f);
         String prompt = switch (statsConfirmation) {
             case IMPORTED -> gameText.translate("stats.borrar_importadas_confirm");
             case PURGE_FILTERED -> gameText.translate(
@@ -2562,16 +2578,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case GAME, NONE -> gameText.translate(
                     "gdx.stats.delete_game_confirm");
         };
-        centeredWrappedText(smallFont, prompt, 960f, 560f, 680f,
-                28f, 4, Color.WHITE);
-        themedButton(635f, 405f, 300f, 75f,
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("ui.seguro")), prompt);
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> statsConfirmation = StatsConfirmation.NONE, true);
         boolean destructive = statsConfirmation == StatsConfirmation.IMPORTED
                 || statsConfirmation == StatsConfirmation.GAME
                 || statsConfirmation == StatsConfirmation.PURGE_FILTERED;
-        themedButton(985f, 405f, 300f, 75f,
+        themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate(destructive
                         ? "gdx.stats.delete" : "ui.aceptar")),
                 destructive ? ButtonTone.DANGER : ButtonTone.POSITIVE,
@@ -2579,7 +2597,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsPicker() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         boolean games = statsPicker == StatsPicker.GAME;
         boolean modes = statsPicker == StatsPicker.MODE;
         boolean players = statsPicker == StatsPicker.PLAYER;
@@ -4019,7 +4036,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawUpdateDialog() {
         hits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         float x = 540f;
         float y = 345f;
         float w = 840f;
@@ -4066,7 +4082,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawAboutDialog() {
         hits.clear();
         secondaryHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
 
         if (handGeneratorOpen) {
             drawHandGeneratorDialog();
@@ -4294,13 +4309,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         handGeneratorOpen = false;
     }
 
-    private void drawFrontendVersionLabel() {
-        textFit(versionFont, GdxProductVersionBrand.label(presentationSettings),
+    /** Product identity is never part of a modal's blurred scene. */
+    private void drawFrontendVersionLabelTopLayer() {
+        TextItem label = fittedTextItem(versionFont,
+                GdxProductVersionBrand.label(presentationSettings),
                 GdxProductVersionBrand.X,
                 GdxProductVersionBrand.BASELINE_Y,
                 new Color((GdxProductVersionBrand.RGB << 8)
                         | Math.round(GdxProductVersionBrand.ALPHA * 255f)),
-                false, GdxProductVersionBrand.MAX_WIDTH);
+                false, GdxProductVersionBrand.MAX_WIDTH, false);
+        batch.begin();
+        drawTextItem(label);
+        batch.end();
+    }
+
+    private void drawUnifiedModalBackdrop() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT);
+        shapes.end();
     }
 
     static boolean renderMainMenuContent(boolean aboutOpen,
@@ -4392,9 +4421,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private List<String> wrapText(BitmapFont font, String value,
             float maxWidth, int maxLines) {
-        String normalized = Objects.requireNonNullElse(value, "").trim();
+        String normalized = Objects.requireNonNullElse(value, "")
+                .replace("\r\n", "\n").replace('\r', '\n').trim();
         if (normalized.isEmpty() || maxLines <= 0) return List.of();
         List<String> lines = new ArrayList<>();
+        String[] paragraphs = normalized.split("\n", -1);
+        for (int paragraph = 0; paragraph < paragraphs.length
+                && lines.size() < maxLines; paragraph++) {
+            appendWrappedParagraph(font, paragraphs[paragraph], maxWidth,
+                    maxLines, lines);
+            if (paragraph + 1 < paragraphs.length
+                    && lines.size() == maxLines) {
+                int last = lines.size() - 1;
+                lines.set(last, ellipsize(font,
+                        lines.get(last) + " …", maxWidth));
+            }
+        }
+        return lines;
+    }
+
+    private void appendWrappedParagraph(BitmapFont font, String paragraph,
+            float maxWidth, int maxLines, List<String> lines) {
+        String normalized = paragraph.strip();
+        if (normalized.isEmpty()) {
+            if (lines.size() < maxLines) lines.add("");
+            return;
+        }
         StringBuilder current = new StringBuilder();
         String[] words = normalized.split("\\s+");
         for (int index = 0; index < words.length; index++) {
@@ -4411,7 +4463,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     current.append(' ').append(words[rest]);
                 }
                 lines.add(ellipsize(font, current.toString(), maxWidth));
-                return lines;
+                return;
             }
             lines.add(current.toString());
             current.setLength(0);
@@ -4420,7 +4472,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (lines.size() < maxLines && !current.isEmpty()) {
             lines.add(ellipsize(font, current.toString(), maxWidth));
         }
-        return lines;
     }
 
     private void drawStartupMenuReveal() {
@@ -4717,7 +4768,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         IdenticonFingerprint fingerprint = dialog.active();
         hits.clear();
         secondaryHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 535f, 165f, 850f, 750f,
                 CYAN, 1f);
         textFit(titleFont, dialog.nickname(), 960f, 842f, GOLD, true, 720f);
@@ -5716,19 +5766,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyConfirmation() {
         hits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         String prompt = uppercase(gameText.translate(
                 lobbyConfirmation == LobbyConfirmation.START
                         ? "ui.seguro_que_quieres_empezar_ya"
                         : "ui.seguro_que_quieres_salir_ahora"));
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, prompt, 960f, 560f, Color.WHITE, true, 700f);
-        themedButton(635f, 405f, 300f, 75f,
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("ui.seguro")), prompt);
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> lobbyConfirmation = null, true);
-        themedButton(985f, 405f, 300f, 75f,
+        themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate(
                         lobbyConfirmation == LobbyConfirmation.START
                                 ? "ui.a_jugar" : "ui.salir")),
@@ -5756,7 +5806,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 335f, 800f, 390f,
                 CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
@@ -5845,7 +5894,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 networkBlocksScroll, blocks.size(), rows);
         long now = System.currentTimeMillis();
 
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
                 panel.width, panel.height, CYAN_DARK, 1f);
         shapes.setColor(new Color(0x321217ff));
@@ -5982,20 +6030,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, uppercase(gameText.translate(
-                "gdx.settings.unsaved.title")), 960f, 578f,
-                GOLD, true, 700f);
-        textFit(actionFont,
-                uppercase(gameText.translate("gdx.settings.unsaved.message")),
-                960f, 526f, Color.WHITE, true, 700f);
-        themedButton(635f, 405f, 300f, 75f, uppercase(gameText.translate(
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("gdx.settings.unsaved.title")),
+                uppercase(gameText.translate(
+                        "gdx.settings.unsaved.message")));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
+                uppercase(gameText.translate(
                 "gdx.settings.unsaved.continue")),
                 ButtonTone.NEUTRAL,
                 () -> settingsDiscardConfirmation = false, true);
-        themedButton(985f, 405f, 300f, 75f, uppercase(gameText.translate(
+        themedButton(accept.x, accept.y, accept.width, accept.height,
+                uppercase(gameText.translate(
                 "gdx.settings.unsaved.discard")),
                 ButtonTone.DANGER, () -> finishClosingSettings(false), true);
     }
@@ -6033,7 +6080,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawVoiceNotesDialog() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         float x = 310f;
         float y = 130f;
         float w = 1300f;
@@ -6204,7 +6250,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyLoadingOverlay() {
         hits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 386f, 800f, 270f,
                 CYAN_DARK, 1f);
 
@@ -6237,7 +6282,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNewGameSubmissionOverlay() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
 
         float panelX = 610f;
         float panelY = 384f;
@@ -6432,19 +6476,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawLobbyImageClearConfirmation() {
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 330f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, uppercase(gameText.translate("ui.seguro")),
-                960f, 626f, GOLD, true, 700f);
-        centeredWrappedText(smallFont, gameText.translate(
-                "gdx.lobby.clear_images_confirm"), 960f, 550f,
-                680f, 27f, 3, Color.WHITE);
-        themedButton(635f, 405f, 300f, 75f,
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("ui.seguro")),
+                gameText.translate("gdx.lobby.clear_images_confirm"));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> lobbyImageClearConfirmation = false, true);
-        themedButton(985f, 405f, 300f, 75f,
+        themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate("gdx.lobby.clear")),
                 ButtonTone.DANGER, this::clearLobbyImageHistory, true);
     }
@@ -7156,17 +7197,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
-        GdxUiDialogStyle.drawPanel(shapes, 505f, 345f, 910f, 350f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, uppercase(gameText.translate(
-                "gdx.settings.msaa_restart.title")), 960f, 585f,
-                GOLD, true, 800f);
-        textFit(actionFont, gameText.translate(
-                "gdx.settings.msaa_restart.message"), 960f, 515f,
-                Color.WHITE, true, 790f);
-        themedButton(785f, 405f, 350f, 75f, uppercase(gameText.translate(
-                "ui.aceptar")), ButtonTone.FEATURED,
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate(
+                        "gdx.settings.msaa_restart.title")),
+                gameText.translate("gdx.settings.msaa_restart.message"));
+        Rectangle accept = layout.positiveButton();
+        float buttonWidth = 350f;
+        themedButton(WIDTH / 2f - buttonWidth / 2f,
+                accept.y, buttonWidth, accept.height,
+                uppercase(gameText.translate("ui.aceptar")),
+                ButtonTone.FEATURED,
                 () -> settingsRestartNotice = false, true);
     }
 
@@ -9163,7 +9203,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
                 CYAN_DARK, 1f);
         if (presetDialog == PresetDialog.NAME) {
@@ -9577,7 +9616,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.drawBackdrop(shapes, WIDTH, HEIGHT, 1f);
         if (blindStructureDialog == BlindStructureDialog.DELETE) {
             drawBlindStructureDeleteConfirmation();
             return;

@@ -39,6 +39,18 @@ final class GdxTableDialogLayout {
                         rowWidth, GdxSettingsLayout.ROW_HEIGHT));
     }
 
+    static Rectangle title(float panelX, float panelY, float panelWidth,
+            float panelHeight) {
+        return new Rectangle(panelX + 42f, panelY + panelHeight - 80f,
+                panelWidth - 84f, 46f);
+    }
+
+    static Rectangle standardMessage(float panelX, float panelY,
+            float panelWidth, float panelHeight) {
+        return new Rectangle(panelX + 56f, panelY + 125f,
+                panelWidth - 112f, panelHeight - 222f);
+    }
+
     record AutoActionHud(Rectangle bounds, Rectangle message,
             Rectangle cancel, Rectangle progress) {
     }

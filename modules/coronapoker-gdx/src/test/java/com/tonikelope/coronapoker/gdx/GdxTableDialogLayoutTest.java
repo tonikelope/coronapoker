@@ -67,6 +67,19 @@ final class GdxTableDialogLayoutTest {
         assertTrue(table.contains("dialogAmountFont.dispose();"));
     }
 
+    @Test
+    void standardMessageAndTitleShareStableInsets() {
+        Rectangle title = GdxTableDialogLayout.title(
+                400f, 200f, 980f, 470f);
+        Rectangle message = GdxTableDialogLayout.standardMessage(
+                400f, 200f, 980f, 470f);
+
+        assertEquals(new Rectangle(442f, 590f, 896f, 46f), title);
+        assertEquals(new Rectangle(456f, 325f, 868f, 248f), message);
+        assertTrue(message.y + message.height <= title.y,
+                "body must remain below the title band");
+    }
+
     private static void assertInside(Rectangle outer, Rectangle inner) {
         assertTrue(inner.x >= outer.x && inner.y >= outer.y);
         assertTrue(inner.x + inner.width <= outer.x + outer.width);

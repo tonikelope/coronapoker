@@ -18184,7 +18184,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
         boolean restoreEnabled = restoreVisible
                 && !currentSettingsSubsectionAtDefaults();
-        GdxSettingsChrome.draw(shapes, frame, sections.size(),
+        GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
                 pointer, restoreVisible, restoreEnabled, alpha);
 

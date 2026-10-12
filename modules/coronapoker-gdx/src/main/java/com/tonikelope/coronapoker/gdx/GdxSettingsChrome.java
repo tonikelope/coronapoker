@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import java.util.List;
 
 /**
  * One visual frame for every GDX settings entry point.
@@ -41,11 +42,13 @@ final class GdxSettingsChrome {
     }
 
     static void draw(ShapeRenderer shapes, GdxSettingsLayout.Frame frame,
-            int sectionCount, int subpageCount, int activeSection,
+            List<GdxSettingsContract.Section> sections, int subpageCount,
+            int activeSection,
             int activeSubpage, Vector2 pointer, boolean restoreVisible,
             boolean restoreEnabled, float alpha) {
         Rectangle panel = frame.panel();
         Rectangle content = frame.content();
+        int sectionCount = sections.size();
 
         outerBox(shapes, panel, CYAN_DARK, PANEL, alpha);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.72f * alpha);
@@ -69,7 +72,8 @@ final class GdxSettingsChrome {
                 roundedRect(shapes, tab.x + 10f, tab.y + 2f,
                         tab.width - 20f, 3f, 2f);
             }
-            drawMainTabIcon(shapes, index, tab, active, hover, alpha);
+            drawMainTabIcon(shapes, sections.get(index), tab, active, hover,
+                    alpha);
         }
 
         Rectangle firstMainTab = frame.mainTab(0);
@@ -128,61 +132,133 @@ final class GdxSettingsChrome {
                 alpha);
     }
 
-    /** Compact vector icons keep every settings host visually identical. */
-    private static void drawMainTabIcon(ShapeRenderer shapes, int index,
-            Rectangle tab, boolean active, boolean hover, float alpha) {
+    enum MainTabIcon {
+        APPEARANCE, AUDIO, CONTROLS, GAME, DEBUG
+    }
+
+    static MainTabIcon mainTabIconFor(GdxSettingsContract.Section section) {
+        return switch (section) {
+            case APPEARANCE -> MainTabIcon.APPEARANCE;
+            case AUDIO -> MainTabIcon.AUDIO;
+            case SHORTCUTS -> MainTabIcon.CONTROLS;
+            case GAME -> MainTabIcon.GAME;
+            case DEBUG -> MainTabIcon.DEBUG;
+        };
+    }
+
+    /**
+     * Purpose-built vector symbols keep every settings host visually identical
+     * while making each primary section recognizable before reading its label.
+     */
+    private static void drawMainTabIcon(ShapeRenderer shapes,
+            GdxSettingsContract.Section section, Rectangle tab,
+            boolean active, boolean hover, float alpha) {
         Rectangle icon = GdxSettingsLayout.mainTabIcon(tab);
         Color color = active ? GOLD : hover ? CYAN : TAB_ICON;
         shapes.setColor(color.r, color.g, color.b,
                 (active ? 1f : 0.82f) * alpha);
+        switch (mainTabIconFor(section)) {
+            case APPEARANCE -> drawAppearanceIcon(shapes, icon);
+            case AUDIO -> drawAudioIcon(shapes, icon);
+            case CONTROLS -> drawControlsIcon(shapes, icon);
+            case GAME -> drawGameIcon(shapes, icon);
+            case DEBUG -> drawDebugIcon(shapes, icon);
+        }
+    }
+
+    /** An eye communicates the whole visual/appearance family at a glance. */
+    private static void drawAppearanceIcon(ShapeRenderer shapes,
+            Rectangle icon) {
         float cx = icon.x + icon.width / 2f;
         float cy = icon.y + icon.height / 2f;
-        switch (index) {
-            case 0 -> {
-                // Appearance: a small polished sparkle/sun.
-                shapes.circle(cx, cy, 4.2f, 18);
-                for (int ray = 0; ray < 8; ray++) {
-                    float angle = ray * MathUtils.PI / 4f;
-                    shapes.rectLine(cx + MathUtils.cos(angle) * 6.5f,
-                            cy + MathUtils.sin(angle) * 6.5f,
-                            cx + MathUtils.cos(angle) * 10f,
-                            cy + MathUtils.sin(angle) * 10f, 1.8f);
-                }
+        float left = cx - 10f;
+        float width = 20f;
+        float previousX = left;
+        float previousOffset = 0f;
+        for (int step = 1; step <= 10; step++) {
+            float progress = step / 10f;
+            float x = left + width * progress;
+            float offset = MathUtils.sin(MathUtils.PI * progress) * 5.4f;
+            shapes.rectLine(previousX, cy + previousOffset,
+                    x, cy + offset, 1.55f);
+            shapes.rectLine(previousX, cy - previousOffset,
+                    x, cy - offset, 1.55f);
+            previousX = x;
+            previousOffset = offset;
+        }
+        shapes.circle(cx, cy, 3.6f, 18);
+    }
+
+    /** Headphones remain legible at this size without ambiguous sound waves. */
+    private static void drawAudioIcon(ShapeRenderer shapes, Rectangle icon) {
+        float cx = icon.x + icon.width / 2f;
+        float cy = icon.y + icon.height / 2f - 1f;
+        arcLine(shapes, cx, cy, 9f, 0f, 180f, 14, 2f);
+        roundedRect(shapes, icon.x + 1f, cy - 4.5f, 4.5f, 9f, 1.8f);
+        roundedRect(shapes, icon.x + icon.width - 5.5f, cy - 4.5f,
+                4.5f, 9f, 1.8f);
+        shapes.rectLine(icon.x + 5f, cy - 5f,
+                icon.x + 7.5f, cy - 6.5f, 1.7f);
+        shapes.rectLine(icon.x + icon.width - 5f, cy - 5f,
+                icon.x + icon.width - 7.5f, cy - 6.5f, 1.7f);
+    }
+
+    /** The controls page edits keyboard bindings, so it gets a key matrix. */
+    private static void drawControlsIcon(ShapeRenderer shapes,
+            Rectangle icon) {
+        roundedRectOutline(shapes, icon.x + 0.5f, icon.y + 2.5f,
+                icon.width - 1f, icon.height - 5f, 3f, 1.5f);
+        for (int row = 0; row < 2; row++) {
+            float y = icon.y + 11.5f + row * 4f;
+            for (int column = 0; column < 4; column++) {
+                shapes.rect(icon.x + 4f + column * 4.5f, y,
+                        2.3f, 2.3f);
             }
-            case 1 -> {
-                // Audio: speaker and two understated sound waves.
-                shapes.rect(icon.x + 1f, cy - 4f, 5f, 8f);
-                shapes.triangle(icon.x + 5f, cy - 4f,
-                        icon.x + 12f, cy - 9f,
-                        icon.x + 12f, cy + 9f);
-                shapes.rectLine(icon.x + 15f, cy - 5f,
-                        icon.x + 18f, cy - 2f, 1.8f);
-                shapes.rectLine(icon.x + 18f, cy - 2f,
-                        icon.x + 18f, cy + 2f, 1.8f);
-                shapes.rectLine(icon.x + 18f, cy + 2f,
-                        icon.x + 15f, cy + 5f, 1.8f);
-            }
-            case 2 -> {
-                // Controls: compact gamepad silhouette.
-                roundedRect(shapes, icon.x + 1f, icon.y + 5f,
-                        icon.width - 2f, 13f, 5f);
-                shapes.setColor(TAB.r, TAB.g, TAB.b, alpha);
-                shapes.rect(icon.x + 5f, cy - 1.2f, 7f, 2.4f);
-                shapes.rect(icon.x + 7.3f, cy - 3.5f, 2.4f, 7f);
-                shapes.circle(icon.x + 16f, cy + 2f, 1.8f, 12);
-                shapes.circle(icon.x + 19f, cy - 2f, 1.8f, 12);
-            }
-            default -> {
-                // Debug: a bug, matching the diagnostic nature of the tab.
-                roundedRect(shapes, cx - 5f, cy - 6f, 10f, 13f, 4f);
-                shapes.circle(cx, cy + 8f, 3.5f, 16);
-                for (int leg = -1; leg <= 1; leg += 2) {
-                    shapes.rectLine(cx - 5f, cy + leg * 3.5f,
-                            cx - 10f, cy + leg * 6f, 1.6f);
-                    shapes.rectLine(cx + 5f, cy + leg * 3.5f,
-                            cx + 10f, cy + leg * 6f, 1.6f);
-                }
-            }
+        }
+        shapes.rect(icon.x + 6f, icon.y + 6f, 10f, 2.2f);
+    }
+
+    /** A poker spade identifies table/game rules rather than input controls. */
+    private static void drawGameIcon(ShapeRenderer shapes, Rectangle icon) {
+        float cx = icon.x + icon.width / 2f;
+        float cy = icon.y + icon.height / 2f;
+        shapes.triangle(cx, cy + 10f, cx - 8.5f, cy - 1.5f,
+                cx + 8.5f, cy - 1.5f);
+        shapes.circle(cx - 4.2f, cy - 0.5f, 4.7f, 18);
+        shapes.circle(cx + 4.2f, cy - 0.5f, 4.7f, 18);
+        shapes.triangle(cx, cy - 1f, cx - 4.2f, cy - 9.5f,
+                cx + 4.2f, cy - 9.5f);
+    }
+
+    /** A terminal prompt reads as diagnostics without reusing another icon. */
+    private static void drawDebugIcon(ShapeRenderer shapes, Rectangle icon) {
+        roundedRectOutline(shapes, icon.x + 0.5f, icon.y + 2f,
+                icon.width - 1f, icon.height - 4f, 3f, 1.5f);
+        shapes.rectLine(icon.x + 1.5f, icon.y + 15.5f,
+                icon.x + icon.width - 1.5f, icon.y + 15.5f, 1.4f);
+        shapes.circle(icon.x + 4f, icon.y + 18.5f, 1f, 10);
+        shapes.circle(icon.x + 7f, icon.y + 18.5f, 1f, 10);
+        shapes.rectLine(icon.x + 5f, icon.y + 7f,
+                icon.x + 8f, icon.y + 10f, 1.6f);
+        shapes.rectLine(icon.x + 8f, icon.y + 10f,
+                icon.x + 5f, icon.y + 13f, 1.6f);
+        shapes.rect(icon.x + 11f, icon.y + 6.2f, 6.5f, 1.6f);
+    }
+
+    private static void arcLine(ShapeRenderer shapes, float cx, float cy,
+            float radius, float startDegrees, float sweepDegrees,
+            int segments, float thickness) {
+        float previousAngle = startDegrees * MathUtils.degreesToRadians;
+        float previousX = cx + MathUtils.cos(previousAngle) * radius;
+        float previousY = cy + MathUtils.sin(previousAngle) * radius;
+        for (int step = 1; step <= segments; step++) {
+            float degrees = startDegrees + sweepDegrees * step / segments;
+            float angle = degrees * MathUtils.degreesToRadians;
+            float x = cx + MathUtils.cos(angle) * radius;
+            float y = cy + MathUtils.sin(angle) * radius;
+            shapes.rectLine(previousX, previousY, x, y, thickness);
+            previousX = x;
+            previousY = y;
         }
     }
 

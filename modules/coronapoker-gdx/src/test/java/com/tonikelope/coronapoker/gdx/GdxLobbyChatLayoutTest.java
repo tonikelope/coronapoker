@@ -125,6 +125,9 @@ final class GdxLobbyChatLayoutTest {
         assertTrue(botTop < GdxFrontendScreen.LOBBY_GAME_INFO_Y);
         assertTrue(kickTop < GdxFrontendScreen.LOBBY_BOT_BUTTON_Y);
         assertTrue(playTop < GdxFrontendScreen.LOBBY_KICK_BUTTON_Y);
+        assertTrue(GdxFrontendScreen.LOBBY_PUBLIC_ADDRESS_BASELINE
+                - connectionBottom >= 28f,
+                "the public IP needs breathing room above the panel edge");
     }
 
     @Test

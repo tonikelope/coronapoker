@@ -2641,16 +2641,24 @@ final class GdxTableViewStateTest {
     void liveHudHitMapRoutesEveryCanonicalPokerAction() {
         CoronaPokerGdxTable.LocalHudLayout layout
                 = CoronaPokerGdxTable.localHudLayout(1920f);
-        float x = layout.actionX();
         float y = layout.actionY() + layout.actionHeight() / 2f;
-        assertEquals(1, CoronaPokerGdxTable.hudTarget(x + 75f, y, 1920f));
-        assertEquals(2, CoronaPokerGdxTable.hudTarget(x + 262f, y, 1920f));
-        assertEquals(3, CoronaPokerGdxTable.hudTarget(x + 400f, y, 1920f));
-        assertEquals(5, CoronaPokerGdxTable.hudTarget(x + 540f, y, 1920f));
-        assertEquals(4, CoronaPokerGdxTable.hudTarget(x + 680f, y, 1920f));
-        assertEquals(0, CoronaPokerGdxTable.hudTarget(x + 429f, y, 1920f));
-        assertEquals(0, CoronaPokerGdxTable.hudTarget(x + 651f, y, 1920f));
-        assertEquals(6, CoronaPokerGdxTable.hudTarget(x + 793f, y, 1920f));
+        CoronaPokerGdxTable.LocalActionLayout actions
+                = CoronaPokerGdxTable.localActionLayout(1920f);
+        assertEquals(1, CoronaPokerGdxTable.hudTarget(
+                actions.fold().x + actions.fold().width / 2f, y, 1920f));
+        assertEquals(3, CoronaPokerGdxTable.hudTarget(
+                actions.minus().x + actions.minus().width / 2f, y, 1920f));
+        assertEquals(5, CoronaPokerGdxTable.hudTarget(
+                actions.bet().x + actions.bet().width / 2f, y, 1920f));
+        assertEquals(4, CoronaPokerGdxTable.hudTarget(
+                actions.plus().x + actions.plus().width / 2f, y, 1920f));
+        assertEquals(6, CoronaPokerGdxTable.hudTarget(
+                actions.allIn().x + actions.allIn().width / 2f, y, 1920f));
+        assertEquals(2, CoronaPokerGdxTable.hudTarget(
+                actions.call().x + actions.call().width / 2f, y, 1920f));
+        assertTrue(actions.call().x > actions.allIn().x
+                + actions.allIn().width,
+                "IR/PASAR must be the rightmost live action");
         assertEquals(0, CoronaPokerGdxTable.hudTarget(
                 layout.stackBounds().x + 20f, y, 1920f));
         assertEquals(0, CoronaPokerGdxTable.hudTarget(

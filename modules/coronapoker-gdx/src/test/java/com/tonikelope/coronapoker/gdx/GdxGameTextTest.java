@@ -75,6 +75,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.value.raises", 3, "1 / 2"));
         assertEquals("Confirm all actions",
                 text.translate("gdx.settings.game.row.confirm_actions"));
+        assertEquals("ARE YOU SURE YOU WANT TO KICK Pepe?",
+                text.translate("ui.seguro_que_quieres_expulsar_a", "Pepe"));
         assertEquals("Force players to reconnect",
                 text.translate("gdx.settings.game.session.action.force_reconnect"));
         assertEquals("Allow joining after the game starts",
@@ -165,6 +167,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
         assertEquals("Confirmar todas las acciones",
                 text.translate("gdx.settings.game.row.confirm_actions"));
+        assertEquals("¿SEGURO QUE QUIERES EXPULSAR A Pepe?",
+                text.translate("ui.seguro_que_quieres_expulsar_a", "Pepe"));
         assertEquals("Forzar reconexión de jugadores",
                 text.translate("gdx.settings.game.session.action.force_reconnect"));
         assertEquals("Permitir entrada con la timba empezada",

@@ -130,6 +130,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
     static final float LOBBY_LEFT_CONTENT_WIDTH = LOBBY_LEFT_ACTION_WIDTH;
     static final float LOBBY_CONNECTION_Y = 674f;
+    static final float LOBBY_PUBLIC_ADDRESS_BASELINE = 702f;
     static final float LOBBY_CONNECTION_HEIGHT = 82f;
     static final float LOBBY_PASSWORD_Y = 608f;
     static final float LOBBY_PASSWORD_HEIGHT = 48f;
@@ -227,14 +228,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final Color BOX_SHEEN_BOTTOM = new Color(
-            1f, 1f, 1f, 0.018f);
-    private static final Color BOX_SHEEN_TOP = new Color(
-            1f, 1f, 1f, 0.115f);
-    private static final Color BOX_SHADE_BOTTOM = new Color(
-            0f, 0f, 0f, 0.11f);
-    private static final Color BOX_SHADE_TOP = new Color(
-            0f, 0f, 0f, 0.01f);
     private static final int EMOJI_COUNT = 1826;
     private static final int EMOJI_COLUMNS = 8;
     private static final int EMOJI_ROWS = 4;
@@ -471,6 +464,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean lobbyCommandPending;
     private boolean lobbyGameStarting;
     private LobbyConfirmation lobbyConfirmation;
+    private String lobbyKickTarget = "";
     private boolean lobbyPasswordDialog;
     private String lobbyPasswordDraft = "";
     private boolean networkBlocksOpen;
@@ -528,6 +522,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float scrollDragGrabOffset;
     private String settingsShortcutCaptureId;
     private String settingsShortcutStatus = "";
+    private GdxTableDialog settingsAutoCallDialog;
+    private boolean settingsAutoRebuySnapshot;
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
     private int settingsOpenedMsaaSamples;
     private NewGameTableDraft settingsTable;
@@ -1197,7 +1193,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (rootSurfaceModal) {
                 drawRootModalSurface();
             } else if (surface == Surface.SETTINGS) {
-                drawSettingsDiscardConfirmation();
+                if (settingsAutoCallDialog != null) {
+                    drawSettingsAutoCallDialog();
+                } else {
+                    drawSettingsDiscardConfirmation();
+                }
             } else if (surface == Surface.NEW_GAME) {
                 if (submissions.submitting()) {
                     drawNewGameSubmissionOverlay();
@@ -1388,6 +1388,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean isSettingsRootModal() {
         return surface == Surface.SETTINGS
                 && !settingsDiscardConfirmation
+                && settingsAutoCallDialog == null
                 && !voiceNotesOpen
                 && blindStructureDialog == BlindStructureDialog.NONE;
     }
@@ -1440,6 +1441,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      */
     private boolean settingsScrollBlockedByChildDialog() {
         return settingsRestartNotice || settingsDiscardConfirmation
+                || settingsAutoCallDialog != null
                 || voiceNotesOpen
                 || blindStructureDialog != BlindStructureDialog.NONE;
     }
@@ -4647,7 +4649,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Color.WHITE, false, serverAddressWidth);
         if (state.host()) {
             text(tinyFont, uppercase(gameText.translate(
-                    "gdx.lobby.public_address")), connectionLabelX, 695f,
+                    "gdx.lobby.public_address")), connectionLabelX,
+                    LOBBY_PUBLIC_ADDRESS_BASELINE,
                     MUTED, false);
             String publicAddress = lobbyPublicAddressLoading
                     ? gameText.translate("gdx.loading")
@@ -4655,7 +4658,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             ? gameText.translate(
                                     "gdx.lobby.public_address_unavailable")
                             : lobbyPublicAddress;
-            textFit(smallFont, publicAddress, connectionValueX, 695f,
+            textFit(smallFont, publicAddress, connectionValueX,
+                    LOBBY_PUBLIC_ADDRESS_BASELINE,
                     lobbyPublicAddress.isBlank() ? DISABLED : Color.WHITE,
                     false, LOBBY_LEFT_CONTENT_WIDTH - 180f);
             hit(LOBBY_LEFT_CONTENT_X, connectionY,
@@ -4690,7 +4694,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     LOBBY_KICK_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.expulsar_jugador")),
                     ButtonTone.DANGER,
-                    this::kickSelectedParticipant,
+                    this::requestKickSelectedParticipant,
                     !lobbyCommandPending && kickEnabled);
             themedButton(LOBBY_LEFT_ACTION_X, LOBBY_PLAY_BUTTON_Y,
                     LOBBY_LEFT_ACTION_WIDTH,
@@ -4798,8 +4802,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             participantY -= 57f;
         }
 
-        themedButton(35f, 55f, 220f, 70f,
-                uppercase(gameText.translate("ui.salir")), ButtonTone.DANGER,
+        iconButton(35f, 55f, 220f, 70f,
+                uppercase(gameText.translate("ui.salir")), 5,
+                ButtonTone.DANGER,
                 () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
                 !lobbyCommandPending);
         iconButton(285f, 55f, 360f, 70f,
@@ -4813,9 +4818,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     ButtonTone.DANGER, this::openNetworkBlocks,
                     !lobbyCommandPending);
         }
-        button(1640f, 55f, 245f, 70f,
-                uppercase(gameText.translate("menu.ajustes")), false,
-                this::openSettings);
+        iconButton(1640f, 55f, 245f, 70f,
+                uppercase(gameText.translate("menu.ajustes")), 3,
+                ButtonTone.NEUTRAL, this::openSettings,
+                !lobbyCommandPending);
         drawSoundControl(1553f, 62f, 55f, 58f, false);
 
     }
@@ -5891,10 +5897,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyConfirmation() {
         hits.clear();
-        String prompt = uppercase(gameText.translate(
-                lobbyConfirmation == LobbyConfirmation.START
-                        ? "ui.seguro_que_quieres_empezar_ya"
-                        : "ui.seguro_que_quieres_salir_ahora"));
+        String prompt = uppercase(gameText.translate(switch (
+                lobbyConfirmation) {
+            case START -> "ui.seguro_que_quieres_empezar_ya";
+            case LEAVE -> "ui.seguro_que_quieres_salir_ahora";
+            case KICK -> "ui.seguro_que_quieres_expulsar_a";
+        }, lobbyConfirmation == LobbyConfirmation.KICK
+                ? lobbyKickTarget : ""));
         GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
                 uppercase(gameText.translate("ui.seguro")), prompt);
         Rectangle cancel = layout.negativeButton();
@@ -5902,11 +5911,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
-                () -> lobbyConfirmation = null, true);
+                this::closeLobbyConfirmation, true);
         themedButton(accept.x, accept.y, accept.width, accept.height,
-                uppercase(gameText.translate(
-                        lobbyConfirmation == LobbyConfirmation.START
-                                ? "ui.a_jugar" : "ui.salir")),
+                uppercase(gameText.translate(switch (lobbyConfirmation) {
+                    case START -> "ui.a_jugar";
+                    case LEAVE -> "ui.salir";
+                    case KICK -> "ui.expulsar_jugador";
+                })),
                 lobbyConfirmation == LobbyConfirmation.START
                         ? ButtonTone.POSITIVE : ButtonTone.DANGER,
                 this::confirmLobbyAction, true);
@@ -6368,9 +6379,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (action == LobbyConfirmation.START) {
             lobbyGameStarting = true;
             submitLobbyCommand(new LobbyCommand.StartGame(), null);
+        } else if (action == LobbyConfirmation.KICK) {
+            kickParticipant(lobbyKickTarget);
+            lobbyKickTarget = "";
         } else {
             submitLobbyCommand(new LobbyCommand.Leave(), this::returnFromLobby);
         }
+    }
+
+    private void closeLobbyConfirmation() {
+        lobbyConfirmation = null;
+        lobbyKickTarget = "";
     }
 
     private void drawLobbyLoadingOverlay() {
@@ -6441,14 +6460,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 segmentW, trackH - 8f, radius - 4f);
     }
 
-    private void kickSelectedParticipant() {
+    private void requestKickSelectedParticipant() {
         LobbyParticipant target = selectedRemoteParticipant(lobby);
         if (target == null) {
             showToast(gameText.translate(
                     "ui.tienes_que_seleccionar_algun_participante"));
             return;
         }
-        submitLobbyCommand(new LobbyCommand.Kick(target.nickname()),
+        lobbyKickTarget = target.nickname();
+        lobbyConfirmation = LobbyConfirmation.KICK;
+    }
+
+    private void kickParticipant(String nickname) {
+        String target = Objects.requireNonNullElse(nickname, "").trim();
+        boolean stillConnected = lobby != null && lobby.participants().stream()
+                .anyMatch(participant -> !participant.local()
+                        && participant.nickname().equals(target));
+        if (!stillConnected) {
+            showToast(gameText.translate(
+                    "ui.tienes_que_seleccionar_algun_participante"));
+            return;
+        }
+        submitLobbyCommand(new LobbyCommand.Kick(target),
                 () -> selectedParticipant = null);
     }
 
@@ -7161,6 +7194,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyCommandPending = false;
         lobbyGameStarting = false;
         lobbyConfirmation = null;
+        lobbyKickTarget = "";
         fingerprintDialog = null;
         lobbyPasswordDialog = false;
         lobbyPasswordDraft = "";
@@ -7248,6 +7282,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugLineCount = 0;
         settingsShortcutCaptureId = null;
         settingsShortcutStatus = "";
+        settingsAutoCallDialog = null;
+        settingsAutoRebuySnapshot = presentationSettings.autoRebuyOnBroke();
         shortcutBindings.beginEdit();
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
         settingsOpenedMsaaSamples = presentationSettings
@@ -7338,12 +7374,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             audioControl.setEnabled(preferenceBoolean("sonidos", true),
                     false);
+            presentationSettings.setAutoRebuyOnBroke(
+                    settingsAutoRebuySnapshot);
             refreshFeltFromSettings();
         }
         settingsSession.close();
         settingsTable = null;
         settingsTableSnapshot = null;
         settingsDiscardConfirmation = false;
+        settingsAutoCallDialog = null;
         activateSurface(settingsReturnSurface);
         syncMusicForSurface();
         settingsRestartNotice = restartNotice;
@@ -7370,7 +7409,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean settingsHavePendingChanges() {
         if (shortcutBindings.hasPendingEdits()
-                || settingsSession.propertiesChanged(initialProperties)) {
+                || settingsSession.propertiesChanged(initialProperties)
+                || presentationSettings.autoRebuyOnBroke()
+                        != settingsAutoRebuySnapshot) {
             return true;
         }
         NewGameTableDraft.Settings current = settingsTable == null
@@ -7423,7 +7464,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     frontendMayEditGlobalCommunicationRules(),
                     GdxAudioDevices.hasCaptureDevices(),
                     audioControl.enabled());
-            case SHORTCUTS -> shortcutBindings.allDefaults();
+            case SHORTCUTS -> shortcutBindings.allDefaults()
+                    && frontendControlSettingsAtDefaults();
             case GAME, DEBUG -> true;
         };
     }
@@ -7436,6 +7478,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case AUDIO -> restoreFrontendAudioDefaults();
             case SHORTCUTS -> {
                 shortcutBindings.resetAllEdits();
+                restoreFrontendControlDefaults();
                 settingsShortcutCaptureId = null;
                 settingsShortcutStatus = "restored";
             }
@@ -8492,15 +8535,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float firstY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                 firstY, y + 14f,
-                firstY + GdxSettingsLayout.ROW_HEIGHT, entries.size(),
+                firstY + GdxSettingsLayout.ROW_HEIGHT,
+                GdxSettingsContract.CONTROL_ROWS + entries.size(),
                 settingsShortcutScroll);
         settingsShortcutScroll = rows.offset();
         for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
-            GdxShortcutBindings.ShortcutEntry entry = entries.get(row);
-            boolean capturing = entry.id().equals(settingsShortcutCaptureId);
             float rowY = rows.rowY(row);
+            float rowX = x + 34f;
+            float rowW = w - 68f;
+            if (row < GdxSettingsContract.CONTROL_ROWS) {
+                drawFrontendControlSetting(row, rowX, rowY, rowW);
+                continue;
+            }
+            GdxShortcutBindings.ShortcutEntry entry = entries.get(
+                    row - GdxSettingsContract.CONTROL_ROWS);
+            boolean capturing = entry.id().equals(settingsShortcutCaptureId);
             GdxSettingsLayout.ShortcutRow shortcut =
-                    GdxSettingsLayout.shortcutRow(x + 34f, rowY, w - 68f);
+                    GdxSettingsLayout.shortcutRow(rowX, rowY, rowW);
             shortcutRow(shortcut,
                     capturing ? uppercase(gameText.translate(
                             "gdx.settings.shortcut.press_key"))
@@ -8523,6 +8574,141 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             + settingsShortcutStatus)), x + w / 2f,
                     y + 62f, color, true, w - 68f);
         }
+    }
+
+    private void drawFrontendControlSetting(int row, float x, float y,
+            float width) {
+        switch (row) {
+            case 0 -> toggle(x, y, width,
+                    settingsGameText("row.auto_buttons"),
+                    preferenceBoolean("auto_action_buttons", false),
+                    () -> togglePreference("auto_action_buttons", false),
+                    true);
+            case 1 -> settingsChoice(x, y, width,
+                    GdxSettingsLayout.ROW_HEIGHT,
+                    settingsGameText("row.auto_call"),
+                    frontendAutoCallValue(), this::openSettingsAutoCallDialog,
+                    preferenceBoolean("auto_action_buttons", false));
+            case 2 -> toggle(x, y, width,
+                    settingsGameText("row.persist_auto"),
+                    preferenceBoolean("auto_action_persist", true),
+                    () -> togglePreference("auto_action_persist", true),
+                    preferenceBoolean("auto_action_buttons", false));
+            case 3 -> toggle(x, y, width,
+                    settingsGameText("row.confirm_auto"),
+                    preferenceBoolean("modo_auto_confirm", true),
+                    () -> togglePreference("modo_auto_confirm", true),
+                    preferenceBoolean("auto_action_buttons", false));
+            case 4 -> toggle(x, y, width,
+                    settingsGameText("row.confirm_actions"),
+                    preferenceBoolean("confirmar_todo", false),
+                    () -> togglePreference("confirmar_todo", false), true);
+            case 5 -> toggle(x, y, width,
+                    settingsGameText("row.auto_rebuy"),
+                    presentationSettings.autoRebuyOnBroke(), () ->
+                            presentationSettings.setAutoRebuyOnBroke(
+                                    !presentationSettings.autoRebuyOnBroke()),
+                    true);
+            default -> { }
+        }
+    }
+
+    private String frontendAutoCallValue() {
+        if (!preferenceBoolean("auto_call_enabled", false)) {
+            return uppercase(gameText.translate("auto_call.desactivado"));
+        }
+        double maximum = preferenceDouble("auto_call_max", 0d);
+        return maximum <= 0d
+                ? uppercase(gameText.translate("auto_call.sin_limite"))
+                : formatBlind(maximum);
+    }
+
+    private boolean frontendControlSettingsAtDefaults() {
+        return !preferenceBoolean("auto_action_buttons", false)
+                && preferenceBoolean("auto_action_persist", true)
+                && preferenceBoolean("modo_auto_confirm", true)
+                && !preferenceBoolean("confirmar_todo", false)
+                && !preferenceBoolean("auto_call_enabled", false)
+                && Math.abs(preferenceDouble("auto_call_max", 0d)) < 0.0001d
+                && !presentationSettings.autoRebuyOnBroke();
+    }
+
+    private void restoreFrontendControlDefaults() {
+        initialProperties.setProperty("auto_action_buttons", "false");
+        initialProperties.setProperty("auto_action_persist", "true");
+        initialProperties.setProperty("modo_auto_confirm", "true");
+        initialProperties.setProperty("confirmar_todo", "false");
+        initialProperties.setProperty("auto_call_enabled", "false");
+        initialProperties.setProperty("auto_call_max", "0");
+        presentationSettings.setAutoRebuyOnBroke(false);
+    }
+
+    private void openSettingsAutoCallDialog() {
+        settingsAutoCallDialog = GdxTableDialog.autoCall(
+                preferenceBoolean("auto_call_enabled", false),
+                preferenceDouble("auto_call_max", 0d), gameText);
+        clearActiveField();
+    }
+
+    private void closeSettingsAutoCallDialog(boolean save) {
+        GdxTableDialog dialog = settingsAutoCallDialog;
+        if (dialog == null) return;
+        if (save) {
+            initialProperties.setProperty("auto_call_enabled",
+                    Boolean.toString(dialog.optionEnabled()));
+            initialProperties.setProperty("auto_call_max",
+                    Double.toString(dialog.autoCallAmount()));
+        }
+        settingsAutoCallDialog = null;
+    }
+
+    private void drawSettingsAutoCallDialog() {
+        GdxTableDialog dialog = settingsAutoCallDialog;
+        if (dialog == null) return;
+        hits.clear();
+        secondaryHits.clear();
+        float panelW = 1040f;
+        float panelH = 580f;
+        float panelX = (WIDTH - panelW) / 2f;
+        float panelY = (HEIGHT - panelH) / 2f;
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
+                GOLD, 1f);
+        GdxTableDialogLayout.AutoCall layout =
+                GdxTableDialogLayout.autoCall(panelX, panelY, panelW);
+        Rectangle title = GdxTableDialogLayout.title(panelX, panelY,
+                panelW, panelH);
+        textFit(headingFont, uppercase(dialog.title()), title.x,
+                title.y + 33f, GOLD, false, title.width);
+        textFit(smallFont, dialog.message(), layout.detail().x
+                + layout.detail().width / 2f, layout.detail().y + 30f,
+                Color.WHITE, true, layout.detail().width);
+        toggle(layout.enabled().x, layout.enabled().y,
+                layout.enabled().width,
+                uppercase(dialog.optionEnabled()
+                        ? gameText.translate("auto_call.activado")
+                        : gameText.translate("auto_call.desactivado")),
+                dialog.optionEnabled(), dialog::toggleOptionEnabled, true);
+        toggle(layout.noLimit().x, layout.noLimit().y,
+                layout.noLimit().width,
+                uppercase(gameText.translate("auto_call.sin_limite")),
+                dialog.noLimit(), dialog::toggleNoLimit,
+                dialog.optionEnabled());
+        GdxSettingsLayout.StepperRow amount = layout.amount();
+        settingsStepper(amount.bounds().x, amount.bounds().y,
+                amount.bounds().width, amount.bounds().height,
+                uppercase(settingsGameText("value.maximum")),
+                dialog.amountText(), () -> dialog.changeAmount(-1),
+                () -> dialog.changeAmount(1),
+                dialog.optionEnabled() && !dialog.noLimit());
+        float buttonY = panelY + 34f;
+        themedButton(panelX + 42f, buttonY, 230f, 64f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> closeSettingsAutoCallDialog(false), true);
+        themedButton(panelX + panelW - 272f, buttonY, 230f, 64f,
+                uppercase(gameText.translate("ui.aceptar")),
+                ButtonTone.FEATURED,
+                () -> closeSettingsAutoCallDialog(true), true);
     }
 
     private void drawDebugSettings(float x, float y, float w, float h) {
@@ -8627,6 +8813,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean preferenceBoolean(String key, boolean fallback) {
         return Boolean.parseBoolean(initialProperties.getProperty(key,
                 Boolean.toString(fallback)));
+    }
+
+    private double preferenceDouble(String key, double fallback) {
+        try {
+            return Double.parseDouble(initialProperties.getProperty(key,
+                    Double.toString(fallback)));
+        } catch (NumberFormatException invalid) {
+            return fallback;
+        }
     }
 
     private float masterVolume() {
@@ -10361,16 +10556,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void panel(float x, float y, float w, float h, String title) {
         outerBox(x, y, w, h, LINE, PANEL);
-        shapes.rect(x + 24f, y + h * 0.56f, w - 48f, h * 0.33f,
-                new Color(CYAN.r, CYAN.g, CYAN.b, 0.008f),
-                new Color(CYAN.r, CYAN.g, CYAN.b, 0.008f),
-                new Color(CYAN.r, CYAN.g, CYAN.b, 0.052f),
-                new Color(CYAN.r, CYAN.g, CYAN.b, 0.052f));
-        shapes.rect(x + 24f, y + 18f, w - 48f, h * 0.18f,
-                new Color(0f, 0f, 0f, 0.075f),
-                new Color(0f, 0f, 0f, 0.075f),
-                new Color(0f, 0f, 0f, 0f),
-                new Color(0f, 0f, 0f, 0f));
         shapes.setColor(new Color(0x36d9ff70));
         shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
         if (!title.isBlank()) {
@@ -11130,10 +11315,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Color iconColor = enabled ? (hover ? CYAN : GOLD) : DISABLED;
         drawBotIcon(x + 38f, y + h / 2f, iconColor,
                 new Color(0x0b1424ff));
-        Color divider = new Color(iconColor);
-        divider.a = enabled ? 0.28f : 0.18f;
-        shapes.setColor(divider);
-        shapes.rect(x + 76f, y + 14f, 2f, h - 28f);
     }
 
     private void lobbyPasswordButton(float x, float y, float w, float h,
@@ -11149,10 +11330,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float centerX = x + 31f;
         float centerY = y + h / 2f;
         drawPasswordLock(centerX, centerY, iconColor);
-        Color divider = new Color(iconColor);
-        divider.a = enabled ? 0.28f : 0.18f;
-        shapes.setColor(divider);
-        shapes.rect(x + 58f, y + 10f, 2f, h - 20f);
         crispButtonTextInBox(actionFont, label, x + 72f, y,
                 w - 84f, h, GdxUiButtonStyle.labelColor(
                         GdxUiButtonStyle.Tone.NEUTRAL, enabled));
@@ -11280,11 +11457,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float iconY = y + h / 2f;
         shapes.setColor(color);
         drawMainMenuIcon(icon, iconX, iconY, color);
-        Color divider = new Color(color);
-        divider.a = !enabled ? 0.18f : tone == ButtonTone.NEUTRAL
-                ? 0.24f + (hover ? 0.20f : 0f) : 0.34f;
-        shapes.setColor(divider);
-        shapes.rect(x + 82f, y + 17f, 2f, h - 34f);
     }
 
     private void drawMainMenuIcon(int icon, float cx, float cy, Color color) {
@@ -11312,17 +11484,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 roundedRect(cx + 12f, cy - 20f, 10f, 31f, 3f);
             }
             case 3 -> {
-                // Settings cog.
-                shapes.circle(cx, cy, 19f, 40);
-                Color cutout = new Color(0x0b1729ff);
-                shapes.setColor(cutout);
-                shapes.circle(cx, cy, 8f, 32);
-                shapes.setColor(color);
-                for (int i = 0; i < 8; i++) {
-                    double angle = i * Math.PI / 4d;
-                    shapes.circle(cx + MathUtils.cos((float) angle) * 22f,
-                            cy + MathUtils.sin((float) angle) * 22f, 4f, 16);
-                }
+                GdxUiIconRenderer.draw(shapes,
+                        GdxUiIconRenderer.Icon.SETTINGS,
+                        cx, cy, 56f, color, 1f);
             }
             case 4 -> {
                 // Information mark.
@@ -11333,21 +11497,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 roundedRect(cx - 3f, cy - 13f, 6f, 17f, 3f);
             }
             case 5 -> {
-                // Exit door and arrow.
-                roundedRect(cx - 20f, cy - 22f, 10f, 44f, 4f);
-                shapes.rect(cx - 10f, cy - 4f, 27f, 8f);
-                shapes.triangle(cx + 24f, cy,
-                        cx + 11f, cy + 13f, cx + 11f, cy - 13f);
+                GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.EXIT,
+                        cx, cy, 56f, color, 1f);
             }
             case 6 -> {
-                // Screenshot viewer camera.
-                roundedRect(cx - 25f, cy - 17f, 50f, 34f, 7f);
-                roundedRect(cx - 11f, cy + 16f, 22f, 7f, 3f);
-                Color cutout = new Color(0x0b1729ff);
-                shapes.setColor(cutout);
-                shapes.circle(cx, cy, 10f, 32);
-                shapes.setColor(color);
-                shapes.circle(cx, cy, 4.5f, 24);
+                GdxUiIconRenderer.draw(shapes,
+                        GdxUiIconRenderer.Icon.CAMERA,
+                        cx, cy, 56f, color, 1f);
             }
             case 7 -> {
                 // Temporary connection blocks.
@@ -11541,33 +11697,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void outerBox(float x, float y, float w, float h, Color border,
             Color fill) {
-        outerBox(x, y, w, h, border, fill, true);
-    }
-
-    private void flatOuterBox(float x, float y, float w, float h,
-            Color border, Color fill) {
-        outerBox(x, y, w, h, border, fill, false);
-    }
-
-    private void outerBox(float x, float y, float w, float h, Color border,
-            Color fill, boolean sheen) {
         shapes.setColor(fill);
         roundedRect(x, y, w, h, 14f);
         shapes.setColor(border);
         roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f,
                 13f, 2f);
-        if (sheen && h <= 90f && w > 90f) {
-            float inset = 14f;
-            float sheenBottom = y + h * 0.54f;
-            float sheenTop = y + h - 9f;
-            shapes.rect(x + inset, sheenBottom, w - inset * 2f,
-                    sheenTop - sheenBottom,
-                    BOX_SHEEN_BOTTOM, BOX_SHEEN_BOTTOM,
-                    BOX_SHEEN_TOP, BOX_SHEEN_TOP);
-            shapes.rect(x + inset, y + 8f, w - inset * 2f, h * 0.18f,
-                    BOX_SHADE_BOTTOM, BOX_SHADE_BOTTOM,
-                    BOX_SHADE_TOP, BOX_SHADE_TOP);
-        }
+    }
+
+    private void flatOuterBox(float x, float y, float w, float h,
+            Color border, Color fill) {
+        outerBox(x, y, w, h, border, fill);
     }
 
     private void roundedRectOutline(float x, float y, float w, float h,
@@ -12423,6 +12562,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsRestartNotice = false;
                 return true;
             }
+            if (surface == Surface.SETTINGS
+                    && settingsAutoCallDialog != null) {
+                closeSettingsAutoCallDialog(false);
+                return true;
+            }
             if (surface == Surface.SCREENSHOTS) {
                 if (screenshotDeleteConfirmation) {
                     screenshotDeleteConfirmation = false;
@@ -12519,7 +12663,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 cancelOrReturnToMenu();
             } else if (surface == Surface.LOBBY) {
                 if (lobbyConfirmation != null) {
-                    lobbyConfirmation = null;
+                    closeLobbyConfirmation();
                 } else {
                     lobbyConfirmation = LobbyConfirmation.LEAVE;
                 }
@@ -12675,6 +12819,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && (voiceNoteDeleteConfirmation != null
                 || voiceNotesPurgeConfirmation)) {
             if (!voiceNotesLoading) confirmVoiceNoteDeletion();
+            return true;
+        }
+        if (surface == Surface.SETTINGS && settingsAutoCallDialog != null) {
+            closeSettingsAutoCallDialog(true);
             return true;
         }
         if (surface == Surface.SETTINGS && settingsDiscardConfirmation) {
@@ -13264,7 +13412,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float offset;
         GdxSettingsContract.Section section = settingsSession.section();
         if (section == GdxSettingsContract.Section.SHORTCUTS) {
-            totalRows = shortcutBindings.editableEntries(gameText).size();
+            totalRows = GdxSettingsContract.CONTROL_ROWS
+                    + shortcutBindings.editableEntries(gameText).size();
             offset = settingsShortcutScroll;
         } else if (section == GdxSettingsContract.Section.AUDIO) {
             int pageIndex = MathUtils.clamp(settingsAudioPage, 0,
@@ -13406,7 +13555,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum LobbyConfirmation {
-        START, LEAVE
+        START, LEAVE, KICK
     }
 
     private enum FingerprintMode {

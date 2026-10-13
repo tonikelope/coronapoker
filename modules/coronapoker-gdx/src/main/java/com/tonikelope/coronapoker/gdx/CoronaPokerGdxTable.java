@@ -335,7 +335,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
     /** AUTO/action preferences shown before the editable key bindings. */
-    private static final int SETTINGS_CONTROL_ROWS = 6;
     private static final float SETTINGS_DEBUG_LINE_HEIGHT = 25f;
     private static final float GAME_LOG_LINE_HEIGHT = 31f;
     private static final float LOCAL_HUD_DANGER_THRESHOLD = 0.25f;
@@ -7406,23 +7405,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static int hudTarget(float x, float y, float worldWidth) {
+        LocalActionLayout actions = localActionLayout(worldWidth);
+        if (actions.fold().contains(x, y)) return 1;
+        if (actions.call().contains(x, y)) return 2;
+        if (actions.minus().contains(x, y)) return 3;
+        if (actions.bet().contains(x, y)) return 5;
+        if (actions.plus().contains(x, y)) return 4;
+        if (actions.allIn().contains(x, y)) return 6;
+        return 0;
+    }
+
+    static LocalActionLayout localActionLayout(float worldWidth) {
         LocalHudLayout layout = localHudLayout(worldWidth);
         float actionY = layout.actionY();
         float actionHeight = layout.actionHeight();
         float gap = 12f;
         float foldX = layout.actionX();
-        float checkX = foldX + 150f + gap;
-        float minusX = checkX + 200f + gap;
+        float minusX = foldX + 150f + gap;
         float betX = minusX + 58f;
         float plusX = betX + 222f;
         float allInX = plusX + 52f + gap;
-        if (contains(x, y, foldX, actionY, 150f, actionHeight)) return 1;
-        if (contains(x, y, checkX, actionY, 200f, actionHeight)) return 2;
-        if (contains(x, y, minusX, actionY, 52f, actionHeight)) return 3;
-        if (contains(x, y, betX, actionY, 216f, actionHeight)) return 5;
-        if (contains(x, y, plusX, actionY, 52f, actionHeight)) return 4;
-        if (contains(x, y, allInX, actionY, 150f, actionHeight)) return 6;
-        return 0;
+        float callX = allInX + 150f + gap;
+        return new LocalActionLayout(
+                new Rectangle(foldX, actionY, 150f, actionHeight),
+                new Rectangle(minusX, actionY, 52f, actionHeight),
+                new Rectangle(betX, actionY, 216f, actionHeight),
+                new Rectangle(plusX, actionY, 52f, actionHeight),
+                new Rectangle(allInX, actionY, 150f, actionHeight),
+                new Rectangle(callX, actionY, 200f, actionHeight));
     }
 
     static PreActionHudLayout preActionHudLayout(float worldWidth) {
@@ -14347,30 +14357,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLocalHud(float width, float height) {
-        // Functional parity with CoronaPoker's current LocalPlayer controls, laid
-        // out horizontally: NO IR, PASAR/IR, numeric bet spinner, APOSTAR, ALL IN.
+        // Keep the committing IR/PASAR action at the far right of the row so
+        // it is visually separated from NO IR and matches the requested action
+        // flow: NO IR, amount, ALL IN, IR.
         LocalHudLayout layout = localHudLayout(width);
+        LocalActionLayout actions = localActionLayout(width);
         float hudWidth = layout.width();
         float hudX = layout.x();
         float hudY = layout.y();
         float hudHeight = layout.height();
         Rectangle stackBounds = layout.stackBounds();
         Rectangle investedBounds = layout.investedBounds();
-        float gap = 12f;
-        float foldWidth = 150f;
-        float checkWidth = 200f;
-        float stepperWidth = 52f;
-        float betWidth = 216f;
-        float betInnerGap = 6f;
-        float allInWidth = 150f;
+        float foldWidth = actions.fold().width;
+        float checkWidth = actions.call().width;
+        float stepperWidth = actions.minus().width;
+        float betWidth = actions.bet().width;
+        float allInWidth = actions.allIn().width;
         float actionY = layout.actionY();
         float actionHeight = layout.actionHeight();
-        float foldX = layout.actionX();
-        float checkX = foldX + foldWidth + gap;
-        float minusX = checkX + checkWidth + gap;
-        float betX = minusX + stepperWidth + betInnerGap;
-        float plusX = betX + betWidth + betInnerGap;
-        float allInX = plusX + stepperWidth + gap;
+        float foldX = actions.fold().x;
+        float checkX = actions.call().x;
+        float minusX = actions.minus().x;
+        float betX = actions.bet().x;
+        float plusX = actions.plus().x;
+        float allInX = actions.allIn().x;
         PreActionHudLayout preActionHud = preActionHudLayout(width);
         boolean localActionSubmissionPending
                 = hasPendingLocalActionSubmission();
@@ -14867,7 +14877,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float statusRight = preActions
                 ? preActionStatus.x + preActionStatus.width
                 : voluntaryShow ? allInX - 12f
-                        : allInX + allInWidth - 24f;
+                        : checkX + checkWidth - 24f;
         float statusWidth = Math.max(1f, statusRight - statusX);
         if (voluntaryShow) {
             drawHudActionContent(
@@ -15668,7 +15678,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             List<GdxShortcutBindings.ShortcutEntry> entries
                     = shortcutBindings.editableEntries(gameText);
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                    firstRowY, SETTINGS_CONTROL_ROWS + entries.size(),
+                    firstRowY, GdxSettingsContract.CONTROL_ROWS
+                            + entries.size(),
                     shortcutScroll);
             shortcutScroll = rows.offset();
             Rectangle rowViewport = settingsRowsViewport(content, firstRowY);
@@ -15729,9 +15740,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 });
                 return;
             }
-            for (int row = Math.max(SETTINGS_CONTROL_ROWS,
+            for (int row = Math.max(GdxSettingsContract.CONTROL_ROWS,
                     rows.firstIndex()); row < rows.lastExclusive(); row++) {
-                int entryIndex = row - SETTINGS_CONTROL_ROWS;
+                int entryIndex = row - GdxSettingsContract.CONTROL_ROWS;
                 GdxSettingsLayout.ShortcutRow shortcut =
                         GdxSettingsLayout.shortcutRow(contentX,
                                 rows.rowY(row), rowW);
@@ -16316,7 +16327,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             offset = settingsAppearanceScroll;
         } else if (settingsSection()
                 == GdxSettingsContract.Section.SHORTCUTS) {
-            total = SETTINGS_CONTROL_ROWS
+            total = GdxSettingsContract.CONTROL_ROWS
                     + shortcutBindings.editableEntries(gameText).size();
             offset = shortcutScroll;
         } else {
@@ -19156,7 +19167,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     = shortcutBindings.editableEntries(gameText);
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(
                     currentSettingsContent(), firstY,
-                    SETTINGS_CONTROL_ROWS + entries.size(), shortcutScroll);
+                    GdxSettingsContract.CONTROL_ROWS + entries.size(),
+                    shortcutScroll);
             shortcutScroll = rows.offset();
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
@@ -19187,7 +19199,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             alpha);
                 } else {
                     GdxShortcutBindings.ShortcutEntry entry = entries.get(
-                            row - SETTINGS_CONTROL_ROWS);
+                            row - GdxSettingsContract.CONTROL_ROWS);
                     drawSettingsShortcutShape(x, rows.rowY(row), width,
                             entry.id().equals(shortcutCaptureId), alpha);
                 }
@@ -19783,7 +19795,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     = shortcutBindings.editableEntries(gameText);
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(
                     currentSettingsContent(), firstY,
-                    SETTINGS_CONTROL_ROWS + entries.size(), shortcutScroll);
+                    GdxSettingsContract.CONTROL_ROWS + entries.size(),
+                    shortcutScroll);
             shortcutScroll = rows.offset();
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
@@ -19814,7 +19827,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             tableRebuyAllowed, alpha);
                 } else {
                     GdxShortcutBindings.ShortcutEntry entry = entries.get(
-                            row - SETTINGS_CONTROL_ROWS);
+                            row - GdxSettingsContract.CONTROL_ROWS);
                     boolean capturing = entry.id().equals(shortcutCaptureId);
                     drawSettingsShortcutText(x, rows.rowY(row), width,
                             capturing ? uppercase(gameText.translate(
@@ -23024,6 +23037,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle bounds() {
             return new Rectangle(x, y, width, height);
         }
+    }
+
+    static record LocalActionLayout(Rectangle fold, Rectangle minus,
+            Rectangle bet, Rectangle plus, Rectangle allIn, Rectangle call) {
     }
 
     static record PreActionHudLayout(Rectangle bounds, Rectangle fold,

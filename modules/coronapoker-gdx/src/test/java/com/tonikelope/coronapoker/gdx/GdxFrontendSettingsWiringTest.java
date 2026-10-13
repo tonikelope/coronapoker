@@ -184,6 +184,52 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void menuLobbyAndLiveControlsShareTheSameSixActionRows()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertEquals(6, GdxSettingsContract.CONTROL_ROWS);
+        assertTrue(frontend.contains(
+                "GdxSettingsContract.CONTROL_ROWS + entries.size()"));
+        assertTrue(table.contains(
+                "GdxSettingsContract.CONTROL_ROWS + entries.size()"));
+        for (String key : List.of("auto_action_buttons",
+                "auto_call_enabled", "auto_call_max",
+                "auto_action_persist", "modo_auto_confirm",
+                "confirmar_todo")) {
+            assertTrue(frontend.contains("\"" + key + "\""), key);
+            assertTrue(table.contains("\"" + key + "\""), key);
+            assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key),
+                    key + " must participate in Cancel/Save transactions");
+        }
+        assertTrue(frontend.contains(
+                "presentationSettings.autoRebuyOnBroke()"));
+        assertTrue(table.contains("presentationSettings.autoRebuyOnBroke()"));
+    }
+
+    @Test
+    void iconButtonsHaveNoDecorativeSeparatorAndUseVectorKeyIcons()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf("private void drawButtonIconColumn(");
+        int end = frontend.indexOf("private void drawMainMenuIcon(", start);
+        assertTrue(start >= 0 && end > start);
+        String iconColumn = frontend.substring(start, end);
+        assertFalse(iconColumn.contains("shapes.rect("),
+                "the old vertical separator must not return");
+        assertTrue(frontend.contains("GdxUiIconRenderer.Icon.SETTINGS"));
+        assertTrue(frontend.contains("GdxUiIconRenderer.Icon.EXIT"));
+        assertTrue(frontend.contains("GdxUiIconRenderer.Icon.CAMERA"));
+    }
+
+    @Test
     void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
         assertEquals(1f, GdxFrontendScreen.fittedTextScale(
                 100f, 120f, 0.72f));

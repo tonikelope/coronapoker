@@ -1,6 +1,10 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,5 +56,23 @@ final class GdxUiButtonStyleTest {
                 GdxUiButtonStyle.minimumLabelHorizontalInset(220f));
         assertEquals(192f,
                 GdxUiButtonStyle.nativeLabelContentWidth(220f));
+    }
+
+    @Test
+    void roundedSurfacesDoNotReintroduceUnclippedRectangularNoise()
+            throws Exception {
+        String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
+        String buttons = Files.readString(Path.of(base
+                + "GdxUiButtonStyle.java"), StandardCharsets.UTF_8);
+        String settings = Files.readString(Path.of(base
+                + "GdxSettingsStyle.java"), StandardCharsets.UTF_8);
+        String frontend = Files.readString(Path.of(base
+                + "GdxFrontendScreen.java"), StandardCharsets.UTF_8);
+
+        assertFalse(buttons.contains("GRADIENT_"));
+        assertFalse(buttons.contains("gradient(shapes"));
+        assertFalse(settings.contains("GRADIENT_"));
+        assertFalse(frontend.contains("BOX_SHEEN"));
+        assertFalse(frontend.contains("BOX_SHADE"));
     }
 }

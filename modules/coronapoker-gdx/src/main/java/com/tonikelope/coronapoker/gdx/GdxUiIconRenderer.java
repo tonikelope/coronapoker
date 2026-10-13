@@ -127,18 +127,20 @@ final class GdxUiIconRenderer {
 
     private static void drawSettings(ShapeRenderer shapes, float cx,
             float cy, float size) {
-        float gearRadius = size * 0.29f;
-        float gearStroke = size * 0.115f;
-        float toothRoot = size * 0.31f;
+        // Broad square teeth merged into a heavy annulus read as a mechanical
+        // cog even at toolbar size; vector geometry stays crisp at high DPI.
+        float gearRadius = size * 0.285f;
+        float gearStroke = size * 0.145f;
+        float toothRoot = size * 0.285f;
         float toothTip = size * 0.46f;
-        float rootHalfWidth = size * 0.095f;
-        float tipHalfWidth = size * 0.075f;
+        float rootHalfWidth = size * 0.090f;
+        float tipHalfWidth = size * 0.090f;
         for (int tooth = 0; tooth < 8; tooth++) {
             drawGearTooth(shapes, cx, cy, tooth * MathUtils.PI / 4f,
                     toothRoot, toothTip, rootHalfWidth, tipHalfWidth);
         }
         ring(shapes, cx, cy, gearRadius, gearStroke, CIRCLE_SEGMENTS);
-        ring(shapes, cx, cy, size * 0.105f, size * 0.070f, 28);
+        ring(shapes, cx, cy, size * 0.105f, size * 0.058f, 32);
     }
 
     private static void drawGearTooth(ShapeRenderer shapes, float cx,

@@ -73,10 +73,6 @@ final class GdxSettingsStyle {
             TOGGLE_KNOB_ON_RGBA);
     private static final Color TOGGLE_TRACK_SCRATCH = new Color();
     private static final Color TOGGLE_KNOB_SCRATCH = new Color();
-    private static final Color GRADIENT_BOTTOM_LEFT = new Color();
-    private static final Color GRADIENT_BOTTOM_RIGHT = new Color();
-    private static final Color GRADIENT_TOP_RIGHT = new Color();
-    private static final Color GRADIENT_TOP_LEFT = new Color();
 
     static final float TOGGLE_WIDTH = 66f;
     static final float TOGGLE_HEIGHT = 38f;
@@ -200,27 +196,8 @@ final class GdxSettingsStyle {
         roundedRectOutline(shapes, x + 1f, y + 1f,
                 width - 2f, height - 2f,
                 Math.min(13f, height / 2f - 1f), 2f);
-        if (height <= 90f && width > 90f) {
-            float inset = 14f;
-            float sheenBottom = y + height * 0.54f;
-            float sheenTop = y + height - 9f;
-            GRADIENT_BOTTOM_LEFT.set(1f, 1f, 1f, 0.018f * alpha);
-            GRADIENT_BOTTOM_RIGHT.set(GRADIENT_BOTTOM_LEFT);
-            GRADIENT_TOP_RIGHT.set(1f, 1f, 1f, 0.115f * alpha);
-            GRADIENT_TOP_LEFT.set(GRADIENT_TOP_RIGHT);
-            shapes.rect(x + inset, sheenBottom, width - inset * 2f,
-                    sheenTop - sheenBottom,
-                    GRADIENT_BOTTOM_LEFT, GRADIENT_BOTTOM_RIGHT,
-                    GRADIENT_TOP_RIGHT, GRADIENT_TOP_LEFT);
-            GRADIENT_BOTTOM_LEFT.set(0f, 0f, 0f, 0.11f * alpha);
-            GRADIENT_BOTTOM_RIGHT.set(GRADIENT_BOTTOM_LEFT);
-            GRADIENT_TOP_RIGHT.set(0f, 0f, 0f, 0.01f * alpha);
-            GRADIENT_TOP_LEFT.set(GRADIENT_TOP_RIGHT);
-            shapes.rect(x + inset, y + 8f, width - inset * 2f,
-                    height * 0.18f,
-                    GRADIENT_BOTTOM_LEFT, GRADIENT_BOTTOM_RIGHT,
-                    GRADIENT_TOP_RIGHT, GRADIENT_TOP_LEFT);
-        }
+        // Settings rows share the clean button material: no unmasked
+        // rectangular sheen or shade bands inside a rounded container.
     }
 
     static void drawToggle(ShapeRenderer shapes, float x, float y,

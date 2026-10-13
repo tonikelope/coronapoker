@@ -27,10 +27,6 @@ final class GdxUiButtonStyle {
     private static final Color FEATURED_PRESSED_FILL = new Color(0x091827f2);
     private static final Color NEUTRAL_FILL = new Color(0x0b1729c7);
     private static final Color NEUTRAL_PRESSED_FILL = new Color(0x07111fd9);
-    private static final Color GRADIENT_BOTTOM_LEFT = new Color();
-    private static final Color GRADIENT_BOTTOM_RIGHT = new Color();
-    private static final Color GRADIENT_TOP_RIGHT = new Color();
-    private static final Color GRADIENT_TOP_LEFT = new Color();
     private static final Color CUSTOM_SURFACE = new Color();
     private static final Color RESOLVED_ACCENT = new Color();
     private static final Color RESOLVED_PALETTE_ACCENT = new Color();
@@ -144,25 +140,10 @@ final class GdxUiButtonStyle {
                     width - 2f, height - 2f, 13f, 2f);
         }
 
-        // A continuous glass bevel restores volume without the decorative
-        // top bars that previously made FEATURED and regular buttons look as
-        // if they came from different skins.
-        float inset = Math.min(9f, Math.max(4f, height * 0.12f));
-        float innerWidth = Math.max(0f, width - inset * 2f);
-        float innerHeight = Math.max(0f, height - inset * 2f);
-        if (innerWidth > 0f && innerHeight > 0f) {
-            float split = innerHeight * 0.46f;
-            gradient(shapes, x + inset, y + inset, innerWidth, split,
-                    0f, 0f, 0f,
-                    (pressed ? 0.18f : 0.13f) * alpha,
-                    0f, 0f, 0f, 0.015f * alpha);
-            gradient(shapes, x + inset, y + inset + split,
-                    innerWidth, innerHeight - split,
-                    1f, 1f, 1f, 0.012f * alpha,
-                    1f, 1f, 1f,
-                    ((pressed ? 0.055f : 0.10f) + 0.03f * hover) * alpha);
-        }
-
+        // Keep every layer inside the rounded silhouette. Rectangular sheen
+        // bands cannot be clipped by ShapeRenderer and remain visible as
+        // blocks over compact HUD controls, so depth comes exclusively from
+        // the fill, semantic rim and rounded inner keyline.
         if (borderVisible) {
             shapes.setColor(1f, 1f, 1f, 0.07f * alpha);
             roundedRectOutline(shapes, x + 5f, y + 5f,
@@ -209,19 +190,6 @@ final class GdxUiButtonStyle {
                     ? FEATURED_PRESSED_FILL : FEATURED_FILL;
             case NEUTRAL -> pressed ? NEUTRAL_PRESSED_FILL : NEUTRAL_FILL;
         };
-    }
-
-    private static void gradient(ShapeRenderer shapes, float x, float y,
-            float width, float height, float red, float green, float blue,
-            float bottomAlpha, float topRed, float topGreen, float topBlue,
-            float topAlpha) {
-        GRADIENT_BOTTOM_LEFT.set(red, green, blue, bottomAlpha);
-        GRADIENT_BOTTOM_RIGHT.set(red, green, blue, bottomAlpha);
-        GRADIENT_TOP_RIGHT.set(topRed, topGreen, topBlue, topAlpha);
-        GRADIENT_TOP_LEFT.set(topRed, topGreen, topBlue, topAlpha);
-        shapes.rect(x, y, width, height,
-                GRADIENT_BOTTOM_LEFT, GRADIENT_BOTTOM_RIGHT,
-                GRADIENT_TOP_RIGHT, GRADIENT_TOP_LEFT);
     }
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,

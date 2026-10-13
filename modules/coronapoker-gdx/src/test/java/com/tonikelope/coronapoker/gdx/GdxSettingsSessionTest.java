@@ -115,16 +115,34 @@ final class GdxSettingsSessionTest {
         Properties properties = new Properties();
         properties.setProperty("baraja", "goliat");
         properties.setProperty("shortcut.pause", "ALT+P");
+        properties.setProperty("auto_action_buttons", "false");
+        properties.setProperty("auto_action_persist", "true");
+        properties.setProperty("modo_auto_confirm", "true");
+        properties.setProperty("confirmar_todo", "false");
+        properties.setProperty("auto_call_enabled", "false");
+        properties.setProperty("auto_call_max", "0");
         GdxSettingsSession session = new GdxSettingsSession();
         session.begin(GdxSettingsSession.Context.LIVE_TABLE, properties);
 
         properties.setProperty("baraja", "goliat4");
         properties.setProperty("shortcut.pause", "P");
+        properties.setProperty("auto_action_buttons", "true");
+        properties.setProperty("auto_action_persist", "false");
+        properties.setProperty("modo_auto_confirm", "false");
+        properties.setProperty("confirmar_todo", "true");
+        properties.setProperty("auto_call_enabled", "true");
+        properties.setProperty("auto_call_max", "4.5");
         assertTrue(session.propertiesChanged(properties));
         session.restore(properties);
         assertFalse(session.propertiesChanged(properties));
         assertEquals("goliat", properties.getProperty("baraja"));
         assertEquals("ALT+P", properties.getProperty("shortcut.pause"));
+        assertEquals("false", properties.getProperty("auto_action_buttons"));
+        assertEquals("true", properties.getProperty("auto_action_persist"));
+        assertEquals("true", properties.getProperty("modo_auto_confirm"));
+        assertEquals("false", properties.getProperty("confirmar_todo"));
+        assertEquals("false", properties.getProperty("auto_call_enabled"));
+        assertEquals("0", properties.getProperty("auto_call_max"));
 
         session.close();
         assertFalse(session.open());

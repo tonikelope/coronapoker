@@ -22,6 +22,8 @@ final class GdxSettingsContract {
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 6;
+    /** AUTO/action rows rendered before the editable shortcut bindings. */
+    static final int CONTROL_ROWS = 6;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";

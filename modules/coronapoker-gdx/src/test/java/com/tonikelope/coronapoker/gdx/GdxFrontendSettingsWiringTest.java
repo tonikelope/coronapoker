@@ -216,11 +216,22 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(summary.contains("GdxUiIconRenderer.draw(shapes,"));
         assertTrue(summary.contains("FINAL_NAV_ICONS[index]"));
         assertTrue(summary.contains("GdxUiIconRenderer.Icon.CAMERA"));
+        assertTrue(summary.contains("drawFinalNavigationLabel("),
+                "final navigation must not apply button padding twice");
+        assertTrue(table.contains("action == FastAccessAction.SETTINGS"));
         assertFalse(table.contains("private Texture finalLogIcon;"),
                 "a 24 px log PNG must never be enlarged in the final header");
         assertFalse(table.contains("private Texture finalScreenshotIcon;"));
         assertTrue(table.contains("GdxUiIconRenderer.Icon.SETTINGS"),
                 "the 24 px quick-settings PNG also needs vector geometry");
+
+        String iconRenderer = Files.readString(Path.of("src/main/java/com/"
+                + "tonikelope/coronapoker/gdx/GdxUiIconRenderer.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(iconRenderer.contains("drawGearTooth("),
+                "settings must use a real vector cog silhouette");
+        assertFalse(iconRenderer.contains("MathUtils.random"),
+                "toolbar artwork must stay deterministic between frames");
     }
 
     @Test

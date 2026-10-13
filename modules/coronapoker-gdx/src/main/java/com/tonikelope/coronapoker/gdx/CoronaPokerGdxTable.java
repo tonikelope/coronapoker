@@ -171,6 +171,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxUiIconRenderer.Icon.STATISTICS,
         GdxUiIconRenderer.Icon.CONTINUE
     };
+    private static final float FINAL_NAV_ICON_CENTER_INSET = 23f;
+    private static final float FINAL_NAV_ICON_SIZE = 28f;
+    private static final float FINAL_NAV_LABEL_LEFT_INSET = 41f;
+    private static final float FINAL_NAV_LABEL_RIGHT_INSET = 4f;
     private static final String[] HAND_TRANSLATION_KEYS = {
         "hand.high_card", "hand.one_pair", "hand.two_pair",
         "hand.three_of_a_kind", "hand.straight", "hand.flush",
@@ -6545,9 +6549,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int fastButtonResourceIndex(int index) {
-        return switch (visibleFastAccessActionAt(index)) {
-            case SETTINGS, CHAT, VOICE, IMAGE, REBUY, GAME_LOG, SCREENSHOTS,
-                    FULLSCREEN -> index;
+        return fastAccessResourceIndex(visibleFastAccessActionAt(index));
+    }
+
+    static int fastAccessResourceIndex(FastAccessAction action) {
+        return switch (action) {
+            case SETTINGS -> 0;
+            case CHAT -> 1;
+            case VOICE -> 2;
+            case IMAGE -> 3;
+            case REBUY -> 4;
+            case GAME_LOG -> 5;
+            case SCREENSHOTS -> 6;
+            case FULLSCREEN -> 7;
             case STOP -> 8;
             case EXIT -> 9;
             case BLOCKS, NONE -> -1;
@@ -21557,6 +21571,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 crispButtonText.text(), x, y, width, height, color, alpha);
     }
 
+    private void drawFinalNavigationLabel(String text, Rectangle button,
+            Color color, float alpha) {
+        float x = button.x + FINAL_NAV_LABEL_LEFT_INSET;
+        float width = button.width - FINAL_NAV_LABEL_LEFT_INSET
+                - FINAL_NAV_LABEL_RIGHT_INSET;
+        GdxCrispButtonText.resolveWithinContentWidth(glyph, text, width,
+                finalButtonFontTiers, crispButtonText);
+        drawPixelSnappedCenteredInBox(crispButtonText.font(),
+                crispButtonText.text(), x, button.y + 6f, width, 42f,
+                color, alpha);
+    }
+
     private GdxCrispButtonText.FontTiers buttonFontTiers(BitmapFont preferred) {
         if (preferred == settingsActionFont) {
             return settingsActionButtonFontTiers;
@@ -21830,7 +21856,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color navColor = GdxUiButtonStyle.labelColor(
                     GdxUiButtonStyle.Tone.NEUTRAL, enabled);
             GdxUiIconRenderer.draw(shapes, FINAL_NAV_ICONS[index],
-                    nav.x + 32f, nav.y + 27f, 30f, navColor,
+                    nav.x + FINAL_NAV_ICON_CENTER_INSET, nav.y + 27f,
+                    FINAL_NAV_ICON_SIZE, navColor,
                     enabled ? reveal : 0.38f * reveal);
         }
         Rectangle screenshotButton = header.screenshotButton();
@@ -21901,9 +21928,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float alpha = enabled ? reveal : 0.38f * reveal;
             Color navColor = GdxUiButtonStyle.labelColor(
                     GdxUiButtonStyle.Tone.NEUTRAL, enabled);
-            drawDialogButtonLabel(finalButtonFont, navLabels[index],
-                    nav.x + 52f, nav.y + 6f, nav.width - 64f, 42f,
-                    navColor, alpha);
+            drawFinalNavigationLabel(navLabels[index], nav, navColor, alpha);
         }
         Texture speaker = outputAvailable && audioControl.enabled()
                 ? soundIcon : muteIcon;

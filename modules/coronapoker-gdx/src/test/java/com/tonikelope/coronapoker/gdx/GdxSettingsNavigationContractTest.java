@@ -48,6 +48,34 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void fastAccessArtworkIsBoundToTheActionInsteadOfItsVisibleIndex() {
+        assertEquals(0, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.SETTINGS));
+        assertEquals(1, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.CHAT));
+        assertEquals(2, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.VOICE));
+        assertEquals(3, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.IMAGE));
+        assertEquals(4, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.REBUY));
+        assertEquals(5, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.GAME_LOG));
+        assertEquals(6, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS));
+        assertEquals(7, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.FULLSCREEN));
+        assertEquals(8, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.STOP));
+        assertEquals(9, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.EXIT));
+        assertEquals(-1, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.BLOCKS));
+        assertEquals(-1, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.NONE));
+    }
+
+    @Test
     void hostFastAccessAddsStopImmediatelyBeforeExit() {
         assertEquals(List.of(
                 CoronaPokerGdxTable.FastAccessAction.SETTINGS,

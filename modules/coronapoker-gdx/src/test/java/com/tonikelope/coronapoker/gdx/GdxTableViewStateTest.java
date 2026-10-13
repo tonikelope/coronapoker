@@ -1008,6 +1008,8 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.finalMoneyCounterVisible(-0d));
         assertTrue(CoronaPokerGdxTable.finalMoneyCounterVisible(0.01d));
         assertTrue(CoronaPokerGdxTable.finalMoneyCounterVisible(-0.01d));
+        assertEquals(new Color(0x8b9098ff),
+                CoronaPokerGdxTable.finalSummaryResultColor(0d));
     }
 
     @Test

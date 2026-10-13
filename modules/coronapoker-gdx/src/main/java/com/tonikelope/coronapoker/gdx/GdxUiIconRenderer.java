@@ -127,20 +127,47 @@ final class GdxUiIconRenderer {
 
     private static void drawSettings(ShapeRenderer shapes, float cx,
             float cy, float size) {
-        float outer = size * 0.31f;
-        float stroke = size * 0.075f;
-        ring(shapes, cx, cy, outer, stroke, CIRCLE_SEGMENTS);
-        ring(shapes, cx, cy, size * 0.115f, stroke, 28);
+        float gearRadius = size * 0.29f;
+        float gearStroke = size * 0.115f;
+        float toothRoot = size * 0.31f;
+        float toothTip = size * 0.46f;
+        float rootHalfWidth = size * 0.095f;
+        float tipHalfWidth = size * 0.075f;
         for (int tooth = 0; tooth < 8; tooth++) {
-            float angle = tooth * MathUtils.PI / 4f;
-            float inner = size * 0.30f;
-            float outerTooth = size * 0.43f;
-            shapes.rectLine(cx + MathUtils.cos(angle) * inner,
-                    cy + MathUtils.sin(angle) * inner,
-                    cx + MathUtils.cos(angle) * outerTooth,
-                    cy + MathUtils.sin(angle) * outerTooth,
-                    stroke * 1.18f);
+            drawGearTooth(shapes, cx, cy, tooth * MathUtils.PI / 4f,
+                    toothRoot, toothTip, rootHalfWidth, tipHalfWidth);
         }
+        ring(shapes, cx, cy, gearRadius, gearStroke, CIRCLE_SEGMENTS);
+        ring(shapes, cx, cy, size * 0.105f, size * 0.070f, 28);
+    }
+
+    private static void drawGearTooth(ShapeRenderer shapes, float cx,
+            float cy, float angle, float rootRadius, float tipRadius,
+            float rootHalfWidth, float tipHalfWidth) {
+        float radialX = MathUtils.cos(angle);
+        float radialY = MathUtils.sin(angle);
+        float tangentX = -radialY;
+        float tangentY = radialX;
+        float rootLeftX = cx + radialX * rootRadius
+                + tangentX * rootHalfWidth;
+        float rootLeftY = cy + radialY * rootRadius
+                + tangentY * rootHalfWidth;
+        float rootRightX = cx + radialX * rootRadius
+                - tangentX * rootHalfWidth;
+        float rootRightY = cy + radialY * rootRadius
+                - tangentY * rootHalfWidth;
+        float tipLeftX = cx + radialX * tipRadius
+                + tangentX * tipHalfWidth;
+        float tipLeftY = cy + radialY * tipRadius
+                + tangentY * tipHalfWidth;
+        float tipRightX = cx + radialX * tipRadius
+                - tangentX * tipHalfWidth;
+        float tipRightY = cy + radialY * tipRadius
+                - tangentY * tipHalfWidth;
+        shapes.triangle(rootLeftX, rootLeftY, tipLeftX, tipLeftY,
+                tipRightX, tipRightY);
+        shapes.triangle(rootLeftX, rootLeftY, tipRightX, tipRightY,
+                rootRightX, rootRightY);
     }
 
     private static void ring(ShapeRenderer shapes, float cx, float cy,

@@ -55,12 +55,27 @@ final class GdxCrispButtonText {
      */
     static void resolve(GlyphLayout glyph, String value, float buttonWidth,
             FontTiers tiers, Result result) {
+        float preferredWidth = GdxUiButtonStyle.labelContentWidth(buttonWidth);
+        float nativeWidth = GdxUiButtonStyle.nativeLabelContentWidth(buttonWidth);
+        resolveAgainstWidths(glyph, value, preferredWidth, nativeWidth,
+                tiers, result);
+    }
+
+    /** Uses a content box whose icon and outer padding are already removed. */
+    static void resolveWithinContentWidth(GlyphLayout glyph, String value,
+            float contentWidth, FontTiers tiers, Result result) {
+        float available = Math.max(0f, contentWidth);
+        resolveAgainstWidths(glyph, value, available, available,
+                tiers, result);
+    }
+
+    private static void resolveAgainstWidths(GlyphLayout glyph, String value,
+            float preferredWidth, float nativeWidth, FontTiers tiers,
+            Result result) {
         Objects.requireNonNull(glyph, "glyph");
         Objects.requireNonNull(tiers, "tiers");
         Objects.requireNonNull(result, "result");
         String text = Objects.requireNonNullElse(value, "");
-        float preferredWidth = GdxUiButtonStyle.labelContentWidth(buttonWidth);
-        float nativeWidth = GdxUiButtonStyle.nativeLabelContentWidth(buttonWidth);
         for (BitmapFont font : tiers.fonts) {
             glyph.setText(font, text);
             if (glyph.width <= preferredWidth || glyph.width <= nativeWidth) {

@@ -11699,6 +11699,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Color fill) {
         shapes.setColor(fill);
         roundedRect(x, y, w, h, 14f);
+        // Containers, dialog frames and input fields must remain a single
+        // uninterrupted surface. Applying the button glass field here makes
+        // its fine sampling visible as wide colour bands on tall panels.
         shapes.setColor(border);
         roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f,
                 13f, 2f);

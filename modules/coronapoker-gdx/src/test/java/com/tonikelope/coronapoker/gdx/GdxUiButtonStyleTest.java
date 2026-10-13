@@ -68,11 +68,30 @@ final class GdxUiButtonStyleTest {
                 + "GdxSettingsStyle.java"), StandardCharsets.UTF_8);
         String frontend = Files.readString(Path.of(base
                 + "GdxFrontendScreen.java"), StandardCharsets.UTF_8);
+        String bevel = Files.readString(Path.of(base
+                + "GdxGlassBevel.java"), StandardCharsets.UTF_8);
 
         assertFalse(buttons.contains("GRADIENT_"));
         assertFalse(buttons.contains("gradient(shapes"));
         assertFalse(settings.contains("GRADIENT_"));
         assertFalse(frontend.contains("BOX_SHEEN"));
         assertFalse(frontend.contains("BOX_SHADE"));
+        assertFalse(buttons.contains("GdxRoundedGradient"));
+        assertFalse(settings.contains("GdxRoundedGradient"));
+        assertFalse(frontend.contains("GdxRoundedGradient"));
+        assertTrue(buttons.contains("GdxGlassBevel.draw"));
+        assertTrue(settings.contains("GdxGlassBevel.draw"));
+        assertFalse(frontend.contains("GdxGlassBevel.draw"),
+                "large dialog surfaces must stay uniformly filled");
+        assertFalse(buttons.contains("y - (pressed ? 1f : 2f)"));
+        assertFalse(settings.contains("y - 1f, width, height"));
+        assertFalse(buttons.contains(
+                "roundedRectOutline(shapes, x + 5f, y + 5f"));
+        assertFalse(bevel.contains("bottomThickness"));
+        assertFalse(bevel.contains("bottomAlpha"));
+        assertFalse(bevel.contains("rectLine("));
+        assertFalse(bevel.contains("shapes.arc("));
+        assertTrue(bevel.contains("roundedInset"));
+        assertTrue(bevel.contains("smoothstep"));
     }
 }

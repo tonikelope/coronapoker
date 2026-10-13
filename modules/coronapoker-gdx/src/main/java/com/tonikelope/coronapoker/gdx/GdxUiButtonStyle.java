@@ -120,8 +120,15 @@ final class GdxUiButtonStyle {
                     width + 4f, height + 4f, 16f, 2f);
         }
 
+        // All depth stays inside the exact control silhouette. External drop
+        // shadows create doubled or protruding corners when HUD buttons sit
+        // edge-to-edge, especially on the light call/check material.
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
+        GdxGlassBevel.draw(shapes, x + 3f, y + 3f,
+                width - 6f, height - 6f, 11f,
+                (pressed ? 0.07f : 0.16f) + 0.04f * hover,
+                alpha);
         if (borderVisible) {
             shapes.setColor(border.r, border.g, border.b,
                     (enabled ? 1f : 0.55f) * alpha);
@@ -138,16 +145,6 @@ final class GdxUiButtonStyle {
                     0.88f * hover * alpha);
             roundedRectOutline(shapes, x + 1f, y + 1f,
                     width - 2f, height - 2f, 13f, 2f);
-        }
-
-        // Keep every layer inside the rounded silhouette. Rectangular sheen
-        // bands cannot be clipped by ShapeRenderer and remain visible as
-        // blocks over compact HUD controls, so depth comes exclusively from
-        // the fill, semantic rim and rounded inner keyline.
-        if (borderVisible) {
-            shapes.setColor(1f, 1f, 1f, 0.07f * alpha);
-            roundedRectOutline(shapes, x + 5f, y + 5f,
-                    width - 10f, height - 10f, 9f, 1f);
         }
     }
 

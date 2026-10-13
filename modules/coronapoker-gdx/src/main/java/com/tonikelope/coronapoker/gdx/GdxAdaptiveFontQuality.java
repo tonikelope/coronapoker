@@ -21,11 +21,11 @@ final class GdxAdaptiveFontQuality {
 
     static final int LARGE_FONT_THRESHOLD = 76;
     private static final float SCALE_STEP = 0.25f;
-    // 1.5x is the current proven 1440p sampling ratio (2x atlas rendered at
-    // 1.333 physical pixels per world unit). Preserve that exact reference
-    // instead of making already-clean text softer through excess minification.
-    private static final float NORMAL_SUPERSAMPLING = 1.50f;
-    private static final float LARGE_SUPERSAMPLING = 1.10f;
+    // Keep roughly 1.75 source samples per physical output pixel. This raises
+    // 720p above a one-times atlas while retaining bounded profiles for 4K;
+    // logical metrics, font family and layout remain unchanged.
+    private static final float NORMAL_SUPERSAMPLING = 1.75f;
+    private static final float LARGE_SUPERSAMPLING = 1.60f;
     private static final float MAX_NORMAL_RASTER_SCALE = 4f;
     private static final float MAX_LARGE_RASTER_SCALE = 3f;
 

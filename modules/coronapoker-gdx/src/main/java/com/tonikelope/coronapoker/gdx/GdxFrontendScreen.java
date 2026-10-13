@@ -5069,9 +5069,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private static Texture filteredTexture(String asset) {
-        Texture texture = new Texture(Gdx.files.internal(asset));
-        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-        return texture;
+        return GdxTextureQuality.loadUi(Gdx.files.internal(asset));
     }
 
     private static Texture silhouetteTexture(String asset, Color tint) {

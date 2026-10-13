@@ -864,6 +864,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTextEditState chatEdit = new GdxTextEditState();
     private final GdxTextEditState dialogAmountEdit = new GdxTextEditState();
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
+    private final GdxKeyRepeat betShortcutRepeat = new GdxKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final List<RepeatHit> pointerRepeatHits = new ArrayList<>();
     private RepeatHit activePointerRepeat;
@@ -1280,12 +1281,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 cancelVoiceRecording();
                 return true;
             }
+            armBetShortcutRepeat(keycode);
             return false;
         }
 
         @Override
         public boolean keyUp(int keycode) {
             textDeleteRepeat.release(keycode);
+            betShortcutRepeat.release(keycode);
             if (shortcutBindings.keyCodeMatches(
                     GdxShortcutBindings.VOICE_RECORD, keycode)
                     && voiceRecorder != null) {
@@ -2909,12 +2912,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
 
     private static Texture texture(String path) {
-        Texture texture = new Texture(Gdx.files.internal(path));
-        // TexturePaint in Swing preserves the tile's original grain. Linear
-        // magnification smears the near-black high-frequency fabric until it
-        // looks like a flat fill on HiDPI displays.
-        texture.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
-        return texture;
+        // Chrome artwork ranges from 32 px chat emoji to 350 px position
+        // chips and is reused at several sizes. A mip chain gives true
+        // prefiltered downscaling; linear magnification avoids blocky emoji
+        // when a 32 px source is shown in the 38 px picker.
+        return GdxTextureQuality.loadUi(Gdx.files.internal(path));
     }
 
     private static Texture feltTexture(String path) {
@@ -4592,6 +4594,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateDialog();
         updatePointerButtonTransitions();
         updatePointerRepeat(delta);
+        updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
         pointerRepeatHits.clear();
@@ -7157,6 +7160,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (int repeat = 0; repeat < repeats; repeat++) {
             current.action.run();
         }
+    }
+
+    private void armBetShortcutRepeat(int keycode) {
+        if (uiLayer != UI_NONE || activeDialog != null || liveState == null
+                || !hasActiveLocalTurn()) return;
+        String action = shortcutBindings.actionFor(keycode,
+                modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT),
+                modifierPressed(Input.Keys.CONTROL_LEFT,
+                        Input.Keys.CONTROL_RIGHT),
+                modifierPressed(Input.Keys.SHIFT_LEFT,
+                        Input.Keys.SHIFT_RIGHT));
+        if (betStepDirection(action) != 0) betShortcutRepeat.press(keycode);
+    }
+
+    private void updateBetShortcutRepeat(float delta) {
+        int keycode = betShortcutRepeat.keycode();
+        String action = keycode < 0 ? null : shortcutBindings.actionFor(
+                keycode,
+                modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT),
+                modifierPressed(Input.Keys.CONTROL_LEFT,
+                        Input.Keys.CONTROL_RIGHT),
+                modifierPressed(Input.Keys.SHIFT_LEFT,
+                        Input.Keys.SHIFT_RIGHT));
+        int direction = betStepDirection(action);
+        boolean valid = keycode >= 0 && direction != 0
+                && Gdx.input.isKeyPressed(keycode)
+                && uiLayer == UI_NONE && activeDialog == null
+                && liveState != null && hasActiveLocalTurn()
+                && !hasPendingLocalActionSubmission();
+        int repeats = betShortcutRepeat.update(delta, valid);
+        for (int repeat = 0; repeat < repeats; repeat++) {
+            adjustLiveBet(direction);
+        }
+    }
+
+    private static boolean modifierPressed(int left, int right) {
+        return Gdx.input.isKeyPressed(left) || Gdx.input.isKeyPressed(right);
+    }
+
+    static int betStepDirection(String shortcutAction) {
+        if (GdxShortcutBindings.BET_DOWN.equals(shortcutAction)) return -1;
+        if (GdxShortcutBindings.BET_UP.equals(shortcutAction)) return 1;
+        return 0;
     }
 
     private boolean pointerRepeatContextValid(RepeatHit hit) {

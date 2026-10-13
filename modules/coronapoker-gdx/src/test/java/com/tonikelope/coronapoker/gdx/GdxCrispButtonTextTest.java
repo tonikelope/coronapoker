@@ -22,6 +22,15 @@ final class GdxCrispButtonTextTest {
     }
 
     @Test
+    void snapsAgainstPhysicalPixelsWhenWindowsUsesDisplayScaling() {
+        float snapped = GdxCrispButtonText.snapWorldCoordinate(
+                100.25f, 0f, 1920f, 1920f, 4f / 3f);
+
+        assertEquals(100.5f, snapped, 0.0001f);
+        assertEquals(134f, snapped * 4f / 3f, 0.0001f);
+    }
+
+    @Test
     void invalidViewportMetricsLeaveTheCoordinateUntouched() {
         assertEquals(100.25f, GdxCrispButtonText.snapWorldCoordinate(
                 100.25f, 0f, 0f, 1920f));

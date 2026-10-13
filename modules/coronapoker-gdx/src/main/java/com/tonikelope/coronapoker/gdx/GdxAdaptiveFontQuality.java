@@ -8,26 +8,20 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 
 /**
- * Keeps FreeType atlases matched to the physical framebuffer density.
+ * Rasterizes FreeType glyphs at their final physical output density.
  *
- * <p>The GDX scenes use a stable 1920x1080 design space. Generating every
- * glyph at a fixed 2x resolution made a 720p display minify text by roughly
- * 3:1, while large display fonts were magnified on 1440p and 4K screens. Both
- * paths lose definition. This profile keeps a bounded, predictable amount of
- * supersampling at every supported output density without changing font
- * families, logical sizes or layout metrics.</p>
+ * <p>The GDX scenes use a stable 1920x1080 design space. Extra atlas
+ * supersampling forces the GPU to reduce every glyph again at draw time, which
+ * can soften strokes or create uneven edges. This profile instead generates
+ * each font at the number of physical pixels it will occupy on the current
+ * framebuffer. Logical font sizes and layout metrics remain unchanged.</p>
  */
 final class GdxAdaptiveFontQuality {
 
-    static final int LARGE_FONT_THRESHOLD = 76;
-    private static final float SCALE_STEP = 0.25f;
-    // 1.5x is the current proven 1440p sampling ratio (2x atlas rendered at
-    // 1.333 physical pixels per world unit). Preserve that exact reference
-    // instead of making already-clean text softer through excess minification.
-    private static final float NORMAL_SUPERSAMPLING = 1.50f;
-    private static final float LARGE_SUPERSAMPLING = 1.10f;
-    private static final float MAX_NORMAL_RASTER_SCALE = 4f;
-    private static final float MAX_LARGE_RASTER_SCALE = 3f;
+    // Covers practical Windows framebuffers from very small diagnostic
+    // windows through 8K without turning this into a fixed resolution table.
+    private static final float MIN_PHYSICAL_SCALE = 0.125f;
+    private static final float MAX_PHYSICAL_SCALE = 4f;
 
     private GdxAdaptiveFontQuality() {
     }
@@ -42,35 +36,30 @@ final class GdxAdaptiveFontQuality {
         if (backBufferWidth <= 0 || backBufferHeight <= 0
                 || !Float.isFinite(worldWidth) || worldWidth <= 0f
                 || !Float.isFinite(worldHeight) || worldHeight <= 0f) {
-            return new Profile(2f, 1f);
+            return new Profile(1f);
         }
         float physicalPixelsPerWorldUnit = Math.min(
                 backBufferWidth / worldWidth,
                 backBufferHeight / worldHeight);
-        float normal = quantizeUp(physicalPixelsPerWorldUnit
-                * NORMAL_SUPERSAMPLING, 1f, MAX_NORMAL_RASTER_SCALE);
-        float large = quantizeUp(physicalPixelsPerWorldUnit
-                * LARGE_SUPERSAMPLING, 1f, MAX_LARGE_RASTER_SCALE);
-        return new Profile(normal, large);
+        return new Profile(Math.max(MIN_PHYSICAL_SCALE,
+                Math.min(MAX_PHYSICAL_SCALE, physicalPixelsPerWorldUnit)));
     }
 
-    private static float quantizeUp(float value, float minimum,
-            float maximum) {
-        float bounded = Math.max(minimum, Math.min(maximum, value));
-        return Math.min(maximum,
-                (float) Math.ceil(bounded / SCALE_STEP) * SCALE_STEP);
+    static int rasterSizeFor(int logicalSize, Profile profile) {
+        return Math.max(1, Math.round(logicalSize
+                * profile.physicalPixelsPerWorldUnit()));
     }
 
     static BitmapFont generate(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor, String extraCharacters,
             Profile profile) {
-        float rasterScale = profile.rasterScaleFor(size);
-        int rasterSize = Math.max(1, Math.round(size * rasterScale));
+        int rasterSize = rasterSizeFor(size, profile);
+        float actualRasterScale = (float) rasterSize / size;
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
         parameter.size = rasterSize;
         parameter.color = color;
         parameter.borderColor = borderColor;
-        parameter.borderWidth = border * rasterScale;
+        parameter.borderWidth = border * actualRasterScale;
         parameter.hinting = FreeTypeFontGenerator.Hinting.Full;
         parameter.kerning = true;
         parameter.genMipMaps = false;
@@ -87,19 +76,18 @@ final class GdxAdaptiveFontQuality {
         return result;
     }
 
-    record Profile(float normalRasterScale, float largeRasterScale) {
+    record Profile(float physicalPixelsPerWorldUnit) {
 
         Profile {
-            if (!Float.isFinite(normalRasterScale) || normalRasterScale < 1f
-                    || !Float.isFinite(largeRasterScale)
-                    || largeRasterScale < 1f) {
+            if (!Float.isFinite(physicalPixelsPerWorldUnit)
+                    || physicalPixelsPerWorldUnit < MIN_PHYSICAL_SCALE
+                    || physicalPixelsPerWorldUnit > MAX_PHYSICAL_SCALE) {
                 throw new IllegalArgumentException("Invalid font quality profile");
             }
         }
 
         float rasterScaleFor(int logicalSize) {
-            return logicalSize <= LARGE_FONT_THRESHOLD
-                    ? normalRasterScale : largeRasterScale;
+            return physicalPixelsPerWorldUnit;
         }
     }
 }

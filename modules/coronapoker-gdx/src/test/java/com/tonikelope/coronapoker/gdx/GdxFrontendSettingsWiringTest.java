@@ -145,6 +145,36 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void menuLobbyAndLiveSettingsConsumeTheSameVisualContracts()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.contentClip(content, settingsRowsClip)"));
+        assertTrue(table.contains(
+                "GdxSettingsLayout.contentClip(content)"));
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET"));
+        assertTrue(table.contains(
+                "GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET"));
+        assertTrue(frontend.contains("GdxSettingsLayout.splitActionRow("));
+        assertTrue(table.contains("GdxSettingsLayout.splitActionRow("));
+        assertTrue(frontend.contains("GdxSettingsStyle.drawShortcutRow("));
+        assertTrue(table.contains("GdxSettingsStyle.drawShortcutRow("));
+        assertTrue(frontend.contains("textFit(smallFont, key,"));
+        assertTrue(table.contains(
+                "drawFittedCentered(settingsSmallFont, key,"),
+                "live shortcut keys must not silently grow beyond the menu");
+        assertFalse(table.contains(
+                "capturing ? settingsSmallFont\n                : settingsActionFont"));
+    }
+
+    @Test
     void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
         assertEquals(1f, GdxFrontendScreen.fittedTextScale(
                 100f, 120f, 0.72f));

@@ -37,6 +37,11 @@ final class GdxSettingsLayout {
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
+    /** Main-volume row plus the same eight-pixel breathing room as the menu. */
+    static final float AUDIO_MASTER_ROW_OFFSET = 74f;
+    static final float SHORTCUT_ROW_HEIGHT = 62f;
+    static final float ACTION_ROW_HEIGHT = 62f;
+    static final float ACTION_ROW_GAP = 14f;
     static final float GAME_COLUMN_GAP = 24f;
     static final float GAME_INNER_GAP = 12f;
     /** Same visible width as the in-game log scrollbar. */
@@ -141,6 +146,36 @@ final class GdxSettingsLayout {
     }
 
     /**
+     * Visible settings content shared by both renderers.  The four pixels
+     * above the first row are intentional: they keep its rounded outline out
+     * of the scissor edge at every viewport scale.
+     */
+    static Rectangle contentClip(Rectangle content) {
+        return new Rectangle(content.x, content.y + 14f, content.width,
+                Math.max(0f, content.height - 38f));
+    }
+
+    static Rectangle contentClip(Rectangle content, Rectangle destination) {
+        return destination.set(content.x, content.y + 14f, content.width,
+                Math.max(0f, content.height - 38f));
+    }
+
+    /** Canonical visible scrollbar position relative to the content well. */
+    static float rowScrollbarX(Rectangle content) {
+        return rowScrollbarX(content.x, content.width);
+    }
+
+    static float rowScrollbarX(float contentX, float contentWidth) {
+        return contentX + contentWidth - 24f;
+    }
+
+    /** Text lane for ordinary one-line setting labels. */
+    static Rectangle rowLabel(float x, float y, float width) {
+        return new Rectangle(x + 22f, y + 5f,
+                Math.max(0f, width - 132f), 58f);
+    }
+
+    /**
      * Shared geometry for every minus/value/plus settings row.  The startup,
      * waiting-room and live-table renderers used to carry slightly different
      * constants, so the painted controls and their hit targets could drift
@@ -199,8 +234,8 @@ final class GdxSettingsLayout {
                 switchX - 20f - valueWidth);
         Rectangle value = new Rectangle(valueX, y + 5f,
                 valueWidth, height - 10f);
-        Rectangle label = new Rectangle(x + 20f, y + 5f,
-                Math.max(0f, value.x - x - 32f), height - 10f);
+        Rectangle label = new Rectangle(x + 22f, y + 5f,
+                Math.max(0f, value.x - x - 34f), height - 10f);
         return new ToggleRow(new Rectangle(x, y, width, height), label,
                 value, new Rectangle(switchX,
                         y + GdxSettingsStyle.TOGGLE_BOTTOM_INSET,
@@ -234,9 +269,42 @@ final class GdxSettingsLayout {
                         width, bounds.height));
     }
 
+    /** Paired action buttons used by the voice-note settings subsection. */
+    static SplitRow splitActionRow(float x, float y, float width) {
+        float buttonWidth = (width - ACTION_ROW_GAP) / 2f;
+        return new SplitRow(
+                new Rectangle(x, y, buttonWidth, ACTION_ROW_HEIGHT),
+                new Rectangle(x + buttonWidth + ACTION_ROW_GAP, y,
+                        buttonWidth, ACTION_ROW_HEIGHT));
+    }
+
+    /**
+     * One shortcut row contract for menu, lobby and live table.  Shapes, text
+     * and hit targets must all consume these exact rectangles.
+     */
+    static ShortcutRow shortcutRow(float x, float y, float width) {
+        Rectangle bounds = new Rectangle(x, y, width, SHORTCUT_ROW_HEIGHT);
+        Rectangle key = new Rectangle(x + 12f, y + 8f, 216f, 46f);
+        Rectangle description = new Rectangle(x + 252f, y + 5f,
+                Math.max(0f, width - 276f), 52f);
+        return new ShortcutRow(bounds, key, description);
+    }
+
     static Rectangle debugCopyButton(Rectangle content) {
         return new Rectangle(content.x + content.width - 248f,
                 content.y + 14f, 230f, 54f);
+    }
+
+    /** Complete debug-console geometry shared by menu, lobby and table. */
+    static DebugArea debugArea(Rectangle content) {
+        Rectangle console = new Rectangle(content.x + 24f,
+                content.y + 82f, content.width - 48f,
+                Math.max(0f, content.height - 110f));
+        Rectangle viewport = new Rectangle(console.x + 8f,
+                console.y + 8f, Math.max(0f, console.width - 36f),
+                Math.max(0f, console.height - 16f));
+        return new DebugArea(console, viewport,
+                console.x + console.width - 20f);
     }
 
     static float scrollbarThumbHeight(float height, int totalRows,
@@ -385,6 +453,14 @@ final class GdxSettingsLayout {
     }
 
     record SplitRow(Rectangle left, Rectangle right) {
+    }
+
+    record ShortcutRow(Rectangle bounds, Rectangle key,
+            Rectangle description) {
+    }
+
+    record DebugArea(Rectangle console, Rectangle viewport,
+            float scrollbarX) {
     }
 
     record PixelRows(float firstRowY, float viewportBottom,

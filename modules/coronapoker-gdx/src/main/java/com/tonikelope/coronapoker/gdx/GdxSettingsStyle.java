@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 
 /**
  * Canonical visual tokens for every GDX settings surface.
@@ -55,6 +56,11 @@ final class GdxSettingsStyle {
     private static final Color ROW_PRESSED_FILL = new Color(
             PRESSED_FILL_RGBA);
     private static final Color ROW_FILL = new Color(PANEL_LIGHT_RGBA);
+    private static final Color GOLD = new Color(GOLD_RGBA);
+    private static final Color CYAN_DARK = new Color(CYAN_DARK_RGBA);
+    private static final Color SHORTCUT_KEY_FILL = new Color(0x07111fff);
+    private static final Color DEBUG_FILL = new Color(0x03070cff);
+    private static final Color DEBUG_TRACK = new Color(0x26364dff);
     private static final Color TOGGLE_OFF = new Color(TOGGLE_OFF_RGBA);
     private static final Color TOGGLE_ON = new Color(TOGGLE_ON_RGBA);
     private static final Color TOGGLE_KNOB_OFF = new Color(
@@ -104,6 +110,59 @@ final class GdxSettingsStyle {
             float alpha) {
         Color fill = rowFill(enabled, pressed);
         Color border = rowBorder(enabled, hovered);
+        drawRow(shapes, x, y, width, height, border, fill, alpha);
+    }
+
+    static void drawShortcutRow(ShapeRenderer shapes,
+            GdxSettingsLayout.ShortcutRow row, boolean capturing,
+            float alpha) {
+        drawRow(shapes, row.bounds().x, row.bounds().y,
+                row.bounds().width, row.bounds().height,
+                capturing ? GOLD : ROW_BORDER, ROW_FILL, alpha);
+        drawRow(shapes, row.key().x, row.key().y,
+                row.key().width, row.key().height,
+                capturing ? GOLD : CYAN_DARK, SHORTCUT_KEY_FILL, alpha);
+    }
+
+    static void drawDebugConsole(ShapeRenderer shapes, Rectangle bounds,
+            float alpha) {
+        drawRow(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
+                ROW_BORDER, DEBUG_FILL, alpha);
+    }
+
+    static void drawDebugScrollbar(ShapeRenderer shapes, float x, float y,
+            float height, float thumbY, float thumbHeight, float alpha) {
+        shapes.setColor(DEBUG_TRACK.r, DEBUG_TRACK.g, DEBUG_TRACK.b,
+                DEBUG_TRACK.a * alpha);
+        roundedRect(shapes, x, y, GdxSettingsLayout.SCROLLBAR_WIDTH,
+                height, GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+        shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b,
+                CYAN_DARK.a * alpha);
+        roundedRect(shapes, x, thumbY,
+                GdxSettingsLayout.SCROLLBAR_WIDTH, thumbHeight,
+                GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+    }
+
+    static void drawVolumeRow(ShapeRenderer shapes,
+            GdxSettingsLayout.VolumeRow row, float progress, float alpha) {
+        Rectangle bounds = row.bounds();
+        Rectangle slider = row.slider();
+        drawRow(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
+                ROW_BORDER, ROW_FILL, alpha);
+        shapes.setColor(TOGGLE_OFF.r, TOGGLE_OFF.g, TOGGLE_OFF.b,
+                TOGGLE_OFF.a * alpha);
+        roundedRect(shapes, slider.x, slider.y, slider.width, slider.height,
+                6f);
+        shapes.setColor(ROW_HOVER_BORDER.r, ROW_HOVER_BORDER.g,
+                ROW_HOVER_BORDER.b, ROW_HOVER_BORDER.a * alpha);
+        roundedRect(shapes, slider.x, slider.y,
+                slider.width * Math.max(0f, Math.min(1f, progress)),
+                slider.height, 6f);
+    }
+
+    private static void drawRow(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color border, Color fill,
+            float alpha) {
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height,
                 Math.min(14f, height / 2f));

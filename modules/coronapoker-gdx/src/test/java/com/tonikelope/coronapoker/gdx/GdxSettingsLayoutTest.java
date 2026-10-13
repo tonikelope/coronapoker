@@ -106,6 +106,64 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void contentClipAndScrollbarUseOneContractAtEveryEntryPoint() {
+        Rectangle content = GdxSettingsLayout.frame(
+                1920f, 1080f, 5, 6).content();
+        Rectangle clip = GdxSettingsLayout.contentClip(content);
+
+        assertEquals(content.x, clip.x);
+        assertEquals(content.y + 14f, clip.y);
+        assertEquals(content.width, clip.width);
+        assertEquals(content.height - 38f, clip.height);
+        assertEquals(content.x + content.width - 24f,
+                GdxSettingsLayout.rowScrollbarX(content));
+        assertEquals(GdxSettingsLayout.rowScrollbarX(content),
+                GdxSettingsLayout.rowScrollbarX(content.x, content.width));
+    }
+
+    @Test
+    void audioRowsLeaveTheSameGapBelowMasterVolumeEverywhere() {
+        assertEquals(74f, GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET);
+        assertTrue(GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET
+                > GdxSettingsLayout.ROW_HEIGHT);
+    }
+
+    @Test
+    void voiceActionsUseEqualCanonicalButtons() {
+        GdxSettingsLayout.SplitRow actions =
+                GdxSettingsLayout.splitActionRow(100f, 200f, 1120f);
+
+        assertEquals(actions.left().width, actions.right().width);
+        assertEquals(GdxSettingsLayout.ACTION_ROW_HEIGHT,
+                actions.left().height);
+        assertEquals(GdxSettingsLayout.ACTION_ROW_GAP,
+                actions.right().x
+                - (actions.left().x + actions.left().width));
+    }
+
+    @Test
+    void shortcutsSharePaintingTextAndPointerGeometry() {
+        GdxSettingsLayout.ShortcutRow row =
+                GdxSettingsLayout.shortcutRow(100f, 200f, 1120f);
+
+        assertEquals(GdxSettingsLayout.SHORTCUT_ROW_HEIGHT,
+                row.bounds().height);
+        assertTrue(row.bounds().contains(row.key()));
+        assertTrue(row.bounds().contains(row.description()));
+        assertTrue(row.key().x + row.key().width < row.description().x);
+    }
+
+    @Test
+    void ordinaryRowLabelUsesTheSameSafeLaneAsFrontendToggles() {
+        Rectangle label = GdxSettingsLayout.rowLabel(100f, 200f, 1120f);
+
+        assertEquals(122f, label.x);
+        assertEquals(205f, label.y);
+        assertEquals(988f, label.width);
+        assertEquals(58f, label.height);
+    }
+
+    @Test
     void sharedStepperKeepsPaintingAndHitTargetsDisjoint() {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);
@@ -235,6 +293,23 @@ final class GdxSettingsLayoutTest {
         assertEquals(content.x + content.width - 18f,
                 button.x + button.width);
         assertEquals(content.y + 14f, button.y);
+    }
+
+    @Test
+    void debugConsoleUsesTheSameResponsiveGeometryEverywhere() {
+        Rectangle content = GdxSettingsLayout.frame(
+                1920f, 1080f, 5, 1).content();
+        GdxSettingsLayout.DebugArea debug =
+                GdxSettingsLayout.debugArea(content);
+
+        assertEquals(content.x + 24f, debug.console().x);
+        assertEquals(content.y + 82f, debug.console().y);
+        assertEquals(content.width - 48f, debug.console().width);
+        assertEquals(content.height - 110f, debug.console().height);
+        assertEquals(debug.console().height - 16f,
+                debug.viewport().height);
+        assertEquals(debug.console().x + debug.console().width - 20f,
+                debug.scrollbarX());
     }
 
     @Test

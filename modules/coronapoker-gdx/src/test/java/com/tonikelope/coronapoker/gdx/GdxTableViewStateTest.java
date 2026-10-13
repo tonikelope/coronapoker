@@ -2411,9 +2411,9 @@ final class GdxTableViewStateTest {
     @Test
     void tableDebugConsoleScrollsByRenderedPixels() {
         assertEquals(0f, CoronaPokerGdxTable
-                .settingsDebugMaximumPixelScroll(15));
+                .settingsDebugMaximumPixelScroll(15, 394f));
         assertEquals(106f, CoronaPokerGdxTable
-                .settingsDebugMaximumPixelScroll(20));
+                .settingsDebugMaximumPixelScroll(20, 394f));
         assertEquals(0f, CoronaPokerGdxTable.preservePixelScrollOnAppend(
                 0f, 20, 24, 25f));
         assertEquals(175f, CoronaPokerGdxTable.preservePixelScrollOnAppend(

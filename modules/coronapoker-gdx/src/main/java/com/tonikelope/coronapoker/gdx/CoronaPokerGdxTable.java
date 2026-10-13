@@ -224,7 +224,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
     private static final int ALL_IN_EMBER_COUNT = 25;
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
-    static final float DERIVED_POT_OVERLAY_ALPHA = 0.60f;
+    static final float DERIVED_POT_OVERLAY_ALPHA = 1f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
@@ -6596,8 +6596,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean immediateRebuyControlEnabled(boolean rebuyAllowed,
             TableSnapshot.PlayerSnapshot local) {
+        // A busted established spectator is precisely the player who needs
+        // this control to return on the next hand. Only not-yet-admitted
+        // warming identities and players that actually left are ineligible.
         return rebuyAllowed && local != null && !local.warming()
-                && !local.spectator() && !local.exited();
+                && !local.exited();
     }
 
     static boolean tableChatControlEnabled(boolean chatAvailable,

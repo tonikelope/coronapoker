@@ -30,15 +30,17 @@ final class GdxTableShortcutTest {
     }
 
     @Test
-    void warmingAndSpectatorPlayersCannotRequestImmediateRebuy() {
+    void bustedSpectatorsCanRebuyButWarmingAndExitedPlayersCannot() {
         TableSnapshot.PlayerSnapshot warming = player(true, false, 10d);
         TableSnapshot.PlayerSnapshot spectator = player(true, false, 0d);
         TableSnapshot.PlayerSnapshot active = player(false, false, 10d);
 
         assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
                 true, warming));
-        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+        assertTrue(CoronaPokerGdxTable.immediateRebuyControlEnabled(
                 true, spectator));
+        assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
+                false, spectator));
         assertFalse(CoronaPokerGdxTable.immediateRebuyControlEnabled(
                 true, player(false, true, 10d)));
         assertTrue(CoronaPokerGdxTable.immediateRebuyControlEnabled(

@@ -57,10 +57,14 @@ final class GdxSettingsStyle {
             PRESSED_FILL_RGBA);
     private static final Color ROW_FILL = new Color(PANEL_LIGHT_RGBA);
     private static final Color GOLD = new Color(GOLD_RGBA);
+    private static final Color CYAN = new Color(CYAN_RGBA);
     private static final Color CYAN_DARK = new Color(CYAN_DARK_RGBA);
+    private static final Color SHORTCUT_DESCRIPTION = new Color(0xffffffff);
     private static final Color SHORTCUT_KEY_FILL = new Color(0x07111fff);
     private static final Color DEBUG_FILL = new Color(0x03070cff);
     private static final Color DEBUG_TRACK = new Color(0x26364dff);
+    private static final Color ROW_SCROLL_TRACK = new Color(0x1f334feb);
+    private static final Color ROW_SCROLL_THUMB = new Color(CYAN_RGBA);
     private static final Color TOGGLE_OFF = new Color(TOGGLE_OFF_RGBA);
     private static final Color TOGGLE_ON = new Color(TOGGLE_ON_RGBA);
     private static final Color TOGGLE_KNOB_OFF = new Color(
@@ -93,6 +97,19 @@ final class GdxSettingsStyle {
     static Color rowFill(boolean enabled, boolean pressed) {
         return !enabled ? ROW_DISABLED_FILL
                 : pressed ? ROW_PRESSED_FILL : ROW_FILL;
+    }
+
+    /**
+     * Shortcut text is a semantic settings token, not a renderer-local
+     * choice.  Menu, waiting room and live table must therefore consume the
+     * exact same Color instance for both normal and capture states.
+     */
+    static Color shortcutKeyText(boolean capturing) {
+        return capturing ? GOLD : CYAN;
+    }
+
+    static Color shortcutDescriptionText() {
+        return SHORTCUT_DESCRIPTION;
     }
 
     static Color toggleTrack(float animation) {
@@ -138,6 +155,19 @@ final class GdxSettingsStyle {
                 height, GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
         shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b,
                 CYAN_DARK.a * alpha);
+        roundedRect(shapes, x, thumbY,
+                GdxSettingsLayout.SCROLLBAR_WIDTH, thumbHeight,
+                GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+    }
+
+    static void drawRowScrollbar(ShapeRenderer shapes, float x, float y,
+            float height, float thumbY, float thumbHeight, float alpha) {
+        shapes.setColor(ROW_SCROLL_TRACK.r, ROW_SCROLL_TRACK.g,
+                ROW_SCROLL_TRACK.b, ROW_SCROLL_TRACK.a * alpha);
+        roundedRect(shapes, x, y, GdxSettingsLayout.SCROLLBAR_WIDTH,
+                height, GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+        shapes.setColor(ROW_SCROLL_THUMB.r, ROW_SCROLL_THUMB.g,
+                ROW_SCROLL_THUMB.b, 0.96f * alpha);
         roundedRect(shapes, x, thumbY,
                 GdxSettingsLayout.SCROLLBAR_WIDTH, thumbHeight,
                 GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);

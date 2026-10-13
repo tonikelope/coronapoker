@@ -151,6 +151,21 @@ final class GdxSettingsLayoutTest {
         assertTrue(row.bounds().contains(row.key()));
         assertTrue(row.bounds().contains(row.description()));
         assertTrue(row.key().x + row.key().width < row.description().x);
+        assertEquals(238f, GdxSettingsLayout.shortcutKeyBaseline(row));
+        assertEquals(238f,
+                GdxSettingsLayout.shortcutDescriptionBaseline(row));
+    }
+
+    @Test
+    void canonicalTextBaselinesCannotDriftBetweenSettingsRenderers() {
+        assertEquals(243f, GdxSettingsLayout.rowTextBaseline(200f));
+        assertEquals(244f, GdxSettingsLayout.stepperLabelBaseline(200f));
+        assertEquals(245f, GdxSettingsLayout.stepperValueBaseline(200f));
+        assertEquals(248f, GdxSettingsLayout.stepperSignBaseline(200f));
+        assertEquals(244f, GdxSettingsLayout.infoLabelBaseline(200f));
+        assertEquals(245f, GdxSettingsLayout.infoValueBaseline(200f));
+        assertEquals(241f, GdxSettingsLayout.volumeTextBaseline(
+                GdxSettingsLayout.volumeRow(100f, 200f, 1_120f)));
     }
 
     @Test

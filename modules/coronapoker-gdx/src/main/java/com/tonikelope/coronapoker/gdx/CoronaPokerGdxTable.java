@@ -165,6 +165,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         "images/menu/camera.png", "images/fast_panel/fullscreen.png",
         "images/stop.png", "images/exit2.png"
     };
+    private static final GdxUiIconRenderer.Icon[] FINAL_NAV_ICONS = {
+        GdxUiIconRenderer.Icon.EXIT,
+        GdxUiIconRenderer.Icon.LOG,
+        GdxUiIconRenderer.Icon.STATISTICS,
+        GdxUiIconRenderer.Icon.CONTINUE
+    };
     private static final String[] HAND_TRANSLATION_KEYS = {
         "hand.high_card", "hand.one_pair", "hand.two_pair",
         "hand.three_of_a_kind", "hand.straight", "hand.flush",
@@ -985,11 +991,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture fastMenuIcon;
     private Texture[] fastButtonIcons;
     private Texture talkIcon;
-    private Texture finalMenuIcon;
-    private Texture finalLogIcon;
-    private Texture finalStatsIcon;
-    private Texture finalContinueIcon;
-    private Texture finalScreenshotIcon;
     private Texture defaultCardBack;
     private Texture rabbitCardBack;
     private Texture rabbitRevealOverlay;
@@ -2674,17 +2675,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 15 -> pauseIcon = texture("images/pause.png");
             case 16 -> foldThumbIcon = texture("images/action/down.png");
             case 17 -> callThumbIcon = texture("images/action/up.png");
-            case 18 -> timeoutIcon = texture("images/menu/timeout.png");
+            // The legacy menu glyph is only 24 px and is enlarged on remote
+            // seats. Use the matching 256 px artwork so the warning remains
+            // clean at 1080p, 1440p, 4K and fractional desktop scaling.
+            case 18 -> timeoutIcon = texture("images/action/timeout.png");
             case 19 -> talkIcon = texture("images/talk.png");
-            case 20 -> finalMenuIcon = silhouetteTexture(
-                    "images/exit2.png", Color.WHITE);
-            case 21 -> finalLogIcon = texture("images/menu/log2.png");
-            case 22 -> finalStatsIcon = texture("images/stats.png");
-            case 23 -> finalContinueIcon = texture("images/continue.png");
-            case 24 -> finalScreenshotIcon = texture("images/menu/camera.png");
-            case 25 -> fastMenuIcon = texture("images/fast_panel/menu.png");
+            case 20 -> fastMenuIcon = texture("images/fast_panel/menu.png");
             default -> {
-                int fastIcon = resource - 26;
+                int fastIcon = resource - 21;
                 if (fastIcon >= FAST_BUTTON_ICON_PATHS.length) return true;
                 if (fastButtonIcons == null) {
                     fastButtonIcons = new Texture[FAST_BUTTON_ICON_PATHS.length];
@@ -7996,6 +7994,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + FAST_BUTTON_SIZE / 2f,
                         enabled ? alpha : 0.36f * alpha);
             }
+            if (fastBarExpanded && action == FastAccessAction.SETTINGS) {
+                GdxUiIconRenderer.draw(shapes,
+                        GdxUiIconRenderer.Icon.SETTINGS,
+                        buttonX + FAST_BUTTON_SIZE / 2f,
+                        FAST_BAR_Y + FAST_BAR_PADDING
+                                + FAST_BUTTON_SIZE / 2f,
+                        34f, Color.WHITE,
+                        enabled ? alpha : 0.36f * alpha);
+            }
             if (fastBarExpanded && action == FastAccessAction.SCREENSHOTS) {
                 drawFastAccessCameraIcon(buttonX + FAST_BUTTON_SIZE / 2f,
                         FAST_BAR_Y + FAST_BAR_PADDING
@@ -8027,7 +8034,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (visibleFastAccessActionAt(index)
                         == FastAccessAction.SCREENSHOTS
                         || visibleFastAccessActionAt(index)
-                                == FastAccessAction.BLOCKS) {
+                                == FastAccessAction.BLOCKS
+                        || visibleFastAccessActionAt(index)
+                                == FastAccessAction.SETTINGS) {
                     continue;
                 }
                 float tint = fastButtonEnabled(index) ? 1f : 0.36f;
@@ -8066,13 +8075,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFastAccessCameraIcon(float cx, float cy, float alpha) {
-        shapes.setColor(1f, 1f, 1f, alpha);
-        roundedRect(cx - 18f, cy - 12f, 36f, 25f, 4f);
-        roundedRect(cx - 10f, cy + 10f, 20f, 7f, 3f);
-        shapes.setColor(0.035f, 0.075f, 0.12f, alpha);
-        shapes.circle(cx, cy, 8.5f, 32);
-        shapes.setColor(1f, 1f, 1f, alpha);
-        shapes.circle(cx, cy, 4.5f, 24);
+        GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CAMERA,
+                cx, cy, 40f, Color.WHITE, alpha);
     }
 
     private void drawFastBlockIcon(float cx, float cy, float alpha) {
@@ -19481,10 +19485,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 height, rows.viewportHeight(), rows.contentHeight());
         float thumbY = y + (height - thumbHeight)
                 * (1f - rows.offset() / rows.maximum());
-        shapes.setColor(0.12f, 0.20f, 0.31f, 0.92f * alpha);
-        roundedRect(x, y, trackWidth, height, trackWidth / 2f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.96f * alpha);
-        roundedRect(x, thumbY, trackWidth, thumbHeight, trackWidth / 2f);
+        GdxSettingsStyle.drawRowScrollbar(shapes, x, y, height, thumbY,
+                thumbHeight, alpha);
     }
 
     private void drawSettingsShortcutShape(float x, float y, float width,
@@ -19506,16 +19508,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle percentage = row.percentage();
                 Rectangle minus = row.minusButton();
                 Rectangle plus = row.plusButton();
-                drawFittedLeft(settingsSmallFont, uppercase(gameText.translate(
+                drawFittedLeft(settingsSmallFont,
+                        uppercase(gameText.translate(
                         "gdx.settings.row.master_volume")),
-                        label.x, label.y + 31f, label.width,
+                        label.x, GdxSettingsLayout.volumeTextBaseline(row),
+                        label.width,
                         Color.WHITE, alpha);
                 drawFittedCentered(settingsSmallFont,
                         GdxSettingsContract.markDefault(
                                 Math.round(effectsVolume * 100f) + "%",
                                 Float.compare(effectsVolume, 0.8f) == 0),
                         percentage.x + percentage.width / 2f,
-                        percentage.y + 31f, percentage.width - 8f,
+                        GdxSettingsLayout.volumeTextBaseline(row),
+                        percentage.width - 8f,
                         POT_GOLD, alpha);
                 drawDialogButtonLabel(settingsStepperSignFont, "-",
                         minus.x, minus.y, minus.width, minus.height,
@@ -20128,7 +20133,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsRowText(float x, float y, float width,
             String label, Color color, boolean enabled, float alpha) {
         Rectangle bounds = GdxSettingsLayout.rowLabel(x, y, width);
-        drawFittedLeft(settingsSmallFont, label, bounds.x, y + 43f,
+        drawFittedLeft(settingsSmallFont, label, bounds.x,
+                GdxSettingsLayout.rowTextBaseline(y),
                 bounds.width,
                 enabled ? color : SETTINGS_DISABLED, alpha);
     }
@@ -20138,11 +20144,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxSettingsLayout.ToggleRow layout = GdxSettingsLayout.toggleRow(
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
         drawFittedLeft(settingsSmallFont, label, layout.label().x,
-                y + 43f, layout.label().width,
+                GdxSettingsLayout.rowTextBaseline(y), layout.label().width,
                 enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
         drawFittedCentered(settingsBodyFont, value,
                 layout.value().x + layout.value().width / 2f,
-                y + 43f, layout.value().width - 12f,
+                GdxSettingsLayout.rowTextBaseline(y),
+                layout.value().width - 12f,
                 enabled ? POT_GOLD : SETTINGS_DISABLED,
                 alpha);
     }
@@ -20150,10 +20157,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsInfoText(float x, float y, float width,
             String label, String value, float alpha) {
         float valueWidth = Math.min(660f, width * 0.58f);
-        drawFittedLeft(settingsSmallFont, label, x + 20f, y + 44f,
+        drawFittedLeft(settingsSmallFont, label, x + 20f,
+                GdxSettingsLayout.infoLabelBaseline(y),
                 width - valueWidth - 52f, Color.WHITE, alpha);
         drawFittedCentered(settingsBodyFont, value,
-                x + width - valueWidth / 2f - 18f, y + 45f,
+                x + width - valueWidth / 2f - 18f,
+                GdxSettingsLayout.infoValueBaseline(y),
                 valueWidth, POT_GOLD, alpha);
     }
 
@@ -20168,17 +20177,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
         Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
         Color valueColor = enabled ? POT_GOLD : SETTINGS_DISABLED;
-        drawFittedLeft(settingsSmallFont, label, row.label().x, y + 44f,
+        drawFittedLeft(settingsSmallFont, label,
+                row.label().x, GdxSettingsLayout.stepperLabelBaseline(y),
                 row.label().width, labelColor, alpha);
         drawFittedCentered(settingsStepperSignFont, "-",
                 row.minusButton().x + row.minusButton().width / 2f,
-                y + 48f, row.minusButton().width, labelColor, alpha);
+                GdxSettingsLayout.stepperSignBaseline(y),
+                row.minusButton().width, labelColor, alpha);
         drawFittedCentered(settingsBodyFont, value,
                 row.value().x + row.value().width / 2f,
-                y + 45f, row.value().width - 12f, valueColor, alpha);
+                GdxSettingsLayout.stepperValueBaseline(y),
+                row.value().width - 12f, valueColor, alpha);
         drawFittedCentered(settingsStepperSignFont, "+",
                 row.plusButton().x + row.plusButton().width / 2f,
-                y + 48f, row.plusButton().width, labelColor, alpha);
+                GdxSettingsLayout.stepperSignBaseline(y),
+                row.plusButton().width, labelColor, alpha);
         if (enabled) {
             registerPointerRepeatHit(row.minusButton().x, row.value().y,
                     row.minusButton().width, row.value().height,
@@ -20466,12 +20479,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle descriptionBounds = row.description();
         drawFittedCentered(settingsSmallFont, key,
                 keyBounds.x + keyBounds.width / 2f,
-                keyBounds.y + 30f, keyBounds.width - 22f,
-                capturing ? Color.WHITE : CYAN, alpha);
+                GdxSettingsLayout.shortcutKeyBaseline(row),
+                keyBounds.width - 22f,
+                GdxSettingsStyle.shortcutKeyText(capturing), alpha);
         drawFittedLeft(settingsSmallFont, description,
-                descriptionBounds.x, descriptionBounds.y + 33f,
+                descriptionBounds.x,
+                GdxSettingsLayout.shortcutDescriptionBaseline(row),
                 descriptionBounds.width,
-                Color.WHITE, alpha);
+                GdxSettingsStyle.shortcutDescriptionText(), alpha);
     }
 
     private void drawGameLogDialog() {
@@ -21812,11 +21827,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean enabled = finalSummaryNavEnabled(index);
             drawFinalNavSurface(nav.x, nav.y, nav.width, nav.height, enabled,
                     enabled && nav.contains(pointer), reveal);
+            Color navColor = GdxUiButtonStyle.labelColor(
+                    GdxUiButtonStyle.Tone.NEUTRAL, enabled);
+            GdxUiIconRenderer.draw(shapes, FINAL_NAV_ICONS[index],
+                    nav.x + 32f, nav.y + 27f, 30f, navColor,
+                    enabled ? reveal : 0.38f * reveal);
         }
         Rectangle screenshotButton = header.screenshotButton();
         drawHudActionSurface(screenshotButton.x, screenshotButton.y,
                 screenshotButton.width, screenshotButton.height,
                 SEAT_RIM, screenshotHover, false, false, true, 1f, reveal);
+        GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CAMERA,
+                screenshotButton.x + screenshotButton.width / 2f,
+                screenshotButton.y + screenshotButton.height / 2f,
+                32f, Color.WHITE, reveal);
         Rectangle soundButton = header.soundButton();
         drawHudActionSurface(soundButton.x, soundButton.y,
                 soundButton.width, soundButton.height,
@@ -21865,8 +21889,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.draw(logo, GdxFrontendScreen.MENU_LOGO_X,
                 height - GdxFrontendScreen.MENU_LOGO_TOP - finalLogoHeight,
                 finalLogoWidth, finalLogoHeight);
-        Texture[] navIcons = {finalMenuIcon, finalLogIcon,
-            finalStatsIcon, finalContinueIcon};
         String[] navLabels = {
             finalSummaryNavLabel(0, tableHost, gameText),
             finalSummaryNavLabel(1, tableHost, gameText),
@@ -21879,15 +21901,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float alpha = enabled ? reveal : 0.38f * reveal;
             Color navColor = GdxUiButtonStyle.labelColor(
                     GdxUiButtonStyle.Tone.NEUTRAL, enabled);
-            batch.setColor(navColor.r, navColor.g, navColor.b, alpha);
-            batch.draw(navIcons[index], nav.x + 17f, nav.y + 12f, 30f, 30f);
             drawDialogButtonLabel(finalButtonFont, navLabels[index],
                     nav.x + 52f, nav.y + 6f, nav.width - 64f, 42f,
                     navColor, alpha);
         }
-        batch.setColor(1f, 1f, 1f, reveal);
-        batch.draw(finalScreenshotIcon, screenshotButton.x + 7f,
-                screenshotButton.y + 7f, 32f, 32f);
         Texture speaker = outputAvailable && audioControl.enabled()
                 ? soundIcon : muteIcon;
         Color speakerColor = outputAvailable ? Color.WHITE : LATENCY_RED;
@@ -21919,7 +21936,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     finalSummaryHeroY(height), width - 100f,
                     resultColor, reveal);
         } else {
-            drawFittedCenteredAtVisualY(finalHeroFont, hero, centerX,
+            drawFittedCenteredAtVisualY(finalHeroFont, hero,
+                    centerX,
                     finalSummarySingleHeroCenterY(height), width - 100f,
                     resultColor, reveal);
         }
@@ -21930,7 +21948,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? finalAmountValue(elapsed, local.totalBuyin(),
                                 local.finalStack())
                         : Math.abs(net);
-                drawFittedCentered(finalAmountFont, formatAmount(value),
+                drawFittedCentered(finalAmountFont,
+                        formatAmount(value),
                         centerX, height - 475f + FINAL_SUMMARY_TEXT_SHIFT_Y,
                         width - 130f,
                         resultColor, reveal);
@@ -22627,11 +22646,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(callThumbIcon);
         disposeSafely(timeoutIcon);
         disposeSafely(talkIcon);
-        disposeSafely(finalMenuIcon);
-        disposeSafely(finalLogIcon);
-        disposeSafely(finalStatsIcon);
-        disposeSafely(finalContinueIcon);
-        disposeSafely(finalScreenshotIcon);
         disposeSafely(fastMenuIcon);
         disposeSafely(defaultCardBack);
         disposeSafely(rabbitCardBack);
@@ -22842,11 +22856,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         callThumbIcon.dispose();
         timeoutIcon.dispose();
         talkIcon.dispose();
-        finalMenuIcon.dispose();
-        finalLogIcon.dispose();
-        finalStatsIcon.dispose();
-        finalContinueIcon.dispose();
-        finalScreenshotIcon.dispose();
         fastMenuIcon.dispose();
         for (Texture fastButtonIcon : fastButtonIcons) {
             fastButtonIcon.dispose();

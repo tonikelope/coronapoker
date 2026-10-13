@@ -51,6 +51,19 @@ final class GdxSettingsLayout {
     /** Same measured wheel travel used by the lobby and quick-table chats. */
     static final float PIXEL_SCROLL_WHEEL_STEP = 48f;
 
+    // Canonical baselines for every renderer. Keeping them beside the shared
+    // rectangles prevents a visually identical control from drifting by one
+    // or two pixels when one settings entry point is adjusted in isolation.
+    static final float ROW_TEXT_BASELINE = 43f;
+    static final float STEPPER_LABEL_BASELINE = 44f;
+    static final float STEPPER_VALUE_BASELINE = 45f;
+    static final float STEPPER_SIGN_BASELINE = 48f;
+    static final float INFO_LABEL_BASELINE = 44f;
+    static final float INFO_VALUE_BASELINE = 45f;
+    static final float VOLUME_TEXT_BASELINE = 41f;
+    static final float SHORTCUT_KEY_BASELINE = 38f;
+    static final float SHORTCUT_DESCRIPTION_BASELINE = 38f;
+
     private GdxSettingsLayout() {
     }
 
@@ -288,6 +301,42 @@ final class GdxSettingsLayout {
         Rectangle description = new Rectangle(x + 252f, y + 5f,
                 Math.max(0f, width - 276f), 52f);
         return new ShortcutRow(bounds, key, description);
+    }
+
+    static float rowTextBaseline(float y) {
+        return y + ROW_TEXT_BASELINE;
+    }
+
+    static float stepperLabelBaseline(float y) {
+        return y + STEPPER_LABEL_BASELINE;
+    }
+
+    static float stepperValueBaseline(float y) {
+        return y + STEPPER_VALUE_BASELINE;
+    }
+
+    static float stepperSignBaseline(float y) {
+        return y + STEPPER_SIGN_BASELINE;
+    }
+
+    static float infoLabelBaseline(float y) {
+        return y + INFO_LABEL_BASELINE;
+    }
+
+    static float infoValueBaseline(float y) {
+        return y + INFO_VALUE_BASELINE;
+    }
+
+    static float volumeTextBaseline(VolumeRow row) {
+        return row.bounds().y + VOLUME_TEXT_BASELINE;
+    }
+
+    static float shortcutKeyBaseline(ShortcutRow row) {
+        return row.bounds().y + SHORTCUT_KEY_BASELINE;
+    }
+
+    static float shortcutDescriptionBaseline(ShortcutRow row) {
+        return row.bounds().y + SHORTCUT_DESCRIPTION_BASELINE;
     }
 
     static Rectangle debugCopyButton(Rectangle content) {

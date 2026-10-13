@@ -43,5 +43,13 @@ final class GdxSettingsStyleTest {
         assertEquals(new Color(GdxSettingsStyle.TOGGLE_OFF_RGBA), track);
         assertSame(track, GdxSettingsStyle.toggleTrack(1f));
         assertEquals(new Color(GdxSettingsStyle.TOGGLE_ON_RGBA), track);
+        assertSame(GdxSettingsStyle.shortcutKeyText(false),
+                GdxSettingsStyle.shortcutKeyText(false));
+        assertSame(GdxSettingsStyle.shortcutKeyText(true),
+                GdxSettingsStyle.shortcutKeyText(true));
+        assertEquals(new Color(GdxSettingsStyle.CYAN_RGBA),
+                GdxSettingsStyle.shortcutKeyText(false));
+        assertEquals(new Color(GdxSettingsStyle.GOLD_RGBA),
+                GdxSettingsStyle.shortcutKeyText(true));
     }
 }

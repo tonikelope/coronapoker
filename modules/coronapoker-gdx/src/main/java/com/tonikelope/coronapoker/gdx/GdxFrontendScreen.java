@@ -7766,12 +7766,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsStyle.drawVolumeRow(shapes, row, masterVolume(), 1f);
         textFit(smallFont, uppercase(gameText.translate(
                 "gdx.settings.row.master_volume")), label.x,
-                label.y + 31f, Color.WHITE, false, label.width);
+                GdxSettingsLayout.volumeTextBaseline(row), Color.WHITE,
+                false, label.width);
         textFit(smallFont, GdxSettingsContract.markDefault(
                 Math.round(masterVolume() * 100f) + "%",
                 Float.compare(masterVolume(), 0.8f) == 0),
                 percentage.x + percentage.width / 2f,
-                percentage.y + 31f, GOLD, true, percentage.width - 8f);
+                GdxSettingsLayout.volumeTextBaseline(row), GOLD, true,
+                percentage.width - 8f);
         themedButton(minus.x, minus.y, minus.width, minus.height, "-",
                 ButtonTone.NEUTRAL,
                 () -> adjustFrontendMasterVolume(-0.05f), true,
@@ -7970,10 +7972,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsRowScrollThumbHeight = thumbHeight;
         float thumbY = y + (height - thumbHeight)
                 * (1f - rows.offset() / rows.maximum());
-        shapes.setColor(0.12f, 0.20f, 0.31f, 0.92f);
-        roundedRect(x, y, trackWidth, height, trackWidth / 2f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.96f);
-        roundedRect(x, thumbY, trackWidth, thumbHeight, trackWidth / 2f);
+        GdxSettingsStyle.drawRowScrollbar(shapes, x, y, height, thumbY,
+                thumbHeight, 1f);
     }
 
     /** Compact settings row: label and value share one bounded surface. */
@@ -8038,20 +8038,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         embeddedButtonSurface(plusBounds.x, plusBounds.y,
                 plusBounds.width, plusBounds.height, enabled);
         textFit(smallFont, label, row.label().x,
-                row.label().y + row.label().height / 2f + 10f,
+                GdxSettingsLayout.stepperLabelBaseline(y),
                 enabled ? Color.WHITE : DISABLED, false,
                 row.label().width);
         text(settingsStepperSignFont, "-",
                 minusBounds.x + minusBounds.width / 2f,
-                minusBounds.y + minusBounds.height / 2f + 14f,
+                GdxSettingsLayout.stepperSignBaseline(y),
                 enabled ? Color.WHITE : DISABLED, true);
         textFit(uiFont, value, valueBounds.x + valueBounds.width / 2f,
-                valueBounds.y + valueBounds.height / 2f + 11f,
+                GdxSettingsLayout.stepperValueBaseline(y),
                 enabled ? GOLD : DISABLED, true,
                 valueBounds.width - 12f);
         text(settingsStepperSignFont, "+",
                 plusBounds.x + plusBounds.width / 2f,
-                plusBounds.y + plusBounds.height / 2f + 14f,
+                GdxSettingsLayout.stepperSignBaseline(y),
                 enabled ? Color.WHITE : DISABLED, true);
         if (enabled) {
             repeatHit(minusBounds.x, minusBounds.y, minusBounds.width,
@@ -8070,10 +8070,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, h, GdxSettingsStyle.rowBorder(true, false),
                 GdxSettingsStyle.rowFill(true, false));
         float valueWidth = Math.min(660f, w * 0.58f);
-        textFit(smallFont, label, x + 20f, y + h / 2f + 10f,
+        textFit(smallFont, label, x + 20f,
+                GdxSettingsLayout.infoLabelBaseline(y),
                 Color.WHITE, false, w - valueWidth - 52f);
         textFit(uiFont, value, x + w - valueWidth / 2f - 18f,
-                y + h / 2f + 11f, GOLD, true, valueWidth);
+                GdxSettingsLayout.infoValueBaseline(y), GOLD, true,
+                valueWidth);
     }
 
     private void adjustLightLevel(int direction) {
@@ -8613,11 +8615,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle descriptionBounds = row.description();
         GdxSettingsStyle.drawShortcutRow(shapes, row, capturing, 1f);
         textFit(smallFont, key, keyBounds.x + keyBounds.width / 2f,
-                keyBounds.y + 30f,
-                capturing ? GOLD : CYAN, true, keyBounds.width - 22f);
+                GdxSettingsLayout.shortcutKeyBaseline(row),
+                GdxSettingsStyle.shortcutKeyText(capturing), true,
+                keyBounds.width - 22f);
         textFit(smallFont, description, descriptionBounds.x,
-                descriptionBounds.y + 33f,
-                Color.WHITE, false, descriptionBounds.width);
+                GdxSettingsLayout.shortcutDescriptionBaseline(row),
+                GdxSettingsStyle.shortcutDescriptionText(), false,
+                descriptionBounds.width);
     }
 
     private boolean preferenceBoolean(String key, boolean fallback) {
@@ -10726,12 +10730,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 baseline -= 24f;
             }
         } else {
-            textFit(labelFont, label, x + 22f, y + 43f,
+            textFit(labelFont, label, x + 22f,
+                    GdxSettingsLayout.rowTextBaseline(y),
                     enabled ? Color.WHITE : DISABLED, false, labelWidth);
         }
         if (valueLabel != null) {
             textFit(uiFont, valueLabel, layout.value().x
-                    + layout.value().width / 2f, y + 43f,
+                    + layout.value().width / 2f,
+                    GdxSettingsLayout.rowTextBaseline(y),
                     enabled ? GOLD : DISABLED, true,
                     layout.value().width - 12f);
         }

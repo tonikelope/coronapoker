@@ -166,10 +166,19 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains("GdxSettingsLayout.splitActionRow("));
         assertTrue(frontend.contains("GdxSettingsStyle.drawShortcutRow("));
         assertTrue(table.contains("GdxSettingsStyle.drawShortcutRow("));
+        assertTrue(frontend.contains("GdxSettingsStyle.drawRowScrollbar("));
+        assertTrue(table.contains("GdxSettingsStyle.drawRowScrollbar("));
         assertTrue(frontend.contains("textFit(smallFont, key,"));
         assertTrue(table.contains(
                 "drawFittedCentered(settingsSmallFont, key,"),
                 "live shortcut keys must not silently grow beyond the menu");
+        assertTrue(frontend.contains(
+                "GdxSettingsStyle.shortcutKeyText(capturing)"));
+        assertTrue(table.contains(
+                "GdxSettingsStyle.shortcutKeyText(capturing)"));
+        assertTrue(table.contains(
+                "drawFittedLeft(settingsTitleFont,"),
+                "the live settings title must retain the master font path");
         assertFalse(table.contains(
                 "capturing ? settingsSmallFont\n                : settingsActionFont"));
     }
@@ -190,6 +199,40 @@ final class GdxFrontendSettingsWiringTest {
                 .translate("balance.fichas"));
         assertEquals("STACK", new GdxGameText("en")
                 .translate("balance.fichas"));
+    }
+
+    @Test
+    void compactSummaryAndQuickAccessIconsRemainResolutionIndependent()
+            throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+        int summaryStart = table.indexOf("private void drawFinalSummary()");
+        int summaryEnd = table.indexOf("private void drawFinalExitPending(",
+                summaryStart);
+        assertTrue(summaryStart >= 0 && summaryEnd > summaryStart);
+        String summary = table.substring(summaryStart, summaryEnd);
+
+        assertTrue(summary.contains("GdxUiIconRenderer.draw(shapes,"));
+        assertTrue(summary.contains("FINAL_NAV_ICONS[index]"));
+        assertTrue(summary.contains("GdxUiIconRenderer.Icon.CAMERA"));
+        assertFalse(table.contains("private Texture finalLogIcon;"),
+                "a 24 px log PNG must never be enlarged in the final header");
+        assertFalse(table.contains("private Texture finalScreenshotIcon;"));
+        assertTrue(table.contains("GdxUiIconRenderer.Icon.SETTINGS"),
+                "the 24 px quick-settings PNG also needs vector geometry");
+    }
+
+    @Test
+    void tableTimeoutWarningUsesHighResolutionArtwork() throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(table.contains(
+                "timeoutIcon = texture(\"images/action/timeout.png\")"));
+        assertFalse(table.contains(
+                "timeoutIcon = texture(\"images/menu/timeout.png\")"));
     }
 
     @Test

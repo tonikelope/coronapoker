@@ -214,7 +214,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
     private static final int ALL_IN_EMBER_COUNT = 25;
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
-    static final float DERIVED_POT_OVERLAY_ALPHA = 0.70f;
+    static final float DERIVED_POT_OVERLAY_ALPHA = 0.60f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =

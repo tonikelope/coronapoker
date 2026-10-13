@@ -42,8 +42,13 @@ final class GdxSettingsContractTest {
                 4, 4, new GdxGameText("es")));
         assertEquals("4X", GdxSettingsContract.msaaStatusLabel(
                 4, 4, new GdxGameText("en")));
-        assertEquals("4X  -  [!] RESTART PENDING (CURRENT DISABLED)",
+        assertEquals("4X",
                 GdxSettingsContract.msaaStatusLabel(4, 0,
+                        new GdxGameText("en")));
+        assertEquals("", GdxSettingsContract.msaaRestartStatus(
+                4, 4, new GdxGameText("es")));
+        assertEquals("[!] RESTART PENDING (CURRENT DISABLED)",
+                GdxSettingsContract.msaaRestartStatus(4, 0,
                         new GdxGameText("en")));
     }
 

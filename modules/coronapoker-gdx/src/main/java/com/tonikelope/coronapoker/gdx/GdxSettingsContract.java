@@ -579,12 +579,20 @@ final class GdxSettingsContract {
         }
     }
 
-    /** Shared localized MSAA summary for every GDX settings entry point. */
+    /** Clean selected MSAA value shared by every GDX settings entry point. */
     static String msaaStatusLabel(int requested, int actual,
             GdxGameText text) {
-        String requestedText = msaaValue(requested, text);
-        if (actual == requested) return requestedText;
-        return requestedText + "  -  " + translatedUpper(text,
+        return msaaValue(requested, text);
+    }
+
+    /**
+     * Separate restart notice for the wide label lane of the MSAA row.
+     * Keeping it out of the narrow value lane prevents illegible fitting.
+     */
+    static String msaaRestartStatus(int requested, int actual,
+            GdxGameText text) {
+        if (actual == requested) return "";
+        return translatedUpper(text,
                 "gdx.settings.value.restart_current",
                 "REINICIAR (ACTUAL " + msaaValue(actual, text) + ")",
                 msaaValue(actual, text));

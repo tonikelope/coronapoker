@@ -7675,6 +7675,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
+    private String tableMsaaRestartStatus() {
+        if (presentationSettings == null) return "";
+        return GdxSettingsContract.msaaRestartStatus(
+                presentationSettings.requestedMsaaSamples(),
+                presentationSettings.actualMsaaSamples(), gameText);
+    }
+
     private String tableFrameRateLimitSettingLabel() {
         if (presentationSettings == null) {
             return uppercase(gameText.translate(
@@ -19779,6 +19786,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsContract.markDefault(tableMsaaSettingLabel(),
                                 "4".equals(tableSettingsProperties()
                                         .getProperty("gdx_msaa_samples", "4"))),
+                        tableMsaaRestartStatus(),
                         presentationSettings != null, alpha);
                 drawSettingsRowText(x, firstY - 4f * rowStride, width,
                         uppercase(gameText.translate(
@@ -20251,13 +20259,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsStepperText(float x, float y, float width,
             String label, String value, boolean enabled, float alpha) {
+        drawSettingsStepperText(x, y, width, label, value, "", enabled,
+                alpha);
+    }
+
+    private void drawSettingsStepperText(float x, float y, float width,
+            String label, String value, String status, boolean enabled,
+            float alpha) {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
         Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
         Color valueColor = enabled ? POT_GOLD : SETTINGS_DISABLED;
+        boolean hasStatus = status != null && !status.isBlank();
+        float labelWidth = hasStatus
+                ? row.label().width * 0.38f : row.label().width;
         drawFittedLeft(settingsSmallFont, label,
                 row.label().x, GdxSettingsLayout.stepperLabelBaseline(y),
-                row.label().width, labelColor, alpha);
+                labelWidth, labelColor, alpha);
+        if (hasStatus) {
+            float statusWidth = row.label().width - labelWidth - 18f;
+            drawFittedCentered(settingsSmallFont, status,
+                    row.label().x + labelWidth + 18f + statusWidth / 2f,
+                    GdxSettingsLayout.stepperLabelBaseline(y), statusWidth,
+                    valueColor, alpha);
+        }
         drawFittedCentered(settingsStepperSignFont, "-",
                 row.minusButton().x + row.minusButton().width / 2f,
                 GdxSettingsLayout.stepperSignBaseline(y),

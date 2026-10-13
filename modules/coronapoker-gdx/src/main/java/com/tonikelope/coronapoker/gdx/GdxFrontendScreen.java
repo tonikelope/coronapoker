@@ -7909,13 +7909,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_fps_limit");
-            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
+            settingsStepperWithStatus(x + 34f,
+                    rowY - 3f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
                     GdxSettingsContract.markDefault(msaaSettingLabel(),
                             "4".equals(initialProperties.getProperty(
                                     "gdx_msaa_samples", "4"))),
+                    msaaRestartStatus(),
                     this::selectPreviousMsaa, this::selectNextMsaa);
             performanceTooltip(new Rectangle(x + 34f,
                     rowY - 3f * rowStride, w - 68f,
@@ -8065,6 +8067,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void settingsStepper(float x, float y, float w, float h,
             String label, String value, Runnable minus, Runnable plus,
             Runnable valueAction, boolean enabled) {
+        settingsStepper(x, y, w, h, label, value, "", minus, plus,
+                valueAction, enabled);
+    }
+
+    private void settingsStepperWithStatus(float x, float y, float w, float h,
+            String label, String value, String status, Runnable minus,
+            Runnable plus) {
+        settingsStepper(x, y, w, h, label, value, status, minus, plus,
+                null, true);
+    }
+
+    private void settingsStepper(float x, float y, float w, float h,
+            String label, String value, String status, Runnable minus,
+            Runnable plus, Runnable valueAction, boolean enabled) {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, w, h);
         outerBox(x, y, w, h,
@@ -8078,10 +8094,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 minusBounds.width, minusBounds.height, enabled);
         embeddedButtonSurface(plusBounds.x, plusBounds.y,
                 plusBounds.width, plusBounds.height, enabled);
+        boolean hasStatus = status != null && !status.isBlank();
+        float labelWidth = hasStatus
+                ? row.label().width * 0.38f : row.label().width;
         textFit(smallFont, label, row.label().x,
                 GdxSettingsLayout.stepperLabelBaseline(y),
                 enabled ? Color.WHITE : DISABLED, false,
-                row.label().width);
+                labelWidth);
+        if (hasStatus) {
+            float statusWidth = row.label().width - labelWidth - 18f;
+            textFit(smallFont, status,
+                    row.label().x + labelWidth + 18f + statusWidth / 2f,
+                    GdxSettingsLayout.stepperLabelBaseline(y),
+                    enabled ? GOLD : DISABLED, true, statusWidth);
+        }
         text(settingsStepperSignFont, "-",
                 minusBounds.x + minusBounds.width / 2f,
                 GdxSettingsLayout.stepperSignBaseline(y),
@@ -8922,6 +8948,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String msaaSettingLabel() {
         return GdxSettingsContract.msaaStatusLabel(
+                presentationSettings.requestedMsaaSamples(),
+                presentationSettings.actualMsaaSamples(), gameText);
+    }
+
+    private String msaaRestartStatus() {
+        return GdxSettingsContract.msaaRestartStatus(
                 presentationSettings.requestedMsaaSamples(),
                 presentationSettings.actualMsaaSamples(), gameText);
     }

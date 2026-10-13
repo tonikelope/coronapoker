@@ -8,12 +8,12 @@ final class GdxAdaptiveFontQualityTest {
 
     @Test
     void keepsConsistentPhysicalSupersamplingAcrossCommonResolutions() {
-        assertProfile(1280, 720, 1.25f, 1.25f);
-        assertProfile(1366, 768, 1.25f, 1.25f);
-        assertProfile(1600, 900, 1.5f, 1.5f);
-        assertProfile(1920, 1080, 1.75f, 1.75f);
-        assertProfile(2560, 1440, 2.5f, 2.25f);
-        assertProfile(3840, 2160, 3.5f, 3f);
+        assertProfile(1280, 720, 1f, 1f);
+        assertProfile(1366, 768, 1.25f, 1f);
+        assertProfile(1600, 900, 1.25f, 1f);
+        assertProfile(1920, 1080, 1.5f, 1.25f);
+        assertProfile(2560, 1440, 2f, 1.5f);
+        assertProfile(3840, 2160, 3f, 2.25f);
     }
 
     @Test
@@ -22,8 +22,8 @@ final class GdxAdaptiveFontQualityTest {
                 GdxAdaptiveFontQuality.forBackBuffer(
                         2560, 1440, 1920f, 1080f);
 
-        assertEquals(2.5f, profile.rasterScaleFor(76));
-        assertEquals(2.25f, profile.rasterScaleFor(77));
+        assertEquals(2f, profile.rasterScaleFor(76));
+        assertEquals(1.5f, profile.rasterScaleFor(77));
     }
 
     @Test

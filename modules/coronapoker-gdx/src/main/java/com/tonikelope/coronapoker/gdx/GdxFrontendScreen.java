@@ -13485,12 +13485,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         private TextItem(BitmapFont font, String text, float x, float y,
                 Color color, boolean centered, boolean italic) {
-            this(font, text, x, y, color, centered, italic, 1f, true);
+            this(font, text, x, y, color, centered, italic, 1f, false);
         }
 
         private TextItem(BitmapFont font, String text, float x, float y,
                 Color color, boolean centered, boolean italic, float scale) {
-            this(font, text, x, y, color, centered, italic, scale, true);
+            this(font, text, x, y, color, centered, italic, scale, false);
         }
     }
 

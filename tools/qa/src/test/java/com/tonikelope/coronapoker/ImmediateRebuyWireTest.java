@@ -95,8 +95,11 @@ public class ImmediateRebuyWireTest {
                 && awaitBarrier < startBranch
                 && startBranch < acceptBalances,
                 "client must apply received rebuys before validating START balances");
-        assertTrue(factory.contains("dealer.registerRemoteRebuyRelay(arrival)"));
-        assertTrue(factory.contains("dealer.enqueueRemoteRebuyBarrier(rebuyBoundary"));
+        String compactFactory = factory.replaceAll("\\s+", "");
+        assertTrue(compactFactory.contains(
+                "dealer.registerRemoteRebuyRelay(arrival)"));
+        assertTrue(compactFactory.contains(
+                "dealer.enqueueRemoteRebuyBarrier(rebuyBoundary,context.channel()::close)"));
     }
 
     @Test

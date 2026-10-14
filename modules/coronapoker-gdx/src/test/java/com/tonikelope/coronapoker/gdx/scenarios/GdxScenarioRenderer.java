@@ -1402,13 +1402,8 @@ final class GdxScenarioRenderer implements TableRenderer {
             List<TableSnapshot.CardSnapshot> cards
                     = projection.presentedHoleCards(player.nickname());
             if (player.spectator() && !player.exited()) {
-                assertEquals(2, cards.size(),
-                        player.nickname() + " spectator card count");
-                assertTrue(cards.stream().allMatch(card
-                        -> "joker".equals(card.code())
-                        && card.faceUp() && card.visible()),
-                        player.nickname()
-                        + " spectator must show two visible jokers");
+                assertTrue(cards.isEmpty(), player.nickname()
+                        + " spectator must not show placeholder cards");
                 String expectedStatus = presentationText().translate(
                         player.warming() ? "game.calentando"
                                 : "player.espectador").toUpperCase(
@@ -1419,10 +1414,10 @@ final class GdxScenarioRenderer implements TableRenderer {
                         player.nickname()
                         + " must keep its canonical spectator role label");
             } else if (reactivatedSpectators.contains(player.nickname())) {
-                assertFalse(cards.size() == 2 && cards.stream().allMatch(
+                assertTrue(cards.stream().noneMatch(
                         card -> "joker".equals(card.code())),
                         player.nickname()
-                        + " kept spectator jokers after reactivation");
+                        + " restored obsolete spectator placeholders");
             }
             if (!player.spectator() && !player.exited()) {
                 TableVisualEvent.PlayerAction.ActionKind projectedAction

@@ -2011,18 +2011,15 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void everySpectatorVariantUsesJokersAndItsCanonicalStatus() {
+    void everySpectatorVariantHidesCardsAndKeepsItsCanonicalStatus() {
         GdxGameText spanish = new GdxGameText("es");
         TableSnapshot.PlayerSnapshot busted = playerWithAvailability(
                 "ana", false, true, false, false);
         GdxTableViewState bustedState = new GdxTableViewState(
                 snapshotWithPlayers(false, "", busted));
 
-        assertEquals(List.of("joker", "joker"),
-                bustedState.presentedHoleCards("ana").stream()
-                        .map(TableSnapshot.CardSnapshot::code).toList());
-        assertTrue(bustedState.presentedHoleCards("ana").stream()
-                .allMatch(card -> card.faceUp() && card.visible()));
+        assertTrue(bustedState.presentedHoleCards("ana").isEmpty(),
+                "a local spectator must not show placeholder cards");
         assertEquals("ESPECTADOR", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, busted, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
@@ -2036,9 +2033,8 @@ final class GdxTableViewStateTest {
         GdxTableViewState warmingState = new GdxTableViewState(
                 snapshotWithPlayers(false, "", warming));
 
-        assertEquals(List.of("joker", "joker"),
-                warmingState.presentedHoleCards("ana").stream()
-                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertTrue(warmingState.presentedHoleCards("ana").isEmpty(),
+                "a warming local player must not show placeholder cards");
         assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, warming, spanish));
         TableSnapshot.PlayerSnapshot warmingWithoutTransientLabel
@@ -2053,6 +2049,18 @@ final class GdxTableViewStateTest {
                 warmingWithoutTransientLabel, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
                 warming));
+        TableSnapshot.PlayerSnapshot remoteWarming
+                = new TableSnapshot.PlayerSnapshot(
+                        "borja", 1_000d, 0d, 0d, false, true, false, false,
+                        -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.NONE, "CALENTANDO", "",
+                        List.of(card("Q_D"), card("J_D")), 0, 0, true);
+        GdxTableViewState remoteState = new GdxTableViewState(
+                snapshotWithPlayers(false, "", busted, remoteWarming));
+        assertTrue(remoteState.presentedHoleCards("ana").isEmpty(),
+                "a remote spectator must not show placeholder cards");
+        assertTrue(remoteState.presentedHoleCards("borja").isEmpty(),
+                "a warming remote player must not show placeholder cards");
         assertTrue(CoronaPokerGdxTable.usesTransientHolePresentation(
                 player("borja", TableSnapshot.Position.BIG_BLIND)));
     }
@@ -2075,9 +2083,8 @@ final class GdxTableViewStateTest {
                         TableSnapshot.Position.BIG_BLIND))));
 
         assertFalse(state.hasHandResult("ana"));
-        assertEquals(List.of("joker", "joker"),
-                state.presentedHoleCards("ana").stream()
-                        .map(TableSnapshot.CardSnapshot::code).toList());
+        assertTrue(state.presentedHoleCards("ana").isEmpty(),
+                "the spectator roster must not restore placeholder cards");
     }
 
     @Test

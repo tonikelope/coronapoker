@@ -20,9 +20,6 @@ final class GdxTableViewState {
             new TableSnapshot.CardSnapshot("", false, false);
     private static final TableSnapshot.CardSnapshot ABSENT_CARD =
             new TableSnapshot.CardSnapshot("", false, false, false);
-    private static final TableSnapshot.CardSnapshot SPECTATOR_CARD =
-            new TableSnapshot.CardSnapshot("joker", true, false);
-
     private TableSnapshot snapshot;
     private long lastSequence;
     private boolean hotJoinStateApplied;
@@ -300,11 +297,12 @@ final class GdxTableViewState {
         TableSnapshot.PlayerSnapshot player = snapshot.players().stream()
                 .filter(candidate -> candidate.nickname().equals(nickname))
                 .findFirst().orElse(null);
-        if (player != null && player.spectator() && !player.exited()) {
-            // Swing resets both cards to the deck joker for every spectator:
-            // busted players, mid-hand joiners warming up and recovered
-            // players waiting for the next hand.
-            return List.of(SPECTATOR_CARD, SPECTATOR_CARD);
+        if (player != null && !player.exited()
+                && (player.spectator() || player.warming())) {
+            // CALENTANDO and ESPECTADOR are seat states, not card
+            // presentations.  Keep the canonical status label while exposing
+            // no placeholder pocket, for local and remote seats alike.
+            return List.of();
         }
         List<TableSnapshot.CardSnapshot> revealed = revealedHoleCards.get(
                 nickname);

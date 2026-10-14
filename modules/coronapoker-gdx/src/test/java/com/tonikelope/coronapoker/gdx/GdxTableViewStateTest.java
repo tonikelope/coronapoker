@@ -919,9 +919,9 @@ final class GdxTableViewStateTest {
         Rectangle copy = CoronaPokerGdxTable.screenshotCopyBounds(1_920f);
         Rectangle delete = CoronaPokerGdxTable.screenshotDeleteBounds(1_920f);
         assertEquals(660f, copy.x);
-        assertEquals(48f, copy.y);
+        assertEquals(18f, copy.y);
         assertEquals(280f, copy.width);
-        assertEquals(70f, copy.height);
+        assertEquals(64f, copy.height);
         assertEquals(980f, delete.x);
         assertTrue(copy.x + copy.width < delete.x);
         assertEquals(copy.y, delete.y);

@@ -2039,7 +2039,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (screenshotTexture != null) {
             Rectangle bounds = CoronaPokerGdxTable.fitInside(
                     screenshotTexture.getWidth(), screenshotTexture.getHeight(),
-                    125f, 150f, WIDTH - 250f, 760f, true);
+                    96f, 100f, WIDTH - 192f, 840f, true);
             uiImages.add(new UiImageItem(screenshotTexture, bounds.x, bounds.y,
                     bounds.width, bounds.height));
         }
@@ -2065,12 +2065,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     () -> showRelativeScreenshot(1), !modal);
         }
         if (screenshotTexture != null) {
-            themedButton(660f, 48f, 280f, 70f,
+            themedButton(660f, 18f, 280f, 64f,
                     uppercase(gameText.translate(
                             "ui.copiar_imagen_portapapeles")),
                     ButtonTone.FEATURED, this::copyCurrentScreenshot,
                     !modal && !screenshotOperationPending);
-            themedButton(980f, 48f, 280f, 70f,
+            themedButton(980f, 18f, 280f, 64f,
                     uppercase(gameText.translate("ui.borrar_captura")),
                     ButtonTone.DANGER, this::requestDeleteCurrentScreenshot,
                     !modal && !screenshotOperationPending);

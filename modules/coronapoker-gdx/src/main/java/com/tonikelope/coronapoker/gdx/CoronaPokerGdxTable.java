@@ -17537,14 +17537,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float worldHeight) {
         float bottom = (worldHeight - BASE_HEIGHT) / 2f;
         return new Rectangle(worldWidth / 2f - 300f,
-                bottom + 48f, 280f, 70f);
+                bottom + 18f, 280f, 64f);
     }
 
     private static Rectangle screenshotDeleteBounds(float worldWidth,
             float worldHeight) {
         float bottom = (worldHeight - BASE_HEIGHT) / 2f;
         return new Rectangle(worldWidth / 2f + 20f,
-                bottom + 48f, 280f, 70f);
+                bottom + 18f, 280f, 64f);
     }
 
     static boolean isManagedScreenshot(Path directory, Path file) {
@@ -17671,8 +17671,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(1f, 1f, 1f, alpha);
         if (screenshotTexture != null) {
             Rectangle bounds = fitInside(screenshotTexture.getWidth(),
-                    screenshotTexture.getHeight(), left + 125f, bottom + 150f,
-                    BASE_WIDTH - 250f, 760f, true);
+                    screenshotTexture.getHeight(), left + 96f, bottom + 100f,
+                    BASE_WIDTH - 192f, 840f, true);
             batch.draw(screenshotTexture, bounds.x, bounds.y,
                     bounds.width, bounds.height);
         }

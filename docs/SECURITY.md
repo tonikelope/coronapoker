@@ -149,7 +149,7 @@ The guarantee does not rest on the signature alone. Each peer checks that its ow
 
 When a client connects:
 
-1. The two endpoints exchange ephemeral Curve25519 pubkeys and run ECDH to derive a raw 32-byte shared secret.
+1. The two endpoints run ECDH to derive a raw 32-byte shared secret.
 2. The shared secret is passed through [`SecureChannelCodec.deriveChannelSecret`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/network/SecureChannelCodec.java) to derive the channel key material. With a table password it computes `HMAC-SHA512(key = password, msg = shared_secret)`. With no password it falls back to a plain `SHA-512(shared_secret)` (not an empty-keyed HMAC). Either way the 64-byte output is split into a 32-byte AES-256 key and a 32-byte HMAC key.
 3. If the password is configured but weak (`< 60 bits` entropy estimate) the host is warned before the table is created.
 

@@ -321,10 +321,16 @@ final class GdxSettingsLayoutTest {
         assertEquals(content.y + 82f, debug.console().y);
         assertEquals(content.width - 48f, debug.console().width);
         assertEquals(content.height - 110f, debug.console().height);
-        assertEquals(debug.console().height - 16f,
+        assertEquals(debug.console().x + 14f, debug.viewport().x);
+        assertEquals(debug.console().y + 14f, debug.viewport().y);
+        assertEquals(debug.console().width - 44f,
+                debug.viewport().width);
+        assertEquals(debug.console().height - 28f,
                 debug.viewport().height);
-        assertEquals(debug.console().x + debug.console().width - 20f,
+        assertEquals(debug.console().x + debug.console().width - 24f,
                 debug.scrollbarX());
+        assertEquals(debug.console().width - 58f,
+                GdxSettingsLayout.debugTextWidth(debug.console()));
     }
 
     @Test

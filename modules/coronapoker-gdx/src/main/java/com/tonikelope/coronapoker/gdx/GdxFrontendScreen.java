@@ -395,6 +395,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont uiFont;
     private BitmapFont volumeOverlayFont;
     private BitmapFont fpsFont;
+    private BitmapFont debugLogFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
@@ -831,6 +832,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         BitmapFont nextTiny;
         BitmapFont nextVersion;
         BitmapFont nextFps;
+        BitmapFont nextDebugLog;
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         try {
@@ -868,6 +870,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         generator = GdxMonospaceFonts.generator(false);
         try {
             nextFps = font(generator, 18, 0f, profile);
+            nextDebugLog = font(generator, 20, 0f, profile);
         } finally {
             generator.dispose();
         }
@@ -884,6 +887,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         disposeFont(tinyFont);
         disposeFont(versionFont);
         disposeFont(fpsFont);
+        disposeFont(debugLogFont);
         titleFont = nextTitle;
         headingFont = nextHeading;
         settingsStepperSignFont = nextStepperSign;
@@ -897,6 +901,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tinyFont = nextTiny;
         versionFont = nextVersion;
         fpsFont = nextFps;
+        debugLogFont = nextDebugLog;
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 actionFont, uiFont, buttonMediumFont, buttonCompactFont,
                 smallFont, buttonTinyFont, tinyFont, versionFont);
@@ -8748,28 +8753,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 false, this::copySettingsDebugLog);
 
         List<GdxDebugLogFormatter.Line> lines = settingsDebugVisualLines(
-                console.width - 50f);
+                GdxSettingsLayout.debugTextWidth(console));
         float viewportHeight = viewportBounds.height;
-        float maximum = Math.max(0f, lines.size() * 25f - viewportHeight);
+        float maximum = Math.max(0f, lines.size()
+                * GdxSettingsLayout.DEBUG_LINE_HEIGHT - viewportHeight);
         settingsDebugScroll = CoronaPokerGdxTable
                 .preservePixelScrollOnAppend(settingsDebugScroll,
-                        settingsDebugLineCount, lines.size(), 25f);
+                        settingsDebugLineCount, lines.size(),
+                        GdxSettingsLayout.DEBUG_LINE_HEIGHT);
         settingsDebugLineCount = lines.size();
         settingsDebugScroll = MathUtils.clamp(settingsDebugScroll, 0, maximum);
         for (int i = 0; i < lines.size(); i++) {
             float lineY = CoronaPokerGdxTable.anchoredPixelRowY(lines.size(),
-                    i, 25f, viewportBounds.y, viewportHeight,
-                    settingsDebugScroll, maximum) + 25f;
-            if (lineY < console.y
-                    || lineY > console.y + console.height + 25f) {
+                    i, GdxSettingsLayout.DEBUG_LINE_HEIGHT,
+                    viewportBounds.y, viewportHeight,
+                    settingsDebugScroll, maximum)
+                    + GdxSettingsLayout.DEBUG_TEXT_BASELINE;
+            if (lineY < viewportBounds.y
+                    || lineY > viewportBounds.y + viewportHeight
+                    + GdxSettingsLayout.DEBUG_LINE_HEIGHT) {
                 continue;
             }
-            float runX = console.x + 14f;
+            float runX = console.x + GdxSettingsLayout.DEBUG_TEXT_LEFT_INSET;
             for (GdxDebugLogFormatter.Run run : lines.get(i).runs()) {
-                settingsDebugTexts.add(new TextItem(tinyFont, run.text(),
+                settingsDebugTexts.add(new TextItem(debugLogFont, run.text(),
                         runX, lineY, new Color(run.foreground()), false,
                         false));
-                runX += textWidth(tinyFont, run.text());
+                runX += textWidth(debugLogFont, run.text());
             }
         }
         settingsDebugViewport.set(viewportBounds);
@@ -8784,7 +8794,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float thumbH = maximum == 0 ? viewportHeight
                 : Math.max(32f, viewportHeight
                         * viewportHeight
-                        / Math.max(1f, lines.size() * 25f));
+                        / Math.max(1f, lines.size()
+                                * GdxSettingsLayout.DEBUG_LINE_HEIGHT));
         settingsDebugScrollThumbHeight = thumbH;
         float travel = Math.max(0f, viewportHeight - thumbH);
         float ratio = maximum == 0 ? 0f
@@ -8807,7 +8818,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsDebugWrapWidth = width;
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width,
-                    run -> textWidth(tinyFont, run.text()));
+                    run -> textWidth(debugLogFont, run.text()));
         }
         return settingsDebugVisualCache;
     }
@@ -13302,6 +13313,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         volumeOverlayFont.dispose();
         smallFont.dispose();
         fpsFont.dispose();
+        debugLogFont.dispose();
         tinyFont.dispose();
         versionFont.dispose();
     }

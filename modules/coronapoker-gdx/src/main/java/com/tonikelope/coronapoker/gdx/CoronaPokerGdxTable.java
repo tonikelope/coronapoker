@@ -335,7 +335,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
     /** AUTO/action preferences shown before the editable key bindings. */
-    private static final float SETTINGS_DEBUG_LINE_HEIGHT = 25f;
+    private static final float SETTINGS_DEBUG_LINE_HEIGHT =
+            GdxSettingsLayout.DEBUG_LINE_HEIGHT;
     private static final float GAME_LOG_LINE_HEIGHT = 31f;
     private static final float LOCAL_HUD_DANGER_THRESHOLD = 0.25f;
     private static final Properties EMPTY_SETTINGS_PROPERTIES =
@@ -20121,10 +20122,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (lineY + SETTINGS_DEBUG_LINE_HEIGHT < viewportBottom
                     || lineY > viewportBottom
                     + viewportHeight) continue;
-            float runX = debug.console().x + 14f;
-            float right = debug.console().x + debug.console().width - 36f;
+            float runX = debug.console().x
+                    + GdxSettingsLayout.DEBUG_TEXT_LEFT_INSET;
+            float right = debug.console().x + debug.console().width
+                    - GdxSettingsLayout.DEBUG_TEXT_RIGHT_INSET;
             for (GdxDebugLogFormatter.Run run : formatted.get(i).runs()) {
-                BitmapFont font = settingsTinyFont;
+                BitmapFont font = gameLogFont;
                 float remaining = right - runX;
                 if (remaining <= 0f) break;
                 String fitted = ellipsizeToWidth(font, run.text(), remaining);
@@ -20132,13 +20135,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 font.setColor(foreground.r, foreground.g, foreground.b,
                         alpha);
                 font.draw(batch, fitted, runX,
-                        lineY + SETTINGS_DEBUG_LINE_HEIGHT);
+                        lineY + GdxSettingsLayout.DEBUG_TEXT_BASELINE);
                 glyph.setText(font, fitted);
                 runX += glyph.width;
                 if (!fitted.equals(run.text())) break;
             }
         }
-        settingsTinyFont.setColor(Color.WHITE);
+        gameLogFont.setColor(Color.WHITE);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
@@ -20172,7 +20175,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<GdxDebugLogFormatter.Line> settingsDebugVisualLines() {
-        float width = settingsDebugArea().console().width - 50f;
+        float width = GdxSettingsLayout.debugTextWidth(
+                settingsDebugArea().console());
         List<String> source = settingsDebugLines();
         if (Math.abs(width - settingsDebugWrapWidth) > 0.5f
                 || !source.equals(settingsDebugSourceCache)) {
@@ -20180,7 +20184,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsDebugWrapWidth = width;
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width, run -> {
-                        glyph.setText(settingsTinyFont, run.text());
+                        glyph.setText(gameLogFont, run.text());
                         return glyph.width;
                     });
         }

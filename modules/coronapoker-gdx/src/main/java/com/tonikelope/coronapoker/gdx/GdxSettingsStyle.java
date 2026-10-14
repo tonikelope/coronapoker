@@ -61,8 +61,6 @@ final class GdxSettingsStyle {
     private static final Color CYAN_DARK = new Color(CYAN_DARK_RGBA);
     private static final Color SHORTCUT_DESCRIPTION = new Color(0xffffffff);
     private static final Color SHORTCUT_KEY_FILL = new Color(0x07111fff);
-    private static final Color DEBUG_FILL = new Color(0x03070cff);
-    private static final Color DEBUG_TRACK = new Color(0x26364dff);
     private static final Color ROW_SCROLL_TRACK = new Color(0x1f334feb);
     private static final Color ROW_SCROLL_THUMB = new Color(CYAN_RGBA);
     private static final Color TOGGLE_OFF = new Color(TOGGLE_OFF_RGBA);
@@ -139,18 +137,17 @@ final class GdxSettingsStyle {
 
     static void drawDebugConsole(ShapeRenderer shapes, Rectangle bounds,
             float alpha) {
-        drawRow(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
-                ROW_BORDER, DEBUG_FILL, alpha);
+        GdxUiDialogStyle.drawInset(shapes, bounds.x, bounds.y,
+                bounds.width, bounds.height, alpha);
     }
 
     static void drawDebugScrollbar(ShapeRenderer shapes, float x, float y,
             float height, float thumbY, float thumbHeight, float alpha) {
-        shapes.setColor(DEBUG_TRACK.r, DEBUG_TRACK.g, DEBUG_TRACK.b,
-                DEBUG_TRACK.a * alpha);
+        shapes.setColor(ROW_BORDER.r, ROW_BORDER.g, ROW_BORDER.b,
+                0.85f * alpha);
         roundedRect(shapes, x, y, GdxSettingsLayout.SCROLLBAR_WIDTH,
                 height, GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
-        shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b,
-                CYAN_DARK.a * alpha);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
         roundedRect(shapes, x, thumbY,
                 GdxSettingsLayout.SCROLLBAR_WIDTH, thumbHeight,
                 GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);

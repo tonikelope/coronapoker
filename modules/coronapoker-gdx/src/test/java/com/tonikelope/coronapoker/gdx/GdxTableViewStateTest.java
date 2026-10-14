@@ -2411,17 +2411,17 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void tableDebugConsoleScrollsByRenderedPixels() {
+    void tableDebugConsoleMatchesGameLogRowRhythm() {
         assertEquals(0f, CoronaPokerGdxTable
-                .settingsDebugMaximumPixelScroll(15, 394f));
-        assertEquals(106f, CoronaPokerGdxTable
+                .settingsDebugMaximumPixelScroll(12, 394f));
+        assertEquals(226f, CoronaPokerGdxTable
                 .settingsDebugMaximumPixelScroll(20, 394f));
         assertEquals(0f, CoronaPokerGdxTable.preservePixelScrollOnAppend(
-                0f, 20, 24, 25f));
-        assertEquals(175f, CoronaPokerGdxTable.preservePixelScrollOnAppend(
-                75f, 20, 24, 25f));
+                0f, 20, 24, GdxSettingsLayout.DEBUG_LINE_HEIGHT));
+        assertEquals(199f, CoronaPokerGdxTable.preservePixelScrollOnAppend(
+                75f, 20, 24, GdxSettingsLayout.DEBUG_LINE_HEIGHT));
         assertEquals(75f, CoronaPokerGdxTable.preservePixelScrollOnAppend(
-                75f, 24, 20, 25f));
+                75f, 24, 20, GdxSettingsLayout.DEBUG_LINE_HEIGHT));
     }
 
     @Test

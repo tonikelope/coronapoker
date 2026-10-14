@@ -50,6 +50,11 @@ final class GdxSettingsLayout {
     static final float SCROLLBAR_HIT_WIDTH = 28f;
     /** Same measured wheel travel used by the lobby and quick-table chats. */
     static final float PIXEL_SCROLL_WHEEL_STEP = 48f;
+    /** Matches the live game-log row rhythm and monospace baseline. */
+    static final float DEBUG_LINE_HEIGHT = 31f;
+    static final float DEBUG_TEXT_BASELINE = 23f;
+    static final float DEBUG_TEXT_LEFT_INSET = 24f;
+    static final float DEBUG_TEXT_RIGHT_INSET = 34f;
 
     // Canonical baselines for every renderer. Keeping them beside the shared
     // rectangles prevents a visually identical control from drifting by one
@@ -349,11 +354,18 @@ final class GdxSettingsLayout {
         Rectangle console = new Rectangle(content.x + 24f,
                 content.y + 82f, content.width - 48f,
                 Math.max(0f, content.height - 110f));
-        Rectangle viewport = new Rectangle(console.x + 8f,
-                console.y + 8f, Math.max(0f, console.width - 36f),
-                Math.max(0f, console.height - 16f));
+        // The debug stream uses the same inset, text lane and scrollbar lane
+        // as the in-game log instead of looking like an unrelated terminal.
+        Rectangle viewport = new Rectangle(console.x + 14f,
+                console.y + 14f, Math.max(0f, console.width - 44f),
+                Math.max(0f, console.height - 28f));
         return new DebugArea(console, viewport,
-                console.x + console.width - 20f);
+                console.x + console.width - 24f);
+    }
+
+    static float debugTextWidth(Rectangle console) {
+        return Math.max(1f, console.width - DEBUG_TEXT_LEFT_INSET
+                - DEBUG_TEXT_RIGHT_INSET);
     }
 
     static float scrollbarThumbHeight(float height, int totalRows,

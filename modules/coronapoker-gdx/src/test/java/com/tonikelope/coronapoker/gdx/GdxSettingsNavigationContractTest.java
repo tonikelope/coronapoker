@@ -160,6 +160,8 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.UI_NONE, false));
         assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
                 CoronaPokerGdxTable.UI_CHAT, false));
+        assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_GAME_LOG, false));
         assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
                 CoronaPokerGdxTable.UI_CHAT, true));
         assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(

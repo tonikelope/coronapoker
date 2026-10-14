@@ -927,6 +927,14 @@ final class GdxTableViewStateTest {
         assertEquals(copy.y, delete.y);
         assertEquals(copy.height, delete.height);
 
+        Rectangle imageArea = CoronaPokerGdxTable
+                .screenshotViewerImageArea(0f, 0f);
+        assertEquals(52f, imageArea.x);
+        assertEquals(84f, imageArea.y);
+        assertEquals(1_816f, imageArea.width);
+        assertEquals(869f, imageArea.height);
+        assertEquals(953f, imageArea.y + imageArea.height);
+
         Rectangle bounds = CoronaPokerGdxTable.fitInside(
                 800, 600, 100f, 50f, 1_600f, 900f, true);
         assertEquals(800f, bounds.width);

@@ -25,15 +25,6 @@ final class GdxLogTypographyContractTest {
     }
 
     @Test
-    void independentWindowKeepsEveryRoleOnOneFixedWidthGutter() {
-        for (GdxGameLogFormatter.Marker marker
-                : GdxGameLogFormatter.Marker.values()) {
-            String prefix = GdxGameLogWindow.markerPrefix(marker);
-            assertTrue(prefix.isEmpty() || prefix.length() == 3, marker.name());
-        }
-    }
-
-    @Test
     void everyDebugSurfaceHonoursFormatterBoldRuns() throws IOException {
         Path root = Path.of("src", "main", "java", "com", "tonikelope",
                 "coronapoker", "gdx");

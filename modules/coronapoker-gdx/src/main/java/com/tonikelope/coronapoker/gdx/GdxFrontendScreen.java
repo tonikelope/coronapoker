@@ -2033,13 +2033,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(smallFont, GdxScreenshotStore.displayTitle(
                     screenshots.get(screenshotIndex), screenshotIndex,
                     screenshots.size(), gameText.language()),
-                    WIDTH / 2f, 965f, Color.WHITE, true, 1120f);
+                    WIDTH / 2f, 980f, Color.WHITE, true, 1120f);
         }
 
         if (screenshotTexture != null) {
+            Rectangle area = CoronaPokerGdxTable
+                    .screenshotViewerImageArea(0f, 0f);
             Rectangle bounds = CoronaPokerGdxTable.fitInside(
                     screenshotTexture.getWidth(), screenshotTexture.getHeight(),
-                    96f, 100f, WIDTH - 192f, 840f, true);
+                    area.x, area.y, area.width, area.height, true);
             uiImages.add(new UiImageItem(screenshotTexture, bounds.x, bounds.y,
                     bounds.width, bounds.height));
         }

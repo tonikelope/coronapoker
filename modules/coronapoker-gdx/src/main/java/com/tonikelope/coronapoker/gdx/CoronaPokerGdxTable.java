@@ -227,6 +227,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int ALL_IN_EMBER_COUNT = 25;
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
     static final float DERIVED_POT_OVERLAY_ALPHA = 1f;
+    private static final float DERIVED_POT_OVERLAY_HEIGHT = 46f;
+    private static final float DERIVED_POT_OVERLAY_BOTTOM_GAP = 4f;
+    private static final float DERIVED_POT_OVERLAY_STACK_GAP = 8f;
+    private static final float TABLE_NOTIFICATION_MAX_WIDTH = 820f;
+    private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
+    private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
@@ -8972,14 +8978,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Rectangle sidePotWinnerOverlayBounds(Seat seat) {
-        float width = 190f;
-        float height = 46f;
-        float x = MathUtils.clamp(
-                seat.podX + (PLAYER_POD_WIDTH - width) / 2f,
-                8f, viewport.getWorldWidth() - width - 8f);
-        float y = MathUtils.clamp(
-                seat.podY + PLAYER_POD_HEIGHT + 8f,
-                8f, viewport.getWorldHeight() - height - 8f);
+        return sidePotWinnerOverlayBounds(seat.podX, seat.podY,
+                viewport.getWorldWidth(), viewport.getWorldHeight());
+    }
+
+    static Rectangle sidePotWinnerOverlayBounds(float podX, float podY,
+            float viewportWidth, float viewportHeight) {
+        // The avatar occupies the left end of the rival unit.  The derived-pot
+        // badge starts on its centre line and consumes every remaining pixel
+        // up to the PlayerPod's right rim, so even a multi-pot label stays
+        // visually attached to the winning seat instead of floating over it.
+        float width = PLAYER_POD_WIDTH - AVATAR_OUTER_RADIUS;
+        float height = DERIVED_POT_OVERLAY_HEIGHT;
+        float x = MathUtils.clamp(podX + AVATAR_OUTER_RADIUS,
+                8f, viewportWidth - width - 8f);
+        float y = MathUtils.clamp(podY + PLAYER_POD_HEIGHT
+                        + DERIVED_POT_OVERLAY_BOTTOM_GAP,
+                8f, viewportHeight - height - 8f);
         return new Rectangle(x, y, width, height);
     }
 
@@ -9039,7 +9054,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 podX + (PLAYER_POD_WIDTH - width) / 2f,
                 8f, viewportWidth - width - 8f);
         float y = MathUtils.clamp(
-                podY + PLAYER_POD_HEIGHT + (sidePotOverlay ? 62f : 8f),
+                podY + PLAYER_POD_HEIGHT + (sidePotOverlay
+                        ? DERIVED_POT_OVERLAY_BOTTOM_GAP
+                                + DERIVED_POT_OVERLAY_HEIGHT
+                                + DERIVED_POT_OVERLAY_STACK_GAP
+                        : 8f),
                 8f, viewportHeight - height - 8f);
         return new Rectangle(x, y, width, height);
     }
@@ -9786,10 +9805,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float remaining = MathUtils.clamp(
                 (notice.expiresAt - totalTime) / 0.22f, 0f, 1f);
         float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
-        float width = Math.min(820f, viewport.getWorldWidth() - 80f);
-        float height = 92f;
-        float x = (viewport.getWorldWidth() - width) / 2f;
-        float y = viewport.getWorldHeight() - 190f;
+        Rectangle bounds = tableNotificationBounds(
+                viewport.getWorldWidth(), viewport.getWorldHeight());
+        float width = bounds.width;
+        float height = bounds.height;
+        float x = bounds.x;
+        float y = bounds.y;
         Color accent = notice.senderBlocked ? POT_GOLD : FOLD_RED;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -17865,12 +17886,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         boolean viewer = uiLayer == UI_SCREENSHOTS;
-        float x = viewer ? worldWidth / 2f - 270f : 26f;
-        float y = viewer
-                ? (worldHeight - BASE_HEIGHT) / 2f + 875f
-                : worldHeight - 132f;
-        float width = viewer ? 540f : 430f;
-        float height = viewer ? 64f : 60f;
+        Rectangle bounds = viewer
+                ? new Rectangle(worldWidth / 2f - 270f,
+                        (worldHeight - BASE_HEIGHT) / 2f + 875f,
+                        540f, 64f)
+                : tableNotificationBounds(worldWidth, worldHeight);
+        float x = bounds.x;
+        float y = bounds.y;
+        float width = bounds.width;
+        float height = bounds.height;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
@@ -17883,6 +17907,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x + 18f, y + 6f, width - 36f, height - 12f,
                 Color.WHITE, alpha);
         batch.end();
+    }
+
+    static Rectangle tableNotificationBounds(float worldWidth,
+            float worldHeight) {
+        float width = Math.max(1f, Math.min(TABLE_NOTIFICATION_MAX_WIDTH,
+                worldWidth - 80f));
+        float height = Math.min(TABLE_NOTIFICATION_HEIGHT,
+                Math.max(1f, worldHeight - 16f));
+        float x = (worldWidth - width) / 2f;
+        float y = Math.max(8f, worldHeight - TABLE_NOTIFICATION_TOP_INSET
+                - height);
+        return new Rectangle(x, y, width, height);
     }
 
     private void drawVolumeOverlay() {

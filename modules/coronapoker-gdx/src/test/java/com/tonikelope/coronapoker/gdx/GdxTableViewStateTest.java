@@ -54,11 +54,39 @@ final class GdxTableViewStateTest {
         Rectangle clamped = CoronaPokerGdxTable.timedOutKickOverlayBounds(
                 1_900f, 1_060f, 1_920f, 1_080f, true);
 
-        assertEquals(54f, aboveSidePot.y - ordinary.y, 0.001f);
+        assertEquals(50f, aboveSidePot.y - ordinary.y, 0.001f);
         assertTrue(clamped.x >= 8f);
         assertTrue(clamped.y >= 8f);
         assertTrue(clamped.x + clamped.width <= 1_912f);
         assertTrue(clamped.y + clamped.height <= 1_072f);
+    }
+
+    @Test
+    void derivedPotOverlayRunsFromAvatarCentreToSeatRightRim() {
+        Rectangle overlay = CoronaPokerGdxTable.sidePotWinnerOverlayBounds(
+                100f, 300f, 1_920f, 1_080f);
+
+        assertEquals(152f, overlay.x, 0.001f);
+        assertEquals(234f, overlay.width, 0.001f);
+        assertEquals(386f, overlay.x + overlay.width, 0.001f,
+                "the badge must finish on the PlayerPod right rim");
+        assertEquals(424f, overlay.y, 0.001f,
+                "the badge must sit immediately above the PlayerPod rim");
+    }
+
+    @Test
+    void tableNotificationsShareOneTopCentredBand() {
+        Rectangle fullHd = CoronaPokerGdxTable.tableNotificationBounds(
+                1_920f, 1_080f);
+        Rectangle compact = CoronaPokerGdxTable.tableNotificationBounds(
+                1_360f, 768f);
+
+        assertEquals(550f, fullHd.x, 0.001f);
+        assertEquals(890f, fullHd.y, 0.001f);
+        assertEquals(820f, fullHd.width, 0.001f);
+        assertEquals(92f, fullHd.height, 0.001f);
+        assertEquals((1_360f - compact.width) / 2f, compact.x, 0.001f);
+        assertEquals(578f, compact.y, 0.001f);
     }
 
     @Test

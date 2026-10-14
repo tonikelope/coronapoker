@@ -59,6 +59,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.SecureRandom;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -465,6 +466,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean lobbyCommandPending;
     private boolean lobbyGameStarting;
     private LobbyConfirmation lobbyConfirmation;
+    private final ArrayDeque<String> identityChangeNotices =
+            new ArrayDeque<>();
     private String lobbyKickTarget = "";
     private boolean lobbyPasswordDialog;
     private String lobbyPasswordDraft = "";
@@ -1229,6 +1232,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawLobbyPasswordDialog();
             } else if (fingerprintDialog != null) {
                 drawFingerprintDialog();
+            } else if (!identityChangeNotices.isEmpty()) {
+                drawIdentityChangeNotice();
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
             } else if (lobbyImageClearConfirmation) {
@@ -1350,6 +1355,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || networkBlocksOpen
                         || lobbyImageClearConfirmation
+                        || !identityChangeNotices.isEmpty()
                         || lobbyPreparationUsesBackdropBlur(
                                 lobbyGameStarting, lobby)
                         || fingerprintDialog != null))
@@ -5926,6 +5932,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::confirmLobbyAction, true);
     }
 
+    void showIdentityChangeNotice(String nickname) {
+        if (nickname == null || nickname.isBlank()) return;
+        identityChangeNotices.add(gameText.translate(
+                "gdx.identity_change.message", nickname.trim()));
+        if (surface == Surface.LOBBY) captureFrontendModalInput();
+    }
+
+    private void drawIdentityChangeNotice() {
+        hits.clear();
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("gdx.identity_change.title")),
+                identityChangeNotices.element());
+        Rectangle positive = layout.positiveButton();
+        float width = Math.min(320f, positive.width * 1.25f);
+        themedButton(WIDTH / 2f - width / 2f, positive.y, width,
+                positive.height, uppercase(gameText.translate("ui.cerrar")),
+                ButtonTone.NEUTRAL, this::closeIdentityChangeNotice, true);
+    }
+
+    private void closeIdentityChangeNotice() {
+        identityChangeNotices.poll();
+    }
+
     private void openLobbyPasswordDialog() {
         LobbySnapshot state = lobby;
         if (state == null || !state.host() || state.startingOrStarted()) return;
@@ -7197,6 +7226,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyCommandPending = false;
         lobbyGameStarting = false;
         lobbyConfirmation = null;
+        identityChangeNotices.clear();
         lobbyKickTarget = "";
         fingerprintDialog = null;
         lobbyPasswordDialog = false;
@@ -12623,6 +12653,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 closeNetworkBlocks();
                 return true;
             }
+            if (surface == Surface.LOBBY
+                    && !identityChangeNotices.isEmpty()
+                    && !lobbyPasswordDialog && fingerprintDialog == null) {
+                closeIdentityChangeNotice();
+                return true;
+            }
             if (surface == Surface.STATS) {
                 if (statsSyncExclusionsOpen) {
                     closeStatsSyncExclusions();
@@ -12839,6 +12875,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * confirmation from also activating the table or screen below it.
      */
     private boolean acceptActiveFrontendDialog() {
+        if (surface == Surface.LOBBY && !identityChangeNotices.isEmpty()
+                && !networkBlocksOpen && !lobbyPasswordDialog
+                && fingerprintDialog == null) {
+            closeIdentityChangeNotice();
+            return true;
+        }
         if (settingsRestartNotice) {
             settingsRestartNotice = false;
             return true;

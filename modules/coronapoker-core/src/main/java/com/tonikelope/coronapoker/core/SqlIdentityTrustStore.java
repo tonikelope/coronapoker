@@ -4,7 +4,10 @@ import java.security.MessageDigest;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -14,6 +17,8 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
     private static final Logger LOGGER = Logger.getLogger(
             SqlIdentityTrustStore.class.getName());
     private final DatabaseService database;
+    private final ConcurrentLinkedQueue<IdentityChange>
+            identityChanges = new ConcurrentLinkedQueue<>();
 
     public SqlIdentityTrustStore(DatabaseService database) {
         this.database = Objects.requireNonNull(database, "database");
@@ -38,16 +43,19 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
         synchronized (database.lock()) {
             byte[] existing;
             int sessions;
+            boolean verified;
             try {
                 existing = null;
                 sessions = 0;
+                verified = false;
                 try (PreparedStatement query = database.connection().prepareStatement(
-                        "SELECT pubkey, sessions_count FROM known_identities WHERE nick=?")) {
+                        "SELECT pubkey, sessions_count, verified_oob FROM known_identities WHERE nick=?")) {
                     query.setString(1, nickname);
                     try (ResultSet result = query.executeQuery()) {
                         if (result.next()) {
                             existing = result.getBytes(1);
                             sessions = result.getInt(2);
+                            verified = result.getInt(3) != 0;
                         }
                     }
                 }
@@ -92,6 +100,15 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
                     }
                     update.executeUpdate();
                 }
+                if (!matches) {
+                    identityChanges.add(new IdentityChange(nickname,
+                            verified));
+                    LOGGER.log(Level.WARNING,
+                            verified
+                                    ? "Identity key changed for {0}; explicit verification was cleared"
+                                    : "Unverified identity key changed for {0}",
+                            nickname);
+                }
             } catch (Exception failure) {
                 LOGGER.log(Level.SEVERE,
                         "Failed to update observed identity for " + nickname,
@@ -99,6 +116,16 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
             }
             return observation;
         }
+    }
+
+    @Override
+    public List<IdentityChange> drainIdentityChanges() {
+        ArrayList<IdentityChange> drained = new ArrayList<>();
+        IdentityChange change;
+        while ((change = identityChanges.poll()) != null) {
+            drained.add(change);
+        }
+        return List.copyOf(drained);
     }
 
     @Override

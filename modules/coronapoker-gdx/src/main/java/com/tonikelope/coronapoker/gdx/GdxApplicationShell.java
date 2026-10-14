@@ -17,9 +17,13 @@ import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSession;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -40,6 +44,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
     private final IdentityTrustStore identityTrust;
+    private final ArrayDeque<IdentityTrustStore.IdentityChange>
+            pendingIdentityPopups = new ArrayDeque<>();
+    private final ArrayList<String> pendingIdentityGameLogNotices =
+            new ArrayList<>();
     private GdxScreenWakeLock screenWakeLock;
     private final GdxAudioDevices.OutputHotplugMonitor outputHotplugMonitor =
             new GdxAudioDevices.OutputHotplugMonitor();
@@ -118,6 +126,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     awaitTable(lobby);
                 }, () -> {
                     lobby = null;
+                    pendingIdentityPopups.clear();
+                    pendingIdentityGameLogNotices.clear();
                     application.returnedToMenu();
         }, presentationSettings, gameText, languageChanged,
                 application.service(UpdateService.class),
@@ -227,6 +237,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             scheduleJvmSplashClose();
             return;
         }
+        processIdentityChanges();
         CoronaPokerGdxTable current = table;
         if (current == null) {
             menu.render();
@@ -342,6 +353,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
+                flushPendingIdentityGameLogNotices();
                 candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
                         () -> opened.accept(table), gameLog, preferences, lobby,
@@ -378,6 +390,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             pending.table.activateBackgroundMusic();
             pending.table.resize(Gdx.graphics.getWidth(),
                     Gdx.graphics.getHeight());
+            flushPendingIdentityGameLogNotices();
             table = pending.table;
             // The lobby keeps its last hit map while the table is visible.
             // Leaving it installed would make one table click reach the raw
@@ -536,6 +549,60 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 current.showDialog(request);
             }
         });
+    }
+
+    private void processIdentityChanges() {
+        List<IdentityTrustStore.IdentityChange> changes =
+                identityTrust.drainIdentityChanges();
+        for (IdentityTrustStore.IdentityChange change : changes) {
+            String logLine = gameText.translate(change.previouslyVerified()
+                    ? "gdx.identity_change.game_log_verified"
+                    : "gdx.identity_change.game_log_unverified",
+                    change.nickname());
+            if (table != null) {
+                gameLog.print(logLine);
+            } else {
+                pendingIdentityGameLogNotices.add(logLine);
+            }
+            if (requiresIdentityChangePopup(change)) {
+                pendingIdentityPopups.add(change);
+            }
+        }
+
+        if (pendingIdentityPopups.isEmpty()) return;
+        CoronaPokerGdxTable current = table;
+        if (current != null) {
+            IdentityTrustStore.IdentityChange change;
+            while ((change = pendingIdentityPopups.poll()) != null) {
+                current.showDialog(identityChangeDialog(change));
+            }
+        } else if (lobby != null && pendingTableOpen == null) {
+            IdentityTrustStore.IdentityChange change;
+            while ((change = pendingIdentityPopups.poll()) != null) {
+                menu.showIdentityChangeNotice(change.nickname());
+            }
+        }
+    }
+
+    static boolean requiresIdentityChangePopup(
+            IdentityTrustStore.IdentityChange change) {
+        return Objects.requireNonNull(change, "change").previouslyVerified();
+    }
+
+    private GdxTableDialog identityChangeDialog(
+            IdentityTrustStore.IdentityChange change) {
+        return new GdxTableDialog(GdxTableDialog.Kind.INFO,
+                gameText.translate("gdx.identity_change.title"),
+                gameText.translate("gdx.identity_change.message",
+                        change.nickname()),
+                GameDialogSink.Icon.NONE, 1_020, 0, false, "",
+                gameText.translate("ui.cerrar"));
+    }
+
+    private void flushPendingIdentityGameLogNotices() {
+        if (pendingIdentityGameLogNotices.isEmpty()) return;
+        pendingIdentityGameLogNotices.forEach(gameLog::print);
+        pendingIdentityGameLogNotices.clear();
     }
 
     CompletionStage<Void> playGameOverAudio(

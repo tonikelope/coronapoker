@@ -37,6 +37,19 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("uniform sampler2D u_texture;"));
         assertTrue(shader.contains("texture2D(u_texture, uv)"),
                 "u_texture must remain active and cannot be optimized away");
+        assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"),
+                "Rabbit cards need the same transparent AA canvas as every other card");
+    }
+
+    @Test
+    void regularCardShaderKeepsArtworkScaleWhileExpandingOnlyItsAaCanvas() {
+        String shader = CoronaPokerGdxTable.CARD_FRAGMENT_SHADER;
+
+        assertTrue(shader.contains("uniform float u_canvasScale;"));
+        assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"));
+        assertTrue(shader.contains("roundedCardCoverage(sourceUv)"));
+        assertTrue(shader.contains("if (mask <= 0.001) discard;"),
+                "transparent guard pixels should not perform texture reads");
     }
 
     private static BufferedImage image(String resource) throws Exception {

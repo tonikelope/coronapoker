@@ -17,6 +17,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
+import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import java.util.List;
 import java.util.HashSet;
@@ -65,6 +66,12 @@ final class GdxTableViewStateTest {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
         assertEquals(TextureFilter.MipMapLinearNearest,
                 CoronaPokerGdxTable.cardMinificationFilter());
+        assertEquals(1f, CoronaPokerGdxTable.cardAnisotropyLevel());
+        assertEquals(4, CoronaPokerGdxTable.cardEdgeSupersampleCount());
+        assertEquals(0.30f,
+                CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
+        assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
+        assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
     }
 
     @Test
@@ -967,11 +974,25 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void foldedCardsReachZeroOpacityWithoutAVisibleFinalJump() {
-        assertEquals(1f, CoronaPokerGdxTable.foldCardAlpha(0f), 0.000_001f);
-        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.5f) > 0f);
-        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.99f) > 0f);
-        assertEquals(0f, CoronaPokerGdxTable.foldCardAlpha(1f), 0.000_001f);
+    void foldedCardsEaseToTheExactOpacityOfTheirRestingPresentation() {
+        assertEquals(1f, CoronaPokerGdxTable.foldCardAlpha(0f, true),
+                0.000_001f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.5f, true) > 0.28f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.99f, true) >= 0.28f);
+        assertEquals(0.28f, CoronaPokerGdxTable.foldCardAlpha(1f, true),
+                0.000_001f);
+
+        assertEquals(1f, CoronaPokerGdxTable.foldCardAlpha(0f, false),
+                0.000_001f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.5f, false) > 0f);
+        assertTrue(CoronaPokerGdxTable.foldCardAlpha(0.99f, false) > 0f);
+        assertEquals(0f, CoronaPokerGdxTable.foldCardAlpha(1f, false),
+                0.000_001f);
+
+        assertTrue(CoronaPokerGdxTable.foldedCardsRemainVisible(List.of(
+                new TableSnapshot.CardSnapshot("A_C", true, true))));
+        assertFalse(CoronaPokerGdxTable.foldedCardsRemainVisible(List.of(
+                new TableSnapshot.CardSnapshot("", false, true))));
     }
 
     @Test
@@ -2666,6 +2687,17 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void voluntaryShowUsesOnlyTheDetachedRightmostActionCell() {
+        CoronaPokerGdxTable.LocalActionLayout actions =
+                CoronaPokerGdxTable.localActionLayout(1_920f);
+        float y = actions.call().y + actions.call().height / 2f;
+        assertEquals(6, CoronaPokerGdxTable.voluntaryShowTarget(
+                actions.call().x + actions.call().width / 2f, y, 1_920f));
+        assertEquals(0, CoronaPokerGdxTable.voluntaryShowTarget(
+                actions.allIn().x + actions.allIn().width / 2f, y, 1_920f));
+    }
+
+    @Test
     void autoHudKeepsOnlyItsTwoButtonsAtOppositeActionAreaEdges() {
         CoronaPokerGdxTable.LocalHudLayout hud
                 = CoronaPokerGdxTable.localHudLayout(1920f);
@@ -4265,6 +4297,38 @@ final class GdxTableViewStateTest {
         assertEquals(1.470f,
                 CoronaPokerGdxTable.communityRevealAnimationSeconds(
                         3, leadInSeconds, flipSeconds), 0.000_001f);
+    }
+
+    @Test
+    void communityRevealWaitsForPrecedingChipMotion() {
+        assertEquals(-1L, CoronaPokerGdxTable.communityRevealStartTime(
+                -1L, 4_000L, false));
+        assertEquals(4_000L, CoronaPokerGdxTable.communityRevealStartTime(
+                -1L, 4_000L, true));
+        assertEquals(4_000L, CoronaPokerGdxTable.communityRevealStartTime(
+                4_000L, 9_000L, false));
+    }
+
+    @Test
+    void communityOverlayFollowsTheVisibleRevealInsteadOfCanonicalLookAhead() {
+        assertFalse(CoronaPokerGdxTable.communityCardFaceUpForOverlay(
+                true, true, 0f));
+        assertFalse(CoronaPokerGdxTable.communityCardFaceUpForOverlay(
+                true, true, 0.999f));
+        assertTrue(CoronaPokerGdxTable.communityCardFaceUpForOverlay(
+                true, true, 1f));
+        assertTrue(CoronaPokerGdxTable.communityCardFaceUpForOverlay(
+                true, false, 0f));
+        assertFalse(CoronaPokerGdxTable.communityCardFaceUpForOverlay(
+                false, false, 1f));
+    }
+
+    @Test
+    void tofuPopupIsRestrictedToPreviouslyVerifiedIdentities() {
+        assertTrue(GdxApplicationShell.requiresIdentityChangePopup(
+                new IdentityTrustStore.IdentityChange("verified", true)));
+        assertFalse(GdxApplicationShell.requiresIdentityChangePopup(
+                new IdentityTrustStore.IdentityChange("unverified", false)));
     }
 
     @Test

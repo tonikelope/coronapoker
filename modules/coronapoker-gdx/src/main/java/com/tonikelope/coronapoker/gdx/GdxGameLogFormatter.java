@@ -37,6 +37,9 @@ final class GdxGameLogFormatter {
             "\\((?:---|\\*\\*\\*)\\)");
     private static final Pattern GRID_PATTERN = Pattern.compile(
             "[\\u2500-\\u257f]+");
+    private static final Pattern EMPHASIS_PATTERN = Pattern.compile(
+            "(?iu)\\b(?:FLOP|TURN|RIVER|GANADOR|GANA|PIERDE|WINS POT|"
+                    + "LOSES POT|ERROR|FALLO)\\b");
 
     private GdxGameLogFormatter() {
     }
@@ -91,7 +94,7 @@ final class GdxGameLogFormatter {
         Color[] colors = new Color[visible.length()];
         Arrays.fill(colors, base);
         boolean[] bold = new boolean[visible.length()];
-        Arrays.fill(bold, base == HEADER || base == BOARD || base == WIN);
+        Arrays.fill(bold, false);
         if (marker(value) != Marker.NONE) {
             overlay(colors, visible, GRID_PATTERN, DIM);
         }
@@ -104,6 +107,7 @@ final class GdxGameLogFormatter {
         overlay(colors, visible, PLACEHOLDER_PATTERN, DIM);
         overlay(colors, visible, AMOUNT_PATTERN, AMOUNT);
         overlayBold(bold, visible, AMOUNT_PATTERN);
+        overlayBold(bold, visible, EMPHASIS_PATTERN);
         // A framed table must use one font with one glyph advance from the
         // first corner to the last. Mixing the regular and bold bitmap fonts
         // makes otherwise monospaced columns use different pixel widths, so

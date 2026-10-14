@@ -741,6 +741,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Runnable onReady;
     private final Runnable onIntroLightsOn;
     private final GdxGameLogSink gameLog;
+    private final GdxGameLogWindow gameLogWindow;
     private final PreferencesService preferences;
     /** Stable backing object; avoids synchronizing on PreferencesService per frame. */
     private final Properties tableProperties;
@@ -1994,6 +1995,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         this.presentationSettings = presentationSettings;
         gameText = new GdxGameText(presentationSettings == null
                 ? "es" : presentationSettings.language());
+        gameLogWindow = startupIntroOnly ? null : new GdxGameLogWindow(
+                this.gameLog, uppercase(gameText.translate(
+                        "log.registro_de_la_timba"), gameText));
         if (presentationSettings != null) {
             liveDeck = presentationSettings.deck();
         }
@@ -5014,8 +5018,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             if (GdxShortcutBindings.LOG.equals(shortcutAction)) {
-                gameLogScroll = 0;
-                openUiLayer(UI_GAME_LOG);
+                openGameLogWindow();
                 return;
             }
             if (GdxShortcutBindings.MUTE.equals(shortcutAction)) {
@@ -6720,8 +6723,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case IMAGE -> openTableImageGallery();
             case REBUY -> submit(new TableCommand.ToggleImmediateRebuy());
             case GAME_LOG -> {
-                gameLogScroll = 0;
-                openUiLayer(UI_GAME_LOG);
+                openGameLogWindow();
             }
             case SCREENSHOTS -> openScreenshotViewer();
             case FULLSCREEN -> toggleFullscreen();
@@ -15585,6 +15587,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         uiOpenedAt = totalTime;
     }
 
+    private void openGameLogWindow() {
+        gameLogScroll = 0f;
+        if (gameLogWindow == null || !gameLogWindow.open()) {
+            openUiLayer(UI_GAME_LOG);
+        }
+    }
+
     static List<String> settingsGamePageLabels() {
         return GdxSettingsContract.LIVE_TABLE_GAME_PAGES;
     }
@@ -20300,7 +20309,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float right = debug.console().x + debug.console().width
                     - GdxSettingsLayout.DEBUG_TEXT_RIGHT_INSET;
             for (GdxDebugLogFormatter.Run run : formatted.get(i).runs()) {
-                BitmapFont font = gameLogFont;
+                BitmapFont font = run.bold()
+                        ? gameLogBoldFont : gameLogFont;
                 float remaining = right - runX;
                 if (remaining <= 0f) break;
                 String fitted = ellipsizeToWidth(font, run.text(), remaining);
@@ -20357,7 +20367,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsDebugWrapWidth = width;
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width, run -> {
-                        glyph.setText(gameLogFont, run.text());
+                        BitmapFont font = run.bold()
+                                ? gameLogBoldFont : gameLogFont;
+                        glyph.setText(font, run.text());
                         return glyph.width;
                     });
         }
@@ -21966,8 +21978,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         if (action == 1) {
-            gameLogScroll = 0;
-            openUiLayer(UI_GAME_LOG);
+            openGameLogWindow();
             return true;
         }
         if (action == 2) {
@@ -22996,6 +23007,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (activeRecorder != null) activeRecorder.abort();
         if (textToSpeech != null) textToSpeech.close();
         GdxVoicePlayback.stop();
+        if (gameLogWindow != null) gameLogWindow.dispose();
         if (activeDialog != null) {
             activeDialog.dismiss();
             activeDialog = null;

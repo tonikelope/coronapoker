@@ -397,6 +397,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont volumeOverlayFont;
     private BitmapFont fpsFont;
     private BitmapFont debugLogFont;
+    private BitmapFont debugLogBoldFont;
     private BitmapFont smallFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
@@ -836,6 +837,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         BitmapFont nextVersion;
         BitmapFont nextFps;
         BitmapFont nextDebugLog;
+        BitmapFont nextDebugLogBold;
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         try {
@@ -877,6 +879,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } finally {
             generator.dispose();
         }
+        generator = GdxMonospaceFonts.generator(true);
+        try {
+            nextDebugLogBold = font(generator, 20, 0f, profile);
+        } finally {
+            generator.dispose();
+        }
         disposeFont(titleFont);
         disposeFont(headingFont);
         disposeFont(settingsStepperSignFont);
@@ -891,6 +899,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         disposeFont(versionFont);
         disposeFont(fpsFont);
         disposeFont(debugLogFont);
+        disposeFont(debugLogBoldFont);
         titleFont = nextTitle;
         headingFont = nextHeading;
         settingsStepperSignFont = nextStepperSign;
@@ -905,6 +914,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         versionFont = nextVersion;
         fpsFont = nextFps;
         debugLogFont = nextDebugLog;
+        debugLogBoldFont = nextDebugLogBold;
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 actionFont, uiFont, buttonMediumFont, buttonCompactFont,
                 smallFont, buttonTinyFont, tinyFont, versionFont);
@@ -8806,10 +8816,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             float runX = console.x + GdxSettingsLayout.DEBUG_TEXT_LEFT_INSET;
             for (GdxDebugLogFormatter.Run run : lines.get(i).runs()) {
-                settingsDebugTexts.add(new TextItem(debugLogFont, run.text(),
+                BitmapFont font = run.bold()
+                        ? debugLogBoldFont : debugLogFont;
+                settingsDebugTexts.add(new TextItem(font, run.text(),
                         runX, lineY, new Color(run.foreground()), false,
                         false));
-                runX += textWidth(debugLogFont, run.text());
+                runX += textWidth(font, run.text());
             }
         }
         settingsDebugViewport.set(viewportBounds);
@@ -8848,7 +8860,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsDebugWrapWidth = width;
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width,
-                    run -> textWidth(debugLogFont, run.text()));
+                    run -> textWidth(run.bold()
+                            ? debugLogBoldFont : debugLogFont, run.text()));
         }
         return settingsDebugVisualCache;
     }
@@ -13356,6 +13369,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         smallFont.dispose();
         fpsFont.dispose();
         debugLogFont.dispose();
+        debugLogBoldFont.dispose();
         tinyFont.dispose();
         versionFont.dispose();
     }

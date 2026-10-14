@@ -1,7 +1,12 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class GdxAdaptiveFontQualityTest {
@@ -58,6 +63,35 @@ final class GdxAdaptiveFontQualityTest {
                         0, 0, 1920f, 1080f);
 
         assertEquals(1f, profile.physicalPixelsPerWorldUnit());
+    }
+
+    @Test
+    void finalSummaryUsesMcLarenAtStartupAndAfterAdaptiveRebuild()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        String startup = section(source,
+                "private boolean createNextReportAndLogFont()",
+                "private void disposeCreationFontGenerator()");
+        String rebuild = section(source,
+                "private void rebuildFonts(",
+                "private void rebuildButtonFontTiers()");
+
+        assertTrue(startup.contains("fonts/McLaren-Regular.ttf"));
+        assertTrue(rebuild.contains("fonts/McLaren-Regular.ttf"));
+        assertFalse(startup.contains("Montserrat-Bold.ttf"));
+        assertFalse(startup.contains("Inter-Medium.ttf"));
+        assertFalse(rebuild.contains("Montserrat-Bold.ttf"));
+        assertFalse(rebuild.contains("Inter-Medium.ttf"));
+    }
+
+    private static String section(String source, String startMarker,
+            String endMarker) {
+        int start = source.indexOf(startMarker);
+        int end = source.indexOf(endMarker, start);
+        assertTrue(start >= 0 && end > start);
+        return source.substring(start, end);
     }
 
     private static void assertProfile(int width, int height,

@@ -129,6 +129,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float FINAL_CARD_DETAIL_ROW_HEIGHT = 25f;
     static final float FINAL_SUMMARY_REVEAL_SECONDS = 1.32f;
     static final float FINAL_SUMMARY_TEXT_SHIFT_Y = -64f;
+    private static final float FINAL_TITLE_FONT_BORDER = 0.35f;
+    private static final float FINAL_CARD_EMPHASIS_BORDER = 0.25f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
             STARTUP_PRESENTATION_END_SECONDS;
     private static final float INTRO_CARD_CLEAR_START =
@@ -2866,36 +2868,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean createNextReportAndLogFont() {
-        // BalanceScreen uses a bold Dialog face. Generate the GDX equivalents
-        // natively at display size: enlarging uiFont's 31 px atlas made the
-        // final title visibly pixelated at 1080p and above.
+        // Keep the final summary in the same McLaren visual language as the
+        // rest of the game. Generate every hierarchy level natively at its
+        // display size: sharing and enlarging a smaller atlas would make the
+        // title and result visibly pixelated at 1080p and above.
         switch (creationResourceIndex++) {
             case 0 -> creationFontGenerator = new FreeTypeFontGenerator(
-                    Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
-            case 1 -> finalTitleFont = font(creationFontGenerator, 66, 0f);
+                    Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+            case 1 -> finalTitleFont = font(creationFontGenerator, 66,
+                    FINAL_TITLE_FONT_BORDER);
             case 2 -> finalHeroFont = font(creationFontGenerator, 173, 5.5f,
                     Color.WHITE, new Color(0x000000ef));
             case 3 -> finalAmountFont = font(creationFontGenerator, 162, 5.5f,
                     Color.WHITE, new Color(0x000000ef));
-            case 4 -> finalCardBoldFont = font(creationFontGenerator, 20, 0f);
-            case 5 -> {
-                disposeCreationFontGenerator();
-                creationFontGenerator = new FreeTypeFontGenerator(
-                        Gdx.files.internal("fonts/Inter-Medium.ttf"));
-            }
-            case 6 -> finalDetailFont = font(creationFontGenerator, 38, 0f);
-            case 7 -> finalCardFont = font(creationFontGenerator, 18, 0f);
-            case 8 -> {
+            case 4 -> finalCardBoldFont = font(creationFontGenerator, 20,
+                    FINAL_CARD_EMPHASIS_BORDER);
+            case 5 -> finalDetailFont = font(creationFontGenerator, 38, 0f);
+            case 6 -> {
+                finalCardFont = font(creationFontGenerator, 18, 0f);
                 disposeCreationFontGenerator();
                 creationFontGenerator = GdxMonospaceFonts.generator(false);
             }
-            case 9 -> gameLogFont = font(creationFontGenerator, 20, 0f);
-            case 10 -> {
+            case 7 -> gameLogFont = font(creationFontGenerator, 20, 0f);
+            case 8 -> {
                 disposeCreationFontGenerator();
                 creationFontGenerator = GdxMonospaceFonts.generator(true);
             }
-            case 11 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
-            case 12 -> {
+            case 9 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
+            case 10 -> {
                 gameLogSuitFont = font(creationFontGenerator, 28, 0f);
                 disposeCreationFontGenerator();
                 return true;
@@ -3268,10 +3268,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         generator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Montserrat-Bold.ttf"));
+                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         try {
             finalTitleFont = replaceFont(finalTitleFont,
-                    font(generator, 66, 0f, profile));
+                    font(generator, 66, FINAL_TITLE_FONT_BORDER, profile));
             finalHeroFont = replaceFont(finalHeroFont,
                     font(generator, 173, 5.5f, Color.WHITE,
                             new Color(0x000000ef), profile));
@@ -3279,14 +3279,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     font(generator, 162, 5.5f, Color.WHITE,
                             new Color(0x000000ef), profile));
             finalCardBoldFont = replaceFont(finalCardBoldFont,
-                    font(generator, 20, 0f, profile));
-        } finally {
-            generator.dispose();
-        }
-
-        generator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Inter-Medium.ttf"));
-        try {
+                    font(generator, 20, FINAL_CARD_EMPHASIS_BORDER, profile));
             finalDetailFont = replaceFont(finalDetailFont,
                     font(generator, 38, 0f, profile));
             finalCardFont = replaceFont(finalCardFont,

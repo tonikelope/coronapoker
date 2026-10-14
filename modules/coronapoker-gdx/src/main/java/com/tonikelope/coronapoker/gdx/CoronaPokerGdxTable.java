@@ -5490,7 +5490,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contains(x, y, hud.x() - 12f, hud.y() - 12f,
                 hud.width() + 24f, hud.height() + 42f)
                 || localNamePlateBounds(seats[0], width).contains(x, y)
-                || localActionBadgeBounds(seats[0], width).contains(x, y)) {
+                || (localActionBadgeVisible()
+                && localActionBadgeBounds(seats[0], width).contains(x, y))) {
             return false;
         }
         if (contains(x, y, tableCenterX - 470f, tableCenterY - 300f,
@@ -5526,8 +5527,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contains(x, y, hud.x() - 8f, hud.y() - 8f,
                 hud.width() + 16f, hud.height() + 25f)
                 || localNamePlateBounds(seats[0], worldWidth).contains(x, y)
-                || localActionBadgeBounds(seats[0], worldWidth)
-                        .contains(x, y)) {
+                || (localActionBadgeVisible()
+                && localActionBadgeBounds(seats[0], worldWidth)
+                        .contains(x, y))) {
             return true;
         }
         if (!Float.isNaN(communityHudX)
@@ -13221,6 +13223,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return folded && !lateShownHand;
     }
 
+    static boolean localActionBadgeVisible(boolean localMonteCarlo,
+            boolean localTimedOut, String actionLabel) {
+        return !localMonteCarlo && (localTimedOut
+                || actionLabel != null && !actionLabel.isEmpty());
+    }
+
+    private boolean localActionBadgeVisible() {
+        if (liveState == null) return false;
+        TableSnapshot.PlayerSnapshot local = livePlayer(seats[0]);
+        boolean localSpectator = local != null && local.spectator();
+        boolean localMonteCarlo = !localSpectator && showsLocalMonteCarloHud(
+                liveState.partialHandPercentage(seats[0].name),
+                liveState.hasHandResult(seats[0].name));
+        return localActionBadgeVisible(localMonteCarlo,
+                local != null && local.timedOut(),
+                lastActionLabelForSeat(0));
+    }
+
     private String lastActionLabelForSeat(int seat) {
         TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
         if (player == null) return "";
@@ -15008,8 +15028,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0.015f, 0.028f, 0.05f, 0.96f);
         roundedRect(namePlate.x, namePlate.y, namePlate.width,
                 namePlate.height, 8f);
-        if (!localMonteCarlo
-                && (localTimedOut || !lastLocalActionLabel.isEmpty())) {
+        if (localActionBadgeVisible(localMonteCarlo, localTimedOut,
+                lastLocalActionLabel)) {
             shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
                     lastLocalActionColor.b, lastLocalActionColor.a
                     * seatActionSurfaceAlpha(dimLocalActionBadge,

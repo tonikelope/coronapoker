@@ -4018,6 +4018,18 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.visibleLocalShowdownHoverAllowed(
                 true, true, false),
                 "the pointer must be inside the visible hand badge");
+        assertFalse(CoronaPokerGdxTable.localActionBadgeVisible(
+                false, false, ""),
+                "an unpainted local action badge must not cover the cards");
+        assertFalse(CoronaPokerGdxTable.localActionBadgeVisible(
+                true, true, "TIMEOUT"),
+                "Monte Carlo replaces the local action badge completely");
+        assertTrue(CoronaPokerGdxTable.localActionBadgeVisible(
+                false, false, "NO VA"),
+                "a painted action caption must still own its foreground");
+        assertTrue(CoronaPokerGdxTable.localActionBadgeVisible(
+                false, true, ""),
+                "the timeout surface remains visible without a caption");
         Color semanticHud = new Color(0.18f, 0.42f, 0.73f, 1f);
         assertEquals(semanticHud,
                 CoronaPokerGdxTable.showdownHoverSurfaceColor(

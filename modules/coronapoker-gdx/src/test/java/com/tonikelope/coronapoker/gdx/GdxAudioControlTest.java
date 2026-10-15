@@ -36,4 +36,14 @@ final class GdxAudioControlTest {
         assertFalse(CoronaPokerGdxTable.shouldDisposeBackgroundMusic(true));
         assertTrue(CoronaPokerGdxTable.shouldDisposeBackgroundMusic(false));
     }
+
+    @Test
+    void gameStartVoiceUsesADedicatedNonBlockingStream() {
+        assertTrue(CoronaPokerGdxTable.shouldStreamNonBlockingAudioCue(
+                "misc/startplay.wav", false));
+        assertFalse(CoronaPokerGdxTable.shouldStreamNonBlockingAudioCue(
+                "misc/startplay.wav", true));
+        assertFalse(CoronaPokerGdxTable.shouldStreamNonBlockingAudioCue(
+                "misc/deal.wav", false));
+    }
 }

@@ -17,13 +17,13 @@ class GdxChipFlightScalingTest {
         assertEquals(1, CoronaPokerGdxTable.visualChipCount(0.1d, 0.1d));
         assertEquals(2, CoronaPokerGdxTable.visualChipCount(0.2d, 0.1d));
         assertEquals(5, CoronaPokerGdxTable.visualChipCount(0.5d, 0.1d));
-        assertEquals(10, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
-        assertEquals(14, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
-        assertEquals(18, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
-        assertEquals(21, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
-        assertEquals(28, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
-        assertEquals(31, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
-        assertEquals(41, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
+        assertEquals(8, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
+        assertEquals(10, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
+        assertEquals(12, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
+        assertEquals(14, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
+        assertEquals(19, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
+        assertEquals(21, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
+        assertEquals(28, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
     }
 
     @Test
@@ -36,7 +36,7 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void landingSoundsScaleWithTheVisualChipCountAndRemainBounded() {
+    void landingSoundsScaleWithTheVisualChipCount() {
         assertEquals(0, CoronaPokerGdxTable.landingImpactCount(0));
         assertEquals(1, CoronaPokerGdxTable.landingImpactCount(1));
         assertEquals(2, CoronaPokerGdxTable.landingImpactCount(5));
@@ -46,21 +46,15 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void equalAmountsReceiveBoundedVisualVarietyWithoutChangingTheirValue() {
-        Set<Integer> counts = new HashSet<>();
-        for (long seed = 0; seed < 64; seed++) {
-            int count = CoronaPokerGdxTable.variedVisualChipCount(
-                    2d, 0.1d, seed);
-            counts.add(count);
-            assertTrue(count >= 11 && count <= 17);
-            double total = 0d;
-            for (double part : CoronaPokerGdxTable.splitVisualCounterAmounts(
-                    2d, count, 0.1d)) {
-                total += part;
-            }
-            assertEquals(2d, total, 0.000_001d);
+    void equalAmountsAlwaysProduceTheSameCountAndPreserveTheirValue() {
+        int count = CoronaPokerGdxTable.visualChipCount(2d, 0.1d);
+        assertEquals(10, count);
+        double total = 0d;
+        for (double part : CoronaPokerGdxTable.splitVisualCounterAmounts(
+                2d, count, 0.1d)) {
+            total += part;
         }
-        assertTrue(counts.size() > 1);
+        assertEquals(2d, total, 0.000_001d);
     }
 
     @Test

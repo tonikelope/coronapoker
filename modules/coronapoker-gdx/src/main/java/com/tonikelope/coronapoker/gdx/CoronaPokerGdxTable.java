@@ -248,8 +248,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 3d;
-    private static final float VISUAL_CHIP_COUNT_VARIATION = 0.22f;
+    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 2d;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
@@ -14302,26 +14301,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return (int) Math.min(realUnits, Math.max(1, logarithmicCount));
     }
 
-    static int variedVisualChipCount(double exactAmount, double minimumChip,
-            long variationSeed) {
-        int baseCount = visualChipCount(exactAmount, minimumChip);
-        if (baseCount <= 1) {
-            return baseCount;
-        }
-        long totalMinor = Math.max(1L, Math.round(exactAmount * 100d));
-        long denominationMinor = Double.isFinite(minimumChip)
-                && minimumChip > 0d
-                ? Math.max(1L, Math.round(minimumChip * 100d)) : 1L;
-        int availableUnits = (int) Math.min(Integer.MAX_VALUE,
-                Math.max(1L, totalMinor / denominationMinor));
-        int radius = Math.max(1,
-                Math.round(baseCount * VISUAL_CHIP_COUNT_VARIATION));
-        int lower = Math.max(1, baseCount - radius);
-        int upper = Math.max(lower, Math.min(availableUnits,
-                baseCount + radius));
-        return new SplittableRandom(variationSeed).nextInt(lower, upper + 1);
-    }
-
     static float variedChipImpactVolume(float baseVolume, long variationSeed) {
         float variation = (float) new SplittableRandom(
                 variationSeed ^ 0x6a09e667f3bcc909L).nextDouble(
@@ -24164,8 +24143,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.deferPlayerCounters = deferPlayerCounters;
             long visualSeed = chipVariationSeed(startedAtNanos,
                     event.nickname(), 0);
-            int chipCount = variedVisualChipCount(event.contributionDelta(),
-                    minimumChip, visualSeed);
+            int chipCount = visualChipCount(event.contributionDelta(),
+                    minimumChip);
             int baseColor = switch (event.kind()) {
                 case ALL_IN -> 3;
                 case BET, RAISE, RERAISE -> 2;
@@ -24261,8 +24240,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         transfers.get(transferIndex);
                 long visualSeed = chipVariationSeed(startedAtNanos,
                         transfer.nickname(), transferIndex);
-                int chipCount = variedVisualChipCount(transfer.amount(),
-                        minimumChip, visualSeed);
+                int chipCount = visualChipCount(transfer.amount(), minimumChip);
                 double[] amounts = splitVisualCounterAmounts(
                         transfer.amount(), chipCount, minimumChip);
                 for (int index = 0; index < chipCount; index++) {
@@ -24379,8 +24357,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
                 long visualSeed = chipVariationSeed(startedAtNanos,
                         transfer.nickname(), transferIndex);
-                int chipCount = variedVisualChipCount(transfer.amount(),
-                        minimumChip, visualSeed);
+                int chipCount = visualChipCount(transfer.amount(), minimumChip);
                 double[] amounts = splitVisualCounterAmounts(transfer.amount(),
                         chipCount, minimumChip);
                 for (int index = 0; index < chipCount; index++) {
@@ -24577,8 +24554,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (smallAmount > 0.000_001d) {
                     long visualSeed = chipVariationSeed(startedAtNanos,
                             smallBlind.nickname(), 0);
-                    int chipCount = variedVisualChipCount(smallAmount,
-                            minimumChip, visualSeed);
+                    int chipCount = visualChipCount(smallAmount, minimumChip);
                     double[] amounts = splitVisualCounterAmounts(smallAmount,
                             chipCount, minimumChip);
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
@@ -24594,8 +24570,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (bigAmount > 0.000_001d) {
                     long visualSeed = chipVariationSeed(startedAtNanos,
                             bigBlind.nickname(), 1);
-                    int chipCount = variedVisualChipCount(bigAmount,
-                            minimumChip, visualSeed);
+                    int chipCount = visualChipCount(bigAmount, minimumChip);
                     double[] amounts = splitVisualCounterAmounts(bigAmount,
                             chipCount, minimumChip);
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
@@ -24620,8 +24595,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (visualAmount <= 0.000_001d) continue;
                 long visualSeed = chipVariationSeed(startedAtNanos,
                         transfer.nickname(), transferIndex);
-                int chipCount = variedVisualChipCount(visualAmount,
-                        minimumChip, visualSeed);
+                int chipCount = visualChipCount(visualAmount, minimumChip);
                 double[] contributions = splitVisualCounterAmounts(visualAmount,
                         chipCount, minimumChip);
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {

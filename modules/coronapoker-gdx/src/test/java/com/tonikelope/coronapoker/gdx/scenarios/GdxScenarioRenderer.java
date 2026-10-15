@@ -1047,6 +1047,11 @@ final class GdxScenarioRenderer implements TableRenderer {
                         == configuration.blindsDoubleType();
     }
 
+    int maximumHands() {
+        GdxTableViewState projection = state.get();
+        return projection == null ? -1 : projection.maximumHands();
+    }
+
     String communityCardDiagnostic() {
         GdxTableViewState projection = state.get();
         if (projection == null) return "<renderer not opened>";
@@ -1404,6 +1409,11 @@ final class GdxScenarioRenderer implements TableRenderer {
             if (player.spectator() && !player.exited()) {
                 assertTrue(cards.isEmpty(), player.nickname()
                         + " spectator must not show placeholder cards");
+                assertEquals(TableSnapshot.Position.NONE, player.position(),
+                        player.nickname()
+                        + " passive observer cannot own dealer/blind/straddle");
+                assertFalse(player.underTheGun(), player.nickname()
+                        + " passive observer cannot own under-the-gun");
                 String expectedStatus = presentationText().translate(
                         player.warming() ? "game.calentando"
                                 : "player.espectador").toUpperCase(

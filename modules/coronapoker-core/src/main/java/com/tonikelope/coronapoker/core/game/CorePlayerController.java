@@ -281,6 +281,13 @@ public final class CorePlayerController implements GamePlayerController {
     public synchronized void resetPresentationForNewHand() {
         state.setDecision(PlayerState.Decision.NONE);
         state.setActionKind(PlayerState.ActionKind.NONE);
+        // Positions belong to one hand only.  Active seats receive their new
+        // role immediately afterwards in applyCurrentHandPosition(); passive
+        // observers never enter that path, so retaining the previous hand's
+        // dealer/blind/straddle role would manufacture a position chip and a
+        // false visual dealing origin for them.
+        state.setPosition(PlayerState.Position.NONE);
+        state.setUnderTheGun(false);
         state.setShowingCards(false);
         state.setWinner(false);
         state.setHandName("");
@@ -294,7 +301,7 @@ public final class CorePlayerController implements GamePlayerController {
         DealerView current = dealer;
         PlayerState.Position position = PlayerState.Position.NONE;
         state.setUnderTheGun(false);
-        if (current != null) {
+        if (current != null && isActivo()) {
             String nickname = getNickname();
             if (nickname.equals(current.getDealer_nick())) position = PlayerState.Position.DEALER;
             if (nickname.equals(current.getSb_nick())) position = PlayerState.Position.SMALL_BLIND;
@@ -316,7 +323,7 @@ public final class CorePlayerController implements GamePlayerController {
 
     private void postForcedBlind(DealerView current,
             PlayerState.Position position) {
-        if (current == null) {
+        if (current == null || !isActivo()) {
             return;
         }
         boolean headsUpDealer = position == PlayerState.Position.DEALER
@@ -337,7 +344,7 @@ public final class CorePlayerController implements GamePlayerController {
     }
 
     @Override public void esTuTurno() {
-        if (!isExit()) {
+        if (isActivo()) {
             state.setTimedOut(false);
             setTurn(true);
         }
@@ -394,6 +401,7 @@ public final class CorePlayerController implements GamePlayerController {
 
     @Override
     public synchronized double postAnte(double ante) {
+        if (!isActivo()) return 0d;
         if (MoneyMath.compare(getStack(), 0d) <= 0) return 0d;
         double requested = MoneyMath.clean(ante);
         double actual = MoneyMath.compare(requested, getStack()) < 0
@@ -409,6 +417,10 @@ public final class CorePlayerController implements GamePlayerController {
 
     @Override
     public synchronized double postStraddle(double amount) {
+        if (!isActivo()) {
+            throw new IllegalStateException(
+                    "Passive observer cannot post a straddle");
+        }
         double requested = MoneyMath.clean(amount);
         DealerView current = requireDealer();
         state.setPosition(getNickname().equals(current.getDealer_nick())
@@ -510,6 +522,9 @@ public final class CorePlayerController implements GamePlayerController {
         state.setWarming(false);
         state.setTimedOut(false);
         state.setActive(false);
+        state.setPosition(PlayerState.Position.NONE);
+        state.setUnderTheGun(false);
+        spectatorBigBlind = false;
         setTurn(false);
         turnCompletionSignal.run();
     }
@@ -532,6 +547,9 @@ public final class CorePlayerController implements GamePlayerController {
             // rosters, and their previous pot contribution is no longer live.
             state.setDecision(PlayerState.Decision.FOLD);
             state.setActionKind(PlayerState.ActionKind.NONE);
+            state.setPosition(PlayerState.Position.NONE);
+            state.setUnderTheGun(false);
+            spectatorBigBlind = false;
             state.setPotContribution(0d);
             state.setLastAction(message);
             setTurn(false);

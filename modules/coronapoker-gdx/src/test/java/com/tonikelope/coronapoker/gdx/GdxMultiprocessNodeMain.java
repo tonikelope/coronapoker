@@ -479,6 +479,19 @@ public final class GdxMultiprocessNodeMain {
             }
             table.attach(renderer).toCompletableFuture()
                     .get(15, TimeUnit.SECONDS);
+            if (foldedBootstrap && config.host()) {
+                /*
+                 * This scenario cannot use a fixed hand cap: depending on the
+                 * deterministic seed, several hands may end preflop before the
+                 * first folded-seat + flop bootstrap exists. Keep the table
+                 * open until that state is observed and the newcomer has been
+                 * admitted; the host schedules the final hand below.
+                 */
+                table.commands().submit(new TableCommand.SetHandLimit(-1));
+                await(() -> renderer.maximumHands() == -1,
+                        Duration.ofSeconds(30),
+                        "unbounded folded-bootstrap setup");
+            }
             if (ritBootstrap && !late) {
                 resolveRunItTwiceDialog(productTable, runItTwiceVotes,
                         runItTwiceDialogResolutions);
@@ -1060,6 +1073,11 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(120),
                         "canonical hot-join seat admission");
                 emitSeatRingMarker(config, renderer);
+                if (foldedBootstrap && config.host()) {
+                    table.commands().submit(new TableCommand.SetLastHand(true));
+                    await(renderer::isLastHand, Duration.ofSeconds(30),
+                            "folded-bootstrap final hand scheduling");
+                }
             }
 
             if (stopWhileWarming) {

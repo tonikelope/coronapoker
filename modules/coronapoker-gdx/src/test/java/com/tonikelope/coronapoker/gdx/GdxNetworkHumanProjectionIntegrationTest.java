@@ -93,6 +93,12 @@ class GdxNetworkHumanProjectionIntegrationTest {
             = "coronapoker.qa.scenarioSeed";
     private static final String SCENARIO_SEED_KEY_PROPERTY
             = "coronapoker.qa.scenarioSeedKey";
+    private static final String RANDOM_CONDITION_HANDS_PROPERTY
+            = "coronapoker.qa.gdx.randomConditionHands";
+    private static final String INDETERMINATE_RETRIES_PROPERTY
+            = "coronapoker.qa.gdx.indeterminateRetries";
+    private static final int DEFAULT_RANDOM_CONDITION_HANDS = 20;
+    private static final int DEFAULT_INDETERMINATE_RETRIES = 2;
     private static final ConcurrentHashMap<String, AtomicLong>
             SCENARIO_GENERATIONS = new ConcurrentHashMap<>();
     private static final Duration IWTSTH_SCENARIO_TIMEOUT
@@ -1047,19 +1053,53 @@ class GdxNetworkHumanProjectionIntegrationTest {
     @Test
     void nativeGdxIwtsthOffersAndRevealsAMuckedBotLikeSwing()
             throws Exception {
+        int handBudget = positiveScenarioProperty(
+                RANDOM_CONDITION_HANDS_PROPERTY,
+                DEFAULT_RANDOM_CONDITION_HANDS);
+        int retries = nonNegativeScenarioProperty(
+                INDETERMINATE_RETRIES_PROPERTY,
+                DEFAULT_INDETERMINATE_RETRIES);
+        for (int attempt = 0; attempt <= retries; attempt++) {
+            if (runIwtsthBotAttempt(attempt + 1, handBudget)) {
+                return;
+            }
+            System.err.println("[INDETERMINATE] iwtsth bot candidate was not "
+                    + "produced within " + handBudget + " hands; seed="
+                    + System.getProperty(SCENARIO_SEED_PROPERTY,
+                            System.getProperty("qa.sim.seed", "<default>"))
+                    + ", attempt=" + (attempt + 1) + "/" + (retries + 1));
+            if (attempt < retries) {
+                handBudget = Math.min(1000, Math.multiplyExact(handBudget, 2));
+                System.err.println("[AUTO_RETRY] automatically retrying "
+                        + "the same deterministic deal sequence with "
+                        + handBudget + " hands");
+            }
+        }
+        throw new AssertionError("INDETERMINATE: the random prerequisite "
+                + "never occurred after " + (retries + 1)
+                + " deterministic attempt(s). Replay with the reported seed "
+                + "and increase -RandomConditionHands or "
+                + "-IndeterminateRetries; this is not a functional failure "
+                + "unless the condition should have been guaranteed.");
+    }
+
+    private boolean runIwtsthBotAttempt(int attempt, int handBudget)
+            throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
             port = reservation.getLocalPort();
         }
         DatabaseService database = new DatabaseService(
-                temporary.resolve("iwtsth-bot.sqlite").toString());
+                temporary.resolve("iwtsth-bot-" + attempt + ".sqlite")
+                        .toString());
         database.start();
         AtomicBoolean requestClaimed = new AtomicBoolean();
         try (database;
-             NetworkLobbyGateway gateway = iwtsthGateway(
-                     temporary.resolve("iwtsth-bot"), database)) {
+             NetworkLobbyGateway gateway = replayableIwtsthGateway(
+                     temporary.resolve("attempt-" + attempt)
+                             .resolve("iwtsth-bot"), database)) {
             LobbySession host = gateway.open(iwtsthRequest(false,
-                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+                    "Anfitrion", port, handBudget)).get(5, TimeUnit.SECONDS);
             try {
                 host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
@@ -1075,15 +1115,44 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 table.attach(renderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
 
-                await(renderer::iwtsthComplete, IWTSTH_SCENARIO_TIMEOUT);
+                await(() -> renderer.iwtsthComplete() || renderer.closed(),
+                        randomConditionTimeout(handBudget));
+                if (!renderer.iwtsthComplete()) {
+                    return false;
+                }
                 assertTrue(renderer.candidate.get().startsWith("CoronaBot$"),
                         "the local bot muck never became the Swing-compatible "
                                 + "blinking IWTSTH target");
                 renderer.assertComplete();
+                return true;
             } finally {
                 host.close();
             }
         }
+    }
+
+    private static Duration randomConditionTimeout(int handBudget) {
+        return Duration.ofSeconds(Math.max(90L, 30L + 12L * handBudget));
+    }
+
+    private static int positiveScenarioProperty(String name,
+            int defaultValue) {
+        int value = Integer.getInteger(name, defaultValue);
+        if (value < 1 || value > 1000) {
+            throw new IllegalArgumentException(name
+                    + " must be between 1 and 1000, found " + value);
+        }
+        return value;
+    }
+
+    private static int nonNegativeScenarioProperty(String name,
+            int defaultValue) {
+        int value = Integer.getInteger(name, defaultValue);
+        if (value < 0 || value > 10) {
+            throw new IllegalArgumentException(name
+                    + " must be between 0 and 10, found " + value);
+        }
+        return value;
     }
 
     @Test
@@ -2430,6 +2499,16 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
     private static NetworkLobbyGateway iwtsthGateway(Path data,
             DatabaseService database) {
+        return iwtsthGateway(data, database, false);
+    }
+
+    private static NetworkLobbyGateway replayableIwtsthGateway(Path data,
+            DatabaseService database) {
+        return iwtsthGateway(data, database, true);
+    }
+
+    private static NetworkLobbyGateway iwtsthGateway(Path data,
+            DatabaseService database, boolean replaySameSequence) {
         GameDialogSink accept = new GameDialogSink() {
             @Override public CompletionStage<Void> showError(String message,
                     int preferredWidth) {
@@ -2451,8 +2530,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 return CompletableFuture.completedFuture(null);
             }
         };
-        ScenarioRandomness randomness = scenarioRandomness(data,
-                IWTSTH_SCENARIO_DOMAIN);
+        ScenarioRandomness randomness = replaySameSequence
+                ? scenarioRandomness(data, IWTSTH_SCENARIO_DOMAIN, 0L)
+                : scenarioRandomness(data, IWTSTH_SCENARIO_DOMAIN);
         CoreGameTableFactory tables = new CoreGameTableFactory(database,
                 (key, arguments) -> key, GameLogSink.noop(), accept,
                 GameDecisionSink.noop(), iwtsthSettings(),
@@ -2575,13 +2655,20 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
     private static ScenarioRandomness scenarioRandomness(Path data,
             long salt) {
+        return scenarioRandomness(data, salt, null);
+    }
+
+    private static ScenarioRandomness scenarioRandomness(Path data,
+            long salt, Long fixedGeneration) {
         String configuredKey = System.getProperty(
                 SCENARIO_SEED_KEY_PROPERTY, "").trim();
         String key = configuredKey.isEmpty() ? scenarioDataKey(data)
                 : configuredKey + "/" + scenarioDataKey(data);
-        long generation = SCENARIO_GENERATIONS
-                .computeIfAbsent(key, ignored -> new AtomicLong())
-                .getAndIncrement();
+        long generation = fixedGeneration == null
+                ? SCENARIO_GENERATIONS
+                        .computeIfAbsent(key, ignored -> new AtomicLong())
+                        .getAndIncrement()
+                : fixedGeneration;
         long configuredSeed = Long.decode(System.getProperty(
                 SCENARIO_SEED_PROPERTY, System.getProperty("qa.sim.seed",
                         "0x" + Long.toHexString(DEFAULT_SCENARIO_SEED))));
@@ -2849,6 +2936,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
     private static NewGameRequest iwtsthRequest(boolean joining,
             String nickname, int port) {
+        return iwtsthRequest(joining, nickname, port,
+                positiveScenarioProperty(RANDOM_CONDITION_HANDS_PROPERTY,
+                        DEFAULT_RANDOM_CONDITION_HANDS));
+    }
+
+    private static NewGameRequest iwtsthRequest(boolean joining,
+            String nickname, int port, int handLimit) {
         NewGameConnectionDraft.Submission connection
                 = new NewGameConnectionDraft.Submission(
                         joining ? NewGameConnectionDraft.Mode.JOIN
@@ -2861,7 +2955,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         // A check-through loser is only an IWTSTH candidate when the ordinary
         // showdown order lets it muck. Exercise several real hands instead of
         // assuming a particular random deal/order in the first hand.
-        table.setHandLimitCount(8);
+        table.setHandLimitCount(handLimit);
         table.setThinkTime(false);
         table.setShowdownSeconds(1);
         table.setIwtsth(true);
@@ -3964,6 +4058,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
         boolean iwtsthComplete() {
             return requested.get() && candidateCleared.get()
                     && candidateRevealed.get();
+        }
+
+        boolean closed() {
+            return closed.get();
         }
 
         @Override public void close() { }

@@ -11693,7 +11693,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Heads-up stores the shared dealer/small-blind role as SMALL_BLIND.
         // The dealer button is intentionally suppressed, but dealing must still
         // originate from the real dealer rather than an invented seat.
-        if (livePlayerCount() == 2) {
+        if (activePokerPlayerCount(liveState.snapshot()) == 2) {
             seat = liveSeatWithPosition(TableSnapshot.Position.SMALL_BLIND);
             if (seat >= 0) {
                 return seat;
@@ -11721,6 +11721,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (player == null) {
                 continue;
             }
+            if (!hasActivePokerRole(player)) {
+                continue;
+            }
             for (TableSnapshot.Position position : positions) {
                 if (player.position() == position) {
                     return seat;
@@ -11728,6 +11731,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         return -1;
+    }
+
+    static boolean hasActivePokerRole(TableSnapshot.PlayerSnapshot player) {
+        return player != null && player.active() && !player.spectator()
+                && !player.warming() && !player.exited();
+    }
+
+    static int activePokerPlayerCount(TableSnapshot snapshot) {
+        return (int) snapshot.players().stream()
+                .filter(CoronaPokerGdxTable::hasActivePokerRole).count();
     }
 
     private int livePlayerCount() {
@@ -11805,6 +11818,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         if (active == null) {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
+                if (!hasActivePokerRole(player)) continue;
                 Texture texture = positionTexture(player.position());
                 Seat seat = seatByNickname(player.nickname());
                 float presence = seat == null ? 0f
@@ -11825,7 +11839,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     active.event.transfers().get(role);
             Texture texture = positionTexture(transfer.position());
             Seat target = seatByNickname(transfer.toNickname());
-            if (texture == null || target == null) {
+            if (texture == null || target == null
+                    || !hasActivePokerRole(livePlayer(target))) {
                 continue;
             }
             Seat previous = seatByNickname(transfer.fromNickname());

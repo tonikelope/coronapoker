@@ -12,6 +12,10 @@ param(
 
     [long] $Seed,
 
+    [ValidateRange(1, 1000)] [int] $RandomConditionHands = 20,
+
+    [ValidateRange(0, 10)] [int] $IndeterminateRetries = 2,
+
     [switch] $IncludeBots,
 
     [switch] $VerboseScenarios,
@@ -35,6 +39,8 @@ Usage:
   .\qa.cmd scenarios fast
   .\qa.cmd all balanced
   .\qa.cmd scenarios fast -Scenario spectator-rebuy-cycle -Seed 42
+  .\qa.cmd scenarios fast -Scenario iwtsth -Seed 42 `
+      -RandomConditionHands 20 -IndeterminateRetries 2
   .\qa.cmd list
 
 Commands:
@@ -56,6 +62,8 @@ Options:
   -Scenario <name>       Run only one GDX scenario and its mapped tests
   -Seed <long>           Replay a scenario base seed
   -IncludeBots           Add statistical bot QA to extended or all
+  -RandomConditionHands Initial hand budget for chance-gated scenarios
+  -IndeterminateRetries Automatic retries that double that hand budget
   -VerboseScenarios      Stream scenario Maven output (logs are always saved)
   -IncrementVersion      Increment the product version before build
   -Help                  Show this help
@@ -272,6 +280,16 @@ function Write-RunSummary {
         } else {
             $null
         }
+        RandomConditionHands = if ($script:runsScenarios) {
+            $script:RandomConditionHands
+        } else {
+            $null
+        }
+        IndeterminateRetries = if ($script:runsScenarios) {
+            $script:IndeterminateRetries
+        } else {
+            $null
+        }
         Started = $script:runStarted.ToString('o')
         Finished = (Get-Date).ToString('o')
         Result = if (@($script:results | Where-Object Result -eq 'FAIL').Count) {
@@ -377,6 +395,8 @@ if ($runsScenarios) {
         Mode = $Mode
         Scenario = $Scenario
         Seed = $Seed
+        RandomConditionHands = $RandomConditionHands
+        IndeterminateRetries = $IndeterminateRetries
     }
     if ($VerboseScenarios) {
         $certificationParams.VerboseOutput = $true

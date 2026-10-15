@@ -7,6 +7,8 @@ param(
     [ValidateRange(1, 10)] [int] $StartAtRepeat = 1,
     [ValidateRange(1, 10)] [int] $ScenarioRepeats,
     [ValidateRange(5, 1000)] [int] $SoakHands,
+    [ValidateRange(1, 1000)] [int] $RandomConditionHands = 20,
+    [ValidateRange(0, 10)] [int] $IndeterminateRetries = 2,
     [long] $Seed,
     [switch] $ListOnly,
     [switch] $VerboseOutput,
@@ -42,6 +44,10 @@ Options:
   -StartAtRepeat <1..10>    Repetition used with -StartAtScenario
   -ScenarioRepeats <1..10>  Override the mode repetition count
   -SoakHands <5..1000>      Override the normal soak length
+  -RandomConditionHands <1..1000>
+                            Initial hand budget for chance-gated scenarios
+  -IndeterminateRetries <0..10>
+                            Retries that double the budget after indeterminate runs
   -Seed <long>              Replay a base seed. Otherwise one is generated
   -ListOnly                 Print the executable catalogue without running it
   -VerboseOutput            Stream Maven output as well as writing logs
@@ -268,9 +274,12 @@ if ($StartAtScenario) {
     $schedule = @($schedule | Select-Object -Skip $startIndex)
 }
 
-Write-Host ("Mode={0} BaseSeed={1} scenarios={2} tests={3} repeats={4} soakHands={5}" -f
+Write-Host ("Mode={0} BaseSeed={1} scenarios={2} tests={3} repeats={4} soakHands={5} randomConditionHands={6} indeterminateRetries={7}" -f
     $Mode, $Seed, (@($resolved.Scenario | Sort-Object -Unique).Count),
-    $resolved.Count, $ScenarioRepeats, $SoakHands)
+    $resolved.Count, $ScenarioRepeats, $SoakHands,
+    $RandomConditionHands, $IndeterminateRetries)
+Write-Host ("Chance-gated scenarios auto-retry after INDETERMINATE by doubling " +
+    "their hand budget; final exhaustion is reported separately from a functional failure.")
 Write-Host "Reports: $reportDir"
 
 $failed = $false
@@ -297,6 +306,8 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
         "-Dqa.sim.seed=$scenarioSeed",
         "-Dcoronapoker.qa.scenarioSeed=$scenarioSeed",
         "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
+        "-Dcoronapoker.qa.gdx.randomConditionHands=$RandomConditionHands",
+        "-Dcoronapoker.qa.gdx.indeterminateRetries=$IndeterminateRetries",
         "-Dcoronapoker.qa.gdx.headsUpHands=$($modeDefaults.HeadsUp)",
         "-Dcoronapoker.qa.gdx.fullMixedHands=$($modeDefaults.FullMixed)",
         "-Dcoronapoker.qa.gdx.fullHumanHands=$($modeDefaults.FullHuman)"
@@ -315,7 +326,15 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
         $ErrorActionPreference = $previousPreference
     }
     $seconds = [math]::Round(((Get-Date) - $started).TotalSeconds, 3)
-    $status = if ($exitCode -eq 0) { 'PASS' } else { 'FAIL' }
+    $indeterminateAttempts = @(Select-String -LiteralPath $log -Pattern '\[INDETERMINATE\]' -ErrorAction SilentlyContinue).Count
+    $finalIndeterminate = $exitCode -ne 0 -and @(Select-String -LiteralPath $log -Pattern 'INDETERMINATE:' -ErrorAction SilentlyContinue).Count -gt 0
+    $status = if ($exitCode -eq 0) {
+        'PASS'
+    } elseif ($finalIndeterminate) {
+        'INDETERMINATE'
+    } else {
+        'FAIL'
+    }
     $results.Add([pscustomobject]@{
             Repeat = $test.Repeat
             Scenario = $test.Scenario
@@ -328,8 +347,23 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
             BaseSeed = $Seed
             ScenarioRepeats = $ScenarioRepeats
             SoakHands = $SoakHands
+            RandomConditionHands = $RandomConditionHands
+            IndeterminateRetries = $IndeterminateRetries
+            IndeterminateAttempts = $indeterminateAttempts
         })
-    Write-Host "  $status ($seconds s)"
+    $retryNote = if ($indeterminateAttempts -gt 0 -and $exitCode -eq 0) {
+        " after $indeterminateAttempts indeterminate diagnostic(s)"
+    } else {
+        ''
+    }
+    Write-Host "  $status$retryNote ($seconds s)" -ForegroundColor $(
+        if ($status -eq 'PASS' -and $indeterminateAttempts -eq 0) {
+            'Green'
+        } elseif ($status -eq 'PASS' -or $status -eq 'INDETERMINATE') {
+            'Yellow'
+        } else {
+            'Red'
+        })
     if ($exitCode -ne 0) {
         $failed = $true
         Get-Content -LiteralPath $log -Tail 80 | Write-Host

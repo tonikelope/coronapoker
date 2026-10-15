@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.core.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
@@ -314,6 +315,50 @@ class CorePlayerControllerTest {
         assertEquals(GamePlayerController.FOLD, player.getDecision());
         assertEquals(0d, player.getBote());
         assertEquals("spectator", player.getLastActionString());
+    }
+
+    @Test
+    void spectatorTransitionRevokesEveryPokerRoleAndForcedAction() {
+        CorePlayerController player = CorePlayerController.local("dealer");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        player.applyCurrentHandPosition();
+        player.setUTG();
+
+        assertEquals(PlayerState.Position.DEALER,
+                player.getState().snapshot().position());
+        assertTrue(player.getState().snapshot().underTheGun());
+
+        player.setSpectator("ESPECTADOR");
+        player.applyCurrentHandPosition();
+        player.esTuTurno();
+
+        PlayerState.Snapshot passive = player.getState().snapshot();
+        assertEquals(PlayerState.Position.NONE, passive.position());
+        assertFalse(passive.underTheGun());
+        assertFalse(player.isTurno());
+        assertEquals(0d, player.postAnte(0.10d));
+        assertThrows(IllegalStateException.class,
+                () -> player.postStraddle(0.40d));
+        assertEquals(10d, player.getStack());
+    }
+
+    @Test
+    void warmingTransitionAlsoRevokesThePreviousHandPosition() {
+        CorePlayerController player = CorePlayerController.remote("big");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        player.applyCurrentHandPosition();
+
+        assertEquals(PlayerState.Position.BIG_BLIND,
+                player.getState().snapshot().position());
+
+        player.setCalentando("CALENTANDO");
+
+        assertTrue(player.isCalentando());
+        assertEquals(PlayerState.Position.NONE,
+                player.getState().snapshot().position());
+        assertFalse(player.getState().snapshot().underTheGun());
     }
 
     @Test

@@ -102,8 +102,11 @@ class TableSnapshotMapperTest {
     void mapsWarmingExplicitlyEvenWithNoStack() {
         PlayerState state = new PlayerState("late");
         state.setStack(0d);
+        state.setActive(false);
         state.setSpectator(true);
         state.setWarming(true);
+        state.setPosition(PlayerState.Position.DEALER_STRADDLE);
+        state.setUnderTheGun(true);
 
         TableSnapshot.PlayerSnapshot mapped = TableSnapshotMapper.player(
                 state.snapshot());
@@ -111,6 +114,8 @@ class TableSnapshotMapperTest {
         assertTrue(mapped.spectator());
         assertTrue(mapped.warming());
         assertEquals(0d, mapped.stack());
+        assertEquals(TableSnapshot.Position.NONE, mapped.position());
+        assertFalse(mapped.underTheGun());
     }
 
     @Test

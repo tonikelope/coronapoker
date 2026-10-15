@@ -125,6 +125,33 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void passiveObserversCannotOwnAVisiblePokerRole() {
+        TableSnapshot.PlayerSnapshot spectator
+                = new TableSnapshot.PlayerSnapshot(
+                        "viewer", 0d, 0d, 0d, false, true, false, false,
+                        -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.DEALER, "ESPECTADOR", "",
+                        List.of(), 0, 0, false);
+        TableSnapshot.PlayerSnapshot warming
+                = new TableSnapshot.PlayerSnapshot(
+                        "warming", 10d, 0d, 0d, false, true, false, false,
+                        -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.BIG_BLIND, "CALENTANDO", "",
+                        List.of(), 0, 0, true);
+        TableSnapshot.PlayerSnapshot active
+                = player("active", TableSnapshot.Position.DEALER);
+
+        assertFalse(CoronaPokerGdxTable.hasActivePokerRole(spectator));
+        assertFalse(CoronaPokerGdxTable.hasActivePokerRole(warming));
+        assertTrue(CoronaPokerGdxTable.hasActivePokerRole(active));
+        assertEquals(2, CoronaPokerGdxTable.activePokerPlayerCount(
+                snapshotWithPlayers(false, "", active,
+                        player("second", TableSnapshot.Position.BIG_BLIND),
+                        spectator, warming)),
+                "passive observers must not break heads-up dealer detection");
+    }
+
+    @Test
     void preparationMilestonesConsumeTheirSequenceWithoutMutatingTheTable() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         TableSnapshot before = state.snapshot();

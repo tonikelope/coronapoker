@@ -177,6 +177,14 @@ class QaBaselineWiringTest {
                 "an exact-repeat checkpoint must not be accepted without a scenario");
         assertTrue(certification.contains("ScenarioRepeats = $ScenarioRepeats"),
                 "summaries must persist the schedule needed to resume exactly");
+        assertTrue(certification.contains(
+                "-Dcoronapoker.qa.gdx.randomConditionHands=$RandomConditionHands"),
+                "chance-gated scenarios need a configurable hand budget");
+        assertTrue(certification.contains(
+                "-Dcoronapoker.qa.gdx.indeterminateRetries=$IndeterminateRetries"),
+                "indeterminate chance-gated scenarios need bounded automatic retries");
+        assertTrue(certification.contains("'INDETERMINATE'"),
+                "chance exhaustion must not be mislabeled as a functional failure");
         assertTrue(certification.contains("\"-Dqa.sim.seed=$scenarioSeed\""),
                 "each scenario process must receive its derived replay seed");
         assertFalse(certification.contains("'-o'"),

@@ -56,8 +56,8 @@ public final class TableSnapshotMapper {
                 state.spectator(), state.exited(), state.timedOut(),
                 state.latency(), state.previousLatency(),
                 state.reconnectionCount(), state.telemetryAt(),
-                state.winner(), state.underTheGun(),
-                position(state.position()), decision(state.decision()),
+                state.winner(), pokerRoleEligible(state) && state.underTheGun(),
+                position(state), decision(state.decision()),
                 actionKind(state.actionKind()), state.lastAction(), state.handName(),
                 state.holeCards().stream()
                         .map(TableSnapshotMapper::card).toList(),
@@ -141,8 +141,18 @@ public final class TableSnapshotMapper {
         return TableSnapshot.Street.valueOf(street.name());
     }
 
-    private static TableSnapshot.Position position(PlayerState.Position position) {
-        return TableSnapshot.Position.valueOf(position.name());
+    private static TableSnapshot.Position position(PlayerState.Snapshot state) {
+        // Frontends must never infer an active poker role from stale state at a
+        // lifecycle boundary. Spectators, warming peers and exited seats are
+        // passive observers even if an older snapshot once named them dealer,
+        // blind, UTG or straddler.
+        if (!pokerRoleEligible(state)) return TableSnapshot.Position.NONE;
+        return TableSnapshot.Position.valueOf(state.position().name());
+    }
+
+    private static boolean pokerRoleEligible(PlayerState.Snapshot state) {
+        return state.active() && !state.spectator() && !state.warming()
+                && !state.exited();
     }
 
     private static TableSnapshot.Decision decision(PlayerState.Decision decision) {

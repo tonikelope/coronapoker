@@ -6690,7 +6690,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String oldNickname, String newNickname,
             com.tonikelope.coronapoker.table.TableSnapshot.Position position,
             boolean fromCenter) {
-        if (newNickname == null || !playersByNickname.containsKey(newNickname)) {
+        GamePlayerController destination = newNickname == null
+                ? null : playersByNickname.get(newNickname);
+        if (destination == null || !destination.isActivo()) {
             return;
         }
         if (!fromCenter && java.util.Objects.equals(oldNickname, newNickname)) {
@@ -12059,15 +12061,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 LOGGER.log(Level.SEVERE, "POSITIONS rejected: {0}", decoded.error());
                             } else {
                                 PositionWireV1.Value positions = decoded.value();
-                                this.utg_nick = positions.utg();
-                                this.big_blind_nick = positions.bigBlind();
-                                this.small_blind_nick = positions.smallBlind();
-                                this.dealer_nick = positions.dealer();
-                                gameSession().setPlayTimeSeconds(positions.playTime());
-                                if (positions.doubleBlinds()) {
-                                    this.doblarCiegas();
+                                try {
+                                    requireActivePokerRole(positions.utg(),
+                                            "received under the gun");
+                                    requireActivePokerRole(positions.bigBlind(),
+                                            "received big blind");
+                                    requireActivePokerRole(positions.smallBlind(),
+                                            "received small blind");
+                                    requireActivePokerRole(positions.dealer(),
+                                            "received dealer");
+                                    this.utg_nick = positions.utg();
+                                    this.big_blind_nick = positions.bigBlind();
+                                    this.small_blind_nick = positions.smallBlind();
+                                    this.dealer_nick = positions.dealer();
+                                    gameSession().setPlayTimeSeconds(positions.playTime());
+                                    if (positions.doubleBlinds()) {
+                                        this.doblarCiegas();
+                                    }
+                                    ok = true;
+                                } catch (IllegalStateException invalidRoles) {
+                                    failed = true;
+                                    LOGGER.log(Level.SEVERE,
+                                            "POSITIONS assigned a passive observer",
+                                            invalidRoles);
                                 }
-                                ok = true;
                             }
                         } else {
                             rejected.add(comando);
@@ -23394,16 +23411,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         String old_dealer_nick = this.dealer_nick;
 
-        String old_big_blind = this.big_blind_nick;
-
         int big_blind_pos = 0;
 
         if (this.big_blind_nick == null) {
 
             // FIRST GAME HAND
-            this.big_blind_nick = this.nicks_permutados[0];
-
-            big_blind_pos = 0;
+            big_blind_pos = requireNextActivePermutedSeat(0,
+                    "INVALID_ROSTER_STATE: no active first big blind");
+            this.big_blind_nick = permutadoPos2Nick(big_blind_pos);
 
         } else {
 
@@ -23461,60 +23476,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "INVALID_ROSTER_STATE: no active UTG");
             this.utg_nick = permutadoPos2Nick(utg_pos);
 
-            // DEALER
-            int dealer_pos;
+            // SMALL BLIND. The previous BB is normally the next SB, but it may
+            // have become ESPECTADOR/CALENTANDO at the hand boundary. Derive
+            // the role from the current active ring instead of carrying that
+            // now-passive nickname into the new hand.
+            int small_blind_pos = requirePreviousActivePermutedSeat(
+                    big_blind_pos - 1,
+                    "INVALID_ROSTER_STATE: no active small blind");
+            this.small_blind_nick = permutadoPos2Nick(small_blind_pos);
 
-            String new_dealer;
-
-            String old_small_blind = this.small_blind_nick;
-
-            if (old_small_blind != null) {
-
-                new_dealer = old_small_blind;
-
-                dealer_pos = permutadoNick2Pos(new_dealer);
-
-                if (dealer_pos == -1) {
-
-                    new_dealer = storedRingNeighbor(this.sqlRecoverGameSeats(), new_dealer,
-                            new java.util.HashSet<>(java.util.Arrays.asList(this.nicks_permutados)), false);
-                    if (new_dealer == null) {
-                        LOGGER.log(Level.WARNING,
-                                "Stored seat ring unavailable/inconsistent while advancing dealer; using current ring");
-                        dealer_pos = big_blind_pos - 2;
-                        new_dealer = permutadoPos2Nick(dealer_pos);
-                    } else {
-                        dealer_pos = permutadoNick2Pos(new_dealer);
-                    }
-
-                }
-
-            } else {
-
-                dealer_pos = big_blind_pos - 2;
-                new_dealer = permutadoPos2Nick(dealer_pos);
-
-            }
-
-            dealer_pos = requirePreviousActivePermutedSeat(dealer_pos,
+            // DEALER is the previous active seat before the small blind. This
+            // preserves the dead-button behaviour when a former blind leaves,
+            // while preventing the button from landing on that passive seat or
+            // colliding with a live blind in a multiway hand.
+            int dealer_pos = requirePreviousActivePermutedSeat(
+                    small_blind_pos - 1,
                     "INVALID_ROSTER_STATE: no active dealer");
-            new_dealer = permutadoPos2Nick(dealer_pos);
-
-            this.dealer_nick = new_dealer;
-
-            // SMALL BLIND
-            if (old_big_blind != null) {
-
-                this.small_blind_nick = old_big_blind;
-
-            } else {
-
-                this.small_blind_nick = permutadoPos2Nick(big_blind_pos - 1);
-            }
+            this.dealer_nick = permutadoPos2Nick(dealer_pos);
 
         }
 
+        requireActivePokerRole(this.big_blind_nick, "big blind");
+        requireActivePokerRole(this.small_blind_nick, "small blind");
+        requireActivePokerRole(this.dealer_nick, "dealer");
+        requireActivePokerRole(this.utg_nick, "under the gun");
+
         this.dead_dealer = (this.dealer_nick.equals(old_dealer_nick));
+    }
+
+    private void requireActivePokerRole(String nickname, String role) {
+        GamePlayerController player = nickname == null
+                ? null : this.nick2player.get(nickname);
+        if (player == null || !player.isActivo()) {
+            throw new IllegalStateException("INVALID_ROSTER_STATE: passive "
+                    + role + " holder " + nickname);
+        }
     }
 
     private int requireNextActivePermutedSeat(int startInclusive, String failure) {

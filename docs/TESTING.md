@@ -371,6 +371,10 @@ Useful commands:
 # Continue an interrupted schedule with the original mode and seed.
 .\tools\qa\certify.cmd -Mode stress `
   -StartAtScenario reconnect-every-street -StartAtRepeat 3 -Seed 42
+
+# Replay a chance-gated scenario with a larger initial hand budget.
+.\tools\qa\certify.cmd -Scenario iwtsth -Mode fast -Seed 42 `
+  -RandomConditionHands 40 -IndeterminateRetries 3
 ```
 
 The certifier clean-compiles the GDX scenario reactor first. It then stops at
@@ -386,6 +390,37 @@ nonces and encryption IVs deliberately remain secure and may differ on replay.
 They do not change the resulting cards or functional scenario path. A direct
 JUnit replay may use `-Dcoronapoker.qa.scenarioSeed=<seed>`. The certifier sets
 that property automatically from the seed recorded in its report.
+
+### Chance-gated scenarios and indeterminate results
+
+Some behavioural checks need a legitimate random game state before they can
+exercise the assertion. For example, the bot IWTSTH check needs an ordinary
+showdown in which the bot loses and is allowed to muck. Reaching the configured
+hand budget without that prerequisite is **indeterminate**, not proof of a
+product defect.
+
+The certifier gives these checks an initial budget set by
+`-RandomConditionHands` (default `20`). If a table closes before the prerequisite
+appears, the test prints an `[INDETERMINATE]` diagnostic containing its exact
+seed, automatically restarts the same deterministic deal sequence, and doubles
+the budget. `-IndeterminateRetries` controls the number of automatic restarts
+(default `2`, maximum `10`). A successful retry remains `PASS`, while the CSV
+and JSON reports retain `IndeterminateAttempts` so the event cannot be hidden.
+
+If every retry exhausts its budget, certification stops with result
+`INDETERMINATE` rather than mislabelling it as a functional `FAIL`. Replay the
+reported seed with a larger budget, for example:
+
+```powershell
+.\qa.cmd scenarios fast -Scenario iwtsth -Seed 1162983558 `
+  -RandomConditionHands 80 -IndeterminateRetries 3
+```
+
+The hand budget is passed through
+`coronapoker.qa.gdx.randomConditionHands`. It is not embedded in the IWTSTH test.
+Automatic retries reset the deterministic entropy generation, so increasing
+the budget extends the same card/deal sequence instead of silently testing a
+different random game.
 
 A continuation report is not a standalone certificate. Keep it together with
 the preceding partial report. If a fix changes shared protocol, scheduling or

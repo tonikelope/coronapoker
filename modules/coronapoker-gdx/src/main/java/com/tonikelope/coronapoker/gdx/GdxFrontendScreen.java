@@ -1769,7 +1769,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         mainMenuButton(595f, 310f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
                 this::openSettings);
-        choice(975f, 310f, 350f, 82f, "",
+        mainMenuChoice(975f, 310f, 350f, 82f,
                 gameText.translate("gdx.language_name"),
                 this::toggleLanguage);
         mainMenuButton(595f, 205f, 350f, 82f,
@@ -11491,6 +11491,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawButtonIconColumn(x, y, w, h, icon, tone, true);
     }
 
+    /** Language is a menu action, so it uses the same glass material too. */
+    private void mainMenuChoice(float x, float y, float w, float h,
+            String value, Runnable action) {
+        themedButton(x, y, w, h, "", ButtonTone.NEUTRAL, action, true);
+        glyph.setText(uiFont, value);
+        float baseline = y + (h + glyph.height) / 2f;
+        texts.add(new TextItem(uiFont, value, x + 22f, baseline,
+                new Color(Color.WHITE), false, false, 1f, true));
+        shapes.setColor(GOLD);
+        float cx = x + w - 36f;
+        float cy = y + h / 2f;
+        shapes.rectLine(cx - 9f, cy + 12f, cx + 3f, cy, 3f);
+        shapes.rectLine(cx + 3f, cy, cx - 9f, cy - 12f, 3f);
+    }
+
     private void iconButton(float x, float y, float w, float h,
             String label, int icon, ButtonTone tone, Runnable action,
             boolean enabled) {
@@ -11547,50 +11562,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawMainMenuIcon(int icon, float cx, float cy, Color color) {
         switch (icon) {
-            case 0 -> {
-                // New game.
-                roundedRect(cx - 5.5f, cy - 26f, 11f, 52f, 4.5f);
-                roundedRect(cx - 26f, cy - 5.5f, 52f, 11f, 4.5f);
-            }
-            case 1 -> {
-                // Join a table: a distinct group of players. Keep it
-                // geometric like the rest of the menu glyphs so it remains
-                // crisp at every viewport scale.
-                shapes.circle(cx, cy + 11f, 8f, 28);
-                shapes.circle(cx - 17f, cy + 7f, 6.5f, 24);
-                shapes.circle(cx + 17f, cy + 7f, 6.5f, 24);
-                roundedRect(cx - 12f, cy - 20f, 24f, 24f, 8f);
-                roundedRect(cx - 27f, cy - 18f, 18f, 19f, 7f);
-                roundedRect(cx + 9f, cy - 18f, 18f, 19f, 7f);
-            }
-            case 2 -> {
-                // Statistics bars.
-                roundedRect(cx - 22f, cy - 20f, 10f, 25f, 3f);
-                roundedRect(cx - 5f, cy - 20f, 10f, 40f, 3f);
-                roundedRect(cx + 12f, cy - 20f, 10f, 31f, 3f);
-            }
-            case 3 -> {
-                GdxUiIconRenderer.draw(shapes,
-                        GdxUiIconRenderer.Icon.SETTINGS,
-                        cx, cy, 56f, color, 1f);
-            }
-            case 4 -> {
-                // Information mark.
-                shapes.circle(cx, cy, 20f, 40);
-                Color cutout = new Color(0x0b1729ff);
-                shapes.setColor(cutout);
-                shapes.circle(cx, cy + 9f, 3f, 16);
-                roundedRect(cx - 3f, cy - 13f, 6f, 17f, 3f);
-            }
-            case 5 -> {
-                GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.EXIT,
-                        cx, cy, 56f, color, 1f);
-            }
-            case 6 -> {
-                GdxUiIconRenderer.draw(shapes,
-                        GdxUiIconRenderer.Icon.CAMERA,
-                        cx, cy, 56f, color, 1f);
-            }
+            case 0 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.ADD, cx, cy, 56f, color, 1f);
+            case 1 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.PLAYERS, cx, cy, 56f, color, 1f);
+            case 2 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.STATISTICS,
+                    cx, cy, 56f, color, 1f);
+            case 3 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.SETTINGS,
+                    cx, cy, 56f, color, 1f);
+            case 4 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.INFO, cx, cy, 56f, color, 1f);
+            case 5 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.EXIT, cx, cy, 56f, color, 1f);
+            case 6 -> GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.CAMERA, cx, cy, 56f, color, 1f);
             case 7 -> {
                 // Temporary connection blocks.
                 shapes.circle(cx, cy, 21f, 48);

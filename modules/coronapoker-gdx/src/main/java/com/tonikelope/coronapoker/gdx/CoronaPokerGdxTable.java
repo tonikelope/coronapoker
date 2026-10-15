@@ -8306,12 +8306,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFastBlockIcon(float cx, float cy, float alpha) {
-        shapes.setColor(0.95f, 0.18f, 0.22f, alpha);
-        shapes.circle(cx, cy, 17f, 40);
-        shapes.setColor(0.006f, 0.028f, 0.040f, 0.96f * alpha);
-        shapes.circle(cx, cy, 11f, 32);
-        shapes.setColor(0.95f, 0.18f, 0.22f, alpha);
-        shapes.rectLine(cx - 11f, cy + 11f, cx + 11f, cy - 11f, 6f);
+        GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.BLOCKED,
+                cx, cy, 44f, new Color(0.95f, 0.18f, 0.22f, 1f), alpha);
     }
 
     private void drawProductVersionBrand(float reveal) {

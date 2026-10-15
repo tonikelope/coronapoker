@@ -71,10 +71,22 @@ final class GdxMenuQuotes {
     static String format(String source) {
         String[] parts = Objects.requireNonNullElse(source, "").trim()
                 .split("#", 2);
-        String quote = parts[0].trim();
+        String quote = stripWrappingQuotes(parts[0].trim());
         String author = parts.length == 2 ? parts[1].trim() : "";
         return author.isEmpty() ? '"' + quote + '"'
                 : '"' + quote + "\" (" + author + ')';
+    }
+
+    private static String stripWrappingQuotes(String value) {
+        if (value.length() < 2) return value;
+        char first = value.charAt(0);
+        char last = value.charAt(value.length() - 1);
+        if (first == '"' && last == '"'
+                || first == '\u201c' && last == '\u201d'
+                || first == '\u00ab' && last == '\u00bb') {
+            return value.substring(1, value.length() - 1).trim();
+        }
+        return value;
     }
 
     private static List<String> load(String resource) {

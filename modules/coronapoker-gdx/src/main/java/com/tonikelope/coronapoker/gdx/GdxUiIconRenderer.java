@@ -16,12 +16,16 @@ import com.badlogic.gdx.math.MathUtils;
 final class GdxUiIconRenderer {
 
     enum Icon {
+        ADD,
+        PLAYERS,
         EXIT,
         LOG,
         STATISTICS,
         CONTINUE,
         CAMERA,
-        SETTINGS
+        SETTINGS,
+        INFO,
+        BLOCKED
     }
 
     private static final int CIRCLE_SEGMENTS = 40;
@@ -38,25 +42,55 @@ final class GdxUiIconRenderer {
         float a = MathUtils.clamp(alpha, 0f, 1f) * color.a;
         shapes.setColor(color.r, color.g, color.b, a);
         switch (icon) {
+            case ADD -> drawAdd(shapes, centerX, centerY, size);
+            case PLAYERS -> drawPlayers(shapes, centerX, centerY, size);
             case EXIT -> drawExit(shapes, centerX, centerY, size);
             case LOG -> drawLog(shapes, centerX, centerY, size);
             case STATISTICS -> drawStatistics(shapes, centerX, centerY, size);
             case CONTINUE -> drawContinue(shapes, centerX, centerY, size);
             case CAMERA -> drawCamera(shapes, centerX, centerY, size);
             case SETTINGS -> drawSettings(shapes, centerX, centerY, size);
+            case INFO -> drawInfo(shapes, centerX, centerY, size);
+            case BLOCKED -> drawBlocked(shapes, centerX, centerY, size);
             default -> { }
         }
     }
 
+    private static void drawAdd(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        float stroke = size * 0.18f;
+        roundedRect(shapes, cx - stroke / 2f, cy - size * 0.45f,
+                stroke, size * 0.90f, stroke * 0.44f);
+        roundedRect(shapes, cx - size * 0.45f, cy - stroke / 2f,
+                size * 0.90f, stroke, stroke * 0.44f);
+    }
+
+    private static void drawPlayers(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        float head = size * 0.14f;
+        shapes.circle(cx, cy + size * 0.19f, head, 32);
+        shapes.circle(cx - size * 0.29f, cy + size * 0.12f,
+                head * 0.82f, 28);
+        shapes.circle(cx + size * 0.29f, cy + size * 0.12f,
+                head * 0.82f, 28);
+        roundedRect(shapes, cx - size * 0.22f, cy - size * 0.36f,
+                size * 0.44f, size * 0.39f, size * 0.15f);
+        roundedRect(shapes, cx - size * 0.47f, cy - size * 0.31f,
+                size * 0.30f, size * 0.30f, size * 0.12f);
+        roundedRect(shapes, cx + size * 0.17f, cy - size * 0.31f,
+                size * 0.30f, size * 0.30f, size * 0.12f);
+    }
+
     private static void drawExit(ShapeRenderer shapes, float cx, float cy,
             float size) {
-        float stroke = size * 0.115f;
-        shapes.rectLine(cx - size * 0.34f, cy - size * 0.34f,
-                cx - size * 0.34f, cy + size * 0.34f, stroke);
-        shapes.rectLine(cx - size * 0.34f, cy + size * 0.34f,
-                cx - size * 0.05f, cy + size * 0.34f, stroke);
-        shapes.rectLine(cx - size * 0.34f, cy - size * 0.34f,
-                cx - size * 0.05f, cy - size * 0.34f, stroke);
+        float stroke = size * 0.105f;
+        float left = cx - size * 0.36f;
+        float bottom = cy - size * 0.35f;
+        float top = cy + size * 0.35f;
+        shapes.rect(left - stroke / 2f, bottom,
+                stroke, top - bottom);
+        shapes.rect(left, top - stroke, size * 0.31f, stroke);
+        shapes.rect(left, bottom, size * 0.31f, stroke);
         shapes.rect(cx - size * 0.18f, cy - stroke / 2f,
                 size * 0.42f, stroke);
         shapes.triangle(cx + size * 0.40f, cy,
@@ -72,16 +106,24 @@ final class GdxUiIconRenderer {
         float top = cy + size * 0.39f;
         float fold = size * 0.20f;
         float stroke = size * 0.075f;
-        shapes.rectLine(left, bottom, left, top, stroke);
-        shapes.rectLine(left, bottom, right, bottom, stroke);
-        shapes.rectLine(right, bottom, right, top - fold, stroke);
-        shapes.rectLine(left, top, right - fold, top, stroke);
-        shapes.rectLine(right - fold, top, right, top - fold, stroke);
-        shapes.rectLine(right - fold, top, right - fold, top - fold, stroke);
+        shapes.rect(left - stroke / 2f, bottom,
+                stroke, top - bottom);
+        shapes.rect(left, bottom - stroke / 2f,
+                right - left, stroke);
+        shapes.rect(right - stroke / 2f, bottom,
+                stroke, top - fold - bottom);
+        shapes.rect(left, top - stroke / 2f,
+                right - fold - left, stroke);
+        shapes.rect(right - fold - stroke / 2f, top - fold,
+                stroke, fold);
+        shapes.triangle(right - fold, top,
+                right, top - fold,
+                right - fold, top - fold);
         for (int row = 0; row < 3; row++) {
             float y = cy + size * (0.12f - row * 0.18f);
-            shapes.rectLine(left + size * 0.12f, y,
-                    right - size * 0.10f, y, stroke * 0.68f);
+            float lineStroke = stroke * 0.68f;
+            shapes.rect(left + size * 0.12f, y - lineStroke / 2f,
+                    size * 0.42f, lineStroke);
         }
     }
 
@@ -115,32 +157,48 @@ final class GdxUiIconRenderer {
         float stroke = size * 0.075f;
         roundedRectOutline(shapes, left, bottom, right - left, top - bottom,
                 size * 0.10f, stroke);
-        shapes.rectLine(cx - size * 0.16f, top,
-                cx - size * 0.10f, top + size * 0.15f, stroke);
-        shapes.rectLine(cx - size * 0.10f, top + size * 0.15f,
-                cx + size * 0.12f, top + size * 0.15f, stroke);
-        shapes.rectLine(cx + size * 0.12f, top + size * 0.15f,
-                cx + size * 0.18f, top, stroke);
+        float shoulderTop = top + size * 0.15f;
+        shapes.triangle(cx - size * 0.18f, top,
+                cx - size * 0.10f, shoulderTop,
+                cx + size * 0.12f, shoulderTop);
+        shapes.triangle(cx - size * 0.18f, top,
+                cx + size * 0.12f, shoulderTop,
+                cx + size * 0.20f, top);
         ring(shapes, cx, cy, size * 0.17f, stroke, 32);
-        shapes.circle(cx, cy, size * 0.045f, 20);
     }
 
     private static void drawSettings(ShapeRenderer shapes, float cx,
             float cy, float size) {
-        // Broad square teeth merged into a heavy annulus read as a mechanical
-        // cog even at toolbar size; vector geometry stays crisp at high DPI.
-        float gearRadius = size * 0.285f;
-        float gearStroke = size * 0.145f;
-        float toothRoot = size * 0.285f;
-        float toothTip = size * 0.46f;
-        float rootHalfWidth = size * 0.090f;
-        float tipHalfWidth = size * 0.090f;
+        // One continuous annulus and eight tapered teeth avoid the doubled
+        // rings and overlapping round caps that made the old cog look noisy.
+        float gearRadius = size * 0.255f;
+        float gearStroke = size * 0.135f;
+        float toothRoot = size * 0.275f;
+        float toothTip = size * 0.445f;
+        float rootHalfWidth = size * 0.085f;
+        float tipHalfWidth = size * 0.065f;
         for (int tooth = 0; tooth < 8; tooth++) {
             drawGearTooth(shapes, cx, cy, tooth * MathUtils.PI / 4f,
                     toothRoot, toothTip, rootHalfWidth, tipHalfWidth);
         }
         ring(shapes, cx, cy, gearRadius, gearStroke, CIRCLE_SEGMENTS);
-        ring(shapes, cx, cy, size * 0.105f, size * 0.058f, 32);
+    }
+
+    private static void drawInfo(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        ring(shapes, cx, cy, size * 0.34f, size * 0.09f,
+                CIRCLE_SEGMENTS);
+        shapes.circle(cx, cy + size * 0.15f, size * 0.055f, 20);
+        roundedRect(shapes, cx - size * 0.055f, cy - size * 0.22f,
+                size * 0.11f, size * 0.27f, size * 0.045f);
+    }
+
+    private static void drawBlocked(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        float stroke = size * 0.12f;
+        ring(shapes, cx, cy, size * 0.34f, stroke, CIRCLE_SEGMENTS);
+        shapes.rectLine(cx - size * 0.25f, cy + size * 0.25f,
+                cx + size * 0.25f, cy - size * 0.25f, stroke);
     }
 
     private static void drawGearTooth(ShapeRenderer shapes, float cx,
@@ -174,15 +232,26 @@ final class GdxUiIconRenderer {
 
     private static void ring(ShapeRenderer shapes, float cx, float cy,
             float radius, float thickness, int segments) {
-        float previousX = cx + radius;
-        float previousY = cy;
+        float outer = radius + thickness / 2f;
+        float inner = Math.max(0f, radius - thickness / 2f);
+        float previousOuterX = cx + outer;
+        float previousOuterY = cy;
+        float previousInnerX = cx + inner;
+        float previousInnerY = cy;
         for (int step = 1; step <= segments; step++) {
             float angle = MathUtils.PI2 * step / segments;
-            float x = cx + MathUtils.cos(angle) * radius;
-            float y = cy + MathUtils.sin(angle) * radius;
-            shapes.rectLine(previousX, previousY, x, y, thickness);
-            previousX = x;
-            previousY = y;
+            float outerX = cx + MathUtils.cos(angle) * outer;
+            float outerY = cy + MathUtils.sin(angle) * outer;
+            float innerX = cx + MathUtils.cos(angle) * inner;
+            float innerY = cy + MathUtils.sin(angle) * inner;
+            shapes.triangle(previousOuterX, previousOuterY,
+                    outerX, outerY, innerX, innerY);
+            shapes.triangle(previousOuterX, previousOuterY,
+                    innerX, innerY, previousInnerX, previousInnerY);
+            previousOuterX = outerX;
+            previousOuterY = outerY;
+            previousInnerX = innerX;
+            previousInnerY = innerY;
         }
     }
 
@@ -201,31 +270,44 @@ final class GdxUiIconRenderer {
             float y, float width, float height, float radius,
             float thickness) {
         float r = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rectLine(x + r, y, x + width - r, y, thickness);
-        shapes.rectLine(x + r, y + height, x + width - r, y + height,
-                thickness);
-        shapes.rectLine(x, y + r, x, y + height - r, thickness);
-        shapes.rectLine(x + width, y + r, x + width, y + height - r,
-                thickness);
+        shapes.rect(x + r, y - thickness / 2f,
+                width - 2f * r, thickness);
+        shapes.rect(x + r, y + height - thickness / 2f,
+                width - 2f * r, thickness);
+        shapes.rect(x - thickness / 2f, y + r,
+                thickness, height - 2f * r);
+        shapes.rect(x + width - thickness / 2f, y + r,
+                thickness, height - 2f * r);
         arc(shapes, x + r, y + r, r, MathUtils.PI, thickness);
-        arc(shapes, x + width - r, y + r, r, MathUtils.PI * 1.5f,
-                thickness);
+        arc(shapes, x + width - r, y + r, r,
+                MathUtils.PI * 1.5f, thickness);
         arc(shapes, x + width - r, y + height - r, r, 0f, thickness);
-        arc(shapes, x + r, y + height - r, r, MathUtils.PI / 2f,
-                thickness);
+        arc(shapes, x + r, y + height - r, r,
+                MathUtils.PI / 2f, thickness);
     }
 
     private static void arc(ShapeRenderer shapes, float cx, float cy,
             float radius, float start, float thickness) {
-        float previousX = cx + MathUtils.cos(start) * radius;
-        float previousY = cy + MathUtils.sin(start) * radius;
+        float outer = radius + thickness / 2f;
+        float inner = Math.max(0f, radius - thickness / 2f);
+        float previousOuterX = cx + MathUtils.cos(start) * outer;
+        float previousOuterY = cy + MathUtils.sin(start) * outer;
+        float previousInnerX = cx + MathUtils.cos(start) * inner;
+        float previousInnerY = cy + MathUtils.sin(start) * inner;
         for (int step = 1; step <= 8; step++) {
             float angle = start + MathUtils.PI / 2f * step / 8f;
-            float x = cx + MathUtils.cos(angle) * radius;
-            float y = cy + MathUtils.sin(angle) * radius;
-            shapes.rectLine(previousX, previousY, x, y, thickness);
-            previousX = x;
-            previousY = y;
+            float outerX = cx + MathUtils.cos(angle) * outer;
+            float outerY = cy + MathUtils.sin(angle) * outer;
+            float innerX = cx + MathUtils.cos(angle) * inner;
+            float innerY = cy + MathUtils.sin(angle) * inner;
+            shapes.triangle(previousOuterX, previousOuterY,
+                    outerX, outerY, innerX, innerY);
+            shapes.triangle(previousOuterX, previousOuterY,
+                    innerX, innerY, previousInnerX, previousInnerY);
+            previousOuterX = outerX;
+            previousOuterY = outerY;
+            previousInnerX = innerX;
+            previousInnerY = innerY;
         }
     }
 }

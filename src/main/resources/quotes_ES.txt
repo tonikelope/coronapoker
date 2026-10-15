@@ -22,13 +22,13 @@ Si no hubiera suerte, ganaría siempre.#Phil Hellmuth
 Confía en todo el mundo, pero corta siempre la baraja.#Benny Binion
 Si estás jugando una partida de póker, miras alrededor de la mesa y no puedes decir quién es el tonto, es que el tonto eres tú.#Paul Newman
 El póker transmite la sensación de un deporte, pero no tienes que hacer flexiones.#Penn Gillette
-Los "bad beats", de vez en cuando, te seguirán robando como un adicto al crack con una pipa vacía.#Rick Dacey
-Estar "tilt" no es "mezclar tu juego".#Steve Badger
+Los «bad beats», de vez en cuando, te seguirán robando como un adicto al crack con una pipa vacía.#Rick Dacey
+Estar «tilt» no es «mezclar tu juego».#Steve Badger
 El póker se parece mucho al sexo. Todo el mundo se cree el mejor, pero la mayoría no tiene ni idea de lo que está haciendo.#Dutch Boyd
 Has jugado esa mano como un vegano.#Erick Linderer (a Daniel Negreanu)
 Que el flop te acompañe.#Doyle Brunson
 El póker es 100% habilidad y 50% suerte.#Phil Hellmuth
-No se trata de si has ganado o perdido, sino de cuántas historias de "bad beat" has podido contar.#Grantland Rice
+No se trata de si has ganado o perdido, sino de cuántas historias de «bad beat» has podido contar.#Grantland Rice
 Nunca vi el dinero de un jugador de póker que no me gustara.#Oklahoma Johnny Hale
 No hace falta ser un científico de cohetes para ser bueno en el póker.#Phil Gordon
 Dicen que el póker es un juego de suma cero. Debe serlo, porque cada vez que juego mi suma termina en cero.#Max Shapiro
@@ -36,7 +36,7 @@ Sin río, no hay peces.#Amarillo Slim
 Lo bonito del póker es que todo el mundo cree que puede jugar.#Chris Moneymaker
 El tipo que inventó el póker era brillante, pero el que inventó la ficha era un genio.#Julius "Big Julie" Weintraub
 Debo quejarme de que las cartas están mal barajadas hasta que tenga una buena mano.#Jonathan Swift
-Holdem sin límite: horas de aburrimiento seguidas de momentos de puro terror.#Tom McEvoy
+Hold'em sin límite: horas de aburrimiento seguidas de momentos de puro terror.#Tom McEvoy
 Si juegas mal al bridge, haces sufrir a tu compañero, pero si juegas mal al póker haces feliz a todo el mundo.#Joe Laurie, Jr.
 Para ser un campeón de póker hay que tener una vejiga fuerte.#Jack McClelland
 No juego dos cartas del mismo palo. Juego dos cartas de distinto palo. De ese modo, puedo conseguir dos escaleras de color diferentes.#Amarillo Slim
@@ -50,7 +50,7 @@ El póker es una combinación de suerte y habilidad. La gente cree que dominar l
 El que apuesta más gana. Las cartas sólo deshacen los empates.#Sammy Farha
 Aprendí jugando al póker que nunca hay que contar las ganancias porque es cuando se empieza a perder.#Kenneth Langone
 Creo que una de las cosas interesantes del póker es que una vez que dejas entrar a tu ego, estás acabado.#Al Álvarez
-Las dos cosas que necesitas para tener éxito en el póker son, primero, encontrar el "muck", y segundo, no jugar tu propio dinero.#David "Devilfish" Ulliott
+Las dos cosas que necesitas para tener éxito en el póker son, primero, encontrar el «muck», y segundo, no jugar tu propio dinero.#David "Devilfish" Ulliott
 Nadie es siempre un ganador, y cualquiera que diga que lo es, es un mentiroso o no juega al póker.#Amarillo Slim
 La vida no es siempre una cuestión de tener buenas cartas, sino de jugar bien una mala mano.#Jack London
 El punto fuerte del póker es no perder nunca los nervios, ni con los que juegas ni, sobre todo, con las cartas. En el póker no existe la compasión. Mantén siempre la calma. Si pierdes la cabeza, perderás todas tus fichas.#William J. Florence
@@ -60,23 +60,23 @@ Vivir en el pasado es un álbum de Jethro Tull, no una estrategia de póker inte
 Lo que es cierto en el juego del póker es cierto en la vida. La mayoría de la gente es tonta y no se da cuenta.#Michael Faust
 El béisbol es como una partida de póker. Nadie quiere abandonar cuando va perdiendo; nadie quiere que abandones cuando vas ganando.#Jackie Robinson
 La mayor parte del dinero que ganarás en el póker no proviene de la brillantez de tu propio juego, sino de la ineptitud de tus oponentes.#Lou Krieger
-Quienquiera que haya acuñado la frase "un hombre tiene que jugar la mano que se le ha repartido" era, sin duda, un farolero de pacotilla.#Jeannette Walls
+Quienquiera que haya acuñado la frase «un hombre tiene que jugar la mano que se le ha repartido» era, sin duda, un farolero de pacotilla.#Jeannette Walls
 No desafíes a los jugadores fuertes, desafía a los débiles. Para eso están.#John Vorhaus
-Un día un tonto, al día siguiente un campeón.#¡Qué diferencia hay entre un día y otro en los torneos de póker! Mike Sexton
-El Hold em es al Stud lo que el ajedrez es a las damas.#Johnny Moss
+Un día, un tonto; al siguiente, un campeón. ¡Qué diferencia hay entre un día y otro en los torneos de póker!#Mike Sexton
+El hold'em es al stud lo que el ajedrez es a las damas.#Johnny Moss
 Una Smith & Wesson gana a cuatro ases.#Proverbio americano
 Si un jugador quiere que le financies su carrera en el póker, tienes que ver por qué está en bancarrota.#James Guill
 Aparte de hacer el amor y cantar en la ducha, no hay muchas actividades humanas en las que haya una mayor diferencia entre la capacidad de autoengaño de una persona y su capacidad real que en el póker.#Steve Badger
 El póker revela al observador franco algo más importante. Le enseñará sobre su propia naturaleza. Muchos malos jugadores no mejoran porque no pueden soportar el autoconocimiento.#David Mamet
 Voy a ganar absolutamente, porque soy despiadado. Me siento en la mesa de póker y mi trabajo es destruir a la gente.#James Woods
-El póker es una aventura fascinante, maravillosa e intrincada en los altos mares de la naturaleza humana. David A.#Daniel
+El póker es una aventura fascinante, maravillosa e intrincada en los altos mares de la naturaleza humana.#David A. Daniel
 Póker, s. Juego que se dice que se juega con cartas con algún fin desconocido para este lexicógrafo.#Ambrose Bierce
 El póker con límite es una ciencia, pero el sin límite es un arte. En el límite, se dispara a un objetivo. En el sin límite, el objetivo cobra vida y te devuelve los disparos.#Jack Strauss
 El póker es un microcosmos de todo lo que admiramos y despreciamos del capitalismo y la democracia.#Lou Kreiger
 Se dice que las dos características psicológicas de los francotiradores son la paciencia y la obstinación. Algunos podrían decir que lo mismo ocurre con los buenos jugadores de póker.#Stephen Bloomfield
 Un corazón débil nunca completó una escalera de picas.#Desconocido
 ¿Realmente no es posible tocar la mesa de juego sin contagiarse instantáneamente de la superstición?#Fyodor Dostoyevsky
-El póker es el único juego apto para un hombre adulto. Entonces, tu mano se enfrenta a la de todo el mundo, y la de todo el mundo se enfrenta a la tuya. W.#Somerset Maugham
+El póker es el único juego apto para un hombre adulto. Entonces, tu mano se enfrenta a la de todo el mundo, y la de todo el mundo se enfrenta a la tuya.#W. Somerset Maugham
 Tómate tiempo para deliberar; pero cuando llegue el momento de la acción, deja de pensar y entra.#Andrew Jackson
 La vida es demasiado larga para jugar malas cartas.#Frank DiElsi
 Cuando un hombre con dinero se encuentra con un hombre con experiencia, el hombre con experiencia se va con dinero y el hombre con dinero se va con experiencia.#Desconocido
@@ -89,7 +89,7 @@ El dinero ganado jugando es dos veces más dulce que el dinero ganado trabajando
 La única mala suerte para un buen jugador es la mala salud. Cualquier otro contratiempo es un agravante temporal.#Benny Binion
 Una persona debería apostar todos los días, porque piensa en lo malo que sería andar con suerte y no saberlo.#Robert Turner
 La vida es como un juego de cartas. La mano que se te reparte es el determinismo, pero la forma en que la juegas es el libre albedrío.#Jawaharlal Nehru
-Depende de la pata de conejo si quieres, pero recuerda que no funcionó para el conejo. R. E.#Shay
+Depende de la pata de conejo si quieres, pero recuerda que no funcionó para el conejo.#R. E. Shay
 Ninguna esposa puede soportar a un marido jugador a menos que sea un ganador constante.#Lord Dewar
 Cuanto más inteligentemente juegues, más suerte tendrás.#Mark Pilarski
 Pocas veces los corderos matan al carnicero.#Amarillo Slim

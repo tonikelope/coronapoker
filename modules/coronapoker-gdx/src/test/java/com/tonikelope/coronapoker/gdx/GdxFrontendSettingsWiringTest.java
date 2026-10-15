@@ -227,6 +227,34 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("GdxUiIconRenderer.Icon.SETTINGS"));
         assertTrue(frontend.contains("GdxUiIconRenderer.Icon.EXIT"));
         assertTrue(frontend.contains("GdxUiIconRenderer.Icon.CAMERA"));
+        for (String icon : List.of("ADD", "PLAYERS", "STATISTICS",
+                "SETTINGS", "INFO", "EXIT", "CAMERA")) {
+            assertTrue(frontend.contains("GdxUiIconRenderer.Icon." + icon),
+                    icon + " must use the shared resolution-independent set");
+        }
+    }
+
+    @Test
+    void mainMenuLanguageUsesTheSameGlassMaterialAsItsPeers()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int menuStart = frontend.indexOf("private void drawMainMenu()");
+        int menuEnd = frontend.indexOf("private void drawMainMenuQuote(",
+                menuStart);
+        int choiceStart = frontend.indexOf("private void mainMenuChoice(");
+        int choiceEnd = frontend.indexOf("private void iconButton(",
+                choiceStart);
+        assertTrue(menuStart >= 0 && menuEnd > menuStart);
+        assertTrue(choiceStart >= 0 && choiceEnd > choiceStart);
+        String menu = frontend.substring(menuStart, menuEnd);
+        String languageChoice = frontend.substring(choiceStart, choiceEnd);
+
+        assertTrue(menu.contains("mainMenuChoice(975f, 310f, 350f, 82f"));
+        assertFalse(menu.contains("choice(975f, 310f, 350f, 82f"));
+        assertTrue(languageChoice.contains("themedButton("));
+        assertTrue(languageChoice.contains("ButtonTone.NEUTRAL"));
     }
 
     @Test
@@ -276,6 +304,16 @@ final class GdxFrontendSettingsWiringTest {
                 StandardCharsets.UTF_8);
         assertTrue(iconRenderer.contains("drawGearTooth("),
                 "settings must use a real vector cog silhouette");
+        assertTrue(iconRenderer.contains(
+                "shapes.triangle(previousOuterX, previousOuterY"),
+                "rings must be continuous filled meshes without cap seams");
+        int ringStart = iconRenderer.indexOf("private static void ring(");
+        int ringEnd = iconRenderer.indexOf("private static void roundedRect(",
+                ringStart);
+        assertTrue(ringStart >= 0 && ringEnd > ringStart);
+        assertFalse(iconRenderer.substring(ringStart, ringEnd)
+                .contains("rectLine("),
+                "annuli must not expose overlapping line caps");
         assertFalse(iconRenderer.contains("MathUtils.random"),
                 "toolbar artwork must stay deterministic between frames");
     }

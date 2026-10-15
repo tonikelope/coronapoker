@@ -16,14 +16,14 @@ class GdxChipFlightScalingTest {
     void visualChipCountGrowsLogarithmicallyWithRealChipUnits() {
         assertEquals(1, CoronaPokerGdxTable.visualChipCount(0.1d, 0.1d));
         assertEquals(2, CoronaPokerGdxTable.visualChipCount(0.2d, 0.1d));
-        assertEquals(5, CoronaPokerGdxTable.visualChipCount(0.5d, 0.1d));
-        assertEquals(8, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
-        assertEquals(10, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
-        assertEquals(12, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
-        assertEquals(14, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
-        assertEquals(19, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
-        assertEquals(21, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
-        assertEquals(28, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
+        assertEquals(4, CoronaPokerGdxTable.visualChipCount(0.5d, 0.1d));
+        assertEquals(5, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
+        assertEquals(6, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
+        assertEquals(8, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
+        assertEquals(9, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
+        assertEquals(12, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
+        assertEquals(13, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
+        assertEquals(18, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
     }
 
     @Test
@@ -48,7 +48,7 @@ class GdxChipFlightScalingTest {
     @Test
     void equalAmountsAlwaysProduceTheSameCountAndPreserveTheirValue() {
         int count = CoronaPokerGdxTable.visualChipCount(2d, 0.1d);
-        assertEquals(10, count);
+        assertEquals(6, count);
         double total = 0d;
         for (double part : CoronaPokerGdxTable.splitVisualCounterAmounts(
                 2d, count, 0.1d)) {

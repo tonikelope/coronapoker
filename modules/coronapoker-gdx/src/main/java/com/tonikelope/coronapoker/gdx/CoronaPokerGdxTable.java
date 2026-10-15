@@ -248,6 +248,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
+    private static final int MAX_VISUAL_CHIPS_PER_TRANSFER = 18;
+    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 2d;
+    private static final int MAX_CHIP_LANDING_SOUNDS_PER_BATCH = 6;
+    private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -3793,7 +3797,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
-                    cashSoundResource);
+                    cashSoundResource, liveCounterDenomination());
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
             liveState.apply(event);
@@ -7559,6 +7563,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         playPlayerActionSound(action.kind(), color);
+    }
+
+    private void playSecondaryActionChipImpact(
+            TableVisualEvent.PlayerAction.ActionKind kind, int color) {
+        if (kind == TableVisualEvent.PlayerAction.ActionKind.CALL) {
+            if (liveCallSoundEnabled()) {
+                play(callSound, 0.22f, 0.98f + color * 0.02f);
+            }
+        } else if (liveBetSoundEnabled()) {
+            play(betSound, 0.22f, 0.98f + color * 0.02f);
+        }
     }
 
     private void playAllInActionSoundOnce(String nickname) {
@@ -11772,22 +11787,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (int index = liveActionChips.size() - 1; index >= 0; index--) {
             LiveActionChip active = liveActionChips.get(index);
             float elapsed = active.elapsedSeconds();
-            // The visible GDX chip has a long, staggered flight. Anchor the
-            // payment cue to first contact with the pot; playing it on launch
-            // makes the sound visibly lead the impact by almost a second.
-            if (!active.soundPlayed
-                    && actionChipSoundDue(
-                            active.chips.get(0).progress(elapsed))) {
-                active.soundPlayed = true;
-                if (active.event.kind()
-                        == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
-                    if (liveBetSoundEnabled()) {
-                        play(betSound, 0.48f,
-                                0.98f + active.chips.get(0).color * 0.02f);
+            for (LiveChip chip : active.chips) {
+                if (!chip.soundPlayed
+                        && actionChipSoundDue(chip.progress(elapsed))) {
+                    chip.soundPlayed = true;
+                    if (!chip.impactSound) continue;
+                    if (!active.primarySoundPlayed) {
+                        active.primarySoundPlayed = true;
+                        if (active.event.kind()
+                                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+                            if (liveBetSoundEnabled()) {
+                                play(betSound, 0.48f,
+                                        0.98f + chip.color * 0.02f);
+                            }
+                        } else {
+                            playPlayerActionSoundForAcceptedEvent(active.event,
+                                    chip.color);
+                        }
+                    } else {
+                        playSecondaryActionChipImpact(active.event.kind(),
+                                chip.color);
                     }
-                } else {
-                    playPlayerActionSoundForAcceptedEvent(active.event,
-                            active.chips.get(0).color);
                 }
             }
             if (!active.complete(elapsed)) continue;
@@ -13985,9 +14005,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (LiveChip chip : active.chips) {
             if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
                 chip.soundPlayed = true;
-                if (liveBetSoundEnabled()) {
+                if (chip.impactSound && liveBetSoundEnabled()) {
                     play(betSound,
-                            chip.chipIndex == 0 ? 0.40f : 0.20f,
+                            active.landingSoundsPlayed++ == 0 ? 0.40f : 0.20f,
                             0.92f + chip.color * 0.055f);
                 }
             }
@@ -14017,7 +14037,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // A payout is a stream of chips. Sound a representative subset
                 // exactly on contact instead of playing one cue when the event is
                 // accepted, before any chip has reached the winner.
-                if (chip.index % 3 == 0 && liveCallSoundEnabled()) {
+                if (chip.impactSound && liveCallSoundEnabled()) {
                     play(callSound, 0.24f, 0.96f + chip.color * 0.04f);
                 }
             }
@@ -14050,7 +14070,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (LiveRebuyChip chip : active.chips) {
             if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
                 chip.soundPlayed = true;
-                if (chip.index % 3 == 0 && liveBetSoundEnabled()) {
+                if (chip.impactSound && liveBetSoundEnabled()) {
                     play(betSound, 0.24f, 0.96f + chip.color * 0.04f);
                 }
             }
@@ -14218,6 +14238,58 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean actionChipSoundDue(float firstChipProgress) {
         return firstChipProgress >= 1f;
+    }
+
+    static int visualChipCount(double exactAmount, double minimumChip) {
+        if (!Double.isFinite(exactAmount) || exactAmount <= 0d) {
+            return 0;
+        }
+        long totalMinor = Math.max(1L, Math.round(exactAmount * 100d));
+        long denominationMinor = Double.isFinite(minimumChip)
+                && minimumChip > 0d
+                ? Math.max(1L, Math.round(minimumChip * 100d)) : 1L;
+        long realUnits = Math.max(1L, totalMinor / denominationMinor);
+        int logarithmicCount = (int) Math.round(1d
+                + VISUAL_CHIP_LOG_MULTIPLIER
+                * (Math.log(realUnits) / Math.log(2d)));
+        return (int) Math.min(realUnits, Math.max(1,
+                Math.min(MAX_VISUAL_CHIPS_PER_TRANSFER, logarithmicCount)));
+    }
+
+    static int landingImpactCount(int visualChipCount) {
+        if (visualChipCount <= 0) {
+            return 0;
+        }
+        return Math.max(1, Math.min(MAX_CHIP_LANDING_SOUNDS_PER_BATCH,
+                Math.round(visualChipCount
+                        / VISUAL_CHIPS_PER_LANDING_SOUND)));
+    }
+
+    static boolean landingImpactAtRank(int landingRank,
+            int visualChipCount) {
+        if (landingRank < 0 || landingRank >= visualChipCount) {
+            return false;
+        }
+        int impacts = landingImpactCount(visualChipCount);
+        for (int impact = 0; impact < impacts; impact++) {
+            if (landingRank == impact * visualChipCount / impacts) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static <T extends LandingImpact> List<T> withLandingImpacts(
+            List<T> created) {
+        ArrayList<T> landingOrder = new ArrayList<>(created);
+        landingOrder.sort((left, right) -> Float.compare(
+                left.landingSeconds(), right.landingSeconds()));
+        for (int rank = 0; rank < landingOrder.size(); rank++) {
+            if (landingImpactAtRank(rank, landingOrder.size())) {
+                landingOrder.get(rank).markImpactSound();
+            }
+        }
+        return List.copyOf(created);
     }
 
     static double displayedIncomingStack(double canonicalStackAfter,
@@ -23973,13 +24045,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     }
 
+    private interface LandingImpact {
+
+        float landingSeconds();
+
+        void markImpactSound();
+    }
+
     private static final class LiveActionChip {
 
         final TableVisualEvent.PlayerAction event;
         final long startedAtNanos;
         final List<LiveChip> chips;
         final boolean deferPlayerCounters;
-        boolean soundPlayed;
+        boolean primarySoundPlayed;
 
         LiveActionChip(TableVisualEvent.PlayerAction event,
                 long startedAtNanos, boolean deferPlayerCounters,
@@ -23987,12 +24066,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
-            int chipCount = switch (event.kind()) {
-                case ALL_IN -> 7;
-                case BET, RAISE, RERAISE -> 4;
-                case CALL -> 3;
-                default -> 1;
-            };
+            int chipCount = visualChipCount(event.contributionDelta(),
+                    minimumChip);
             int baseColor = switch (event.kind()) {
                 case ALL_IN -> 3;
                 case BET, RAISE, RERAISE -> 2;
@@ -24010,7 +24085,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + chip * 53, 360),
                         (baseColor + chip) % 4, chip, contributions[chip]));
             }
-            chips = List.copyOf(created);
+            chips = withLandingImpacts(created);
         }
 
         float elapsedSeconds() {
@@ -24080,19 +24155,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.investmentTotalBefore = MoneyMath.clean(
                     investmentsBefore.values().stream()
                             .mapToDouble(Double::doubleValue).sum());
-            List<LivePayoutChip> created = new ArrayList<>(
-                    18 * transfers.size());
+            List<LivePayoutChip> created = new ArrayList<>();
             for (TableVisualEvent.PayoutBatch.Transfer transfer
                     : transfers) {
+                int chipCount = visualChipCount(transfer.amount(), minimumChip);
                 double[] amounts = splitVisualCounterAmounts(
-                        transfer.amount(), 18, minimumChip);
-                for (int index = 0; index < 18; index++) {
+                        transfer.amount(), chipCount, minimumChip);
+                for (int index = 0; index < chipCount; index++) {
                     created.add(new LivePayoutChip(transfer.nickname(), index,
                             0.18f + index * 0.035f, 1.05f,
                             index % 4, amounts[index]));
                 }
             }
-            chips = List.copyOf(created);
+            chips = withLandingImpacts(created);
         }
 
         float elapsedSeconds() {
@@ -24140,7 +24215,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static final class LivePayoutChip {
+    private static final class LivePayoutChip implements LandingImpact {
 
         final String nickname;
         final int index;
@@ -24148,6 +24223,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float durationSeconds;
         final int color;
         final double amount;
+        boolean impactSound;
         boolean soundPlayed;
 
         LivePayoutChip(String nickname, int index, float startSeconds,
@@ -24164,6 +24240,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return MathUtils.clamp((elapsed - startSeconds) / durationSeconds,
                     0f, 1f);
         }
+
+        @Override
+        public float landingSeconds() {
+            return startSeconds + durationSeconds;
+        }
+
+        @Override
+        public void markImpactSound() {
+            impactSound = true;
+        }
     }
 
     private static final class LiveRebuy {
@@ -24175,7 +24261,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final String cashSoundResource;
 
         LiveRebuy(TableVisualEvent.Rebuy event, long startedAtNanos,
-                CompletableFuture<Void> barrier, String cashSoundResource) {
+                CompletableFuture<Void> barrier, String cashSoundResource,
+                double minimumChip) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24185,24 +24272,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float totalSeconds = event.durationMillis() / 1_000f;
             int transferIndex = 0;
             for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
-                int chipCount = 14;
-                double base = transfer.amount() / chipCount;
+                int chipCount = visualChipCount(transfer.amount(), minimumChip);
+                double[] amounts = splitVisualCounterAmounts(transfer.amount(),
+                        chipCount, minimumChip);
                 for (int index = 0; index < chipCount; index++) {
                     float start = 0.04f + index * 0.025f
                             + transferIndex * 0.015f;
                     float duration = Math.max(0.28f, totalSeconds - start);
-                    double amount = index == chipCount - 1
-                            ? transfer.amount() - base * (chipCount - 1)
-                            : base;
                     int seed = transfer.nickname().hashCode()
                             + transferIndex * 97 + index * 31;
                     created.add(new LiveRebuyChip(transfer.nickname(), index,
-                            start, duration, Math.floorMod(seed, 4), amount,
+                            start, duration, Math.floorMod(seed, 4),
+                            amounts[index],
                             Math.floorMod(seed, 360)));
                 }
                 transferIndex++;
             }
-            chips = List.copyOf(created);
+            chips = withLandingImpacts(created);
         }
 
         float elapsedSeconds() {
@@ -24267,7 +24353,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static final class LiveRebuyChip {
+    private static final class LiveRebuyChip implements LandingImpact {
 
         final String nickname;
         final int index;
@@ -24276,6 +24362,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final int color;
         final double amount;
         final float rotation;
+        boolean impactSound;
         boolean soundPlayed;
 
         LiveRebuyChip(String nickname, int index, float startSeconds,
@@ -24292,6 +24379,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float progress(float elapsed) {
             return MathUtils.clamp((elapsed - startSeconds) / durationSeconds,
                     0f, 1f);
+        }
+
+        @Override
+        public float landingSeconds() {
+            return startSeconds + durationSeconds;
+        }
+
+        @Override
+        public void markImpactSound() {
+            impactSound = true;
         }
     }
 
@@ -24338,6 +24435,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final CompletableFuture<Void> barrier;
         final List<LiveChip> chips;
         final double alreadyInPot;
+        int landingSoundsPlayed;
 
         LiveChipBatch(TableVisualEvent.CollectBets event, long startedAtNanos,
                 CompletableFuture<Void> barrier, TableSnapshot snapshot,
@@ -24367,18 +24465,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double bigAmount = Math.max(0d, bigBlind.amount()
                         - delivered.getOrDefault(bigBlind.nickname(), 0d));
                 if (smallAmount > 0.000_001d) {
-                    created.add(new LiveChip(smallBlind.nickname(), 0f, 0.34f,
-                            37f, 2, 0, smallAmount));
+                    int chipCount = visualChipCount(smallAmount, minimumChip);
+                    double[] amounts = splitVisualCounterAmounts(smallAmount,
+                            chipCount, minimumChip);
+                    for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
+                        created.add(new LiveChip(smallBlind.nickname(),
+                                chipIndex * 0.06f,
+                                0.34f + chipIndex * 0.02f,
+                                37f + chipIndex * 53f, 2, chipIndex,
+                                amounts[chipIndex]));
+                    }
                 }
                 if (bigAmount > 0.000_001d) {
-                    double[] amounts = splitVisualCounterAmounts(bigAmount, 2,
-                            minimumChip);
-                    created.add(new LiveChip(bigBlind.nickname(), 0.06f, 0.36f,
-                            91f, 1, 0, amounts[0]));
-                    created.add(new LiveChip(bigBlind.nickname(), 0.14f, 0.38f,
-                            143f, 1, 1, amounts[1]));
+                    int chipCount = visualChipCount(bigAmount, minimumChip);
+                    double[] amounts = splitVisualCounterAmounts(bigAmount,
+                            chipCount, minimumChip);
+                    for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
+                        created.add(new LiveChip(bigBlind.nickname(),
+                                0.06f + chipIndex * 0.08f,
+                                0.36f + chipIndex * 0.02f,
+                                91f + chipIndex * 52f, 1, chipIndex,
+                                amounts[chipIndex]));
+                    }
                 }
-                chips = List.copyOf(created);
+                chips = withLandingImpacts(created);
                 return;
             }
             for (int transferIndex = 0;
@@ -24388,13 +24498,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double visualAmount = Math.max(0d, transfer.amount()
                         - delivered.getOrDefault(transfer.nickname(), 0d));
                 if (visualAmount <= 0.000_001d) continue;
-                TableSnapshot.Position position = canonicalPosition(
-                        snapshot, transfer.nickname());
-                int chipCount = switch (position) {
-                    case BIG_BLIND -> 2;
-                    case STRADDLE, DEALER_STRADDLE -> 3;
-                    default -> 1;
-                };
+                int chipCount = visualChipCount(visualAmount, minimumChip);
                 double[] contributions = splitVisualCounterAmounts(visualAmount,
                         chipCount, minimumChip);
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
@@ -24406,7 +24510,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             contributions[chipIndex]));
                 }
             }
-            chips = List.copyOf(created);
+            chips = withLandingImpacts(created);
         }
 
         private static TableSnapshot.Position canonicalPosition(
@@ -24439,7 +24543,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static final class LiveChip {
+    private static final class LiveChip implements LandingImpact {
 
         final String nickname;
         final float startSeconds;
@@ -24448,6 +24552,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final int color;
         final int chipIndex;
         final double contribution;
+        boolean impactSound;
         boolean soundPlayed;
 
         LiveChip(String nickname, float startSeconds, float durationSeconds,
@@ -24467,6 +24572,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return -1f;
             }
             return Math.min(1f, raw / durationSeconds);
+        }
+
+        @Override
+        public float landingSeconds() {
+            return startSeconds + durationSeconds;
+        }
+
+        @Override
+        public void markImpactSound() {
+            impactSound = true;
         }
     }
 

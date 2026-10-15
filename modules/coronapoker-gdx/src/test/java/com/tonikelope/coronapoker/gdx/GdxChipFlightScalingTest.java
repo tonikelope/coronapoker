@@ -68,7 +68,7 @@ class GdxChipFlightScalingTest {
             volumes.add(volume);
             pitches.add(pitch);
             assertTrue(volume >= 0.223f && volume <= 0.257f);
-            assertTrue(pitch >= 0.965f && pitch <= 1.035f);
+            assertTrue(pitch >= 0.985f && pitch <= 1.015f);
             assertEquals(volume, CoronaPokerGdxTable.variedChipImpactVolume(
                     0.24f, seed));
             assertEquals(pitch, CoronaPokerGdxTable.variedChipImpactPitch(

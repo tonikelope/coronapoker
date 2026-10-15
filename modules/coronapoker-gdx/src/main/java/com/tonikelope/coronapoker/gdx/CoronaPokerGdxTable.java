@@ -252,7 +252,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
-    private static final float CHIP_IMPACT_PITCH_VARIATION = 0.035f;
+    private static final float CHIP_IMPACT_PITCH_VARIATION = 0.015f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -7567,20 +7567,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void playPrimaryActionChipImpact(
-            TableVisualEvent.PlayerAction action, int color, long seed) {
+            TableVisualEvent.PlayerAction action, long seed) {
         switch (action.kind()) {
             case CALL -> {
                 if (liveCallSoundEnabled()) {
                     playChipLandingImpact(callSound,
                             PRIMARY_CHIP_IMPACT_VOLUME,
-                            0.98f + color * 0.02f, seed);
+                            1f, seed);
                 }
             }
             case BET, RAISE, RERAISE -> {
                 if (liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound,
                             PRIMARY_CHIP_IMPACT_VOLUME,
-                            0.98f + color * 0.02f, seed);
+                            1f, seed);
                 }
                 if (GdxSoundFeedback.funnyRaise(action.kind(),
                         funnySoundsEnabled())) {
@@ -7591,7 +7591,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound,
                             PRIMARY_CHIP_IMPACT_VOLUME,
-                            0.98f + color * 0.02f, seed);
+                            1f, seed);
                 }
             }
             default -> { }
@@ -7599,16 +7599,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void playSecondaryActionChipImpact(
-            TableVisualEvent.PlayerAction.ActionKind kind, int color,
-            long seed) {
+            TableVisualEvent.PlayerAction.ActionKind kind, long seed) {
         if (kind == TableVisualEvent.PlayerAction.ActionKind.CALL) {
             if (liveCallSoundEnabled()) {
                 playChipLandingImpact(callSound, 0.22f,
-                        0.98f + color * 0.02f, seed);
+                        1f, seed);
             }
         } else if (liveBetSoundEnabled()) {
             playChipLandingImpact(betSound, 0.22f,
-                    0.98f + color * 0.02f, seed);
+                    1f, seed);
         }
     }
 
@@ -11838,11 +11837,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             chip.nickname, chip.chipIndex);
                     if (!active.primarySoundPlayed) {
                         active.primarySoundPlayed = true;
-                        playPrimaryActionChipImpact(active.event, chip.color,
-                                soundSeed);
+                        playPrimaryActionChipImpact(active.event, soundSeed);
                     } else {
                         playSecondaryActionChipImpact(active.event.kind(),
-                                chip.color, soundSeed);
+                                soundSeed);
                     }
                 }
             }
@@ -14073,7 +14071,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (chip.impactSound && liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound,
                             active.landingSoundsPlayed++ == 0 ? 0.40f : 0.20f,
-                            0.92f + chip.color * 0.055f,
+                            1f,
                             chipVariationSeed(active.startedAtNanos,
                                     chip.nickname, chip.chipIndex));
                 }
@@ -14106,7 +14104,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // accepted, before any chip has reached the winner.
                 if (chip.impactSound && liveCallSoundEnabled()) {
                     playChipLandingImpact(callSound, 0.24f,
-                            0.96f + chip.color * 0.04f,
+                            1f,
                             chipVariationSeed(active.startedAtNanos,
                                     chip.nickname, chip.index));
                 }
@@ -14142,7 +14140,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chip.soundPlayed = true;
                 if (chip.impactSound && liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound, 0.24f,
-                            0.96f + chip.color * 0.04f,
+                            1f,
                             chipVariationSeed(active.startedAtNanos,
                                     chip.nickname, chip.index));
                 }

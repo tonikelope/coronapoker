@@ -228,6 +228,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
     static final float DERIVED_POT_OVERLAY_ALPHA = 1f;
     private static final float DERIVED_POT_OVERLAY_HEIGHT = 46f;
+    private static final float DERIVED_POT_OVERLAY_TEXT_SCALE = 0.78f;
     private static final float DERIVED_POT_OVERLAY_BOTTOM_GAP = 4f;
     private static final float DERIVED_POT_OVERLAY_STACK_GAP = 8f;
     private static final float TABLE_NOTIFICATION_MAX_WIDTH = 820f;
@@ -8936,8 +8937,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawSidePotWinnerOverlays() {
-        record Overlay(Seat seat, String label, float x, float y,
-                float width, float height, boolean returnedPot) { }
+        record Overlay(String label, float x, float y,
+                float width, float height) { }
         ArrayList<Overlay> overlays = null;
         for (Seat seat : seats) {
             if (seat.index == 0 || seatPresenceAlpha(seat.index) <= 0f) {
@@ -8947,9 +8948,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (label.isEmpty()) continue;
             Rectangle bounds = sidePotWinnerOverlayBounds(seat);
             if (overlays == null) overlays = new ArrayList<>();
-            overlays.add(new Overlay(seat, label, bounds.x, bounds.y,
-                    bounds.width, bounds.height,
-                    liveState.returnedSidePot(seat.name)));
+            overlays.add(new Overlay(label, bounds.x, bounds.y,
+                    bounds.width, bounds.height));
         }
         if (overlays == null) return;
 
@@ -8963,18 +8963,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         for (Overlay overlay : overlays) {
-            if (overlay.returnedPot()) {
-                drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
-                        overlay.label(), overlay.x() + 10f,
-                        overlay.y() + 5f, overlay.width() - 20f,
-                        overlay.height() - 10f, Color.WHITE,
-                        DERIVED_POT_OVERLAY_ALPHA);
-            } else {
-                drawFittedCenteredInBox(localOutcomeFont, overlay.label(),
-                        overlay.x() + 10f, overlay.y() + 5f,
-                        overlay.width() - 20f, overlay.height() - 10f,
-                        Color.WHITE, DERIVED_POT_OVERLAY_ALPHA);
-            }
+            drawScaledFittedCenteredInBox(localOutcomeFont,
+                    DERIVED_POT_OVERLAY_TEXT_SCALE,
+                    overlay.label(), overlay.x() + 10f,
+                    overlay.y() + 5f, overlay.width() - 20f,
+                    overlay.height() - 10f, Color.WHITE,
+                    DERIVED_POT_OVERLAY_ALPHA);
         }
         batch.end();
     }
@@ -9038,13 +9032,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static Rectangle sidePotWinnerOverlayBounds(float podX, float podY,
             float viewportWidth, float viewportHeight) {
-        // The avatar occupies the left end of the rival unit.  The derived-pot
-        // badge starts on its centre line and consumes every remaining pixel
-        // up to the PlayerPod's right rim, so even a multi-pot label stays
-        // visually attached to the winning seat instead of floating over it.
-        float width = PLAYER_POD_WIDTH - AVATAR_OUTER_RADIUS;
+        // The avatar occupies the left end of the rival unit. The derived-pot
+        // badge starts beyond its complete diameter and consumes every
+        // remaining pixel up to the PlayerPod's right rim. Text scales down
+        // inside that fixed lane instead of covering the player's identity.
+        float avatarRight = podX + AVATAR_OUTER_RADIUS * 2f;
+        float width = PLAYER_POD_WIDTH - AVATAR_OUTER_RADIUS * 2f;
         float height = DERIVED_POT_OVERLAY_HEIGHT;
-        float x = MathUtils.clamp(podX + AVATAR_OUTER_RADIUS,
+        float x = MathUtils.clamp(avatarRight,
                 8f, viewportWidth - width - 8f);
         float y = MathUtils.clamp(podY + PLAYER_POD_HEIGHT
                         + DERIVED_POT_OVERLAY_BOTTOM_GAP,

@@ -62,12 +62,12 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void derivedPotOverlayRunsFromAvatarCentreToSeatRightRim() {
+    void derivedPotOverlayRunsFromAvatarRightEdgeToSeatRightRim() {
         Rectangle overlay = CoronaPokerGdxTable.sidePotWinnerOverlayBounds(
                 100f, 300f, 1_920f, 1_080f);
 
-        assertEquals(152f, overlay.x, 0.001f);
-        assertEquals(234f, overlay.width, 0.001f);
+        assertEquals(204f, overlay.x, 0.001f);
+        assertEquals(182f, overlay.width, 0.001f);
         assertEquals(386f, overlay.x + overlay.width, 0.001f,
                 "the badge must finish on the PlayerPod right rim");
         assertEquals(424f, overlay.y, 0.001f,

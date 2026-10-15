@@ -20,10 +20,10 @@ class GdxChipFlightScalingTest {
         assertEquals(6, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
         assertEquals(7, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
         assertEquals(9, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
-        assertEquals(11, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
+        assertEquals(10, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
         assertEquals(14, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
-        assertEquals(16, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
-        assertEquals(21, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
+        assertEquals(15, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
+        assertEquals(20, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
     }
 
     @Test

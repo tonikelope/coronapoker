@@ -248,7 +248,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 1.5d;
+    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 1.4d;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;

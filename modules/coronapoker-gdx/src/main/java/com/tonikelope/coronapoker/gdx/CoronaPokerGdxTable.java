@@ -250,8 +250,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
     private static final int MAX_VISUAL_CHIPS_PER_TRANSFER = 18;
     private static final double VISUAL_CHIP_LOG_MULTIPLIER = 2d;
+    private static final float VISUAL_CHIP_COUNT_VARIATION = 0.22f;
     private static final int MAX_CHIP_LANDING_SOUNDS_PER_BATCH = 6;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
+    private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
+    private static final float CHIP_IMPACT_PITCH_VARIATION = 0.035f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
@@ -7565,15 +7568,53 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         playPlayerActionSound(action.kind(), color);
     }
 
+    private void playPrimaryActionChipImpact(
+            TableVisualEvent.PlayerAction action, int color, long seed) {
+        switch (action.kind()) {
+            case CALL -> {
+                if (liveCallSoundEnabled()) {
+                    playChipLandingImpact(callSound, 0.44f,
+                            0.98f + color * 0.02f, seed);
+                }
+            }
+            case BET, RAISE, RERAISE -> {
+                if (liveBetSoundEnabled()) {
+                    playChipLandingImpact(betSound, 0.48f,
+                            0.98f + color * 0.02f, seed);
+                }
+                if (GdxSoundFeedback.funnyRaise(action.kind(),
+                        funnySoundsEnabled())) {
+                    playFunny(raiseSound, 0.88f, 1f);
+                }
+            }
+            case ALL_IN -> {
+                if (liveBetSoundEnabled()) {
+                    playChipLandingImpact(betSound, 0.48f,
+                            0.98f + color * 0.02f, seed);
+                }
+            }
+            default -> { }
+        }
+    }
+
     private void playSecondaryActionChipImpact(
-            TableVisualEvent.PlayerAction.ActionKind kind, int color) {
+            TableVisualEvent.PlayerAction.ActionKind kind, int color,
+            long seed) {
         if (kind == TableVisualEvent.PlayerAction.ActionKind.CALL) {
             if (liveCallSoundEnabled()) {
-                play(callSound, 0.22f, 0.98f + color * 0.02f);
+                playChipLandingImpact(callSound, 0.22f,
+                        0.98f + color * 0.02f, seed);
             }
         } else if (liveBetSoundEnabled()) {
-            play(betSound, 0.22f, 0.98f + color * 0.02f);
+            playChipLandingImpact(betSound, 0.22f,
+                    0.98f + color * 0.02f, seed);
         }
+    }
+
+    private void playChipLandingImpact(Sound sound, float volume,
+            float pitch, long seed) {
+        play(sound, variedChipImpactVolume(volume, seed),
+                variedChipImpactPitch(pitch, seed));
     }
 
     private void playAllInActionSoundOnce(String nickname) {
@@ -11792,21 +11833,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         && actionChipSoundDue(chip.progress(elapsed))) {
                     chip.soundPlayed = true;
                     if (!chip.impactSound) continue;
+                    long soundSeed = chipVariationSeed(active.startedAtNanos,
+                            chip.nickname, chip.chipIndex);
                     if (!active.primarySoundPlayed) {
                         active.primarySoundPlayed = true;
-                        if (active.event.kind()
-                                == TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
-                            if (liveBetSoundEnabled()) {
-                                play(betSound, 0.48f,
-                                        0.98f + chip.color * 0.02f);
-                            }
-                        } else {
-                            playPlayerActionSoundForAcceptedEvent(active.event,
-                                    chip.color);
-                        }
+                        playPrimaryActionChipImpact(active.event, chip.color,
+                                soundSeed);
                     } else {
                         playSecondaryActionChipImpact(active.event.kind(),
-                                chip.color);
+                                chip.color, soundSeed);
                     }
                 }
             }
@@ -14006,9 +14041,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
                 chip.soundPlayed = true;
                 if (chip.impactSound && liveBetSoundEnabled()) {
-                    play(betSound,
+                    playChipLandingImpact(betSound,
                             active.landingSoundsPlayed++ == 0 ? 0.40f : 0.20f,
-                            0.92f + chip.color * 0.055f);
+                            0.92f + chip.color * 0.055f,
+                            chipVariationSeed(active.startedAtNanos,
+                                    chip.nickname, chip.chipIndex));
                 }
             }
         }
@@ -14038,7 +14075,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // exactly on contact instead of playing one cue when the event is
                 // accepted, before any chip has reached the winner.
                 if (chip.impactSound && liveCallSoundEnabled()) {
-                    play(callSound, 0.24f, 0.96f + chip.color * 0.04f);
+                    playChipLandingImpact(callSound, 0.24f,
+                            0.96f + chip.color * 0.04f,
+                            chipVariationSeed(active.startedAtNanos,
+                                    chip.nickname, chip.index));
                 }
             }
         }
@@ -14071,7 +14111,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
                 chip.soundPlayed = true;
                 if (chip.impactSound && liveBetSoundEnabled()) {
-                    play(betSound, 0.24f, 0.96f + chip.color * 0.04f);
+                    playChipLandingImpact(betSound, 0.24f,
+                            0.96f + chip.color * 0.04f,
+                            chipVariationSeed(active.startedAtNanos,
+                                    chip.nickname, chip.index));
                 }
             }
         }
@@ -14254,6 +14297,57 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 * (Math.log(realUnits) / Math.log(2d)));
         return (int) Math.min(realUnits, Math.max(1,
                 Math.min(MAX_VISUAL_CHIPS_PER_TRANSFER, logarithmicCount)));
+    }
+
+    static int variedVisualChipCount(double exactAmount, double minimumChip,
+            long variationSeed) {
+        int baseCount = visualChipCount(exactAmount, minimumChip);
+        if (baseCount <= 1) {
+            return baseCount;
+        }
+        long totalMinor = Math.max(1L, Math.round(exactAmount * 100d));
+        long denominationMinor = Double.isFinite(minimumChip)
+                && minimumChip > 0d
+                ? Math.max(1L, Math.round(minimumChip * 100d)) : 1L;
+        int availableUnits = (int) Math.min(MAX_VISUAL_CHIPS_PER_TRANSFER,
+                Math.max(1L, totalMinor / denominationMinor));
+        int radius = Math.max(1,
+                Math.round(baseCount * VISUAL_CHIP_COUNT_VARIATION));
+        int lower = Math.max(1, baseCount - radius);
+        int upper = Math.max(lower, Math.min(availableUnits,
+                baseCount + radius));
+        return new SplittableRandom(variationSeed).nextInt(lower, upper + 1);
+    }
+
+    static float variedChipImpactVolume(float baseVolume, long variationSeed) {
+        float variation = (float) new SplittableRandom(
+                variationSeed ^ 0x6a09e667f3bcc909L).nextDouble(
+                        -CHIP_IMPACT_VOLUME_VARIATION,
+                        CHIP_IMPACT_VOLUME_VARIATION);
+        return MathUtils.clamp(baseVolume * (1f + variation), 0f, 1f);
+    }
+
+    static float variedChipImpactPitch(float basePitch, long variationSeed) {
+        float variation = (float) new SplittableRandom(
+                variationSeed ^ 0xbb67ae8584caa73bL).nextDouble(
+                        -CHIP_IMPACT_PITCH_VARIATION,
+                        CHIP_IMPACT_PITCH_VARIATION);
+        return MathUtils.clamp(basePitch * (1f + variation), 0.5f, 2f);
+    }
+
+    static int variedVisualChipColor(int baseColor, long variationSeed,
+            int chipIndex) {
+        long seed = variationSeed + chipIndex * 0x9e3779b97f4a7c15L;
+        return Math.floorMod(baseColor
+                + new SplittableRandom(seed).nextInt(4), 4);
+    }
+
+    private static long chipVariationSeed(long batchSeed, String nickname,
+            int chipIndex) {
+        long nicknameBits = nickname == null ? 0L
+                : Integer.toUnsignedLong(nickname.hashCode()) << 32;
+        return batchSeed ^ nicknameBits
+                ^ chipIndex * 0x9e3779b97f4a7c15L;
     }
 
     static int landingImpactCount(int visualChipCount) {
@@ -24066,8 +24160,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
-            int chipCount = visualChipCount(event.contributionDelta(),
-                    minimumChip);
+            long visualSeed = chipVariationSeed(startedAtNanos,
+                    event.nickname(), 0);
+            int chipCount = variedVisualChipCount(event.contributionDelta(),
+                    minimumChip, visualSeed);
             int baseColor = switch (event.kind()) {
                 case ALL_IN -> 3;
                 case BET, RAISE, RERAISE -> 2;
@@ -24083,7 +24179,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         CHIP_FLIGHT_SECONDS + chip * 0.035f,
                         Math.floorMod(event.nickname().hashCode()
                                 + chip * 53, 360),
-                        (baseColor + chip) % 4, chip, contributions[chip]));
+                        variedVisualChipColor(baseColor, visualSeed, chip),
+                        chip, contributions[chip]));
             }
             chips = withLandingImpacts(created);
         }
@@ -24156,15 +24253,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     investmentsBefore.values().stream()
                             .mapToDouble(Double::doubleValue).sum());
             List<LivePayoutChip> created = new ArrayList<>();
-            for (TableVisualEvent.PayoutBatch.Transfer transfer
-                    : transfers) {
-                int chipCount = visualChipCount(transfer.amount(), minimumChip);
+            for (int transferIndex = 0; transferIndex < transfers.size();
+                    transferIndex++) {
+                TableVisualEvent.PayoutBatch.Transfer transfer =
+                        transfers.get(transferIndex);
+                long visualSeed = chipVariationSeed(startedAtNanos,
+                        transfer.nickname(), transferIndex);
+                int chipCount = variedVisualChipCount(transfer.amount(),
+                        minimumChip, visualSeed);
                 double[] amounts = splitVisualCounterAmounts(
                         transfer.amount(), chipCount, minimumChip);
                 for (int index = 0; index < chipCount; index++) {
                     created.add(new LivePayoutChip(transfer.nickname(), index,
                             0.18f + index * 0.035f, 1.05f,
-                            index % 4, amounts[index]));
+                            variedVisualChipColor(0, visualSeed, index),
+                            amounts[index]));
                 }
             }
             chips = withLandingImpacts(created);
@@ -24272,7 +24375,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float totalSeconds = event.durationMillis() / 1_000f;
             int transferIndex = 0;
             for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
-                int chipCount = visualChipCount(transfer.amount(), minimumChip);
+                long visualSeed = chipVariationSeed(startedAtNanos,
+                        transfer.nickname(), transferIndex);
+                int chipCount = variedVisualChipCount(transfer.amount(),
+                        minimumChip, visualSeed);
                 double[] amounts = splitVisualCounterAmounts(transfer.amount(),
                         chipCount, minimumChip);
                 for (int index = 0; index < chipCount; index++) {
@@ -24282,7 +24388,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     int seed = transfer.nickname().hashCode()
                             + transferIndex * 97 + index * 31;
                     created.add(new LiveRebuyChip(transfer.nickname(), index,
-                            start, duration, Math.floorMod(seed, 4),
+                            start, duration,
+                            variedVisualChipColor(Math.floorMod(seed, 4),
+                                    visualSeed, index),
                             amounts[index],
                             Math.floorMod(seed, 360)));
                 }
@@ -24465,26 +24573,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double bigAmount = Math.max(0d, bigBlind.amount()
                         - delivered.getOrDefault(bigBlind.nickname(), 0d));
                 if (smallAmount > 0.000_001d) {
-                    int chipCount = visualChipCount(smallAmount, minimumChip);
+                    long visualSeed = chipVariationSeed(startedAtNanos,
+                            smallBlind.nickname(), 0);
+                    int chipCount = variedVisualChipCount(smallAmount,
+                            minimumChip, visualSeed);
                     double[] amounts = splitVisualCounterAmounts(smallAmount,
                             chipCount, minimumChip);
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         created.add(new LiveChip(smallBlind.nickname(),
                                 chipIndex * 0.06f,
                                 0.34f + chipIndex * 0.02f,
-                                37f + chipIndex * 53f, 2, chipIndex,
+                                37f + chipIndex * 53f,
+                                variedVisualChipColor(2, visualSeed, chipIndex),
+                                chipIndex,
                                 amounts[chipIndex]));
                     }
                 }
                 if (bigAmount > 0.000_001d) {
-                    int chipCount = visualChipCount(bigAmount, minimumChip);
+                    long visualSeed = chipVariationSeed(startedAtNanos,
+                            bigBlind.nickname(), 1);
+                    int chipCount = variedVisualChipCount(bigAmount,
+                            minimumChip, visualSeed);
                     double[] amounts = splitVisualCounterAmounts(bigAmount,
                             chipCount, minimumChip);
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         created.add(new LiveChip(bigBlind.nickname(),
                                 0.06f + chipIndex * 0.08f,
                                 0.36f + chipIndex * 0.02f,
-                                91f + chipIndex * 52f, 1, chipIndex,
+                                91f + chipIndex * 52f,
+                                variedVisualChipColor(1, visualSeed, chipIndex),
+                                chipIndex,
                                 amounts[chipIndex]));
                     }
                 }
@@ -24498,7 +24616,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double visualAmount = Math.max(0d, transfer.amount()
                         - delivered.getOrDefault(transfer.nickname(), 0d));
                 if (visualAmount <= 0.000_001d) continue;
-                int chipCount = visualChipCount(visualAmount, minimumChip);
+                long visualSeed = chipVariationSeed(startedAtNanos,
+                        transfer.nickname(), transferIndex);
+                int chipCount = variedVisualChipCount(visualAmount,
+                        minimumChip, visualSeed);
                 double[] contributions = splitVisualCounterAmounts(visualAmount,
                         chipCount, minimumChip);
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
@@ -24506,7 +24627,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float duration = 0.34f + chipIndex * 0.02f;
                     created.add(new LiveChip(transfer.nickname(), start, duration,
                             (transferIndex * 97f + chipIndex * 53f) % 360f,
-                            (transferIndex + chipIndex) % 4, chipIndex,
+                            variedVisualChipColor(transferIndex, visualSeed,
+                                    chipIndex), chipIndex,
                             contributions[chipIndex]));
                 }
             }

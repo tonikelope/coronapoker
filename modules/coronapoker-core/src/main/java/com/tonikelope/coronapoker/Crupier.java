@@ -787,7 +787,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ? base.pot()
                 : this.rit_pot_board_tag == null
                 ? MoneyMath.clean(this.bote_total)
-                : splitPotForRunItTwice(this.bote_total)[0];
+                : splitCurrentPotForRunItTwice(this.bote_total)[0];
         return new TableSnapshot(base.revision(), base.localNickname(),
                 publicStreet, publicPot, currentTurn,
                 gameSession().isPaused(), publicPlayers, board,
@@ -9840,7 +9840,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // plays; outside RIT, the total.
     public void refreshTapeteBoteValue() {
         double pot_show = this.rit_pot_board_tag != null
-                ? splitPotForRunItTwice(this.bote_total)[0]
+                ? splitCurrentPotForRunItTwice(this.bote_total)[0]
                 : this.bote_total;
         table_display.showPot(pot_show, this.beneficio_bote_principal);
     }
@@ -17062,9 +17062,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private double[] calcularBoteParaGanador(double cantidad, int tot_ganadores) {
-        // Split in integer cents (exact arithmetic, preserves the money): each winner
-        // gets the floor share; the indivisible remainder goes to bote_sobrante.
-        return PotMath.splitAmongWinners(cantidad, tot_ganadores);
+        // Never manufacture fractions of the smallest physical chip configured
+        // for this table. The exact undistributed amount remains in bote_total
+        // and becomes bote_sobrante for the following hand.
+        return PotMath.splitAmongWinners(cantidad, tot_ganadores,
+                settlementChipDenomination());
+    }
+
+    private double settlementChipDenomination() {
+        double[][] levels = effectiveBlindStructure();
+        double[] configured = new double[2 + levels.length * 2];
+        configured[0] = configuration().smallBlind();
+        configured[1] = configuration().bigBlind();
+        int index = 2;
+        for (double[] level : levels) {
+            configured[index++] = level[0];
+            configured[index++] = level[1];
+        }
+        return PotMath.smallestChipDenomination(configured);
     }
 
     /**
@@ -19173,18 +19188,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Run-it-twice: splits a (side)pot into SIDE-A and SIDE-B halves. Works in
-     * integer cents (the game's minimum chip is 0.01; the whole economy rounds
-     * to the cent via floatClean/setStack). House rule: if the cent total is
-     * odd, BOTH sides get the floor and the indivisible cent is NOT distributed
-     * — it stays unpaid and the bote_sobrante recalculation after both boards
-     * carries it into the next hand. Invariant: sideA + sideB + remainder ==
-     * exact pot (money is neither created nor lost).
+     * Generic cent-resolution split retained for arithmetic characterization.
+     * A live table uses {@link #splitCurrentPotForRunItTwice(double)} so each
+     * board receives only complete physical chips from its configured ladder.
      *
      * @return {@code [sideA_chips, sideB_chips]}
      */
     static double[] splitPotForRunItTwice(double pot) {
         return PotMath.splitForRunItTwice(pot);
+    }
+
+    private double[] splitCurrentPotForRunItTwice(double pot) {
+        return PotMath.splitForRunItTwice(pot,
+                settlementChipDenomination());
     }
 
     private java.util.List<Integer> runItTwiceRedealSlots() {
@@ -19216,7 +19232,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         String prefix = game_text.translate("runittwice.pot_label_full",
                 this.rit_pot_board_tag);
-        double displayedHalf = splitPotForRunItTwice(this.bote_total)[0];
+        double displayedHalf = splitCurrentPotForRunItTwice(this.bote_total)[0];
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RunItTwiceBoard(
                 sequence, side, prefix, displayedHalf, redealSlots),
                 "Run-it-twice board presentation barrier failed");
@@ -19376,7 +19392,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Run-it-twice: settles BOTH boards (dedicated path; the normal showdown is
     // untouched). SIDE-A is already on the table (rondaApuestas dealt it): pay SIDE-A's
     // half of each (side)pot, pause to let it sink in, rewind, deal SIDE-B, pay its
-    // half. Each pot is split with splitPotForRunItTwice (halves in 0.01 cents; the
+    // half. Each pot is split into complete physical chips for each board (the
     // indivisible remainder isn't distributed and ends up in bote_sobrante once
     // recalculated after both boards), and within each board it's split among that
     // board's winners with calcularBoteParaGanador (same production helper). conta_win
@@ -19474,7 +19490,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_pot_board_tag = game_text.translate("runittwice.pot_label_b");
         presentRunItTwiceBoard(TableVisualEvent.RunItTwiceBoard.Side.B,
                 runItTwiceRedealSlots());
-        table_display.showPot(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
+        table_display.showPot(
+                splitCurrentPotForRunItTwice(this.bote_total)[0],
+                this.beneficio_bote_principal);
         for (GamePlayerController p : resisten) {
             p.repaintLastAction();
         }
@@ -19618,16 +19636,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // ---- Main pot (eligible = resisten); includes bote_sobrante ----
         HashMap<GamePlayerController, GameHandResult> jugadas = this.calcularJugadas(resisten);
         HashMap<GamePlayerController, GameHandResult> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
-        double mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
+        double mainHalf = splitCurrentPotForRunItTwice(
+                this.bote.getTotal() + this.bote_sobrante)[board];
         double[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
         // Main pot winner's profit for THIS board (cosmetic, the green number on the
         // table label): their share (half-pot / winner count) minus their half of the
-        // reference bet. The bet splits the same way as the pot (same split, floored
-        // to 0.01) -> the sum across both boards = the real total profit, minus the
+        // reference bet. The bet splits the same way as the pot (same physical-chip
+        // denomination) -> the sum across both boards = the real total profit, minus the
         // undistributed remainder (which goes to bote_sobrante). Same meaning as the
         // normal showdown's beneficio_bote_principal (cantidad - bote.getBet()), but
         // per board.
-        this.beneficio_bote_principal = cantidad[0] - splitPotForRunItTwice(this.bote.getBet())[board];
+        this.beneficio_bote_principal = cantidad[0]
+                - splitCurrentPotForRunItTwice(this.bote.getBet())[board];
         ArrayList<GameCardController> cartas_usadas_jugadas = new ArrayList<>();
         GamePlayerController unganador = null;
 
@@ -19732,7 +19752,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // plays. Profit does NOT go here (ambiguous with multiple pots); per-player
         // profit is already in the black strip. The main pot shows without the
         // remainder (same as normal mode).
-        String bote_tapete = "#1{" + value_formatter.money(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
+        String bote_tapete = "#1{" + value_formatter.money(
+                splitCurrentPotForRunItTwice(this.bote.getTotal())[board]) + "}";
 
         // ---- Side pots ----
         GamePot current_pot = this.bote.getSidePot();
@@ -19779,7 +19800,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 HashMap<GamePlayerController, GameHandResult> sjugadas = sideHands.get(sideIndex);
                 HashMap<GamePlayerController, GameHandResult> sganadores = sideWinners.get(sideIndex);
-                double sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
+                double sHalf = splitCurrentPotForRunItTwice(
+                        current_pot.getTotal())[board];
                 double[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
                 bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + value_formatter.money(sHalf) + "}";
                 for (Map.Entry<GamePlayerController, GameHandResult> e : sganadores.entrySet()) {

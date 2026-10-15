@@ -1,7 +1,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +41,57 @@ class GdxChipFlightScalingTest {
         assertEquals(3, CoronaPokerGdxTable.landingImpactCount(8));
         assertEquals(6, CoronaPokerGdxTable.landingImpactCount(18));
         assertEquals(6, CoronaPokerGdxTable.landingImpactCount(36));
+    }
+
+    @Test
+    void equalAmountsReceiveBoundedVisualVarietyWithoutChangingTheirValue() {
+        Set<Integer> counts = new HashSet<>();
+        for (long seed = 0; seed < 64; seed++) {
+            int count = CoronaPokerGdxTable.variedVisualChipCount(
+                    2d, 0.1d, seed);
+            counts.add(count);
+            assertTrue(count >= 8 && count <= 12);
+            double total = 0d;
+            for (double part : CoronaPokerGdxTable.splitVisualCounterAmounts(
+                    2d, count, 0.1d)) {
+                total += part;
+            }
+            assertEquals(2d, total, 0.000_001d);
+        }
+        assertTrue(counts.size() > 1);
+    }
+
+    @Test
+    void impactVariationIsSubtleDeterministicAndSafelyBounded() {
+        Set<Float> volumes = new HashSet<>();
+        Set<Float> pitches = new HashSet<>();
+        for (long seed = 0; seed < 32; seed++) {
+            float volume = CoronaPokerGdxTable.variedChipImpactVolume(
+                    0.24f, seed);
+            float pitch = CoronaPokerGdxTable.variedChipImpactPitch(1f, seed);
+            volumes.add(volume);
+            pitches.add(pitch);
+            assertTrue(volume >= 0.223f && volume <= 0.257f);
+            assertTrue(pitch >= 0.965f && pitch <= 1.035f);
+            assertEquals(volume, CoronaPokerGdxTable.variedChipImpactVolume(
+                    0.24f, seed));
+            assertEquals(pitch, CoronaPokerGdxTable.variedChipImpactPitch(
+                    1f, seed));
+        }
+        assertTrue(volumes.size() > 1);
+        assertTrue(pitches.size() > 1);
+    }
+
+    @Test
+    void visualChipColorsRemainWithinThePackagedChipSet() {
+        Set<Integer> colors = new HashSet<>();
+        for (int index = 0; index < 18; index++) {
+            int color = CoronaPokerGdxTable.variedVisualChipColor(
+                    1, 42L, index);
+            colors.add(color);
+            assertTrue(color >= 0 && color < 4);
+        }
+        assertTrue(colors.size() > 1);
     }
 
     @Test

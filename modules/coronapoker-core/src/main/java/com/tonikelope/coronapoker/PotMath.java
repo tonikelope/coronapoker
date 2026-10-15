@@ -20,13 +20,11 @@ package com.tonikelope.coronapoker;
  * Pure pot-division arithmetic, free of any game/Swing state so the money
  * conservation can be unit-tested in isolation (same spirit as BuyinRules).
  *
- * The table's smallest chip is one cent ({@code 0.01}, the engine's money
- * resolution, see {@code Helpers.floatClean}). Pots are split in WHOLE cents:
- * every winner gets the floored share and the indivisible remainder is returned
- * to be carried forward (the dealer's {@code bote_sobrante}), so no money is
- * ever created or destroyed. All arithmetic is done in integer cents, which is
- * exact (no binary-float drift) and matches the cents domain of the
- * canonical/consensus layer ({@code CanonicalActionRecord.amountToCents}).
+ * The engine stores money in cents, but a table may use a larger physical chip
+ * denomination. The denomination-aware overloads therefore split in complete
+ * table chips and return the indivisible remainder to the caller (the dealer's
+ * {@code bote_sobrante}). All arithmetic still uses integer cents, so no money
+ * is ever created or destroyed and the canonical/consensus layer remains exact.
  *
  * @author tonikelope
  */
@@ -35,7 +33,8 @@ public final class PotMath {
     private PotMath() {
     }
 
-    // Cents in one money unit. The chip is one cent (0.01).
+    // Cents in one money unit. This is the storage resolution; the physical
+    // table-chip denomination may be larger and is handled by the overloads.
     public static final int CENTS_PER_UNIT = 100;
 
     static long toCents(float amount) {
@@ -52,6 +51,35 @@ public final class PotMath {
 
     static double fromCentsDouble(long cents) {
         return cents / (double) CENTS_PER_UNIT;
+    }
+
+    private static long denominationCents(double denomination) {
+        if (!Double.isFinite(denomination) || denomination <= 0d) {
+            return 1L;
+        }
+        return Math.max(1L, toCents(denomination));
+    }
+
+    private static long gcd(long left, long right) {
+        long a = Math.abs(left);
+        long b = Math.abs(right);
+        while (b != 0L) {
+            long remainder = a % b;
+            a = b;
+            b = remainder;
+        }
+        return a;
+    }
+
+    public static double smallestChipDenomination(double... configuredAmounts) {
+        long denomination = 0L;
+        if (configuredAmounts != null) {
+            for (double amount : configuredAmounts) {
+                if (!Double.isFinite(amount) || amount <= 0d) continue;
+                denomination = gcd(denomination, toCents(amount));
+            }
+        }
+        return fromCentsDouble(Math.max(1L, denomination));
     }
 
     /**
@@ -90,6 +118,24 @@ public final class PotMath {
     }
 
     /**
+     * Splits a pot without manufacturing fractions of the table's smallest
+     * physical chip. Even a single winner receives only complete chips; any
+     * sub-chip residue is carried into the next pot by the caller.
+     */
+    public static double[] splitAmongWinners(double amount, int winners,
+            double chipDenomination) {
+        int recipientCount = Math.max(1, winners);
+        long total = Math.max(0L, toCents(amount));
+        long chip = denominationCents(chipDenomination);
+        long wholeChips = total / chip;
+        long chipsPerWinner = wholeChips / recipientCount;
+        long perWinner = chipsPerWinner * chip;
+        long remainder = total - perWinner * recipientCount;
+        return new double[]{fromCentsDouble(perWinner),
+            fromCentsDouble(remainder)};
+    }
+
+    /**
      * Splits a pot into the two equal halves of a run-it-twice board (SIDE-A
      * and SIDE-B). Each board gets {@code floor(pot/2)} at cent resolution; if
      * the pot is an odd number of cents the leftover cent is NOT dealt (the
@@ -114,6 +160,16 @@ public final class PotMath {
     public static double[] splitForRunItTwice(double pot) {
         long half = toCents(pot) / 2;        // floor; odd cent carried by the caller
         double each = fromCentsDouble(half);
+        return new double[]{each, each};
+    }
+
+    /** Splits both boards in complete table chips; the caller carries the rest. */
+    public static double[] splitForRunItTwice(double pot,
+            double chipDenomination) {
+        long total = Math.max(0L, toCents(pot));
+        long chip = denominationCents(chipDenomination);
+        long chipsPerBoard = total / chip / 2L;
+        double each = fromCentsDouble(chipsPerBoard * chip);
         return new double[]{each, each};
     }
 }

@@ -110,6 +110,57 @@ public class PotMathTest {
     }
 
     @Test
+    void tableChipSplitNeverManufacturesHalfOfTheMinimumChip() {
+        double[] tenthSplit = PotMath.splitAmongWinners(0.10d, 2, 0.10d);
+        assertEquals(0L, cents(tenthSplit[0]));
+        assertEquals(10L, cents(tenthSplit[1]));
+
+        double[] threeTenths = PotMath.splitAmongWinners(0.30d, 2, 0.10d);
+        assertEquals(10L, cents(threeTenths[0]));
+        assertEquals(10L, cents(threeTenths[1]));
+
+        double[] legacyResidue = PotMath.splitAmongWinners(0.35d, 1, 0.10d);
+        assertEquals(30L, cents(legacyResidue[0]));
+        assertEquals(5L, cents(legacyResidue[1]));
+    }
+
+    @Test
+    void configuredBlindLadderDefinesTheSmallestPhysicalChip() {
+        assertEquals(10L, cents(PotMath.smallestChipDenomination(
+                0.10d, 0.20d, 0.20d, 0.40d)));
+        assertEquals(5L, cents(PotMath.smallestChipDenomination(
+                0.10d, 0.20d, 0.15d, 0.30d)));
+    }
+
+    @Test
+    void denominationAwareSplitConservesEveryCentAcrossASweep() {
+        for (long amountC = 0; amountC <= 5000; amountC += 7) {
+            double amount = amountC / 100d;
+            for (int winners = 1; winners <= 10; winners++) {
+                double[] split = PotMath.splitAmongWinners(
+                        amount, winners, 0.10d);
+                long paid = cents(split[0]) * winners;
+                long remainder = cents(split[1]);
+                assertEquals(amountC, paid + remainder);
+                assertEquals(0L, cents(split[0]) % 10L);
+                assertTrue(remainder >= 0L && remainder < winners * 10L);
+            }
+        }
+    }
+
+    @Test
+    void runItTwiceAlsoUsesWholeTableChips() {
+        double[] split = PotMath.splitForRunItTwice(0.30d, 0.10d);
+        assertEquals(10L, cents(split[0]));
+        assertEquals(10L, cents(split[1]));
+        assertEquals(10L, 30L - cents(split[0]) - cents(split[1]));
+
+        double[] indivisible = PotMath.splitForRunItTwice(0.10d, 0.10d);
+        assertEquals(0L, cents(indivisible[0]));
+        assertEquals(0L, cents(indivisible[1]));
+    }
+
+    @Test
     void doubleRunItTwiceMatchesFloatBelowCeilingAndIsExactAbove() {
         for (long potC = 0; potC <= 30000; potC += 13) {
             double pot = potC / 100.0;

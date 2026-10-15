@@ -17,11 +17,13 @@ class GdxChipFlightScalingTest {
         assertEquals(1, CoronaPokerGdxTable.visualChipCount(0.1d, 0.1d));
         assertEquals(2, CoronaPokerGdxTable.visualChipCount(0.2d, 0.1d));
         assertEquals(5, CoronaPokerGdxTable.visualChipCount(0.5d, 0.1d));
-        assertEquals(8, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
-        assertEquals(10, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
-        assertEquals(12, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
-        assertEquals(14, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
-        assertEquals(18, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
+        assertEquals(10, CoronaPokerGdxTable.visualChipCount(1d, 0.1d));
+        assertEquals(14, CoronaPokerGdxTable.visualChipCount(2d, 0.1d));
+        assertEquals(18, CoronaPokerGdxTable.visualChipCount(5d, 0.1d));
+        assertEquals(21, CoronaPokerGdxTable.visualChipCount(10d, 0.1d));
+        assertEquals(28, CoronaPokerGdxTable.visualChipCount(50d, 0.1d));
+        assertEquals(31, CoronaPokerGdxTable.visualChipCount(100d, 0.1d));
+        assertEquals(41, CoronaPokerGdxTable.visualChipCount(1_000d, 0.1d));
     }
 
     @Test
@@ -40,7 +42,7 @@ class GdxChipFlightScalingTest {
         assertEquals(2, CoronaPokerGdxTable.landingImpactCount(5));
         assertEquals(3, CoronaPokerGdxTable.landingImpactCount(8));
         assertEquals(6, CoronaPokerGdxTable.landingImpactCount(18));
-        assertEquals(6, CoronaPokerGdxTable.landingImpactCount(36));
+        assertEquals(12, CoronaPokerGdxTable.landingImpactCount(36));
     }
 
     @Test
@@ -50,7 +52,7 @@ class GdxChipFlightScalingTest {
             int count = CoronaPokerGdxTable.variedVisualChipCount(
                     2d, 0.1d, seed);
             counts.add(count);
-            assertTrue(count >= 8 && count <= 12);
+            assertTrue(count >= 11 && count <= 17);
             double total = 0d;
             for (double part : CoronaPokerGdxTable.splitVisualCounterAmounts(
                     2d, count, 0.1d)) {

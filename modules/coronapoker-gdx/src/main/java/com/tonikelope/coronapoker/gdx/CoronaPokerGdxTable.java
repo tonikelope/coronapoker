@@ -248,11 +248,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final int MAX_VISUAL_CHIPS_PER_TRANSFER = 18;
-    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 2d;
+    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 3d;
     private static final float VISUAL_CHIP_COUNT_VARIATION = 0.22f;
-    private static final int MAX_CHIP_LANDING_SOUNDS_PER_BATCH = 6;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
+    private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
     private static final float CHIP_IMPACT_PITCH_VARIATION = 0.035f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
@@ -7573,13 +7572,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         switch (action.kind()) {
             case CALL -> {
                 if (liveCallSoundEnabled()) {
-                    playChipLandingImpact(callSound, 0.44f,
+                    playChipLandingImpact(callSound,
+                            PRIMARY_CHIP_IMPACT_VOLUME,
                             0.98f + color * 0.02f, seed);
                 }
             }
             case BET, RAISE, RERAISE -> {
                 if (liveBetSoundEnabled()) {
-                    playChipLandingImpact(betSound, 0.48f,
+                    playChipLandingImpact(betSound,
+                            PRIMARY_CHIP_IMPACT_VOLUME,
                             0.98f + color * 0.02f, seed);
                 }
                 if (GdxSoundFeedback.funnyRaise(action.kind(),
@@ -7589,7 +7590,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case ALL_IN -> {
                 if (liveBetSoundEnabled()) {
-                    playChipLandingImpact(betSound, 0.48f,
+                    playChipLandingImpact(betSound,
+                            PRIMARY_CHIP_IMPACT_VOLUME,
                             0.98f + color * 0.02f, seed);
                 }
             }
@@ -12610,12 +12612,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         switch (kind) {
             case CALL -> {
                 if (liveCallSoundEnabled()) {
-                    play(callSound, 0.44f, 0.98f + color * 0.02f);
+                    play(callSound, PRIMARY_CHIP_IMPACT_VOLUME,
+                            0.98f + color * 0.02f);
                 }
             }
             case BET, RAISE, RERAISE -> {
                 if (liveBetSoundEnabled()) {
-                    play(betSound, 0.48f, 0.98f + color * 0.02f);
+                    play(betSound, PRIMARY_CHIP_IMPACT_VOLUME,
+                            0.98f + color * 0.02f);
                 }
                 if (GdxSoundFeedback.funnyRaise(kind,
                         funnySoundsEnabled())) {
@@ -14295,8 +14299,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int logarithmicCount = (int) Math.round(1d
                 + VISUAL_CHIP_LOG_MULTIPLIER
                 * (Math.log(realUnits) / Math.log(2d)));
-        return (int) Math.min(realUnits, Math.max(1,
-                Math.min(MAX_VISUAL_CHIPS_PER_TRANSFER, logarithmicCount)));
+        return (int) Math.min(realUnits, Math.max(1, logarithmicCount));
     }
 
     static int variedVisualChipCount(double exactAmount, double minimumChip,
@@ -14309,7 +14312,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         long denominationMinor = Double.isFinite(minimumChip)
                 && minimumChip > 0d
                 ? Math.max(1L, Math.round(minimumChip * 100d)) : 1L;
-        int availableUnits = (int) Math.min(MAX_VISUAL_CHIPS_PER_TRANSFER,
+        int availableUnits = (int) Math.min(Integer.MAX_VALUE,
                 Math.max(1L, totalMinor / denominationMinor));
         int radius = Math.max(1,
                 Math.round(baseCount * VISUAL_CHIP_COUNT_VARIATION));
@@ -14354,9 +14357,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (visualChipCount <= 0) {
             return 0;
         }
-        return Math.max(1, Math.min(MAX_CHIP_LANDING_SOUNDS_PER_BATCH,
-                Math.round(visualChipCount
-                        / VISUAL_CHIPS_PER_LANDING_SOUND)));
+        return Math.max(1, Math.round(visualChipCount
+                / VISUAL_CHIPS_PER_LANDING_SOUND));
     }
 
     static boolean landingImpactAtRank(int landingRank,

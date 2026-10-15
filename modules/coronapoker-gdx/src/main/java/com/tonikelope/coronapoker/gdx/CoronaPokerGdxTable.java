@@ -20990,15 +20990,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int selectedLast = Math.max(gameLogSelectionAnchor,
                 gameLogSelectionCaret);
         for (int line = 0; line < logLines.size(); line++) {
+            float rowY = anchoredPixelRowY(logLines.size(), line,
+                    GAME_LOG_LINE_HEIGHT, content.y, content.height,
+                    gameLogScroll, maximumScroll);
+            float clippedY = Math.max(rowY, content.y);
+            float clippedTop = Math.min(rowY + GAME_LOG_LINE_HEIGHT,
+                    content.y + content.height);
+            if (clippedTop <= clippedY) continue;
+            if (GdxGameLogFormatter.isCriticalIntegrityLine(
+                    logLines.get(line))) {
+                shapes.setColor(0.52f, 0.045f, 0.065f, 0.94f * alpha);
+                shapes.rect(content.x, clippedY, content.width,
+                        clippedTop - clippedY);
+            }
             if (selectedFirst >= 0 && line >= selectedFirst
                     && line <= selectedLast) {
-                float rowY = anchoredPixelRowY(logLines.size(), line,
-                        GAME_LOG_LINE_HEIGHT, content.y, content.height,
-                        gameLogScroll, maximumScroll);
-                float clippedY = Math.max(rowY, content.y);
-                float clippedTop = Math.min(rowY + GAME_LOG_LINE_HEIGHT,
-                        content.y + content.height);
-                if (clippedTop <= clippedY) continue;
                 shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.22f * alpha);
                 shapes.rect(content.x, clippedY, content.width,
                         clippedTop - clippedY);

@@ -2315,6 +2315,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // "SUSPICIOUS: host «X»" prefix (red log + popup). On the HOST it's
         // self-detection; nobody is named.
         final String fullReason = withSuspectHostPrefix(reason);
+        LOGGER.log(Level.WARNING,
+                "ZERO-TRUST anomalous host behaviour: {0}", fullReason);
         try {
             game_log.print(game_text.translate("zero_trust.suspicious_alert") + " " + fullReason);
         } catch (Exception ignored) {
@@ -2405,8 +2407,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * client was out of the hand (it left and the hand continued without it),
      * so they can't be verified and are accepted as served. Unlike
      * warnSuspiciousHost, this opens no modal popup and doesn't push toward
-     * leaving: just a soft line in the game log (yellow, via GameLogDialog's
-     * categoryRule) plus debug detail (logged by the caller). Deduped per
+     * leaving: just a soft line in the game log plus debug detail (logged by
+     * the caller). Deduped per
      * recovery (recover_absence_warned).
      */
     private void warnRecoverActionDuringAbsence() {
@@ -2423,8 +2425,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // HOST-side symmetric to warnSuspiciousHost: the host detected anomalous or abusive
     // behavior from a SPECIFIC peer (message flood, cascade refusal, forfeit from data
     // that doesn't resolve to a genesis card, etc.). Same visibility as the client side
-    // but naming the suspect PLAYER: red log entry (zero_trust.peer_alert prefix ->
-    // ST_CRITICAL) + popup, deduped per (peer + anomaly) per game. The action that
+    // but naming the suspect PLAYER: critical log entry + popup, deduped per
+    // (peer + anomaly) per game. The action that
     // follows by severity (discard / expel / misdeal / forfeit) is the CALLER's job; this
     // just informs. Fail-safe: called from critical paths (including a Participant's
     // reader thread or mid-deal) and must NEVER throw.
@@ -2437,6 +2439,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String suspect = MessageFormat.format(game_text.translate("zero_trust.suspect_peer_prefix"),
                     (peerNick != null && !peerNick.isEmpty()) ? peerNick : "?");
             final String line = suspect + " " + game_text.translate(reasonKey);
+            LOGGER.log(Level.WARNING,
+                    "ZERO-TRUST anomalous peer behaviour: {0}", line);
             try {
                 game_log.print(game_text.translate("zero_trust.peer_alert") + " " + line);
             } catch (Exception ignored) {
@@ -2485,9 +2489,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Tournament/anti-cheat: this hand's deck could NOT be verified as an honest shuffle
     // (host didn't send the bundle, it arrived malformed, or it proved dishonest). The
-    // hand isn't blocked (cards already dealt) and no exit is forced: it's logged in RED
-    // (the zero_trust.suspicious_alert prefix colors it via ST_CRITICAL, like other
-    // zero-trust errors) and warned via popup once per game. Signed evidence already
+    // hand isn't blocked (cards already dealt) and no exit is forced: it's logged as a
+    // critical zero-trust entry and warned via popup once per hand. Signed evidence already
     // lives in the receipt + disputed_hands; the player decides whether to continue.
     private volatile byte[] deck_unverified_warned_megapacket = null;
 
@@ -2510,17 +2513,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             host = null;
         }
         final String hostNick = (host != null && !host.isEmpty()) ? host : "?";
+        final String detail = MessageFormat.format(
+                game_text.translate("zero_trust.deck_unverified"), hostNick);
+
+        LOGGER.log(Level.WARNING,
+                "ZERO-TRUST unverified deck: {0}", detail);
 
         try {
             game_log.print(
                     game_text.translate("zero_trust.suspicious_alert") + " "
-                    + MessageFormat.format(game_text.translate("zero_trust.deck_unverified"), hostNick));
+                    + detail);
         } catch (Exception ignored) {
         }
         game_async.execute(() -> {
             awaitDialog(game_dialogs.showZeroTrustAlert(
                     game_text.translate("zero_trust.suspicious_header")
-                    + MessageFormat.format(game_text.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
+                    + detail + "\n\n"
                     + game_text.translate("zero_trust.deck_unverified_body"),
                     zeroTrustPopupWidth()));
         });
@@ -2861,6 +2869,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // SUSPICIOUS: on a client, the host causes the anomaly -> named in the red
             // warning + popup.
             final String fullReason = withSuspectHostPrefix(reason);
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST security lockdown: {0}", fullReason);
             game_log.print(game_text.translate("zero_trust.security_alert") + " " + fullReason);
             game_log.print(game_text.translate("zero_trust.lockdown_activated"));
 
@@ -8641,8 +8651,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return auditor;
     }
 
-    // Border line of a table using Unicode box-drawing characters (GameLogDialog paints
-    // them dimmed as the grid). 'cols' are each column's content width; each segment spans
+    // Border line of a table using Unicode box-drawing characters (the native game-log
+    // renderer paints them dimmed as the grid). 'cols' are each column's content width; each segment spans
     // col+2 (one padding space on each side).
     public static String gridBorderLine(char left, char mid, char right, int[] cols) {
         StringBuilder sb = new StringBuilder().append(left);
@@ -22108,8 +22118,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // MULTIVERSE log table: header + one row per player, aligned in monospace
             // columns (HAND | NICK | WIN | LOSE | TIE | LOKI | CARDS). The first column
             // is the player's current PARTIAL hand (its name at this point of the
-            // board). Each line carries the "(MV)" token so GameLogDialog renders it
-            // dimmed with cards drawn as chips (same offset as the accounting table).
+            // board). Each line carries the "(MV)" token so the native game log renders
+            // it dimmed with cards drawn as chips (same offset as the accounting table).
             // Cards go in the LAST column since they render as variable-width chips
             // that would misalign any column after them. First pass: format
             // percentages and measure column widths.

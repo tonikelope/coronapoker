@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
@@ -2621,9 +2622,13 @@ public final class GdxMultiprocessNodeMain {
                         .get(10, TimeUnit.SECONDS);
 
                 if (phase == 0) {
+                    AtomicLong spectatorSetupHand = new AtomicLong(1L);
                     await(() -> renderer.spectatorNicknames().stream()
                                     .anyMatch(nick -> "client1".equals(nick)
-                                    || "client2".equals(nick)),
+                                    || "client2".equals(nick))
+                                    || rearmSpectatorSetupAfterSplitPot(
+                                            config, renderer,
+                                            spectatorSetupHand),
                             Duration.ofSeconds(150),
                             "forced human spectator before recovery");
                     renderer.foldAutomatically(false);
@@ -2698,6 +2703,27 @@ public final class GdxMultiprocessNodeMain {
                 emitFinalOutcome(renderer);
             }
         }
+    }
+
+    /**
+     * Rearms the designated all-in owners when the production shuffle yields
+     * a split pot. This mirrors the in-process recovery contract: an honest
+     * tie must not turn spectator setup into a random timeout.
+     */
+    private static boolean rearmSpectatorSetupAfterSplitPot(Config config,
+            GdxScenarioRenderer renderer, AtomicLong armedHand) {
+        if (!"client1".equals(config.nickname)
+                && !"client2".equals(config.nickname)) {
+            return false;
+        }
+        long currentHand = renderer.currentHand();
+        long previousHand = armedHand.get();
+        if (currentHand <= previousHand
+                || !armedHand.compareAndSet(previousHand, currentHand)) {
+            return false;
+        }
+        renderer.allInOnHand(currentHand);
+        return false;
     }
 
     private static void runTransportChaos(Config config, Path home,
@@ -3467,6 +3493,8 @@ public final class GdxMultiprocessNodeMain {
                 ? "ALLIN_THEN_CONTROLLED_EXIT" : "ALLIN_THEN_CRASH";
         requireCommand(expectedCommand);
         renderer.submitHeldAllIn(() -> { });
+        await(renderer::hasAcceptedLocalAllIn, Duration.ofSeconds(30),
+                "canonical all-in acceptance before exit");
         marker("ORDERED_ALLIN_ACTION_CLICKED", "nick=client1 hand=1");
         if ("allin-abrupt-exit".equals(config.scenario)) {
             Runtime.getRuntime().halt(23);

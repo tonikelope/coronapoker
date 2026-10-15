@@ -158,8 +158,18 @@ final class GdxFunctionalLabelOracle {
                     "new hand retained the previous RIT pot label");
             for (TableSnapshot.PlayerSnapshot player
                     : projection.snapshot().players()) {
-                assertEquals("", projection.actionLabel(player.nickname()),
-                        "new hand retained a prior action caption for "
+                boolean currentForcedAction = !player.spectator()
+                        && !player.warming() && !player.exited()
+                        && player.actionKind()
+                        != TableSnapshot.ActionKind.NONE;
+                String expectedAction = currentForcedAction
+                        ? !player.presentation().publicActionLabel().isBlank()
+                                ? player.presentation().publicActionLabel()
+                                : player.lastAction()
+                        : "";
+                assertEquals(expectedAction,
+                        projection.actionLabel(player.nickname()),
+                        "new hand action caption mismatch for "
                         + player.nickname());
                 assertFalse(projection.hasHandResult(player.nickname()),
                         "new hand retained a prior showdown caption for "

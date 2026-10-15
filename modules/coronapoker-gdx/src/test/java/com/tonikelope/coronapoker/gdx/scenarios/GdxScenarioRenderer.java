@@ -1491,7 +1491,12 @@ final class GdxScenarioRenderer implements TableRenderer {
                     projection.immediateRebuyAmount(player.nickname()),
                     player.nickname()
                     + " changed its canonical immediate-rebuy amount");
-            if (presentation.showingCards()) {
+            if (presentation.showingCards() && !player.spectator()) {
+                // A busted player can become ESPECTADOR while the canonical
+                // previous-hand verdict remains available for audit/rebuy
+                // state. The spectator role deliberately suppresses that
+                // pocket in the renderer, so it must not also be required as
+                // a visible showdown hand here.
                 assertEquals(2, cards.size(), player.nickname()
                         + " lost its public showdown cards");
                 assertTrue(cards.stream().allMatch(card -> card.visible()

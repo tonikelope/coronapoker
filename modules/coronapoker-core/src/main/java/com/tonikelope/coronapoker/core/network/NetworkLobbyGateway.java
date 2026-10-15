@@ -830,6 +830,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         sendGame(connection, "INIT#"
                                 + GameConfigCodecV1.encodeBase64(
                                         launchConfiguration));
+                    }
+                    if (hotJoin) {
                         hotJoinCommand = "HOTJOIN#" + b64(nickname) + "#"
                                 + (parts[2].isBlank() ? "*" : parts[2])
                                 + "#" + parts[4] + "#" + parts[5];
@@ -1390,6 +1392,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         }
                         if (decision
                                 == InboundTrafficGuard.FrameDecision.DISCONNECT) {
+                            publishSecurityIncidentIfGameActive(connection,
+                                    GameChannel.SecurityIncidentType
+                                            .INBOUND_FLOOD_EXPELLED);
                             disconnectFloodingPeer(connection);
                             throw new IOException(
                                     "Sustained inbound traffic flood");
@@ -1623,8 +1628,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void receiveBinary(Connection source, byte[] clear,
                 boolean fromClient) throws Exception {
-            if (fromClient && !source.inboundTraffic.allowBinaryOperation(
+            if (!source.inboundTraffic.allowBinaryOperation(
                     System.currentTimeMillis())) {
+                if (fromClient) {
+                    publishSecurityIncidentIfGameActive(source,
+                            GameChannel.SecurityIncidentType
+                                    .BINARY_FLOOD_DROPPED);
+                }
                 return;
             }
             BinaryPayloadCodec.Payload payload = BinaryPayloadCodec.decode(clear);
@@ -1975,10 +1985,26 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 // the authenticated peer. It deliberately does not create an
                 // IP block: temporary address quarantines are reserved for
                 // hostile connection/handshake attempts.
+                LOGGER.log(Level.WARNING,
+                        "Anti-DoS disconnected authenticated peer {0} after sustained inbound traffic flood",
+                        peer.nickname);
                 removePeer(peer.nickname, true);
             } else {
+                LOGGER.log(Level.WARNING,
+                        "Anti-DoS closed an unaffiliated connection after sustained inbound traffic flood");
                 connection.close();
             }
+        }
+
+        private void publishSecurityIncidentIfGameActive(
+                Connection connection,
+                GameChannel.SecurityIncidentType type) {
+            LobbySession active = session;
+            String nickname = connection.remoteNickname;
+            if (active == null || !active.snapshot().startingOrStarted()
+                    || nickname == null || nickname.isBlank()) return;
+            gameChannel.publishSecurityIncident(
+                    new GameChannel.SecurityIncident(nickname, type));
         }
 
         private synchronized LobbySnapshot snapshot(LobbySnapshot.Phase phase, String detail) {
@@ -2111,8 +2137,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private long pendingBytes;
         private Consumer<Inbound> listener;
         private Consumer<String> peerLossListener;
+        private Consumer<SecurityIncident> securityIncidentListener;
         private final java.util.LinkedHashSet<String> pendingPeerLosses
                 = new java.util.LinkedHashSet<>();
+        private final java.util.LinkedHashSet<SecurityIncident>
+                pendingSecurityIncidents = new java.util.LinkedHashSet<>();
+        private final java.util.LinkedHashSet<SecurityIncident>
+                reportedSecurityIncidents = new java.util.LinkedHashSet<>();
 
         NativeGameChannel(Transport transport, ExecutorService executor) {
             this.transport = transport;
@@ -2213,6 +2244,63 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void detachPeerLoss() {
             peerLossListener = null;
+        }
+
+        @Override
+        public AutoCloseable subscribeSecurityIncidents(
+                Consumer<SecurityIncident> next) {
+            Consumer<SecurityIncident> target;
+            java.util.List<SecurityIncident> incidents;
+            synchronized (this) {
+                if (closed) throw new IllegalStateException(
+                        "Game channel is closed");
+                if (securityIncidentListener != null) {
+                    throw new IllegalStateException(
+                            "Game channel already has a security consumer");
+                }
+                target = Objects.requireNonNull(next, "listener");
+                securityIncidentListener = target;
+                incidents = java.util.List.copyOf(pendingSecurityIncidents);
+                pendingSecurityIncidents.clear();
+            }
+            if (!incidents.isEmpty()) {
+                Consumer<SecurityIncident> subscribed = target;
+                executor.execute(() -> incidents.forEach(incident
+                        -> deliverSecurityIncident(subscribed, incident)));
+            }
+            return this::detachSecurityIncidents;
+        }
+
+        private synchronized void detachSecurityIncidents() {
+            securityIncidentListener = null;
+        }
+
+        void publishSecurityIncident(SecurityIncident incident) {
+            Consumer<SecurityIncident> target;
+            synchronized (this) {
+                if (closed || incident == null) return;
+                if (!reportedSecurityIncidents.add(incident)) return;
+                target = securityIncidentListener;
+                if (target == null) {
+                    pendingSecurityIncidents.add(incident);
+                    return;
+                }
+            }
+            // The alert must be accepted before the abusive connection is
+            // closed. Scheduling it behind peer-loss teardown could otherwise
+            // close this channel first and silently discard the only notice.
+            deliverSecurityIncident(target, incident);
+        }
+
+        private void deliverSecurityIncident(Consumer<SecurityIncident> target,
+                SecurityIncident incident) {
+            try {
+                target.accept(incident);
+            } catch (RuntimeException failure) {
+                LOGGER.log(Level.WARNING,
+                        "The game rejected a transport security incident",
+                        failure);
+            }
         }
 
         synchronized void publishPeerLoss(String nickname) {
@@ -2387,10 +2475,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             closed = true;
             pending.clear();
             pendingPeerLosses.clear();
+            pendingSecurityIncidents.clear();
+            reportedSecurityIncidents.clear();
             pendingBytes = 0L;
             confirmationHolds = 0;
             listener = null;
             peerLossListener = null;
+            securityIncidentListener = null;
         }
     }
 

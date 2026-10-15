@@ -111,9 +111,9 @@ Each game has a fresh `session_id`. A `self_sig` is valid only for the session w
 
 ### Version gate
 
-Compatibility is enforced by **strict equality** of the client's `version` field against the host's `AboutDialog.VERSION`. A mismatch returns `BADVERSION#<host_version>` and the join is refused. There is no min-compatible range, so every peer in a game runs the identical wire format. Any change to it is gated simply by bumping the version string.
+Compatibility is enforced by **strict equality** of the client's `version` field against the host's `ApplicationMetadata.VERSION`. A mismatch returns `BADVERSION#<host_version>` and the join is refused. There is no min-compatible range, so every peer in a game runs the identical wire format. Any change to it is gated simply by bumping the version string.
 
-### TOFU resolution (silent, non-blocking)
+### TOFU resolution (non-blocking, selectively visible)
 
 After verifying the self-sig, each peer resolves `(nick, pubkey)` against its local `known_identities` through [`SqlIdentityTrustStore.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/SqlIdentityTrustStore.java):
 
@@ -123,7 +123,9 @@ After verifying the self-sig, each peer resolves `(nick, pubkey)` against its lo
 | `MATCH`: known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`. `verified_oob` untouched | unchanged (0 or 1) |
 | `CHANGED`: known nick string, pubkey differs | `UPDATE pubkey, last_seen, sessions_count, verified_oob=0`, then return `CHANGED` | 0 (the new key must be checked OOB again) |
 
-**TOFU is not an admission gate, and there is no modal.** The host-side initial `JOIN` requires the six-field payload and a valid `JOIN` self-signature. After that structural and signature check, the participant is admitted and the `NEW`, `MATCH` or `CHANGED` result is logged. On a client, server intro and roster entries are admitted by their separate capacity, nickname collision and avatar checks. `PlayerIdentity` NFC-normalizes the local key binding and JOIN signature. `SqlIdentityTrustStore` indexes the nickname supplied by its caller. There is still no passive at-a-glance indicator.
+**TOFU is not an admission gate.** The host-side initial `JOIN` requires the six-field payload and a valid `JOIN` self-signature. After that structural and signature check, the participant is admitted and the `NEW`, `MATCH` or `CHANGED` result is recorded. On a client, server intro and roster entries are admitted by their separate capacity, nickname collision and avatar checks. `PlayerIdentity` NFC-normalizes the local key binding and JOIN signature. `SqlIdentityTrustStore` indexes the nickname supplied by its caller.
+
+Every `CHANGED` transition is written to the debug log and forwarded to the in-game registro, including changes detected when a player joins an already-running table. GDX shows a non-blocking in-window notice only when the replaced key had previously been marked `verified_oob=1`. The notice appears in the waiting room or over the table, according to where the change is drained. A change to an identity that was never explicitly verified remains log-only, which avoids popup noise without hiding the diagnostic trail. There is no permanent at-a-glance warning badge.
 
 ### Manual verification
 
@@ -414,7 +416,7 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
 
-Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality check at join (§3).
+Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` equality check at join (§3).
 
 ---
 

@@ -1134,6 +1134,9 @@ final class GdxTableViewState {
      */
     private static TableVisualEvent.PlayerAction.ActionKind snapshotActionKind(
             TableSnapshot.PlayerSnapshot player) {
+        if (player.spectator() || player.warming() || player.exited()) {
+            return null;
+        }
         TableVisualEvent.PlayerAction.ActionKind legacy
                 = CoronaPokerGdxTable.actionKindFromLegacyLabel(
                         player.lastAction());
@@ -1281,6 +1284,12 @@ final class GdxTableViewState {
             runItTwicePotPrefix = "";
             preActionControlsActive = false;
             newStreetActionResetPending = false;
+            // PREPARE clears every previous-hand overlay, but its boundary
+            // snapshot may already contain a current-hand forced action. A
+            // short stack posted all-in by a blind/ante has no later
+            // PlayerAction event, so restore only the new snapshot's
+            // canonical presentation after clearing the old caches.
+            reconcileCanonicalPlayerPresentation(snapshot.players());
         }
         // A boundary snapshot is authoritative for durable rebuy state. The
         // corresponding decision event can race just after END, so retaining

@@ -852,6 +852,40 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void prepareKeepsCurrentHandForcedAllInButClearsPreviousAction() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerAction(1L, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "VA",
+                20d, 20d, 980d, 20d, 40d));
+
+        TableSnapshot.PlayerSnapshot forcedAllIn
+                = new TableSnapshot.PlayerSnapshot(
+                        "borja", 0d, 0.16d, 0.16d, true, false, false,
+                        false, -2, -2, 0, 0L, false, false,
+                        TableSnapshot.Position.BIG_BLIND,
+                        TableSnapshot.Decision.ALL_IN,
+                        TableSnapshot.ActionKind.ALL_IN, "ALL IN", "",
+                        List.of(), 10, 0, false,
+                        new TableSnapshot.PlayerPresentation(false, false,
+                                -1f, false, "", List.of(), false, false,
+                                List.of(), List.of(),
+                                TableSnapshot.RebuyPhase.NONE, 0,
+                                "ALL IN"));
+        TableSnapshot nextHand = new TableSnapshot(2L, "ana",
+                TableSnapshot.Street.PREFLOP, 0.16d, "", false,
+                List.of(player("ana", TableSnapshot.Position.DEALER),
+                        forcedAllIn), List.of());
+
+        state.apply(new TableVisualEvent.HandBoundary(2L, 2L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, nextHand));
+
+        assertNull(state.actionKind("ana"));
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                state.actionKind("borja"));
+        assertEquals("ALL IN", state.actionLabel("borja"));
+    }
+
+    @Test
     void tableTtsUsesTheSameNotificationGatesAsSwing() {
         assertTrue(CoronaPokerGdxTable.chatAudioAvailable(true, true));
         assertFalse(CoronaPokerGdxTable.chatAudioAvailable(true, false),
@@ -2020,6 +2054,8 @@ final class GdxTableViewStateTest {
 
         assertTrue(bustedState.presentedHoleCards("ana").isEmpty(),
                 "a local spectator must not show placeholder cards");
+        assertNull(bustedState.actionKind("ana"));
+        assertEquals("", bustedState.actionLabel("ana"));
         assertEquals("ESPECTADOR", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, busted, spanish));
         assertFalse(CoronaPokerGdxTable.usesTransientHolePresentation(
@@ -2035,6 +2071,8 @@ final class GdxTableViewStateTest {
 
         assertTrue(warmingState.presentedHoleCards("ana").isEmpty(),
                 "a warming local player must not show placeholder cards");
+        assertNull(warmingState.actionKind("ana"));
+        assertEquals("", warmingState.actionLabel("ana"));
         assertEquals("CALENTANDO", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, warming, spanish));
         TableSnapshot.PlayerSnapshot warmingWithoutTransientLabel
@@ -2061,6 +2099,10 @@ final class GdxTableViewStateTest {
                 "a remote spectator must not show placeholder cards");
         assertTrue(remoteState.presentedHoleCards("borja").isEmpty(),
                 "a warming remote player must not show placeholder cards");
+        assertNull(remoteState.actionKind("ana"));
+        assertEquals("", remoteState.actionLabel("ana"));
+        assertNull(remoteState.actionKind("borja"));
+        assertEquals("", remoteState.actionLabel("borja"));
         assertTrue(CoronaPokerGdxTable.usesTransientHolePresentation(
                 player("borja", TableSnapshot.Position.BIG_BLIND)));
     }
@@ -2652,6 +2694,39 @@ final class GdxTableViewStateTest {
                 "PIERDE 1,5", 0xeb, 0x78, 0x78, 0xff);
         assertRunColor("(  ) │ player │ WINS 2.5 │",
                 "│", 0xaa, 0xaa, 0xaa, 0xff);
+    }
+
+    @Test
+    void gameLogRecognisesSecurityAndIntegrityMarkersAsCritical() {
+        List<String> alerts = List.of(
+                "⚠️ [SECURITY ALERT] invalid community reveal",
+                "⚠️ [ANOMALOUS PLAYER BEHAVIOUR] player X withheld ACK",
+                "⚠️ [ANOMALOUS SERVER BEHAVIOUR] host X changed the deck",
+                "⚠️ [ALERTA DE SEGURIDAD] revelado comunitario inválido",
+                "⚠️ [COMPORTAMIENTO ANÓMALO DE UN JUGADOR] jugador X",
+                "⚠️ [COMPORTAMIENTO ANÓMALO DEL SERVIDOR] servidor X",
+                "⚠️ [ZERO-TRUST] Acción rechazada",
+                "❌ [ZERO-TRUST] Una carta no pertenece al mazo",
+                "🔒 [LOCKDOWN] Cuarentena activada",
+                "MANO ANULADA",
+                "REASON: invalid community reveal",
+                "⚠ DIVERGENCIA EN VERIFICACIÓN CRIPTOGRÁFICA · evidencia",
+                "⚠ Invalid cryptographic signature on action attributed to X",
+                "⚠ Notice: X did not send closing signature - hand settled",
+                "⚠ Aviso: a X no les llegó la prueba de barajado honesto");
+
+        alerts.forEach(alert -> assertTrue(
+                GdxGameLogFormatter.isCriticalIntegrityLine(alert), alert));
+        assertFalse(GdxGameLogFormatter.isCriticalIntegrityLine(
+                "El chat menciona una alerta de seguridad sin marcador"));
+        assertFalse(GdxGameLogFormatter.isCriticalIntegrityLine(
+                "⚠️ Aviso de conexión ordinario"));
+        assertFalse(GdxGameLogFormatter.isCriticalIntegrityLine(
+                "⚠ Aviso: el host reprodujo acciones durante tu ausencia"));
+        assertFalse(GdxGameLogFormatter.isCriticalIntegrityLine(
+                "⚠️ [ZERO-TRUST] No hay log binario previo para esta mano"));
+        assertFalse(GdxGameLogFormatter.isCriticalIntegrityLine(
+                "✔️ [ZERO-TRUST] Barajado verificado"));
     }
 
     private static void assertRunColor(String line, String token,

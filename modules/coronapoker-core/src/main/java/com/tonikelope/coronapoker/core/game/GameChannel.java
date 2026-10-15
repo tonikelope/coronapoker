@@ -12,10 +12,28 @@ import java.util.function.Consumer;
  */
 public interface GameChannel extends AutoCloseable {
 
+    enum SecurityIncidentType {
+        INBOUND_FLOOD_EXPELLED,
+        BINARY_FLOOD_DROPPED
+    }
+
     record Inbound(String peerNickname, String command) {
         public Inbound {
             peerNickname = Objects.requireNonNull(peerNickname, "peerNickname");
             command = Objects.requireNonNull(command, "command");
+        }
+    }
+
+    /** Authenticated transport abuse with enough context for one user alert. */
+    record SecurityIncident(String peerNickname, SecurityIncidentType type) {
+        public SecurityIncident {
+            peerNickname = Objects.requireNonNull(peerNickname,
+                    "peerNickname");
+            if (peerNickname.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Security incident peer nickname is required");
+            }
+            type = Objects.requireNonNull(type, "type");
         }
     }
 
@@ -30,6 +48,17 @@ public interface GameChannel extends AutoCloseable {
      * and relay the resulting EXIT transition to the surviving peers.
      */
     default AutoCloseable subscribePeerLoss(Consumer<String> listener) {
+        Objects.requireNonNull(listener, "listener");
+        return () -> { };
+    }
+
+    /**
+     * Subscribes to deduplicated abuse events emitted after authentication.
+     * Pre-authentication refusal intentionally stays transport-local so it
+     * cannot become a remote popup oracle.
+     */
+    default AutoCloseable subscribeSecurityIncidents(
+            Consumer<SecurityIncident> listener) {
         Objects.requireNonNull(listener, "listener");
         return () -> { };
     }

@@ -40,6 +40,27 @@ final class GdxGameLogFormatter {
     private static final Pattern EMPHASIS_PATTERN = Pattern.compile(
             "(?iu)\\b(?:FLOP|TURN|RIVER|GANADOR|GANA|PIERDE|WINS POT|"
                     + "LOSES POT|ERROR|FALLO)\\b");
+    private static final Pattern CRITICAL_SECURITY_PATTERN = Pattern.compile(
+            "(?iu)^\\s*\\u26a0(?:\\ufe0f)?\\s*\\[(?:SECURITY ALERT|"
+                    + "ALERTA DE SEGURIDAD|ANOMALOUS (?:PLAYER|SERVER) "
+                    + "BEHAVIOUR|COMPORTAMIENTO ANÓMALO (?:DE UN JUGADOR|"
+                    + "DEL SERVIDOR)|ZERO-TRUST ALERT)\\]"
+                    + "|^\\s*\\u274c\\s*\\[ZERO-TRUST\\]"
+                    + "|^\\s*\\u26a0(?:\\ufe0f)?\\s*\\[ZERO-TRUST\\]\\s*"
+                    + "(?:ACTION REJECTED|ACCIÓN RECHAZADA)");
+    private static final Pattern CRITICAL_INTEGRITY_PATTERN = Pattern.compile(
+            "(?iu)^\\s*(?:MANO ANULADA|HAND CANCELED|MOTIVO:|REASON:|"
+                    + "\\p{So}?\\s*\\[LOCKDOWN\\]|"
+                    + "\\u26a0\\s*(?:DIVERGENCIA EN VERIFICACIÓN "
+                    + "CRIPTOGRÁFICA|CRYPTOGRAPHIC VERIFICATION DIVERGENCE|"
+                    + "FIRMA CRIPTOGRÁFICA INVÁLIDA EN ACCIÓN|"
+                    + "INVALID CRYPTOGRAPHIC SIGNATURE ON ACTION)|"
+                    + "\\u26a0\\s*(?:Aviso: .*?(?:NO ENVIÓ FIRMA DE CIERRE|"
+                    + "FIRMA CRIPTOGRÁFICA INVÁLIDA DURANTE ESTA MANO|"
+                    + "NO LES LLEGÓ LA PRUEBA DE BARAJADO HONESTO)|"
+                    + "Notice: .*?(?:DID NOT SEND CLOSING SIGNATURE|"
+                    + "INVALID CRYPTOGRAPHIC SIGNATURE DURING THIS HAND|"
+                    + "DID NOT RECEIVE THE HONEST-SHUFFLE PROOF)))");
 
     private GdxGameLogFormatter() {
     }
@@ -140,6 +161,20 @@ final class GdxGameLogFormatter {
                 && GRID_PATTERN.matcher(visibleText(value)).find();
     }
 
+    /**
+     * Identifies the translated zero-trust prefixes emitted by the dealer.
+     * The game log deliberately carries plain text rather than presentation
+     * metadata, so the native renderer recognises the complete, anchored
+     * Spanish/English markers and never guesses from an ordinary occurrence
+     * of words such as "error" or "security" in a nickname or chat line.
+     */
+    static boolean isCriticalIntegrityLine(String value) {
+        if (value == null) return false;
+        String visible = visibleText(value);
+        return CRITICAL_SECURITY_PATTERN.matcher(visible).find()
+                || CRITICAL_INTEGRITY_PATTERN.matcher(visible).find();
+    }
+
     /** Exact visible payload used by both text and vector-grid layout. */
     static String displayText(String value) {
         String visible = CARD_PAREN_PATTERN.matcher(visibleText(value))
@@ -198,6 +233,7 @@ final class GdxGameLogFormatter {
     }
 
     private static Color lineColor(String value) {
+        if (isCriticalIntegrityLine(value)) return DEFAULT;
         Marker marker = marker(value);
         String visible = visibleText(value);
         if (marker == Marker.GRID || marker == Marker.MULTIVERSE) return DIM;

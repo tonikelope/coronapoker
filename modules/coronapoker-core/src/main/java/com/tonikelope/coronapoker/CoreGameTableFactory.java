@@ -1084,8 +1084,43 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 command.command()});
                     if (!hotJoin.acceptBoundaryReady(
                             command.peerNickname(), envelope)) {
-                        throw new IllegalArgumentException(
-                                "HOTJOIN_READY source is not warming");
+                        /*
+                         * A genuinely new human can join a reconstructed
+                         * lobby before Start. That peer is part of the lobby
+                         * transport (unlike a live hot join), but recovery
+                         * classifies it as CALENTANDO after comparing the
+                         * durable hand roster. Its authenticated
+                         * HOTJOIN_READY is therefore the strict equivalent of
+                         * HAND_READY for the immediate next hand. Accept only
+                         * this recovery-only, already-seated path; unknown or
+                         * live non-warming sources remain protocol violations.
+                         */
+                        if (!lobby.recovering()
+                                || !peers.containsKey(
+                                        command.peerNickname())) {
+                            throw new IllegalArgumentException(
+                                    "HOTJOIN_READY source is not warming");
+                        }
+                        int hand = HotJoinSync.readyHand(envelope,
+                                "HOTJOIN_READY");
+                        dealer.acceptRemoteHandReady(
+                                command.peerNickname(),
+                                "GAME#0#HAND_READY#" + hand);
+                        try {
+                            context.channel().sendFromHost(
+                                    command.peerNickname(),
+                                    "HOTJOIN_ACTIVE#" + hand);
+                        } catch (java.io.IOException unavailable) {
+                            throw new IllegalArgumentException(
+                                    "Recovery observer activation failed",
+                                    unavailable);
+                        }
+                        java.util.logging.Logger.getLogger(
+                                CoreGameTableFactory.class.getName()).log(
+                                java.util.logging.Level.INFO,
+                                "RECOVER: activated lobby newcomer {0} for hand {1}",
+                                new Object[]{command.peerNickname(), hand});
+                        return;
                     }
                     if (peers.containsKey(command.peerNickname())) {
                         hotJoin.completeAdmission(command.peerNickname());
@@ -1179,6 +1214,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
             dealer.requestDefinitivePeerLossAbort(nickname);
             notifyBettingWait(dealer);
         });
+        AutoCloseable securityIncidents = context.channel()
+                .subscribeSecurityIncidents(incident -> {
+                    if (!lobby.host() || closing.get()) return;
+                    String reasonKey = switch (incident.type()) {
+                        case INBOUND_FLOOD_EXPELLED
+                                -> "zero_trust.peer_expelled_flood";
+                        case BINARY_FLOOD_DROPPED
+                                -> "zero_trust.peer_binary_flood";
+                    };
+                    dealer.warnMaliciousPeer(incident.peerNickname(),
+                            reasonKey);
+                });
 
                 TableSession table = new TableSession(initialSnapshot(lobby,
                 initialConfiguration.buyin(), context.hotJoining()), command -> {
@@ -1272,6 +1319,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     pause.resume();
                     notifyBettingWait(dealer);
                     hotJoin.close();
+                    securityIncidents.close();
                     peerLoss.close();
                     inbound.close();
                     context.channel().close();

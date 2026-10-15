@@ -19,7 +19,8 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
-<img width="2560" height="1440" alt="imagen" src="https://github.com/user-attachments/assets/398caad9-9196-467f-ac0a-bbc1cf2c2aad" />
+<img width="2560" height="1440" alt="imagen" src="https://github.com/user-attachments/assets/c080c9bd-8bc6-489c-9d0d-58908a9b1246" />
+
 
 
 # Features

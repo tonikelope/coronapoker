@@ -296,11 +296,12 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             this.totalVoters = totalVoters;
             this.potText = potText;
             this.voteListener = voteListener;
-            dialog = new GdxTableDialog(GdxTableDialog.Kind.CONFIRM,
+            dialog = new GdxTableDialog(GdxTableDialog.Kind.RUN_IT_TWICE,
                     tr("runittwice.dialog_title", "RUN IT TWICE"), message(),
-                    GameDialogSink.Icon.NONE, 820, timeoutSeconds, false,
+                    GameDialogSink.Icon.NONE, 920, timeoutSeconds, false,
                     tr("gdx.runittwice.once", "UNA VEZ"),
                     tr("gdx.runittwice.twice", "DOS VECES"));
+            dialog.runItTwiceTally(potText, normal, twice, totalVoters);
             dialog.result().thenAccept(answer -> choose(answer
                     ? VOTE_RUN_IT_TWICE : VOTE_NORMAL));
             presenter.accept(dialog);
@@ -313,6 +314,8 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             this.normal = Math.max(0, normal);
             this.twice = Math.max(0, runItTwice);
             dialog.message(message());
+            dialog.runItTwiceTally(potText, this.normal, this.twice,
+                    totalVoters);
         }
 
         private String message() {

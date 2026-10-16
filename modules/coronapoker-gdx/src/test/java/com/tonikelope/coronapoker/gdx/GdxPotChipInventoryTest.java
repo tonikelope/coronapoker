@@ -54,6 +54,84 @@ class GdxPotChipInventoryTest {
     }
 
     @Test
+    void totalBetRackUsesTheSamePeakCompressionReliefAsEveryOtherRack() {
+        ArrayList<CoronaPokerGdxTable.VisualChipSpec> greenTower =
+                new ArrayList<>();
+        for (int chip = 0; chip < 40; chip++) {
+            greenTower.add(chip(1d, GdxChipDenominations.color(3)));
+        }
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.stackChipRackGeometry(true));
+        GdxStackChipLayout.Layout before = CoronaPokerGdxTable
+                .visualChipLayout(greenTower);
+
+        List<CoronaPokerGdxTable.VisualChipSpec> relieved =
+                GdxPotChipInventory.relieveCompressedColumns(greenTower,
+                        0.1d, capacities);
+        GdxStackChipLayout.Layout after = CoronaPokerGdxTable
+                .visualChipLayout(relieved);
+
+        assertEquals(40d, amount(relieved), 0.000_001d);
+        assertTrue(GdxStackChipLayout.compressionPeakOverflow(after,
+                capacities) < GdxStackChipLayout.compressionPeakOverflow(
+                        before, capacities));
+        assertTrue(after.columns().stream().allMatch(
+                column -> !column.chips().isEmpty()));
+    }
+
+    @Test
+    void runItTwiceReservesTwoExactBalancedBoardInventories() {
+        ArrayList<CoronaPokerGdxTable.VisualChipSpec> fullPot =
+                new ArrayList<>();
+        for (int chip = 0; chip < 30; chip++) {
+            fullPot.add(chip(1d, GdxChipDenominations.color(3)));
+        }
+        for (int chip = 0; chip < 3; chip++) {
+            fullPot.add(chip(0.2d, GdxChipDenominations.color(1)));
+        }
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.potChipRackGeometry());
+
+        GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
+                .splitForRunItTwice(fullPot, 15.3d, 0.1d,
+                        capacities, 91L);
+        GdxStackChipLayout.Layout sideA = CoronaPokerGdxTable
+                .visualChipLayout(split.sideA());
+        GdxStackChipLayout.Layout sideB = CoronaPokerGdxTable
+                .visualChipLayout(split.sideB());
+
+        assertEquals(15.3d, amount(split.sideA()), 0.000_001d);
+        assertEquals(15.3d, amount(split.sideB()), 0.000_001d);
+        assertTrue(split.remainder().isEmpty());
+        assertEquals(columnHeights(sideA), columnHeights(sideB));
+        assertTrue(sideA.columns().stream().allMatch(
+                column -> !column.chips().isEmpty()));
+        assertTrue(sideB.columns().stream().allMatch(
+                column -> !column.chips().isEmpty()));
+    }
+
+    @Test
+    void runItTwiceKeepsTheOddPhysicalRemainderOutsideBothBoards() {
+        ArrayList<CoronaPokerGdxTable.VisualChipSpec> fullPot =
+                new ArrayList<>();
+        for (int chip = 0; chip < 30; chip++) {
+            fullPot.add(chip(1d, GdxChipDenominations.color(3)));
+        }
+        fullPot.add(chip(0.5d, GdxChipDenominations.color(2)));
+        fullPot.add(chip(0.2d, GdxChipDenominations.color(1)));
+
+        GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
+                .splitForRunItTwice(fullPot, 15.3d, 0.1d,
+                        CoronaPokerGdxTable.relaxedRackCapacities(
+                                CoronaPokerGdxTable.potChipRackGeometry()),
+                        92L);
+
+        assertEquals(15.3d, amount(split.sideA()), 0.000_001d);
+        assertEquals(15.3d, amount(split.sideB()), 0.000_001d);
+        assertEquals(0.1d, amount(split.remainder()), 0.000_001d);
+    }
+
+    @Test
     void wholePayoutReturnsTheExactStoredChipMultiset() {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
         List<CoronaPokerGdxTable.VisualChipSpec> deposited = List.of(
@@ -235,5 +313,12 @@ class GdxPotChipInventoryTest {
             List<CoronaPokerGdxTable.VisualChipSpec> chips) {
         return chips.stream().map(CoronaPokerGdxTable.VisualChipSpec::color)
                 .sorted().toList();
+    }
+
+    private static List<Integer> columnHeights(
+            GdxStackChipLayout.Layout layout) {
+        return layout.columns().stream()
+                .map(GdxStackChipLayout.Column::chips)
+                .map(List::size).toList();
     }
 }

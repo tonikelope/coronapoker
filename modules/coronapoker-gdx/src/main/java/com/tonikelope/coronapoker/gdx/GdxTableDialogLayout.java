@@ -39,6 +39,23 @@ final class GdxTableDialogLayout {
                         rowWidth, GdxSettingsLayout.ROW_HEIGHT));
     }
 
+    static RunItTwice runItTwice(float panelX, float panelY,
+            float panelWidth) {
+        float contentX = panelX + 56f;
+        float contentWidth = panelWidth - 112f;
+        float gap = 24f;
+        float cardWidth = (contentWidth - gap) / 2f;
+        return new RunItTwice(
+                new Rectangle(panelX + panelWidth / 2f - 220f,
+                        panelY + 347f, 440f, 54f),
+                new Rectangle(contentX, panelY + 188f,
+                        cardWidth, 135f),
+                new Rectangle(contentX + cardWidth + gap,
+                        panelY + 188f, cardWidth, 135f),
+                new Rectangle(contentX, panelY + 137f,
+                        contentWidth, 34f));
+    }
+
     static Rectangle title(float panelX, float panelY, float panelWidth,
             float panelHeight) {
         return new Rectangle(panelX + 42f, panelY + panelHeight - 80f,
@@ -57,5 +74,9 @@ final class GdxTableDialogLayout {
 
     record AutoCall(Rectangle detail, Rectangle enabled, Rectangle noLimit,
             GdxSettingsLayout.StepperRow amount) {
+    }
+
+    record RunItTwice(Rectangle pot, Rectangle onceVotes,
+            Rectangle twiceVotes, Rectangle requirement) {
     }
 }

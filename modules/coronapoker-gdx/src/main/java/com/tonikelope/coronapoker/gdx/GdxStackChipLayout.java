@@ -98,7 +98,7 @@ final class GdxStackChipLayout {
      * chips that have just arrived retain their colour while every column
      * still fits at its relaxed spacing. A new exact composition is accepted
      * only when one column is compressed, another has relaxed capacity left,
-     * and the exchange strictly reduces the total overflow.
+     * and the exchange strictly reduces the worst compression pressure.
      */
     static Layout relieveCompression(Layout current, double exactAmount,
             double smallBlind, double referenceAmount,
@@ -125,23 +125,76 @@ final class GdxStackChipLayout {
         if (!compressed || !hasRelaxedRoom) return current;
 
         Layout exact = compose(exactAmount, smallBlind, referenceAmount);
-        return compressionOverflow(exact, relaxedCapacities)
-                < compressionOverflow(current, relaxedCapacities)
-                        ? exact : current;
+        return hasLowerCompressionPressure(exact, current,
+                relaxedCapacities) ? exact : current;
+    }
+
+    /**
+     * Prefers lowering the tallest compressed tower before minimizing the
+     * aggregate overflow. A colour-up can legitimately create more physical
+     * chips overall while spreading them across four much shorter columns;
+     * comparing only the total overflow kept an extreme x10 tower unchanged
+     * even when the other denominations were empty.
+     */
+    private static boolean hasLowerCompressionPressure(Layout candidate,
+            Layout current, int[] relaxedCapacities) {
+        int candidatePeak = compressionPeakOverflow(candidate,
+                relaxedCapacities);
+        int currentPeak = compressionPeakOverflow(current,
+                relaxedCapacities);
+        if (candidatePeak != currentPeak) return candidatePeak < currentPeak;
+
+        long candidateEnergy = compressionOverflowEnergy(candidate,
+                relaxedCapacities);
+        long currentEnergy = compressionOverflowEnergy(current,
+                relaxedCapacities);
+        if (candidateEnergy != currentEnergy) {
+            return candidateEnergy < currentEnergy;
+        }
+        return compressionOverflow(candidate, relaxedCapacities)
+                < compressionOverflow(current, relaxedCapacities);
+    }
+
+    static int compressionPeakOverflow(Layout layout,
+            int[] relaxedCapacities) {
+        validateCompressionArguments(layout, relaxedCapacities);
+        int peak = 0;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            peak = Math.max(peak, Math.max(0, layout.columnHeight(column)
+                    - Math.max(0, relaxedCapacities[column])));
+        }
+        return peak;
+    }
+
+    static long compressionOverflowEnergy(Layout layout,
+            int[] relaxedCapacities) {
+        validateCompressionArguments(layout, relaxedCapacities);
+        long energy = 0L;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            long overflow = Math.max(0, layout.columnHeight(column)
+                    - Math.max(0, relaxedCapacities[column]));
+            energy += overflow * overflow;
+        }
+        return energy;
     }
 
     static int compressionOverflow(Layout layout, int[] relaxedCapacities) {
-        if (layout == null || relaxedCapacities == null
-                || relaxedCapacities.length != COLUMN_COUNT) {
-            throw new IllegalArgumentException(
-                    "A stack rack requires four relaxed capacities");
-        }
+        validateCompressionArguments(layout, relaxedCapacities);
         int overflow = 0;
         for (int column = 0; column < COLUMN_COUNT; column++) {
             overflow += Math.max(0, layout.columnHeight(column)
                     - Math.max(0, relaxedCapacities[column]));
         }
         return overflow;
+    }
+
+    private static void validateCompressionArguments(Layout layout,
+            int[] relaxedCapacities) {
+        if (layout == null || relaxedCapacities == null
+                || relaxedCapacities.length != COLUMN_COUNT) {
+            throw new IllegalArgumentException(
+                    "A stack rack requires four relaxed capacities");
+        }
     }
 
     /** Selects the fewest exact chips that physically exist in this rack. */

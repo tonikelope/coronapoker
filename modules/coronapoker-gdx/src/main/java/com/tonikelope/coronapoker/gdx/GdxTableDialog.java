@@ -25,7 +25,8 @@ final class GdxTableDialog {
         AUTO_ACTION,
         REBUY,
         AUTO_CALL,
-        HAND_LIMIT
+        HAND_LIMIT,
+        RUN_IT_TWICE
     }
 
     private final Kind kind;
@@ -57,6 +58,10 @@ final class GdxTableDialog {
     private boolean gameOverChoice;
     private boolean gameOverCinematics;
     private boolean gameOverFinalFrame;
+    private String runItTwicePotText = "";
+    private int runItTwiceNormalVotes;
+    private int runItTwiceVotes;
+    private int runItTwiceTotalVoters;
     private String waitingMessage = "";
 
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
@@ -267,6 +272,11 @@ final class GdxTableDialog {
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean allowsDismissal() { return !isRebuy() || showsNegative(); }
     boolean isHandLimit() { return kind == Kind.HAND_LIMIT; }
+    boolean isRunItTwice() { return kind == Kind.RUN_IT_TWICE; }
+    String runItTwicePotText() { return runItTwicePotText; }
+    int runItTwiceNormalVotes() { return runItTwiceNormalVotes; }
+    int runItTwiceVotes() { return runItTwiceVotes; }
+    int runItTwiceTotalVoters() { return runItTwiceTotalVoters; }
     boolean isExitChoice() { return exitChoice; }
     boolean isExternallyControlled() { return externallyControlled; }
     boolean waitingForExternalClose() {
@@ -294,6 +304,15 @@ final class GdxTableDialog {
 
     void message(String value) {
         message = plainText(Objects.requireNonNull(value, "value"));
+    }
+
+    void runItTwiceTally(String potText, int normalVotes,
+            int twiceVotes, int totalVoters) {
+        runItTwicePotText = plainText(Objects.requireNonNull(
+                potText, "potText"));
+        runItTwiceNormalVotes = Math.max(0, normalVotes);
+        runItTwiceVotes = Math.max(0, twiceVotes);
+        runItTwiceTotalVoters = Math.max(0, totalVoters);
     }
 
     void opened(float now) {
@@ -485,6 +504,7 @@ final class GdxTableDialog {
             case REBUY -> "RECOMPRAR";
             case AUTO_CALL -> "AUTO IGUALAR";
             case HAND_LIMIT -> "L\u00cdMITE DE MANOS";
+            case RUN_IT_TWICE -> "RUN IT TWICE";
         };
     }
 

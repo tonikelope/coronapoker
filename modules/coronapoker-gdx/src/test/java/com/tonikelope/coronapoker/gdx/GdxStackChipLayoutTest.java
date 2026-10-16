@@ -281,6 +281,32 @@ final class GdxStackChipLayoutTest {
     }
 
     @Test
+    void tallestCompressedTowerIsRelievedBeforeAggregateChipCount() {
+        int green = GdxChipDenominations.color(3);
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(0d,
+                0.1d);
+        for (int chip = 0; chip < 40; chip++) {
+            rack = GdxStackChipLayout.add(rack, 100L, green);
+        }
+        for (boolean localSize : List.of(false, true)) {
+            int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                    CoronaPokerGdxTable.stackChipRackGeometry(localSize));
+
+            GdxStackChipLayout.Layout relieved = GdxStackChipLayout
+                    .relieveCompression(rack, 40d, 0.1d, 10d,
+                            capacities);
+
+            assertEquals(rack.representedMinor(),
+                    relieved.representedMinor());
+            assertTrue(GdxStackChipLayout.compressionPeakOverflow(relieved,
+                    capacities) < GdxStackChipLayout
+                            .compressionPeakOverflow(rack, capacities));
+            assertTrue(relieved.columns().stream().allMatch(
+                    column -> !column.chips().isEmpty()));
+        }
+    }
+
+    @Test
     void compressedRackKeepsItsColoursWhenNoRelaxedColumnHasRoom() {
         int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
                 CoronaPokerGdxTable.stackChipRackGeometry(false));

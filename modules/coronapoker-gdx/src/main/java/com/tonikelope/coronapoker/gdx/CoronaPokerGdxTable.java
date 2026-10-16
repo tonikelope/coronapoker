@@ -740,6 +740,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color SWING_STACK_GREEN = new Color(0x339900ff);
     private static final Color SWING_REBUY_CYAN = new Color(0x00ffffff);
     private static final Color POT_GOLD = new Color(0xffe07aff);
+    private static final Color RIT_ONCE_FILL = new Color(0x0b2940cc);
+    private static final Color RIT_TWICE_FILL = new Color(0x34290dcc);
     private static final Color ACTIVE_TURN_GOLD = new Color(0xffad20ff);
     private static final Color BUTTON_LINE = new Color(0x31445fff);
     private static final Color SETTINGS_DISABLED = new Color(
@@ -1232,6 +1234,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = new HashMap<>();
     private final GdxPotChipInventory livePotChips =
             new GdxPotChipInventory();
+    /** Physical chips reserved for the second Run It Twice board. */
+    private List<VisualChipSpec> runItTwiceSideBPotChips = List.of();
+    /** Odd physical remainder carried beyond both Run It Twice boards. */
+    private List<VisualChipSpec> runItTwiceResidualPotChips = List.of();
+    private double runItTwiceBoardPotAmount;
+    private long runItTwicePotPartitionSeed;
+    private boolean runItTwicePotPartitionPending;
     private final float[] potChipRebalanceFromCounts =
             new float[GdxStackChipLayout.COLUMN_COUNT];
     private final float[] potChipRebalanceTargetCounts =
@@ -3741,6 +3750,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             clearCardPresentationForHotJoin();
             liveState.apply(event);
             liveInvestmentChips.clear();
+            clearRunItTwicePotPartition();
             replacePotChipInventory(liveState.snapshot().pot(),
                     event.sequence());
             syncRemoteRebuyPresentationFromHotJoinSnapshot();
@@ -4209,6 +4219,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else {
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
+                restoreUnspentRunItTwicePotChips();
                 pendingStackRackRebalances.keySet().forEach(
                         this::rebalanceSeatRack);
                 pendingStackRackRebalances.clear();
@@ -4243,6 +4254,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean wasLastHand = liveState.lastHand();
             liveState.apply(event);
+            if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
+                acceptRunItTwicePotBoard(board);
+            }
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase()
                     != TableVisualEvent.HandBoundary.Phase.END) {
@@ -4585,8 +4599,129 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || chips == null || chips.isEmpty()) {
             return;
         }
-        liveInvestmentChips.computeIfAbsent(nickname,
-                ignored -> new ArrayList<>()).addAll(chips);
+        ArrayList<VisualChipSpec> investment = liveInvestmentChips
+                .computeIfAbsent(nickname, ignored -> new ArrayList<>());
+        investment.addAll(chips);
+        List<VisualChipSpec> relieved = GdxPotChipInventory
+                .relieveCompressedColumns(investment,
+                        liveCounterDenomination(), relaxedRackCapacities(
+                                stackChipRackGeometry(true)));
+        if (!relieved.equals(investment)) {
+            investment.clear();
+            investment.addAll(relieved);
+        }
+    }
+
+    private void acceptRunItTwicePotBoard(
+            TableVisualEvent.RunItTwiceBoard board) {
+        if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
+            runItTwiceSideBPotChips = List.of();
+            runItTwiceResidualPotChips = List.of();
+            runItTwiceBoardPotAmount = board.potAmount();
+            runItTwicePotPartitionSeed = board.sequence();
+            runItTwicePotPartitionPending = true;
+            prepareRunItTwicePotPartitionIfReady();
+            return;
+        }
+
+        // SIDE-A's payout has already consumed its reserved rack. SIDE-B must
+        // receive its own exact half, not whatever happened to remain after
+        // withdrawing from a full-pot inventory.
+        if (!runItTwiceSideBPotChips.isEmpty()) {
+            if (livePotChips.size() > 0) {
+                ArrayList<VisualChipSpec> residual = new ArrayList<>(
+                        runItTwiceResidualPotChips);
+                residual.addAll(livePotChips.snapshot());
+                runItTwiceResidualPotChips = List.copyOf(residual);
+            }
+            livePotChips.clear();
+            livePotChips.deposit(runItTwiceSideBPotChips);
+            runItTwiceSideBPotChips = List.of();
+        } else if (visualChipAmountMinor(livePotChips.snapshot())
+                != Math.round(board.potAmount() * 100d)) {
+            // Recovery-only fallback. Normal play always reaches the reserved
+            // branch above, while a mid-sequence reconnect can legitimately
+            // arrive without SIDE-A's renderer-local inventory.
+            replacePotChipInventory(board.potAmount(), board.sequence());
+        }
+        runItTwicePotPartitionPending = false;
+        potChipRebalanceStartedAt = Float.NaN;
+    }
+
+    private void prepareRunItTwicePotPartitionIfReady() {
+        if (!runItTwicePotPartitionPending
+                || !liveActionChips.isEmpty()
+                || liveChipBatch != null || pendingCollectBets != null) {
+            return;
+        }
+
+        List<VisualChipSpec> fullPot = livePotChips.snapshot();
+        long boardMinor = Math.max(0L,
+                Math.round(runItTwiceBoardPotAmount * 100d));
+        long fullMinor = visualChipAmountMinor(fullPot);
+        if (boardMinor <= 0L) {
+            clearRunItTwicePotPartition();
+            return;
+        }
+        if (fullMinor < boardMinor * 2L) {
+            // No physical flight remains at this point, so an undersized
+            // renderer cache is stale (typically a recovery cut-over). Repair
+            // the complete visual pot before partitioning; canonical money is
+            // untouched and still comes exclusively from the board event.
+            fullPot = dynamicVisualChips(
+                    boardMinor * 2L / 100d, liveCounterDenomination(),
+                    runItTwicePotPartitionSeed ^ 0xbe5466cf34e90c6cL);
+            fullMinor = visualChipAmountMinor(fullPot);
+        }
+
+        int[] capacities = relaxedRackCapacities(potChipRackGeometry());
+        GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
+                .splitForRunItTwice(fullPot, runItTwiceBoardPotAmount,
+                        liveCounterDenomination(), capacities,
+                        runItTwicePotPartitionSeed);
+        if (visualChipAmountMinor(split.sideA()) != boardMinor
+                || visualChipAmountMinor(split.sideB()) != boardMinor) {
+            // Defensive recovery for a non-standard denomination remainder.
+            // It changes presentation only and preserves the exact amount.
+            List<VisualChipSpec> sideA = dynamicVisualChips(
+                    runItTwiceBoardPotAmount, liveCounterDenomination(),
+                    runItTwicePotPartitionSeed ^ 0xa4093822299f31d0L);
+            List<VisualChipSpec> sideB = dynamicVisualChips(
+                    runItTwiceBoardPotAmount, liveCounterDenomination(),
+                    runItTwicePotPartitionSeed ^ 0x082efa98ec4e6c89L);
+            double residualAmount = Math.max(0d,
+                    (fullMinor - boardMinor * 2L) / 100d);
+            split = new GdxPotChipInventory.RunItTwiceSplit(sideA, sideB,
+                    dynamicVisualChips(residualAmount,
+                            liveCounterDenomination(),
+                            runItTwicePotPartitionSeed
+                                    ^ 0x452821e638d01377L));
+        }
+
+        livePotChips.clear();
+        livePotChips.deposit(split.sideA());
+        runItTwiceSideBPotChips = split.sideB();
+        runItTwiceResidualPotChips = split.remainder();
+        runItTwicePotPartitionPending = false;
+        potChipRebalanceStartedAt = Float.NaN;
+    }
+
+    private void restoreUnspentRunItTwicePotChips() {
+        if (!runItTwiceSideBPotChips.isEmpty()) {
+            livePotChips.deposit(runItTwiceSideBPotChips);
+        }
+        if (!runItTwiceResidualPotChips.isEmpty()) {
+            livePotChips.deposit(runItTwiceResidualPotChips);
+        }
+        clearRunItTwicePotPartition();
+    }
+
+    private void clearRunItTwicePotPartition() {
+        runItTwiceSideBPotChips = List.of();
+        runItTwiceResidualPotChips = List.of();
+        runItTwiceBoardPotAmount = 0d;
+        runItTwicePotPartitionSeed = 0L;
+        runItTwicePotPartitionPending = false;
     }
 
     private void applyLandedChipInventories(LiveChip chip, float progress) {
@@ -6699,6 +6834,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static float dialogHeight(GdxTableDialog dialog) {
         return dialog.isGameOver()
                         ? (dialog.isGameOverChoice() ? 570f : 390f)
+                : dialog.isRunItTwice() ? 520f
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
                 : dialog.isZeroTrust() ? 760f
@@ -13207,6 +13343,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     pending.presentationSnapshot,
                     livePotContributions, liveCounterDenomination());
         }
+        prepareRunItTwicePotPartitionIfReady();
     }
 
     private void drawLivePositionChips() {
@@ -15461,6 +15598,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } finally {
             liveChipBatch = null;
         }
+        prepareRunItTwicePotPartitionIfReady();
     }
 
     private void updateLivePayout() {
@@ -19733,6 +19871,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
+        GdxTableDialogLayout.RunItTwice runItTwiceLayout =
+                dialog.isRunItTwice()
+                        ? GdxTableDialogLayout.runItTwice(
+                                panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
         float negativeX = panelX + 42f;
         float negativeW = 230f;
@@ -19742,7 +19884,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case ERROR, ZERO_TRUST -> FOLD_RED;
             case INFO -> CYAN;
             case CONFIRM, TIMED_WARNING, AUTO_ACTION, REBUY, AUTO_CALL,
-                    HAND_LIMIT, GAME_OVER -> POT_GOLD;
+                    HAND_LIMIT, RUN_IT_TWICE, GAME_OVER -> POT_GOLD;
         };
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -19751,9 +19893,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelW, panelH, accent, 1f);
         GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
                 panelY + 125f, panelW - 56f, panelH - 222f, 1f);
+        if (dialog.isRunItTwice()) {
+            GdxUiDialogStyle.drawInset(shapes,
+                    runItTwiceLayout.pot().x, runItTwiceLayout.pot().y,
+                    runItTwiceLayout.pot().width,
+                    runItTwiceLayout.pot().height,
+                    PANEL, POT_GOLD, 1f);
+            GdxUiDialogStyle.drawInset(shapes,
+                    runItTwiceLayout.onceVotes().x,
+                    runItTwiceLayout.onceVotes().y,
+                    runItTwiceLayout.onceVotes().width,
+                    runItTwiceLayout.onceVotes().height,
+                    RIT_ONCE_FILL, CYAN, 1f);
+            GdxUiDialogStyle.drawInset(shapes,
+                    runItTwiceLayout.twiceVotes().x,
+                    runItTwiceLayout.twiceVotes().y,
+                    runItTwiceLayout.twiceVotes().width,
+                    runItTwiceLayout.twiceVotes().height,
+                    RIT_TWICE_FILL, POT_GOLD, 1f);
+        }
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButton(negativeX, buttonY, negativeW, buttonH,
-                    dialog.isExitChoice() ? LATENCY_GREEN : BUTTON_LINE,
+                    dialog.isExitChoice() ? LATENCY_GREEN
+                            : dialog.isRunItTwice() ? CYAN : BUTTON_LINE,
                     contains(pointer.x, pointer.y,
                             negativeX, buttonY, negativeW, buttonH), 1f);
         }
@@ -19856,7 +20018,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLeftInBox(uiFont, dialog.title(), title.x, title.y,
                     title.width, title.height, accent, 1f);
         }
-        if (dialog.isAutoCall()) {
+        if (dialog.isRunItTwice()) {
+            Rectangle pot = runItTwiceLayout.pot();
+            drawFittedCenteredInBox(actionFont, uppercase(
+                    gameText.translate("gdx.runittwice.pot",
+                            dialog.runItTwicePotText())),
+                    pot.x + 18f, pot.y + 4f, pot.width - 36f,
+                    pot.height - 8f, POT_GOLD, 1f);
+            drawRunItTwiceTallyCard(runItTwiceLayout.onceVotes(),
+                    dialog.negativeLabel(), dialog.runItTwiceNormalVotes(),
+                    CYAN);
+            drawRunItTwiceTallyCard(runItTwiceLayout.twiceVotes(),
+                    dialog.positiveLabel(), dialog.runItTwiceVotes(),
+                    POT_GOLD);
+            Rectangle requirement = runItTwiceLayout.requirement();
+            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                    "gdx.runittwice.unanimity",
+                    dialog.runItTwiceTotalVoters())),
+                    requirement.x, requirement.y, requirement.width,
+                    requirement.height, Color.LIGHT_GRAY, 1f);
+        } else if (dialog.isAutoCall()) {
             Rectangle detail = autoCallLayout.detail();
             drawFittedCenteredInBox(smallFont, dialog.message(),
                     detail.x, detail.y, detail.width, detail.height,
@@ -20002,6 +20183,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color.WHITE, 1f);
         }
         batch.end();
+    }
+
+    private void drawRunItTwiceTallyCard(Rectangle bounds, String label,
+            int votes, Color accent) {
+        drawFittedCenteredInBox(smallFont, uppercase(label),
+                bounds.x + 18f, bounds.y + bounds.height - 45f,
+                bounds.width - 36f, 30f, accent, 1f);
+        drawFittedCenteredInBox(dialogAmountFont, Integer.toString(votes),
+                bounds.x + 24f, bounds.y + 17f,
+                bounds.width - 48f, 68f, Color.WHITE, 1f);
     }
 
     /**

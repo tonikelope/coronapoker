@@ -30,12 +30,17 @@ final class GdxGameDecisionSinkTest {
                 = decisions.showRunItTwice(15, 2, "20", selected::set);
         GdxTableDialog dialog = shown.get(0);
         assertEquals("RUN IT TWICE", dialog.title());
+        assertTrue(dialog.isRunItTwice());
         assertEquals(15, dialog.seconds());
         assertEquals("UNA VEZ", dialog.negativeLabel());
         assertEquals("DOS VECES", dialog.positiveLabel());
         accepted.updateTally(0, 1);
         assertTrue(dialog.message().contains("0 UNA VEZ"));
         assertTrue(dialog.message().contains("1 DOS VECES"));
+        assertEquals("20", dialog.runItTwicePotText());
+        assertEquals(0, dialog.runItTwiceNormalVotes());
+        assertEquals(1, dialog.runItTwiceVotes());
+        assertEquals(2, dialog.runItTwiceTotalVoters());
         dialog.accept();
         assertEquals(GameDecisionSink.VOTE_RUN_IT_TWICE,
                 accepted.currentVote());

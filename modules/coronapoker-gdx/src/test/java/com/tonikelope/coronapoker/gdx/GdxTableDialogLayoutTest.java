@@ -53,6 +53,28 @@ final class GdxTableDialogLayoutTest {
     }
 
     @Test
+    void runItTwiceSeparatesPotVoteTalliesAndRequirement() {
+        Rectangle panel = new Rectangle(500f, 200f, 920f, 520f);
+        GdxTableDialogLayout.RunItTwice layout =
+                GdxTableDialogLayout.runItTwice(
+                        panel.x, panel.y, panel.width);
+
+        assertInside(panel, layout.pot());
+        assertInside(panel, layout.onceVotes());
+        assertInside(panel, layout.twiceVotes());
+        assertInside(panel, layout.requirement());
+        assertTrue(layout.onceVotes().x + layout.onceVotes().width
+                < layout.twiceVotes().x,
+                "both voting choices need a visible gutter");
+        assertTrue(layout.requirement().y + layout.requirement().height
+                < layout.onceVotes().y,
+                "the unanimity rule must have its own footer band");
+        assertTrue(layout.onceVotes().y + layout.onceVotes().height
+                < layout.pot().y,
+                "the pot must remain a separate headline metric");
+    }
+
+    @Test
     void rebuyUsesItsOwnLargeAdaptiveAmountFont() throws IOException {
         String table = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",

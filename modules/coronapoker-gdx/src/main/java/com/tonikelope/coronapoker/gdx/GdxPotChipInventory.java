@@ -47,6 +47,73 @@ final class GdxPotChipInventory {
         }
     }
 
+    static List<CoronaPokerGdxTable.VisualChipSpec> relieveCompressedColumns(
+            List<CoronaPokerGdxTable.VisualChipSpec> source,
+            double smallBlind, int[] relaxedCapacities) {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        inventory.deposit(source);
+        inventory.relieveCompressedColumns(smallBlind, relaxedCapacities);
+        return inventory.snapshot();
+    }
+
+    static RunItTwiceSplit splitForRunItTwice(
+            List<CoronaPokerGdxTable.VisualChipSpec> source,
+            double exactBoardAmount, double smallBlind,
+            int[] relaxedCapacities, long seed) {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        inventory.deposit(source);
+        // Remove the two halves from the real physical inventory first so an
+        // odd remainder is retained exactly. The dealer then colours up both
+        // equal board piles to the same deterministic rack: SIDE-B must never
+        // inherit a random-looking residue merely because SIDE-A was paid
+        // first.
+        List<CoronaPokerGdxTable.VisualChipSpec> rawSideA =
+                inventory.withdraw(exactBoardAmount, smallBlind,
+                        seed ^ 0x243f6a8885a308d3L);
+        List<CoronaPokerGdxTable.VisualChipSpec> rawSideB =
+                inventory.withdraw(exactBoardAmount, smallBlind,
+                        seed ^ 0x13198a2e03707344L);
+        List<CoronaPokerGdxTable.VisualChipSpec> sideA =
+                exactBoardRack(rawSideA, exactBoardAmount, smallBlind,
+                        relaxedCapacities);
+        List<CoronaPokerGdxTable.VisualChipSpec> sideB =
+                exactBoardRack(rawSideB, exactBoardAmount, smallBlind,
+                        relaxedCapacities);
+        return new RunItTwiceSplit(
+                sideA, sideB,
+                inventory.snapshot());
+    }
+
+    private static List<CoronaPokerGdxTable.VisualChipSpec> exactBoardRack(
+            List<CoronaPokerGdxTable.VisualChipSpec> withdrawn,
+            double exactBoardAmount, double smallBlind,
+            int[] relaxedCapacities) {
+        if (cents(amount(withdrawn)) != cents(exactBoardAmount)) {
+            return withdrawn;
+        }
+        GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(
+                exactBoardAmount, smallBlind, exactBoardAmount);
+        ArrayList<CoronaPokerGdxTable.VisualChipSpec> result =
+                new ArrayList<>(layout.chipCount());
+        for (GdxStackChipLayout.Column column : layout.columns()) {
+            for (GdxStackChipLayout.Chip chip : column.chips()) {
+                result.add(new CoronaPokerGdxTable.VisualChipSpec(
+                        chip.amountMinor() / 100d, chip.color()));
+            }
+        }
+        return relieveCompressedColumns(result, smallBlind,
+                relaxedCapacities);
+    }
+
+    private static double amount(
+            List<CoronaPokerGdxTable.VisualChipSpec> values) {
+        long total = 0L;
+        for (CoronaPokerGdxTable.VisualChipSpec chip : values) {
+            total += cents(chip.amount());
+        }
+        return total / 100d;
+    }
+
     void replace(double exactAmount,
             List<CoronaPokerGdxTable.VisualChipSpec> replacement) {
         chips.clear();
@@ -243,5 +310,17 @@ final class GdxPotChipInventory {
     private record Pick(int count, Pick previous, int index) {
 
         private static final Pick EMPTY = new Pick(0, null, -1);
+    }
+
+    record RunItTwiceSplit(
+            List<CoronaPokerGdxTable.VisualChipSpec> sideA,
+            List<CoronaPokerGdxTable.VisualChipSpec> sideB,
+            List<CoronaPokerGdxTable.VisualChipSpec> remainder) {
+
+        RunItTwiceSplit {
+            sideA = List.copyOf(sideA);
+            sideB = List.copyOf(sideB);
+            remainder = List.copyOf(remainder);
+        }
     }
 }

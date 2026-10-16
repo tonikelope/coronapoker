@@ -766,6 +766,38 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void visibleChipColumnsCompactAndRecenterWithoutEmptySlots() {
+        CoronaPokerGdxTable.StackChipRackGeometry local =
+                CoronaPokerGdxTable.stackChipRackGeometry(true);
+
+        // Only x2 and x5 exist: they must become adjacent instead of keeping
+        // their original extreme four-column anchors.
+        float[] two = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                new float[]{0f, 3f, 2f, 0f});
+        assertEquals(local.columnGap(), two[2] - two[1], 0.000_01f);
+        float rackCenter = local.firstColumnOffset()
+                + 1.5f * local.columnGap();
+        assertEquals(rackCenter, (two[1] + two[2]) / 2f, 0.000_01f);
+
+        // A lone x1 chip is centred in the rack rather than stranded in its
+        // former fixed third slot.
+        float[] one = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                new float[]{1f, 0f, 0f, 0f});
+        assertEquals(rackCenter, one[0], 0.000_01f);
+
+        // The complete rack retains the deliberately opened centre lane.
+        float[] four = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                new float[]{1f, 1f, 1f, 1f});
+        assertEquals(local.firstColumnOffset(), four[1], 0.000_01f);
+        assertEquals(local.firstColumnOffset()
+                + 0.85f * local.columnGap(), four[3], 0.000_01f);
+        assertEquals(local.firstColumnOffset()
+                + 2.15f * local.columnGap(), four[0], 0.000_01f);
+        assertEquals(local.firstColumnOffset()
+                + 3f * local.columnGap(), four[2], 0.000_01f);
+    }
+
+    @Test
     void hugeChipColumnsCompressSpacingButNeverChipSizeOrHudHeight() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);

@@ -82,7 +82,7 @@ final class GdxStackChipLayoutTest {
     }
 
     @Test
-    void emptyOrInvalidStacksKeepFiveEmptyColumnAnchors() {
+    void emptyOrInvalidStacksKeepFourEmptyColumnAnchors() {
         for (double amount : List.of(0d, -1d, Double.NaN)) {
             GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(
                     amount, 0.10d);

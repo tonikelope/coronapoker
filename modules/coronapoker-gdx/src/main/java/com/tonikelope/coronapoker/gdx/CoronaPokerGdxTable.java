@@ -3740,6 +3740,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     event.sequence());
             syncRemoteRebuyPresentationFromHotJoinSnapshot();
             syncSeatsFromLiveState();
+            reconcileSeatRacksToAuthoritativeState();
             applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
@@ -3775,6 +3776,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         "sonido_pausa", 0.82f);
             }
             syncSeatsFromLiveState();
+            if (event instanceof TableVisualEvent.SeatRoster) {
+                reconcileSeatRacksToAuthoritativeState();
+            }
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.AllInRunoutPause pause) {
             if (!liveAnimationsEnabled()) {
@@ -3840,6 +3844,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!liveBetAnimationEnabled()) {
                 List<VisualChipSpec> actionChips = paymentVisualChips(
                         action.nickname(), action.contributionDelta(),
+                        action.stackAfter() + action.contributionDelta(),
                         liveCounterDenomination(), chipVariationSeed(
                                 action.sequence(), action.nickname(), 0));
                 liveState.apply(event);
@@ -3864,6 +3869,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     action.nickname(), 0);
             List<VisualChipSpec> actionChips = paymentVisualChips(
                     action.nickname(), action.contributionDelta(),
+                    action.stackAfter() + action.contributionDelta(),
                     liveCounterDenomination(), visualSeed);
             liveActionChips.add(new LiveActionChip(action,
                     System.nanoTime(), liveCounterAnimationEnabled(),
@@ -3900,6 +3906,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveRebuy != null) {
                 throw new IllegalStateException("A GDX rebuy is already active");
             }
+            // A busted spectator keeps the same visual Seat instance. Reset
+            // any stale pre-rebuy rack against the exact balance represented
+            // by this event before the new pack starts landing; otherwise a
+            // later all-in can fall back to an invented all-x10 payment and
+            // propagate that false green tower into the central pot.
+            rebuy.transfers().forEach(this::prepareSeatRackForRebuy);
             String cashSoundResource = liveCashRegisterSoundResource();
             playResourceSound(cashSoundResource, 0.72f, 1f);
             if (!liveCounterAnimationEnabled()) {
@@ -3907,8 +3919,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 for (int index = 0; index < rebuy.transfers().size(); index++) {
                     TableVisualEvent.ChipTransfer transfer =
                             rebuy.transfers().get(index);
-                    Seat seat = seatByNickname(transfer.nickname());
-                    if (seat != null) stackChipLayout(seat);
                     packs.add(rebuyVisualChips(transfer.amount(),
                             liveCounterDenomination(),
                             chipVariationSeed(rebuy.sequence(),
@@ -5033,9 +5043,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFastAccessBar();
         }
         if (blurModalBackdrop) {
-            modalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                    camera.combined, BACKGROUND_BOTTOM);
-            modalBackdropCaptureActive = false;
+            try {
+                modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                        camera.combined, BACKGROUND_BOTTOM);
+            } finally {
+                // A modal pass may contain nested card framebuffers. Restore
+                // every shared renderer explicitly before any sharp dialog or
+                // overlay is composed; relying on whichever framebuffer ended
+                // last caused intermittent whole-scene jumps on GAME OVER and
+                // ordinary confirmations alike.
+                modalBackdropCaptureActive = false;
+                restoreDefaultTableRenderState();
+            }
             drawUnifiedModalBackdrop();
         }
         if (shieldBackgroundPointer) {
@@ -5070,6 +5089,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static int modalBackdropDimension(int backBufferDimension) {
         return GdxModalBackdropBlur.downsampledDimension(backBufferDimension);
+    }
+
+    private void restoreDefaultTableRenderState() {
+        viewport.apply();
+        camera.update();
+        shapes.setProjectionMatrix(camera.combined);
+        batch.setProjectionMatrix(camera.combined);
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
     }
 
     private boolean hasBlurredTableModal(boolean preparationModal) {
@@ -6170,7 +6198,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateDialog() {
         if (activeDialog != null && !activeDialog.complete()
-                && activeDialog.expired(totalTime)) {
+                && activeDialogDecisionExpired(activeDialog)) {
             activeDialog.timeout();
         }
         if (activeDialog != null && activeDialog.readyToClose()) {
@@ -6188,6 +6216,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 focusAutoCallAmount(activeDialog, true);
             }
         }
+    }
+
+    private boolean activeDialogDecisionExpired(GdxTableDialog dialog) {
+        if (!dialog.isGameOverChoice() || !dialog.gameOverCinematics()) {
+            return dialog.expired(totalTime);
+        }
+        boolean animationOwned = gameOverAnimationDialog == dialog;
+        boolean unavailable = !animationOwned || gameOverAnimation == null
+                || gameOverAnimationFailureReported
+                || gameOverAnimation.failed();
+        boolean complete = animationOwned && gameOverAnimation != null
+                && gameOverAnimation.playbackComplete(Math.max(0f,
+                        totalTime - gameOverAnimationStartedAt));
+        return gameOverCinematicDecisionExpired(dialog, animationOwned,
+                unavailable, complete, totalTime);
+    }
+
+    static boolean gameOverCinematicDecisionExpired(GdxTableDialog dialog,
+            boolean animationOwned, boolean animationUnavailable,
+            boolean animationComplete, float now) {
+        Objects.requireNonNull(dialog, "dialog");
+        if (!dialog.isGameOverChoice() || !dialog.gameOverCinematics()
+                || !animationOwned || animationUnavailable) {
+            return dialog.expired(now);
+        }
+        // The GIF contains its own complete 9..0 clock plus its intro/outro.
+        // Expiring the ten-second dialog timer independently used to cut that
+        // asset while it still displayed 2. The decoded animation is the
+        // visual clock whenever it is available.
+        return animationComplete;
     }
 
     /**
@@ -9637,6 +9695,74 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return seat.stackChipLayout;
     }
 
+    private void prepareSeatRackForRebuy(
+            TableVisualEvent.ChipTransfer transfer) {
+        Seat seat = seatByNickname(transfer.nickname());
+        if (seat == null) return;
+        double beforeRebuy = Math.max(0d, MoneyMath.clean(
+                transfer.stackAfter() - transfer.amount()));
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        double referenceAmount = player == null || player.buyIn() <= 0d
+                ? Math.max(beforeRebuy, transfer.amount()) : player.buyIn();
+        GdxStackChipLayout.Layout current = seat.stackChipLayout == null
+                ? stackChipLayout(seat) : seat.stackChipLayout;
+        GdxStackChipLayout.Layout reconciled = GdxStackChipLayout.reconcile(
+                current, beforeRebuy, liveCounterDenomination(),
+                referenceAmount);
+        if (reconciled != current) {
+            seat.stackChipLayout = reconciled;
+            synchronizePhysicalStackChipCounts(reconciled,
+                    seat.stackChipDisplayedCounts,
+                    seat.stackChipFromCounts,
+                    seat.stackChipTargetCounts);
+            seat.stackChipAnimationStartedAt = Float.NaN;
+        }
+        refreshSeatRackMetadata(seat, beforeRebuy);
+    }
+
+    private GdxStackChipLayout.Layout reconciledSeatRackForPayment(
+            Seat seat, double exactBalance, double smallBlind) {
+        GdxStackChipLayout.Layout current = stackChipLayout(seat);
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        double referenceAmount = player == null || player.buyIn() <= 0d
+                ? exactBalance : player.buyIn();
+        GdxStackChipLayout.Layout reconciled = GdxStackChipLayout.reconcile(
+                current, exactBalance, smallBlind, referenceAmount);
+        if (reconciled != current) {
+            seat.stackChipLayout = reconciled;
+            synchronizePhysicalStackChipCounts(reconciled,
+                    seat.stackChipDisplayedCounts,
+                    seat.stackChipFromCounts,
+                    seat.stackChipTargetCounts);
+            seat.stackChipAnimationStartedAt = Float.NaN;
+            refreshSeatRackMetadata(seat, exactBalance);
+        }
+        return reconciled;
+    }
+
+    private void reconcileSeatRacksToAuthoritativeState() {
+        for (Seat seat : seats) {
+            TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+            if (player == null) continue;
+            GdxStackChipLayout.Layout current = seat.stackChipLayout == null
+                    ? stackChipLayout(seat) : seat.stackChipLayout;
+            double referenceAmount = player.buyIn() > 0d
+                    ? player.buyIn() : player.stack();
+            GdxStackChipLayout.Layout reconciled = GdxStackChipLayout
+                    .reconcile(current, player.stack(),
+                            liveCounterDenomination(), referenceAmount);
+            if (reconciled != current) {
+                seat.stackChipLayout = reconciled;
+                synchronizePhysicalStackChipCounts(reconciled,
+                        seat.stackChipDisplayedCounts,
+                        seat.stackChipFromCounts,
+                        seat.stackChipTargetCounts);
+                seat.stackChipAnimationStartedAt = Float.NaN;
+            }
+            refreshSeatRackMetadata(seat, player.stack());
+        }
+    }
+
     private void removeSeatRackChip(String nickname, int color,
             double amount) {
         Seat seat = seatByNickname(nickname);
@@ -9660,6 +9786,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (visualAmount > 0.000_001d) {
                 List<VisualChipSpec> chips = paymentVisualChips(
                         transfer.nickname(), visualAmount,
+                        transfer.stackAfter() + visualAmount,
                         liveCounterDenomination(), chipVariationSeed(
                                 collect.sequence(), transfer.nickname(),
                                 transferIndex));
@@ -12986,6 +13113,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !player.warming() && !player.exited();
     }
 
+    static int visiblePendingRebuyAmount(
+            TableSnapshot.PlayerSnapshot player, int pendingAmount) {
+        return hasActivePokerRole(player) ? Math.max(0, pendingAmount) : 0;
+    }
+
     static int activePokerPlayerCount(TableSnapshot snapshot) {
         return (int) snapshot.players().stream()
                 .filter(CoronaPokerGdxTable::hasActivePokerRole).count();
@@ -15597,14 +15729,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<VisualChipSpec> paymentVisualChips(String nickname,
-            double exactAmount, double smallBlind, long variationSeed) {
+            double exactAmount, double exactBalance, double smallBlind,
+            long variationSeed) {
         Seat seat = seatByNickname(nickname);
         GdxStackChipLayout.Layout rack = seat == null
-                ? null : stackChipLayout(seat);
-        GdxStackChipLayout.Payment prepared =
-                GdxStackChipLayout.preparePayment(rack, exactAmount,
+                ? null : reconciledSeatRackForPayment(seat, exactBalance,
                         smallBlind);
-        if (seat != null) seat.stackChipLayout = prepared.preparedLayout();
+        TableSnapshot.PlayerSnapshot player = livePlayer(nickname);
+        double referenceAmount = player == null || player.buyIn() <= 0d
+                ? exactBalance : player.buyIn();
+        GdxStackChipLayout.Payment prepared =
+                GdxStackChipLayout.prepareAuthoritativePayment(rack,
+                        exactBalance, exactAmount, smallBlind,
+                        referenceAmount);
+        if (!GdxStackChipLayout.isExactPhysicalPayment(prepared,
+                exactAmount)) {
+            throw new IllegalStateException("Cannot prepare an exact physical "
+                    + "chip payment for " + nickname + ": " + exactAmount
+                    + " from " + exactBalance);
+        }
+        if (seat != null && prepared.preparedLayout() != rack) {
+            seat.stackChipLayout = prepared.preparedLayout();
+            synchronizePhysicalStackChipCounts(prepared.preparedLayout(),
+                    seat.stackChipDisplayedCounts,
+                    seat.stackChipFromCounts,
+                    seat.stackChipTargetCounts);
+            seat.stackChipAnimationStartedAt = Float.NaN;
+            refreshSeatRackMetadata(seat, exactBalance);
+        }
         List<GdxStackChipLayout.Chip> payment = prepared.chips();
         ArrayList<VisualChipSpec> result = new ArrayList<>(payment.size());
         for (GdxStackChipLayout.Chip chip : payment) {
@@ -16287,7 +16439,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             localActionMemoryText = localActionMemoryLabel(localActionKind,
                     fallback, gameText);
         }
-        int pendingRebuy = liveState.immediateRebuyAmount(localSeat.name);
+        // Spectators and warming identities are passive table viewers. They
+        // may retain a queued rebuy in canonical state, but that control must
+        // not leak a chip icon into their otherwise passive name plate.
+        int pendingRebuy = visiblePendingRebuyAmount(liveLocalPlayer,
+                liveState.immediateRebuyAmount(localSeat.name));
         boolean localFolded = !localSpectator && shouldDimSeat(
                 liveLocalPlayer == null || liveLocalPlayer.active(),
                 settledShowdown,
@@ -25908,8 +26064,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     long visualSeed = chipVariationSeed(event.sequence(),
                             smallBlind.nickname(), 0);
                     List<VisualChipSpec> visualChips = paymentVisualChips(
-                            smallBlind.nickname(), smallAmount, minimumChip,
-                            visualSeed);
+                            smallBlind.nickname(), smallAmount,
+                            smallBlind.stackAfter() + smallAmount,
+                            minimumChip, visualSeed);
                     int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         VisualChipSpec visualChip = visualChips.get(chipIndex);
@@ -25925,8 +26082,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     long visualSeed = chipVariationSeed(event.sequence(),
                             bigBlind.nickname(), 1);
                     List<VisualChipSpec> visualChips = paymentVisualChips(
-                            bigBlind.nickname(), bigAmount, minimumChip,
-                            visualSeed);
+                            bigBlind.nickname(), bigAmount,
+                            bigBlind.stackAfter() + bigAmount,
+                            minimumChip, visualSeed);
                     int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         VisualChipSpec visualChip = visualChips.get(chipIndex);
@@ -25951,8 +26109,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 long visualSeed = chipVariationSeed(event.sequence(),
                         transfer.nickname(), transferIndex);
                 List<VisualChipSpec> visualChips = paymentVisualChips(
-                        transfer.nickname(), visualAmount, minimumChip,
-                        visualSeed);
+                        transfer.nickname(), visualAmount,
+                        transfer.stackAfter() + visualAmount,
+                        minimumChip, visualSeed);
                 int chipCount = visualChips.size();
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                     float start = transferIndex * 0.025f + chipIndex * 0.06f;

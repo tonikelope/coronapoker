@@ -35,11 +35,16 @@ final class GdxModalCompositionContractTest {
             throws IOException {
         String source = source("CoronaPokerGdxTable.java");
         int blur = source.indexOf("modalBackdropBlur.endCaptureAndDraw(");
-        int shade = source.indexOf("drawUnifiedModalBackdrop();", blur);
+        int restore = source.indexOf("restoreDefaultTableRenderState();",
+                blur);
+        int shade = source.indexOf("drawUnifiedModalBackdrop();", restore);
         int modal = source.indexOf("drawUiLayer();", shade);
         int signature = source.indexOf("drawProductVersionBrand(1f);", modal);
 
-        assertTrue(blur >= 0 && shade > blur);
+        assertTrue(blur >= 0 && restore > blur,
+                "modal composition must restore the default render target");
+        assertTrue(shade > restore,
+                "the common shade must use the restored table projection");
         assertTrue(modal > shade);
         assertTrue(signature > modal,
                 "the table signature must remain visible above every modal");

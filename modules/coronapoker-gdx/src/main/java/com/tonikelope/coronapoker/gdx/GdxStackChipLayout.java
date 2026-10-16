@@ -76,6 +76,23 @@ final class GdxStackChipLayout {
     }
 
     /**
+     * Keeps a physical rack only while it represents the authoritative
+     * balance exactly. Lifecycle transitions such as busted spectator ->
+     * rebuy can legitimately reuse the same seat object; carrying the old
+     * rack through that transition would make the next payment invent a
+     * minimum-denomination fallback that never existed in the new stack.
+     */
+    static Layout reconcile(Layout current, double exactAmount,
+            double smallBlind, double referenceAmount) {
+        long exactMinor = Double.isFinite(exactAmount) && exactAmount > 0d
+                ? Math.max(1L, Math.round(exactAmount * 100d)) : 0L;
+        if (current != null && current.representedMinor() == exactMinor) {
+            return current;
+        }
+        return compose(exactAmount, smallBlind, referenceAmount);
+    }
+
+    /**
      * Preserves the physical denominations already present until the rack
      * genuinely needs a colour-up. Uneven column heights are intentional:
      * chips that have just arrived retain their colour while every column
@@ -134,6 +151,48 @@ final class GdxStackChipLayout {
     }
 
     /**
+     * Reconciles a rack with its authoritative balance and prepares a payment
+     * that is guaranteed to exist in the returned physical layout. If an
+     * otherwise exact rack cannot make change, the rack is exchanged first;
+     * no chip is ever returned without also being present in that layout.
+     */
+    static Payment prepareAuthoritativePayment(Layout current,
+            double exactBalance, double exactAmount, double smallBlind,
+            double referenceAmount) {
+        Layout reconciled = reconcile(current, exactBalance, smallBlind,
+                referenceAmount);
+        Payment direct = preparePayment(reconciled, exactAmount, smallBlind);
+        if (isExactPhysicalPayment(direct, exactAmount)) return direct;
+
+        long balanceMinor = cents(exactBalance);
+        long paymentMinor = cents(exactAmount);
+        if (paymentMinor <= 0L || paymentMinor > balanceMinor) {
+            return new Payment(reconciled, List.of());
+        }
+
+        List<GdxChipDenominations.Chip> exactChips =
+                GdxChipDenominations.minimum(exactAmount, smallBlind);
+        long selectedMinor = exactChips.stream().mapToLong(
+                GdxChipDenominations.Chip::amountMinor).sum();
+        if (selectedMinor != paymentMinor) {
+            return new Payment(reconciled, List.of());
+        }
+
+        Layout exchanged = compose((balanceMinor - paymentMinor) / 100d,
+                smallBlind, referenceAmount);
+        ArrayList<Chip> selected = new ArrayList<>(exactChips.size());
+        for (GdxChipDenominations.Chip chip : exactChips) {
+            Chip physical = new Chip(chip.amountMinor(), chip.color());
+            exchanged = add(exchanged, physical.amountMinor(),
+                    physical.color());
+            selected.add(physical);
+        }
+        Payment repaired = new Payment(exchanged, selected);
+        return isExactPhysicalPayment(repaired, exactAmount)
+                ? repaired : new Payment(reconciled, List.of());
+    }
+
+    /**
      * Prepares and selects an exact physical payment. If the rack cannot make
      * exact change, only the smallest necessary set of chips is exchanged;
      * the rack's represented value is unchanged until the selected chip flies.
@@ -144,13 +203,11 @@ final class GdxStackChipLayout {
             return new Payment(layout == null ? Layout.EMPTY : layout,
                     List.of());
         }
-        if (layout == null) {
-            List<Chip> fallback = GdxChipDenominations.minimum(exactAmount,
-                    smallBlind).stream().map(chip -> new Chip(
-                            chip.amountMinor(), chip.color())).toList();
-            return new Payment(Layout.EMPTY, fallback);
-        }
+        if (layout == null) return new Payment(Layout.EMPTY, List.of());
         long targetMinor = Math.max(1L, Math.round(exactAmount * 100d));
+        if (targetMinor > layout.representedMinor()) {
+            return new Payment(layout, List.of());
+        }
         Layout prepared = layout;
         while (true) {
             ArrayList<Chip> available = new ArrayList<>();
@@ -171,16 +228,14 @@ final class GdxStackChipLayout {
                                 : Integer.compare(left.getValue().count(),
                                         right.getValue().count());
                     }).orElse(null);
-            if (overpay == null) return fallbackPayment(prepared,
-                    exactAmount, smallBlind);
+            if (overpay == null) return new Payment(prepared, List.of());
 
             Chip toBreak = selectedChips(overpay.getValue()).stream()
                     .filter(chip -> !GdxChipDenominations.breakDown(
                             chip.amountMinor(), smallBlind).isEmpty())
                     .min(java.util.Comparator.comparingLong(
                             Chip::amountMinor)).orElse(null);
-            if (toBreak == null) return fallbackPayment(prepared,
-                    exactAmount, smallBlind);
+            if (toBreak == null) return new Payment(prepared, List.of());
 
             List<GdxChipDenominations.Chip> change =
                     GdxChipDenominations.breakDown(
@@ -213,13 +268,28 @@ final class GdxStackChipLayout {
         return best;
     }
 
-    private static Payment fallbackPayment(Layout prepared,
-            double exactAmount, double smallBlind) {
-        List<Chip> fallback = GdxChipDenominations.minimum(
-                exactAmount, smallBlind).stream()
-                .map(chip -> new Chip(chip.amountMinor(),
-                        chip.color())).toList();
-        return new Payment(prepared, fallback);
+    static boolean isExactPhysicalPayment(Payment payment,
+            double exactAmount) {
+        if (payment == null) return false;
+        long targetMinor = cents(exactAmount);
+        if (targetMinor <= 0L || payment.chips().stream().mapToLong(
+                Chip::amountMinor).sum() != targetMinor) {
+            return false;
+        }
+        Layout remaining = payment.preparedLayout();
+        long before = remaining.representedMinor();
+        for (Chip chip : payment.chips()) {
+            Layout reduced = remove(remaining, chip.amountMinor(),
+                    chip.color());
+            if (reduced == remaining) return false;
+            remaining = reduced;
+        }
+        return before - remaining.representedMinor() == targetMinor;
+    }
+
+    private static long cents(double amount) {
+        return Double.isFinite(amount) && amount > 0d
+                ? Math.max(1L, Math.round(amount * 100d)) : 0L;
     }
 
     private static List<Chip> selectedChips(Selection selection) {

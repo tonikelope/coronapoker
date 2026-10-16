@@ -144,6 +144,12 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.hasActivePokerRole(spectator));
         assertFalse(CoronaPokerGdxTable.hasActivePokerRole(warming));
         assertTrue(CoronaPokerGdxTable.hasActivePokerRole(active));
+        assertEquals(0, CoronaPokerGdxTable.visiblePendingRebuyAmount(
+                spectator, 10));
+        assertEquals(0, CoronaPokerGdxTable.visiblePendingRebuyAmount(
+                warming, 10));
+        assertEquals(10, CoronaPokerGdxTable.visiblePendingRebuyAmount(
+                active, 10));
         assertEquals(2, CoronaPokerGdxTable.activePokerPlayerCount(
                 snapshotWithPlayers(false, "", active,
                         player("second", TableSnapshot.Position.BIG_BLIND),

@@ -306,6 +306,43 @@ final class GdxProductionStateAuthorityTest {
     }
 
     @Test
+    void spectatorRebuyThenAllInKeepsThePhysicalFourColourRack(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot.PlayerSnapshot human = playerState("human", 10d,
+                true, false, 10, 0);
+        TableSnapshot.PlayerSnapshot remote = player("remote");
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(human, remote), List.of());
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                true);
+
+        table.acceptEvent(new TableVisualEvent.SeatRoster(1L,
+                List.of(human, remote)), new CompletableFuture<>());
+        TableSnapshot.PlayerSnapshot busted = playerState("human", 0d,
+                false, true, 10, 0);
+        table.acceptEvent(new TableVisualEvent.SeatRoster(2L,
+                List.of(busted, remote)), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.Rebuy(3L, List.of(
+                new TableVisualEvent.ChipTransfer("human", 10d, 10d,
+                        0d, 0d)), 240L), new CompletableFuture<>());
+        TableSnapshot.PlayerSnapshot returned = playerState("human", 10d,
+                true, false, 20, 1);
+        table.acceptEvent(new TableVisualEvent.SeatRoster(4L,
+                List.of(returned, remote)), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.PlayerAction(5L, "human",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "ALL IN",
+                10d, 10d, 0d, 10d, 10d), new CompletableFuture<>());
+
+        List<CoronaPokerGdxTable.VisualChipSpec> pot = potChips(table);
+        assertEquals(1_000L, CoronaPokerGdxTable.visualChipAmountMinor(pot));
+        assertEquals(4L, pot.stream().map(
+                CoronaPokerGdxTable.VisualChipSpec::color).distinct().count(),
+                "the rebuy pack must reach both the total-bet rack and pot without becoming all green");
+    }
+
+    @Test
     void globalAnimationMasterUsesImmediateStatePathsForTableEvents(
             @TempDir Path temporary) throws Exception {
         TableSnapshot input = new TableSnapshot(1L, "human",
@@ -430,6 +467,14 @@ final class GdxProductionStateAuthorityTest {
         return (double) method.invoke(table);
     }
 
+    private static List<CoronaPokerGdxTable.VisualChipSpec> potChips(
+            CoronaPokerGdxTable table) throws Exception {
+        Field field = CoronaPokerGdxTable.class.getDeclaredField(
+                "livePotChips");
+        field.setAccessible(true);
+        return ((GdxPotChipInventory) field.get(table)).snapshot();
+    }
+
     private static TableVisualEvent.TelemetryStatus telemetry(long sequence) {
         return new TableVisualEvent.TelemetryStatus(sequence, List.of(
                 new TableVisualEvent.PlayerTelemetry("remote", 12, 14, 0,
@@ -452,5 +497,14 @@ final class GdxProductionStateAuthorityTest {
         return new TableSnapshot.PlayerSnapshot(nickname, 10d, 0d, 0d,
                 true, false, false, false, -1, -1, 0, 0L, false,
                 TableSnapshot.Position.NONE, "", "", List.of());
+    }
+
+    private static TableSnapshot.PlayerSnapshot playerState(String nickname,
+            double stack, boolean active, boolean spectator, int buyIn,
+            int rebuyCount) {
+        return new TableSnapshot.PlayerSnapshot(nickname, stack, 0d, 0d,
+                active, spectator, false, false, -1, -1, 0, 0L, false,
+                false, TableSnapshot.Position.NONE, "", "", List.of(),
+                buyIn, rebuyCount, false);
     }
 }

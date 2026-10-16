@@ -64,6 +64,27 @@ final class GdxTableDialogTest {
     }
 
     @Test
+    void cinematicGameOverWaitsForItsEmbeddedCountdownInsteadOfCuttingAtTwo() {
+        GdxTableDialog dialog = GdxTableDialog.gameOverChoice(10,
+                com.tonikelope.coronapoker.core.game.GameText.keys(), true);
+        dialog.opened(4f);
+
+        assertTrue(dialog.expired(15f),
+                "the legacy decision timer has elapsed at this point");
+        assertFalse(CoronaPokerGdxTable.gameOverCinematicDecisionExpired(
+                dialog, true, false, false, 15f),
+                "the embedded GIF countdown still owns the visible clock");
+        assertTrue(CoronaPokerGdxTable.gameOverCinematicDecisionExpired(
+                dialog, true, false, true, 19.6f));
+        assertTrue(CoronaPokerGdxTable.gameOverCinematicDecisionExpired(
+                dialog, true, true, false, 15f),
+                "a missing cinematic must fall back to the decision timer");
+        assertTrue(CoronaPokerGdxTable.gameOverCinematicDecisionExpired(
+                dialog, false, false, false, 15f),
+                "a cinematic that could not be acquired must retain the timer fallback");
+    }
+
+    @Test
     void continuingGameOverCanWaitForAnAtomicRebuyHandoff() {
         GdxTableDialog gameOver = GdxTableDialog.gameOverChoice(10);
         gameOver.accept();

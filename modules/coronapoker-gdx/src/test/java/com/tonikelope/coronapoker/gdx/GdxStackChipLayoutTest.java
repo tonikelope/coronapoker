@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -38,6 +39,108 @@ final class GdxStackChipLayoutTest {
         assertEquals(List.of(5, 5, 5, 6), columnHeights(first));
         assertTrue(first.columns().stream().allMatch(
                 column -> !column.chips().isEmpty()));
+    }
+
+    @Test
+    void spectatorRebuyDiscardsThePreviousPhysicalRackBeforeRefill() {
+        int green = GdxChipDenominations.color(3);
+        GdxStackChipLayout.Layout stale = new GdxStackChipLayout.Layout(
+                List.of(
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(0), List.of()),
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(1), List.of()),
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(2), List.of()),
+                        new GdxStackChipLayout.Column(green,
+                                java.util.stream.IntStream.range(0, 10)
+                                        .mapToObj(ignored ->
+                                                new GdxStackChipLayout.Chip(
+                                                        100L, green))
+                                        .toList())));
+
+        GdxStackChipLayout.Layout busted = GdxStackChipLayout.reconcile(
+                stale, 0d, 0.10d, 10d);
+        assertEquals(0L, busted.representedMinor());
+
+        GdxStackChipLayout.Layout rebought = busted;
+        GdxStackChipLayout.Layout pack = GdxStackChipLayout.compose(
+                10d, 0.10d, 10d);
+        for (GdxStackChipLayout.Column column : pack.columns()) {
+            for (GdxStackChipLayout.Chip chip : column.chips()) {
+                rebought = GdxStackChipLayout.add(rebought,
+                        chip.amountMinor(), chip.color());
+            }
+        }
+        assertEquals(List.of(5, 5, 5, 6), columnHeights(rebought));
+
+        GdxStackChipLayout.Payment allIn = GdxStackChipLayout.preparePayment(
+                rebought, 10d, 0.10d);
+        assertEquals(rebought.chipCount(), allIn.chips().size(),
+                "an exact all-in must use the physical rebuy pack");
+        assertEquals(4, allIn.chips().stream().map(
+                GdxStackChipLayout.Chip::color).distinct().count());
+    }
+
+    @Test
+    void allInAfterEarlierPaymentUsesEveryRemainingPhysicalChip() {
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
+                10d, 0.10d, 10d);
+        GdxStackChipLayout.Payment earlier = GdxStackChipLayout
+                .preparePayment(rack, 0.70d, 0.10d);
+        GdxStackChipLayout.Layout afterEarlier = earlier.preparedLayout();
+        for (GdxStackChipLayout.Chip chip : earlier.chips()) {
+            afterEarlier = GdxStackChipLayout.remove(afterEarlier,
+                    chip.amountMinor(), chip.color());
+        }
+        rack = afterEarlier;
+
+        GdxStackChipLayout.Payment allIn = GdxStackChipLayout.preparePayment(
+                rack, 9.30d, 0.10d);
+        assertEquals(rack.chipCount(), allIn.chips().size());
+        assertEquals(930L, allIn.chips().stream().mapToLong(
+                GdxStackChipLayout.Chip::amountMinor).sum());
+        assertTrue(allIn.chips().stream().map(
+                GdxStackChipLayout.Chip::color).distinct().count() > 1,
+                "the remaining rack must not collapse into invented x10 chips");
+    }
+
+    @Test
+    void physicalPaymentNeverInventsChipsMissingFromItsRack() {
+        GdxStackChipLayout.Layout empty = GdxStackChipLayout.compose(
+                0d, 0.10d, 10d);
+
+        GdxStackChipLayout.Payment impossible = GdxStackChipLayout
+                .preparePayment(empty, 10d, 0.10d);
+
+        assertTrue(impossible.chips().isEmpty());
+        assertFalse(GdxStackChipLayout.isExactPhysicalPayment(
+                impossible, 10d));
+    }
+
+    @Test
+    void authoritativePaymentRepairsAnyStaleRackBeforeSelectingChips() {
+        int green = GdxChipDenominations.color(3);
+        GdxStackChipLayout.Layout stale = new GdxStackChipLayout.Layout(
+                List.of(
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(0), List.of()),
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(1), List.of()),
+                        new GdxStackChipLayout.Column(
+                                GdxChipDenominations.color(2), List.of()),
+                        new GdxStackChipLayout.Column(green,
+                                List.of(new GdxStackChipLayout.Chip(
+                                        100L, green)))));
+
+        GdxStackChipLayout.Payment repaired = GdxStackChipLayout
+                .prepareAuthoritativePayment(stale, 10d, 10d,
+                        0.10d, 10d);
+
+        assertTrue(GdxStackChipLayout.isExactPhysicalPayment(repaired, 10d));
+        assertEquals(1_000L, repaired.preparedLayout().representedMinor());
+        assertEquals(4, repaired.chips().stream().map(
+                GdxStackChipLayout.Chip::color).distinct().count());
     }
 
     @Test

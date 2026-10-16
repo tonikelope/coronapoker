@@ -9047,16 +9047,56 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Drawn inside an active SpriteBatch. */
     private void drawSeatChipStack(Seat seat, float alpha) {
-        drawChipStack(seat.stackX, seat.stackY, seat.index, alpha,
-                seat.index == 0, false);
+        drawAmountChipStack(seat.stackX, seat.stackY,
+                stackChipLayout(seat), alpha, seat.index == 0);
     }
 
     private void drawLocalCounterChipStack(float centerX, float centerY,
             float alpha, boolean mirrored) {
-        drawChipStack(centerX, centerY, 0, alpha, true, mirrored);
+        drawDecorativeChipStack(centerX, centerY, 0, alpha, true, mirrored);
     }
 
-    private void drawChipStack(float centerX, float centerY,
+    private GdxStackChipLayout.Layout stackChipLayout(Seat seat) {
+        double denomination = liveCounterDenomination();
+        if (seat.stackChipLayout == null
+                || Double.compare(seat.stackChipLayoutAmount,
+                        seat.displayedStackAmount) != 0
+                || Double.compare(seat.stackChipLayoutDenomination,
+                        denomination) != 0) {
+            seat.stackChipLayout = GdxStackChipLayout.compose(
+                    seat.displayedStackAmount, denomination);
+            seat.stackChipLayoutAmount = seat.displayedStackAmount;
+            seat.stackChipLayoutDenomination = denomination;
+        }
+        return seat.stackChipLayout;
+    }
+
+    private void drawAmountChipStack(float centerX, float centerY,
+            GdxStackChipLayout.Layout layout, float alpha,
+            boolean localSize) {
+        List<GdxStackChipLayout.Chip> chips = layout.chips();
+        if (chips.isEmpty()) return;
+        float chipSize = localSize ? 34f : 26f;
+        float halfChip = chipSize / 2f;
+        float columnGap = localSize ? 26f : 20f;
+        float verticalGap = localSize ? 5f : 4f;
+        float firstColumn = localSize ? -23f : -19f;
+        boolean single = chips.size() == 1;
+        for (int index = 0; index < chips.size(); index++) {
+            int column = index % 2;
+            int level = index / 2;
+            float relativeX = single ? firstColumn + columnGap / 2f
+                    : firstColumn + column * columnGap;
+            Texture texture = flyingChips[Math.floorMod(
+                    chips.get(index).color(), flyingChips.length)];
+            batch.setColor(1f, 1f, 1f, alpha);
+            batch.draw(texture, centerX + relativeX - halfChip,
+                    centerY - halfChip + level * verticalGap,
+                    chipSize, chipSize);
+        }
+    }
+
+    private void drawDecorativeChipStack(float centerX, float centerY,
             int paletteIndex, float alpha, boolean localSize,
             boolean mirrored) {
         float chipSize = localSize ? 34f : 26f;
@@ -25239,6 +25279,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String investedText;
         double displayedStackAmount;
         double displayedInvestedAmount;
+        GdxStackChipLayout.Layout stackChipLayout;
+        double stackChipLayoutAmount = Double.NaN;
+        double stackChipLayoutDenomination = Double.NaN;
         final int index;
         float x;
         float y;

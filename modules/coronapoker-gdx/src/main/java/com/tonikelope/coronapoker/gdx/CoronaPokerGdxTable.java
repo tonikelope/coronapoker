@@ -16914,11 +16914,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Rectangle stackCaption = layout.stackCaptionBounds();
         boolean stackRackVisible = chipRackVisible(local.displayedStackAmount);
+        boolean investedRackVisible = chipRackVisible(
+                local.displayedInvestedAmount);
         boolean stackIncludesPendingRebuy = liveState.immediateRebuyAmount(
                 localSeat.name) > 0;
         Rectangle stackValue = layout.stackValueBounds(stackRackVisible);
         Rectangle investedCaption = layout.investedCaptionBounds();
-        Rectangle investedValue = layout.investedValueBounds();
+        Rectangle investedValue = layout.investedValueBounds(
+                investedRackVisible);
         drawLocalCounterCaptions(stackCaption, investedCaption,
                 liveLocalPlayer != null
                         && totalTime < localSeat.buyInVisibleUntil,
@@ -25221,9 +25224,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle investedValueBounds() {
+            return investedValueBounds(true);
+        }
+
+        Rectangle investedValueBounds(boolean chipRackVisible) {
             Rectangle invested = investedBounds();
+            if (chipRackVisible) {
+                return new Rectangle(invested.x + 10f, invested.y + 8f,
+                        invested.width - 92f, invested.height - 43f);
+            }
             return new Rectangle(invested.x + 10f, invested.y + 8f,
-                    invested.width - 92f, invested.height - 43f);
+                    invested.width - 20f, invested.height - 43f);
         }
 
         Rectangle bounds() {

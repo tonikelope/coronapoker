@@ -3147,6 +3147,20 @@ final class GdxTableViewStateTest {
                 > layout.stackValueBounds().width);
         assertTrue(CoronaPokerGdxTable.localStackValueScale(true)
                 < CoronaPokerGdxTable.localStackValueScale(false));
+        Rectangle racklessInvestedValue = layout.investedValueBounds(false);
+        assertEquals(invested.x + invested.width / 2f,
+                racklessInvestedValue.x + racklessInvestedValue.width / 2f,
+                0.000_001f,
+                "a zero APUESTA TOTAL must be centred without a chip rack");
+        assertEquals(layout.investedValueBounds(),
+                layout.investedValueBounds(true),
+                "a visible chip rack must retain its amount bounds");
+        assertTrue(racklessInvestedValue.width
+                > layout.investedValueBounds().width);
+        assertTrue(Math.abs(invested.x + invested.width / 2f
+                - (layout.investedValueBounds().x
+                + layout.investedValueBounds().width / 2f)) > 1f,
+                "APUESTA TOTAL must reserve room when its rack appears");
         Rectangle stackChips = layout.stackChipVisualBounds();
         Rectangle investedChips = layout.investedChipVisualBounds();
         assertEquals(stackChips.width, investedChips.width, 0.000_001f);

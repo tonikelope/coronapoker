@@ -1187,6 +1187,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = new HashMap<>();
     private final GdxPotChipInventory livePotChips =
             new GdxPotChipInventory();
+    private final float[] potChipRebalanceFromCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private final float[] potChipRebalanceTargetCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private float potChipRebalanceStartedAt = Float.NaN;
     private final Map<String, Double> liveShowdownInvestments
             = new HashMap<>();
     private final Map<String, Long> liveWinnerStarts = new HashMap<>();
@@ -3753,6 +3758,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
             if (!liveBetAnimationEnabled()) {
                 removeUncollectedRackChips(collect);
+                rebalancePotChipInventory();
                 liveState.apply(event);
                 livePotContributions.clear();
                 syncSeatsFromLiveState();
@@ -3794,6 +3800,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         action.contributionDelta(), Double::sum);
                 livePotChips.deposit(actionChips);
                 recordInvestmentChips(action.nickname(), actionChips);
+                rebalancePotChipInventory();
                 syncSeatsFromLiveState();
                 actionChips.forEach(chip -> removeSeatRackChip(
                         action.nickname(), chip.color(), chip.amount()));
@@ -4425,11 +4432,74 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void replacePotChipInventory(double exactAmount, long seed) {
         livePotChips.replace(exactAmount, dynamicVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x1f83d9abfb41bd6bL));
+        livePotChips.rebalanceColumns(liveCounterDenomination());
+        potChipRebalanceStartedAt = Float.NaN;
     }
 
     private void reconcilePotChipInventory(double exactAmount, long seed) {
         livePotChips.reconcile(exactAmount, dynamicVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x5be0cd19137e2179L));
+        livePotChips.rebalanceColumns(liveCounterDenomination());
+        potChipRebalanceStartedAt = Float.NaN;
+    }
+
+    private void rebalancePotChipInventory() {
+        GdxStackChipLayout.Layout before = visualChipLayout(
+                livePotChips.snapshot());
+        float[] displayedBefore = displayedPotChipCounts(before);
+        livePotChips.rebalanceColumns(liveCounterDenomination());
+        GdxStackChipLayout.Layout after = visualChipLayout(
+                livePotChips.snapshot());
+        boolean changed = false;
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            potChipRebalanceFromCounts[column] = displayedBefore[column];
+            potChipRebalanceTargetCounts[column] =
+                    after.columnHeight(column);
+            changed |= Math.abs(potChipRebalanceFromCounts[column]
+                    - potChipRebalanceTargetCounts[column]) > 0.000_001f;
+        }
+        potChipRebalanceStartedAt = changed ? totalTime : Float.NaN;
+    }
+
+    private float[] currentPotChipRebalanceCounts(
+            GdxStackChipLayout.Layout currentLayout) {
+        float[] counts = new float[GdxStackChipLayout.COLUMN_COUNT];
+        if (Float.isNaN(potChipRebalanceStartedAt)) {
+            for (int column = 0; column < counts.length; column++) {
+                counts[column] = currentLayout.columnHeight(column);
+            }
+            return counts;
+        }
+        float raw = MathUtils.clamp((totalTime - potChipRebalanceStartedAt)
+                / STACK_CHIP_TRANSITION_SECONDS, 0f, 1f);
+        float eased = Interpolation.smoother.apply(raw);
+        for (int column = 0; column < counts.length; column++) {
+            counts[column] = MathUtils.lerp(
+                    potChipRebalanceFromCounts[column],
+                    potChipRebalanceTargetCounts[column], eased);
+        }
+        if (raw >= 1f) potChipRebalanceStartedAt = Float.NaN;
+        return counts;
+    }
+
+    private float[] displayedPotChipCounts(
+            GdxStackChipLayout.Layout layout) {
+        if (!Float.isNaN(potChipRebalanceStartedAt)) {
+            boolean stillTargetsCurrentLayout = true;
+            for (int column = 0;
+                    column < GdxStackChipLayout.COLUMN_COUNT; column++) {
+                if (Math.abs(potChipRebalanceTargetCounts[column]
+                        - layout.columnHeight(column)) > 0.000_001f) {
+                    stillTargetsCurrentLayout = false;
+                    break;
+                }
+            }
+            if (!stillTargetsCurrentLayout || livePayout != null) {
+                potChipRebalanceStartedAt = Float.NaN;
+            }
+        }
+        return currentPotChipRebalanceCounts(layout);
     }
 
     private List<VisualChipSpec> withdrawPotVisualChips(double exactAmount,
@@ -11618,8 +11688,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float rackBottom = panelY
                     + (panelHeight - potGeometry.maximumHeight()) / 2f;
             float iconBaseY = rackBottom + potGeometry.chipSize() / 2f;
-            drawStaticChipRack(iconCenterX, iconBaseY,
-                    visualChipLayout(potChips), opacity, potGeometry);
+            GdxStackChipLayout.Layout potLayout =
+                    visualChipLayout(potChips);
+            drawChipRack(iconCenterX, iconBaseY, potLayout,
+                    displayedPotChipCounts(potLayout), opacity, potGeometry);
         }
         float textAreaX = panelX + 98f;
         float textAreaWidth = panelWidth - 112f;
@@ -12441,6 +12513,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (completedAny) {
             syncSeatsFromLiveState();
+        }
+        if (completedAny && liveActionChips.isEmpty()) {
+            rebalancePotChipInventory();
         }
         if (liveActionChips.isEmpty() && pendingCollectBets != null) {
             PendingCollectBets pending = pendingCollectBets;
@@ -14679,6 +14754,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         try {
             livePotContributions.clear();
+            rebalancePotChipInventory();
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);

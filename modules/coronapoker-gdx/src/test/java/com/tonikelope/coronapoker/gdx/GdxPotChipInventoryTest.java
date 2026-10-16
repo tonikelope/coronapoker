@@ -12,6 +12,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxPotChipInventoryTest {
 
     @Test
+    void completedBetBatchColoursUpPotWithoutChangingItsValue() {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        ArrayList<CoronaPokerGdxTable.VisualChipSpec> smallChips =
+                new ArrayList<>();
+        for (int chip = 0; chip < 74; chip++) {
+            smallChips.add(chip(0.1d,
+                    GdxChipDenominations.color(0)));
+        }
+        inventory.deposit(smallChips);
+
+        inventory.rebalanceColumns(0.1d);
+
+        assertEquals(7.4d, inventory.amount(), 0.000_001d);
+        GdxStackChipLayout.Layout layout = CoronaPokerGdxTable
+                .visualChipLayout(inventory.snapshot());
+        assertEquals(List.of(4, 5, 4, 4), List.of(
+                layout.columnHeight(0), layout.columnHeight(1),
+                layout.columnHeight(2), layout.columnHeight(3)));
+        assertTrue(colors(inventory.snapshot()).containsAll(
+                List.of(0, 1, 2, 3)));
+    }
+
+    @Test
     void wholePayoutReturnsTheExactStoredChipMultiset() {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
         List<CoronaPokerGdxTable.VisualChipSpec> deposited = List.of(

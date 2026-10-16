@@ -25,6 +25,24 @@ final class GdxPotChipInventory {
         if (incoming != null) chips.addAll(incoming);
     }
 
+    /**
+     * Performs the dealer's colour-up after all incoming chips have landed.
+     * The pot value is invariant; only the physical denomination mix changes
+     * so compression is shared across the four columns.
+     */
+    void rebalanceColumns(double smallBlind) {
+        double exactAmount = amount();
+        GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(
+                exactAmount, smallBlind, exactAmount);
+        chips.clear();
+        for (GdxStackChipLayout.Column column : layout.columns()) {
+            for (GdxStackChipLayout.Chip chip : column.chips()) {
+                chips.add(new CoronaPokerGdxTable.VisualChipSpec(
+                        chip.amountMinor() / 100d, chip.color()));
+            }
+        }
+    }
+
     void replace(double exactAmount,
             List<CoronaPokerGdxTable.VisualChipSpec> replacement) {
         chips.clear();

@@ -18,13 +18,6 @@ final class GdxAppearanceOptionsTest {
         assertEquals("DEAL SPEED", deal.label(text));
         assertEquals("NORMAL",
                 GdxAppearanceOptions.selectedLabel(deal, properties, text));
-        assertEquals("FLIGHT TYPE",
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE.label(text));
-        assertEquals("DYNAMIC", GdxAppearanceOptions.selectedLabel(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE, properties, text));
-        assertTrue(text.translate(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE_TOOLTIP_KEY)
-                .startsWith("Dynamic (default)"));
         assertEquals("Default",
                 GdxAppearanceOptions.cardBackLabel("default", text));
         assertEquals("No felt",
@@ -109,26 +102,6 @@ final class GdxAppearanceOptionsTest {
         assertFalse(GdxAppearanceOptions.enabled(deal, properties));
         assertFalse(GdxAppearanceOptions.enabled(flip, properties));
         assertFalse(GdxAppearanceOptions.enabled(swap, properties));
-    }
-
-    @Test
-    void chipFlightModeDefaultsToDynamicAndBelongsToFlyingChips() {
-        Properties properties = new Properties();
-        GdxAppearanceOptions.Choice mode =
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE;
-
-        assertEquals("DINÁMICO",
-                GdxAppearanceOptions.selectedLabel(mode, properties));
-        assertTrue(GdxAppearanceOptions.dynamicChipFlights(properties));
-        assertTrue(GdxAppearanceOptions.enabled(mode, properties));
-
-        GdxAppearanceOptions.cycle(mode, properties);
-        assertEquals("ESTÁTICO",
-                GdxAppearanceOptions.selectedLabel(mode, properties));
-        assertFalse(GdxAppearanceOptions.dynamicChipFlights(properties));
-
-        properties.setProperty("animacion_apuestas", "false");
-        assertFalse(GdxAppearanceOptions.enabled(mode, properties));
     }
 
     @Test

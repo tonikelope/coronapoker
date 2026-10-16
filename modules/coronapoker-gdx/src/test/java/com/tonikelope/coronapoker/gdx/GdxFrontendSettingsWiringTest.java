@@ -71,10 +71,8 @@ final class GdxFrontendSettingsWiringTest {
                 start);
         assertTrue(start >= 0 && end > start);
         String method = source.substring(start, end);
-        assertTrue(method.contains("drawFittedCenteredInBox(fpsFont,"),
-                "the final overlay must draw centered text in the same frame");
-        assertTrue(method.contains("panelWidth - 16f, panelHeight,"),
-                "the FPS overlay must use a stable-width monospaced face");
+        assertTrue(method.contains("GdxFrameRateOverlayStyle.draw("),
+                "every screen must use the same complete FPS renderer");
         assertFalse(method.contains("y + 29f"),
                 "vertical centering must not rely on a fixed baseline offset");
         assertFalse(method.contains("shapes.rect("),
@@ -95,7 +93,8 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("GdxSettingsLayout.ROW_HEIGHT), \"gdx_vsync\")"));
         assertTrue(table.contains("GdxSettingsContract.vsyncStatusLabel("));
         assertTrue(table.contains("\"gdx_vsync\", viewportBounds, properties"));
-        assertTrue(table.contains("drawFittedCenteredInBox(gameLogFont,"));
+        assertTrue(table.contains(
+                "GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));
     }
 
     @Test

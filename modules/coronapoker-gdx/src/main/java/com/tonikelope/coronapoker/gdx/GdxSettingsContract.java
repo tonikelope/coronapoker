@@ -429,7 +429,7 @@ final class GdxSettingsContract {
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_reparto",
             "animacion_destape", "animacion_ciegas_dealer",
-            "animacion_apuestas", GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY,
+            "animacion_apuestas",
             "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
             "animacion_swap",

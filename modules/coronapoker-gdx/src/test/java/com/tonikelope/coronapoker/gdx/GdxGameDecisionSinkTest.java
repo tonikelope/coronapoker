@@ -409,11 +409,15 @@ final class GdxGameDecisionSinkTest {
                 new GameDecisionSink.GameOverRequest(false, 2, 20, 10, 10));
         shown.get(0).accept();
         assertEquals(1, shown.size());
+        assertTrue(shown.get(0).waitingForExternalClose(),
+                "GAME OVER must retain the modal backdrop until REBUY exists");
         assertFalse(result.toCompletableFuture().isDone());
 
         continueAudio.complete(null);
         assertEquals(2, shown.size(),
                 "rebuy opens only after the GAME OVER cue is stopped");
         assertEquals(GdxTableDialog.Kind.REBUY, shown.get(1).kind());
+        assertTrue(CoronaPokerGdxTable.seamlessGameOverRebuyHandoff(
+                shown.get(0), shown.get(1)));
     }
 }

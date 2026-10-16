@@ -2463,7 +2463,7 @@ public final class GdxMultiprocessNodeMain {
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                         expectedPlayers, productTable, lobby);
                 if (!recovering && candidate) {
-                    renderer.allInOnHand(1L);
+                    renderer.enableAllInEveryHand();
                 }
                 if (config.host()) {
                     renderer.gateActionOnHand(4L);

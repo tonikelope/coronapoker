@@ -424,6 +424,11 @@ final class GdxTableDialog {
     void holdGameOverFinalFrame() {
         if (!gameOverChoice) return;
         gameOverFinalFrame = true;
+        holdForDialogHandoff();
+    }
+
+    void holdForDialogHandoff() {
+        if (!gameOverChoice) return;
         externallyControlled = true;
         deferCloseAfterDecision = true;
         externalCloseReleased = false;

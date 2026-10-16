@@ -33,6 +33,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
@@ -211,6 +212,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HOLE_CARD_WIDTH = 125f;
     private static final float LOCAL_HOLE_CARD_WIDTH = 184f;
     private static final float COMMUNITY_CARD_MAX_WIDTH = 140f;
+    private static final float CHIP_CATALOG_GAP = 28f;
+    private static final float CHIP_CATALOG_LEFT_PADDING = 34f;
+    private static final float CHIP_CATALOG_RIGHT_PADDING = 64f;
+    private static final float CHIP_CATALOG_TOP_PADDING = 54f;
+    private static final float CHIP_CATALOG_BOTTOM_PADDING = 32f;
+    static final float CHIP_CATALOG_REVEAL_SECONDS = 0.42f;
+    static final float CHIP_CATALOG_REVEAL_STAGGER_SECONDS = 0.045f;
+    static final float CHIP_CATALOG_SPIN_SECONDS = 1.05f;
+    private static final float CHIP_CATALOG_SPIN_TURNS = 3f;
+    private static final float CHIP_CATALOG_VALUE_SCALE = 0.72f;
+    private static final float CHIP_CATALOG_DEPTH_DRIFT_RATIO = 0.045f;
     // All positional pucks share one physical diameter. The GDX seat tucks its
     // private cards under the avatar, so Swing's nominal 80% icon ratio looks
     // oversized here; 54% preserves the perceived CoronaPoker proportion.
@@ -249,8 +261,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final int MAX_DYNAMIC_RANDOMIZED_CHIPS = 20;
-    private static final double DYNAMIC_CHIP_SPLIT_PROBABILITY = 0.45d;
+    private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
+    private static final float STACK_CHIP_COLUMN_STAGGER_SECONDS = 0.022f;
+    /** Shared table-plane projection for every stationary physical chip. */
+    private static final float STACK_CHIP_PERSPECTIVE_Y_RATIO = 0.62f;
+    /** Left to right: x2, x10, x1, x5. */
+    private static final int[] STACK_CHIP_COLUMN_SLOT_ORDER = {1, 3, 0, 2};
+    /**
+     * Non-uniform zigzag slots open the centre lane between the foreground x2
+     * and x1 stacks. The rear x10 stack can therefore be read instead of being
+     * completely covered by two touching foreground discs.
+     */
+    private static final float[] STACK_CHIP_SLOT_POSITIONS = {
+        0f, 0.85f, 2.15f, 3f
+    };
+    private static final float STACK_CHIP_CENTRE_LANE_EXPANSION = 0.15f;
+    private static final float STACK_CHIP_EDGE_DEPTH_RATIO = 0.08f;
+    /** Back row first, then the two low-value foreground columns. */
+    private static final int[] STACK_CHIP_COLUMN_DRAW_ORDER = {3, 2, 1, 0};
+    /**
+     * The local discs are larger than the rival-pod discs, so their complete
+     * rack must scale by the same factor. Keeping a fixed 54 px ceiling made
+     * the local columns look visibly stunted even though the two HUD counters
+     * had ample vertical room.
+     */
+    private static final float LOCAL_STACK_CHIP_MAX_VISUAL_HEIGHT
+            = 52f * 30f / 22f;
+    /**
+     * The pot uses the same 30 px chips as the local HUD, so it must retain
+     * the same usable column height. The 82 px panel still leaves breathing
+     * room above and below, including at the peak of its subtle pulse.
+     */
+    private static final float POT_STACK_CHIP_MAX_VISUAL_HEIGHT
+            = LOCAL_STACK_CHIP_MAX_VISUAL_HEIGHT;
+    private static final float POT_PANEL_WIDTH = 390f;
+    private static final float POT_CHIP_RACK_CENTER_OFFSET = 52f;
+    private static final int STACK_CHIP_MAX_COMPRESSED_LEVELS = 20;
+    private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
@@ -784,8 +831,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             new GdxTooltipDelay();
     private final GdxTooltipDelay settingsPerformanceTooltipDelay =
             new GdxTooltipDelay();
-    private final GdxTooltipDelay settingsOptionTooltipDelay =
-            new GdxTooltipDelay();
     private final GdxTooltipDelay settingsLockTooltipDelay =
             new GdxTooltipDelay();
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
@@ -800,6 +845,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxChatGalleryMedia tableGalleryMedia =
             new GdxChatGalleryMedia();
     private GdxTableDialog activeDialog;
+    private boolean chipCatalogVisible;
+    private boolean chipCatalogCloseArmed;
+    private float chipCatalogOpenedAt = Float.NaN;
+    private final float[] chipCatalogSpinStartedAt = {
+        Float.NaN, Float.NaN, Float.NaN, Float.NaN
+    };
+    private final float[] chipCatalogSpinDirection = {1f, 1f, 1f, 1f};
+    private final Matrix4 chipCatalogBaseTransform = new Matrix4();
+    private final Matrix4 chipCatalogDepthTransform = new Matrix4();
     private TableIdentityDialog tableIdentityDialog;
     private GdxTableDialog terminationConfirmation;
     private GdxTableDialog settingsDiscardConfirmation;
@@ -1020,6 +1074,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont finalCardFont;
     private BitmapFont finalCardBoldFont;
     private BitmapFont finalCardResultFont;
+    private BitmapFont fpsFont;
     private BitmapFont gameLogFont;
     private BitmapFont gameLogBoldFont;
     private BitmapFont gameLogSuitFont;
@@ -1167,9 +1222,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private PendingCollectBets pendingCollectBets;
     private LiveChipBatch liveChipBatch;
     private final Map<String, Double> livePotContributions = new HashMap<>();
+    /** Exact landed chip identities behind each player's hand investment. */
+    private final Map<String, ArrayList<VisualChipSpec>> liveInvestmentChips
+            = new HashMap<>();
+    private final GdxPotChipInventory livePotChips =
+            new GdxPotChipInventory();
+    private final float[] potChipRebalanceFromCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private final float[] potChipRebalanceTargetCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private float potChipRebalanceStartedAt = Float.NaN;
     private final Map<String, Double> liveShowdownInvestments
             = new HashMap<>();
     private final Map<String, Long> liveWinnerStarts = new HashMap<>();
+    private final Map<String, Float> pendingStackRackRebalances
+            = new HashMap<>();
     private final ArrayList<Seat> allInFireSeats = new ArrayList<>(SEAT_COUNT);
     private final ArrayList<Seat> liveWinnerEffectSeats =
             new ArrayList<>(SEAT_COUNT);
@@ -1235,6 +1302,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyDown(int keycode) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (chipCatalogVisible) return true;
             if (keycode == Input.Keys.ESCAPE
                     && foregroundUiOwnsEscape(uiLayer)) {
                 // The render-loop router performs the actual close. Consume
@@ -1357,6 +1425,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyUp(int keycode) {
             textDeleteRepeat.release(keycode);
             betShortcutRepeat.release(keycode);
+            if (chipCatalogVisible) return true;
             if (shortcutBindings.keyCodeMatches(
                     GdxShortcutBindings.VOICE_RECORD, keycode)
                     && voiceRecorder != null) {
@@ -1374,6 +1443,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyTyped(char character) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (chipCatalogVisible) return true;
             if (activeDialog != null && activeDialog.isAutoCall()) {
                 handleAutoCallAmountTyped(character);
                 return true;
@@ -1412,6 +1482,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean scrolled(float amountX, float amountY) {
             if (tableImageClearConfirmation) return true;
+            if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
             }
@@ -1492,6 +1563,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
             if (tableIdentityDialog != null) return true;
+            if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 // Dialog buttons are resolved once per frame by
                 // handleDialogInput().  Consume the raw press here as well so
@@ -1618,6 +1690,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
             if (voicePointer.owns(pointerIndex, Input.Buttons.LEFT)) return true;
             if (tableIdentityDialog != null) return true;
+            if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
             }
@@ -1674,6 +1747,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (tableIdentityDialog != null) return true;
+            if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
                 clearTableScrollDrag();
@@ -2291,7 +2365,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void beginTableSettings() {
         settingsPerformanceTooltipDelay.clear();
-        settingsOptionTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : tableProperties);
@@ -2333,7 +2406,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void closeTableSettings(boolean save) {
         audioPreview.stop();
         settingsPerformanceTooltipDelay.clear();
-        settingsOptionTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
         boolean restartNotice = save && presentationSettings != null
                 && GdxSettingsContract.requiresMsaaRestart(
@@ -2952,15 +3024,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 7 -> {
                 finalCardFont = font(creationFontGenerator, 18, 0f);
                 disposeCreationFontGenerator();
-                creationFontGenerator = GdxMonospaceFonts.generator(false);
             }
-            case 8 -> gameLogFont = font(creationFontGenerator, 20, 0f);
-            case 9 -> {
+            case 8 -> fpsFont = GdxFrameRateOverlayStyle.font(
+                    GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
+            case 9 -> creationFontGenerator =
+                    GdxMonospaceFonts.generator(false);
+            case 10 -> gameLogFont = font(creationFontGenerator, 20, 0f);
+            case 11 -> {
                 disposeCreationFontGenerator();
                 creationFontGenerator = GdxMonospaceFonts.generator(true);
             }
-            case 10 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
-            case 11 -> {
+            case 12 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
+            case 13 -> {
                 gameLogSuitFont = font(creationFontGenerator, 28, 0f);
                 disposeCreationFontGenerator();
                 return true;
@@ -3355,6 +3430,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             generator.dispose();
         }
 
+        fpsFont = replaceFont(fpsFont,
+                GdxFrameRateOverlayStyle.font(profile));
         generator = GdxMonospaceFonts.generator(false);
         try {
             gameLogFont = replaceFont(gameLogFont,
@@ -3452,6 +3529,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     replacement.displayedStackAmount
                             = old.displayedStackAmount;
                     replacement.stackText = old.stackText;
+                    replacement.copyStackChipPresentation(old);
                     replacement.displayedInvestedAmount
                             = old.displayedInvestedAmount;
                     replacement.investedText = old.investedText;
@@ -3657,6 +3735,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
              */
             clearCardPresentationForHotJoin();
             liveState.apply(event);
+            liveInvestmentChips.clear();
+            replacePotChipInventory(liveState.snapshot().pot(),
+                    event.sequence());
             syncRemoteRebuyPresentationFromHotJoinSnapshot();
             syncSeatsFromLiveState();
             applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
@@ -3728,6 +3809,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.CollectBets collect) {
             if (!liveBetAnimationEnabled()) {
+                removeUncollectedRackChips(collect);
+                rebalancePotChipInventory();
                 liveState.apply(event);
                 livePotContributions.clear();
                 syncSeatsFromLiveState();
@@ -3741,8 +3824,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveActionChips.isEmpty()) {
                 liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
                         barrier, presentationSnapshot, livePotContributions,
-                        liveCounterDenomination(),
-                        dynamicChipFlightsEnabled());
+                        liveCounterDenomination());
             } else {
                 // Swing lets action chips fly without holding the next turn,
                 // but never duplicates them when the street is collected.
@@ -3756,6 +3838,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (event instanceof TableVisualEvent.PlayerAction action
                 && action.contributionDelta() > 0d) {
             if (!liveBetAnimationEnabled()) {
+                List<VisualChipSpec> actionChips = paymentVisualChips(
+                        action.nickname(), action.contributionDelta(),
+                        liveCounterDenomination(), chipVariationSeed(
+                                action.sequence(), action.nickname(), 0));
                 liveState.apply(event);
                 clearPendingLocalAction(action);
                 // With no visual flight there is no landing callback to add the
@@ -3764,15 +3850,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // replaces it with the canonical pot and clears this cache.
                 livePotContributions.merge(action.nickname(),
                         action.contributionDelta(), Double::sum);
+                livePotChips.deposit(actionChips);
+                recordInvestmentChips(action.nickname(), actionChips);
+                rebalancePotChipInventory();
                 syncSeatsFromLiveState();
+                actionChips.forEach(chip -> removeSeatRackChip(
+                        action.nickname(), chip.color(), chip.amount()));
                 playPlayerActionSoundForAcceptedEvent(action, 0);
                 barrier.complete(null);
                 return;
             }
+            long visualSeed = chipVariationSeed(action.sequence(),
+                    action.nickname(), 0);
+            List<VisualChipSpec> actionChips = paymentVisualChips(
+                    action.nickname(), action.contributionDelta(),
+                    liveCounterDenomination(), visualSeed);
             liveActionChips.add(new LiveActionChip(action,
                     System.nanoTime(), liveCounterAnimationEnabled(),
-                    liveCounterDenomination(),
-                    dynamicChipFlightsEnabled()));
+                    actionChips));
             // The canonical sequence fixes both the action label and the exact
             // post-action balances. Counter interpolation remains cosmetic.
             liveState.apply(event);
@@ -3808,15 +3903,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String cashSoundResource = liveCashRegisterSoundResource();
             playResourceSound(cashSoundResource, 0.72f, 1f);
             if (!liveCounterAnimationEnabled()) {
+                ArrayList<List<VisualChipSpec>> packs = new ArrayList<>();
+                for (int index = 0; index < rebuy.transfers().size(); index++) {
+                    TableVisualEvent.ChipTransfer transfer =
+                            rebuy.transfers().get(index);
+                    Seat seat = seatByNickname(transfer.nickname());
+                    if (seat != null) stackChipLayout(seat);
+                    packs.add(rebuyVisualChips(transfer.amount(),
+                            liveCounterDenomination(),
+                            chipVariationSeed(rebuy.sequence(),
+                                    transfer.nickname(), index)));
+                }
                 liveState.apply(event);
                 syncSeatsFromLiveState();
+                for (int index = 0; index < rebuy.transfers().size(); index++) {
+                    String nickname = rebuy.transfers().get(index).nickname();
+                    packs.get(index).forEach(chip -> addSeatRackChip(
+                            nickname, chip.color(), chip.amount()));
+                }
                 barrier.complete(null);
                 return;
             }
             liveState.apply(event);
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
-                    cashSoundResource, liveCounterDenomination(),
-                    dynamicChipFlightsEnabled());
+                    cashSoundResource, liveCounterDenomination());
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
             liveState.apply(event);
@@ -4084,8 +4194,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else {
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
+                pendingStackRackRebalances.keySet().forEach(
+                        this::rebalanceSeatRack);
+                pendingStackRackRebalances.clear();
                 clearPendingLocalAction();
                 livePotContributions.clear();
+                liveInvestmentChips.clear();
                 liveShowdownInvestments.clear();
                 liveWinnerStarts.clear();
                 liveHoleDealCount = 0;
@@ -4114,6 +4228,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean wasLastHand = liveState.lastHand();
             liveState.apply(event);
+            if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    != TableVisualEvent.HandBoundary.Phase.END) {
+                reconcilePotChipInventory(boundary.snapshot().pot(),
+                        boundary.sequence());
+            }
             if (event instanceof TableVisualEvent.PlayerAction action) {
                 clearPendingLocalAction(action);
             }
@@ -4331,6 +4451,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         double payoutPotBefore = livePot();
         displayedPayoutPot(payoutPotBefore, potAfter, payoutAmount, 0d);
         livePotContributions.clear();
+        List<VisualChipSpec> payoutChips = withdrawPotVisualChips(
+                payoutAmount, event.sequence());
         if (!liveBetAnimationEnabled()
                 || presentationSettings != null
                 && presentationSettings.testMode()) {
@@ -4343,15 +4465,127 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .forEach(transfer -> liveWinnerStarts.putIfAbsent(
                     transfer.nickname(), now));
             syncSeatsFromLiveState();
+            transfers.stream()
+                    .filter(transfer -> MoneyMath.compare(
+                    transfer.winningsAmount(), 0d) > 0)
+                    .forEach(transfer -> rebalanceSeatRack(
+                    transfer.nickname()));
             barrier.complete(null);
             return;
         }
         liveState.apply(event);
         livePayout = new LivePayout(transfers, payoutAmount, potAfter,
                 investedAmountAfter, event.sequence(), System.nanoTime(), barrier,
-                liveCounterDenomination(), payoutPotBefore,
-                liveShowdownInvestments, dynamicChipFlightsEnabled());
+                payoutPotBefore, liveShowdownInvestments, payoutChips,
+                liveCounterDenomination());
         syncSeatsFromLiveState();
+    }
+
+    private void replacePotChipInventory(double exactAmount, long seed) {
+        livePotChips.replace(exactAmount, dynamicVisualChips(exactAmount,
+                liveCounterDenomination(), seed ^ 0x1f83d9abfb41bd6bL));
+        livePotChips.relieveCompressedColumns(liveCounterDenomination(),
+                relaxedRackCapacities(potChipRackGeometry()));
+        potChipRebalanceStartedAt = Float.NaN;
+    }
+
+    private void reconcilePotChipInventory(double exactAmount, long seed) {
+        livePotChips.reconcile(exactAmount, dynamicVisualChips(exactAmount,
+                liveCounterDenomination(), seed ^ 0x5be0cd19137e2179L));
+        livePotChips.relieveCompressedColumns(liveCounterDenomination(),
+                relaxedRackCapacities(potChipRackGeometry()));
+        potChipRebalanceStartedAt = Float.NaN;
+    }
+
+    private void rebalancePotChipInventory() {
+        GdxStackChipLayout.Layout before = visualChipLayout(
+                livePotChips.snapshot());
+        float[] displayedBefore = displayedPotChipCounts(before);
+        livePotChips.relieveCompressedColumns(liveCounterDenomination(),
+                relaxedRackCapacities(potChipRackGeometry()));
+        GdxStackChipLayout.Layout after = visualChipLayout(
+                livePotChips.snapshot());
+        boolean changed = false;
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            potChipRebalanceFromCounts[column] = displayedBefore[column];
+            potChipRebalanceTargetCounts[column] =
+                    after.columnHeight(column);
+            changed |= Math.abs(potChipRebalanceFromCounts[column]
+                    - potChipRebalanceTargetCounts[column]) > 0.000_001f;
+        }
+        potChipRebalanceStartedAt = changed ? totalTime : Float.NaN;
+    }
+
+    private float[] currentPotChipRebalanceCounts(
+            GdxStackChipLayout.Layout currentLayout) {
+        float[] counts = new float[GdxStackChipLayout.COLUMN_COUNT];
+        if (Float.isNaN(potChipRebalanceStartedAt)) {
+            for (int column = 0; column < counts.length; column++) {
+                counts[column] = currentLayout.columnHeight(column);
+            }
+            return counts;
+        }
+        float raw = MathUtils.clamp((totalTime - potChipRebalanceStartedAt)
+                / STACK_CHIP_TRANSITION_SECONDS, 0f, 1f);
+        float eased = Interpolation.smoother.apply(raw);
+        for (int column = 0; column < counts.length; column++) {
+            counts[column] = MathUtils.lerp(
+                    potChipRebalanceFromCounts[column],
+                    potChipRebalanceTargetCounts[column], eased);
+        }
+        if (raw >= 1f) potChipRebalanceStartedAt = Float.NaN;
+        return counts;
+    }
+
+    private float[] displayedPotChipCounts(
+            GdxStackChipLayout.Layout layout) {
+        if (!Float.isNaN(potChipRebalanceStartedAt)) {
+            boolean stillTargetsCurrentLayout = true;
+            for (int column = 0;
+                    column < GdxStackChipLayout.COLUMN_COUNT; column++) {
+                if (Math.abs(potChipRebalanceTargetCounts[column]
+                        - layout.columnHeight(column)) > 0.000_001f) {
+                    stillTargetsCurrentLayout = false;
+                    break;
+                }
+            }
+            if (!stillTargetsCurrentLayout || livePayout != null) {
+                potChipRebalanceStartedAt = Float.NaN;
+            }
+        }
+        return currentPotChipRebalanceCounts(layout);
+    }
+
+    private List<VisualChipSpec> withdrawPotVisualChips(double exactAmount,
+            long seed) {
+        double requested = Math.max(0d, MoneyMath.clean(exactAmount));
+        return livePotChips.withdraw(requested,
+                liveCounterDenomination(), seed);
+    }
+
+    private void recordInvestmentChips(String nickname,
+            List<VisualChipSpec> chips) {
+        if (nickname == null || nickname.isBlank()
+                || chips == null || chips.isEmpty()) {
+            return;
+        }
+        liveInvestmentChips.computeIfAbsent(nickname,
+                ignored -> new ArrayList<>()).addAll(chips);
+    }
+
+    private void applyLandedChipInventories(LiveChip chip, float progress) {
+        if (chip.landingInventoriesApplied || progress < 1f) return;
+        chip.landingInventoriesApplied = true;
+        VisualChipSpec landed = new VisualChipSpec(chip.contribution,
+                chip.color);
+        livePotChips.deposit(List.of(landed));
+        recordInvestmentChips(chip.nickname, List.of(landed));
+        // The central pot follows the same live contract as a player rack:
+        // contact changes its physical count immediately. A colour-up target
+        // is introduced only if the landed chip causes real compression while
+        // another denomination column still has relaxed room.
+        rebalancePotChipInventory();
     }
 
     static boolean holeCardsAlreadyRevealed(
@@ -4705,6 +4939,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveChipBatch();
         updateLivePayout();
         updateLiveRebuy();
+        updatePendingStackRackRebalances();
         updateLiveInitialStackFill();
         updateLiveCinematic();
         updateLiveShuffle();
@@ -4769,6 +5004,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || uiLayer != UI_NONE && (uiLayer != UI_GAME_LOG
                         || gameLogPanelContains(pointer.x, pointer.y))
                 || blocksTableUtilities(activeDialog)
+                || chipCatalogVisible
                 || tableIdentityDialog != null
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null
@@ -4816,6 +5052,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawUiLayer();
         drawTerminationOverlay();
         drawActiveDialog();
+        drawChipCatalogDialog();
         drawTableIdentityDialog();
         drawNetworkReconnectOverlay();
         drawRecoveryStopOverlay();
@@ -4840,6 +5077,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chatImageMode)
                 || tableImageClearConfirmation
                 || blocksTableUtilities(activeDialog)
+                || chipCatalogVisible
                 || tableIdentityDialog != null
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null && !intro
@@ -5027,6 +5265,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else {
             dialogInputGate.accepts(null, false);
+        }
+        if (chipCatalogVisible) {
+            handleChipCatalogInput();
+            return;
         }
         // Terminal and reconnecting surfaces own the complete input frame.
         // Keeping these gates in the main router is essential: consuming raw
@@ -5692,6 +5934,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Objects.requireNonNull(request, "request");
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
+        closeChipCatalog();
         // AUTO MODE is a cancelable veto, not a modal owner. A user request or
         // a dealer/network dialog must replace it immediately instead of
         // waiting behind its five-second timer. Dismissing it also guarantees
@@ -5707,7 +5950,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             focusAutoCallAmount(request, true);
         } else {
             dialogQueue.addLast(request);
+            if (seamlessGameOverRebuyHandoff(activeDialog, request)) {
+                // GAME OVER remains visible while its transition audio is
+                // stopped. Release it only after REBUY is already queued, so
+                // modal blur never disappears for an intermediate frame.
+                activeDialog.releaseExternalClose();
+            }
         }
+    }
+
+    static boolean seamlessGameOverRebuyHandoff(GdxTableDialog current,
+            GdxTableDialog incoming) {
+        return current != null && incoming != null
+                && current.isGameOverChoice()
+                && current.waitingForExternalClose()
+                && incoming.isRebuy();
     }
 
     GdxTableDialog requestExit() {
@@ -6026,6 +6283,296 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void openChipCatalog() {
+        chipCatalogVisible = true;
+        chipCatalogOpenedAt = totalTime;
+        chipCatalogCloseArmed = false;
+        Arrays.fill(chipCatalogSpinStartedAt, Float.NaN);
+        Arrays.fill(chipCatalogSpinDirection, 1f);
+    }
+
+    private void closeChipCatalog() {
+        chipCatalogVisible = false;
+        chipCatalogCloseArmed = false;
+        chipCatalogOpenedAt = Float.NaN;
+        Arrays.fill(chipCatalogSpinStartedAt, Float.NaN);
+    }
+
+    private void handleChipCatalogInput() {
+        if (!chipCatalogVisible) return;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            closeChipCatalog();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                || ((Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT))
+                && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+            toggleFullscreen();
+            return;
+        }
+        if (leftButtonReleasedThisFrame) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            ChipCatalogLayout releasedLayout = chipCatalogLayout(
+                    viewport.getWorldWidth(), viewport.getWorldHeight());
+            boolean close = chipCatalogCloseArmed
+                    && releasedLayout.close().contains(pointer);
+            chipCatalogCloseArmed = false;
+            if (close) closeChipCatalog();
+            return;
+        }
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        ChipCatalogLayout layout = chipCatalogLayout(
+                viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (layout.close().contains(pointer)) {
+            chipCatalogCloseArmed = true;
+            return;
+        }
+        for (int index = 0; index < layout.chips().size(); index++) {
+            Rectangle chip = layout.chips().get(index);
+            if (!chip.contains(pointer)) continue;
+            chipCatalogSpinStartedAt[index] = totalTime;
+            // The pressed half chooses which side advances first during the
+            // depth turn. The chip remains a table-facing casino chip rather
+            // than spinning flat in the screen plane.
+            chipCatalogSpinDirection[index]
+                    = pointer.x >= chip.x + chip.width / 2f ? 1f : -1f;
+            return;
+        }
+    }
+
+    private boolean chipCatalogPileContains(float x, float y,
+            float worldWidth) {
+        LocalHudLayout localHud = localHudLayout(worldWidth);
+        Seat local = seats[0];
+        if (seatPresenceAlpha(0) > 0f
+                && chipRackVisible(local.displayedStackAmount)
+                && localHud.stackChipVisualBounds().contains(x, y)) {
+            return true;
+        }
+        if (seatPresenceAlpha(0) > 0f
+                && chipRackVisible(local.displayedInvestedAmount)
+                && localHud.investedChipVisualBounds().contains(x, y)) {
+            return true;
+        }
+        if (chipRackVisible(livePot())) {
+            StackChipRackGeometry geometry = animatedPotChipRackGeometry();
+            if (chipRackVisualBounds(potChipRackCenterX(potCenterX),
+                    potChipRackBaseY(geometry), geometry).contains(x, y)) {
+                return true;
+            }
+        }
+        StackChipRackGeometry remoteGeometry = stackChipRackGeometry(false);
+        for (Seat seat : seats) {
+            if (seat.index == 0 || seatPresenceAlpha(seat.index) <= 0f
+                    || !chipRackVisible(seat.displayedStackAmount)) {
+                continue;
+            }
+            if (chipRackVisualBounds(seat.stackX, seat.stackY,
+                    remoteGeometry).contains(x, y)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Rectangle chipRackVisualBounds(float centerX,
+            float baseCenterY, StackChipRackGeometry geometry) {
+        float edgeDepth = Math.max(1f, geometry.chipSize()
+                * STACK_CHIP_EDGE_DEPTH_RATIO);
+        float padding = 4f;
+        return new Rectangle(centerX - geometry.rackWidth() / 2f - padding,
+                baseCenterY - geometry.chipSize() / 2f - edgeDepth - padding,
+                geometry.rackWidth() + padding * 2f,
+                geometry.maximumHeight() + edgeDepth + padding * 2f);
+    }
+
+    static List<VisualChipSpec> chipCatalogEntries(double smallBlind) {
+        long baseMinor = GdxChipDenominations.baseMinor(smallBlind);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(
+                GdxChipDenominations.COLUMN_COUNT);
+        for (int column = GdxChipDenominations.COLUMN_COUNT - 1;
+                column >= 0; column--) {
+            result.add(new VisualChipSpec(baseMinor
+                    * GdxChipDenominations.units(column) / 100d,
+                    GdxChipDenominations.color(column)));
+        }
+        return List.copyOf(result);
+    }
+
+    static ChipCatalogLayout chipCatalogLayout(float worldWidth,
+            float worldHeight) {
+        float tableWidth = Math.min(1510f, worldWidth * 0.78f);
+        float targetDiameter = Math.min(COMMUNITY_CARD_MAX_WIDTH,
+                tableWidth / 10f);
+        float horizontalRoom = Math.max(1f, worldWidth - 56f
+                - CHIP_CATALOG_LEFT_PADDING - CHIP_CATALOG_RIGHT_PADDING
+                - CHIP_CATALOG_GAP * 3f);
+        float verticalRoom = Math.max(1f, worldHeight - 56f
+                - CHIP_CATALOG_TOP_PADDING - CHIP_CATALOG_BOTTOM_PADDING);
+        float diameter = Math.min(targetDiameter,
+                Math.min(horizontalRoom / 4f, verticalRoom));
+        float panelWidth = CHIP_CATALOG_LEFT_PADDING
+                + CHIP_CATALOG_RIGHT_PADDING + diameter * 4f
+                + CHIP_CATALOG_GAP * 3f;
+        float panelHeight = CHIP_CATALOG_BOTTOM_PADDING + diameter
+                + CHIP_CATALOG_TOP_PADDING;
+        float panelX = (worldWidth - panelWidth) / 2f;
+        float panelY = (worldHeight - panelHeight) / 2f;
+        Rectangle panel = new Rectangle(panelX, panelY,
+                panelWidth, panelHeight);
+        ArrayList<Rectangle> chips = new ArrayList<>(4);
+        float chipY = panelY + CHIP_CATALOG_BOTTOM_PADDING;
+        float chipX = panelX + CHIP_CATALOG_LEFT_PADDING;
+        for (int index = 0; index < 4; index++) {
+            chips.add(new Rectangle(chipX, chipY, diameter, diameter));
+            chipX += diameter + CHIP_CATALOG_GAP;
+        }
+        float closeWidth = 40f;
+        float closeHeight = 36f;
+        Rectangle close = new Rectangle(
+                panelX + panelWidth - closeWidth - 22f,
+                panelY + panelHeight - closeHeight - 22f,
+                closeWidth, closeHeight);
+        return new ChipCatalogLayout(panel, List.copyOf(chips), close,
+                diameter);
+    }
+
+    static float chipCatalogRevealScale(float elapsedSeconds, int index) {
+        float local = (elapsedSeconds
+                - index * CHIP_CATALOG_REVEAL_STAGGER_SECONDS)
+                / CHIP_CATALOG_REVEAL_SECONDS;
+        if (local <= 0f) return 0f;
+        if (local >= 1f) return 1f;
+        float eased = Interpolation.smoother.apply(local);
+        // Start edge-on and expose both casino-chip faces before settling
+        // exactly frontal. abs() keeps the same value readable on either face.
+        return Math.abs(MathUtils.cosDeg(90f + 270f * eased));
+    }
+
+    static float chipCatalogSpinDepthScale(float elapsedSeconds) {
+        if (elapsedSeconds <= 0f
+                || elapsedSeconds >= CHIP_CATALOG_SPIN_SECONDS) return 1f;
+        float progress = elapsedSeconds / CHIP_CATALOG_SPIN_SECONDS;
+        float angle = 360f * CHIP_CATALOG_SPIN_TURNS
+                * Interpolation.smoother.apply(progress);
+        // A depth turn is perceived through foreshortening: frontal at 1,
+        // edge-on at 0, and frontal again on the reverse face. abs() keeps
+        // both casino-chip faces visible while avoiding an in-plane top spin.
+        return Math.abs(MathUtils.cosDeg(angle));
+    }
+
+    static float chipCatalogSpinDepthOffset(float elapsedSeconds,
+            float direction, float diameter) {
+        if (elapsedSeconds <= 0f
+                || elapsedSeconds >= CHIP_CATALOG_SPIN_SECONDS) return 0f;
+        float progress = elapsedSeconds / CHIP_CATALOG_SPIN_SECONDS;
+        float angle = 360f * CHIP_CATALOG_SPIN_TURNS
+                * Interpolation.smoother.apply(progress);
+        // A restrained lateral parallax makes a click on either half send
+        // that side away first without making the chip wander in the panel.
+        return direction * MathUtils.sinDeg(angle) * diameter
+                * CHIP_CATALOG_DEPTH_DRIFT_RATIO;
+    }
+
+    private static Color chipCatalogValueColor(int chipColor) {
+        // The yellow chip needs a dark value; the deeper red, blue and green
+        // faces retain maximum contrast with casino-white lettering.
+        return chipColor == 3 ? new Color(0x111722ff) : Color.WHITE;
+    }
+
+    private void drawChipCatalogDialog() {
+        if (!chipCatalogVisible || flyingChips == null) return;
+        ChipCatalogLayout layout = chipCatalogLayout(
+                viewport.getWorldWidth(), viewport.getWorldHeight());
+        Rectangle panel = layout.panel();
+        Rectangle close = layout.close();
+        boolean closeHovered = close.contains(pointer);
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN, 1f);
+        drawDialogButton(close.x, close.y, close.width, close.height,
+                FOLD_RED, closeHovered, 1f);
+        shapes.end();
+
+        List<VisualChipSpec> entries = chipCatalogEntries(
+                liveCounterDenomination());
+        float revealElapsed = Math.max(0f, totalTime - chipCatalogOpenedAt);
+        batch.begin();
+        chipCatalogBaseTransform.set(batch.getTransformMatrix());
+        for (int index = 0; index < entries.size(); index++) {
+            VisualChipSpec entry = entries.get(index);
+            Rectangle bounds = layout.chips().get(index);
+            float centerX = bounds.x + bounds.width / 2f;
+            float centerY = bounds.y + bounds.height / 2f;
+            float revealScale = chipCatalogRevealScale(revealElapsed, index);
+            float spinStarted = chipCatalogSpinStartedAt[index];
+            float spinElapsed = Float.isNaN(spinStarted)
+                    ? CHIP_CATALOG_SPIN_SECONDS : totalTime - spinStarted;
+            float spinScale = chipCatalogSpinDepthScale(spinElapsed);
+            float spinOffset = chipCatalogSpinDepthOffset(spinElapsed,
+                    chipCatalogSpinDirection[index], bounds.width);
+            if (!Float.isNaN(spinStarted)
+                    && spinElapsed >= CHIP_CATALOG_SPIN_SECONDS) {
+                chipCatalogSpinStartedAt[index] = Float.NaN;
+            }
+
+            float drawCenterX = centerX + spinOffset;
+            float faceScale = Math.max(0.001f,
+                    revealScale * spinScale);
+            // Apply one shared depth transform to the complete printed chip.
+            // The artwork, value and its shadow therefore become edge-on and
+            // return frontal together, as if the number were inked on both
+            // physical faces instead of floating above the animation.
+            chipCatalogDepthTransform.set(chipCatalogBaseTransform)
+                    .translate(drawCenterX, centerY, 0f)
+                    .scale(faceScale, 1f, 1f)
+                    .translate(-centerX, -centerY, 0f);
+            batch.setTransformMatrix(chipCatalogDepthTransform);
+
+            Texture texture = flyingChips[Math.floorMod(entry.color(),
+                    flyingChips.length)];
+            batch.setColor(Color.WHITE);
+            batch.draw(texture, bounds.x, bounds.y,
+                    bounds.width, bounds.height);
+
+            float valueAlpha = MathUtils.clamp(
+                    (faceScale - 0.10f) / 0.30f, 0f, 1f);
+            if (valueAlpha > 0f) {
+                float valueWidth = bounds.width * 0.62f;
+                float valueX = centerX - valueWidth / 2f;
+                float valueY = centerY - bounds.height * 0.21f;
+                float valueHeight = bounds.height * 0.42f;
+                String value = formatAmount(entry.amount());
+                Color valueColor = chipCatalogValueColor(entry.color());
+                Color shadow = valueColor == Color.WHITE
+                        ? Color.BLACK : Color.WHITE;
+                drawScaledFittedCenteredInBox(dialogAmountFont,
+                        CHIP_CATALOG_VALUE_SCALE, value,
+                        valueX + 2f, valueY - 2f, valueWidth, valueHeight,
+                        shadow, valueAlpha * (valueColor == Color.WHITE
+                                ? 0.78f : 0.56f));
+                drawScaledFittedCenteredInBox(dialogAmountFont,
+                        CHIP_CATALOG_VALUE_SCALE, value,
+                        valueX, valueY, valueWidth, valueHeight,
+                        valueColor, valueAlpha);
+            }
+        }
+        batch.setTransformMatrix(chipCatalogBaseTransform);
+        batch.setColor(Color.WHITE);
+        drawDialogButtonLabel(settingsStepperSignFont,
+                GdxUiDialogStyle.CLOSE_GLYPH,
+                close.x, close.y, close.width, close.height,
+                Color.WHITE, 1f);
+        batch.end();
+    }
+
     /**
      * Resolves the dialog currently owned by the table. Pointer, keyboard and
      * automated scenario drivers deliberately share this single path so a
@@ -6202,6 +6749,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String timedOutPlayer = timedOutKickPlayerAt(pointer.x, pointer.y);
         if (timedOutPlayer != null) {
             requestKickTimedOutPlayer(timedOutPlayer);
+            return;
+        }
+        if (activeDialog == null
+                && chipCatalogPileContains(pointer.x, pointer.y,
+                        viewport.getWorldWidth())) {
+            openChipCatalog();
             return;
         }
         Seat stackSeat = stackSeatAt(pointer.x, pointer.y,
@@ -8213,7 +8766,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
-        drawChipTrails(potCenterX, potCenterY);
+        drawChipTrails();
         // Hidden cards and completed showdown hands live behind their PlayerPod.
         // A revealing card temporarily moves to the foreground while airborne,
         // then lands at the exact same coordinates behind its owner's HUD.
@@ -8238,7 +8791,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // The physical chip flies above every money surface, including the
         // local HUD counter. Its counter changes on the same landing frame,
         // producing the same contact effect as the central pot label.
-        drawFlyingChips(potCenterX, potCenterY);
+        drawFlyingChips();
         // Swing puts chat_notify_label in the player's topmost layered-pane
         // band.  Draw notices only after every remote and local HUD; otherwise
         // the local HUD repaints over talk.png and makes an own voice note look
@@ -8992,35 +9545,592 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Drawn inside an active SpriteBatch. */
     private void drawSeatChipStack(Seat seat, float alpha) {
-        drawChipStack(seat.stackX, seat.stackY, seat.index, alpha,
-                seat.index == 0, false);
+        GdxStackChipLayout.Layout layout = stackChipLayout(seat);
+        drawAmountChipStack(seat, seat.stackX, seat.stackY, layout, alpha,
+                seat.index == 0);
     }
 
-    private void drawLocalCounterChipStack(float centerX, float centerY,
-            float alpha, boolean mirrored) {
-        drawChipStack(centerX, centerY, 0, alpha, true, mirrored);
+    private void drawLocalCounterChipStack(Seat seat, float centerX,
+            float centerY, float alpha) {
+        List<VisualChipSpec> chips = displayedInvestmentVisualChips(seat);
+        if (chips.isEmpty()) return;
+        drawStaticChipRack(centerX, centerY, visualChipLayout(chips), alpha,
+                stackChipRackGeometry(true));
     }
 
-    private void drawChipStack(float centerX, float centerY,
-            int paletteIndex, float alpha, boolean localSize,
-            boolean mirrored) {
-        float chipSize = localSize ? 34f : 26f;
-        float halfChip = chipSize / 2f;
-        float columnGap = localSize ? 26f : 20f;
-        float verticalGap = localSize ? 5f : 4f;
-        float firstColumn = localSize ? -23f : -19f;
-        for (int column = 0; column < 2; column++) {
-            int chipCount = column == 0 ? 6 : 4;
-            Texture stackChip = flyingChips[Math.floorMod(
-                    paletteIndex + column, flyingChips.length)];
-            float relativeX = firstColumn + column * columnGap;
-            float columnX = centerX + (mirrored ? -relativeX : relativeX);
-            batch.setColor(1f, 1f, 1f, alpha);
-            for (int chip = 0; chip < chipCount; chip++) {
-                batch.draw(stackChip, columnX - halfChip,
-                        centerY - halfChip + chip * verticalGap,
-                        chipSize, chipSize);
+    private List<VisualChipSpec> displayedInvestmentVisualChips(Seat seat) {
+        if (seat == null || !chipRackVisible(seat.displayedInvestedAmount)) {
+            return List.of();
+        }
+        List<VisualChipSpec> landed = liveInvestmentChips.get(seat.name);
+        long targetMinor = Math.round(seat.displayedInvestedAmount * 100d);
+        if (visualChipAmountMinor(landed) == targetMinor) {
+            return List.copyOf(landed);
+        }
+        // Hot joins and payout interpolation have no complete landing history.
+        // Reconstruct only those exceptional frames from the same fixed
+        // denominations; live play always follows the exact landed chips.
+        return dynamicVisualChips(seat.displayedInvestedAmount,
+                liveCounterDenomination(), seat.name.hashCode());
+    }
+
+    static boolean chipRackVisible(double amount) {
+        return Double.isFinite(amount) && MoneyMath.compare(amount, 0d) > 0;
+    }
+
+    static long visualChipAmountMinor(List<VisualChipSpec> chips) {
+        if (chips == null || chips.isEmpty()) return 0L;
+        long total = 0L;
+        for (VisualChipSpec chip : chips) {
+            total += Math.max(0L, Math.round(chip.amount() * 100d));
+        }
+        return total;
+    }
+
+    static GdxStackChipLayout.Layout visualChipLayout(
+            List<VisualChipSpec> chips) {
+        ArrayList<ArrayList<GdxStackChipLayout.Chip>> grouped =
+                new ArrayList<>(GdxStackChipLayout.COLUMN_COUNT);
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            grouped.add(new ArrayList<>());
+        }
+        if (chips != null) {
+            for (VisualChipSpec chip : chips) {
+                int column = GdxChipDenominations.columnForColor(chip.color());
+                if (column < 0) continue;
+                grouped.get(column).add(new GdxStackChipLayout.Chip(
+                        Math.max(1L, Math.round(chip.amount() * 100d)),
+                        chip.color()));
             }
+        }
+        ArrayList<GdxStackChipLayout.Column> columns = new ArrayList<>(
+                GdxStackChipLayout.COLUMN_COUNT);
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            columns.add(new GdxStackChipLayout.Column(
+                    GdxChipDenominations.color(column), grouped.get(column)));
+        }
+        return new GdxStackChipLayout.Layout(columns);
+    }
+
+    private GdxStackChipLayout.Layout stackChipLayout(Seat seat) {
+        double denomination = liveCounterDenomination();
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        double referenceAmount = player == null || player.buyIn() <= 0d
+                ? seat.displayedStackAmount : player.buyIn();
+        if (seat.stackChipLayout == null
+                || liveInitialStackFill != null
+                && Double.compare(seat.stackChipLayoutAmount,
+                        seat.displayedStackAmount) != 0
+                || Double.compare(seat.stackChipLayoutDenomination,
+                        denomination) != 0
+                || Double.compare(seat.stackChipLayoutReferenceAmount,
+                        referenceAmount) != 0) {
+            seat.stackChipLayout = GdxStackChipLayout.compose(
+                    seat.displayedStackAmount, denomination,
+                    referenceAmount);
+            seat.stackChipLayoutAmount = seat.displayedStackAmount;
+            seat.stackChipLayoutDenomination = denomination;
+            seat.stackChipLayoutReferenceAmount = referenceAmount;
+        }
+        return seat.stackChipLayout;
+    }
+
+    private void removeSeatRackChip(String nickname, int color,
+            double amount) {
+        Seat seat = seatByNickname(nickname);
+        if (seat == null) return;
+        GdxStackChipLayout.Layout rack = seat.stackChipLayout == null
+                ? stackChipLayout(seat) : seat.stackChipLayout;
+        GdxStackChipLayout.Layout reduced = GdxStackChipLayout.remove(
+                rack, Math.max(1L,
+                        Math.round(amount * 100d)), color);
+        applyPhysicalStackChipMovement(seat, rack, reduced, color, -1f);
+        refreshSeatRackMetadata(seat, reduced.representedMinor() / 100d);
+    }
+
+    private void removeUncollectedRackChips(
+            TableVisualEvent.CollectBets collect) {
+        int transferIndex = 0;
+        for (TableVisualEvent.ChipTransfer transfer : collect.transfers()) {
+            double visualAmount = Math.max(0d, transfer.amount()
+                    - livePotContributions.getOrDefault(
+                            transfer.nickname(), 0d));
+            if (visualAmount > 0.000_001d) {
+                List<VisualChipSpec> chips = paymentVisualChips(
+                        transfer.nickname(), visualAmount,
+                        liveCounterDenomination(), chipVariationSeed(
+                                collect.sequence(), transfer.nickname(),
+                                transferIndex));
+                chips.forEach(chip -> removeSeatRackChip(
+                        transfer.nickname(), chip.color(), chip.amount()));
+                livePotChips.deposit(chips);
+                recordInvestmentChips(transfer.nickname(), chips);
+            }
+            transferIndex++;
+        }
+    }
+
+    private void addSeatRackChip(String nickname, int color, double amount) {
+        Seat seat = seatByNickname(nickname);
+        if (seat == null) return;
+        GdxStackChipLayout.Layout rack = seat.stackChipLayout == null
+                ? stackChipLayout(seat) : seat.stackChipLayout;
+        GdxStackChipLayout.Layout arrived = GdxStackChipLayout.add(rack,
+                Math.max(1L, Math.round(amount * 100d)), color);
+        double landedAmount = arrived.representedMinor() / 100d;
+        GdxStackChipLayout.Layout balanced = compressionAwareSeatRackLayout(
+                seat, arrived, landedAmount);
+        applyPhysicalStackChipMovement(seat, rack, balanced, color, 1f);
+        refreshSeatRackMetadata(seat, landedAmount);
+    }
+
+    private void applyPhysicalStackChipMovement(Seat seat,
+            GdxStackChipLayout.Layout before,
+            GdxStackChipLayout.Layout targetLayout, int color, float delta) {
+        if (seat.stackChipTargetCounts[0] < 0) {
+            synchronizePhysicalStackChipCounts(before,
+                    seat.stackChipDisplayedCounts, seat.stackChipFromCounts,
+                    seat.stackChipTargetCounts);
+        }
+        advanceStackChipAnimation(seat);
+        boolean changed = retargetPhysicalStackChipCounts(targetLayout,
+                color, delta, seat.stackChipDisplayedCounts,
+                seat.stackChipFromCounts, seat.stackChipTargetCounts);
+        seat.stackChipLayout = targetLayout;
+        seat.stackChipAnimationStartedAt = changed ? totalTime : Float.NaN;
+    }
+
+    /**
+     * A flying chip becomes the top chip of its destination column on the exact
+     * frame where it lands (and leaves its origin column when it departs).
+     */
+    static void synchronizePhysicalStackChipCounts(
+            GdxStackChipLayout.Layout layout, float[] displayed,
+            float[] from, int[] target) {
+        Objects.requireNonNull(layout, "layout");
+        if (displayed.length != GdxStackChipLayout.COLUMN_COUNT
+                || from.length != GdxStackChipLayout.COLUMN_COUNT
+                || target.length != GdxStackChipLayout.COLUMN_COUNT) {
+            throw new IllegalArgumentException(
+                    "Physical stack presentation must contain four columns");
+        }
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            int height = layout.columnHeight(column);
+            displayed[column] = height;
+            from[column] = height;
+            target[column] = height;
+        }
+    }
+
+    /**
+     * Preserves an in-progress rack transition, applies the one physical chip
+     * that just moved, then retargets all four columns to their newly balanced
+     * composition. Repeated landings therefore advance compression and, only
+     * when needed, colour-up continuously instead of restarting a delayed
+     * batch animation.
+     */
+    static boolean retargetPhysicalStackChipCounts(
+            GdxStackChipLayout.Layout targetLayout, int color, float delta,
+            float[] displayed, float[] from, int[] target) {
+        int movedColumn = GdxChipDenominations.columnForColor(color);
+        if (movedColumn < 0) {
+            throw new IllegalArgumentException("Unknown physical chip colour "
+                    + color);
+        }
+        displayed[movedColumn] = Math.max(0f,
+                displayed[movedColumn] + delta);
+        System.arraycopy(displayed, 0, from, 0,
+                GdxStackChipLayout.COLUMN_COUNT);
+        boolean changed = false;
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            target[column] = targetLayout.columnHeight(column);
+            changed |= Math.abs(from[column] - target[column]) > 0.000_001f;
+        }
+        return changed;
+    }
+
+    private void refreshSeatRackMetadata(Seat seat) {
+        refreshSeatRackMetadata(seat, seat.displayedStackAmount);
+    }
+
+    private void refreshSeatRackMetadata(Seat seat, double exactAmount) {
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        seat.stackChipLayoutAmount = exactAmount;
+        seat.stackChipLayoutDenomination = liveCounterDenomination();
+        seat.stackChipLayoutReferenceAmount = player == null
+                || player.buyIn() <= 0d ? exactAmount
+                        : player.buyIn();
+    }
+
+    private void rebalanceSeatRack(String nickname) {
+        Seat seat = seatByNickname(nickname);
+        TableSnapshot.PlayerSnapshot player = seat == null
+                ? null : livePlayer(seat);
+        if (seat == null || player == null) return;
+        rebalanceSeatRack(seat, player.stack());
+    }
+
+    private void rebalanceSeatRack(Seat seat, double exactAmount) {
+        GdxStackChipLayout.Layout current = seat.stackChipLayout == null
+                ? stackChipLayout(seat) : seat.stackChipLayout;
+        seat.stackChipLayout = compressionAwareSeatRackLayout(seat, current,
+                exactAmount);
+        refreshSeatRackMetadata(seat, exactAmount);
+    }
+
+    private GdxStackChipLayout.Layout compressionAwareSeatRackLayout(
+            Seat seat, GdxStackChipLayout.Layout current,
+            double exactAmount) {
+        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
+        double reference = player != null && player.buyIn() > 0d
+                ? player.buyIn() : exactAmount;
+        return GdxStackChipLayout.relieveCompression(current, exactAmount,
+                liveCounterDenomination(), reference,
+                relaxedRackCapacities(stackChipRackGeometry(
+                        seat != null && seat.index == 0)));
+    }
+
+    private void updatePendingStackRackRebalances() {
+        if (livePayout != null || pendingStackRackRebalances.isEmpty()) return;
+        var iterator = pendingStackRackRebalances.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Float> entry = iterator.next();
+            if (totalTime < entry.getValue()) continue;
+            rebalanceSeatRack(entry.getKey());
+            iterator.remove();
+        }
+    }
+
+    private void drawAmountChipStack(Seat seat, float centerX, float centerY,
+            GdxStackChipLayout.Layout layout, float alpha, boolean localSize) {
+        float[] physicalCounts = animatedStackChipCounts(seat, layout);
+        StackChipRackGeometry geometry = stackChipRackGeometry(localSize);
+        drawChipRack(centerX, centerY, layout, physicalCounts, alpha,
+                geometry);
+    }
+
+    private void drawStaticChipRack(float centerX, float centerY,
+            GdxStackChipLayout.Layout layout, float alpha,
+            StackChipRackGeometry geometry) {
+        float[] physicalCounts = new float[GdxStackChipLayout.COLUMN_COUNT];
+        for (int column = 0; column < physicalCounts.length; column++) {
+            physicalCounts[column] = layout.columnHeight(column);
+        }
+        drawChipRack(centerX, centerY, layout, physicalCounts, alpha,
+                geometry);
+    }
+
+    private void drawChipRack(float centerX, float centerY,
+            GdxStackChipLayout.Layout layout, float[] physicalCounts,
+            float alpha, StackChipRackGeometry geometry) {
+        float[] heights = new float[physicalCounts.length];
+        for (int column = 0; column < physicalCounts.length; column++) {
+            heights[column] = stackChipPerceivedLevels(geometry, column,
+                    physicalCounts[column]);
+        }
+        float fittedVerticalGap = stackChipRackVerticalGap(geometry, heights);
+        float[] columnOffsets = stackChipColumnOffsets(geometry, heights);
+        for (int column : STACK_CHIP_COLUMN_DRAW_ORDER) {
+            float height = Math.max(0f, heights[column]);
+            float baseRise = stackChipColumnForeground(column) ? 0f
+                    : geometry.zigzagRise();
+            float columnX = centerX + columnOffsets[column];
+            float columnY = centerY + baseRise;
+            GdxStackChipLayout.Column chipColumn = layout.columns().get(column);
+            Texture texture = flyingChips[Math.floorMod(
+                    chipColumn.color(), flyingChips.length)];
+            drawAmountChipColumn(texture, columnX, columnY, height,
+                    geometry, fittedVerticalGap, alpha);
+        }
+    }
+
+    static StackChipRackGeometry scaledStackChipRackGeometry(
+            StackChipRackGeometry source, float scale) {
+        float safeScale = Math.max(0.01f, scale);
+        return new StackChipRackGeometry(
+                source.chipSize() * safeScale,
+                source.firstColumnOffset() * safeScale,
+                source.columnGap() * safeScale,
+                source.zigzagRise() * safeScale,
+                source.normalVerticalGap() * safeScale,
+                source.minimumVerticalGap() * safeScale,
+                source.rackWidth() * safeScale,
+                source.maximumHeight() * safeScale);
+    }
+
+    private void drawAmountChipColumn(Texture texture, float columnX,
+            float columnY, float height, StackChipRackGeometry geometry,
+            float fittedVerticalGap, float alpha) {
+        if (height <= 0f) return;
+        float firstVisibility = Interpolation.smoother.apply(
+                MathUtils.clamp(height, 0f, 1f));
+        float baseScale = MathUtils.lerp(0.72f, 1f, firstVisibility);
+        float baseSize = geometry.chipSize() * baseScale;
+        float edgeDepth = Math.max(1f,
+                geometry.chipSize() * STACK_CHIP_EDGE_DEPTH_RATIO);
+        // A single physical chip is still a shallow cylinder. This lower lip
+        // keeps it on the same perspective plane as the taller columns rather
+        // than reading as a flat frontal token.
+        batch.setColor(0.48f, 0.48f, 0.48f,
+                alpha * firstVisibility);
+        batch.draw(texture, columnX - baseSize / 2f,
+                columnY - geometry.chipSize() / 2f - edgeDepth,
+                baseSize, baseSize * STACK_CHIP_PERSPECTIVE_Y_RATIO);
+
+        int visibleLevels = MathUtils.ceil(height);
+        for (int level = 0; level < visibleLevels; level++) {
+                float visibility = MathUtils.clamp(height - level, 0f, 1f);
+                float easedVisibility = Interpolation.smoother.apply(
+                        visibility);
+                float scale = MathUtils.lerp(0.72f, 1f, easedVisibility);
+                float size = geometry.chipSize() * scale;
+                float levelPosition = Math.min(level,
+                        Math.max(0f, height - 1f));
+                float rise = (1f - easedVisibility)
+                        * fittedVerticalGap * 0.75f;
+                batch.setColor(1f, 1f, 1f, alpha * easedVisibility);
+                batch.draw(texture, columnX - size / 2f,
+                        columnY - geometry.chipSize() / 2f
+                                + levelPosition * fittedVerticalGap - rise,
+                        size, size * STACK_CHIP_PERSPECTIVE_Y_RATIO);
+        }
+    }
+
+    static StackChipRackGeometry stackChipRackGeometry(boolean localSize) {
+        // Four full-size discs inside these compact counters collapse into a
+        // single horizontal blob. A slightly smaller native draw size opens
+        // a real gap between x2 and x1 while keeping every denomination
+        // legible and leaving the value cell untouched.
+        float chipSize = localSize ? 30f : 22f;
+        // Use the complete chip area but stop exactly where the numeric stack
+        // cell begins: 82 px locally and 63 px on every rival pod.
+        float rackWidth = localSize ? 82f : RIVAL_MONEY_CELL_X;
+        float leftExtent = localSize ? 43f : 36f;
+        float firstColumn = -leftExtent + chipSize / 2f;
+        float columnGap = (rackWidth - chipSize)
+                / (GdxStackChipLayout.COLUMN_COUNT - 1f);
+        // The rear x10/x5 row must remain visibly behind the x2/x1 foreground
+        // row instead of merely looking misaligned by one or two pixels.
+        float zigzagRise = localSize ? 5f * chipSize / 22f : 5f;
+        float maximumHeight = localSize
+                ? LOCAL_STACK_CHIP_MAX_VISUAL_HEIGHT : 52f;
+        float minimumVerticalGap = (maximumHeight
+                - chipSize * STACK_CHIP_PERSPECTIVE_Y_RATIO
+                - zigzagRise) / (STACK_CHIP_MAX_COMPRESSED_LEVELS - 1f);
+        return new StackChipRackGeometry(chipSize, firstColumn, columnGap,
+                zigzagRise, localSize ? 4f * chipSize / 22f : 4f,
+                minimumVerticalGap,
+                rackWidth, maximumHeight);
+    }
+
+    static StackChipRackGeometry potChipRackGeometry() {
+        StackChipRackGeometry local = stackChipRackGeometry(true);
+        float zigzagRise = 6f;
+        float normalVerticalGap = 5f;
+        float minimumVerticalGap = (POT_STACK_CHIP_MAX_VISUAL_HEIGHT
+                - local.chipSize() * STACK_CHIP_PERSPECTIVE_Y_RATIO
+                - zigzagRise)
+                / (STACK_CHIP_MAX_COMPRESSED_LEVELS - 1f);
+        return new StackChipRackGeometry(local.chipSize(),
+                local.firstColumnOffset(), local.columnGap(), zigzagRise,
+                normalVerticalGap, minimumVerticalGap, local.rackWidth(),
+                POT_STACK_CHIP_MAX_VISUAL_HEIGHT);
+    }
+
+    static float stackChipRackVerticalGap(StackChipRackGeometry geometry,
+            float[] heights) {
+        float fittedGap = geometry.normalVerticalGap();
+        for (int column = 0; column < heights.length; column++) {
+            float visibleLevels = Math.max(0f, heights[column]);
+            if (visibleLevels <= 1) continue;
+            float baseRise = stackChipColumnForeground(column) ? 0f
+                    : geometry.zigzagRise();
+            float maximumRise = Math.max(0f, geometry.maximumHeight()
+                    - stackChipProjectedHeight(geometry) - baseRise);
+            fittedGap = Math.min(fittedGap, maximumRise
+                    / (visibleLevels - 1));
+        }
+        return MathUtils.clamp(fittedGap,
+                geometry.minimumVerticalGap(), geometry.normalVerticalGap());
+    }
+
+    static int stackChipRelaxedCapacity(StackChipRackGeometry geometry,
+            int column) {
+        float baseRise = stackChipColumnForeground(column) ? 0f
+                : geometry.zigzagRise();
+        float maximumRise = Math.max(0f, geometry.maximumHeight()
+                - stackChipProjectedHeight(geometry) - baseRise);
+        return 1 + MathUtils.floor(maximumRise
+                / geometry.normalVerticalGap());
+    }
+
+    static float stackChipProjectedHeight(StackChipRackGeometry geometry) {
+        return geometry.chipSize() * STACK_CHIP_PERSPECTIVE_Y_RATIO;
+    }
+
+    static int[] relaxedRackCapacities(StackChipRackGeometry geometry) {
+        int[] capacities = new int[GdxStackChipLayout.COLUMN_COUNT];
+        for (int column = 0; column < capacities.length; column++) {
+            capacities[column] = stackChipRelaxedCapacity(geometry, column);
+        }
+        return capacities;
+    }
+
+    static float stackChipPerceivedLevels(StackChipRackGeometry geometry,
+            int column, float physicalLevels) {
+        float levels = Math.max(0f, physicalLevels);
+        float relaxed = stackChipRelaxedCapacity(geometry, column);
+        if (levels <= relaxed) return levels;
+        float headroom = Math.max(1f,
+                STACK_CHIP_MAX_COMPRESSED_LEVELS - relaxed);
+        float added = levels - relaxed;
+        float compressed = relaxed + headroom * added
+                / (added + STACK_CHIP_COMPRESSION_CURVE);
+        return Math.min(levels, Math.min(
+                STACK_CHIP_MAX_COMPRESSED_LEVELS, compressed));
+    }
+
+    /**
+     * Packs only the denomination columns that are actually visible. The
+     * weighted presence makes a stack slide into its new compact position
+     * during the existing grow/shrink animation instead of jumping after a
+     * denomination disappears. With all four columns present, the subtle
+     * wider centre lane is restored so both rear stacks remain readable.
+     */
+    static float[] stackChipColumnOffsets(StackChipRackGeometry geometry,
+            float[] heights) {
+        float[] offsets = new float[GdxStackChipLayout.COLUMN_COUNT];
+        float[] presence = new float[GdxStackChipLayout.COLUMN_COUNT];
+        float totalPresence = 0f;
+        float allPresent = 1f;
+        for (int slot = 0; slot < STACK_CHIP_COLUMN_SLOT_ORDER.length;
+                slot++) {
+            int column = STACK_CHIP_COLUMN_SLOT_ORDER[slot];
+            float raw = column < heights.length
+                    ? MathUtils.clamp(heights[column], 0f, 1f) : 0f;
+            float visible = Interpolation.smoother.apply(raw);
+            presence[column] = visible;
+            totalPresence += visible;
+            allPresent = Math.min(allPresent, visible);
+        }
+
+        float rackCenter = geometry.firstColumnOffset()
+                + 1.5f * geometry.columnGap();
+        if (totalPresence <= 0.000_001f) {
+            java.util.Arrays.fill(offsets, rackCenter);
+            return offsets;
+        }
+
+        float cursor = 0f;
+        for (int slot = 0; slot < STACK_CHIP_COLUMN_SLOT_ORDER.length;
+                slot++) {
+            int column = STACK_CHIP_COLUMN_SLOT_ORDER[slot];
+            float visible = presence[column];
+            offsets[column] = rackCenter + (cursor + visible / 2f
+                    - totalPresence / 2f) * geometry.columnGap();
+            cursor += visible;
+        }
+
+        float centreExpansion = geometry.columnGap()
+                * STACK_CHIP_CENTRE_LANE_EXPANSION * allPresent;
+        offsets[STACK_CHIP_COLUMN_SLOT_ORDER[1]] -= centreExpansion;
+        offsets[STACK_CHIP_COLUMN_SLOT_ORDER[2]] += centreExpansion;
+        return offsets;
+    }
+
+    static float stackChipColumnVisualHeight(StackChipRackGeometry geometry,
+            float visibleLevels, int column, float fittedGap) {
+        if (visibleLevels <= 0) return 0f;
+        float baseRise = stackChipColumnForeground(column) ? 0f
+                : geometry.zigzagRise();
+        return stackChipProjectedHeight(geometry) + baseRise
+                + Math.max(0, visibleLevels - 1) * fittedGap;
+    }
+
+    static int stackChipColumnSlot(int denominationColumn) {
+        for (int slot = 0; slot < STACK_CHIP_COLUMN_SLOT_ORDER.length;
+                slot++) {
+            if (STACK_CHIP_COLUMN_SLOT_ORDER[slot] == denominationColumn) {
+                return slot;
+            }
+        }
+        throw new IllegalArgumentException(
+                "Unknown stack chip column " + denominationColumn);
+    }
+
+    static float stackChipColumnSlotPosition(int denominationColumn) {
+        return STACK_CHIP_SLOT_POSITIONS[
+                stackChipColumnSlot(denominationColumn)];
+    }
+
+    static boolean stackChipColumnForeground(int denominationColumn) {
+        return denominationColumn == 0 || denominationColumn == 1;
+    }
+
+    static float remoteStackAvatarClearance() {
+        StackChipRackGeometry remote = stackChipRackGeometry(false);
+        float avatarBottomFromPod = PLAYER_POD_HEIGHT + 42f
+                - AVATAR_OUTER_RADIUS;
+        float rackTopFromPod = 68f - remote.chipSize() / 2f
+                + remote.maximumHeight();
+        return avatarBottomFromPod - rackTopFromPod;
+    }
+
+    record StackChipRackGeometry(float chipSize, float firstColumnOffset,
+            float columnGap, float zigzagRise, float normalVerticalGap,
+            float minimumVerticalGap, float rackWidth, float maximumHeight) {
+    }
+
+    private record PotChipAnchor(float x, float y) {
+    }
+    private float[] animatedStackChipCounts(Seat seat,
+            GdxStackChipLayout.Layout layout) {
+        advanceStackChipAnimation(seat);
+        boolean changed = false;
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            if (seat.stackChipTargetCounts[column]
+                    != layout.columnHeight(column)) {
+                changed = true;
+                break;
+            }
+        }
+        if (changed) {
+            System.arraycopy(seat.stackChipDisplayedCounts, 0,
+                    seat.stackChipFromCounts, 0,
+                    GdxStackChipLayout.COLUMN_COUNT);
+            for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                    column++) {
+                seat.stackChipTargetCounts[column] =
+                        layout.columnHeight(column);
+            }
+            seat.stackChipAnimationStartedAt = totalTime;
+        }
+        advanceStackChipAnimation(seat);
+        return seat.stackChipDisplayedCounts;
+    }
+
+    private void advanceStackChipAnimation(Seat seat) {
+        if (Float.isNaN(seat.stackChipAnimationStartedAt)) return;
+        boolean complete = true;
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            float elapsed = totalTime - seat.stackChipAnimationStartedAt
+                    - column * STACK_CHIP_COLUMN_STAGGER_SECONDS;
+            float raw = MathUtils.clamp(elapsed
+                    / STACK_CHIP_TRANSITION_SECONDS, 0f, 1f);
+            float eased = Interpolation.smoother.apply(raw);
+            seat.stackChipDisplayedCounts[column] = MathUtils.lerp(
+                    seat.stackChipFromCounts[column],
+                    seat.stackChipTargetCounts[column], eased);
+            complete &= raw >= 1f;
+        }
+        if (complete) {
+            seat.stackChipAnimationStartedAt = Float.NaN;
         }
     }
 
@@ -11039,12 +12149,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawPotPanelSurface(float alpha) {
         float opacity = MathUtils.clamp(alpha, 0f, 1f);
-        float pulse = liveAnimationsEnabled()
-                ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
-        float basePotW = 76f;
-        float basePotH = basePotW * pot.getHeight() / pot.getWidth();
-        float potW = basePotW * pulse;
-        float potH = basePotH * pulse;
         double currentPot = Math.max(0d, livePot());
         String currentPotPrefix = communityPotPrefix(gameText,
                 liveState.runItTwicePotPrefix());
@@ -11056,7 +12160,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveState.runItTwicePotPrefix(), currentPot);
         }
 
-        float panelWidth = 390f;
+        float panelWidth = POT_PANEL_WIDTH;
         float panelHeight = POT_PANEL_HEIGHT;
         float panelX = potCenterX - panelWidth / 2f;
         float panelY = potCenterY - panelHeight / 2f;
@@ -11073,10 +12177,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, opacity);
-        float iconCenterX = panelX + 52f;
-        float iconCenterY = panelY + panelHeight / 2f;
-        batch.draw(pot, iconCenterX - potW / 2f, iconCenterY - potH / 2f,
-                potW, potH);
+        float iconCenterX = panelX + POT_CHIP_RACK_CENTER_OFFSET;
+        List<VisualChipSpec> potChips = displayedPotVisualChips(currentPot);
+        if (!potChips.isEmpty()) {
+            StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
+            float iconBaseY = potChipRackBaseY(potGeometry);
+            GdxStackChipLayout.Layout potLayout = visualChipLayout(potChips);
+            drawChipRack(iconCenterX, iconBaseY, potLayout,
+                    displayedPotChipCounts(potLayout), opacity, potGeometry);
+        }
         float textAreaX = panelX + 98f;
         float textAreaWidth = panelWidth - 112f;
         drawFittedCenteredAtVisualY(potFont, potText,
@@ -11090,6 +12199,81 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLastHandBadge(panelX + panelWidth / 2f,
                     lastHandBadgeCenterY(panelY));
         }
+    }
+
+    private StackChipRackGeometry animatedPotChipRackGeometry() {
+        float pulse = liveAnimationsEnabled()
+                ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
+        return scaledStackChipRackGeometry(potChipRackGeometry(), pulse);
+    }
+
+    private float potChipRackBaseY(StackChipRackGeometry geometry) {
+        float panelY = potCenterY - POT_PANEL_HEIGHT / 2f;
+        float edgeDepth = geometry.chipSize()
+                * STACK_CHIP_EDGE_DEPTH_RATIO;
+        float rackBottom = panelY + edgeDepth
+                + (POT_PANEL_HEIGHT - geometry.maximumHeight()
+                        - edgeDepth) / 2f;
+        return rackBottom + geometry.chipSize() / 2f;
+    }
+
+    /** Exact on-screen contact point for one denomination in the table pot. */
+    private PotChipAnchor potChipAnchor(int color,
+            boolean includeMovingChip) {
+        GdxStackChipLayout.Layout layout = visualChipLayout(
+                displayedPotVisualChips(Math.max(0d, livePot())));
+        float[] physicalCounts = displayedPotChipCounts(layout);
+        int column = GdxChipDenominations.columnForColor(color);
+        if (column < 0) column = 0;
+        if (includeMovingChip) physicalCounts[column] += 1f;
+
+        StackChipRackGeometry geometry = animatedPotChipRackGeometry();
+        float[] heights = new float[physicalCounts.length];
+        for (int index = 0; index < physicalCounts.length; index++) {
+            heights[index] = stackChipPerceivedLevels(geometry, index,
+                    physicalCounts[index]);
+        }
+        float fittedGap = stackChipRackVerticalGap(geometry, heights);
+        float[] offsets = stackChipColumnOffsets(geometry, heights);
+        float rackCenterX = potChipRackCenterX(potCenterX);
+        float baseRise = stackChipColumnForeground(column) ? 0f
+                : geometry.zigzagRise();
+        float topLevel = Math.max(0f, heights[column] - 1f);
+        float topCenterY = potChipRackBaseY(geometry) + baseRise
+                - geometry.chipSize() / 2f + topLevel * fittedGap
+                + stackChipProjectedHeight(geometry) / 2f;
+        return new PotChipAnchor(rackCenterX + offsets[column], topCenterY);
+    }
+
+    static float potChipRackCenterX(float panelCenterX) {
+        return panelCenterX - POT_PANEL_WIDTH / 2f
+                + POT_CHIP_RACK_CENTER_OFFSET;
+    }
+
+    private List<VisualChipSpec> displayedPotVisualChips(double currentPot) {
+        if (!chipRackVisible(currentPot)) return List.of();
+        ArrayList<VisualChipSpec> visible = new ArrayList<>(
+                livePotChips.snapshot());
+        LivePayout payout = livePayout;
+        if (payout != null) {
+            float elapsed = payout.elapsedSeconds();
+            for (LivePayoutChip chip : payout.chips) {
+                // Withdraw reserves the exact payout immediately. Keep each
+                // reserved chip in the painted pot until its own flight starts.
+                if (chip.progress(elapsed) <= 0f) {
+                    visible.add(new VisualChipSpec(chip.amount, chip.color));
+                }
+            }
+            return List.copyOf(visible);
+        }
+        if (visualChipAmountMinor(visible)
+                == Math.round(currentPot * 100d)) {
+            return List.copyOf(visible);
+        }
+        // Recovery/hot-join fallback: rebuild the missing presentation from
+        // the same fixed denominations without changing canonical accounting.
+        return dynamicVisualChips(currentPot, liveCounterDenomination(),
+                0x2f6e2b1L);
     }
 
     static float lastHandBadgeCenterY(float potPanelBottomY) {
@@ -11837,12 +13021,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateLiveActionChip() {
         boolean completedAny = false;
+        Set<String> completedRacks = new HashSet<>();
         for (int index = liveActionChips.size() - 1; index >= 0; index--) {
             LiveActionChip active = liveActionChips.get(index);
             float elapsed = active.elapsedSeconds();
             for (LiveChip chip : active.chips) {
-                if (!chip.soundPlayed
-                        && actionChipSoundDue(chip.progress(elapsed))) {
+                float progress = chip.progress(elapsed);
+                if (!chip.rackMovementApplied
+                        && actionChipDeparted(progress)) {
+                    chip.rackMovementApplied = true;
+                    removeSeatRackChip(chip.nickname, chip.color,
+                            chip.contribution);
+                }
+                applyLandedChipInventories(chip, progress);
+                if (!chip.soundPlayed && actionChipSoundDue(progress)) {
                     chip.soundPlayed = true;
                     if (!chip.impactSound) continue;
                     long soundSeed = chipVariationSeed(active.startedAtNanos,
@@ -11859,11 +13051,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!active.complete(elapsed)) continue;
             livePotContributions.merge(active.event.nickname(),
                     active.event.contributionDelta(), Double::sum);
+            completedRacks.add(active.event.nickname());
             liveActionChips.remove(index);
             completedAny = true;
         }
         if (completedAny) {
             syncSeatsFromLiveState();
+            completedRacks.forEach(this::rebalanceSeatRack);
+        }
+        if (completedAny && liveActionChips.isEmpty()) {
+            rebalancePotChipInventory();
         }
         if (liveActionChips.isEmpty() && pendingCollectBets != null) {
             PendingCollectBets pending = pendingCollectBets;
@@ -11871,8 +13068,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveChipBatch = new LiveChipBatch(pending.event,
                     System.nanoTime(), pending.barrier,
                     pending.presentationSnapshot,
-                    livePotContributions, liveCounterDenomination(),
-                    dynamicChipFlightsEnabled());
+                    livePotContributions, liveCounterDenomination());
         }
     }
 
@@ -11961,7 +13157,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return null;
         }
         for (Seat seat : seats) {
-            if (nickname.equals(seat.name)) {
+            if (seat != null && nickname.equals(seat.name)) {
                 return seat;
             }
         }
@@ -12557,12 +13753,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? tablePreference("animaciones", true)
                     && tablePreference("animacion_apuestas", true)
                 : presentationSettings.betAnimation();
-    }
-
-    private boolean dynamicChipFlightsEnabled() {
-        return presentationSettings == null
-                ? GdxAppearanceOptions.dynamicChipFlights(tableProperties)
-                : presentationSettings.dynamicChipFlights();
     }
 
     private boolean liveCounterAnimationEnabled() {
@@ -14085,7 +15275,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float elapsed = active.elapsedSeconds();
         for (LiveChip chip : active.chips) {
-            if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
+            float progress = chip.progress(elapsed);
+            if (!chip.rackMovementApplied
+                    && actionChipDeparted(progress)) {
+                chip.rackMovementApplied = true;
+                removeSeatRackChip(chip.nickname, chip.color,
+                        chip.contribution);
+            }
+            applyLandedChipInventories(chip, progress);
+            if (!chip.soundPlayed && progress >= 1f) {
                 chip.soundPlayed = true;
                 if (chip.impactSound && liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound,
@@ -14101,6 +15299,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         try {
             livePotContributions.clear();
+            rebalancePotChipInventory();
+            active.chips.stream().map(chip -> chip.nickname).distinct()
+                    .forEach(this::rebalanceSeatRack);
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -14116,7 +15317,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float elapsed = active.elapsedSeconds();
         for (LivePayoutChip chip : active.chips) {
-            if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
+            float progress = chip.progress(elapsed);
+            if (!chip.rackMovementApplied && progress >= 1f) {
+                chip.rackMovementApplied = true;
+                addSeatRackChip(chip.nickname, chip.color, chip.amount);
+            }
+            if (!chip.soundPlayed && progress >= 1f) {
                 chip.soundPlayed = true;
                 // A payout is a stream of chips. Sound a representative subset
                 // exactly on contact instead of playing one cue when the event is
@@ -14138,8 +15344,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             active.transfers.stream()
                     .filter(transfer -> MoneyMath.compare(
                     transfer.winningsAmount(), 0d) > 0)
-                    .forEach(transfer -> liveWinnerStarts.putIfAbsent(
-                    transfer.nickname(), now));
+                    .forEach(transfer -> {
+                        liveWinnerStarts.putIfAbsent(transfer.nickname(), now);
+                        pendingStackRackRebalances.put(transfer.nickname(),
+                                totalTime);
+                    });
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -14155,7 +15364,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float elapsed = active.elapsedSeconds();
         for (LiveRebuyChip chip : active.chips) {
-            if (!chip.soundPlayed && chip.progress(elapsed) >= 1f) {
+            float progress = chip.progress(elapsed);
+            if (!chip.rackMovementApplied && progress >= 1f) {
+                chip.rackMovementApplied = true;
+                addSeatRackChip(chip.nickname, chip.color, chip.amount);
+            }
+            if (!chip.soundPlayed && progress >= 1f) {
                 chip.soundPlayed = true;
                 if (chip.impactSound && liveBetSoundEnabled()) {
                     playChipLandingImpact(betSound, 0.24f,
@@ -14185,6 +15399,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         try {
             syncSeatsFromLiveState();
+            active.event.transfers().forEach(
+                    transfer -> rebalanceSeatRack(transfer.nickname()));
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -14218,10 +15434,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         double actionRemaining = 0d;
         for (LiveActionChip action : liveActionChips) {
-            if (action.deferPlayerCounters
-                    && action.event.nickname().equals(seat.name)) {
-                actionRemaining += action.event.contributionDelta()
-                        - action.landedContribution(action.elapsedSeconds());
+            if (action.event.nickname().equals(seat.name)) {
+                float elapsed = action.elapsedSeconds();
+                if (action.deferPlayerCounters) {
+                    actionRemaining += action.event.contributionDelta()
+                            - action.landedContribution(elapsed);
+                }
             }
         }
         double payoutTotal = livePayout == null ? 0d
@@ -14330,18 +15548,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return firstChipProgress >= 1f;
     }
 
+    static boolean actionChipDeparted(float chipProgress) {
+        return chipProgress > 0f;
+    }
+
     record VisualChipSpec(double amount, int color) {
     }
 
-    private record DynamicChipDenomination(long amountMinor, int color) {
+    record ChipCatalogLayout(Rectangle panel, List<Rectangle> chips,
+            Rectangle close, float chipDiameter) {
+
+        ChipCatalogLayout {
+            chips = List.copyOf(chips);
+        }
     }
 
-    private record DynamicChipToken(long representedMinor,
-            DynamicChipDenomination denomination) {
-    }
+    record PayoutVisualAssignment(String nickname,
+            List<VisualChipSpec> chips) {
 
-    private record DynamicDenominationCount(
-            DynamicChipDenomination denomination, long count) {
+        PayoutVisualAssignment {
+            chips = List.copyOf(chips);
+        }
     }
 
     static int visualChipCount(double exactAmount, double minimumChip) {
@@ -14350,197 +15577,82 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /**
-     * Builds a compact, exact visual representation using the four physical
-     * chip families used at the table: one, two, five and ten times the initial
-     * small blind. A deterministic seed may split a few large chips into valid
-     * smaller denominations by one generation only. Random variation never
-     * raises the result above twenty chips. A compact representation that
-     * already needs more than twenty chips is preserved as-is.
+     * Builds the minimum exact payment using the four physical chip families
+     * shared by the table. Denominations never vary; the seed only shuffles
+     * their launch order so equal payments remain natural without changing
+     * their value or visual chip count.
      */
     static List<VisualChipSpec> dynamicVisualChips(double exactAmount,
             double smallBlind, long variationSeed) {
-        if (!Double.isFinite(exactAmount) || exactAmount <= 0d) {
-            return List.of();
+        List<GdxChipDenominations.Chip> minimum =
+                GdxChipDenominations.minimum(exactAmount, smallBlind);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(minimum.size());
+        for (GdxChipDenominations.Chip chip : minimum) {
+            result.add(new VisualChipSpec(chip.amountMinor() / 100d,
+                    chip.color()));
         }
-        long totalMinor = Math.max(1L, Math.round(exactAmount * 100d));
-        long smallMinor = Double.isFinite(smallBlind) && smallBlind > 0d
-                ? Math.max(1L, Math.round(smallBlind * 100d)) : 1L;
-
-        ArrayList<DynamicChipDenomination> denominations = new ArrayList<>(4);
-        // Dynamic mode keeps a stable semantic colour for each denomination
-        // while reusing the exact decorated palette from static mode.
-        addDynamicDenomination(denominations, smallMinor, 1);       // blue
-        addDynamicDenomination(denominations, smallMinor * 2L, 3);  // gold
-        addDynamicDenomination(denominations, smallMinor * 5L, 0);  // red
-        addDynamicDenomination(denominations, smallMinor * 10L, 2); // green
-        denominations.sort((left, right) -> Long.compare(
-                right.amountMinor(), left.amountMinor()));
-
-        long remaining = totalMinor;
-        ArrayList<DynamicDenominationCount> counts = new ArrayList<>(4);
-        for (DynamicChipDenomination denomination : denominations) {
-            long count = remaining / denomination.amountMinor();
-            if (count > 0L) {
-                counts.add(new DynamicDenominationCount(denomination, count));
-                remaining -= count * denomination.amountMinor();
-            }
-        }
-
-        SplittableRandom random = new SplittableRandom(
+        GdxPotChipInventory.shuffle(result,
                 variationSeed ^ 0x3c6ef372fe94f82bL);
-        ArrayList<DynamicChipToken> tokens = expandDynamicChipCounts(counts);
-
-        if (!tokens.isEmpty()
-                && tokens.size() <= MAX_DYNAMIC_RANDOMIZED_CHIPS) {
-            int minimumVisualCount = tokens.size();
-            ArrayList<DynamicChipToken> varied = new ArrayList<>(tokens.size());
-            int variedCount = minimumVisualCount;
-            for (DynamicChipToken original : tokens) {
-                List<DynamicChipToken> expansion = lowerDenominationExpansion(
-                        original, denominations);
-                int added = expansion.size() - 1;
-                if (!expansion.isEmpty()
-                        && variedCount + added
-                                <= MAX_DYNAMIC_RANDOMIZED_CHIPS
-                        && random.nextDouble()
-                                < DYNAMIC_CHIP_SPLIT_PROBABILITY) {
-                    varied.addAll(expansion);
-                    variedCount += added;
-                } else {
-                    varied.add(original);
-                }
-            }
-            tokens = varied;
-        }
-
-        if (remaining > 0L) {
-            if (tokens.isEmpty()) {
-                DynamicChipDenomination smallest = denominations.get(
-                        denominations.size() - 1);
-                tokens.add(new DynamicChipToken(remaining, smallest));
-            } else {
-                int smallestIndex = 0;
-                for (int index = 1; index < tokens.size(); index++) {
-                    if (tokens.get(index).denomination().amountMinor()
-                            < tokens.get(smallestIndex).denomination()
-                                    .amountMinor()) {
-                        smallestIndex = index;
-                    }
-                }
-                DynamicChipToken smallest = tokens.get(smallestIndex);
-                tokens.set(smallestIndex, new DynamicChipToken(
-                        smallest.representedMinor() + remaining,
-                        smallest.denomination()));
-            }
-        }
-
-        for (int index = tokens.size() - 1; index > 0; index--) {
-            int swap = random.nextInt(index + 1);
-            DynamicChipToken value = tokens.get(index);
-            tokens.set(index, tokens.get(swap));
-            tokens.set(swap, value);
-        }
-        ArrayList<VisualChipSpec> result = new ArrayList<>(tokens.size());
-        for (DynamicChipToken token : tokens) {
-            result.add(new VisualChipSpec(token.representedMinor() / 100d,
-                    token.denomination().color()));
-        }
         return List.copyOf(result);
     }
 
-    private static void addDynamicDenomination(
-            List<DynamicChipDenomination> denominations, long amountMinor,
-            int color) {
-        if (amountMinor <= 0L || denominations.stream().anyMatch(
-                denomination -> denomination.amountMinor() == amountMinor)) {
-            return;
+    private List<VisualChipSpec> paymentVisualChips(String nickname,
+            double exactAmount, double smallBlind, long variationSeed) {
+        Seat seat = seatByNickname(nickname);
+        GdxStackChipLayout.Layout rack = seat == null
+                ? null : stackChipLayout(seat);
+        GdxStackChipLayout.Payment prepared =
+                GdxStackChipLayout.preparePayment(rack, exactAmount,
+                        smallBlind);
+        if (seat != null) seat.stackChipLayout = prepared.preparedLayout();
+        List<GdxStackChipLayout.Chip> payment = prepared.chips();
+        ArrayList<VisualChipSpec> result = new ArrayList<>(payment.size());
+        for (GdxStackChipLayout.Chip chip : payment) {
+            result.add(new VisualChipSpec(chip.amountMinor() / 100d,
+                    chip.color()));
         }
-        denominations.add(new DynamicChipDenomination(amountMinor, color));
-    }
-
-    private static ArrayList<DynamicChipToken> expandDynamicChipCounts(
-            List<DynamicDenominationCount> counts) {
-        ArrayList<DynamicChipToken> result = new ArrayList<>();
-        for (DynamicDenominationCount entry : counts) {
-            for (long index = 0; index < entry.count(); index++) {
-                result.add(new DynamicChipToken(
-                        entry.denomination().amountMinor(),
-                        entry.denomination()));
-            }
-        }
-        return result;
-    }
-
-    private static List<DynamicChipToken> lowerDenominationExpansion(
-            DynamicChipToken token,
-            List<DynamicChipDenomination> denominations) {
-        if (token.representedMinor()
-                != token.denomination().amountMinor()) {
-            return List.of();
-        }
-        long remaining = token.representedMinor();
-        ArrayList<DynamicChipToken> expansion = new ArrayList<>();
-        for (DynamicChipDenomination denomination : denominations) {
-            if (denomination.amountMinor()
-                    >= token.denomination().amountMinor()) continue;
-            long count = remaining / denomination.amountMinor();
-            for (long index = 0; index < count; index++) {
-                expansion.add(new DynamicChipToken(
-                        denomination.amountMinor(), denomination));
-            }
-            remaining -= count * denomination.amountMinor();
-        }
-        return remaining == 0L && expansion.size() > 1
-                ? List.copyOf(expansion) : List.of();
-    }
-
-    private static List<VisualChipSpec> visualChipSpecs(double exactAmount,
-            double smallBlind, long variationSeed,
-            boolean dynamic, int staticCount, int staticBaseColor) {
-        if (dynamic) {
-            return dynamicVisualChips(exactAmount, smallBlind, variationSeed);
-        }
-        double[] amounts = splitVisualCounterAmounts(exactAmount,
-                staticCount, smallBlind);
-        ArrayList<VisualChipSpec> result = new ArrayList<>(amounts.length);
-        for (int index = 0; index < amounts.length; index++) {
-            result.add(new VisualChipSpec(amounts[index],
-                    variedVisualChipColor(staticBaseColor, variationSeed,
-                            index)));
-        }
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x3c6ef372fe94f82bL);
         return List.copyOf(result);
     }
 
-    static int actionVisualChipCount(
-            TableVisualEvent.PlayerAction.ActionKind kind,
-            double exactAmount, double minimumChip, boolean dynamic) {
-        if (dynamic) return visualChipCount(exactAmount, minimumChip);
-        return switch (kind) {
-            case ALL_IN -> 7;
-            case BET, RAISE, RERAISE -> 4;
-            case CALL -> 3;
-            default -> 1;
-        };
+    /** A rebuy flies the same exact four-colour rack it adds to the player. */
+    static List<VisualChipSpec> rebuyVisualChips(double exactAmount,
+            double smallBlind, long variationSeed) {
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
+                exactAmount, smallBlind, exactAmount);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(rack.chipCount());
+        for (GdxStackChipLayout.Column column : rack.columns()) {
+            for (GdxStackChipLayout.Chip chip : column.chips()) {
+                result.add(new VisualChipSpec(chip.amountMinor() / 100d,
+                        chip.color()));
+            }
+        }
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x4a7484aa6ea6e483L);
+        return List.copyOf(result);
     }
 
-    static int payoutVisualChipCount(double exactAmount, double minimumChip,
-            boolean dynamic) {
-        return dynamic ? visualChipCount(exactAmount, minimumChip) : 18;
-    }
-
-    static int rebuyVisualChipCount(double exactAmount, double minimumChip,
-            boolean dynamic) {
-        return dynamic ? visualChipCount(exactAmount, minimumChip) : 14;
-    }
-
-    static int collectedVisualChipCount(TableSnapshot.Position position,
-            double exactAmount, double minimumChip, boolean dynamic) {
-        if (dynamic) return visualChipCount(exactAmount, minimumChip);
-        return switch (position) {
-            case BIG_BLIND -> 2;
-            case STRADDLE, DEALER_STRADDLE -> 3;
-            default -> 1;
-        };
+    static List<PayoutVisualAssignment> allocatePayoutVisualChips(
+            List<TableVisualEvent.PayoutBatch.Transfer> transfers,
+            List<VisualChipSpec> payoutVisualChips, double smallBlind,
+            long variationSeed) {
+        GdxPotChipInventory physicalPot = new GdxPotChipInventory();
+        physicalPot.deposit(payoutVisualChips);
+        ArrayList<PayoutVisualAssignment> assignments =
+                new ArrayList<>(transfers.size());
+        for (int transferIndex = 0; transferIndex < transfers.size();
+                transferIndex++) {
+            TableVisualEvent.PayoutBatch.Transfer transfer =
+                    transfers.get(transferIndex);
+            List<VisualChipSpec> visualChips = physicalPot.withdraw(
+                    transfer.amount(), smallBlind,
+                    variationSeed ^ transferIndex
+                            * 0x9e3779b97f4a7c15L);
+            assignments.add(new PayoutVisualAssignment(
+                    transfer.nickname(), visualChips));
+        }
+        return List.copyOf(assignments);
     }
 
     static float variedChipImpactVolume(float baseVolume, long variationSeed) {
@@ -14557,13 +15669,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         -CHIP_IMPACT_PITCH_VARIATION,
                         CHIP_IMPACT_PITCH_VARIATION);
         return MathUtils.clamp(basePitch * (1f + variation), 0.5f, 2f);
-    }
-
-    static int variedVisualChipColor(int baseColor, long variationSeed,
-            int chipIndex) {
-        long seed = variationSeed + chipIndex * 0x9e3779b97f4a7c15L;
-        return Math.floorMod(baseColor
-                + new SplittableRandom(seed).nextInt(4), 4);
     }
 
     private static long chipVariationSeed(long batchSeed, String nickname,
@@ -14632,32 +15737,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 start + (end - start) * progress));
     }
 
-    static double[] splitVisualCounterAmounts(double exactAmount,
-            int visualChipCount, double minimumChip) {
-        if (visualChipCount <= 0) {
-            return new double[0];
-        }
-        long totalMinor = Math.max(0L, Math.round(exactAmount * 100d));
-        long denominationMinor = Math.max(1L,
-                Math.round(Math.abs(minimumChip) * 100d));
-        long wholeUnits = totalMinor / denominationMinor;
-        long remainderMinor = totalMinor % denominationMinor;
-        double[] amounts = new double[visualChipCount];
-        long previousUnits = 0L;
-        for (int index = 0; index < visualChipCount; index++) {
-            long cumulativeUnits = (index + 1L) * wholeUnits
-                    / visualChipCount;
-            long units = cumulativeUnits - previousUnits;
-            long minor = units * denominationMinor;
-            if (index == visualChipCount - 1) {
-                minor += remainderMinor;
-            }
-            amounts[index] = minor / 100d;
-            previousUnits = cumulativeUnits;
-        }
-        return amounts;
-    }
-
     private double liveCounterDenomination() {
         if (visualChipSmallBlind <= 0d && liveState != null
                 && liveState.smallBlind() > 0d) {
@@ -14694,7 +15773,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         liveChipBatch.elapsedSeconds());
     }
 
-    private void drawLiveChipTrails(float targetX, float targetY) {
+    private void drawLiveChipTrails() {
         LiveChipBatch active = liveChipBatch;
         if (active == null && liveActionChips.isEmpty()) {
             return;
@@ -14707,9 +15786,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (from != null) {
                 float elapsed = action.elapsedSeconds();
                 for (LiveChip chip : action.chips) {
+                    float progress = chip.progress(elapsed);
+                    PotChipAnchor target = potChipAnchor(chip.color,
+                            progress < 1f);
                     drawLiveTrail(from.stackX, from.stackY,
-                            targetX, targetY,
-                            chip.rotation, chip.progress(elapsed),
+                            target.x(), target.y(),
+                            chip.rotation, progress,
                             elapsed - chip.startSeconds - chip.durationSeconds);
                 }
             }
@@ -14721,9 +15803,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (from == null) {
                     continue;
                 }
+                float progress = chip.progress(elapsed);
+                PotChipAnchor target = potChipAnchor(chip.color,
+                        progress < 1f);
                 drawLiveTrail(from.stackX, from.stackY,
-                        targetX, targetY, chip.rotation,
-                        chip.progress(elapsed),
+                        target.x(), target.y(), chip.rotation,
+                        progress,
                         elapsed - chip.startSeconds - chip.durationSeconds);
             }
         }
@@ -14757,7 +15842,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawLiveFlyingChips(float targetX, float targetY) {
+    private void drawLiveFlyingChips() {
         LiveChipBatch active = liveChipBatch;
         LivePayout payout = livePayout;
         LiveRebuy rebuy = liveRebuy;
@@ -14771,8 +15856,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (from != null) {
                 float elapsed = action.elapsedSeconds();
                 for (LiveChip chip : action.chips) {
+                    PotChipAnchor target = potChipAnchor(chip.color, true);
                     drawLiveFlyingChip(from.stackX, from.stackY,
-                            targetX, targetY, chip.rotation,
+                            target.x(), target.y(), chip.rotation,
                             chip.color, chip.progress(elapsed));
                 }
             }
@@ -14782,9 +15868,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             for (LiveChip chip : active.chips) {
                 Seat from = seatByNickname(chip.nickname);
                 if (from != null) {
+                    PotChipAnchor target = potChipAnchor(chip.color, true);
                     drawLiveFlyingChip(from.stackX, from.stackY,
-                            targetX, targetY, chip.rotation, chip.color,
-                            chip.progress(elapsed));
+                            target.x(), target.y(), chip.rotation,
+                            chip.color, chip.progress(elapsed));
                 }
             }
         }
@@ -14837,8 +15924,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float eased = Interpolation.pow2Out.apply(raw);
         float targetX = payoutTargetX(winner, chip.index);
         float targetY = payoutTargetY(winner, chip.index);
-        float x = bezier(potCenterX, tableCenterX - 210f, targetX, eased);
-        float y = bezier(potCenterY, tableCenterY + 330f, targetY, eased);
+        if (!Float.isFinite(chip.originX) || !Float.isFinite(chip.originY)) {
+            PotChipAnchor origin = potChipAnchor(chip.color, true);
+            chip.originX = origin.x();
+            chip.originY = origin.y();
+        }
+        float x = bezier(chip.originX, tableCenterX - 210f,
+                targetX, eased);
+        float y = bezier(chip.originY, tableCenterY + 330f,
+                targetY, eased);
         float size = 34f + MathUtils.sin(raw * MathUtils.PI) * 9f;
         Texture texture = flyingChips[chip.color];
         // Keep the chip tangible until the collision frame. Fading it during
@@ -14895,16 +15989,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return (from + to) * 0.5f + 120f + MathUtils.sin(rotation) * 45f;
     }
 
-    private void drawChipTrails(float targetX, float targetY) {
+    private void drawChipTrails() {
         Objects.requireNonNull(liveState,
                 "Chip trails require authoritative live state");
-        drawLiveChipTrails(targetX, targetY);
+        drawLiveChipTrails();
     }
 
-    private void drawFlyingChips(float targetX, float targetY) {
+    private void drawFlyingChips() {
         Objects.requireNonNull(liveState,
                 "Flying chips require authoritative live state");
-        drawLiveFlyingChips(targetX, targetY);
+        drawLiveFlyingChips();
     }
 
     private static float bezier(float from, float control, float to, float t) {
@@ -15540,8 +16634,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         Seat local = localSeat;
         drawSeatChipStack(local, 1f);
-        drawLocalCounterChipStack(layout.investedChipCenterX(),
-                layout.counterChipCenterY(), 1f, true);
+        drawLocalCounterChipStack(local, layout.investedChipCenterX(),
+                layout.counterChipCenterY(), 1f);
         if (localTurn) {
             drawFittedCenteredInBox(smallFont,
                     uppercase(gameText.translate(
@@ -18840,7 +19934,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float panelY, float panelW, float panelH, float worldW,
             float worldH) {
         boolean choiceLayout = dialog.isGameOverChoice();
-        boolean interactive = dialog.showsPositive();
+        boolean interactive = dialog.showsPositive()
+                && !dialog.waitingForExternalClose();
         float contentX = panelX + 28f;
         float contentY = panelY + (choiceLayout ? 126f : 28f);
         float contentW = panelW - 56f;
@@ -19204,67 +20299,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
         drawSettingsPerformanceTooltip(contentX, firstRowY, contentW, alpha);
-        drawSettingsOptionTooltip(contentX, firstRowY, contentW, alpha);
         drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
-    }
-
-    private void drawSettingsOptionTooltip(float x, float firstY,
-            float width, float alpha) {
-        String tooltipKey = settingsOptionTooltipKey(x, firstY, width);
-        if (tooltipKey == null) {
-            settingsOptionTooltipDelay.clear();
-            return;
-        }
-        if (!settingsOptionTooltipDelay.ready(tooltipKey)) return;
-        String label = gameText.translate(tooltipKey);
-        float boxW = Math.min(660f, viewport.getWorldWidth() - 24f);
-        float boxH = 78f;
-        float boxX = MathUtils.clamp(pointer.x + 18f, 12f,
-                viewport.getWorldWidth() - boxW - 12f);
-        float boxY = pointer.y - boxH - 18f;
-        if (boxY < 12f) {
-            boxY = Math.min(viewport.getWorldHeight() - boxH - 12f,
-                    pointer.y + 22f);
-        }
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f * alpha);
-        roundedRect(boxX, boxY, boxW, boxH, 8f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.95f * alpha);
-        shapes.rect(boxX + 10f, boxY + boxH - 3f, boxW - 20f, 2f);
-        shapes.end();
-        batch.begin();
-        settingsTinyFont.setColor(1f, 1f, 1f, alpha);
-        settingsTinyFont.draw(batch, label, boxX + 17f,
-                boxY + boxH - 17f, boxW - 34f, Align.left, true);
-        batch.end();
-    }
-
-    private String settingsOptionTooltipKey(float x, float firstY,
-            float width) {
-        if (settingsContentPage() != 1 || settingsAppearancePage <= 1
-                || !GdxSettingsContract.hasAppearanceAnimationOptions(
-                        settingsAppearanceTogglePage())) {
-            return null;
-        }
-        Rectangle content = currentSettingsContent();
-        Rectangle viewportBounds = settingsRowsViewport(content, firstY);
-        if (!viewportBounds.contains(pointer)) return null;
-        GdxSettingsContract.TogglePage page = settingsAppearanceTogglePage();
-        int choiceIndex = GdxAppearanceOptions.ANIMATION_CHOICES.indexOf(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE);
-        int row = page.options().size() + choiceIndex;
-        GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                firstY, GdxSettingsContract.appearanceRowCount(page),
-                settingsAppearanceScroll);
-        if (row < rows.firstIndex() || row >= rows.lastExclusive()) {
-            return null;
-        }
-        Rectangle bounds = GdxSettingsLayout.optionRow(x, rows.rowY(row),
-                width, true);
-        return bounds.contains(pointer)
-                ? GdxAppearanceOptions.CHIP_FLIGHT_MODE_TOOLTIP_KEY : null;
     }
 
     private void drawSettingsLockTooltip(float x, float firstY,
@@ -23286,24 +24322,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawFpsCounter(float width, float height) {
-        float panelWidth = GdxFrameRateOverlayStyle.WIDTH;
-        float panelHeight = GdxFrameRateOverlayStyle.HEIGHT;
-        float x = GdxFrameRateOverlayStyle.x(width, finalSummary != null);
-        float y = GdxFrameRateOverlayStyle.y(height);
-
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
-        roundedRect(x, y, panelWidth, panelHeight, 11f);
-        shapes.end();
-
-        batch.begin();
-        drawFittedCenteredInBox(gameLogFont,
+        GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont, glyph,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
-                x + 10f, y, panelWidth - 20f, panelHeight,
-                Color.WHITE, 1f);
-        batch.end();
+                width, height);
     }
 
     private void drawCentered(BitmapFont font, String text, float centerX, float baselineY,
@@ -23563,6 +24585,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(finalCardFont);
         disposeSafely(finalCardBoldFont);
         disposeSafely(finalCardResultFont);
+        disposeSafely(fpsFont);
         disposeSafely(gameLogFont);
         disposeSafely(gameLogBoldFont);
         disposeSafely(gameLogSuitFont);
@@ -23727,6 +24750,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalCardFont.dispose();
         finalCardBoldFont.dispose();
         finalCardResultFont.dispose();
+        fpsFont.dispose();
         gameLogFont.dispose();
         gameLogBoldFont.dispose();
         gameLogSuitFont.dispose();
@@ -23902,19 +24926,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         float counterChipCenterY() {
             Rectangle stack = stackBounds();
-            // The two columns grow upward from their texture origins. Their
-            // real combined visual centre is 12.5 px above the draw anchor.
-            return stack.y + stack.height / 2f - 12.5f;
+            StackChipRackGeometry geometry = stackChipRackGeometry(true);
+            // Centre the full-height rack, not merely its bottom disc. This
+            // gives STACK and APUESTA TOTAL the same vertical proportions as
+            // the rival racks while keeping their upper edge below captions.
+            return stack.y + (stack.height - geometry.maximumHeight()) / 2f
+                    + geometry.chipSize() / 2f;
         }
 
         Rectangle stackChipVisualBounds() {
-            return new Rectangle(stackChipCenterX() - 40f,
-                    counterChipCenterY() - 17f, 60f, 59f);
+            return localCounterChipVisualBounds(stackChipCenterX() - 40f);
         }
 
         Rectangle investedChipVisualBounds() {
-            return new Rectangle(investedChipCenterX() - 20f,
-                    counterChipCenterY() - 17f, 60f, 59f);
+            return localCounterChipVisualBounds(investedChipCenterX() - 20f);
+        }
+
+        private Rectangle localCounterChipVisualBounds(float x) {
+            StackChipRackGeometry geometry = stackChipRackGeometry(true);
+            float edgeDepth = Math.max(1f, geometry.chipSize()
+                    * STACK_CHIP_EDGE_DEPTH_RATIO);
+            float height = geometry.maximumHeight() + edgeDepth;
+            Rectangle stack = stackBounds();
+            return new Rectangle(x,
+                    stack.y + (stack.height - height) / 2f,
+                    60f, height);
         }
 
         Rectangle stackCaptionBounds() {
@@ -24441,23 +25477,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveActionChip(TableVisualEvent.PlayerAction event,
                 long startedAtNanos, boolean deferPlayerCounters,
-                double minimumChip, boolean dynamicChipCount) {
+                List<VisualChipSpec> visualChips) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
-            long visualSeed = chipVariationSeed(event.sequence(),
-                    event.nickname(), 0);
-            int baseColor = switch (event.kind()) {
-                case ALL_IN -> 3;
-                case BET, RAISE, RERAISE -> 2;
-                case CALL -> 1;
-                default -> 0;
-            };
-            int staticCount = actionVisualChipCount(event.kind(),
-                    event.contributionDelta(), minimumChip, false);
-            List<VisualChipSpec> visualChips = visualChipSpecs(
-                    event.contributionDelta(), minimumChip, visualSeed,
-                    dynamicChipCount, staticCount, baseColor);
             int chipCount = visualChips.size();
             ArrayList<LiveChip> created = new ArrayList<>(chipCount);
             for (int chip = 0; chip < chipCount; chip++) {
@@ -24489,6 +25512,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             return landed;
+        }
+
+        List<VisualChipSpec> visualChips() {
+            return chips.stream()
+                    .map(chip -> new VisualChipSpec(chip.contribution,
+                            chip.color))
+                    .toList();
         }
 
     }
@@ -24525,9 +25555,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double payoutAmount, double potAfter,
                 double investedAmountAfter, long variationSeed,
                 long startedAtNanos,
-                CompletableFuture<Void> barrier, double minimumChip,
-                double potBefore, Map<String, Double> investmentsBefore,
-                boolean dynamicChipCount) {
+                CompletableFuture<Void> barrier, double potBefore,
+                Map<String, Double> investmentsBefore,
+                List<VisualChipSpec> payoutVisualChips,
+                double smallBlind) {
             this.transfers = List.copyOf(transfers);
             this.payoutAmount = Math.max(0d,
                     MoneyMath.clean(payoutAmount));
@@ -24542,19 +25573,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     investmentsBefore.values().stream()
                             .mapToDouble(Double::doubleValue).sum());
             List<LivePayoutChip> created = new ArrayList<>();
-            for (int transferIndex = 0; transferIndex < transfers.size();
-                    transferIndex++) {
-                TableVisualEvent.PayoutBatch.Transfer transfer =
-                        transfers.get(transferIndex);
-                long visualSeed = chipVariationSeed(variationSeed,
-                        transfer.nickname(), transferIndex);
-                List<VisualChipSpec> visualChips = visualChipSpecs(
-                        transfer.amount(), minimumChip, visualSeed,
-                        dynamicChipCount, 18, 0);
+            List<PayoutVisualAssignment> assignments =
+                    allocatePayoutVisualChips(transfers, payoutVisualChips,
+                            smallBlind, variationSeed);
+            for (PayoutVisualAssignment assignment : assignments) {
+                List<VisualChipSpec> visualChips = assignment.chips();
                 int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
                     VisualChipSpec visualChip = visualChips.get(index);
-                    created.add(new LivePayoutChip(transfer.nickname(), index,
+                    created.add(new LivePayoutChip(assignment.nickname(), index,
                             0.18f + index * 0.035f, 1.05f,
                             visualChip.color(), visualChip.amount()));
                 }
@@ -24579,11 +25606,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         double landedContribution(String nickname, float elapsed) {
             double total = 0d;
+            boolean hasPhysicalChip = false;
             for (LivePayoutChip chip : chips) {
-                if (chip.nickname.equals(nickname)
-                        && chip.progress(elapsed) >= 1f) {
-                    total += chip.amount;
+                if (chip.nickname.equals(nickname)) {
+                    hasPhysicalChip = true;
+                    if (chip.progress(elapsed) >= 1f) {
+                        total += chip.amount;
+                    }
                 }
+            }
+            // A pot may contain fewer physical-looking chips than winners.
+            // Preserve the pot's exact chip count; the rare recipient without
+            // a drawable chip still gets a smooth counter instead of a snap.
+            if (!hasPhysicalChip) {
+                double recipientPayout = payoutAmount(nickname);
+                double progress = payoutAmount <= 0d ? 1d
+                        : MathUtils.clamp((float) (landedContribution(elapsed)
+                                / payoutAmount), 0f, 1f);
+                return MoneyMath.clean(recipientPayout * progress);
             }
             return total;
         }
@@ -24617,6 +25657,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final double amount;
         boolean impactSound;
         boolean soundPlayed;
+        boolean rackMovementApplied;
+        float originX = Float.NaN;
+        float originY = Float.NaN;
 
         LivePayoutChip(String nickname, int index, float startSeconds,
                 float durationSeconds, int color, double amount) {
@@ -24654,7 +25697,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveRebuy(TableVisualEvent.Rebuy event, long startedAtNanos,
                 CompletableFuture<Void> barrier, String cashSoundResource,
-                double minimumChip, boolean dynamicChipCount) {
+                double smallBlind) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24668,9 +25711,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         transfer.nickname(), transferIndex);
                 int seed = transfer.nickname().hashCode()
                         + transferIndex * 97;
-                List<VisualChipSpec> visualChips = visualChipSpecs(
-                        transfer.amount(), minimumChip, visualSeed,
-                        dynamicChipCount, 14, Math.floorMod(seed, 4));
+                List<VisualChipSpec> visualChips = rebuyVisualChips(
+                        transfer.amount(), smallBlind, visualSeed);
                 int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
                     float start = 0.04f + index * 0.025f
@@ -24761,6 +25803,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float rotation;
         boolean impactSound;
         boolean soundPlayed;
+        boolean rackMovementApplied;
 
         LiveRebuyChip(String nickname, int index, float startSeconds,
                 float durationSeconds, int color, double amount, float rotation) {
@@ -24825,7 +25868,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static final class LiveChipBatch {
+    private final class LiveChipBatch {
 
         final TableVisualEvent.CollectBets event;
         final long startedAtNanos;
@@ -24836,8 +25879,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveChipBatch(TableVisualEvent.CollectBets event, long startedAtNanos,
                 CompletableFuture<Void> barrier, TableSnapshot snapshot,
-                Map<String, Double> delivered, double minimumChip,
-                boolean dynamicChipCount) {
+                Map<String, Double> delivered, double minimumChip) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24865,12 +25907,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (smallAmount > 0.000_001d) {
                     long visualSeed = chipVariationSeed(event.sequence(),
                             smallBlind.nickname(), 0);
-                    int staticCount = collectedVisualChipCount(
-                            TableSnapshot.Position.SMALL_BLIND, smallAmount,
-                            minimumChip, false);
-                    List<VisualChipSpec> visualChips = visualChipSpecs(
-                            smallAmount, minimumChip, visualSeed,
-                            dynamicChipCount, staticCount, 2);
+                    List<VisualChipSpec> visualChips = paymentVisualChips(
+                            smallBlind.nickname(), smallAmount, minimumChip,
+                            visualSeed);
                     int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         VisualChipSpec visualChip = visualChips.get(chipIndex);
@@ -24885,12 +25924,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (bigAmount > 0.000_001d) {
                     long visualSeed = chipVariationSeed(event.sequence(),
                             bigBlind.nickname(), 1);
-                    int staticCount = collectedVisualChipCount(
-                            TableSnapshot.Position.BIG_BLIND, bigAmount,
-                            minimumChip, false);
-                    List<VisualChipSpec> visualChips = visualChipSpecs(
-                            bigAmount, minimumChip, visualSeed,
-                            dynamicChipCount, staticCount, 1);
+                    List<VisualChipSpec> visualChips = paymentVisualChips(
+                            bigBlind.nickname(), bigAmount, minimumChip,
+                            visualSeed);
                     int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                         VisualChipSpec visualChip = visualChips.get(chipIndex);
@@ -24914,13 +25950,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (visualAmount <= 0.000_001d) continue;
                 long visualSeed = chipVariationSeed(event.sequence(),
                         transfer.nickname(), transferIndex);
-                TableSnapshot.Position position = canonicalPosition(
-                        snapshot, transfer.nickname());
-                int staticCount = collectedVisualChipCount(position,
-                        visualAmount, minimumChip, false);
-                List<VisualChipSpec> visualChips = visualChipSpecs(
-                        visualAmount, minimumChip, visualSeed,
-                        dynamicChipCount, staticCount, transferIndex);
+                List<VisualChipSpec> visualChips = paymentVisualChips(
+                        transfer.nickname(), visualAmount, minimumChip,
+                        visualSeed);
                 int chipCount = visualChips.size();
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                     float start = transferIndex * 0.025f + chipIndex * 0.06f;
@@ -24963,6 +25995,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return total;
         }
+
+        List<VisualChipSpec> visualChips() {
+            return chips.stream()
+                    .map(chip -> new VisualChipSpec(chip.contribution,
+                            chip.color))
+                    .toList();
+        }
     }
 
     private static final class LiveChip implements LandingImpact {
@@ -24976,7 +26015,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final double contribution;
         boolean impactSound;
         boolean soundPlayed;
-
+        boolean rackMovementApplied;
+        boolean landingInventoriesApplied;
         LiveChip(String nickname, float startSeconds, float durationSeconds,
                 float rotation, int color, int chipIndex, double contribution) {
             this.nickname = nickname;
@@ -25044,6 +26084,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String investedText;
         double displayedStackAmount;
         double displayedInvestedAmount;
+        GdxStackChipLayout.Layout stackChipLayout;
+        double stackChipLayoutAmount = Double.NaN;
+        double stackChipLayoutDenomination = Double.NaN;
+        double stackChipLayoutReferenceAmount = Double.NaN;
+        final float[] stackChipDisplayedCounts =
+                new float[GdxStackChipLayout.COLUMN_COUNT];
+        final float[] stackChipFromCounts =
+                new float[GdxStackChipLayout.COLUMN_COUNT];
+        final int[] stackChipTargetCounts = {-1, -1, -1, -1};
+        float stackChipAnimationStartedAt = Float.NaN;
         final int index;
         float x;
         float y;
@@ -25076,6 +26126,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.displayedInvestedAmount = 0d;
             this.investedText = "0";
             this.index = index;
+        }
+
+        void copyStackChipPresentation(Seat previous) {
+            stackChipLayout = previous.stackChipLayout;
+            stackChipLayoutAmount = previous.stackChipLayoutAmount;
+            stackChipLayoutDenomination =
+                    previous.stackChipLayoutDenomination;
+            stackChipLayoutReferenceAmount =
+                    previous.stackChipLayoutReferenceAmount;
+            System.arraycopy(previous.stackChipDisplayedCounts, 0,
+                    stackChipDisplayedCounts, 0,
+                    GdxStackChipLayout.COLUMN_COUNT);
+            System.arraycopy(previous.stackChipFromCounts, 0,
+                    stackChipFromCounts, 0,
+                    GdxStackChipLayout.COLUMN_COUNT);
+            System.arraycopy(previous.stackChipTargetCounts, 0,
+                    stackChipTargetCounts, 0,
+                    GdxStackChipLayout.COLUMN_COUNT);
+            stackChipAnimationStartedAt =
+                    previous.stackChipAnimationStartedAt;
         }
 
         void beginRelayoutFrom(Seat previous, float startedAt,

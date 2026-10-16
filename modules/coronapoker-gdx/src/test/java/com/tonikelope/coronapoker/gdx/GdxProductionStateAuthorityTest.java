@@ -367,7 +367,7 @@ final class GdxProductionStateAuthorityTest {
         }
 
         table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(1L,
-                TableVisualEvent.RunItTwiceBoard.Side.A, "BOTE (CARA-A):",
+                TableVisualEvent.RunItTwiceBoard.Side.A, "BOTE-A:",
                 15.3d, List.of()), new CompletableFuture<>());
         List<CoronaPokerGdxTable.VisualChipSpec> sideA = potChips(table);
         assertEquals(1_530L,
@@ -381,7 +381,7 @@ final class GdxProductionStateAuthorityTest {
         assertTrue(potChips(table).isEmpty());
 
         table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(3L,
-                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE (CARA-B):",
+                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE-B:",
                 15.3d, List.of(3, 4)), new CompletableFuture<>());
         List<CoronaPokerGdxTable.VisualChipSpec> sideB = potChips(table);
         assertEquals(1_530L,

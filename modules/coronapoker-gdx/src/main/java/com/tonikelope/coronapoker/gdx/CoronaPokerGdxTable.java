@@ -335,6 +335,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LOCAL_HUD_INVESTED_WIDTH
             = LOCAL_HUD_STACK_WIDTH;
     private static final float LOCAL_HUD_COUNTER_GAP = 12f;
+    private static final float LOCAL_HUD_VALUE_CHIP_GAP = 6f;
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
     private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
     private static final float LOCAL_HUD_PRE_ACTION_WIDTH = 200f;
@@ -13254,6 +13255,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !player.warming() && !player.exited();
     }
 
+    /**
+     * A positional chip belongs to the whole hand, not only to players who
+     * can still act. Folded players therefore retain DEALER/SB/BB/STRADDLE
+     * until the next hand, while passive or departed seats can never display
+     * one even if a stale snapshot still contains a position.
+     */
+    static boolean hasVisiblePositionChip(
+            TableSnapshot.PlayerSnapshot player) {
+        return player != null
+                && player.position() != TableSnapshot.Position.NONE
+                && !player.spectator() && !player.warming()
+                && !player.exited();
+    }
+
     static int visiblePendingRebuyAmount(
             TableSnapshot.PlayerSnapshot player, int pendingAmount) {
         return hasActivePokerRole(player) ? Math.max(0, pendingAmount) : 0;
@@ -13351,7 +13366,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         if (active == null) {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
-                if (!hasActivePokerRole(player)) continue;
+                if (!hasVisiblePositionChip(player)) continue;
                 Texture texture = positionTexture(player.position());
                 Seat seat = seatByNickname(player.nickname());
                 float presence = seat == null ? 0f
@@ -25354,7 +25369,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         float investedChipCenterX() {
             Rectangle invested = investedBounds();
-            return invested.x + invested.width - 43f;
+            StackChipRackGeometry geometry = stackChipRackGeometry(true);
+            float rightExtent = geometry.firstColumnOffset()
+                    + (GdxStackChipLayout.COLUMN_COUNT - 1f)
+                    * geometry.columnGap() + geometry.chipSize() / 2f;
+            return invested.x + invested.width - rightExtent;
         }
 
         float counterChipCenterY() {
@@ -25368,22 +25387,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle stackChipVisualBounds() {
-            return localCounterChipVisualBounds(stackChipCenterX() - 40f);
+            return localCounterChipVisualBounds(stackChipCenterX());
         }
 
         Rectangle investedChipVisualBounds() {
-            return localCounterChipVisualBounds(investedChipCenterX() - 20f);
+            return localCounterChipVisualBounds(investedChipCenterX());
         }
 
-        private Rectangle localCounterChipVisualBounds(float x) {
+        private Rectangle localCounterChipVisualBounds(float centerX) {
             StackChipRackGeometry geometry = stackChipRackGeometry(true);
             float edgeDepth = Math.max(1f, geometry.chipSize()
                     * STACK_CHIP_EDGE_DEPTH_RATIO);
             float height = geometry.maximumHeight() + edgeDepth;
             Rectangle stack = stackBounds();
-            return new Rectangle(x,
+            float left = centerX + geometry.firstColumnOffset()
+                    - geometry.chipSize() / 2f;
+            return new Rectangle(left,
                     stack.y + (stack.height - height) / 2f,
-                    60f, height);
+                    geometry.rackWidth(), height);
         }
 
         Rectangle stackCaptionBounds() {
@@ -25403,8 +25424,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return new Rectangle(stack.x + 10f, stack.y + 8f,
                         stack.width - 20f, stack.height - 43f);
             }
-            return new Rectangle(stack.x + 82f, stack.y + 8f,
-                    stack.width - 92f, stack.height - 43f);
+            return new Rectangle(stack.x + 82f + LOCAL_HUD_VALUE_CHIP_GAP,
+                    stack.y + 8f,
+                    stack.width - 92f - LOCAL_HUD_VALUE_CHIP_GAP,
+                    stack.height - 43f);
         }
 
         Rectangle investedCaptionBounds() {
@@ -25422,7 +25445,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle invested = investedBounds();
             if (chipRackVisible) {
                 return new Rectangle(invested.x + 10f, invested.y + 8f,
-                        invested.width - 92f, invested.height - 43f);
+                        invested.width - 92f - LOCAL_HUD_VALUE_CHIP_GAP,
+                        invested.height - 43f);
             }
             return new Rectangle(invested.x + 10f, invested.y + 8f,
                     invested.width - 20f, invested.height - 43f);

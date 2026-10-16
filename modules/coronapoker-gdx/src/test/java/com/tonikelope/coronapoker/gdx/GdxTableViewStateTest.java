@@ -144,6 +144,9 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.hasActivePokerRole(spectator));
         assertFalse(CoronaPokerGdxTable.hasActivePokerRole(warming));
         assertTrue(CoronaPokerGdxTable.hasActivePokerRole(active));
+        assertFalse(CoronaPokerGdxTable.hasVisiblePositionChip(spectator));
+        assertFalse(CoronaPokerGdxTable.hasVisiblePositionChip(warming));
+        assertTrue(CoronaPokerGdxTable.hasVisiblePositionChip(active));
         assertEquals(0, CoronaPokerGdxTable.visiblePendingRebuyAmount(
                 spectator, 10));
         assertEquals(0, CoronaPokerGdxTable.visiblePendingRebuyAmount(
@@ -155,6 +158,31 @@ final class GdxTableViewStateTest {
                         player("second", TableSnapshot.Position.BIG_BLIND),
                         spectator, warming)),
                 "passive observers must not break heads-up dealer detection");
+    }
+
+    @Test
+    void foldedPlayerKeepsTheHandPositionChipThroughoutRunItTwice() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+
+        state.apply(new TableVisualEvent.FoldHoleCards(1L, "borja"));
+        TableSnapshot.PlayerSnapshot folded = player(state, "borja");
+        assertFalse(folded.active());
+        assertEquals(TableSnapshot.Position.BIG_BLIND, folded.position());
+        assertTrue(CoronaPokerGdxTable.hasVisiblePositionChip(folded));
+
+        state.apply(new TableVisualEvent.RunItTwiceBoard(2L,
+                TableVisualEvent.RunItTwiceBoard.Side.A,
+                "BOTE-A:", 50d, List.of()));
+        assertTrue(CoronaPokerGdxTable.hasVisiblePositionChip(
+                player(state, "borja")),
+                "RIT side A must retain the folded player's position chip");
+
+        state.apply(new TableVisualEvent.RunItTwiceBoard(3L,
+                TableVisualEvent.RunItTwiceBoard.Side.B,
+                "BOTE-B:", 50d, List.of()));
+        assertTrue(CoronaPokerGdxTable.hasVisiblePositionChip(
+                player(state, "borja")),
+                "RIT side B must retain the folded player's position chip");
     }
 
     @Test
@@ -1556,8 +1584,8 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.RunItTwiceBoard(4,
                 TableVisualEvent.RunItTwiceBoard.Side.A,
-                "BOTE (CARA-A):", 50d, List.of()));
-        assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix());
+                "BOTE-A:", 50d, List.of()));
+        assertEquals("BOTE-A:", state.runItTwicePotPrefix());
         assertEquals(50d, state.snapshot().pot());
 
         state.apply(new TableVisualEvent.CollectBets(5,
@@ -1569,13 +1597,13 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.RunItTwiceBoard(6,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                "BOTE-B:", 50d, List.of(3, 4)));
         assertTrue(state.snapshot().communityCards().get(0).faceUp());
         assertTrue(state.snapshot().communityCards().get(1).faceUp());
         assertTrue(state.snapshot().communityCards().get(2).faceUp());
         assertFalse(state.snapshot().communityCards().get(3).visible());
         assertFalse(state.snapshot().communityCards().get(4).visible());
-        assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
+        assertEquals("BOTE-B:", state.runItTwicePotPrefix());
 
         state.apply(new TableVisualEvent.DealCommunityCard(7, 3));
         assertTrue(state.snapshot().communityCards().get(3).visible());
@@ -1591,29 +1619,29 @@ final class GdxTableViewStateTest {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         state.apply(new TableVisualEvent.RunItTwiceBoard(1,
                 TableVisualEvent.RunItTwiceBoard.Side.A,
-                "BOTE (CARA-A):", 50d, List.of()));
+                "BOTE-A:", 50d, List.of()));
 
         state.apply(new TableVisualEvent.HandBoundary(2, 1,
                 TableVisualEvent.HandBoundary.Phase.END,
                 snapshotAt(TableSnapshot.Street.SHOWDOWN)));
-        assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix());
+        assertEquals("BOTE-A:", state.runItTwicePotPrefix());
         assertEquals(50d, state.snapshot().pot(),
                 "the board must retain its visible half until payout");
 
         state.apply(new TableVisualEvent.Payout(3, "ana", 40d, 1,
                 130d, 10d));
 
-        assertEquals("BOTE (CARA-A):", state.runItTwicePotPrefix(),
+        assertEquals("BOTE-A:", state.runItTwicePotPrefix(),
                 "a board payout must retain the board it is paying");
         assertEquals(10d, state.snapshot().pot());
 
         state.apply(new TableVisualEvent.RunItTwiceBoard(4,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                "BOTE-B:", 50d, List.of(3, 4)));
         state.apply(new TableVisualEvent.Payout(5, "borja", 50d, 1,
                 1_050d, 0d));
 
-        assertEquals("BOTE (CARA-B):", state.runItTwicePotPrefix());
+        assertEquals("BOTE-B:", state.runItTwicePotPrefix());
         assertEquals(0d, state.snapshot().pot());
     }
 
@@ -1631,7 +1659,7 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.RunItTwiceBoard(5,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                "BOTE-B:", 50d, List.of(3, 4)));
 
         assertFalse(state.hasHandResult("ana"));
         assertFalse(state.hasShowdownHighlights());
@@ -1681,7 +1709,7 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.RunItTwiceBoard(5,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                "BOTE-B:", 50d, List.of(3, 4)));
 
         for (String nickname : List.of("ana", "borja")) {
             assertTrue(state.presentedHoleCards(nickname).stream()
@@ -1704,7 +1732,7 @@ final class GdxTableViewStateTest {
                 card("A_C"), card("K_C"), "PAREJA"));
         state.apply(new TableVisualEvent.RunItTwiceBoard(3,
                 TableVisualEvent.RunItTwiceBoard.Side.A,
-                "BOTE (CARA-A):", 20d, List.of()));
+                "BOTE-A:", 20d, List.of()));
 
         assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "ana"));
         assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "borja"));
@@ -1716,7 +1744,7 @@ final class GdxTableViewStateTest {
                 card("Q_D"), card("Q_C"), "TRÍO"));
         state.apply(new TableVisualEvent.RunItTwiceBoard(6,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 60d, List.of(3, 4)));
+                "BOTE-B:", 60d, List.of(3, 4)));
 
         assertFalse(CoronaPokerGdxTable.seatHasAllInFire(state, "ana"));
         assertTrue(CoronaPokerGdxTable.seatHasAllInFire(state, "borja"));
@@ -1768,7 +1796,7 @@ final class GdxTableViewStateTest {
                 false, TableSnapshot.Street.SHOWDOWN));
         state.apply(new TableVisualEvent.RunItTwiceBoard(4,
                 TableVisualEvent.RunItTwiceBoard.Side.B,
-                "BOTE (CARA-B):", 50d, List.of(3, 4)));
+                "BOTE-B:", 50d, List.of(3, 4)));
 
         assertTrue(state.hasRevealedHoleCards("borja"));
         assertEquals("ALL IN", state.actionLabel("borja"));
@@ -1897,15 +1925,15 @@ final class GdxTableViewStateTest {
 
         assertEquals("BOTE: 12.5", CoronaPokerGdxTable.communityPotText(
                 spanish, "", 12.5d));
-        assertEquals("BOTE (CARA-A): 7.45",
+        assertEquals("BOTE-A: 7.45",
                 CoronaPokerGdxTable.communityPotText(
-                        spanish, "BOTE (CARA-A):", 7.45d));
-        assertEquals("BOTE (CARA-B): 7.45",
+                        spanish, "BOTE-A:", 7.45d));
+        assertEquals("BOTE-B: 7.45",
                 CoronaPokerGdxTable.communityPotText(
-                        spanish, "BOTE (CARA-B):", 7.45d));
+                        spanish, "BOTE-B:", 7.45d));
         assertEquals("POT: 12.5", CoronaPokerGdxTable.communityPotText(
                 english, "", 12.5d));
-        assertEquals("POT (SIDE-B): 7.45",
+        assertEquals("POT-B: 7.45",
                 CoronaPokerGdxTable.communityPotText(english,
                         english.translate("runittwice.pot_label_full",
                                 english.translate("runittwice.pot_label_b")),
@@ -3132,7 +3160,7 @@ final class GdxTableViewStateTest {
                 - layout.actionWidth(), 0.000_001f);
         assertEquals(stack.x + 43f, layout.stackChipCenterX(),
                 0.000_001f);
-        assertEquals(invested.x + invested.width - 43f,
+        assertEquals(invested.x + invested.width - 39f,
                 layout.investedChipCenterX(), 0.000_001f);
         assertEquals(layout.stackCaptionBounds().width,
                 layout.investedCaptionBounds().width, 0.000_001f);
@@ -3163,6 +3191,13 @@ final class GdxTableViewStateTest {
                 "APUESTA TOTAL must reserve room when its rack appears");
         Rectangle stackChips = layout.stackChipVisualBounds();
         Rectangle investedChips = layout.investedChipVisualBounds();
+        assertEquals(6f, layout.stackValueBounds().x
+                - (stackChips.x + stackChips.width), 0.000_001f,
+                "STACK amount must never touch its visible chip rack");
+        assertEquals(6f, investedChips.x
+                - (layout.investedValueBounds().x
+                + layout.investedValueBounds().width), 0.000_001f,
+                "APUESTA TOTAL amount must never touch its visible chip rack");
         assertEquals(stackChips.width, investedChips.width, 0.000_001f);
         assertEquals(stackChips.height, investedChips.height, 0.000_001f,
                 "STACK and APUESTA TOTAL must use cloned rack geometry");
@@ -3709,7 +3744,7 @@ final class GdxTableViewStateTest {
                 true, List.of(0, 1), List.of(0, 1, 2)));
         incumbent.apply(new TableVisualEvent.RunItTwiceBoard(4L,
                 TableVisualEvent.RunItTwiceBoard.Side.A,
-                "BOTE (CARA-A):", 100d, List.of()));
+                "BOTE-A:", 100d, List.of()));
         incumbent.apply(new TableVisualEvent.HandResult(5L, "borja",
                 "COLOR", true, TableSnapshot.Street.SHOWDOWN,
                 List.of(1), false));
@@ -3736,7 +3771,7 @@ final class GdxTableViewStateTest {
         assertEquals(TableSnapshot.RebuyPhase.WAITING,
                 presentation.rebuyPhase());
         assertEquals(25, presentation.immediateRebuyAmount());
-        assertEquals("BOTE (CARA-A):",
+        assertEquals("BOTE-A:",
                 canonical.presentation().potPrefix());
         assertEquals(8,
                 canonical.presentation().sharedProgressRemainingSeconds());

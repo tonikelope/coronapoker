@@ -807,7 +807,7 @@ final class GdxTableViewState {
                     snapshot.communityCards());
         } else if (event instanceof TableVisualEvent.Payout payout) {
             // Run It Twice now publishes one payout stream per board. Preserve
-            // the active CARA-A/CARA-B prefix while that board's chips leave
+            // the active BOTE-A/BOTE-B prefix while that board's chips leave
             // the pot; the next board or hand boundary owns the transition.
             // Keep payout as a defensive winner signal as well. Canonical
             // single-survivor hands now publish HandResult before the
@@ -1250,7 +1250,7 @@ final class GdxTableViewState {
         // Run It Twice publishes each board payout before END and keeps the
         // final board label visible during the showdown dwell. Replacing its
         // already-paid pot with the canonical zero would produce the
-        // impossible "BOTE (CARA-B): 0" captured in a real game. The ordered
+        // impossible "BOTE-B: 0" captured in a real game. The ordered
         // board payout remains the owner of that visible amount.
         if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.END
                 && !runItTwicePotPrefix.isBlank()) {

@@ -261,7 +261,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final float CHIP_FLIGHT_LANE_EDGE_GAP = 2f;
+    /** Adjacent simultaneous chips overlap into one readable, dense stream. */
+    private static final float CHIP_FLIGHT_STREAM_PITCH_RATIO = 0.56f;
     private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
     private static final float STACK_CHIP_COLUMN_STAGGER_SECONDS = 0.022f;
     /** Shared table-plane projection for every stationary physical chip. */
@@ -16207,8 +16208,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static float chipFlightLaneLateralOffset(float laneSlot, float progress) {
         if (laneSlot == 0f) return 0f;
         float bounded = MathUtils.clamp(progress, 0f, 1f);
-        return laneSlot * (liveFlyingChipSize(bounded)
-                + CHIP_FLIGHT_LANE_EDGE_GAP);
+        return laneSlot * liveFlyingChipSize(bounded)
+                * CHIP_FLIGHT_STREAM_PITCH_RATIO;
     }
 
     private void drawChipTrails() {

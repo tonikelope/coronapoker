@@ -191,7 +191,7 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void parallelLanesFormOneTightNonOverlappingBundle() {
+    void parallelTimingFormsOneCompactOverlappingVisualStream() {
         assertEquals(0f, CoronaPokerGdxTable.chipFlightLaneSlot(0, 7));
         assertEquals(-0.5f, CoronaPokerGdxTable.chipFlightLaneSlot(0, 8));
         assertEquals(0.5f, CoronaPokerGdxTable.chipFlightLaneSlot(1, 8));
@@ -204,10 +204,12 @@ class GdxChipFlightScalingTest {
                     -0.5f, progress);
             float right = CoronaPokerGdxTable.chipFlightLaneLateralOffset(
                     0.5f, progress);
-            assertEquals(2f, right - left
-                    - CoronaPokerGdxTable.liveFlyingChipSize(progress),
-                    0.000_001f,
-                    "adjacent lanes must remain touching without overlap");
+            float diameter = CoronaPokerGdxTable.liveFlyingChipSize(progress);
+            float overlap = diameter - (right - left);
+            assertEquals(diameter * 0.44f, overlap, 0.000_01f,
+                    "simultaneous chips must read as one overlapping stream");
+            assertTrue(overlap > 0f && overlap < diameter / 2f,
+                    "colours and rotations must remain individually readable");
         }
     }
 

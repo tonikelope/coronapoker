@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,6 +130,109 @@ final class GdxStackChipLayoutTest {
         GdxStackChipLayout.Layout collected = GdxStackChipLayout.add(paid,
                 20L, gold);
         assertEquals(rack, collected);
+    }
+
+    @Test
+    void unevenUncompressedRackKeepsTheColoursThatActuallyArrived() {
+        int blue = GdxChipDenominations.color(0);
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.stackChipRackGeometry(false));
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(0d,
+                0.1d);
+        for (int chip = 0; chip < capacities[0]; chip++) {
+            rack = GdxStackChipLayout.add(rack, 10L, blue);
+        }
+
+        GdxStackChipLayout.Layout relieved = GdxStackChipLayout
+                .relieveCompression(rack,
+                        rack.representedMinor() / 100d, 0.1d, 10d,
+                        capacities);
+
+        assertEquals(rack, relieved,
+                "an uneven rack must not colour-up before compression");
+        assertEquals(List.of(capacities[0], 0, 0, 0),
+                columnHeights(relieved));
+    }
+
+    @Test
+    void compressedRackUsesEmptyColumnsOnlyWhenOverflowIsReduced() {
+        int blue = GdxChipDenominations.color(0);
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(0d,
+                0.1d);
+        for (int chip = 0; chip < 74; chip++) {
+            rack = GdxStackChipLayout.add(rack, 10L, blue);
+        }
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.stackChipRackGeometry(false));
+
+        GdxStackChipLayout.Layout relieved = GdxStackChipLayout
+                .relieveCompression(rack, 7.4d, 0.1d, 10d,
+                        capacities);
+
+        assertEquals(rack.representedMinor(), relieved.representedMinor());
+        assertTrue(GdxStackChipLayout.compressionOverflow(relieved,
+                capacities) < GdxStackChipLayout.compressionOverflow(rack,
+                        capacities));
+        assertTrue(relieved.columns().stream().allMatch(
+                column -> !column.chips().isEmpty()));
+    }
+
+    @Test
+    void compressedRackKeepsItsColoursWhenNoRelaxedColumnHasRoom() {
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.stackChipRackGeometry(false));
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(0d,
+                0.1d);
+        for (int column = 0; column < capacities.length; column++) {
+            long amount = 10L * GdxChipDenominations.units(column);
+            int color = GdxChipDenominations.color(column);
+            for (int chip = 0; chip <= capacities[column]; chip++) {
+                rack = GdxStackChipLayout.add(rack, amount, color);
+            }
+        }
+        double exactAmount = rack.representedMinor() / 100d;
+
+        GdxStackChipLayout.Layout relieved = GdxStackChipLayout
+                .relieveCompression(rack, exactAmount, 0.1d, 10d,
+                        capacities);
+
+        assertEquals(rack, relieved);
+    }
+
+    @Test
+    void physicalArrivalSynchronizesItsRackBeforeTheFinalColourUp() {
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(10d,
+                0.10d, 10d);
+        float[] displayed = {1f, 2f, 3f, 4f};
+        float[] from = {4f, 3f, 2f, 1f};
+        int[] target = {-1, -1, -1, -1};
+
+        CoronaPokerGdxTable.synchronizePhysicalStackChipCounts(rack,
+                displayed, from, target);
+
+        assertArrayEquals(new float[]{5f, 5f, 5f, 6f}, displayed);
+        assertArrayEquals(displayed, from);
+        assertArrayEquals(new int[]{5, 5, 5, 6}, target);
+    }
+
+    @Test
+    void consecutiveLandingsRetargetWithoutDiscardingVisibleProgress() {
+        GdxStackChipLayout.Layout targetLayout =
+                GdxStackChipLayout.compose(10.20d, 0.10d, 10d);
+        float[] displayed = {4.4f, 4.7f, 5f, 5.6f};
+        float[] from = new float[4];
+        int[] target = new int[4];
+        int gold = GdxChipDenominations.color(1);
+
+        boolean animates = CoronaPokerGdxTable
+                .retargetPhysicalStackChipCounts(targetLayout, gold, 1f,
+                        displayed, from, target);
+
+        assertArrayEquals(new float[]{4.4f, 5.7f, 5f, 5.6f}, displayed);
+        assertArrayEquals(displayed, from);
+        assertArrayEquals(columnHeights(targetLayout).stream()
+                .mapToInt(Integer::intValue).toArray(), target);
+        assertTrue(animates);
     }
 
     @Test

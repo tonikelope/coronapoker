@@ -75,6 +75,58 @@ final class GdxStackChipLayout {
         return new Layout(columns);
     }
 
+    /**
+     * Preserves the physical denominations already present until the rack
+     * genuinely needs a colour-up. Uneven column heights are intentional:
+     * chips that have just arrived retain their colour while every column
+     * still fits at its relaxed spacing. A new exact composition is accepted
+     * only when one column is compressed, another has relaxed capacity left,
+     * and the exchange strictly reduces the total overflow.
+     */
+    static Layout relieveCompression(Layout current, double exactAmount,
+            double smallBlind, double referenceAmount,
+            int[] relaxedCapacities) {
+        if (relaxedCapacities == null
+                || relaxedCapacities.length != COLUMN_COUNT) {
+            throw new IllegalArgumentException(
+                    "A stack rack requires four relaxed capacities");
+        }
+        long exactMinor = Double.isFinite(exactAmount) && exactAmount > 0d
+                ? Math.max(1L, Math.round(exactAmount * 100d)) : 0L;
+        if (current == null || current.representedMinor() != exactMinor) {
+            return compose(exactAmount, smallBlind, referenceAmount);
+        }
+
+        boolean compressed = false;
+        boolean hasRelaxedRoom = false;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            int capacity = Math.max(0, relaxedCapacities[column]);
+            int height = current.columnHeight(column);
+            compressed |= height > capacity;
+            hasRelaxedRoom |= height < capacity;
+        }
+        if (!compressed || !hasRelaxedRoom) return current;
+
+        Layout exact = compose(exactAmount, smallBlind, referenceAmount);
+        return compressionOverflow(exact, relaxedCapacities)
+                < compressionOverflow(current, relaxedCapacities)
+                        ? exact : current;
+    }
+
+    static int compressionOverflow(Layout layout, int[] relaxedCapacities) {
+        if (layout == null || relaxedCapacities == null
+                || relaxedCapacities.length != COLUMN_COUNT) {
+            throw new IllegalArgumentException(
+                    "A stack rack requires four relaxed capacities");
+        }
+        int overflow = 0;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            overflow += Math.max(0, layout.columnHeight(column)
+                    - Math.max(0, relaxedCapacities[column]));
+        }
+        return overflow;
+    }
+
     /** Selects the fewest exact chips that physically exist in this rack. */
     static List<Chip> payment(Layout layout, double exactAmount,
             double smallBlind) {

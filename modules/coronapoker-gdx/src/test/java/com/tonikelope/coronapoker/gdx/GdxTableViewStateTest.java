@@ -698,19 +698,51 @@ final class GdxTableViewStateTest {
         assertEquals(-25f, remote.firstColumnOffset(), 0.000_001f);
         assertEquals(13.666_667f, remote.columnGap(), 0.000_01f);
         assertEquals(63f, remote.rackWidth(), 0.000_001f);
-        assertEquals(54f, local.maximumHeight(), 0.000_001f);
+        assertEquals(52f / 22f,
+                local.maximumHeight() / local.chipSize(), 0.000_001f,
+                "local and rival racks must share the same height ratio");
         assertEquals(52f, remote.maximumHeight(), 0.000_001f);
-        assertEquals(5,
+        assertEquals(remote.maximumHeight() / remote.chipSize(),
+                local.maximumHeight() / local.chipSize(), 0.000_001f);
+        assertEquals(remote.zigzagRise() / remote.chipSize(),
+                local.zigzagRise() / local.chipSize(), 0.000_001f);
+        assertEquals(remote.normalVerticalGap() / remote.chipSize(),
+                local.normalVerticalGap() / local.chipSize(), 0.000_001f);
+        CoronaPokerGdxTable.StackChipRackGeometry pot =
+                CoronaPokerGdxTable.potChipRackGeometry();
+        assertEquals(local.maximumHeight(), pot.maximumHeight(),
+                0.000_001f,
+                "the pot and local rack use equal-size chips and height");
+        assertTrue(pot.maximumHeight() * 1.035f < 82f,
+                "the pulsing pot rack must retain vertical panel margins");
+        assertEquals(857f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
+                0.000_001f,
+                "pot flights must contact the left rack, not panel centre");
+        assertEquals(0.62f,
+                CoronaPokerGdxTable.stackChipProjectedHeight(local)
+                        / local.chipSize(), 0.000_001f);
+        assertEquals(
+                CoronaPokerGdxTable.stackChipProjectedHeight(local)
+                        / local.chipSize(),
+                CoronaPokerGdxTable.stackChipProjectedHeight(remote)
+                        / remote.chipSize(), 0.000_001f,
+                "local, remote and pot racks share one perspective");
+        assertEquals(
+                CoronaPokerGdxTable.stackChipProjectedHeight(local)
+                        / local.chipSize(),
+                CoronaPokerGdxTable.stackChipProjectedHeight(pot)
+                        / pot.chipSize(), 0.000_001f);
+        assertEquals(10,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 0));
-        assertEquals(5,
+        assertEquals(10,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 1));
-        assertEquals(4,
+        assertEquals(9,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 2));
-        assertEquals(8,
+        assertEquals(10,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 0));
-        assertEquals(8,
+        assertEquals(10,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 1));
-        assertEquals(7,
+        assertEquals(9,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 2));
         assertEquals(2, CoronaPokerGdxTable.stackChipColumnSlot(0));
         assertEquals(0, CoronaPokerGdxTable.stackChipColumnSlot(1));
@@ -849,12 +881,14 @@ final class GdxTableViewStateTest {
     void chipColumnsRelaxContinuouslyBetweenNaturalAndMaximumCompression() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
+        int relaxedCapacity = CoronaPokerGdxTable
+                .stackChipRelaxedCapacity(local, 3);
         float relaxed = CoronaPokerGdxTable.stackChipRackVerticalGap(local,
-                new float[]{0f, 0f, 0f, 4f});
+                new float[]{0f, 0f, 0f, relaxedCapacity});
         float firstHalfStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
-                local, new float[]{0f, 0f, 0f, 4.75f});
+                local, new float[]{0f, 0f, 0f, relaxedCapacity + 0.5f});
         float firstFullStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
-                local, new float[]{0f, 0f, 0f, 5f});
+                local, new float[]{0f, 0f, 0f, relaxedCapacity + 1f});
         float compressedLevels = CoronaPokerGdxTable
                 .stackChipPerceivedLevels(local, 3, 120f);
         float beyondCompressionLimit =
@@ -3100,6 +3134,10 @@ final class GdxTableViewStateTest {
                 layout.investedValueBounds().width, 0.000_001f);
         Rectangle stackChips = layout.stackChipVisualBounds();
         Rectangle investedChips = layout.investedChipVisualBounds();
+        assertEquals(stackChips.width, investedChips.width, 0.000_001f);
+        assertEquals(stackChips.height, investedChips.height, 0.000_001f,
+                "STACK and APUESTA TOTAL must use cloned rack geometry");
+        assertEquals(stackChips.y, investedChips.y, 0.000_001f);
         assertEquals(stackChips.x - stack.x,
                 invested.x + invested.width
                         - (investedChips.x + investedChips.width),

@@ -169,6 +169,10 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                 });
                 return;
             }
+            // Keep one continuous modal composition until REBUY has actually
+            // entered the table queue. Closing GAME OVER first exposed the
+            // sharp table for one frame between two blurred dialogs.
+            choice.holdForDialogHandoff();
             afterGameOverAudio(GameOverAudioCue.CONTINUE, () -> {
                 GdxTableDialog rebuy = new GdxTableDialog(
                         text.translate("rebuy.recomprar_3"), "", 820,

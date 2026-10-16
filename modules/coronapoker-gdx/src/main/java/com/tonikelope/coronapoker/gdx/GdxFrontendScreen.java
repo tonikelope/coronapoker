@@ -872,9 +872,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } finally {
             generator.dispose();
         }
+        nextFps = GdxFrameRateOverlayStyle.font(profile);
         generator = GdxMonospaceFonts.generator(false);
         try {
-            nextFps = font(generator, 18, 0f, profile);
             nextDebugLog = font(generator, 20, 0f, profile);
         } finally {
             generator.dispose();
@@ -10601,23 +10601,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Global counter shared by every non-table GDX surface and modal. */
     private void drawFrontendFpsCounter() {
-        float panelWidth = GdxFrameRateOverlayStyle.WIDTH;
-        float panelHeight = GdxFrameRateOverlayStyle.HEIGHT;
-        float x = GdxFrameRateOverlayStyle.x(WIDTH, false);
-        float y = GdxFrameRateOverlayStyle.y(HEIGHT);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
-        roundedRect(x, y, panelWidth, panelHeight, 11f);
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(fpsFont,
+        GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont, glyph,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
-                x + 8f, y, panelWidth - 16f, panelHeight,
-                Color.WHITE, 1f);
-        batch.end();
+                WIDTH, HEIGHT);
     }
 
     private void drawFittedCenteredInBox(BitmapFont font, String text,

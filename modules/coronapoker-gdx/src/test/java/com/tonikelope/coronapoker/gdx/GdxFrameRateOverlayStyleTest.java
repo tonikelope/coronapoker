@@ -14,7 +14,7 @@ final class GdxFrameRateOverlayStyleTest {
 
     @Test
     void counterSitsNearTheTopRightWithoutTouchingTheScreenEdges() {
-        float x = GdxFrameRateOverlayStyle.x(1920f, false);
+        float x = GdxFrameRateOverlayStyle.x(1920f);
         float y = GdxFrameRateOverlayStyle.y(1080f);
 
         assertEquals(12f, 1920f - x - GdxFrameRateOverlayStyle.WIDTH);
@@ -24,24 +24,59 @@ final class GdxFrameRateOverlayStyleTest {
     }
 
     @Test
-    void finalSummaryStillReservesItsTopRightControl() {
-        float x = GdxFrameRateOverlayStyle.x(1920f, true);
+    void everyScreenUsesTheMainScreenRightEdgeAlignment() {
+        float mainScreenX = GdxFrameRateOverlayStyle.x(1920f);
+        float tableX = GdxFrameRateOverlayStyle.x(1920f);
+        float finalSummaryX = GdxFrameRateOverlayStyle.x(1920f);
 
-        assertEquals(GdxFrameRateOverlayStyle.FINAL_SUMMARY_RIGHT_MARGIN,
-                1920f - x - GdxFrameRateOverlayStyle.WIDTH);
+        assertEquals(mainScreenX, tableX);
+        assertEquals(mainScreenX, finalSummaryX);
+        assertEquals(GdxFrameRateOverlayStyle.RIGHT_MARGIN,
+                1920f - finalSummaryX - GdxFrameRateOverlayStyle.WIDTH);
     }
 
     @Test
-    void tableCounterAlsoOmitsTheOldCyanUnderline() throws IOException {
+    void everySurfaceDelegatesTheWholeBadgeToOneRenderer() throws IOException {
+        String frontend = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "GdxFrontendScreen.java"));
         String table = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
                 "CoronaPokerGdxTable.java"));
-        int start = table.indexOf("private void drawFpsCounter(");
-        int end = table.indexOf("private void drawCentered(", start);
-        String method = table.substring(start, end);
+        String frontendMethod = method(frontend,
+                "private void drawFrontendFpsCounter()",
+                "private void drawFittedCenteredInBox(");
+        String tableMethod = method(table, "private void drawFpsCounter(",
+                "private void drawCentered(");
 
-        assertTrue(method.contains("GdxFrameRateOverlayStyle.x("));
-        assertFalse(method.contains("shapes.rect("),
-                "the table overlay must not draw the old cyan underline");
+        assertTrue(frontendMethod.contains("GdxFrameRateOverlayStyle.draw("));
+        assertTrue(tableMethod.contains("GdxFrameRateOverlayStyle.draw("));
+        assertFalse(frontendMethod.contains("roundedRect("));
+        assertFalse(tableMethod.contains("roundedRect("));
+        assertFalse(tableMethod.contains("gameLogFont"));
+    }
+
+    @Test
+    void bothRenderersBuildTheExactSameDedicatedFont() throws IOException {
+        String frontend = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "GdxFrontendScreen.java"));
+        String table = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+
+        assertTrue(frontend.contains(
+                "nextFps = GdxFrameRateOverlayStyle.font(profile)"));
+        assertTrue(table.contains(
+                "fpsFont = GdxFrameRateOverlayStyle.font("));
+        assertTrue(table.contains("GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));
+    }
+
+    private static String method(String source, String startMarker,
+            String endMarker) {
+        int start = source.indexOf(startMarker);
+        int end = source.indexOf(endMarker, start);
+        assertTrue(start >= 0 && end > start);
+        return source.substring(start, end);
     }
 }

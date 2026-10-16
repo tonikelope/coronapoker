@@ -1855,7 +1855,7 @@ class GdxReconnectScenarioTest {
                         if (index == 0) {
                             renderer.gateActionOnHand(4);
                         } else if (index == 1 || index == 2) {
-                            renderer.allInOnHand(1);
+                            renderer.enableAllInEveryHand();
                         }
                         table.attach(renderer).toCompletableFuture()
                                 .get(5, TimeUnit.SECONDS);

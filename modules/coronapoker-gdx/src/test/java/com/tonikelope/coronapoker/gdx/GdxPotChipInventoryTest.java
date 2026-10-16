@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxPotChipInventoryTest {
 
     @Test
-    void completedBetBatchColoursUpPotWithoutChangingItsValue() {
+    void compressedBetBatchColoursUpPotWithoutChangingItsValue() {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
         ArrayList<CoronaPokerGdxTable.VisualChipSpec> smallChips =
                 new ArrayList<>();
@@ -22,7 +22,9 @@ class GdxPotChipInventoryTest {
         }
         inventory.deposit(smallChips);
 
-        inventory.rebalanceColumns(0.1d);
+        inventory.relieveCompressedColumns(0.1d,
+                CoronaPokerGdxTable.relaxedRackCapacities(
+                        CoronaPokerGdxTable.potChipRackGeometry()));
 
         assertEquals(7.4d, inventory.amount(), 0.000_001d);
         GdxStackChipLayout.Layout layout = CoronaPokerGdxTable
@@ -32,6 +34,23 @@ class GdxPotChipInventoryTest {
                 layout.columnHeight(2), layout.columnHeight(3)));
         assertTrue(colors(inventory.snapshot()).containsAll(
                 List.of(0, 1, 2, 3)));
+    }
+
+    @Test
+    void uncompressedPotPreservesEveryArrivingChipColour() {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        List<CoronaPokerGdxTable.VisualChipSpec> deposited = List.of(
+                chip(0.1d, GdxChipDenominations.color(0)),
+                chip(0.1d, GdxChipDenominations.color(0)),
+                chip(0.2d, GdxChipDenominations.color(1)),
+                chip(0.5d, GdxChipDenominations.color(2)));
+        inventory.deposit(deposited);
+
+        inventory.relieveCompressedColumns(0.1d,
+                CoronaPokerGdxTable.relaxedRackCapacities(
+                        CoronaPokerGdxTable.potChipRackGeometry()));
+
+        assertEquals(deposited, inventory.snapshot());
     }
 
     @Test

@@ -64,6 +64,21 @@ final class GdxTableDialogTest {
     }
 
     @Test
+    void continuingGameOverCanWaitForAnAtomicRebuyHandoff() {
+        GdxTableDialog gameOver = GdxTableDialog.gameOverChoice(10);
+        gameOver.accept();
+        gameOver.holdForDialogHandoff();
+
+        assertTrue(gameOver.waitingForExternalClose());
+        assertFalse(gameOver.gameOverFinalFrame(),
+                "continuing keeps the current visual instead of flashing zero");
+        assertFalse(gameOver.readyToClose());
+
+        gameOver.releaseExternalClose();
+        assertTrue(gameOver.readyToClose());
+    }
+
+    @Test
     void convertsLegacyHtmlToReadableNativeText() {
         assertEquals("Primera línea\nSegunda & última",
                 GdxTableDialog.plainText(

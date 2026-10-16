@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxChipFlightScalingTest {
 
     @Test
-    void paymentsUseFourStableDenominationColors() {
+    void paymentsUseFiveStableDenominationColors() {
         for (double amount : new double[]{0.1d, 0.2d, 0.5d, 1d,
             1.7d, 3d}) {
             for (long seed = 0; seed < 64; seed++) {
@@ -26,6 +26,7 @@ class GdxChipFlightScalingTest {
                         case 20 -> 3;
                         case 50 -> 0;
                         case 100 -> 2;
+                        case 250 -> 4;
                         default -> throw new AssertionError(
                                 "Unexpected denomination " + chip.amount());
                     };
@@ -107,8 +108,9 @@ class GdxChipFlightScalingTest {
         Set<List<CoronaPokerGdxTable.VisualChipSpec>> orders = new HashSet<>();
         for (long seed = 0; seed < 32; seed++) {
             List<CoronaPokerGdxTable.VisualChipSpec> chips
-                    = CoronaPokerGdxTable.rebuyVisualChips(10d, seed);
-            assertEquals(14, chips.size());
+                    = CoronaPokerGdxTable.rebuyVisualChips(
+                            10d, 0.1d, seed);
+            assertEquals(21, chips.size());
             assertEquals(Set.of(0, 1, 2, 3), chips.stream()
                     .map(CoronaPokerGdxTable.VisualChipSpec::color)
                     .collect(java.util.stream.Collectors.toSet()));

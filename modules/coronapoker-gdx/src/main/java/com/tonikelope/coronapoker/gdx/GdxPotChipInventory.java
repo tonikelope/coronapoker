@@ -3,7 +3,9 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SplittableRandom;
 
 /**
@@ -41,51 +43,107 @@ final class GdxPotChipInventory {
         } else if (chips.isEmpty()) {
             chips.addAll(rebalance(fallback, target));
         } else if (cents(amount()) != target) {
-            List<CoronaPokerGdxTable.VisualChipSpec> adjusted =
-                    rebalance(chips, target);
             chips.clear();
-            chips.addAll(adjusted);
+            chips.addAll(rebalance(fallback, target));
         }
     }
 
     /**
-     * Removes a deterministic, shuffled share of the stored physical chips.
-     * Colours and total chip count are conserved across successive payouts;
-     * represented amounts are rebalanced only to keep counter interpolation
-     * exact when a pot is split between boards or several winners.
+     * Removes an exact physical payment. Existing chips are preserved whenever
+     * they can make the amount exactly. Otherwise only the smallest overpaying
+     * subset is changed into canonical lower denominations before anything
+     * flies, exactly as a dealer would break a large chip for a split pot.
      */
     List<CoronaPokerGdxTable.VisualChipSpec> withdraw(double exactAmount,
-            long seed) {
+            double smallBlind, long seed) {
         long available = cents(amount());
-        long requested = Math.min(available, cents(exactAmount));
+        long baseMinor = GdxChipDenominations.baseMinor(smallBlind);
+        long rawRequested = Math.min(available, cents(exactAmount));
+        // An odd remainder smaller than the x1 chip stays in the pot, matching
+        // real-table odd-chip handling instead of breaking the smallest chip.
+        long requested = rawRequested - rawRequested % baseMinor;
         if (requested <= 0L || chips.isEmpty()) return List.of();
 
-        ArrayList<CoronaPokerGdxTable.VisualChipSpec> shuffled =
-                new ArrayList<>(chips);
-        shuffle(shuffled, seed ^ 0xa54ff53a5f1d36f1L);
-        int selectedCount;
-        if (requested >= available) {
-            selectedCount = shuffled.size();
-        } else {
-            selectedCount = Math.round(shuffled.size()
-                    * requested / (float) available);
-            selectedCount = Math.max(1,
-                    Math.min(shuffled.size() - 1, selectedCount));
-        }
+        while (true) {
+            Map<Long, Pick> best = bestPicks();
+            Pick selection = best.get(requested);
+            if (selection != null) {
+                ArrayList<CoronaPokerGdxTable.VisualChipSpec> selected =
+                        removeSelection(selection);
+                shuffle(selected, seed ^ 0x510e527fade682d1L);
+                return List.copyOf(selected);
+            }
 
+            Map.Entry<Long, Pick> overpay = best.entrySet().stream()
+                    .filter(entry -> entry.getKey() > requested)
+                    .min((left, right) -> {
+                        int amountOrder = Long.compare(left.getKey(),
+                                right.getKey());
+                        return amountOrder != 0 ? amountOrder
+                                : Integer.compare(left.getValue().count(),
+                                        right.getValue().count());
+                    }).orElse(null);
+            if (overpay == null) return List.of();
+
+            int chipToBreak = selectedIndices(overpay.getValue()).stream()
+                    .filter(index -> !GdxChipDenominations.breakDown(
+                            cents(chips.get(index).amount()), smallBlind)
+                            .isEmpty())
+                    .min(java.util.Comparator.comparingLong(index ->
+                            cents(chips.get(index).amount())))
+                    .orElse(-1);
+            if (chipToBreak < 0) return List.of();
+
+            CoronaPokerGdxTable.VisualChipSpec original =
+                    chips.remove(chipToBreak);
+            for (GdxChipDenominations.Chip replacement
+                    : GdxChipDenominations.breakDown(
+                            cents(original.amount()), smallBlind)) {
+                chips.add(new CoronaPokerGdxTable.VisualChipSpec(
+                        replacement.amountMinor() / 100d,
+                        replacement.color()));
+            }
+        }
+    }
+
+    private Map<Long, Pick> bestPicks() {
+        Map<Long, Pick> best = new LinkedHashMap<>();
+        best.put(0L, Pick.EMPTY);
+        for (int index = 0; index < chips.size(); index++) {
+            long chipAmount = cents(chips.get(index).amount());
+            Map<Long, Pick> next = new LinkedHashMap<>(best);
+            for (Map.Entry<Long, Pick> entry : best.entrySet()) {
+                long amount = entry.getKey() + chipAmount;
+                Pick candidate = new Pick(entry.getValue().count() + 1,
+                        entry.getValue(), index);
+                Pick current = next.get(amount);
+                if (current == null || candidate.count() < current.count()) {
+                    next.put(amount, candidate);
+                }
+            }
+            best = next;
+        }
+        return best;
+    }
+
+    private ArrayList<Integer> selectedIndices(Pick selection) {
+        ArrayList<Integer> selectedIndices = new ArrayList<>(
+                selection.count());
+        for (Pick pick = selection; pick.index() >= 0;
+                pick = pick.previous()) {
+            selectedIndices.add(pick.index());
+        }
+        return selectedIndices;
+    }
+
+    private ArrayList<CoronaPokerGdxTable.VisualChipSpec> removeSelection(
+            Pick selection) {
+        ArrayList<Integer> selectedIndices = selectedIndices(selection);
+        selectedIndices.sort(java.util.Comparator.reverseOrder());
         ArrayList<CoronaPokerGdxTable.VisualChipSpec> selected =
-                new ArrayList<>(shuffled.subList(0, selectedCount));
-        ArrayList<CoronaPokerGdxTable.VisualChipSpec> remaining =
-                new ArrayList<>(shuffled.subList(selectedCount,
-                        shuffled.size()));
-        chips.clear();
-        chips.addAll(rebalance(remaining, available - requested));
-        List<CoronaPokerGdxTable.VisualChipSpec> result =
-                rebalance(selected, requested);
-        ArrayList<CoronaPokerGdxTable.VisualChipSpec> randomized =
-                new ArrayList<>(result);
-        shuffle(randomized, seed ^ 0x510e527fade682d1L);
-        return List.copyOf(randomized);
+                new ArrayList<>(selectedIndices.size());
+        for (int index : selectedIndices) selected.add(chips.remove(index));
+        return selected;
     }
 
     int size() {
@@ -158,5 +216,10 @@ final class GdxPotChipInventory {
     private static long cents(double amount) {
         if (!Double.isFinite(amount) || amount <= 0d) return 0L;
         return Math.max(0L, Math.round(MoneyMath.clean(amount) * 100d));
+    }
+
+    private record Pick(int count, Pick previous, int index) {
+
+        private static final Pick EMPTY = new Pick(0, null, -1);
     }
 }

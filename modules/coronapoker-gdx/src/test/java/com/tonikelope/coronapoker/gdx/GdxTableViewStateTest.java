@@ -675,6 +675,129 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void physicalRackReleasesEachChipAsSoonAsItsFlightStarts() {
+        assertFalse(CoronaPokerGdxTable.actionChipDeparted(-1f));
+        assertFalse(CoronaPokerGdxTable.actionChipDeparted(0f));
+        assertTrue(CoronaPokerGdxTable.actionChipDeparted(0.000_001f));
+        assertTrue(CoronaPokerGdxTable.actionChipDeparted(0.5f));
+        assertTrue(CoronaPokerGdxTable.actionChipDeparted(1f));
+    }
+
+    @Test
+    void fourChipColumnsFillTheirRackWithoutCoveringTheStackValue() {
+        CoronaPokerGdxTable.StackChipRackGeometry local =
+                CoronaPokerGdxTable.stackChipRackGeometry(true);
+        assertEquals(34f, local.chipSize(), 0.000_001f);
+        assertEquals(-26f, local.firstColumnOffset(), 0.000_001f);
+        assertEquals(16f, local.columnGap(), 0.000_001f);
+        assertEquals(82f, local.rackWidth(), 0.000_001f);
+
+        CoronaPokerGdxTable.StackChipRackGeometry remote =
+                CoronaPokerGdxTable.stackChipRackGeometry(false);
+        assertEquals(26f, remote.chipSize(), 0.000_001f);
+        assertEquals(-23f, remote.firstColumnOffset(), 0.000_001f);
+        assertEquals(12.333_333f, remote.columnGap(), 0.000_01f);
+        assertEquals(63f, remote.rackWidth(), 0.000_001f);
+        assertEquals(local.maximumHeight(), remote.maximumHeight(),
+                0.000_001f);
+        assertEquals(5,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 0));
+        assertEquals(5,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 1));
+        assertEquals(4,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 2));
+        assertEquals(8,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 0));
+        assertEquals(8,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 1));
+        assertEquals(7,
+                CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 2));
+        assertEquals(2, CoronaPokerGdxTable.stackChipColumnSlot(0));
+        assertEquals(0, CoronaPokerGdxTable.stackChipColumnSlot(1));
+        assertEquals(3, CoronaPokerGdxTable.stackChipColumnSlot(2));
+        assertEquals(1, CoronaPokerGdxTable.stackChipColumnSlot(3));
+        assertTrue(CoronaPokerGdxTable.stackChipColumnForeground(0));
+        assertTrue(CoronaPokerGdxTable.stackChipColumnForeground(1));
+        assertFalse(CoronaPokerGdxTable.stackChipColumnForeground(2));
+        assertFalse(CoronaPokerGdxTable.stackChipColumnForeground(3));
+        assertEquals(1f, CoronaPokerGdxTable.remoteStackAvatarClearance(),
+                0.000_001f,
+                "the compressed rack must stop immediately below the avatar");
+    }
+
+    @Test
+    void hugeChipColumnsCompressSpacingButNeverChipSizeOrHudHeight() {
+        CoronaPokerGdxTable.StackChipRackGeometry local =
+                CoronaPokerGdxTable.stackChipRackGeometry(true);
+        CoronaPokerGdxTable.StackChipRackGeometry remote =
+                CoronaPokerGdxTable.stackChipRackGeometry(false);
+        GdxStackChipLayout.Layout wholeTable = GdxStackChipLayout.compose(
+                100d, 0.1d, 10d);
+        float[] physicalCounts = new float[
+                GdxStackChipLayout.COLUMN_COUNT];
+        float[] localLevels = new float[physicalCounts.length];
+        float[] remoteLevels = new float[physicalCounts.length];
+        for (int column = 0; column < physicalCounts.length; column++) {
+            physicalCounts[column] = wholeTable.columnHeight(column);
+            localLevels[column] = CoronaPokerGdxTable
+                    .stackChipPerceivedLevels(local, column,
+                            physicalCounts[column]);
+            remoteLevels[column] = CoronaPokerGdxTable
+                    .stackChipPerceivedLevels(remote, column,
+                            physicalCounts[column]);
+        }
+        float localGap = CoronaPokerGdxTable.stackChipRackVerticalGap(local,
+                localLevels);
+        float remoteGap = CoronaPokerGdxTable.stackChipRackVerticalGap(remote,
+                remoteLevels);
+
+        for (int column = 0; column < physicalCounts.length; column++) {
+            assertTrue(CoronaPokerGdxTable.stackChipColumnVisualHeight(local,
+                    localLevels[column], column, localGap)
+                    <= local.maximumHeight() + 0.000_01f);
+            assertTrue(CoronaPokerGdxTable.stackChipColumnVisualHeight(remote,
+                    remoteLevels[column], column, remoteGap)
+                    <= remote.maximumHeight() + 0.000_01f);
+            assertTrue(localLevels[column] < physicalCounts[column]);
+            assertTrue(remoteLevels[column] < physicalCounts[column]);
+        }
+        assertTrue(localGap >= local.minimumVerticalGap());
+        assertTrue(remoteGap >= remote.minimumVerticalGap());
+        float minimum = Float.POSITIVE_INFINITY;
+        float maximum = Float.NEGATIVE_INFINITY;
+        for (float height : physicalCounts) {
+            minimum = Math.min(minimum, height);
+            maximum = Math.max(maximum, height);
+        }
+        assertTrue(maximum - minimum <= 1f,
+                "the rack should balance compression before matching history");
+    }
+
+    @Test
+    void chipColumnsRelaxContinuouslyBetweenNaturalAndMaximumCompression() {
+        CoronaPokerGdxTable.StackChipRackGeometry local =
+                CoronaPokerGdxTable.stackChipRackGeometry(true);
+        float relaxed = CoronaPokerGdxTable.stackChipRackVerticalGap(local,
+                new float[]{0f, 0f, 0f, 4f});
+        float firstHalfStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
+                local, new float[]{0f, 0f, 0f, 4.5f});
+        float firstFullStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
+                local, new float[]{0f, 0f, 0f, 5f});
+        float compressedLevels = CoronaPokerGdxTable
+                .stackChipPerceivedLevels(local, 3, 120f);
+        float beyondCompressionLimit =
+                CoronaPokerGdxTable.stackChipRackVerticalGap(local,
+                        new float[]{0f, 0f, 0f, compressedLevels});
+
+        assertEquals(local.normalVerticalGap(), relaxed, 0.000_001f);
+        assertTrue(firstHalfStep < relaxed);
+        assertTrue(firstHalfStep > firstFullStep);
+        assertTrue(compressedLevels < 20f);
+        assertTrue(beyondCompressionLimit >= local.minimumVerticalGap());
+        assertTrue(beyondCompressionLimit < firstFullStep);
+    }
+
+    @Test
     void canonicalIncomingMoneyRemainsVisuallyCausalDuringItsFlight() {
         assertEquals(8d, CoronaPokerGdxTable.displayedIncomingStack(
                 18d, 10d, 0d));

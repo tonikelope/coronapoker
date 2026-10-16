@@ -13,6 +13,11 @@ final class GdxChipDenominations {
 
     static final int COLUMN_COUNT = 4;
 
+    /**
+     * Casino progression shared by player racks, flights and the table pot.
+     * The x10 family is black as a deliberate nod to the physical games that
+     * inspired CoronaPoker.
+     */
     private static final int[] COLORS = {1, 3, 0, 2};
     private static final int[] UNITS = {1, 2, 5, 10};
 
@@ -25,6 +30,12 @@ final class GdxChipDenominations {
 
     static int units(int column) {
         return UNITS[column];
+    }
+
+    static int totalUnits() {
+        int total = 0;
+        for (int unit : UNITS) total += unit;
+        return total;
     }
 
     static long baseMinor(double smallBlind) {
@@ -70,6 +81,37 @@ final class GdxChipDenominations {
             }
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Changes one canonical chip into the nearest exact lower-denomination
+     * combination. Only one denomination step is performed here; callers may
+     * change another resulting chip in a later pass if an exact payment still
+     * cannot be formed. The x1 chip is deliberately never broken.
+     */
+    static List<Chip> breakDown(long amountMinor, double smallBlind) {
+        long baseMinor = baseMinor(smallBlind);
+        int sourceColumn = -1;
+        for (int column = 1; column < COLUMN_COUNT; column++) {
+            if (safeMultiply(baseMinor, units(column)) == amountMinor) {
+                sourceColumn = column;
+                break;
+            }
+        }
+        if (sourceColumn < 1) return List.of();
+
+        long remaining = amountMinor;
+        ArrayList<Chip> result = new ArrayList<>();
+        for (int column = sourceColumn - 1; column >= 0; column--) {
+            long denomination = safeMultiply(baseMinor, units(column));
+            long count = remaining / denomination;
+            for (long chip = 0L; chip < count; chip++) {
+                result.add(new Chip(denomination, color(column)));
+            }
+            remaining -= count * denomination;
+        }
+        return remaining == 0L && result.size() > 1
+                ? List.copyOf(result) : List.of();
     }
 
     private static long safeMultiply(long value, int multiplier) {

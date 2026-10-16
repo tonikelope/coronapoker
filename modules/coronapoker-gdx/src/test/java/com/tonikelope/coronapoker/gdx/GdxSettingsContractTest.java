@@ -465,8 +465,7 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("animacion_downgrade"));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.containsAll(
                 java.util.List.of("gdx_vsync", "gdx_fps_limit",
-                        "gdx_show_fps", "gdx_msaa_samples",
-                        GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY)));
+                        "gdx_show_fps", "gdx_msaa_samples")));
     }
 
     @Test
@@ -476,12 +475,12 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(12, page.options().size());
-        assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(18, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(17, GdxSettingsContract.appearanceRowCount(page));
         assertEquals("animacion_apuestas",
                 page.options().get(page.options().size() - 1).key());
-        assertEquals(GdxAppearanceOptions.CHIP_FLIGHT_MODE,
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0));
+        assertEquals("reparto_velocidad",
+                GdxAppearanceOptions.ANIMATION_CHOICES.get(0).key());
     }
 
     @Test
@@ -638,8 +637,6 @@ final class GdxSettingsContractTest {
         assertEquals("true", properties.getProperty(
                 "animacion_efecto_ganador"));
         assertEquals("620", properties.getProperty("card_flip_duration"));
-        assertEquals("dynamic", properties.getProperty(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));

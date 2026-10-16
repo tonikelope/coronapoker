@@ -91,23 +91,6 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void chipFlightsDefaultToDynamicAndObserveTheStaticChoice(
-            @TempDir Path temporary) {
-        PreferencesService preferences = new PreferencesService(
-                temporary.resolve("coronapoker.properties"));
-        GdxGamePresentationSettings settings =
-                new GdxGamePresentationSettings(preferences);
-
-        assertTrue(settings.dynamicChipFlights());
-        preferences.properties().setProperty(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY, "static");
-        assertFalse(settings.dynamicChipFlights());
-        preferences.properties().setProperty(
-                GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY, "invalid");
-        assertTrue(settings.dynamicChipFlights());
-    }
-
-    @Test
     void swingZoomAndCompactPreferencesCannotAlterTheGdxTable(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(

@@ -8038,13 +8038,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAppearanceOptions.adjust(option,
                                     initialProperties, 1);
                         }, enabled);
-                if (option == GdxAppearanceOptions.CHIP_FLIGHT_MODE) {
-                    tooltip(rowBounds.x, rowBounds.y, rowBounds.width,
-                            rowBounds.height,
-                            GdxAppearanceOptions.CHIP_FLIGHT_MODE_TOOLTIP_KEY);
-                } else {
-                    performanceTooltip(rowBounds, option.key());
-                }
+                performanceTooltip(rowBounds, option.key());
             }
         }
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);

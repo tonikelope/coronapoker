@@ -1,7 +1,5 @@
 package com.tonikelope.coronapoker.gdx;
 
-import com.tonikelope.coronapoker.table.TableSnapshot;
-import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,8 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxChipFlightScalingTest {
 
     @Test
-    void dynamicModeUsesFourStableDenominationColors() {
-        for (double amount : new double[]{0.1d, 0.2d, 0.5d, 1d, 1.7d, 3d}) {
+    void paymentsUseFourStableDenominationColors() {
+        for (double amount : new double[]{0.1d, 0.2d, 0.5d, 1d,
+            1.7d, 3d}) {
             for (long seed = 0; seed < 64; seed++) {
                 for (CoronaPokerGdxTable.VisualChipSpec chip
                         : CoronaPokerGdxTable.dynamicVisualChips(
@@ -37,168 +36,58 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void bigBlindMayBeOneBlueChipOrTwoSmallBlindChips() {
-        Set<List<Double>> combinations = new HashSet<>();
+    void bigBlindAlwaysUsesOneGoldChip() {
         for (long seed = 0; seed < 64; seed++) {
             List<CoronaPokerGdxTable.VisualChipSpec> chips
                     = CoronaPokerGdxTable.dynamicVisualChips(
                             0.2d, 0.1d, seed);
-            combinations.add(chips.stream()
-                    .map(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sorted().toList());
-            assertEquals(0.2d, chips.stream()
-                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sum(), 0.000_001d);
+            assertEquals(List.of(new CoronaPokerGdxTable.VisualChipSpec(
+                    0.2d, 3)), chips);
         }
-        assertTrue(combinations.contains(List.of(0.2d)));
-        assertTrue(combinations.contains(List.of(0.1d, 0.1d)));
     }
 
     @Test
-    void staticModeReproducesTheMasterReleaseCountsExactly() {
-        assertEquals(3, CoronaPokerGdxTable.actionVisualChipCount(
-                TableVisualEvent.PlayerAction.ActionKind.CALL,
-                100d, 0.1d, false));
-        assertEquals(4, CoronaPokerGdxTable.actionVisualChipCount(
-                TableVisualEvent.PlayerAction.ActionKind.RAISE,
-                0.1d, 0.1d, false));
-        assertEquals(7, CoronaPokerGdxTable.actionVisualChipCount(
-                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
-                1_000d, 0.1d, false));
-        assertEquals(18, CoronaPokerGdxTable.payoutVisualChipCount(
-                0.1d, 0.1d, false));
-        assertEquals(14, CoronaPokerGdxTable.rebuyVisualChipCount(
-                1_000d, 0.1d, false));
-        assertEquals(14, CoronaPokerGdxTable.rebuyVisualChipCount(
-                1_000d, 0.1d, true));
-        assertEquals(1, CoronaPokerGdxTable.collectedVisualChipCount(
-                TableSnapshot.Position.SMALL_BLIND, 100d, 0.1d, false));
-        assertEquals(2, CoronaPokerGdxTable.collectedVisualChipCount(
-                TableSnapshot.Position.BIG_BLIND, 0.1d, 0.1d, false));
-        assertEquals(3, CoronaPokerGdxTable.collectedVisualChipCount(
-                TableSnapshot.Position.DEALER_STRADDLE,
-                1_000d, 0.1d, false));
-    }
-
-    @Test
-    void dynamicCombinationsStayCompactExactAndDeterministic() {
-        Set<List<Double>> combinations = new HashSet<>();
-        for (long seed = 0; seed < 128; seed++) {
-            List<CoronaPokerGdxTable.VisualChipSpec> chips
-                    = CoronaPokerGdxTable.dynamicVisualChips(
-                            3d, 0.1d, seed);
-            assertTrue(chips.size() >= 3);
-            assertTrue(chips.size() <= 6);
-            assertEquals(3d, chips.stream()
-                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sum(), 0.000_001d);
-            assertTrue(chips.stream().allMatch(chip -> chip.amount() >= 0.5d),
-                    "Randomisation must split the largest chips first");
-            assertEquals(chips, CoronaPokerGdxTable.dynamicVisualChips(
-                    3d, 0.1d, seed));
-            combinations.add(chips.stream()
-                    .map(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sorted().toList());
-        }
-        assertTrue(combinations.size() > 1);
-    }
-
-    @Test
-    void eachOriginalChipSplitsAtMostOneGeneration() {
-        Set<List<Double>> combinations = new HashSet<>();
-        for (long seed = 0; seed < 512; seed++) {
-            List<CoronaPokerGdxTable.VisualChipSpec> chips
-                    = CoronaPokerGdxTable.dynamicVisualChips(
-                            1.3d, 0.1d, seed);
-            List<Double> composition = chips.stream()
-                    .map(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sorted().toList();
-            combinations.add(composition);
-            assertTrue(List.of(
-                    List.of(0.1d, 0.2d, 1d),
-                    List.of(0.1d, 0.2d, 0.5d, 0.5d),
-                    List.of(0.1d, 0.1d, 0.1d, 1d),
-                    List.of(0.1d, 0.1d, 0.1d, 0.5d, 0.5d))
-                    .contains(composition),
-                    () -> "Recursive or invalid split: " + composition);
-            assertEquals(1.3d, chips.stream()
-                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sum(), 0.000_001d);
-        }
-        assertEquals(4, combinations.size(),
-                "Both original chips must vary independently");
-    }
-
-    @Test
-    void oneGenerationMayExceedDoubleButNeverTheTwentyChipVariationCap() {
-        Set<Integer> halfUnitCounts = new HashSet<>();
-        for (long seed = 0; seed < 128; seed++) {
-            halfUnitCounts.add(CoronaPokerGdxTable.dynamicVisualChips(
-                    0.5d, 0.1d, seed).size());
-        }
-        assertEquals(Set.of(1, 3), halfUnitCounts,
-                "A x5 chip may become x2 + x2 + x1 in one generation");
-
+    void paymentCompositionIsMinimumExactAndIndependentOfSeed() {
         double[] amounts = {0.1d, 0.2d, 0.5d, 1d, 1.7d, 3d, 10d, 25d};
         int[] minimumCounts = {1, 1, 1, 1, 3, 3, 10, 25};
         for (int amountIndex = 0; amountIndex < amounts.length;
                 amountIndex++) {
-            double amount = amounts[amountIndex];
-            int maximum = 0;
-            for (long seed = 0; seed < 256; seed++) {
-                int count = CoronaPokerGdxTable.dynamicVisualChips(
-                        amount, 0.1d, seed).size();
-                maximum = Math.max(maximum, count);
-            }
-            if (minimumCounts[amountIndex] <= 20) {
-                assertTrue(maximum <= 20,
-                        () -> "Unbounded visual chip count for amount "
-                                + amount);
-            } else {
-                assertEquals(minimumCounts[amountIndex], maximum,
-                        "Amounts whose minimum exceeds twenty must not vary");
+            List<CoronaPokerGdxTable.VisualChipSpec> baseline
+                    = sortedComposition(amounts[amountIndex], 0L);
+            assertEquals(minimumCounts[amountIndex], baseline.size());
+            assertEquals(amounts[amountIndex], baseline.stream()
+                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
+                    .sum(), 0.000_001d);
+            for (long seed = 1; seed < 64; seed++) {
+                assertEquals(baseline,
+                        sortedComposition(amounts[amountIndex], seed));
             }
         }
     }
 
     @Test
-    void dynamicModeCapsVariationAtTwentyButNeverTruncatesTheMinimum() {
-        int twelveChipMaximum = Integer.MIN_VALUE;
-        for (long seed = 0; seed < 128; seed++) {
-            List<CoronaPokerGdxTable.VisualChipSpec> chips
-                    = CoronaPokerGdxTable.dynamicVisualChips(
-                            12d, 0.1d, seed);
-            twelveChipMaximum = Math.max(twelveChipMaximum, chips.size());
-            assertTrue(chips.size() >= 12);
-            assertTrue(chips.size() <= 20);
-            assertEquals(12d, chips.stream()
-                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sum(), 0.000_001d);
-        }
-        assertTrue(twelveChipMaximum > 12,
-                "A compact twelve-chip amount must still vary");
-
-        int minimum = Integer.MAX_VALUE;
-        int maximum = Integer.MIN_VALUE;
+    void onlyTheFlightOrderVaries() {
+        Set<List<CoronaPokerGdxTable.VisualChipSpec>> launchOrders
+                = new HashSet<>();
+        List<CoronaPokerGdxTable.VisualChipSpec> expected = List.of(
+                new CoronaPokerGdxTable.VisualChipSpec(0.1d, 1),
+                new CoronaPokerGdxTable.VisualChipSpec(0.2d, 3),
+                new CoronaPokerGdxTable.VisualChipSpec(0.5d, 0),
+                new CoronaPokerGdxTable.VisualChipSpec(1d, 2));
         for (long seed = 0; seed < 64; seed++) {
             List<CoronaPokerGdxTable.VisualChipSpec> chips
                     = CoronaPokerGdxTable.dynamicVisualChips(
-                            30d, 0.1d, seed);
-            minimum = Math.min(minimum, chips.size());
-            maximum = Math.max(maximum, chips.size());
-            assertEquals(30, chips.size());
-            assertEquals(30d, chips.stream()
-                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
-                    .sum(), 0.000_001d);
+                            1.8d, 0.1d, seed);
+            assertEquals(expected, chips.stream()
+                    .sorted((left, right) -> Double.compare(
+                            left.amount(), right.amount())).toList());
+            launchOrders.add(chips);
         }
-        assertEquals(30, minimum,
-                "The compact thirty-chip composition must remain possible");
-        assertEquals(30, maximum,
-                "Variation must stop when the minimum already exceeds twenty");
+        assertTrue(launchOrders.size() > 1);
     }
 
     @Test
-    void dynamicModePreservesOddCentRemaindersWithoutExtraNoise() {
+    void oddCentRemaindersRemainExactWithoutAnExtraChip() {
         List<CoronaPokerGdxTable.VisualChipSpec> chips
                 = CoronaPokerGdxTable.dynamicVisualChips(
                         0.15d, 0.1d, 7L);
@@ -211,6 +100,24 @@ class GdxChipFlightScalingTest {
                 -1d, 0.1d, 7L).isEmpty());
         assertTrue(CoronaPokerGdxTable.dynamicVisualChips(
                 Double.NaN, 0.1d, 7L).isEmpty());
+    }
+
+    @Test
+    void rebuyPackKeepsAllFourFamiliesAndOnlyVariesItsOrder() {
+        Set<List<CoronaPokerGdxTable.VisualChipSpec>> orders = new HashSet<>();
+        for (long seed = 0; seed < 32; seed++) {
+            List<CoronaPokerGdxTable.VisualChipSpec> chips
+                    = CoronaPokerGdxTable.rebuyVisualChips(10d, seed);
+            assertEquals(14, chips.size());
+            assertEquals(Set.of(0, 1, 2, 3), chips.stream()
+                    .map(CoronaPokerGdxTable.VisualChipSpec::color)
+                    .collect(java.util.stream.Collectors.toSet()));
+            assertEquals(10d, chips.stream()
+                    .mapToDouble(CoronaPokerGdxTable.VisualChipSpec::amount)
+                    .sum(), 0.000_001d);
+            orders.add(chips);
+        }
+        assertTrue(orders.size() > 1);
     }
 
     @Test
@@ -245,18 +152,6 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void visualChipColorsRemainWithinThePackagedChipSet() {
-        Set<Integer> colors = new HashSet<>();
-        for (int index = 0; index < 18; index++) {
-            int color = CoronaPokerGdxTable.variedVisualChipColor(
-                    1, 42L, index);
-            colors.add(color);
-            assertTrue(color >= 0 && color < 4);
-        }
-        assertTrue(colors.size() > 1);
-    }
-
-    @Test
     void eighteenChipsPreserveTheExistingSixImpactCadence() {
         List<Integer> soundingRanks = new ArrayList<>();
         for (int rank = 0; rank < 18; rank++) {
@@ -268,5 +163,15 @@ class GdxChipFlightScalingTest {
         assertFalse(CoronaPokerGdxTable.landingImpactAtRank(-1, 18));
         assertFalse(CoronaPokerGdxTable.landingImpactAtRank(18, 18));
         assertTrue(CoronaPokerGdxTable.landingImpactAtRank(0, 1));
+    }
+
+    private static List<CoronaPokerGdxTable.VisualChipSpec> sortedComposition(
+            double amount, long seed) {
+        return CoronaPokerGdxTable.dynamicVisualChips(amount, 0.1d, seed)
+                .stream().sorted((left, right) -> {
+                    int byAmount = Double.compare(left.amount(), right.amount());
+                    return byAmount != 0 ? byAmount
+                            : Integer.compare(left.color(), right.color());
+                }).toList();
     }
 }

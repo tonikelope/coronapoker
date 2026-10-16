@@ -1,64 +1,86 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 final class GdxStackChipLayoutTest {
 
     @Test
-    void keepsEveryVisualCompositionExactAndInsideBothColumns() {
+    void keepsEveryVisualCompositionExactAndInsideFourColumns() {
         for (double amount : List.of(0.01d, 0.10d, 0.20d, 0.30d, 1.30d,
                 9.80d, 10.00d, 10.05d, 39.00d, 90.00d, 9_999.99d)) {
             GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(
                     amount, 0.10d);
 
+            assertEquals(GdxStackChipLayout.COLUMN_COUNT,
+                    layout.columns().size());
             assertEquals(Math.round(amount * 100d),
                     layout.representedMinor(), "amount=" + amount);
-            assertTrue(layout.chips().size()
-                    <= GdxStackChipLayout.MAX_VISIBLE_CHIPS);
-            assertTrue(layout.columnHeight(0)
-                    <= GdxStackChipLayout.MAX_CHIPS_PER_COLUMN);
-            assertTrue(layout.columnHeight(1)
-                    <= GdxStackChipLayout.MAX_CHIPS_PER_COLUMN);
+            for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                    column++) {
+                assertTrue(layout.columnHeight(column)
+                        <= GdxStackChipLayout.MAX_CHIPS_PER_COLUMN);
+            }
         }
     }
 
     @Test
-    void accumulatesSmallChipsThenColoursThemUpAtCapacity() {
-        GdxStackChipLayout.Layout below = GdxStackChipLayout.compose(0.90d,
+    void equalStacksAlwaysReceiveTheSameFourColourRack() {
+        GdxStackChipLayout.Layout first = GdxStackChipLayout.compose(10d,
                 0.10d);
-        GdxStackChipLayout.Layout atCapacity = GdxStackChipLayout.compose(1d,
-                0.10d);
-        GdxStackChipLayout.Layout above = GdxStackChipLayout.compose(1.10d,
+        GdxStackChipLayout.Layout second = GdxStackChipLayout.compose(10d,
                 0.10d);
 
-        assertEquals(9, below.chips().size());
-        assertEquals(10, atCapacity.chips().size());
-        assertEquals(10, above.chips().size());
-        assertTrue(above.chips().stream().anyMatch(chip -> chip.color() != 1),
-                "the eleventh small chip must be exchanged for a higher value");
+        assertEquals(first, second);
+        assertEquals(List.of(5, 5, 5, 6), columnHeights(first));
+        assertTrue(first.columns().stream().allMatch(
+                column -> !column.chips().isEmpty()));
     }
 
     @Test
-    void usesTheEstablishedFourColourPaletteForNormalStacks() {
-        GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(9.80d,
-                0.10d);
+    void blindsAlterOnlyTheNecessaryDeterministicRackComposition() {
+        GdxStackChipLayout.Layout untouched = GdxStackChipLayout.compose(10d,
+                0.10d, 10d);
+        GdxStackChipLayout.Layout smallBlind = GdxStackChipLayout.compose(9.9d,
+                0.10d, 10d);
+        GdxStackChipLayout.Layout bigBlind = GdxStackChipLayout.compose(9.8d,
+                0.10d, 10d);
 
-        assertTrue(layout.chips().stream().allMatch(
-                chip -> chip.color() >= 0 && chip.color() <= 3));
-        assertTrue(IntStream.rangeClosed(0, 3).allMatch(color ->
-                layout.chips().stream().anyMatch(chip -> chip.color() == color)));
+        assertEquals(List.of(5, 5, 5, 6), columnHeights(untouched));
+        assertEquals(List.of(4, 5, 5, 6), columnHeights(smallBlind));
+        assertEquals(List.of(5, 4, 5, 6), columnHeights(bigBlind));
     }
 
     @Test
-    void emptyOrInvalidStacksDoNotInventChips() {
-        assertTrue(GdxStackChipLayout.compose(0d, 0.10d).chips().isEmpty());
-        assertTrue(GdxStackChipLayout.compose(-1d, 0.10d).chips().isEmpty());
-        assertTrue(GdxStackChipLayout.compose(Double.NaN, 0.10d)
-                .chips().isEmpty());
+    void colourUpReducesAllColumnsBeforeTheyCanOverflow() {
+        GdxStackChipLayout.Layout fullRack = GdxStackChipLayout.compose(10.8d,
+                0.10d);
+        GdxStackChipLayout.Layout colouredUp = GdxStackChipLayout.compose(10.9d,
+                0.10d);
+
+        assertEquals(List.of(6, 6, 6, 6), columnHeights(fullRack));
+        assertEquals(List.of(3, 3, 3, 3), columnHeights(colouredUp));
+        assertNotEquals(fullRack, colouredUp);
+        assertEquals(1_080L, fullRack.representedMinor());
+        assertEquals(1_090L, colouredUp.representedMinor());
+    }
+
+    @Test
+    void emptyOrInvalidStacksKeepFourEmptyColumnAnchors() {
+        for (double amount : List.of(0d, -1d, Double.NaN)) {
+            GdxStackChipLayout.Layout layout = GdxStackChipLayout.compose(
+                    amount, 0.10d);
+            assertEquals(List.of(0, 0, 0, 0), columnHeights(layout));
+        }
+    }
+
+    private static List<Integer> columnHeights(
+            GdxStackChipLayout.Layout layout) {
+        return layout.columns().stream()
+                .map(column -> column.chips().size()).toList();
     }
 }

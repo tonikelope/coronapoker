@@ -3138,6 +3138,15 @@ final class GdxTableViewStateTest {
                 layout.investedCaptionBounds().width, 0.000_001f);
         assertEquals(layout.stackValueBounds().width,
                 layout.investedValueBounds().width, 0.000_001f);
+        Rectangle stackValueWithoutRack = layout.stackValueBounds(false);
+        assertEquals(stack.x + stack.width / 2f,
+                stackValueWithoutRack.x + stackValueWithoutRack.width / 2f,
+                0.000_001f,
+                "a rackless pending rebuy amount must be centred in STACK");
+        assertTrue(stackValueWithoutRack.width
+                > layout.stackValueBounds().width);
+        assertTrue(CoronaPokerGdxTable.localStackValueScale(true)
+                < CoronaPokerGdxTable.localStackValueScale(false));
         Rectangle stackChips = layout.stackChipVisualBounds();
         Rectangle investedChips = layout.investedChipVisualBounds();
         assertEquals(stackChips.width, investedChips.width, 0.000_001f);

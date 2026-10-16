@@ -261,6 +261,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
+    private static final float CHIP_FLIGHT_LANE_EDGE_GAP = 2f;
     private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
     private static final float STACK_CHIP_COLUMN_STAGGER_SECONDS = 0.022f;
     /** Shared table-plane projection for every stationary physical chip. */
@@ -15971,7 +15972,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             progress < 1f);
                     drawLiveTrail(from.stackX, from.stackY,
                             target.x(), target.y(),
-                            chip.rotation, progress,
+                            chip.pathRotation, chip.laneSlot, progress,
                             elapsed - chip.startSeconds - chip.durationSeconds);
                 }
             }
@@ -15987,7 +15988,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 PotChipAnchor target = potChipAnchor(chip.color,
                         progress < 1f);
                 drawLiveTrail(from.stackX, from.stackY,
-                        target.x(), target.y(), chip.rotation,
+                        target.x(), target.y(), chip.pathRotation,
+                        chip.laneSlot,
                         progress,
                         elapsed - chip.startSeconds - chip.durationSeconds);
             }
@@ -15997,7 +15999,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveTrail(float fromX, float fromY, float toX, float toY,
-            float rotation, float progress, float impactAge) {
+            float pathRotation, float laneSlot, float progress,
+            float impactAge) {
         if (impactAge >= 0f && impactAge < 0.34f) {
             float impact = impactAge / 0.34f;
             shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
@@ -16010,12 +16013,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
                 (1f - progress) * 0.22f);
         shapes.circle(fromX, fromY, 18f + progress * 28f, 24);
+        float length = Math.max(1f, Vector2.dst(fromX, fromY, toX, toY));
         for (int tail = 1; tail <= 5; tail++) {
             float t = Math.max(0f, progress - tail * 0.025f);
             float x = bezier(fromX,
-                    liveControlX(fromX, toX, rotation), toX, t);
+                    liveControlX(fromX, toX, pathRotation), toX, t);
             float y = bezier(fromY,
-                    liveControlY(fromY, toY, rotation), toY, t);
+                    liveControlY(fromY, toY, pathRotation), toY, t);
+            float lateral = chipFlightLaneLateralOffset(laneSlot, t);
+            x += -(toY - fromY) / length * lateral;
+            y += (toX - fromX) / length * lateral;
             shapes.setColor(ORANGE.r, ORANGE.g, ORANGE.b,
                     (6 - tail) * 0.028f);
             shapes.circle(x, y, 15f - tail * 1.7f, 12);
@@ -16039,6 +16046,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     PotChipAnchor target = potChipAnchor(chip.color, true);
                     drawLiveFlyingChip(from.stackX, from.stackY,
                             target.x(), target.y(), chip.rotation,
+                            chip.pathRotation, chip.laneSlot,
                             chip.color, chip.progress(elapsed));
                 }
             }
@@ -16051,6 +16059,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     PotChipAnchor target = potChipAnchor(chip.color, true);
                     drawLiveFlyingChip(from.stackX, from.stackY,
                             target.x(), target.y(), chip.rotation,
+                            chip.pathRotation, chip.laneSlot,
                             chip.color, chip.progress(elapsed));
                 }
             }
@@ -16078,17 +16087,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveFlyingChip(float fromX, float fromY, float toX,
-            float toY, float rotation, int color, float progress) {
+            float toY, float rotation, float pathRotation, float laneSlot,
+            int color, float progress) {
         if (progress < 0f || progress >= 1f) {
             return;
         }
-        float x = bezier(fromX, liveControlX(fromX, toX, rotation),
+        float x = bezier(fromX, liveControlX(fromX, toX, pathRotation),
                 toX, progress);
-        float y = bezier(fromY, liveControlY(fromY, toY, rotation),
+        float y = bezier(fromY, liveControlY(fromY, toY, pathRotation),
                 toY, progress);
-        float landing = Interpolation.pow3In.apply(progress);
-        float size = (45f + MathUtils.sin(progress * MathUtils.PI) * 9f)
-                * (1f - landing * 0.28f);
+        float lateral = chipFlightLaneLateralOffset(laneSlot, progress);
+        float length = Math.max(1f, Vector2.dst(fromX, fromY, toX, toY));
+        x += -(toY - fromY) / length * lateral;
+        y += (toX - fromX) / length * lateral;
+        float size = liveFlyingChipSize(progress);
         Texture texture = flyingChips[color];
         batch.setColor(Color.WHITE);
         batch.draw(texture, x - size / 2f, y - size / 2f,
@@ -16167,6 +16179,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static float liveControlY(float from, float to, float rotation) {
         return (from + to) * 0.5f + 120f + MathUtils.sin(rotation) * 45f;
+    }
+
+    static float liveFlyingChipSize(float progress) {
+        float landing = Interpolation.pow3In.apply(progress);
+        return (45f + MathUtils.sin(progress * MathUtils.PI) * 9f)
+                * (1f - landing * 0.28f);
+    }
+
+    static int chipFlightLaneCount(int chipCount) {
+        if (chipCount < 8) return 1;
+        return chipCount < 14 ? 2 : 3;
+    }
+
+    static int chipFlightSequenceIndex(int chipIndex, int chipCount) {
+        return Math.max(0, chipIndex)
+                / chipFlightLaneCount(Math.max(0, chipCount));
+    }
+
+    static float chipFlightLaneSlot(int chipIndex, int chipCount) {
+        int lanes = chipFlightLaneCount(Math.max(0, chipCount));
+        if (lanes == 1) return 0f;
+        int lane = Math.floorMod(chipIndex, lanes);
+        return lane - (lanes - 1) / 2f;
+    }
+
+    static float chipFlightLaneLateralOffset(float laneSlot, float progress) {
+        if (laneSlot == 0f) return 0f;
+        float bounded = MathUtils.clamp(progress, 0f, 1f);
+        return laneSlot * (liveFlyingChipSize(bounded)
+                + CHIP_FLIGHT_LANE_EDGE_GAP);
     }
 
     private void drawChipTrails() {
@@ -16870,14 +16912,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     seatActionTextAlpha(dimLocalActionBadge));
         }
         Rectangle stackCaption = layout.stackCaptionBounds();
-        Rectangle stackValue = layout.stackValueBounds();
+        boolean stackRackVisible = chipRackVisible(local.displayedStackAmount);
+        boolean stackIncludesPendingRebuy = liveState.immediateRebuyAmount(
+                localSeat.name) > 0;
+        Rectangle stackValue = layout.stackValueBounds(stackRackVisible);
         Rectangle investedCaption = layout.investedCaptionBounds();
         Rectangle investedValue = layout.investedValueBounds();
         drawLocalCounterCaptions(stackCaption, investedCaption,
                 liveLocalPlayer != null
                         && totalTime < localSeat.buyInVisibleUntil,
                 playerStackTextColor(local), localInvestmentText);
-        drawScaledFittedCenteredInBox(localOutcomeFont, 0.78f,
+        drawScaledFittedCenteredInBox(localOutcomeFont,
+                localStackValueScale(stackIncludesPendingRebuy),
                 playerStackText(local, liveLocalPlayer),
                 stackValue.x, stackValue.y,
                 stackValue.width, stackValue.height,
@@ -24673,6 +24719,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boxHeight / referenceHeight) * 0.94f;
     }
 
+    static float localStackValueScale(boolean includesPendingRebuy) {
+        return includesPendingRebuy ? 0.66f : 0.78f;
+    }
+
     private void drawScaledFittedCenteredInBox(BitmapFont font,
             float scale, String text, float x, float y, float width,
             float height, Color color, float alpha) {
@@ -25149,7 +25199,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle stackValueBounds() {
+            return stackValueBounds(true);
+        }
+
+        Rectangle stackValueBounds(boolean reserveChipRack) {
             Rectangle stack = stackBounds();
+            if (!reserveChipRack) {
+                return new Rectangle(stack.x + 10f, stack.y + 8f,
+                        stack.width - 20f, stack.height - 43f);
+            }
             return new Rectangle(stack.x + 82f, stack.y + 8f,
                     stack.width - 92f, stack.height - 43f);
         }
@@ -25671,13 +25729,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.deferPlayerCounters = deferPlayerCounters;
             int chipCount = visualChips.size();
             ArrayList<LiveChip> created = new ArrayList<>(chipCount);
+            int lanes = chipFlightLaneCount(chipCount);
+            float sharedPathRotation = Math.floorMod(
+                    event.nickname().hashCode(), 360);
             for (int chip = 0; chip < chipCount; chip++) {
                 VisualChipSpec visualChip = visualChips.get(chip);
+                int sequence = chipFlightSequenceIndex(chip, chipCount);
+                float rotation = Math.floorMod(event.nickname().hashCode()
+                        + chip * 53, 360);
                 created.add(new LiveChip(event.nickname(),
-                        CHIP_FLIGHT_DELAY + chip * 0.065f,
-                        CHIP_FLIGHT_SECONDS + chip * 0.035f,
-                        Math.floorMod(event.nickname().hashCode()
-                                + chip * 53, 360),
+                        CHIP_FLIGHT_DELAY + sequence * 0.065f,
+                        CHIP_FLIGHT_SECONDS + sequence * 0.035f,
+                        rotation, lanes > 1 ? sharedPathRotation : rotation,
+                        chipFlightLaneSlot(chip, chipCount),
                         visualChip.color(), chip, visualChip.amount()));
             }
             chips = withLandingImpacts(created);
@@ -26099,6 +26163,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 chipIndex * 0.06f,
                                 0.34f + chipIndex * 0.02f,
                                 37f + chipIndex * 53f,
+                                37f + chipIndex * 53f, 0f,
                                 visualChip.color(), chipIndex,
                                 visualChip.amount()));
                     }
@@ -26117,6 +26182,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 0.06f + chipIndex * 0.08f,
                                 0.36f + chipIndex * 0.02f,
                                 91f + chipIndex * 52f,
+                                91f + chipIndex * 52f, 0f,
                                 visualChip.color(), chipIndex,
                                 visualChip.amount()));
                     }
@@ -26138,12 +26204,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         transfer.stackAfter() + visualAmount,
                         minimumChip, visualSeed);
                 int chipCount = visualChips.size();
+                int lanes = chipFlightLaneCount(chipCount);
+                float sharedPathRotation = (transferIndex * 97f) % 360f;
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
-                    float start = transferIndex * 0.025f + chipIndex * 0.06f;
-                    float duration = 0.34f + chipIndex * 0.02f;
+                    int sequence = chipFlightSequenceIndex(chipIndex,
+                            chipCount);
+                    float start = transferIndex * 0.025f + sequence * 0.06f;
+                    float duration = 0.34f + sequence * 0.02f;
                     VisualChipSpec visualChip = visualChips.get(chipIndex);
+                    float rotation = (transferIndex * 97f
+                            + chipIndex * 53f) % 360f;
                     created.add(new LiveChip(transfer.nickname(), start, duration,
-                            (transferIndex * 97f + chipIndex * 53f) % 360f,
+                            rotation, lanes > 1 ? sharedPathRotation : rotation,
+                            chipFlightLaneSlot(chipIndex, chipCount),
                             visualChip.color(), chipIndex,
                             visualChip.amount()));
                 }
@@ -26194,6 +26267,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float startSeconds;
         final float durationSeconds;
         final float rotation;
+        final float pathRotation;
+        final float laneSlot;
         final int color;
         final int chipIndex;
         final double contribution;
@@ -26202,11 +26277,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean rackMovementApplied;
         boolean landingInventoriesApplied;
         LiveChip(String nickname, float startSeconds, float durationSeconds,
-                float rotation, int color, int chipIndex, double contribution) {
+                float rotation, float pathRotation, float laneSlot, int color,
+                int chipIndex, double contribution) {
             this.nickname = nickname;
             this.startSeconds = startSeconds;
             this.durationSeconds = durationSeconds;
             this.rotation = rotation;
+            this.pathRotation = pathRotation;
+            this.laneSlot = laneSlot;
             this.color = color;
             this.chipIndex = chipIndex;
             this.contribution = contribution;

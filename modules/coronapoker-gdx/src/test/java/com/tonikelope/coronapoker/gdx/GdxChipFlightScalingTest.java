@@ -175,6 +175,42 @@ class GdxChipFlightScalingTest {
         assertTrue(CoronaPokerGdxTable.landingImpactAtRank(0, 1));
     }
 
+    @Test
+    void largePaymentsUseTwoThenThreeParallelLanes() {
+        assertEquals(1, CoronaPokerGdxTable.chipFlightLaneCount(7));
+        assertEquals(2, CoronaPokerGdxTable.chipFlightLaneCount(8));
+        assertEquals(2, CoronaPokerGdxTable.chipFlightLaneCount(13));
+        assertEquals(3, CoronaPokerGdxTable.chipFlightLaneCount(14));
+        assertEquals(3, CoronaPokerGdxTable.chipFlightLaneCount(30));
+
+        assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(0, 8));
+        assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(1, 8));
+        assertEquals(1, CoronaPokerGdxTable.chipFlightSequenceIndex(2, 8));
+        assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(2, 14));
+        assertEquals(1, CoronaPokerGdxTable.chipFlightSequenceIndex(3, 14));
+    }
+
+    @Test
+    void parallelLanesFormOneTightNonOverlappingBundle() {
+        assertEquals(0f, CoronaPokerGdxTable.chipFlightLaneSlot(0, 7));
+        assertEquals(-0.5f, CoronaPokerGdxTable.chipFlightLaneSlot(0, 8));
+        assertEquals(0.5f, CoronaPokerGdxTable.chipFlightLaneSlot(1, 8));
+        assertEquals(-1f, CoronaPokerGdxTable.chipFlightLaneSlot(0, 14));
+        assertEquals(0f, CoronaPokerGdxTable.chipFlightLaneSlot(1, 14));
+        assertEquals(1f, CoronaPokerGdxTable.chipFlightLaneSlot(2, 14));
+
+        for (float progress : new float[]{0f, 0.25f, 0.5f, 0.75f, 1f}) {
+            float left = CoronaPokerGdxTable.chipFlightLaneLateralOffset(
+                    -0.5f, progress);
+            float right = CoronaPokerGdxTable.chipFlightLaneLateralOffset(
+                    0.5f, progress);
+            assertEquals(2f, right - left
+                    - CoronaPokerGdxTable.liveFlyingChipSize(progress),
+                    0.000_001f,
+                    "adjacent lanes must remain touching without overlap");
+        }
+    }
+
     private static List<CoronaPokerGdxTable.VisualChipSpec> sortedComposition(
             double amount, long seed) {
         return CoronaPokerGdxTable.dynamicVisualChips(amount, 0.1d, seed)

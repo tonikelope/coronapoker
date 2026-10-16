@@ -249,6 +249,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
+    private static final int[] REBUY_PACK_COLORS = {
+        1, 1, 1, 1, 1, 1, // six small-denomination blue chips
+        3, 3, 3, 3,       // four big-blind gold chips
+        0, 0, 0,          // three red chips
+        2                  // one green high-denomination chip
+    };
     private static final int MAX_DYNAMIC_RANDOMIZED_CHIPS = 20;
     private static final double DYNAMIC_CHIP_SPLIT_PROBABILITY = 0.45d;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
@@ -1167,6 +1173,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private PendingCollectBets pendingCollectBets;
     private LiveChipBatch liveChipBatch;
     private final Map<String, Double> livePotContributions = new HashMap<>();
+    private final GdxPotChipInventory livePotChips =
+            new GdxPotChipInventory();
     private final Map<String, Double> liveShowdownInvestments
             = new HashMap<>();
     private final Map<String, Long> liveWinnerStarts = new HashMap<>();
@@ -3657,6 +3665,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
              */
             clearCardPresentationForHotJoin();
             liveState.apply(event);
+            replacePotChipInventory(liveState.snapshot().pot(),
+                    event.sequence());
             syncRemoteRebuyPresentationFromHotJoinSnapshot();
             syncSeatsFromLiveState();
             applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
@@ -3815,8 +3825,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
-                    cashSoundResource, liveCounterDenomination(),
-                    dynamicChipFlightsEnabled());
+                    cashSoundResource);
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
             liveState.apply(event);
@@ -4114,6 +4123,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean wasLastHand = liveState.lastHand();
             liveState.apply(event);
+            if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    != TableVisualEvent.HandBoundary.Phase.END) {
+                reconcilePotChipInventory(boundary.snapshot().pot(),
+                        boundary.sequence());
+            }
             if (event instanceof TableVisualEvent.PlayerAction action) {
                 clearPendingLocalAction(action);
             }
@@ -4331,6 +4346,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         double payoutPotBefore = livePot();
         displayedPayoutPot(payoutPotBefore, potAfter, payoutAmount, 0d);
         livePotContributions.clear();
+        List<VisualChipSpec> payoutChips = withdrawPotVisualChips(
+                payoutAmount, event.sequence());
         if (!liveBetAnimationEnabled()
                 || presentationSettings != null
                 && presentationSettings.testMode()) {
@@ -4349,9 +4366,47 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveState.apply(event);
         livePayout = new LivePayout(transfers, payoutAmount, potAfter,
                 investedAmountAfter, event.sequence(), System.nanoTime(), barrier,
-                liveCounterDenomination(), payoutPotBefore,
-                liveShowdownInvestments, dynamicChipFlightsEnabled());
+                payoutPotBefore, liveShowdownInvestments, payoutChips);
         syncSeatsFromLiveState();
+    }
+
+    private void replacePotChipInventory(double exactAmount, long seed) {
+        livePotChips.replace(exactAmount, visualChipSpecs(exactAmount,
+                liveCounterDenomination(), seed ^ 0x1f83d9abfb41bd6bL,
+                dynamicChipFlightsEnabled(), 18, 0));
+    }
+
+    private void reconcilePotChipInventory(double exactAmount, long seed) {
+        livePotChips.reconcile(exactAmount, visualChipSpecs(exactAmount,
+                liveCounterDenomination(), seed ^ 0x5be0cd19137e2179L,
+                dynamicChipFlightsEnabled(), 18, 0));
+    }
+
+    private List<VisualChipSpec> withdrawPotVisualChips(double exactAmount,
+            long seed) {
+        double requested = Math.max(0d, MoneyMath.clean(exactAmount));
+        List<VisualChipSpec> remembered = livePotChips.withdraw(requested,
+                seed);
+        double represented = remembered.stream()
+                .mapToDouble(VisualChipSpec::amount).sum();
+        double missing = Math.max(0d, MoneyMath.clean(
+                requested - represented));
+        if (MoneyMath.compare(missing, 0d) <= 0) {
+            return remembered;
+        }
+        int staticCount = remembered.isEmpty() ? 18
+                : Math.max(1, Math.round(18f
+                        * (float) (missing / Math.max(requested, 0.01d))));
+        ArrayList<VisualChipSpec> completed = new ArrayList<>(remembered);
+        completed.addAll(visualChipSpecs(missing, liveCounterDenomination(),
+                seed ^ 0xcbbb9d5dc1059ed8L,
+                dynamicChipFlightsEnabled(), staticCount, 0));
+        List<VisualChipSpec> exact = GdxPotChipInventory.rebalance(completed,
+                requested);
+        ArrayList<VisualChipSpec> randomized = new ArrayList<>(exact);
+        GdxPotChipInventory.shuffle(randomized,
+                seed ^ 0x629a292a367cd507L);
+        return List.copyOf(randomized);
     }
 
     static boolean holeCardsAlreadyRevealed(
@@ -11857,6 +11912,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (!active.complete(elapsed)) continue;
+            livePotChips.deposit(active.visualChips());
             livePotContributions.merge(active.event.nickname(),
                     active.event.contributionDelta(), Double::sum);
             liveActionChips.remove(index);
@@ -14100,6 +14156,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         try {
+            livePotChips.deposit(active.visualChips());
             livePotContributions.clear();
             active.barrier.complete(null);
         } catch (Throwable error) {
@@ -14333,6 +14390,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     record VisualChipSpec(double amount, int color) {
     }
 
+    record PayoutVisualAssignment(String nickname,
+            List<VisualChipSpec> chips) {
+
+        PayoutVisualAssignment {
+            chips = List.copyOf(chips);
+        }
+    }
+
     private record DynamicChipDenomination(long amountMinor, int color) {
     }
 
@@ -14508,7 +14573,116 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     variedVisualChipColor(staticBaseColor, variationSeed,
                             index)));
         }
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x1d8e4e27c47d124fL);
         return List.copyOf(result);
+    }
+
+    /**
+     * A rebuy is a recognisable fixed casino pack rather than an amount-driven
+     * handful: every pack contains all four decorated chip families and is
+     * weighted towards the small denominations. Only its launch order varies.
+     */
+    static List<VisualChipSpec> rebuyVisualChips(double exactAmount,
+            long variationSeed) {
+        double[] amounts = proportionalVisualCounterAmounts(exactAmount,
+                REBUY_PACK_COLORS);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(
+                REBUY_PACK_COLORS.length);
+        for (int index = 0; index < REBUY_PACK_COLORS.length; index++) {
+            result.add(new VisualChipSpec(amounts[index],
+                    REBUY_PACK_COLORS[index]));
+        }
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x4a7484aa6ea6e483L);
+        return List.copyOf(result);
+    }
+
+    static List<PayoutVisualAssignment> allocatePayoutVisualChips(
+            List<TableVisualEvent.PayoutBatch.Transfer> transfers,
+            List<VisualChipSpec> payoutVisualChips, long variationSeed) {
+        ArrayList<VisualChipSpec> available = new ArrayList<>(
+                payoutVisualChips);
+        GdxPotChipInventory.shuffle(available,
+                variationSeed ^ 0x9b05688c2b3e6c1fL);
+        double amountRemaining = transfers.stream()
+                .mapToDouble(TableVisualEvent.PayoutBatch.Transfer::amount)
+                .sum();
+        int chipOffset = 0;
+        int chipsRemaining = available.size();
+        ArrayList<PayoutVisualAssignment> assignments =
+                new ArrayList<>(transfers.size());
+        for (int transferIndex = 0; transferIndex < transfers.size();
+                transferIndex++) {
+            TableVisualEvent.PayoutBatch.Transfer transfer =
+                    transfers.get(transferIndex);
+            int positiveAfter = 0;
+            for (int following = transferIndex + 1;
+                    following < transfers.size(); following++) {
+                if (MoneyMath.compare(
+                        transfers.get(following).amount(), 0d) > 0) {
+                    positiveAfter++;
+                }
+            }
+            int shareCount = payoutChipShareCount(transfer.amount(),
+                    amountRemaining, chipsRemaining, positiveAfter);
+            List<VisualChipSpec> visualChips =
+                    GdxPotChipInventory.rebalance(available.subList(
+                            chipOffset, chipOffset + shareCount),
+                            transfer.amount());
+            assignments.add(new PayoutVisualAssignment(
+                    transfer.nickname(), visualChips));
+            chipOffset += shareCount;
+            chipsRemaining -= shareCount;
+            amountRemaining = Math.max(0d, MoneyMath.clean(
+                    amountRemaining - transfer.amount()));
+        }
+        return List.copyOf(assignments);
+    }
+
+    private static int payoutChipShareCount(double transferAmount,
+            double amountRemaining, int chipsRemaining,
+            int positiveTransfersAfter) {
+        if (MoneyMath.compare(transferAmount, 0d) <= 0
+                || chipsRemaining <= 0) return 0;
+        if (positiveTransfersAfter == 0) return chipsRemaining;
+        int reserved = Math.min(positiveTransfersAfter,
+                Math.max(0, chipsRemaining - 1));
+        int maximum = Math.max(1, chipsRemaining - reserved);
+        int proportional = amountRemaining <= 0d ? 1 : Math.round(
+                chipsRemaining * (float) (transferAmount
+                        / amountRemaining));
+        return Math.max(1, Math.min(maximum, proportional));
+    }
+
+    private static double[] proportionalVisualCounterAmounts(
+            double exactAmount, int[] colors) {
+        long totalMinor = Math.max(0L, Math.round(exactAmount * 100d));
+        long totalWeight = 0L;
+        for (int color : colors) totalWeight += chipColorWeight(color);
+        double[] amounts = new double[colors.length];
+        long assigned = 0L;
+        long cumulativeWeight = 0L;
+        for (int index = 0; index < colors.length; index++) {
+            cumulativeWeight += chipColorWeight(colors[index]);
+            long cumulativeAmount = index == colors.length - 1
+                    ? totalMinor : Math.round(totalMinor
+                            * cumulativeWeight / (double) totalWeight);
+            amounts[index] = Math.max(0L,
+                    cumulativeAmount - assigned) / 100d;
+            assigned = cumulativeAmount;
+        }
+        return amounts;
+    }
+
+    private static int chipColorWeight(int color) {
+        return switch (color) {
+            case 1 -> 1;
+            case 3 -> 2;
+            case 0 -> 5;
+            case 2 -> 10;
+            default -> 1;
+        };
     }
 
     static int actionVisualChipCount(
@@ -14530,7 +14704,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static int rebuyVisualChipCount(double exactAmount, double minimumChip,
             boolean dynamic) {
-        return dynamic ? visualChipCount(exactAmount, minimumChip) : 14;
+        return REBUY_PACK_COLORS.length;
     }
 
     static int collectedVisualChipCount(TableSnapshot.Position position,
@@ -24491,6 +24665,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return landed;
         }
 
+        List<VisualChipSpec> visualChips() {
+            return chips.stream()
+                    .map(chip -> new VisualChipSpec(chip.contribution,
+                            chip.color))
+                    .toList();
+        }
+
     }
 
     private static final class PendingCollectBets {
@@ -24525,9 +24706,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double payoutAmount, double potAfter,
                 double investedAmountAfter, long variationSeed,
                 long startedAtNanos,
-                CompletableFuture<Void> barrier, double minimumChip,
-                double potBefore, Map<String, Double> investmentsBefore,
-                boolean dynamicChipCount) {
+                CompletableFuture<Void> barrier, double potBefore,
+                Map<String, Double> investmentsBefore,
+                List<VisualChipSpec> payoutVisualChips) {
             this.transfers = List.copyOf(transfers);
             this.payoutAmount = Math.max(0d,
                     MoneyMath.clean(payoutAmount));
@@ -24542,19 +24723,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     investmentsBefore.values().stream()
                             .mapToDouble(Double::doubleValue).sum());
             List<LivePayoutChip> created = new ArrayList<>();
-            for (int transferIndex = 0; transferIndex < transfers.size();
-                    transferIndex++) {
-                TableVisualEvent.PayoutBatch.Transfer transfer =
-                        transfers.get(transferIndex);
-                long visualSeed = chipVariationSeed(variationSeed,
-                        transfer.nickname(), transferIndex);
-                List<VisualChipSpec> visualChips = visualChipSpecs(
-                        transfer.amount(), minimumChip, visualSeed,
-                        dynamicChipCount, 18, 0);
+            List<PayoutVisualAssignment> assignments =
+                    allocatePayoutVisualChips(transfers, payoutVisualChips,
+                            variationSeed);
+            for (PayoutVisualAssignment assignment : assignments) {
+                List<VisualChipSpec> visualChips = assignment.chips();
                 int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
                     VisualChipSpec visualChip = visualChips.get(index);
-                    created.add(new LivePayoutChip(transfer.nickname(), index,
+                    created.add(new LivePayoutChip(assignment.nickname(), index,
                             0.18f + index * 0.035f, 1.05f,
                             visualChip.color(), visualChip.amount()));
                 }
@@ -24579,11 +24756,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         double landedContribution(String nickname, float elapsed) {
             double total = 0d;
+            boolean hasPhysicalChip = false;
             for (LivePayoutChip chip : chips) {
-                if (chip.nickname.equals(nickname)
-                        && chip.progress(elapsed) >= 1f) {
-                    total += chip.amount;
+                if (chip.nickname.equals(nickname)) {
+                    hasPhysicalChip = true;
+                    if (chip.progress(elapsed) >= 1f) {
+                        total += chip.amount;
+                    }
                 }
+            }
+            // A pot may contain fewer physical-looking chips than winners.
+            // Preserve the pot's exact chip count; the rare recipient without
+            // a drawable chip still gets a smooth counter instead of a snap.
+            if (!hasPhysicalChip) {
+                double recipientPayout = payoutAmount(nickname);
+                double progress = payoutAmount <= 0d ? 1d
+                        : MathUtils.clamp((float) (landedContribution(elapsed)
+                                / payoutAmount), 0f, 1f);
+                return MoneyMath.clean(recipientPayout * progress);
             }
             return total;
         }
@@ -24653,8 +24843,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final String cashSoundResource;
 
         LiveRebuy(TableVisualEvent.Rebuy event, long startedAtNanos,
-                CompletableFuture<Void> barrier, String cashSoundResource,
-                double minimumChip, boolean dynamicChipCount) {
+                CompletableFuture<Void> barrier, String cashSoundResource) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24668,9 +24857,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         transfer.nickname(), transferIndex);
                 int seed = transfer.nickname().hashCode()
                         + transferIndex * 97;
-                List<VisualChipSpec> visualChips = visualChipSpecs(
-                        transfer.amount(), minimumChip, visualSeed,
-                        dynamicChipCount, 14, Math.floorMod(seed, 4));
+                List<VisualChipSpec> visualChips = rebuyVisualChips(
+                        transfer.amount(), visualSeed);
                 int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
                     float start = 0.04f + index * 0.025f
@@ -24962,6 +25150,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             return total;
+        }
+
+        List<VisualChipSpec> visualChips() {
+            return chips.stream()
+                    .map(chip -> new VisualChipSpec(chip.contribution,
+                            chip.color))
+                    .toList();
         }
     }
 

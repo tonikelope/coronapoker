@@ -69,6 +69,8 @@ class GdxChipFlightScalingTest {
                 0.1d, 0.1d, false));
         assertEquals(14, CoronaPokerGdxTable.rebuyVisualChipCount(
                 1_000d, 0.1d, false));
+        assertEquals(14, CoronaPokerGdxTable.rebuyVisualChipCount(
+                1_000d, 0.1d, true));
         assertEquals(1, CoronaPokerGdxTable.collectedVisualChipCount(
                 TableSnapshot.Position.SMALL_BLIND, 100d, 0.1d, false));
         assertEquals(2, CoronaPokerGdxTable.collectedVisualChipCount(

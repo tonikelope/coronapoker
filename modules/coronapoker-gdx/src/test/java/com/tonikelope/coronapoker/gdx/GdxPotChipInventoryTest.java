@@ -135,10 +135,10 @@ class GdxPotChipInventoryTest {
     @Test
     void exactHighValuePayoutKeepsTheBlackChipIntact() {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
-        CoronaPokerGdxTable.VisualChipSpec black = chip(1d, 2);
-        inventory.deposit(List.of(black));
+        CoronaPokerGdxTable.VisualChipSpec green = chip(1d, 2);
+        inventory.deposit(List.of(green));
 
-        assertEquals(List.of(black), inventory.withdraw(
+        assertEquals(List.of(green), inventory.withdraw(
                 1d, 0.1d, 999L));
         assertEquals(0d, inventory.amount(), 0.000_001d);
     }

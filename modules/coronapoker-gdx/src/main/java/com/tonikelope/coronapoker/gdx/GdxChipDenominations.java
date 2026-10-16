@@ -13,11 +13,7 @@ final class GdxChipDenominations {
 
     static final int COLUMN_COUNT = 4;
 
-    /**
-     * Casino progression shared by player racks, flights and the table pot.
-     * The x10 family is black as a deliberate nod to the physical games that
-     * inspired CoronaPoker.
-     */
+    /** Casino progression shared by player racks, flights and the table pot. */
     private static final int[] COLORS = {1, 3, 0, 2};
     private static final int[] UNITS = {1, 2, 5, 10};
 
@@ -26,6 +22,13 @@ final class GdxChipDenominations {
 
     static int color(int column) {
         return COLORS[column];
+    }
+
+    static int columnForColor(int color) {
+        for (int column = 0; column < COLORS.length; column++) {
+            if (COLORS[column] == color) return column;
+        }
+        return -1;
     }
 
     static int units(int column) {

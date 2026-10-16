@@ -133,7 +133,7 @@ final class GdxStackChipLayoutTest {
 
     @Test
     void exactPaymentMakesOnlyTheNecessaryChangeWhenNoSubsetExists() {
-        int black = GdxChipDenominations.color(3);
+        int green = GdxChipDenominations.color(3);
         GdxStackChipLayout.Layout rack = new GdxStackChipLayout.Layout(List.of(
                 new GdxStackChipLayout.Column(
                         GdxChipDenominations.color(0), List.of()),
@@ -141,8 +141,8 @@ final class GdxStackChipLayoutTest {
                         GdxChipDenominations.color(1), List.of()),
                 new GdxStackChipLayout.Column(
                         GdxChipDenominations.color(2), List.of()),
-                new GdxStackChipLayout.Column(black,
-                        List.of(new GdxStackChipLayout.Chip(100L, black)))));
+                new GdxStackChipLayout.Column(green,
+                        List.of(new GdxStackChipLayout.Chip(100L, green)))));
 
         GdxStackChipLayout.Payment payment =
                 GdxStackChipLayout.preparePayment(rack, 0.30d, 0.10d);

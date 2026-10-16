@@ -1132,6 +1132,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean gameOverAnimationZero;
     private float gameOverAnimationStartedAt;
     private boolean gameOverAnimationFailureReported;
+    private float gameOverOpeningTimelineStartedAt = Float.NaN;
+    private float gameOverOpeningTimelineSeconds;
     private StreamingGifTextureAnimation remoteRebuyAnimation;
     private boolean remoteRebuyAnimationZero;
     private boolean remoteRebuyAnimationFailed;
@@ -1148,6 +1150,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float AUDIO_WAIT_START_GRACE_SECONDS = 0.12f;
     private static final float AUDIO_WAIT_MAX_SECONDS = 12f;
     private static final float GAME_OVER_AUDIO_WAIT_MAX_SECONDS = 16f;
+    private static final float GAME_OVER_OPENING_FALLBACK_SECONDS = 13.42f;
     private static final float TIMEOUT_AUDIO_WAIT_MAX_SECONDS = 4f;
     private Sound liveDangerAlertSound;
     private long liveDangerAlertSoundId = -1L;
@@ -6204,7 +6207,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (activeDialog != null && activeDialog.readyToClose()) {
             GdxTableDialog completed = activeDialog;
             activeDialog = dialogQueue.pollFirst();
-            if (completed == gameOverAnimationDialog) {
+            if (completed == gameOverAnimationDialog
+                    || completed.isGameOverChoice()) {
                 releaseGameOverAnimation();
             }
             if (completed == recoveryAnimationDialog) {
@@ -6222,30 +6226,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!dialog.isGameOverChoice() || !dialog.gameOverCinematics()) {
             return dialog.expired(totalTime);
         }
-        boolean animationOwned = gameOverAnimationDialog == dialog;
-        boolean unavailable = !animationOwned || gameOverAnimation == null
-                || gameOverAnimationFailureReported
-                || gameOverAnimation.failed();
-        boolean complete = animationOwned && gameOverAnimation != null
-                && gameOverAnimation.playbackComplete(Math.max(0f,
-                        totalTime - gameOverAnimationStartedAt));
-        return gameOverCinematicDecisionExpired(dialog, animationOwned,
-                unavailable, complete, totalTime);
+        ensureGameOverOpeningTimeline();
+        float elapsed = Math.max(0f,
+                totalTime - gameOverOpeningTimelineStartedAt);
+        return gameOverOpeningTimelineExpired(dialog, elapsed,
+                gameOverOpeningTimelineSeconds, totalTime);
     }
 
-    static boolean gameOverCinematicDecisionExpired(GdxTableDialog dialog,
-            boolean animationOwned, boolean animationUnavailable,
-            boolean animationComplete, float now) {
+    static boolean gameOverOpeningTimelineExpired(GdxTableDialog dialog,
+            float openingElapsed, float openingDuration, float now) {
         Objects.requireNonNull(dialog, "dialog");
-        if (!dialog.isGameOverChoice() || !dialog.gameOverCinematics()
-                || !animationOwned || animationUnavailable) {
+        if (!dialog.isGameOverChoice() || !dialog.gameOverCinematics()) {
             return dialog.expired(now);
         }
-        // The GIF contains its own complete 9..0 clock plus its intro/outro.
-        // Expiring the ten-second dialog timer independently used to cut that
-        // asset while it still displayed 2. The decoded animation is the
-        // visual clock whenever it is available.
-        return animationComplete;
+        if (!Float.isFinite(openingElapsed)
+                || !Float.isFinite(openingDuration)
+                || openingDuration <= 0f) {
+            return dialog.expired(now);
+        }
+        // Swing switches to game_over_zero.gif at the natural end of
+        // game_over.wav. The animated GIF contains roughly two seconds of
+        // trailing frames after that point, so owning the decision clock with
+        // the entire GIF creates a visible freeze at zero.
+        return openingElapsed >= openingDuration;
     }
 
     /**
@@ -13381,6 +13384,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             result.complete(null);
             return;
         }
+        ensureGameOverOpeningTimeline();
         if (gameOverAudioActive) {
             stopAudioCue("misc/game_over.wav");
             restoreGameOverLoopDucking();
@@ -13391,6 +13395,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         refreshDealerLoopVolumes();
         playAudioCue("misc/game_over.wav", true, true,
                 !gameOverSoundEnabled(), result);
+    }
+
+    private void ensureGameOverOpeningTimeline() {
+        if (Float.isFinite(gameOverOpeningTimelineStartedAt)) return;
+        gameOverOpeningTimelineSeconds = GAME_OVER_OPENING_FALLBACK_SECONDS;
+        try {
+            gameOverOpeningTimelineSeconds = wavDurationSeconds(
+                    gameAudioResource("misc/game_over.wav"),
+                    GAME_OVER_OPENING_FALLBACK_SECONDS);
+        } catch (RuntimeException ignored) {
+            // The original Swing timing remains the safety clock when a
+            // modded/missing resource or an unavailable audio backend cannot
+            // provide the canonical WAV.
+        }
+        gameOverOpeningTimelineStartedAt = totalTime;
     }
 
     private void continueGameOverAudio(CompletableFuture<Void> result) {
@@ -15495,20 +15514,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         float elapsed = active.elapsedSeconds();
+        boolean packLandedThisFrame = false;
         for (LiveRebuyChip chip : active.chips) {
             float progress = chip.progress(elapsed);
             if (!chip.rackMovementApplied && progress >= 1f) {
                 chip.rackMovementApplied = true;
                 addSeatRackChip(chip.nickname, chip.color, chip.amount);
+                packLandedThisFrame = true;
             }
-            if (!chip.soundPlayed && progress >= 1f) {
-                chip.soundPlayed = true;
-                if (chip.impactSound && liveBetSoundEnabled()) {
-                    playChipLandingImpact(betSound, 0.24f,
-                            1f,
-                            chipVariationSeed(active.startedAtNanos,
-                                    chip.nickname, chip.index));
-                }
+        }
+        if (packLandedThisFrame && active.landingSoundsPlayed
+                < rebuyLandingImpactCount(active.chips.size())) {
+            active.landingSoundsPlayed++;
+            if (liveBetSoundEnabled()) {
+                playChipLandingImpact(betSound, 0.30f, 1f,
+                        chipVariationSeed(active.startedAtNanos,
+                                "rebuy-pack", active.chips.size()));
             }
         }
         if (!active.complete(elapsed)) {
@@ -15837,6 +15858,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         return Math.max(1, Math.round(visualChipCount
                 / VISUAL_CHIPS_PER_LANDING_SOUND));
+    }
+
+    static int rebuyLandingImpactCount(int visualChipCount) {
+        // A rebuy is one physical pack and all of its visual chips land on the
+        // same frame. Layering the generic one-per-three-chip impacts at that
+        // instant phase-cancels the sample into an artificial laser sound.
+        return visualChipCount > 0 ? 1 : 0;
     }
 
     static boolean landingImpactAtRank(int landingRank,
@@ -20172,7 +20200,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             gameOverAnimation = null;
             gameOverAnimationDialog = dialog;
             gameOverAnimationZero = zero;
-            gameOverAnimationStartedAt = totalTime;
+            if (!zero) ensureGameOverOpeningTimeline();
+            gameOverAnimationStartedAt = zero
+                    ? totalTime : gameOverOpeningTimelineStartedAt;
             gameOverAnimationFailureReported = false;
             try {
                 gameOverAnimation = StreamingGifTextureAnimation.load(
@@ -20197,6 +20227,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         gameOverAnimationDialog = null;
         gameOverAnimationZero = false;
         gameOverAnimationFailureReported = false;
+        gameOverOpeningTimelineStartedAt = Float.NaN;
+        gameOverOpeningTimelineSeconds = 0f;
     }
 
     private void acceptRemoteRebuyDecision(
@@ -25850,6 +25882,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final CompletableFuture<Void> barrier;
         final List<LiveRebuyChip> chips;
         final String cashSoundResource;
+        int landingSoundsPlayed;
 
         LiveRebuy(TableVisualEvent.Rebuy event, long startedAtNanos,
                 CompletableFuture<Void> barrier, String cashSoundResource,
@@ -25883,7 +25916,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 transferIndex++;
             }
-            chips = withLandingImpacts(created);
+            // All rebuy chips intentionally converge on the same instant. The
+            // pack owns one coherent landing clatter instead of the generic
+            // staggered-flight impact distribution.
+            chips = List.copyOf(created);
         }
 
         float elapsedSeconds() {
@@ -25948,7 +25984,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private static final class LiveRebuyChip implements LandingImpact {
+    private static final class LiveRebuyChip {
 
         final String nickname;
         final int index;
@@ -25957,8 +25993,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final int color;
         final double amount;
         final float rotation;
-        boolean impactSound;
-        boolean soundPlayed;
         boolean rackMovementApplied;
 
         LiveRebuyChip(String nickname, int index, float startSeconds,
@@ -25977,15 +26011,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     0f, 1f);
         }
 
-        @Override
-        public float landingSeconds() {
-            return startSeconds + durationSeconds;
-        }
-
-        @Override
-        public void markImpactSound() {
-            impactSound = true;
-        }
     }
 
     private static final class LiveCinematic {

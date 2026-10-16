@@ -133,6 +133,14 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
+    void simultaneousRebuyPackUsesOneCoherentLandingImpact() {
+        assertEquals(0, CoronaPokerGdxTable.rebuyLandingImpactCount(0));
+        assertEquals(1, CoronaPokerGdxTable.rebuyLandingImpactCount(1));
+        assertEquals(1, CoronaPokerGdxTable.rebuyLandingImpactCount(21));
+        assertEquals(1, CoronaPokerGdxTable.rebuyLandingImpactCount(100));
+    }
+
+    @Test
     void impactVariationIsSubtleDeterministicAndSafelyBounded() {
         Set<Float> volumes = new HashSet<>();
         Set<Float> pitches = new HashSet<>();

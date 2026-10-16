@@ -789,6 +789,14 @@ public final class GdxMultiprocessNodeMain {
                 marker("HOT_JOIN_PUBLIC_FINGERPRINT", "nick="
                         + config.nickname + " value="
                         + renderer.firstHotJoinPublicFingerprint());
+                marker("HOT_JOIN_PUBLIC_STATE", "nick=" + config.nickname
+                        + " "
+                        + renderer.firstHotJoinPublicFingerprintDiagnostic());
+                marker("HOT_JOIN_HAND_FINGERPRINT", "nick="
+                        + config.nickname + " value="
+                        + renderer.firstHotJoinHandFingerprint());
+                marker("HOT_JOIN_PUBLIC_BOARD", "nick=" + config.nickname
+                        + " value=" + renderer.firstHotJoinPublicBoard());
                 if (allInBootstrap) {
                     if (!renderer.firstHotJoinHasAllInPresentation()) {
                         throw new AssertionError(
@@ -2103,6 +2111,9 @@ public final class GdxMultiprocessNodeMain {
         boolean newcomer = !config.host()
                 && clientNumber > config.clients - newcomerCount;
         boolean localSpectator = false;
+        long recoverableHand = config.phase.startsWith("recovery-")
+                ? Long.parseLong(config.phase.substring(
+                        "recovery-".length())) : 4L;
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
 
@@ -2160,10 +2171,10 @@ public final class GdxMultiprocessNodeMain {
                     renderer.allInOnHand(1L);
                 }
                 if (config.host()) {
-                    renderer.gateActionOnHand(4L);
+                    renderer.gateActionAtOrAfterHand(recoverableHand);
                 }
                 if (recovering && localSpectator) {
-                    renderer.requestImmediateRebuyOnHand(4L);
+                    renderer.requestImmediateRebuyOnHand(recoverableHand);
                 }
                 table.attach(renderer).toCompletableFuture()
                         .get(10, TimeUnit.SECONDS);
@@ -2172,18 +2183,21 @@ public final class GdxMultiprocessNodeMain {
                     await(renderer::hasHeldAction, Duration.ofSeconds(120),
                             recovering ? "recovered rebuy action gate"
                                     : "initial spectator action gate");
+                    long heldHand = renderer.currentHand();
                     marker(recovering ? "RECOVERY_REBUY_GATE_REACHED"
                             : "ACTION_GATE_REACHED",
                             "scenario=spectator-recovery-mix nick="
-                            + config.nickname + " hand=4");
+                            + config.nickname + " hand=" + heldHand);
                     requireCommand(recovering
                             ? "RELEASE_RECOVERY_ACTION" : "FORCE_RECOVER");
                     if (recovering) {
                         renderer.releaseHeldAction();
-                        marker("RECOVERY_REBUY_GATE_RELEASED", "hand=4");
+                        marker("RECOVERY_REBUY_GATE_RELEASED",
+                                "hand=" + heldHand);
                     } else {
                         table.commands().submit(new TableCommand.StopGame());
-                        marker("FORCE_RECOVER_REQUESTED", "hand=4 cycle=1");
+                        marker("FORCE_RECOVER_REQUESTED",
+                                "hand=" + heldHand + " cycle=1");
                     }
                 }
 
@@ -2198,13 +2212,19 @@ public final class GdxMultiprocessNodeMain {
                                 + "not recoverable: "
                                 + renderer.summary().reason());
                     }
+                    recoverableHand = renderer.currentHand();
                     localSpectator = renderer.sawLocalSpectator();
-                    marker("RECOVERABLE_STOP", "hand=4 cycle=1 spectator="
-                            + localSpectator + " nick=" + config.nickname);
+                    marker("RECOVERABLE_STOP", "hand=" + recoverableHand
+                            + " cycle=1 spectator=" + localSpectator
+                            + " nick=" + config.nickname);
                     continue;
                 }
 
-                renderer.assertComplete(newcomer ? 3 : 4);
+                int recoveredHands = Math.toIntExact(
+                        config.hands - recoverableHand + 1L);
+                renderer.assertComplete(newcomer
+                        ? Math.max(0, recoveredHands - 1)
+                        : recoveredHands);
                 if (renderer.summary().handCount() != config.hands) {
                     throw new AssertionError("spectator recovery durable hand "
                             + "count: expected " + config.hands + " but was "

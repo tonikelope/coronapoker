@@ -1028,6 +1028,72 @@ final class GdxScenarioRenderer implements TableRenderer {
         }
     }
 
+    String firstHotJoinPublicFingerprintDiagnostic() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null) return "missing";
+        String cards = snapshot.communityCards().stream()
+                .map(card -> card.code() + ':' + card.visible() + ':'
+                + card.faceUp())
+                .collect(java.util.stream.Collectors.joining(","));
+        String players = snapshot.players().stream()
+                .filter(player -> !player.warming())
+                .sorted(java.util.Comparator.comparing(
+                        TableSnapshot.PlayerSnapshot::nickname))
+                .map(player -> player.nickname() + ':' + player.stack()
+                + ':' + player.streetBet() + ':' + player.potContribution()
+                + ':' + player.active() + ':' + player.spectator() + ':'
+                + player.exited() + ':' + player.position() + ':'
+                + player.decision() + ':' + player.actionKind() + ':'
+                + player.holeCards().stream().map(card -> card.code() + '/'
+                + card.visible() + '/' + card.faceUp()).collect(
+                        java.util.stream.Collectors.joining(",")))
+                .collect(java.util.stream.Collectors.joining(";"));
+        return "street=" + snapshot.street() + " pot=" + snapshot.pot()
+                + " turn=" + snapshot.currentTurnNickname()
+                + " paused=" + snapshot.paused() + " prefix="
+                + snapshot.presentation().potPrefix() + " cards=" + cards
+                + " players=" + players;
+    }
+
+    String firstHotJoinHandFingerprint() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null) return "missing";
+        String players = snapshot.players().stream()
+                .filter(player -> !player.warming())
+                .sorted(java.util.Comparator.comparing(
+                        TableSnapshot.PlayerSnapshot::nickname))
+                .map(player -> player.nickname() + ':' + player.stack()
+                + ':' + player.streetBet() + ':' + player.potContribution()
+                + ':' + player.active() + ':' + player.spectator() + ':'
+                + player.exited() + ':' + player.position() + ':'
+                + player.decision() + ':' + player.actionKind() + ':'
+                + player.holeCards().stream().map(card -> card.code() + '/'
+                + card.visible() + '/' + card.faceUp()).collect(
+                        java.util.stream.Collectors.joining(",")))
+                .collect(java.util.stream.Collectors.joining(";"));
+        String canonical = snapshot.pot() + "|"
+                + snapshot.currentTurnNickname() + "|" + snapshot.paused()
+                + "|" + snapshot.presentation().potPrefix() + "|" + players;
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new AssertionError(impossible);
+        }
+    }
+
+    String firstHotJoinPublicBoard() {
+        TableSnapshot snapshot = firstHotJoinState.get();
+        if (snapshot == null) return "missing";
+        return snapshot.communityCards().stream()
+                .filter(card -> card.visible() && card.faceUp()
+                && !card.code().isBlank())
+                .map(TableSnapshot.CardSnapshot::code)
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
     boolean hasHotJoinDurableTableStatus() {
         GdxTableViewState projection = state.get();
         if (projection == null || projection.gameConfiguration() == null) {

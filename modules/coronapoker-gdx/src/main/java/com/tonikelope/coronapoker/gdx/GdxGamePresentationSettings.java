@@ -397,6 +397,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean betAnimation() {
         return animations() && bool("animacion_apuestas", true);
     }
+    boolean dynamicChipFlights() {
+        return GdxAppearanceOptions.dynamicChipFlights(properties);
+    }
     @Override public boolean counterAnimation() {
         return animations() && bool("animacion_contadores", true);
     }

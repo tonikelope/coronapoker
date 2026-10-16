@@ -8,6 +8,10 @@ import java.util.Properties;
 /** Canonical Swing choice sets used by the GDX appearance screen. */
 final class GdxAppearanceOptions {
 
+    static final String CHIP_FLIGHT_MODE_KEY = "gdx_chip_flight_mode";
+    static final String CHIP_FLIGHT_MODE_TOOLTIP_KEY =
+            "gdx.settings.choice.gdx_chip_flight_mode.tooltip";
+
     private static final int LIGHT_MIN = 10;
     private static final int LIGHT_MAX = 90;
     private static final int LIGHT_STEP = 5;
@@ -27,7 +31,13 @@ final class GdxAppearanceOptions {
         }
     }
 
+    static final Choice CHIP_FLIGHT_MODE = exact(CHIP_FLIGHT_MODE_KEY,
+            "TIPO DE VUELO", "dynamic",
+            new String[]{"dynamic", "static"},
+            new String[]{"DINÁMICO", "ESTÁTICO"});
+
     static final List<Choice> ANIMATION_CHOICES = List.of(
+            CHIP_FLIGHT_MODE,
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -82,8 +92,15 @@ final class GdxAppearanceOptions {
         return parentKey(choice) != null;
     }
 
+    static boolean dynamicChipFlights(Properties properties) {
+        return properties == null || !"static".equalsIgnoreCase(
+                properties.getProperty(CHIP_FLIGHT_MODE_KEY, "dynamic")
+                        .strip());
+    }
+
     private static String parentKey(Choice choice) {
         return switch (choice.key()) {
+            case CHIP_FLIGHT_MODE_KEY -> "animacion_apuestas";
             case "reparto_velocidad" -> "animacion_reparto";
             case "card_flip_duration", "card_flip_zoom" ->
                 "animacion_destape";

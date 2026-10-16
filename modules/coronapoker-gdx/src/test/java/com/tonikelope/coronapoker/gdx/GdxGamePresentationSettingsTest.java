@@ -30,11 +30,11 @@ final class GdxGamePresentationSettingsTest {
                 0.000_001f);
 
         GdxAppearanceOptions.adjust(
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0), properties, 1);
+                appearanceChoice("reparto_velocidad"), properties, 1);
         GdxAppearanceOptions.adjust(
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(1), properties, 1);
+                appearanceChoice("card_flip_duration"), properties, 1);
         GdxAppearanceOptions.adjust(
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(3), properties, 1);
+                appearanceChoice("swap_velocidad"), properties, 1);
 
         assertEquals(60, settings.dealSpeed());
         assertEquals(200, settings.swapAnimationDuration());
@@ -88,6 +88,23 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.allInFireAnimation());
         assertFalse(settings.winnerEffectAnimation());
         assertFalse(settings.cinematics());
+    }
+
+    @Test
+    void chipFlightsDefaultToDynamicAndObserveTheStaticChoice(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+
+        assertTrue(settings.dynamicChipFlights());
+        preferences.properties().setProperty(
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY, "static");
+        assertFalse(settings.dynamicChipFlights());
+        preferences.properties().setProperty(
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY, "invalid");
+        assertTrue(settings.dynamicChipFlights());
     }
 
     @Test
@@ -506,5 +523,11 @@ final class GdxGamePresentationSettingsTest {
     void tableVersionLabelFallsBackWhenPresentationSettingsAreUnavailable() {
         assertEquals("v" + ApplicationMetadata.VERSION,
                 CoronaPokerGdxTable.productVersionLabelFor(null));
+    }
+
+    private static GdxAppearanceOptions.Choice appearanceChoice(String key) {
+        return GdxAppearanceOptions.ANIMATION_CHOICES.stream()
+                .filter(choice -> key.equals(choice.key()))
+                .findFirst().orElseThrow();
     }
 }

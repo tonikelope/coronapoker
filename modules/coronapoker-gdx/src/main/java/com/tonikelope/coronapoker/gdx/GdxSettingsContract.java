@@ -251,8 +251,6 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_ciegas_dealer", "FICHAS DE POSICIÓN", true,
                     Gate.ANIMATIONS),
-            option("animacion_apuestas", "APUESTAS", true,
-                    Gate.ANIMATIONS),
             option("animacion_contadores", "CONTADORES", true,
                     Gate.ANIMATIONS),
             option("animacion_entrada_asientos", "MOVIMIENTO DE ASIENTOS", true,
@@ -264,6 +262,8 @@ final class GdxSettingsContract {
             option("animacion_fuego_allin", "FUEGO DE ALL-IN", true,
                     Gate.ANIMATIONS),
             option("animacion_efecto_ganador", "EFECTO DE GANADOR", true,
+                    Gate.ANIMATIONS),
+            option("animacion_apuestas", "FICHAS VOLADORAS", true,
                     Gate.ANIMATIONS));
 
     private static final int[] VOICE_RETENTION_DAYS = {7, 15, 30, 90, 0};
@@ -429,7 +429,8 @@ final class GdxSettingsContract {
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_reparto",
             "animacion_destape", "animacion_ciegas_dealer",
-            "animacion_apuestas", "animacion_contadores",
+            "animacion_apuestas", GdxAppearanceOptions.CHIP_FLIGHT_MODE_KEY,
+            "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
             "animacion_swap",
             "animacion_downgrade", "card_flip_duration",

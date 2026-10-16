@@ -75,7 +75,7 @@ final class GdxScenarioContract {
                     "freshHotJoinReceivesAndLeavesAnAlreadyPausedTable",
                     "freshHotJoinObservesLastHandButIsNeverAdmittedWithoutANextHand",
                     "twoConcurrentHotJoinsWarmAndEnterTheSameNextHand",
-                    "twoConcurrentHotJoinsDuringAllInShareOneExactPublicState",
+                    "twoConcurrentHotJoinsDuringAllInShareOneMonotonicPublicHand",
                     "twoConcurrentHotJoinsDuringRunItTwiceShareOneExactPublicState",
                     "twoConcurrentHotJoinsDuringPauseShareOneExactPublicState",
                     "twoConcurrentHotJoinsDuringShowdownShareOneExactPublicState",

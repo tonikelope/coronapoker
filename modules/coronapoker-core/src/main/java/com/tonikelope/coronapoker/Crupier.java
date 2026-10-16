@@ -772,14 +772,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 .filter(GamePlayerController::isTurno)
                 .map(GamePlayerController::getNickname)
                 .findFirst().orElse("");
-        TableSnapshot.Street publicStreet = show_time
-                ? TableSnapshot.Street.SHOWDOWN
-                : switch (getStreet()) {
-                    case FLOP -> TableSnapshot.Street.FLOP;
-                    case TURN -> TableSnapshot.Street.TURN;
-                    case RIVER -> TableSnapshot.Street.RIVER;
-                    default -> TableSnapshot.Street.PREFLOP;
-                };
+        TableSnapshot.Street publicStreet = publicStreetForSnapshot(
+                getStreet(), show_time, board);
         String potPrefix = this.rit_pot_board_tag == null ? ""
                 : game_text.translate("runittwice.pot_label_full",
                         this.rit_pot_board_tag);
@@ -794,6 +788,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 new TableSnapshot.TablePresentation(potPrefix,
                         Math.max(0, getTiempoPausa()),
                         rabbitVisualCardSlots()));
+    }
+
+    /**
+     * Keeps a hot-join snapshot on the last fully visible public street. The
+     * dealer advances its internal street before the corresponding community
+     * card reveal is presented, so sampling those two fields independently
+     * used to let concurrent newcomers observe identical cards labelled as
+     * different streets. Rabbit cards can reveal beyond the betting street;
+     * therefore the visible board only clamps a street that ran ahead and
+     * never advances it by itself.
+     */
+    static TableSnapshot.Street publicStreetForSnapshot(int dealerStreet,
+            boolean showdown,
+            java.util.List<TableSnapshot.CardSnapshot> board) {
+        if (showdown) return TableSnapshot.Street.SHOWDOWN;
+        TableSnapshot.Street internal = switch (dealerStreet) {
+            case FLOP -> TableSnapshot.Street.FLOP;
+            case TURN -> TableSnapshot.Street.TURN;
+            case RIVER -> TableSnapshot.Street.RIVER;
+            default -> TableSnapshot.Street.PREFLOP;
+        };
+        long revealed = board.stream()
+                .filter(card -> card.visible() && card.faceUp())
+                .count();
+        TableSnapshot.Street visible = revealed >= 5
+                ? TableSnapshot.Street.RIVER
+                : revealed >= 4 ? TableSnapshot.Street.TURN
+                : revealed >= 3 ? TableSnapshot.Street.FLOP
+                : TableSnapshot.Street.PREFLOP;
+        return internal.ordinal() <= visible.ordinal() ? internal : visible;
     }
 
     /** Public form of the canonical roster for ordered hot-join updates. */

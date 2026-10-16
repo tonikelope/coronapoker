@@ -13,12 +13,18 @@ final class GdxAppearanceOptionsTest {
     void choiceAndSurfaceLabelsFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
         Properties properties = new Properties();
-        GdxAppearanceOptions.Choice deal =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0);
+        GdxAppearanceOptions.Choice deal = choice("reparto_velocidad");
 
         assertEquals("DEAL SPEED", deal.label(text));
         assertEquals("NORMAL",
                 GdxAppearanceOptions.selectedLabel(deal, properties, text));
+        assertEquals("FLIGHT TYPE",
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE.label(text));
+        assertEquals("DYNAMIC", GdxAppearanceOptions.selectedLabel(
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE, properties, text));
+        assertTrue(text.translate(
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE_TOOLTIP_KEY)
+                .startsWith("Dynamic (default)"));
         assertEquals("Default",
                 GdxAppearanceOptions.cardBackLabel("default", text));
         assertEquals("No felt",
@@ -28,8 +34,7 @@ final class GdxAppearanceOptionsTest {
     @Test
     void usesSwingDefaultsAndCyclesInCanonicalOrder() {
         Properties properties = new Properties();
-        GdxAppearanceOptions.Choice deal =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0);
+        GdxAppearanceOptions.Choice deal = choice("reparto_velocidad");
         assertEquals("NORMAL",
                 GdxAppearanceOptions.selectedLabel(deal, properties));
         GdxAppearanceOptions.cycle(deal, properties);
@@ -46,8 +51,7 @@ final class GdxAppearanceOptionsTest {
     @Test
     void nonCanonicalNumericValuesSelectTheNearestSwingPreset() {
         Properties properties = new Properties();
-        GdxAppearanceOptions.Choice flip =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(1);
+        GdxAppearanceOptions.Choice flip = choice("card_flip_duration");
         properties.setProperty("card_flip_duration", "500");
         assertEquals("RÁPIDA",
                 GdxAppearanceOptions.selectedLabel(flip, properties));
@@ -84,12 +88,9 @@ final class GdxAppearanceOptionsTest {
     @Test
     void animationChoicesFollowTheMasterAndTheirParentSwitches() {
         Properties properties = new Properties();
-        GdxAppearanceOptions.Choice deal =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0);
-        GdxAppearanceOptions.Choice flip =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(1);
-        GdxAppearanceOptions.Choice swap =
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(3);
+        GdxAppearanceOptions.Choice deal = choice("reparto_velocidad");
+        GdxAppearanceOptions.Choice flip = choice("card_flip_duration");
+        GdxAppearanceOptions.Choice swap = choice("swap_velocidad");
 
         assertTrue(GdxAppearanceOptions.enabled(deal, properties));
         assertTrue(GdxAppearanceOptions.enabled(flip, properties));
@@ -111,8 +112,34 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
+    void chipFlightModeDefaultsToDynamicAndBelongsToFlyingChips() {
+        Properties properties = new Properties();
+        GdxAppearanceOptions.Choice mode =
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE;
+
+        assertEquals("DINÁMICO",
+                GdxAppearanceOptions.selectedLabel(mode, properties));
+        assertTrue(GdxAppearanceOptions.dynamicChipFlights(properties));
+        assertTrue(GdxAppearanceOptions.enabled(mode, properties));
+
+        GdxAppearanceOptions.cycle(mode, properties);
+        assertEquals("ESTÁTICO",
+                GdxAppearanceOptions.selectedLabel(mode, properties));
+        assertFalse(GdxAppearanceOptions.dynamicChipFlights(properties));
+
+        properties.setProperty("animacion_apuestas", "false");
+        assertFalse(GdxAppearanceOptions.enabled(mode, properties));
+    }
+
+    @Test
     void everyAnimationChoiceUsesChildRowGeometry() {
         assertTrue(GdxAppearanceOptions.ANIMATION_CHOICES.stream()
                 .allMatch(GdxAppearanceOptions::isChildChoice));
+    }
+
+    private static GdxAppearanceOptions.Choice choice(String key) {
+        return GdxAppearanceOptions.ANIMATION_CHOICES.stream()
+                .filter(choice -> key.equals(choice.key()))
+                .findFirst().orElseThrow();
     }
 }

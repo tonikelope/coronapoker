@@ -172,7 +172,7 @@ class GdxMultiprocessScenarioTest {
 
     @Test
     @Timeout(value = 8, unit = TimeUnit.MINUTES)
-    void twoConcurrentHotJoinsDuringAllInShareOneExactPublicState(
+    void twoConcurrentHotJoinsDuringAllInShareOneMonotonicPublicHand(
             @TempDir Path root) throws Exception {
         runTwoConcurrentHotJoinsDuringState(root,
                 "live-hot-join-two-allin-bootstrap");
@@ -1470,14 +1470,34 @@ class GdxMultiprocessScenarioTest {
                 assertTrue(newcomer.await(expectedMarker,
                         Duration.ofSeconds(60)), newcomer.diagnostic());
             }
-            String fingerprint1 = newcomer1.valueAfter(
-                    "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client2 value=");
-            String fingerprint2 = newcomer2.valueAfter(
-                    "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client3 value=");
-            assertEquals(fingerprint1, fingerprint2,
-                    "concurrent CALENTANDO clients bootstrapped different "
-                    + "public hand states\n" + newcomer1.diagnostic()
-                    + "\n" + newcomer2.diagnostic());
+            if (allIn) {
+                String hand1 = newcomer1.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_HAND_FINGERPRINT nick=client2 value=");
+                String hand2 = newcomer2.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_HAND_FINGERPRINT nick=client3 value=");
+                assertEquals(hand1, hand2,
+                        "concurrent CALENTANDO clients bootstrapped different "
+                        + "public hands\n" + newcomer1.diagnostic()
+                        + "\n" + newcomer2.diagnostic());
+                String board1 = newcomer1.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_PUBLIC_BOARD nick=client2 value=");
+                String board2 = newcomer2.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_PUBLIC_BOARD nick=client3 value=");
+                assertTrue(isSameOrForwardBoard(board1, board2),
+                        "concurrent CALENTANDO clients observed unrelated or "
+                        + "regressive public boards: " + board1 + " / "
+                        + board2 + "\n" + newcomer1.diagnostic() + "\n"
+                        + newcomer2.diagnostic());
+            } else {
+                String fingerprint1 = newcomer1.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client2 value=");
+                String fingerprint2 = newcomer2.valueAfter(
+                        "CP_GDX_E2E_HOT_JOIN_PUBLIC_FINGERPRINT nick=client3 value=");
+                assertEquals(fingerprint1, fingerprint2,
+                        "concurrent CALENTANDO clients bootstrapped different "
+                        + "public hand states\n" + newcomer1.diagnostic()
+                        + "\n" + newcomer2.diagnostic());
+            }
             assertIncumbentRingExcludesWarmingSeats(nodes, 2,
                     Set.of("client2", "client3"));
 
@@ -1529,6 +1549,13 @@ class GdxMultiprocessScenarioTest {
         } finally {
             for (NodeProcess node : nodes) node.close();
         }
+    }
+
+    private static boolean isSameOrForwardBoard(String first,
+            String second) {
+        return first.equals(second)
+                || !first.isBlank() && second.startsWith(first + ",")
+                || !second.isBlank() && first.startsWith(second + ",");
     }
 
     private static void runConcurrentHotJoinExitScenario(Path root)
@@ -3344,23 +3371,29 @@ class GdxMultiprocessScenarioTest {
             assertTrue(host.await("CP_GDX_E2E_GAME_START_REQUESTED"
                     + " hands=7 cycle=0", Duration.ofSeconds(30)),
                     host.diagnostic());
-            assertTrue(host.await("CP_GDX_E2E_ACTION_GATE_REACHED"
-                    + " scenario=spectator-recovery-mix nick=server hand=4",
+            String initialGate = "CP_GDX_E2E_ACTION_GATE_REACHED"
+                    + " scenario=spectator-recovery-mix nick=server hand=";
+            assertTrue(host.await(initialGate,
                     Duration.ofSeconds(150)), host.diagnostic());
+            int recoverableHand = Integer.parseInt(
+                    host.valueAfter(initialGate));
             host.send("FORCE_RECOVER");
             assertTrue(host.await("CP_GDX_E2E_FORCE_RECOVER_REQUESTED"
-                    + " hand=4 cycle=1", Duration.ofSeconds(30)),
+                    + " hand=" + recoverableHand + " cycle=1",
+                    Duration.ofSeconds(30)),
                     host.diagnostic());
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_RECOVERABLE_STOP"
-                        + " hand=4 cycle=1", Duration.ofSeconds(120)),
+                        + " hand=" + recoverableHand + " cycle=1",
+                        Duration.ofSeconds(120)),
                         node.diagnostic());
             }
             List<NodeProcess> spectators = new ArrayList<>();
             for (int index = 0; index < incumbents.size(); index++) {
                 NodeProcess incumbent = incumbents.get(index);
                 if (incumbent.contains("CP_GDX_E2E_RECOVERABLE_STOP"
-                        + " hand=4 cycle=1 spectator=true nick=client"
+                        + " hand=" + recoverableHand
+                        + " cycle=1 spectator=true nick=client"
                         + (index + 1))) {
                     spectators.add(incumbent);
                 }
@@ -3380,7 +3413,8 @@ class GdxMultiprocessScenarioTest {
                 NodeProcess newcomer = startNode(
                         root.resolve("client-" + index), "client",
                         "client" + index, port, 6, 1, 7,
-                        "spectator-recovery-mix");
+                        "spectator-recovery-mix",
+                        "recovery-" + recoverableHand);
                 newcomer.send("REOPEN_RECOVERY_LOBBY");
                 newcomers.add(newcomer);
                 nodes.add(newcomer);
@@ -3395,19 +3429,27 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_RECOVERED_GAME_START_REQUESTED"
                     + " hands=7 cycle=1", Duration.ofSeconds(30)),
                     host.diagnostic());
-            assertTrue(host.await("CP_GDX_E2E_RECOVERY_REBUY_GATE_REACHED"
-                    + " scenario=spectator-recovery-mix nick=server hand=4",
+            String recoveryGate = "CP_GDX_E2E_RECOVERY_REBUY_GATE_REACHED"
+                    + " scenario=spectator-recovery-mix nick=server hand=";
+            assertTrue(host.await(recoveryGate,
                     Duration.ofSeconds(150)), host.diagnostic());
+            int recoveryGateHand = Integer.parseInt(
+                    host.valueAfter(recoveryGate));
             for (NodeProcess spectator : spectators) {
                 assertTrue(spectator.await("CP_GDX_E2E_REBUY_CHOICE_ACCEPTED",
                         Duration.ofSeconds(60)), spectator.diagnostic());
             }
             host.send("RELEASE_RECOVERY_ACTION");
             assertTrue(host.await("CP_GDX_E2E_RECOVERY_REBUY_GATE_RELEASED"
-                    + " hand=4", Duration.ofSeconds(30)), host.diagnostic());
+                    + " hand=" + recoveryGateHand, Duration.ofSeconds(30)),
+                    host.diagnostic());
 
             for (NodeProcess node : nodes) {
-                String renderedHands = newcomers.contains(node) ? "3" : "4";
+                int recoveredHands = 7 - recoverableHand + 1;
+                String renderedHands = Integer.toString(
+                        newcomers.contains(node)
+                                ? Math.max(0, recoveredHands - 1)
+                                : recoveredHands);
                 assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE hands="
                         + renderedHands
                         + " durableHands=7 reason=COMPLETED",

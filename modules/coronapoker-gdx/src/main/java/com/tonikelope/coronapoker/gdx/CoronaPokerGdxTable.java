@@ -249,7 +249,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
-    private static final double VISUAL_CHIP_LOG_MULTIPLIER = 1.4d;
+    private static final int MAX_DYNAMIC_RANDOMIZED_CHIPS = 20;
+    private static final double DYNAMIC_CHIP_SPLIT_PROBABILITY = 0.45d;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
@@ -768,6 +769,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final boolean tableHost;
     private final boolean startupIntroOnly;
     private final GdxNetworkBlockCache networkBlockCache;
+    private double visualChipSmallBlind;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
     private final GlyphLayout glyph = new GlyphLayout();
@@ -781,6 +783,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTooltipDelay pendingRebuyTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay settingsPerformanceTooltipDelay =
+            new GdxTooltipDelay();
+    private final GdxTooltipDelay settingsOptionTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay settingsLockTooltipDelay =
             new GdxTooltipDelay();
@@ -2054,6 +2058,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || lobby.snapshot().tableSettings() == null
                         ? NewGameTableDraft.BotDifficulty.MEDIUM
                         : lobby.snapshot().tableSettings().botDifficulty();
+        NewGameTableDraft.Settings initialTableSettings = lobby == null
+                ? null : lobby.snapshot().tableSettings();
+        if (initialTableSettings != null
+                && !initialTableSettings.blindLevels().isEmpty()) {
+            NewGameTableDraft.BlindLevel initialBlindLevel
+                    = initialTableSettings.selectedBlindLevel();
+            visualChipSmallBlind = initialBlindLevel.smallBlind();
+        }
         this.startupIntroOnly = startupIntroOnly;
         introCardLayout = startupIntroOnly
                 ? introCardLayout(System.nanoTime()
@@ -2279,6 +2291,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void beginTableSettings() {
         settingsPerformanceTooltipDelay.clear();
+        settingsOptionTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : tableProperties);
@@ -2320,6 +2333,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void closeTableSettings(boolean save) {
         audioPreview.stop();
         settingsPerformanceTooltipDelay.clear();
+        settingsOptionTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
         boolean restartNotice = save && presentationSettings != null
                 && GdxSettingsContract.requiresMsaaRestart(
@@ -3727,7 +3741,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (liveActionChips.isEmpty()) {
                 liveChipBatch = new LiveChipBatch(collect, System.nanoTime(),
                         barrier, presentationSnapshot, livePotContributions,
-                        liveCounterDenomination());
+                        liveCounterDenomination(),
+                        dynamicChipFlightsEnabled());
             } else {
                 // Swing lets action chips fly without holding the next turn,
                 // but never duplicates them when the street is collected.
@@ -3756,7 +3771,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveActionChips.add(new LiveActionChip(action,
                     System.nanoTime(), liveCounterAnimationEnabled(),
-                    liveCounterDenomination()));
+                    liveCounterDenomination(),
+                    dynamicChipFlightsEnabled()));
             // The canonical sequence fixes both the action label and the exact
             // post-action balances. Counter interpolation remains cosmetic.
             liveState.apply(event);
@@ -3799,7 +3815,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
-                    cashSoundResource, liveCounterDenomination());
+                    cashSoundResource, liveCounterDenomination(),
+                    dynamicChipFlightsEnabled());
             syncSeatsFromLiveState();
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
             liveState.apply(event);
@@ -4331,9 +4348,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         liveState.apply(event);
         livePayout = new LivePayout(transfers, payoutAmount, potAfter,
-                investedAmountAfter, System.nanoTime(), barrier,
+                investedAmountAfter, event.sequence(), System.nanoTime(), barrier,
                 liveCounterDenomination(), payoutPotBefore,
-                liveShowdownInvestments);
+                liveShowdownInvestments, dynamicChipFlightsEnabled());
         syncSeatsFromLiveState();
     }
 
@@ -11854,7 +11871,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             liveChipBatch = new LiveChipBatch(pending.event,
                     System.nanoTime(), pending.barrier,
                     pending.presentationSnapshot,
-                    livePotContributions, liveCounterDenomination());
+                    livePotContributions, liveCounterDenomination(),
+                    dynamicChipFlightsEnabled());
         }
     }
 
@@ -12539,6 +12557,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? tablePreference("animaciones", true)
                     && tablePreference("animacion_apuestas", true)
                 : presentationSettings.betAnimation();
+    }
+
+    private boolean dynamicChipFlightsEnabled() {
+        return presentationSettings == null
+                ? GdxAppearanceOptions.dynamicChipFlights(tableProperties)
+                : presentationSettings.dynamicChipFlights();
     }
 
     private boolean liveCounterAnimationEnabled() {
@@ -14306,19 +14330,217 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return firstChipProgress >= 1f;
     }
 
+    record VisualChipSpec(double amount, int color) {
+    }
+
+    private record DynamicChipDenomination(long amountMinor, int color) {
+    }
+
+    private record DynamicChipToken(long representedMinor,
+            DynamicChipDenomination denomination) {
+    }
+
+    private record DynamicDenominationCount(
+            DynamicChipDenomination denomination, long count) {
+    }
+
     static int visualChipCount(double exactAmount, double minimumChip) {
+        return dynamicVisualChips(exactAmount, minimumChip, 0L)
+                .size();
+    }
+
+    /**
+     * Builds a compact, exact visual representation using the four physical
+     * chip families used at the table: one, two, five and ten times the initial
+     * small blind. A deterministic seed may split a few large chips into valid
+     * smaller denominations by one generation only. Random variation never
+     * raises the result above twenty chips. A compact representation that
+     * already needs more than twenty chips is preserved as-is.
+     */
+    static List<VisualChipSpec> dynamicVisualChips(double exactAmount,
+            double smallBlind, long variationSeed) {
         if (!Double.isFinite(exactAmount) || exactAmount <= 0d) {
-            return 0;
+            return List.of();
         }
         long totalMinor = Math.max(1L, Math.round(exactAmount * 100d));
-        long denominationMinor = Double.isFinite(minimumChip)
-                && minimumChip > 0d
-                ? Math.max(1L, Math.round(minimumChip * 100d)) : 1L;
-        long realUnits = Math.max(1L, totalMinor / denominationMinor);
-        int logarithmicCount = (int) Math.round(1d
-                + VISUAL_CHIP_LOG_MULTIPLIER
-                * (Math.log(realUnits) / Math.log(2d)));
-        return (int) Math.min(realUnits, Math.max(1, logarithmicCount));
+        long smallMinor = Double.isFinite(smallBlind) && smallBlind > 0d
+                ? Math.max(1L, Math.round(smallBlind * 100d)) : 1L;
+
+        ArrayList<DynamicChipDenomination> denominations = new ArrayList<>(4);
+        // Dynamic mode keeps a stable semantic colour for each denomination
+        // while reusing the exact decorated palette from static mode.
+        addDynamicDenomination(denominations, smallMinor, 1);       // blue
+        addDynamicDenomination(denominations, smallMinor * 2L, 3);  // gold
+        addDynamicDenomination(denominations, smallMinor * 5L, 0);  // red
+        addDynamicDenomination(denominations, smallMinor * 10L, 2); // green
+        denominations.sort((left, right) -> Long.compare(
+                right.amountMinor(), left.amountMinor()));
+
+        long remaining = totalMinor;
+        ArrayList<DynamicDenominationCount> counts = new ArrayList<>(4);
+        for (DynamicChipDenomination denomination : denominations) {
+            long count = remaining / denomination.amountMinor();
+            if (count > 0L) {
+                counts.add(new DynamicDenominationCount(denomination, count));
+                remaining -= count * denomination.amountMinor();
+            }
+        }
+
+        SplittableRandom random = new SplittableRandom(
+                variationSeed ^ 0x3c6ef372fe94f82bL);
+        ArrayList<DynamicChipToken> tokens = expandDynamicChipCounts(counts);
+
+        if (!tokens.isEmpty()
+                && tokens.size() <= MAX_DYNAMIC_RANDOMIZED_CHIPS) {
+            int minimumVisualCount = tokens.size();
+            ArrayList<DynamicChipToken> varied = new ArrayList<>(tokens.size());
+            int variedCount = minimumVisualCount;
+            for (DynamicChipToken original : tokens) {
+                List<DynamicChipToken> expansion = lowerDenominationExpansion(
+                        original, denominations);
+                int added = expansion.size() - 1;
+                if (!expansion.isEmpty()
+                        && variedCount + added
+                                <= MAX_DYNAMIC_RANDOMIZED_CHIPS
+                        && random.nextDouble()
+                                < DYNAMIC_CHIP_SPLIT_PROBABILITY) {
+                    varied.addAll(expansion);
+                    variedCount += added;
+                } else {
+                    varied.add(original);
+                }
+            }
+            tokens = varied;
+        }
+
+        if (remaining > 0L) {
+            if (tokens.isEmpty()) {
+                DynamicChipDenomination smallest = denominations.get(
+                        denominations.size() - 1);
+                tokens.add(new DynamicChipToken(remaining, smallest));
+            } else {
+                int smallestIndex = 0;
+                for (int index = 1; index < tokens.size(); index++) {
+                    if (tokens.get(index).denomination().amountMinor()
+                            < tokens.get(smallestIndex).denomination()
+                                    .amountMinor()) {
+                        smallestIndex = index;
+                    }
+                }
+                DynamicChipToken smallest = tokens.get(smallestIndex);
+                tokens.set(smallestIndex, new DynamicChipToken(
+                        smallest.representedMinor() + remaining,
+                        smallest.denomination()));
+            }
+        }
+
+        for (int index = tokens.size() - 1; index > 0; index--) {
+            int swap = random.nextInt(index + 1);
+            DynamicChipToken value = tokens.get(index);
+            tokens.set(index, tokens.get(swap));
+            tokens.set(swap, value);
+        }
+        ArrayList<VisualChipSpec> result = new ArrayList<>(tokens.size());
+        for (DynamicChipToken token : tokens) {
+            result.add(new VisualChipSpec(token.representedMinor() / 100d,
+                    token.denomination().color()));
+        }
+        return List.copyOf(result);
+    }
+
+    private static void addDynamicDenomination(
+            List<DynamicChipDenomination> denominations, long amountMinor,
+            int color) {
+        if (amountMinor <= 0L || denominations.stream().anyMatch(
+                denomination -> denomination.amountMinor() == amountMinor)) {
+            return;
+        }
+        denominations.add(new DynamicChipDenomination(amountMinor, color));
+    }
+
+    private static ArrayList<DynamicChipToken> expandDynamicChipCounts(
+            List<DynamicDenominationCount> counts) {
+        ArrayList<DynamicChipToken> result = new ArrayList<>();
+        for (DynamicDenominationCount entry : counts) {
+            for (long index = 0; index < entry.count(); index++) {
+                result.add(new DynamicChipToken(
+                        entry.denomination().amountMinor(),
+                        entry.denomination()));
+            }
+        }
+        return result;
+    }
+
+    private static List<DynamicChipToken> lowerDenominationExpansion(
+            DynamicChipToken token,
+            List<DynamicChipDenomination> denominations) {
+        if (token.representedMinor()
+                != token.denomination().amountMinor()) {
+            return List.of();
+        }
+        long remaining = token.representedMinor();
+        ArrayList<DynamicChipToken> expansion = new ArrayList<>();
+        for (DynamicChipDenomination denomination : denominations) {
+            if (denomination.amountMinor()
+                    >= token.denomination().amountMinor()) continue;
+            long count = remaining / denomination.amountMinor();
+            for (long index = 0; index < count; index++) {
+                expansion.add(new DynamicChipToken(
+                        denomination.amountMinor(), denomination));
+            }
+            remaining -= count * denomination.amountMinor();
+        }
+        return remaining == 0L && expansion.size() > 1
+                ? List.copyOf(expansion) : List.of();
+    }
+
+    private static List<VisualChipSpec> visualChipSpecs(double exactAmount,
+            double smallBlind, long variationSeed,
+            boolean dynamic, int staticCount, int staticBaseColor) {
+        if (dynamic) {
+            return dynamicVisualChips(exactAmount, smallBlind, variationSeed);
+        }
+        double[] amounts = splitVisualCounterAmounts(exactAmount,
+                staticCount, smallBlind);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(amounts.length);
+        for (int index = 0; index < amounts.length; index++) {
+            result.add(new VisualChipSpec(amounts[index],
+                    variedVisualChipColor(staticBaseColor, variationSeed,
+                            index)));
+        }
+        return List.copyOf(result);
+    }
+
+    static int actionVisualChipCount(
+            TableVisualEvent.PlayerAction.ActionKind kind,
+            double exactAmount, double minimumChip, boolean dynamic) {
+        if (dynamic) return visualChipCount(exactAmount, minimumChip);
+        return switch (kind) {
+            case ALL_IN -> 7;
+            case BET, RAISE, RERAISE -> 4;
+            case CALL -> 3;
+            default -> 1;
+        };
+    }
+
+    static int payoutVisualChipCount(double exactAmount, double minimumChip,
+            boolean dynamic) {
+        return dynamic ? visualChipCount(exactAmount, minimumChip) : 18;
+    }
+
+    static int rebuyVisualChipCount(double exactAmount, double minimumChip,
+            boolean dynamic) {
+        return dynamic ? visualChipCount(exactAmount, minimumChip) : 14;
+    }
+
+    static int collectedVisualChipCount(TableSnapshot.Position position,
+            double exactAmount, double minimumChip, boolean dynamic) {
+        if (dynamic) return visualChipCount(exactAmount, minimumChip);
+        return switch (position) {
+            case BIG_BLIND -> 2;
+            case STRADDLE, DEALER_STRADDLE -> 3;
+            default -> 1;
+        };
     }
 
     static float variedChipImpactVolume(float baseVolume, long variationSeed) {
@@ -14437,8 +14659,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private double liveCounterDenomination() {
-        double smallBlind = liveState == null ? 0d : liveState.smallBlind();
-        return smallBlind > 0d ? smallBlind : 0.01d;
+        if (visualChipSmallBlind <= 0d && liveState != null
+                && liveState.smallBlind() > 0d) {
+            visualChipSmallBlind = liveState.smallBlind();
+        }
+        return visualChipSmallBlind > 0d ? visualChipSmallBlind : 0.01d;
     }
 
     private double livePot() {
@@ -18979,8 +19204,67 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
         drawSettingsPerformanceTooltip(contentX, firstRowY, contentW, alpha);
+        drawSettingsOptionTooltip(contentX, firstRowY, contentW, alpha);
         drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
+    }
+
+    private void drawSettingsOptionTooltip(float x, float firstY,
+            float width, float alpha) {
+        String tooltipKey = settingsOptionTooltipKey(x, firstY, width);
+        if (tooltipKey == null) {
+            settingsOptionTooltipDelay.clear();
+            return;
+        }
+        if (!settingsOptionTooltipDelay.ready(tooltipKey)) return;
+        String label = gameText.translate(tooltipKey);
+        float boxW = Math.min(660f, viewport.getWorldWidth() - 24f);
+        float boxH = 78f;
+        float boxX = MathUtils.clamp(pointer.x + 18f, 12f,
+                viewport.getWorldWidth() - boxW - 12f);
+        float boxY = pointer.y - boxH - 18f;
+        if (boxY < 12f) {
+            boxY = Math.min(viewport.getWorldHeight() - boxH - 12f,
+                    pointer.y + 22f);
+        }
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f * alpha);
+        roundedRect(boxX, boxY, boxW, boxH, 8f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.95f * alpha);
+        shapes.rect(boxX + 10f, boxY + boxH - 3f, boxW - 20f, 2f);
+        shapes.end();
+        batch.begin();
+        settingsTinyFont.setColor(1f, 1f, 1f, alpha);
+        settingsTinyFont.draw(batch, label, boxX + 17f,
+                boxY + boxH - 17f, boxW - 34f, Align.left, true);
+        batch.end();
+    }
+
+    private String settingsOptionTooltipKey(float x, float firstY,
+            float width) {
+        if (settingsContentPage() != 1 || settingsAppearancePage <= 1
+                || !GdxSettingsContract.hasAppearanceAnimationOptions(
+                        settingsAppearanceTogglePage())) {
+            return null;
+        }
+        Rectangle content = currentSettingsContent();
+        Rectangle viewportBounds = settingsRowsViewport(content, firstY);
+        if (!viewportBounds.contains(pointer)) return null;
+        GdxSettingsContract.TogglePage page = settingsAppearanceTogglePage();
+        int choiceIndex = GdxAppearanceOptions.ANIMATION_CHOICES.indexOf(
+                GdxAppearanceOptions.CHIP_FLIGHT_MODE);
+        int row = page.options().size() + choiceIndex;
+        GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                firstY, GdxSettingsContract.appearanceRowCount(page),
+                settingsAppearanceScroll);
+        if (row < rows.firstIndex() || row >= rows.lastExclusive()) {
+            return null;
+        }
+        Rectangle bounds = GdxSettingsLayout.optionRow(x, rows.rowY(row),
+                width, true);
+        return bounds.contains(pointer)
+                ? GdxAppearanceOptions.CHIP_FLIGHT_MODE_TOOLTIP_KEY : null;
     }
 
     private void drawSettingsLockTooltip(float x, float firstY,
@@ -24157,31 +24441,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveActionChip(TableVisualEvent.PlayerAction event,
                 long startedAtNanos, boolean deferPlayerCounters,
-                double minimumChip) {
+                double minimumChip, boolean dynamicChipCount) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
-            long visualSeed = chipVariationSeed(startedAtNanos,
+            long visualSeed = chipVariationSeed(event.sequence(),
                     event.nickname(), 0);
-            int chipCount = visualChipCount(event.contributionDelta(),
-                    minimumChip);
             int baseColor = switch (event.kind()) {
                 case ALL_IN -> 3;
                 case BET, RAISE, RERAISE -> 2;
                 case CALL -> 1;
                 default -> 0;
             };
+            int staticCount = actionVisualChipCount(event.kind(),
+                    event.contributionDelta(), minimumChip, false);
+            List<VisualChipSpec> visualChips = visualChipSpecs(
+                    event.contributionDelta(), minimumChip, visualSeed,
+                    dynamicChipCount, staticCount, baseColor);
+            int chipCount = visualChips.size();
             ArrayList<LiveChip> created = new ArrayList<>(chipCount);
-            double[] contributions = splitVisualCounterAmounts(
-                    event.contributionDelta(), chipCount, minimumChip);
             for (int chip = 0; chip < chipCount; chip++) {
+                VisualChipSpec visualChip = visualChips.get(chip);
                 created.add(new LiveChip(event.nickname(),
                         CHIP_FLIGHT_DELAY + chip * 0.065f,
                         CHIP_FLIGHT_SECONDS + chip * 0.035f,
                         Math.floorMod(event.nickname().hashCode()
                                 + chip * 53, 360),
-                        variedVisualChipColor(baseColor, visualSeed, chip),
-                        chip, contributions[chip]));
+                        visualChip.color(), chip, visualChip.amount()));
             }
             chips = withLandingImpacts(created);
         }
@@ -24237,9 +24523,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LivePayout(List<TableVisualEvent.PayoutBatch.Transfer> transfers,
                 double payoutAmount, double potAfter,
-                double investedAmountAfter, long startedAtNanos,
+                double investedAmountAfter, long variationSeed,
+                long startedAtNanos,
                 CompletableFuture<Void> barrier, double minimumChip,
-                double potBefore, Map<String, Double> investmentsBefore) {
+                double potBefore, Map<String, Double> investmentsBefore,
+                boolean dynamicChipCount) {
             this.transfers = List.copyOf(transfers);
             this.payoutAmount = Math.max(0d,
                     MoneyMath.clean(payoutAmount));
@@ -24258,16 +24546,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     transferIndex++) {
                 TableVisualEvent.PayoutBatch.Transfer transfer =
                         transfers.get(transferIndex);
-                long visualSeed = chipVariationSeed(startedAtNanos,
+                long visualSeed = chipVariationSeed(variationSeed,
                         transfer.nickname(), transferIndex);
-                int chipCount = visualChipCount(transfer.amount(), minimumChip);
-                double[] amounts = splitVisualCounterAmounts(
-                        transfer.amount(), chipCount, minimumChip);
+                List<VisualChipSpec> visualChips = visualChipSpecs(
+                        transfer.amount(), minimumChip, visualSeed,
+                        dynamicChipCount, 18, 0);
+                int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
+                    VisualChipSpec visualChip = visualChips.get(index);
                     created.add(new LivePayoutChip(transfer.nickname(), index,
                             0.18f + index * 0.035f, 1.05f,
-                            variedVisualChipColor(0, visualSeed, index),
-                            amounts[index]));
+                            visualChip.color(), visualChip.amount()));
                 }
             }
             chips = withLandingImpacts(created);
@@ -24365,7 +24654,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveRebuy(TableVisualEvent.Rebuy event, long startedAtNanos,
                 CompletableFuture<Void> barrier, String cashSoundResource,
-                double minimumChip) {
+                double minimumChip, boolean dynamicChipCount) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24375,23 +24664,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float totalSeconds = event.durationMillis() / 1_000f;
             int transferIndex = 0;
             for (TableVisualEvent.ChipTransfer transfer : event.transfers()) {
-                long visualSeed = chipVariationSeed(startedAtNanos,
+                long visualSeed = chipVariationSeed(event.sequence(),
                         transfer.nickname(), transferIndex);
-                int chipCount = visualChipCount(transfer.amount(), minimumChip);
-                double[] amounts = splitVisualCounterAmounts(transfer.amount(),
-                        chipCount, minimumChip);
+                int seed = transfer.nickname().hashCode()
+                        + transferIndex * 97;
+                List<VisualChipSpec> visualChips = visualChipSpecs(
+                        transfer.amount(), minimumChip, visualSeed,
+                        dynamicChipCount, 14, Math.floorMod(seed, 4));
+                int chipCount = visualChips.size();
                 for (int index = 0; index < chipCount; index++) {
                     float start = 0.04f + index * 0.025f
                             + transferIndex * 0.015f;
                     float duration = Math.max(0.28f, totalSeconds - start);
-                    int seed = transfer.nickname().hashCode()
-                            + transferIndex * 97 + index * 31;
+                    int chipSeed = seed + index * 31;
+                    VisualChipSpec visualChip = visualChips.get(index);
                     created.add(new LiveRebuyChip(transfer.nickname(), index,
                             start, duration,
-                            variedVisualChipColor(Math.floorMod(seed, 4),
-                                    visualSeed, index),
-                            amounts[index],
-                            Math.floorMod(seed, 360)));
+                            visualChip.color(), visualChip.amount(),
+                            Math.floorMod(chipSeed, 360)));
                 }
                 transferIndex++;
             }
@@ -24546,7 +24836,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveChipBatch(TableVisualEvent.CollectBets event, long startedAtNanos,
                 CompletableFuture<Void> barrier, TableSnapshot snapshot,
-                Map<String, Double> delivered, double minimumChip) {
+                Map<String, Double> delivered, double minimumChip,
+                boolean dynamicChipCount) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -24572,35 +24863,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double bigAmount = Math.max(0d, bigBlind.amount()
                         - delivered.getOrDefault(bigBlind.nickname(), 0d));
                 if (smallAmount > 0.000_001d) {
-                    long visualSeed = chipVariationSeed(startedAtNanos,
+                    long visualSeed = chipVariationSeed(event.sequence(),
                             smallBlind.nickname(), 0);
-                    int chipCount = visualChipCount(smallAmount, minimumChip);
-                    double[] amounts = splitVisualCounterAmounts(smallAmount,
-                            chipCount, minimumChip);
+                    int staticCount = collectedVisualChipCount(
+                            TableSnapshot.Position.SMALL_BLIND, smallAmount,
+                            minimumChip, false);
+                    List<VisualChipSpec> visualChips = visualChipSpecs(
+                            smallAmount, minimumChip, visualSeed,
+                            dynamicChipCount, staticCount, 2);
+                    int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
+                        VisualChipSpec visualChip = visualChips.get(chipIndex);
                         created.add(new LiveChip(smallBlind.nickname(),
                                 chipIndex * 0.06f,
                                 0.34f + chipIndex * 0.02f,
                                 37f + chipIndex * 53f,
-                                variedVisualChipColor(2, visualSeed, chipIndex),
-                                chipIndex,
-                                amounts[chipIndex]));
+                                visualChip.color(), chipIndex,
+                                visualChip.amount()));
                     }
                 }
                 if (bigAmount > 0.000_001d) {
-                    long visualSeed = chipVariationSeed(startedAtNanos,
+                    long visualSeed = chipVariationSeed(event.sequence(),
                             bigBlind.nickname(), 1);
-                    int chipCount = visualChipCount(bigAmount, minimumChip);
-                    double[] amounts = splitVisualCounterAmounts(bigAmount,
-                            chipCount, minimumChip);
+                    int staticCount = collectedVisualChipCount(
+                            TableSnapshot.Position.BIG_BLIND, bigAmount,
+                            minimumChip, false);
+                    List<VisualChipSpec> visualChips = visualChipSpecs(
+                            bigAmount, minimumChip, visualSeed,
+                            dynamicChipCount, staticCount, 1);
+                    int chipCount = visualChips.size();
                     for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
+                        VisualChipSpec visualChip = visualChips.get(chipIndex);
                         created.add(new LiveChip(bigBlind.nickname(),
                                 0.06f + chipIndex * 0.08f,
                                 0.36f + chipIndex * 0.02f,
                                 91f + chipIndex * 52f,
-                                variedVisualChipColor(1, visualSeed, chipIndex),
-                                chipIndex,
-                                amounts[chipIndex]));
+                                visualChip.color(), chipIndex,
+                                visualChip.amount()));
                     }
                 }
                 chips = withLandingImpacts(created);
@@ -24613,19 +24912,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 double visualAmount = Math.max(0d, transfer.amount()
                         - delivered.getOrDefault(transfer.nickname(), 0d));
                 if (visualAmount <= 0.000_001d) continue;
-                long visualSeed = chipVariationSeed(startedAtNanos,
+                long visualSeed = chipVariationSeed(event.sequence(),
                         transfer.nickname(), transferIndex);
-                int chipCount = visualChipCount(visualAmount, minimumChip);
-                double[] contributions = splitVisualCounterAmounts(visualAmount,
-                        chipCount, minimumChip);
+                TableSnapshot.Position position = canonicalPosition(
+                        snapshot, transfer.nickname());
+                int staticCount = collectedVisualChipCount(position,
+                        visualAmount, minimumChip, false);
+                List<VisualChipSpec> visualChips = visualChipSpecs(
+                        visualAmount, minimumChip, visualSeed,
+                        dynamicChipCount, staticCount, transferIndex);
+                int chipCount = visualChips.size();
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                     float start = transferIndex * 0.025f + chipIndex * 0.06f;
                     float duration = 0.34f + chipIndex * 0.02f;
+                    VisualChipSpec visualChip = visualChips.get(chipIndex);
                     created.add(new LiveChip(transfer.nickname(), start, duration,
                             (transferIndex * 97f + chipIndex * 53f) % 360f,
-                            variedVisualChipColor(transferIndex, visualSeed,
-                                    chipIndex), chipIndex,
-                            contributions[chipIndex]));
+                            visualChip.color(), chipIndex,
+                            visualChip.amount()));
                 }
             }
             chips = withLandingImpacts(created);

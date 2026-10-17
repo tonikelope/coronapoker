@@ -243,13 +243,19 @@ final class GdxSettingsLayout {
      */
     static ToggleRow toggleRow(float x, float y, float width,
             float height) {
+        return toggleRow(x, y, width, height, 0f);
+    }
+
+    static ToggleRow toggleRow(float x, float y, float width,
+            float height, float trailingValueReserve) {
         StepperRow stepper = stepperRow(x, y, width, height);
         float switchX = x + width - GdxSettingsStyle.TOGGLE_WIDTH
                 - GdxSettingsStyle.TOGGLE_RIGHT_INSET;
         float valueCenter = stepper.value().x + stepper.value().width / 2f;
         float valueWidth = Math.min(220f, Math.max(150f, width * 0.16f));
         float valueX = Math.min(valueCenter - valueWidth / 2f,
-                switchX - 20f - valueWidth);
+                switchX - 20f - Math.max(0f, trailingValueReserve)
+                        - valueWidth);
         Rectangle value = new Rectangle(valueX, y + 5f,
                 valueWidth, height - 10f);
         Rectangle label = new Rectangle(x + 22f, y + 5f,

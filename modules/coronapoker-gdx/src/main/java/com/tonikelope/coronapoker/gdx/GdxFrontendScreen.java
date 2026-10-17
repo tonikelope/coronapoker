@@ -7997,14 +7997,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     rows.rowY(rowIndex),
                     baseWidth,
                     GdxSettingsContract.isChildOption(page, option));
-            toggle(row.x, row.y, row.width,
-                    GdxSettingsContract.markDefault(option.label(gameText),
-                            value == GdxSettingsContract.displayedFallback(
-                                    option)), value,
-                    action, enabled);
             GdxSettingsContract.AudioPreview preview =
                     GdxSettingsContract.audioPreview(option,
                             gameText.language());
+            settingsBooleanToggle(row.x, row.y, row.width,
+                    option.label(gameText), value,
+                    GdxSettingsContract.displayedFallback(option), action,
+                    enabled, preview != null);
             if (preview != null) {
                 drawAudioPreviewControl(row, option.key(), preview);
             }
@@ -8205,11 +8204,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean autoFullscreenEnabled =
                     GdxWindowMode.allowsAutomaticFullscreen(
                             initialProperties);
-            toggle(autoFullscreenRow.x, autoFullscreenRow.y,
-                    autoFullscreenRow.width,
+            settingsBooleanToggle(autoFullscreenRow.x,
+                    autoFullscreenRow.y, autoFullscreenRow.width,
                     uppercase(gameText.translate(
                             "gdx.settings.option.auto_fullscreen")),
-                    preferenceBoolean("auto_fullscreen", true),
+                    preferenceBoolean("auto_fullscreen", true), true,
                     () -> togglePreference("auto_fullscreen", true),
                     autoFullscreenEnabled);
             settingsValueToggle(x + 34f, rowY - 2f * rowStride, w - 68f,
@@ -8248,10 +8247,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     rowY - 4f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_msaa_samples");
-            toggle(x + 34f, rowY - 5f * rowStride, w - 68f,
+            settingsBooleanToggle(x + 34f,
+                    rowY - 5f * rowStride, w - 68f,
                     uppercase(gameText.translate(
                             "gdx.settings.option.gdx_show_fps")),
-                    preferenceBoolean("gdx_show_fps", false),
+                    preferenceBoolean("gdx_show_fps", false), false,
                     () -> togglePreference("gdx_show_fps", false), true);
             settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
@@ -8283,10 +8283,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
                         currentY, baseWidth,
                         GdxSettingsContract.isChildOption(page, option));
-                toggle(rowBounds.x, rowBounds.y, rowBounds.width,
-                        GdxSettingsContract.markDefault(option.label(gameText),
-                                value == GdxSettingsContract.displayedFallback(
-                                        option)), value,
+                settingsBooleanToggle(rowBounds.x, rowBounds.y,
+                        rowBounds.width, option.label(gameText), value,
+                        GdxSettingsContract.displayedFallback(option),
                         () -> togglePreference(option.key(),
                                 option.fallback()), enabled);
                 performanceTooltip(rowBounds, option.key());
@@ -8537,21 +8536,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameText("row.initial_blinds"), settingsBlindLevel(),
                 () -> adjustSettingsBlindLevel(-1),
                 () -> adjustSettingsBlindLevel(1), enabled);
-        toggle(leftX, y - 2f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        settingsBooleanToggle(leftX,
+                y - 2f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.ante"),
-                settingsTable.ante(), () -> settingsTable
+                settingsTable.ante(), false, () -> settingsTable
                         .setAnte(!settingsTable.ante()), enabled);
-        toggle(leftX, y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        settingsBooleanToggle(leftX,
+                y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.straddle"),
-                settingsTable.straddle(), () -> settingsTable
+                settingsTable.straddle(), false, () -> settingsTable
                         .setStraddle(!settingsTable.straddle()), enabled);
         button(leftX, y - 4f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.manage_structures"), false,
                 this::openSettingsBlindStructureEditor, enabled);
-        toggle(rightX, y, columnWidth,
+        settingsBooleanToggle(rightX, y, columnWidth,
                 settingsGameText("row.increase_blinds"),
-                settingsTable.increaseBlinds(), () -> settingsTable
+                settingsTable.increaseBlinds(), false, () -> settingsTable
                         .setIncreaseBlinds(!settingsTable.increaseBlinds()),
                 enabled);
         settingsStepper(rightX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth,
@@ -8567,9 +8568,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> adjustSettingsBlindInterval(-1),
                 () -> adjustSettingsBlindInterval(1),
                 enabled && settingsTable.increaseBlinds());
-        toggle(rightX, y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        settingsBooleanToggle(rightX,
+                y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
                 settingsGameText("row.blind_cap"),
-                settingsTable.blindCap(), () -> settingsTable
+                settingsTable.blindCap(), false, () -> settingsTable
                         .setBlindCap(!settingsTable.blindCap()),
                 enabled && settingsTable.blindCapControlEnabled());
         settingsStepper(rightX, y - 4f * GdxSettingsLayout.ROW_STRIDE,
@@ -8591,9 +8593,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawLobbyPurchaseSettings(float x, float w, float y,
             boolean editable, boolean economyEditable, String serverLockKey,
             String economyLockKey) {
-        toggle(x + 34f, y, w - 68f,
+        settingsBooleanToggle(x + 34f, y, w - 68f,
                 settingsGameText("row.fixed_buyin"),
-                settingsTable.fixedBuyin(), () -> settingsTable
+                settingsTable.fixedBuyin(), true, () -> settingsTable
                         .setFixedBuyin(!settingsTable.fixedBuyin()),
                 economyEditable);
         settingsStepper(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
@@ -8639,13 +8641,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyRebuySettings(float x, float w, float y,
             boolean editable, String lockKey) {
-        toggle(x + 34f, y, w - 68f, settingsGameText("row.rebuy"),
-                settingsTable.rebuy(),
+        settingsBooleanToggle(x + 34f, y, w - 68f,
+                settingsGameText("row.rebuy"), settingsTable.rebuy(), true,
                 () -> settingsTable.setRebuy(!settingsTable.rebuy()),
                 editable);
-        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
+        settingsBooleanToggle(x + 34f,
+                y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.player_limit"),
-                settingsTable.rebuyLimit(), () -> settingsTable
+                settingsTable.rebuyLimit(), false, () -> settingsTable
                         .setRebuyLimit(!settingsTable.rebuyLimit()),
                 editable && settingsTable.rebuy());
         settingsStepper(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
@@ -8669,14 +8672,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> adjustSettingsBotDifficulty(-1),
                 () -> adjustSettingsBotDifficulty(1),
                 editable);
-        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
+        settingsBooleanToggle(x + 34f,
+                y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.bot_rebuy"),
-                settingsTable.botRebuy(), () -> settingsTable
+                settingsTable.botRebuy(), true, () -> settingsTable
                         .setBotRebuy(!settingsTable.botRebuy()),
                 editable && settingsTable.botRebuyEnabled());
-        toggle(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+        settingsBooleanToggle(x + 34f,
+                y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.bot_balance"),
-                settingsTable.botBalanceToHumans(), () -> settingsTable
+                settingsTable.botBalanceToHumans(), false, () -> settingsTable
                         .setBotBalanceToHumans(
                                 !settingsTable.botBalanceToHumans()), editable);
         if (!editable) addLobbySettingsLockTooltips(x + 34f, y, w - 68f,
@@ -8685,9 +8690,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyRoundSettings(float x, float w, float y,
             boolean editable, String lockKey) {
-        toggle(x + 34f, y, w - 68f,
+        settingsBooleanToggle(x + 34f, y, w - 68f,
                 settingsGameText("row.hand_limit"),
-                settingsTable.handLimit(), () -> settingsTable
+                settingsTable.handLimit(), false, () -> settingsTable
                         .setHandLimit(!settingsTable.handLimit()), editable);
         settingsStepper(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.hand_count"),
@@ -8696,9 +8701,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> settingsTable.setHandLimitCount(
                         settingsTable.handLimitCount() + 1),
                 editable && settingsTable.handLimit());
-        toggle(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+        settingsBooleanToggle(x + 34f,
+                y - 2f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.think_time"),
-                settingsTable.thinkTime(), () -> settingsTable
+                settingsTable.thinkTime(), true, () -> settingsTable
                         .setThinkTime(!settingsTable.thinkTime()), editable);
         settingsStepper(x + 34f, y - 3f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.think_seconds"),
@@ -8715,9 +8721,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         settingsTable.showdownSeconds() - 5),
                 () -> settingsTable.setShowdownSeconds(
                         settingsTable.showdownSeconds() + 5), editable);
-        toggle(x + 34f, y - 5f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
+        settingsBooleanToggle(x + 34f,
+                y - 5f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 settingsGameText("row.allow_hot_join"),
-                settingsTable.allowHotJoin(), () -> settingsTable
+                settingsTable.allowHotJoin(), true, () -> settingsTable
                         .setAllowHotJoin(!settingsTable.allowHotJoin()), editable);
         tooltip(x + 34f, y - 5f * GdxSettingsLayout.ROW_STRIDE, w - 68f,
                 GdxSettingsLayout.ROW_HEIGHT, "tooltip.cfg.allow_hot_join");
@@ -8727,11 +8734,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyRuleSettings(float x, float w, float y,
             boolean editable, String lockKey) {
-        toggle(x + 34f, y, w - 68f, "IWTSTH",
-                settingsTable.iwtsth(), () -> settingsTable
+        settingsBooleanToggle(x + 34f, y, w - 68f, "IWTSTH",
+                settingsTable.iwtsth(), false, () -> settingsTable
                         .setIwtsth(!settingsTable.iwtsth()), editable);
-        toggle(x + 34f, y - GdxSettingsLayout.ROW_STRIDE, w - 68f, "RUN IT TWICE",
-                settingsTable.runItTwice(), () -> settingsTable
+        settingsBooleanToggle(x + 34f,
+                y - GdxSettingsLayout.ROW_STRIDE, w - 68f, "RUN IT TWICE",
+                settingsTable.runItTwice(), false, () -> settingsTable
                         .setRunItTwice(!settingsTable.runItTwice()), editable);
         settingsStepper(x + 34f, y - 2f * GdxSettingsLayout.ROW_STRIDE,
                 w - 68f, GdxSettingsLayout.ROW_HEIGHT,
@@ -8928,9 +8936,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawFrontendControlSetting(int row, float x, float y,
             float width) {
         switch (row) {
-            case 0 -> toggle(x, y, width,
+            case 0 -> settingsBooleanToggle(x, y, width,
                     settingsGameText("row.auto_buttons"),
-                    preferenceBoolean("auto_action_buttons", false),
+                    preferenceBoolean("auto_action_buttons", false), false,
                     () -> togglePreference("auto_action_buttons", false),
                     true);
             case 1 -> settingsChoice(x, y, width,
@@ -8938,23 +8946,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsGameText("row.auto_call"),
                     frontendAutoCallValue(), this::openSettingsAutoCallDialog,
                     preferenceBoolean("auto_action_buttons", false));
-            case 2 -> toggle(x, y, width,
+            case 2 -> settingsBooleanToggle(x, y, width,
                     settingsGameText("row.persist_auto"),
-                    preferenceBoolean("auto_action_persist", true),
+                    preferenceBoolean("auto_action_persist", true), true,
                     () -> togglePreference("auto_action_persist", true),
                     preferenceBoolean("auto_action_buttons", false));
-            case 3 -> toggle(x, y, width,
+            case 3 -> settingsBooleanToggle(x, y, width,
                     settingsGameText("row.confirm_auto"),
-                    preferenceBoolean("modo_auto_confirm", true),
+                    preferenceBoolean("modo_auto_confirm", true), true,
                     () -> togglePreference("modo_auto_confirm", true),
                     preferenceBoolean("auto_action_buttons", false));
-            case 4 -> toggle(x, y, width,
+            case 4 -> settingsBooleanToggle(x, y, width,
                     settingsGameText("row.confirm_actions"),
-                    preferenceBoolean("confirmar_todo", false),
+                    preferenceBoolean("confirmar_todo", false), false,
                     () -> togglePreference("confirmar_todo", false), true);
-            case 5 -> toggle(x, y, width,
+            case 5 -> settingsBooleanToggle(x, y, width,
                     settingsGameText("row.auto_rebuy"),
-                    presentationSettings.autoRebuyOnBroke(), () ->
+                    presentationSettings.autoRebuyOnBroke(), false, () ->
                             presentationSettings.setAutoRebuyOnBroke(
                                     !presentationSettings.autoRebuyOnBroke()),
                     true);
@@ -9031,16 +9039,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, dialog.message(), layout.detail().x
                 + layout.detail().width / 2f, layout.detail().y + 30f,
                 Color.WHITE, true, layout.detail().width);
-        toggle(layout.enabled().x, layout.enabled().y,
+        settingsBooleanToggle(layout.enabled().x, layout.enabled().y,
                 layout.enabled().width,
-                uppercase(dialog.optionEnabled()
-                        ? gameText.translate("auto_call.activado")
-                        : gameText.translate("auto_call.desactivado")),
-                dialog.optionEnabled(), dialog::toggleOptionEnabled, true);
-        toggle(layout.noLimit().x, layout.noLimit().y,
+                settingsGameText("row.auto_call"),
+                dialog.optionEnabled(), false,
+                dialog::toggleOptionEnabled, true);
+        settingsBooleanToggle(layout.noLimit().x, layout.noLimit().y,
                 layout.noLimit().width,
                 uppercase(gameText.translate("auto_call.sin_limite")),
-                dialog.noLimit(), dialog::toggleNoLimit,
+                dialog.noLimit(), true, dialog::toggleNoLimit,
                 dialog.optionEnabled());
         GdxSettingsLayout.StepperRow amount = layout.amount();
         settingsStepper(amount.bounds().x, amount.bounds().y,
@@ -11468,7 +11475,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String valueLabel, boolean value, Runnable action,
             boolean enabled) {
         toggle(x, y, w, label, valueLabel, value, action, enabled,
-                smallFont, false);
+                smallFont, false, 0f);
+    }
+
+    private void settingsBooleanToggle(float x, float y, float w,
+            String label, boolean value, boolean factoryDefault,
+            Runnable action, boolean enabled) {
+        settingsBooleanToggle(x, y, w, label, value, factoryDefault,
+                action, enabled, false);
+    }
+
+    private void settingsBooleanToggle(float x, float y, float w,
+            String label, boolean value, boolean factoryDefault,
+            Runnable action, boolean enabled, boolean reserveAudioPreview) {
+        toggle(x, y, w, label,
+                GdxSettingsContract.booleanStatusLabel(value,
+                        factoryDefault, gameText),
+                value, action, enabled, smallFont, false,
+                reserveAudioPreview ? 94f : 0f);
     }
 
     private void compactToggle(float x, float y, float w, String label,
@@ -11492,6 +11516,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void toggle(float x, float y, float w, String label,
             String valueLabel, boolean value, Runnable action,
             boolean enabled, BitmapFont labelFont, boolean wrapLabel) {
+        toggle(x, y, w, label, valueLabel, value, action, enabled,
+                labelFont, wrapLabel, 0f);
+    }
+
+    private void toggle(float x, float y, float w, String label,
+            String valueLabel, boolean value, Runnable action,
+            boolean enabled, BitmapFont labelFont, boolean wrapLabel,
+            float trailingValueReserve) {
         GdxSettingsStyle.drawRow(shapes, x, y, w,
                 GdxSettingsLayout.ROW_HEIGHT, enabled,
                 enabled && hovered(x, y, w, GdxSettingsLayout.ROW_HEIGHT),
@@ -11499,7 +11531,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 1f);
         GdxSettingsLayout.ToggleRow layout = valueLabel == null ? null
                 : GdxSettingsLayout.toggleRow(x, y, w,
-                        GdxSettingsLayout.ROW_HEIGHT);
+                        GdxSettingsLayout.ROW_HEIGHT,
+                        trailingValueReserve);
         float labelWidth = layout == null ? Math.max(0f, w - 132f)
                 : layout.label().width;
         if (wrapLabel) {

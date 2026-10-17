@@ -640,11 +640,17 @@ final class GdxSettingsContract {
     }
 
     static String vsyncStatusLabel(boolean enabled, GdxGameText text) {
+        return booleanStatusLabel(enabled, DEFAULT_VSYNC, text);
+    }
+
+    static String booleanStatusLabel(boolean enabled,
+            boolean factoryDefault, GdxGameText text) {
         String key = enabled
-                ? "gdx.settings.game.summary.value.enabled"
-                : "gdx.settings.game.summary.value.disabled_feminine";
-        return markDefault(text.translate(key).toUpperCase(Locale.ROOT),
-                enabled == DEFAULT_VSYNC);
+                ? "gdx.settings.value.enabled"
+                : "gdx.settings.value.disabled";
+        return markDefault(translatedUpper(text, key,
+                enabled ? "ACTIVADO" : "DESACTIVADO"),
+                enabled == factoryDefault);
     }
 
     static String voiceRetentionLabel(Properties properties) {

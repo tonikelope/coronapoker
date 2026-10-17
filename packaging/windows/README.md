@@ -14,6 +14,15 @@ the bundled runtime, without administrator elevation. Installing the game does
 not redirect `user.home`; both the portable and installed editions continue to
 use `%USERPROFILE%\.coronapoker` for preferences and user data.
 
+The task page offers `🛡 Allow CoronaPoker through Windows Firewall` (or its
+Spanish equivalent) and selects it by default. When it remains selected, Setup
+asks for elevation once at the end and creates an inbound TCP rule for the
+installed `CoronaPoker.exe` on private and public Windows network profiles. The
+rule follows the program, not a fixed poker port; an older inbound rule for the
+same executable is replaced instead of duplicated, and the final rule is
+removed by the uninstaller. Clearing the option keeps the entire per-user
+installation unelevated.
+
 The native `.exe` intentionally starts without the legacy JVM splash screen.
 `jpackage` invokes the main class directly instead of reading the JAR's
 `SplashScreen-Image` manifest entry, which avoids adding a separate splash

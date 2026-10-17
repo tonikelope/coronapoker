@@ -3160,12 +3160,8 @@ final class GdxTableViewStateTest {
                 - layout.actionWidth(), 0.000_001f);
         assertEquals(stack.x + 43f, layout.stackChipCenterX(),
                 0.000_001f);
-        assertEquals(invested.x + invested.width - 39f,
-                layout.investedChipCenterX(), 0.000_001f);
         assertEquals(layout.stackCaptionBounds().width,
                 layout.investedCaptionBounds().width, 0.000_001f);
-        assertEquals(layout.stackValueBounds().width,
-                layout.investedValueBounds().width, 0.000_001f);
         Rectangle stackValueWithoutRack = layout.stackValueBounds(false);
         assertEquals(stack.x + stack.width / 2f,
                 stackValueWithoutRack.x + stackValueWithoutRack.width / 2f,
@@ -3175,42 +3171,17 @@ final class GdxTableViewStateTest {
                 > layout.stackValueBounds().width);
         assertTrue(CoronaPokerGdxTable.localStackValueScale(true)
                 < CoronaPokerGdxTable.localStackValueScale(false));
-        Rectangle racklessInvestedValue = layout.investedValueBounds(false);
+        Rectangle racklessInvestedValue = layout.investedValueBounds();
         assertEquals(invested.x + invested.width / 2f,
                 racklessInvestedValue.x + racklessInvestedValue.width / 2f,
                 0.000_001f,
-                "a zero APUESTA TOTAL must be centred without a chip rack");
-        assertEquals(layout.investedValueBounds(),
-                layout.investedValueBounds(true),
-                "a visible chip rack must retain its amount bounds");
-        assertTrue(racklessInvestedValue.width
-                > layout.investedValueBounds().width);
-        assertTrue(Math.abs(invested.x + invested.width / 2f
-                - (layout.investedValueBounds().x
-                + layout.investedValueBounds().width / 2f)) > 1f,
-                "APUESTA TOTAL must reserve room when its rack appears");
+                "APUESTA TOTAL must always centre its amount without chips");
         Rectangle stackChips = layout.stackChipVisualBounds();
-        Rectangle investedChips = layout.investedChipVisualBounds();
         assertEquals(6f, layout.stackValueBounds().x
                 - (stackChips.x + stackChips.width), 0.000_001f,
                 "STACK amount must never touch its visible chip rack");
-        assertEquals(6f, investedChips.x
-                - (layout.investedValueBounds().x
-                + layout.investedValueBounds().width), 0.000_001f,
-                "APUESTA TOTAL amount must never touch its visible chip rack");
-        assertEquals(stackChips.width, investedChips.width, 0.000_001f);
-        assertEquals(stackChips.height, investedChips.height, 0.000_001f,
-                "STACK and APUESTA TOTAL must use cloned rack geometry");
-        assertEquals(stackChips.y, investedChips.y, 0.000_001f);
-        assertEquals(stackChips.x - stack.x,
-                invested.x + invested.width
-                        - (investedChips.x + investedChips.width),
-                0.000_001f,
-                "mirrored chip stacks must keep equal outer margins");
         assertEquals(stack.y + stack.height / 2f,
                 stackChips.y + stackChips.height / 2f, 0.000_001f);
-        assertEquals(invested.y + invested.height / 2f,
-                investedChips.y + investedChips.height / 2f, 0.000_001f);
         assertEquals(stack.x + stack.width / 2f,
                 layout.stackCaptionBounds().x
                         + layout.stackCaptionBounds().width / 2f,

@@ -153,6 +153,28 @@ final class ProductDistributionContractTest {
         assertTrue(installerSpec.contains(
                 "DefaultDirName={localappdata}\\Programs\\CoronaPoker"),
                 "The updater needs a user-writable installation");
+        assertTrue(installerSpec.contains("PrivilegesRequired=lowest"),
+                "The installer must stay per-user unless firewall access is selected");
+        assertTrue(installerSpec.contains("Name: \"firewall\""),
+                "Firewall access must be an explicit installer task");
+        assertFalse(installerSpec.contains(
+                "Name: \"firewall\"; Description: \"{cm:FirewallAccess}\"; "
+                        + "GroupDescription: \"{cm:NetworkAccess}\"; Flags: unchecked"),
+                "The firewall task must be selected by default");
+        assertTrue(installerSpec.contains(
+                "Permitir CoronaPoker en el Firewall de Windows"));
+        assertTrue(installerSpec.contains(
+                "-Direction Inbound -Action Allow -Profile Private,Public -Program"),
+                "The rule must cover the selected Windows network profile and be tied to the launcher");
+        assertTrue(installerSpec.contains(
+                "Get-NetFirewallApplicationFilter -Program"),
+                "Installer upgrades must replace an existing rule for the launcher path");
+        assertTrue(installerSpec.contains("-Protocol TCP"));
+        assertFalse(installerSpec.toLowerCase(java.util.Locale.ROOT)
+                .contains("localport"),
+                "The installer must not freeze the configurable poker port");
+        assertTrue(installerSpec.contains("CurUninstallStepChanged"));
+        assertTrue(installerSpec.contains("RemoveFirewallRule()"));
         assertTrue(installerSpec.contains(
                 "compiler:Languages\\Spanish.isl"));
         assertTrue(installerSpec.contains("ShowLanguageDialog=auto"));

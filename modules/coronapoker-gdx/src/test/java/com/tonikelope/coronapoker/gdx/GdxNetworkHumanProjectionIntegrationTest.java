@@ -3970,6 +3970,10 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean candidateCleared = new AtomicBoolean();
         private final AtomicBoolean candidateRevealed = new AtomicBoolean();
         private final AtomicBoolean requestCinematic = new AtomicBoolean();
+        private final AtomicBoolean requestCinematicPlaying =
+                new AtomicBoolean();
+        private final AtomicBoolean revealBeforeRequestCinematicFinished =
+                new AtomicBoolean();
         private final AtomicReference<String> candidate = new AtomicReference<>();
         private final CopyOnWriteArrayList<String> reveals
                 = new CopyOnWriteArrayList<>();
@@ -4024,6 +4028,9 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 reveals.add(reveal.nickname() + ":" + reveal.left().code()
                         + ":" + reveal.right().code());
                 if (reveal.nickname().equals(candidate.get())) {
+                    if (requestCinematicPlaying.get()) {
+                        revealBeforeRequestCinematicFinished.set(true);
+                    }
                     candidateRevealed.set(reveal.left().faceUp()
                             && reveal.right().faceUp()
                             && !reveal.left().code().isBlank()
@@ -4036,6 +4043,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     == TableVisualEvent.Cinematic.Phase.START) {
                 assertEquals("iwtsth.gif", cinematic.assetName());
                 requestCinematic.set(true);
+                requestCinematicPlaying.set(true);
+                CompletableFuture<Void> completion = new CompletableFuture<>();
+                CompletableFuture.delayedExecutor(3500,
+                        TimeUnit.MILLISECONDS).execute(() -> {
+                            requestCinematicPlaying.set(false);
+                            completion.complete(null);
+                        });
+                return completion;
             } else if (event instanceof TableVisualEvent.CloseTable) {
                 closed.set(true);
             }
@@ -4052,6 +4067,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         "the selected muck " + candidate.get()
                         + " was not revealed by canonical SHOWCARDS; reveals="
                         + reveals);
+                assertFalse(revealBeforeRequestCinematicFinished.get(),
+                        "SHOWCARDS overtook the IWTSTH request cinematic");
             }
         }
 

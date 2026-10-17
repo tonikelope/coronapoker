@@ -213,6 +213,20 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void audioToggleStatusReservesThePreviewButtonLane() {
+        float x = 100f;
+        float width = 1_120f;
+        GdxSettingsLayout.ToggleRow toggle = GdxSettingsLayout.toggleRow(
+                x, 200f, width, GdxSettingsLayout.ROW_HEIGHT, 94f);
+        float previewX = x + width - 190f;
+
+        assertTrue(toggle.value().x + toggle.value().width < previewX,
+                "the status text must not sit below the audio preview button");
+        assertTrue(previewX + 46f < toggle.toggle().x,
+                "the audio preview and switch need separate hit lanes");
+    }
+
+    @Test
     void primaryTabIconAndLabelOwnSeparateSafeLanes() {
         Rectangle tab = GdxSettingsLayout.frame(
                 1920f, 1080f, 4, 6).mainTab(0);

@@ -78,18 +78,24 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void vsyncValueUsesTheFeminineLabelAndMarksTheFactoryDefault() {
+    void booleanValuesUseCanonicalStatusAndMarkTheFactoryDefault() {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals("DESACTIVADA",
+        assertEquals("DESACTIVADO",
                 GdxSettingsContract.vsyncStatusLabel(false, spanish));
-        assertEquals("ACTIVADA *",
+        assertEquals("ACTIVADO *",
                 GdxSettingsContract.vsyncStatusLabel(true, spanish));
         assertEquals("DISABLED",
                 GdxSettingsContract.vsyncStatusLabel(false, english));
         assertEquals("ENABLED *",
                 GdxSettingsContract.vsyncStatusLabel(true, english));
+        assertEquals("ACTIVADO",
+                GdxSettingsContract.booleanStatusLabel(true, false,
+                        spanish));
+        assertEquals("DESACTIVADO *",
+                GdxSettingsContract.booleanStatusLabel(false, false,
+                        spanish));
     }
 
     @Test

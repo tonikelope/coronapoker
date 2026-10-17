@@ -116,6 +116,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -4083,6 +4084,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Object lock_contabilidad = new Object();
     private final Object lock_mostrar = new Object();
     private final Object lock_iwtsth = new Object();
+    /**
+     * Local presentation barrier for the current IWTSTH request. The verdict
+     * can arrive on another game worker before the request worker has even
+     * started, especially on clients receiving the two ordered protocol
+     * frames over a fast local network. Registering this barrier before the
+     * request is queued keeps SHOWCARDS behind the final GIF frame on every
+     * participant, not just on the host that authorizes the request.
+     */
+    private final java.util.concurrent.atomic.AtomicReference<CompletableFuture<Void>>
+            iwtsth_presentation_barrier = new java.util.concurrent.atomic.AtomicReference<>(
+                    CompletableFuture.completedFuture(null));
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
     private final Object lock_rabbit = new Object();
@@ -8334,16 +8346,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
-    private void playAuxiliaryCinematic(GameCinematicSink.Type type,
-            String nickname, String assetName) {
-        game_cinematics.play(new GameCinematicSink.Request(type, nickname,
-                assetName, 0L))
-                .whenComplete((ignored, failure) -> {
-                    if (failure != null) {
-                        LOGGER.log(Level.WARNING,
-                                "Auxiliary cinematic playback failed", failure);
-                    }
-                });
+    private java.util.concurrent.CompletionStage<GameCinematicSink.Result>
+            playAuxiliaryCinematic(GameCinematicSink.Type type,
+                    String nickname, String assetName) {
+        return game_cinematics.play(new GameCinematicSink.Request(type, nickname,
+                assetName, 0L));
+    }
+
+    private void awaitAuxiliaryCinematic(
+            java.util.concurrent.CompletionStage<GameCinematicSink.Result> completion) {
+        try {
+            completion.toCompletableFuture().get();
+        } catch (InterruptedException cancelled) {
+            Thread.currentThread().interrupt();
+            throw new GameCancellationException(cancelled);
+        } catch (Exception failure) {
+            // Presentation failures must not strand the protocol. The caller
+            // still releases the per-request gate in its finally block.
+            LOGGER.log(Level.WARNING,
+                    "Auxiliary cinematic playback failed", failure);
+        }
     }
 
     // All-in cinematic bag: indices into allin_cinematics shuffled with the CSPRNG. Instead
@@ -13246,7 +13268,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return lock_iwtsth;
     }
 
+    private CompletableFuture<Void> beginIwtsthPresentation() {
+        while (true) {
+            CompletableFuture<Void> current = iwtsth_presentation_barrier.get();
+            if (!current.isDone() || iwtsth) {
+                return null;
+            }
+            CompletableFuture<Void> pending = new CompletableFuture<>();
+            if (iwtsth_presentation_barrier.compareAndSet(current, pending)) {
+                return pending;
+            }
+        }
+    }
+
+    private void awaitIwtsthPresentation(CompletableFuture<Void> barrier) {
+        try {
+            barrier.get();
+        } catch (InterruptedException cancelled) {
+            Thread.currentThread().interrupt();
+            throw new GameCancellationException(cancelled);
+        } catch (Exception failure) {
+            // A failed renderer must not strand the protocol. The actual
+            // cinematic failure is logged where the barrier is completed.
+            LOGGER.log(Level.WARNING,
+                    "IWTSTH presentation barrier failed", failure);
+        }
+    }
+
     public void IWTSTH_HANDLER(String iwtsther) {
+        CompletableFuture<Void> presentationBarrier = beginIwtsthPresentation();
+        if (presentationBarrier == null) {
+            // A repeated request after this hand's IWTSTH was already
+            // resolved must not leave the provisional countdown freeze set by
+            // IWTSTH_REQUEST. A duplicate frame for the request currently in
+            // flight keeps its existing barrier and state untouched.
+            if (iwtsth && iwtsth_presentation_barrier.get().isDone()) {
+                iwtsthing_request = false;
+                synchronized (lock_pausa_barra) {
+                    lock_pausa_barra.notifyAll();
+                }
+            }
+            return;
+        }
         // Freeze the showdown countdown on THIS machine the instant it learns of the request,
         // BEFORE the worker below gets scheduled and takes lock_iwtsth. Without this, the host
         // (when a remote client requests) and non-requesting clients kept draining tiempo_pausa
@@ -13258,70 +13321,70 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         publishIwtsthCandidates(java.util.List.of());
         game_async.execute(() -> {
-            synchronized (lock_iwtsth) {
-                if (iwtsthing || iwtsth) {
-                    // IWTSTHSHOW can overtake this queued worker on a fast
-                    // network. In that ordering the request is already fully
-                    // resolved, so retaining the provisional request flag
-                    // freezes pausaConBarra until its 16 s safety timeout.
-                    if (iwtsth) {
-                        iwtsthing_request = false;
-                        synchronized (lock_pausa_barra) {
-                            lock_pausa_barra.notifyAll();
+            try {
+                synchronized (lock_iwtsth) {
+                    if (iwtsthing || iwtsth) {
+                        // A duplicate request is already being handled. Do not
+                        // disturb its provisional pause state.
+                        return;
+                    }
+                    iwtsthing = true;
+                    iwtsth = true;
+
+                    if (iwtsth_requests.containsKey(iwtsther)) {
+                        iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
+                    } else {
+                        iwtsth_requests.put(iwtsther, 1);
+                    }
+
+                    int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
+
+                    game_log.print(
+                            iwtsther + " " + game_text.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
+
+                    game_ui.runAndWait(() -> {
+                        suspendVoluntaryShowAction();
+                        game_progress.indeterminate();
+                    });
+
+                    if (gameSession().isHost()) {
+                        try {
+                            broadcastGAMECommandFromServer(
+                                    "IWTSTH#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")), null);
+                        } catch (UnsupportedEncodingException ex) {
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
-                    return;
-                }
-                iwtsthing = true;
-                iwtsth = true;
 
-                if (iwtsth_requests.containsKey(iwtsther)) {
-                    iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
-                } else {
-                    iwtsth_requests.put(iwtsther, 1);
-                }
-
-                int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
-
-                game_log.print(
-                        iwtsther + " " + game_text.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
-
-                game_ui.runAndWait(() -> {
-                    suspendVoluntaryShowAction();
-                    game_progress.indeterminate();
-                });
-
-                if (gameSession().isHost()) {
-                    try {
-                        broadcastGAMECommandFromServer(
-                                "IWTSTH#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")), null);
-                    } catch (UnsupportedEncodingException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-                }
-
-                if (presentation_settings.cinematics()) {
-                    playAuxiliaryCinematic(
-                            GameCinematicSink.Type.IWTSTH_REQUEST,
-                            iwtsther, "iwtsth.gif");
-                    game_async.pause(500);
-                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
-                } else {
-                    game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
-                }
-
-                if (gameSession().isHost()) {
-                    if (localPlayer().getNickname().equals(iwtsther)
-                            || awaitConfirmation(game_dialogs.confirm(
-                                    iwtsther + game_text.translate("iwtsth.solicita_iwtsth")
-                                    + String.valueOf(conta_iwtsth)
-                                    + game_text.translate("ui.autorizamos"),
-                                    GameDialogSink.Icon.ROBOT))) {
-                        IWTSTH_SHOW(iwtsther, true);
+                    if (presentation_settings.cinematics()) {
+                        java.util.concurrent.CompletionStage<GameCinematicSink.Result>
+                                cinematic = playAuxiliaryCinematic(
+                                        GameCinematicSink.Type.IWTSTH_REQUEST,
+                                        iwtsther, "iwtsth.gif");
+                        // Keep the established sound cue inside the cinematic,
+                        // then wait for the renderer's real FINISH event.
+                        game_async.pause(500);
+                        game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
+                        awaitAuxiliaryCinematic(cinematic);
                     } else {
-                        IWTSTH_SHOW(iwtsther, false);
+                        game_audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !presentation_settings.iwtsthSound());
+                    }
+
+                    if (gameSession().isHost()) {
+                        if (localPlayer().getNickname().equals(iwtsther)
+                                || awaitConfirmation(game_dialogs.confirm(
+                                        iwtsther + game_text.translate("iwtsth.solicita_iwtsth")
+                                        + String.valueOf(conta_iwtsth)
+                                        + game_text.translate("ui.autorizamos"),
+                                        GameDialogSink.Icon.ROBOT))) {
+                            IWTSTH_SHOW(iwtsther, true);
+                        } else {
+                            IWTSTH_SHOW(iwtsther, false);
+                        }
                     }
                 }
+            } finally {
+                presentationBarrier.complete(null);
             }
         });
     }
@@ -13330,7 +13393,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // No longer gated on iwtsthing: the caller (the host's IWTSTH_HANDLER after
         // authorizing, or WaitingRoomFrame's "IWTSTHSHOW" case on clients) has already decided
         // this must run, so it must not depend on a flag that might not have been set in time.
+        CompletableFuture<Void> presentationBarrier
+                = iwtsth_presentation_barrier.get();
         game_async.execute(() -> {
+            awaitIwtsthPresentation(presentationBarrier);
             synchronized (lock_iwtsth) {
                 {
 
@@ -13386,9 +13452,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // If denied, inform the UI and register rejection timestamp for anti-flood
                         game_log.print(game_text.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
                         if (presentation_settings.cinematics()) {
-                            playAuxiliaryCinematic(
+                            awaitAuxiliaryCinematic(playAuxiliaryCinematic(
                                     GameCinematicSink.Type.IWTSTH_DENIED,
-                                    iwtsther, "iwtsth_no.gif");
+                                    iwtsther, "iwtsth_no.gif"));
                         }
                         if (localPlayer().getNickname().equals(iwtsther)) {
                             this.last_iwtsth_rejected = System.currentTimeMillis();
@@ -13606,6 +13672,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;
+        CompletableFuture<Void> staleIwtsthBarrier
+                = this.iwtsth_presentation_barrier.getAndSet(
+                        CompletableFuture.completedFuture(null));
+        staleIwtsthBarrier.complete(null);
         this.sqlite_id_hand = -1;
         this.conta_accion = 0;
         this.tot_acciones_recuperadas = 0;

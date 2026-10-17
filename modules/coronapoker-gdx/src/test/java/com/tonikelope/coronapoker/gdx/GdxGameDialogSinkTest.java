@@ -2,9 +2,13 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class GdxGameDialogSinkTest {
 
@@ -51,5 +55,39 @@ final class GdxGameDialogSinkTest {
                 "BACK", "CANCEL REBUY");
         assertEquals("BACK", pendingRebuy.negativeLabel());
         assertEquals("CANCEL REBUY", pendingRebuy.positiveLabel());
+    }
+
+    @Test
+    void antiDosDecisionKeepsHostAuthorityAndPersistsWarningSuppression(
+            @TempDir Path temporary) throws Exception {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGameDialogSink sink = new GdxGameDialogSink(
+                    new GdxGameText("es"), preferences);
+            assertTrue(sink.antiDosWarningsEnabled());
+
+            GdxTableDialog request = sink.antiDosRequest(
+                    "Tráfico excesivo", "No mostrar estos avisos",
+                    "NO", "SÍ");
+            assertEquals(GdxTableDialog.Kind.CONFIRM, request.kind());
+            assertEquals(GameDialogSink.Icon.STOP, request.icon());
+            assertEquals("NO", request.negativeLabel());
+            assertEquals("SÍ", request.positiveLabel());
+            assertEquals("No mostrar estos avisos",
+                    request.standaloneOptionLabel());
+            assertFalse(request.optionEnabled());
+
+            var decision = sink.antiDosDecision(request);
+            request.toggleOptionEnabled();
+            request.accept();
+
+            assertEquals(new GameDialogSink.AntiDosDecision(true, true),
+                    decision.toCompletableFuture().join());
+            assertFalse(sink.antiDosWarningsEnabled());
+        } finally {
+            preferences.close();
+        }
     }
 }

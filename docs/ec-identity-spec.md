@@ -428,7 +428,6 @@ Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` 
 | Table, `RemotePlayer` (human) | Clickable avatar | Opens the identity identicon of the peer's pubkey + fingerprint + "Verify identity" (sets `verified_oob=1` for that `(nick, pubkey)`). No passive verification indicator on the table. |
 | Table, `RemotePlayer` (bot) | Avatar click is a no-op | Bots have no identity. The avatar click does nothing for them. |
 | Waiting room, participant list (right-click) | Session-key identicon | Client opens the AES identicon of its channel with the host. Host opens the per-client session-identicon mosaic. |
-| `NewGameDialog` (host) | Non-blocking warning | If estimated password entropy `< 60 bits`, warn. The host may proceed. |
 | Crupier log / modal at hand close | Verification outcome | `✓ verified` / `⚠ divergent` / `⚠ missing`. Modal on any non-OK outcome except the deliberately silent `DECK_UNVERIFIED`. |
 
 ---

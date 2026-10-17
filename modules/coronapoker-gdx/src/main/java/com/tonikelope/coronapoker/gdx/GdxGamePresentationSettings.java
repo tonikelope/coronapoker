@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URI;
@@ -255,6 +256,12 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     boolean modActive() { return modMedia.installed(); }
     String modVersion() { return modMedia.version(); }
+    boolean modAdultWarningRequired() {
+        return modMedia.requiresAdultAcknowledgement();
+    }
+    void acknowledgeModAdultContent() throws IOException {
+        modMedia.acknowledgeAdultContent();
+    }
     String modDisplayName() {
         return modDisplayName(modMedia.name(), modMedia.version());
     }

@@ -7,9 +7,61 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GdxPotChipInventoryTest {
+
+    @Test
+    void recoveryFallbackBuildsBalancedRackInsteadOfMinimumGreenTower() {
+        List<CoronaPokerGdxTable.VisualChipSpec> recovered =
+                CoronaPokerGdxTable.balancedVisualChips(
+                        10d, 0.1d, 500L);
+        GdxStackChipLayout.Layout layout = CoronaPokerGdxTable
+                .visualChipLayout(recovered);
+
+        assertEquals(10d, amount(recovered), 0.000_001d);
+        assertEquals(List.of(5, 5, 5, 6), columnHeights(layout));
+        assertEquals(4L, recovered.stream().map(
+                CoronaPokerGdxTable.VisualChipSpec::color).distinct().count());
+        assertNotEquals(CoronaPokerGdxTable.dynamicVisualChips(
+                10d, 0.1d, 500L), recovered,
+                "recovery is a rack reconstruction, not a minimum-chip payment");
+    }
+
+    @Test
+    void rebuyAllInPotAndPayoutKeepTheExactFourColourPack() {
+        List<CoronaPokerGdxTable.VisualChipSpec> rebuy =
+                CoronaPokerGdxTable.rebuyVisualChips(10d, 0.1d, 600L);
+        GdxStackChipLayout.Layout rebought = CoronaPokerGdxTable
+                .visualChipLayout(rebuy);
+        GdxStackChipLayout.Payment allIn = GdxStackChipLayout
+                .prepareAuthoritativePayment(rebought, 10d, 10d,
+                        0.1d, 10d);
+        assertTrue(GdxStackChipLayout.isExactPhysicalPayment(allIn, 10d));
+
+        GdxPotChipInventory pot = new GdxPotChipInventory();
+        pot.deposit(allIn.chips().stream().map(chip ->
+                new CoronaPokerGdxTable.VisualChipSpec(
+                        chip.amountMinor() / 100d, chip.color())).toList());
+        List<CoronaPokerGdxTable.VisualChipSpec> payout = pot.withdraw(
+                10d, 0.1d, 601L);
+        List<CoronaPokerGdxTable.PayoutVisualAssignment> assigned =
+                CoronaPokerGdxTable.allocatePayoutVisualChips(List.of(
+                        new TableVisualEvent.PayoutBatch.Transfer(
+                                "rebought-player", 10d, 0d, 10d)),
+                        payout, 0.1d, 602L);
+
+        GdxStackChipLayout.Layout landed = landIntoRack(
+                assigned.get(0).chips(), 0.1d,
+                CoronaPokerGdxTable.relaxedRackCapacities(
+                        CoronaPokerGdxTable.stackChipRackGeometry(true)));
+        assertEquals(1_000L, landed.representedMinor());
+        assertEquals(List.of(5, 5, 5, 6), columnHeights(landed));
+        assertEquals(4L, assigned.get(0).chips().stream().map(
+                CoronaPokerGdxTable.VisualChipSpec::color).distinct().count());
+        assertEquals(0d, pot.amount(), 0.000_001d);
+    }
 
     @Test
     void compressedBetBatchColoursUpPotWithoutChangingItsValue() {
@@ -129,6 +181,45 @@ class GdxPotChipInventoryTest {
         assertEquals(15.3d, amount(split.sideA()), 0.000_001d);
         assertEquals(15.3d, amount(split.sideB()), 0.000_001d);
         assertEquals(0.1d, amount(split.remainder()), 0.000_001d);
+    }
+
+    @Test
+    void runItTwiceDerivedPayoutsConserveEveryBoardAndRemainderChip() {
+        List<CoronaPokerGdxTable.VisualChipSpec> fullPot =
+                CoronaPokerGdxTable.balancedVisualChips(
+                        30.7d, 0.1d, 700L);
+        int[] capacities = CoronaPokerGdxTable.relaxedRackCapacities(
+                CoronaPokerGdxTable.potChipRackGeometry());
+        GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
+                .splitForRunItTwice(fullPot, 15.3d, 0.1d,
+                        capacities, 701L);
+
+        List<TableVisualEvent.PayoutBatch.Transfer> sideA = List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "main-winner", 10.2d, 0d, 10.2d),
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "side-winner", 5.1d, 0d, 5.1d));
+        List<TableVisualEvent.PayoutBatch.Transfer> sideB = List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "main-winner", 10.3d, 0d, 20.5d),
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "uncalled-return", 5d, 5d, 5d));
+
+        List<CoronaPokerGdxTable.PayoutVisualAssignment> assignedA =
+                CoronaPokerGdxTable.allocatePayoutVisualChips(
+                        sideA, split.sideA(), 0.1d, 702L);
+        List<CoronaPokerGdxTable.PayoutVisualAssignment> assignedB =
+                CoronaPokerGdxTable.allocatePayoutVisualChips(
+                        sideB, split.sideB(), 0.1d, 703L);
+
+        assertEquals(15.3d, assignedAmount(assignedA), 0.000_001d);
+        assertEquals(15.3d, assignedAmount(assignedB), 0.000_001d);
+        assertEquals(0.1d, amount(split.remainder()), 0.000_001d);
+        assertEquals(30.7d, assignedAmount(assignedA)
+                + assignedAmount(assignedB) + amount(split.remainder()),
+                0.000_001d);
+        assertEquals(List.of("main-winner", "uncalled-return"),
+                CoronaPokerGdxTable.payoutRackRecipients(sideB));
     }
 
     @Test
@@ -293,6 +384,20 @@ class GdxPotChipInventoryTest {
         assertEquals(List.of(blue), inventory.snapshot());
     }
 
+    @Test
+    void payoutAllocationRejectsAStaleIncompletePotInventory() {
+        List<TableVisualEvent.PayoutBatch.Transfer> transfers = List.of(
+                new TableVisualEvent.PayoutBatch.Transfer(
+                        "winner", 1d, 0d, 1d));
+
+        assertThrows(IllegalStateException.class,
+                () -> CoronaPokerGdxTable.allocatePayoutVisualChips(
+                        transfers,
+                        List.of(chip(0.5d,
+                                GdxChipDenominations.color(2))),
+                        0.1d, 800L));
+    }
+
     private static CoronaPokerGdxTable.VisualChipSpec chip(double amount,
             int color) {
         return new CoronaPokerGdxTable.VisualChipSpec(amount, color);
@@ -320,5 +425,27 @@ class GdxPotChipInventoryTest {
         return layout.columns().stream()
                 .map(GdxStackChipLayout.Column::chips)
                 .map(List::size).toList();
+    }
+
+    private static GdxStackChipLayout.Layout landIntoRack(
+            List<CoronaPokerGdxTable.VisualChipSpec> chips,
+            double smallBlind, int[] capacities) {
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
+                0d, smallBlind, 10d);
+        for (CoronaPokerGdxTable.VisualChipSpec chip : chips) {
+            rack = GdxStackChipLayout.add(rack,
+                    Math.round(chip.amount() * 100d), chip.color());
+            rack = GdxStackChipLayout.relieveCompression(rack,
+                    rack.representedMinor() / 100d, smallBlind, 10d,
+                    capacities);
+        }
+        return rack;
+    }
+
+    private static double assignedAmount(
+            List<CoronaPokerGdxTable.PayoutVisualAssignment> assignments) {
+        return assignments.stream().flatMap(
+                assignment -> assignment.chips().stream()).mapToDouble(
+                CoronaPokerGdxTable.VisualChipSpec::amount).sum();
     }
 }

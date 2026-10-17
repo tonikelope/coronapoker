@@ -32,6 +32,10 @@ renders the menu, setup, waiting room and statistics views.
 `CoronaPokerGdxTable` owns the active table scene and its final balance
 summary.
 
+Renderer migration does not permit runtime warnings to disappear. The
+call-site inventory and disposition of the last stable Swing dialogs is kept
+in [`GDX_SWING_DIALOG_PARITY.md`](GDX_SWING_DIALOG_PARITY.md).
+
 ## Lobby and table creation
 
 `NetworkLobbyGateway` opens the host or client transport and creates a

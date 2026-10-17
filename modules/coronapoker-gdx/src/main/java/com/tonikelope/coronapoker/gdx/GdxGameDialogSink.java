@@ -69,15 +69,26 @@ final class GdxGameDialogSink implements GameDialogSink {
     public CompletionStage<AntiDosDecision> confirmAntiDos(String message,
             String suppressLabel, String negativeLabel,
             String positiveLabel) {
-        GdxTableDialog request = request(GdxTableDialog.Kind.CONFIRM,
-                message, Icon.STOP, 0, 0, negativeLabel, positiveLabel)
-                .standaloneOption(suppressLabel, false);
+        GdxTableDialog request = antiDosRequest(message, suppressLabel,
+                negativeLabel, positiveLabel);
         GdxApplicationShell shell = GdxApplicationShell.active();
         if (shell == null) {
             request.dismiss();
         } else {
             shell.showDialog(request);
         }
+        return antiDosDecision(request);
+    }
+
+    GdxTableDialog antiDosRequest(String message, String suppressLabel,
+            String negativeLabel, String positiveLabel) {
+        return request(GdxTableDialog.Kind.CONFIRM, message, Icon.STOP,
+                0, 0, negativeLabel, positiveLabel)
+                .standaloneOption(suppressLabel, false);
+    }
+
+    CompletionStage<AntiDosDecision> antiDosDecision(
+            GdxTableDialog request) {
         return request.result().thenApply(expel -> {
             boolean suppress = request.optionEnabled();
             if (suppress && preferences != null) {

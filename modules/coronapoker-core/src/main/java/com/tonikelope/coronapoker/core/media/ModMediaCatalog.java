@@ -39,6 +39,7 @@ public final class ModMediaCatalog {
     private final boolean installed;
     private final String name;
     private final String version;
+    private final boolean adults;
     private final boolean fuseSounds;
     private final boolean fuseCinematics;
     private final String font;
@@ -47,13 +48,15 @@ public final class ModMediaCatalog {
     private final List<String> decks;
 
     private ModMediaCatalog(Path root, boolean installed, String name,
-            String version, boolean fuseSounds, boolean fuseCinematics,
-            String font, URI updateUri, String updatePassword,
+            String version, boolean adults, boolean fuseSounds,
+            boolean fuseCinematics, String font, URI updateUri,
+            String updatePassword,
             List<String> decks) {
         this.root = root;
         this.installed = installed;
         this.name = name;
         this.version = version;
+        this.adults = adults;
         this.fuseSounds = fuseSounds;
         this.fuseCinematics = fuseCinematics;
         this.font = font;
@@ -91,6 +94,7 @@ public final class ModMediaCatalog {
             Element mod = (Element) document.getElementsByTagName("mod").item(0);
             String name = text(document, "name").orElse("MOD");
             String version = text(document, "version").orElse("");
+            boolean adults = attribute(mod, "adults", false);
             boolean fuseSounds = attribute(mod, "fusion_sounds", false);
             boolean fuseCinematics = attribute(mod, "fusion_cinematics", false);
             String font = text(document, "font").orElse("");
@@ -98,7 +102,7 @@ public final class ModMediaCatalog {
                     .flatMap(ModMediaCatalog::httpUri).orElse(null);
             String updatePassword = text(document, "updatepassword")
                     .orElse("");
-            return new ModMediaCatalog(root, true, name, version,
+            return new ModMediaCatalog(root, true, name, version, adults,
                     fuseSounds, fuseCinematics, font, updateUri,
                     updatePassword, discoverDecks(root));
         } catch (Exception failure) {
@@ -111,7 +115,7 @@ public final class ModMediaCatalog {
 
     private static ModMediaCatalog empty(Path root) {
         return new ModMediaCatalog(root, false, "", "", false, false,
-                "", null, "", List.of());
+                false, "", null, "", List.of());
     }
 
     private static Optional<URI> httpUri(String value) {
@@ -169,6 +173,21 @@ public final class ModMediaCatalog {
 
     public String version() {
         return version;
+    }
+
+    public boolean adults() {
+        return adults;
+    }
+
+    /** Preserves Swing's one-time acknowledgement contract for adult mods. */
+    public boolean requiresAdultAcknowledgement() {
+        return installed && adults
+                && !Files.isReadable(root.resolve(".pegi18_warning"));
+    }
+
+    public void acknowledgeAdultContent() throws IOException {
+        if (!installed || !adults) return;
+        Files.writeString(root.resolve(".pegi18_warning"), "");
     }
 
     public boolean fuseSounds() {

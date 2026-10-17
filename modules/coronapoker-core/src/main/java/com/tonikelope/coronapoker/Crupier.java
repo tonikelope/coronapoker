@@ -136,6 +136,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int WAIT_QUEUES = GameTiming.QUEUE_POLL_MILLIS;
     private static final long TELEMETRY_INTERVAL_MILLIS = 5_000L;
     private final GameSession game_session;
+    /** Fixed physical x1 chip value chosen when this table session starts. */
+    private final double initial_small_blind;
     private final java.util.ArrayList<GamePlayerController> player_controllers;
     private final GamePlayerController local_player_controller;
     private final java.util.Map<String, GamePeerController> peer_controllers;
@@ -245,6 +247,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
              GameEntropySource gameEntropy,
             TableEventBridge tableEvents) {
         this.game_session = gameSession;
+        this.initial_small_blind = gameSession != null
+                && gameSession.hasConfiguration()
+                        ? gameSession.configuration().smallBlind() : 0.01d;
         this.player_controllers = controllerView(playerControllers);
         this.local_player_controller = localPlayerController;
         this.peer_controllers = peerControllerView(peerControllers);
@@ -17094,16 +17099,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private double settlementChipDenomination() {
-        double[][] levels = effectiveBlindStructure();
-        double[] configured = new double[2 + levels.length * 2];
-        configured[0] = configuration().smallBlind();
-        configured[1] = configuration().bigBlind();
-        int index = 2;
-        for (double[] level : levels) {
-            configured[index++] = level[0];
-            configured[index++] = level[1];
-        }
-        return PotMath.smallestChipDenomination(configured);
+        // Chip colours and values are physical table inventory: increasing the
+        // blinds changes the amount posted, never the denominations already on
+        // the felt. Keeping settlement on the opening x1 chip also guarantees
+        // that every canonical payout can be represented by the GDX rack; an
+        // indivisible residue remains in bote_sobrante for the next hand.
+        return initial_small_blind;
     }
 
     /**
@@ -25266,9 +25267,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public double getInitialSmallBlind() {
-        java.util.List<GameConfigCodecV1.BlindLevel> levels
-                = configuration().blindStructure();
-        return levels.isEmpty() ? ciega_pequeña : levels.get(0).smallBlind();
+        return initial_small_blind;
     }
 
     // In-flight pre-decode of flip GIFs (one Future per card, see

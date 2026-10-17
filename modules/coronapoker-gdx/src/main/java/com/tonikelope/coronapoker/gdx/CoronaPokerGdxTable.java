@@ -4480,6 +4480,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // from split payments can differ by a cent and make the label grow
         // immediately before the chips leave it.
         double payoutPotBefore = livePot();
+        // A hot join or a recovery cut-over may know the authoritative amount
+        // before it has renderer-local chip identities. Repair that exceptional
+        // cache now, using a balanced physical rack, so a later all-in/side-pot
+        // payout cannot turn the missing history into an invented x10 tower.
+        reconcilePotChipInventory(payoutPotBefore, event.sequence());
         displayedPayoutPot(payoutPotBefore, potAfter, payoutAmount, 0d);
         livePotContributions.clear();
         List<VisualChipSpec> payoutChips = withdrawPotVisualChips(
@@ -4496,11 +4501,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .forEach(transfer -> liveWinnerStarts.putIfAbsent(
                     transfer.nickname(), now));
             syncSeatsFromLiveState();
-            transfers.stream()
-                    .filter(transfer -> MoneyMath.compare(
-                    transfer.winningsAmount(), 0d) > 0)
-                    .forEach(transfer -> rebalanceSeatRack(
-                    transfer.nickname()));
+            payoutRackRecipients(transfers).forEach(this::rebalanceSeatRack);
             barrier.complete(null);
             return;
         }
@@ -4513,7 +4514,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void replacePotChipInventory(double exactAmount, long seed) {
-        livePotChips.replace(exactAmount, dynamicVisualChips(exactAmount,
+        livePotChips.replace(exactAmount, balancedVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x1f83d9abfb41bd6bL));
         livePotChips.relieveCompressedColumns(liveCounterDenomination(),
                 relaxedRackCapacities(potChipRackGeometry()));
@@ -4521,7 +4522,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void reconcilePotChipInventory(double exactAmount, long seed) {
-        livePotChips.reconcile(exactAmount, dynamicVisualChips(exactAmount,
+        livePotChips.reconcile(exactAmount, balancedVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x5be0cd19137e2179L));
         livePotChips.relieveCompressedColumns(liveCounterDenomination(),
                 relaxedRackCapacities(potChipRackGeometry()));
@@ -4670,7 +4671,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // renderer cache is stale (typically a recovery cut-over). Repair
             // the complete visual pot before partitioning; canonical money is
             // untouched and still comes exclusively from the board event.
-            fullPot = dynamicVisualChips(
+            fullPot = balancedVisualChips(
                     boardMinor * 2L / 100d, liveCounterDenomination(),
                     runItTwicePotPartitionSeed ^ 0xbe5466cf34e90c6cL);
             fullMinor = visualChipAmountMinor(fullPot);
@@ -4685,16 +4686,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || visualChipAmountMinor(split.sideB()) != boardMinor) {
             // Defensive recovery for a non-standard denomination remainder.
             // It changes presentation only and preserves the exact amount.
-            List<VisualChipSpec> sideA = dynamicVisualChips(
+            List<VisualChipSpec> sideA = balancedVisualChips(
                     runItTwiceBoardPotAmount, liveCounterDenomination(),
                     runItTwicePotPartitionSeed ^ 0xa4093822299f31d0L);
-            List<VisualChipSpec> sideB = dynamicVisualChips(
+            List<VisualChipSpec> sideB = balancedVisualChips(
                     runItTwiceBoardPotAmount, liveCounterDenomination(),
                     runItTwicePotPartitionSeed ^ 0x082efa98ec4e6c89L);
             double residualAmount = Math.max(0d,
                     (fullMinor - boardMinor * 2L) / 100d);
             split = new GdxPotChipInventory.RunItTwiceSplit(sideA, sideB,
-                    dynamicVisualChips(residualAmount,
+                    balancedVisualChips(residualAmount,
                             liveCounterDenomination(),
                             runItTwicePotPartitionSeed
                                     ^ 0x452821e638d01377L));
@@ -12604,7 +12605,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         // Recovery/hot-join fallback: rebuild the missing presentation from
         // the same fixed denominations without changing canonical accounting.
-        return dynamicVisualChips(currentPot, liveCounterDenomination(),
+        return balancedVisualChips(currentPot, liveCounterDenomination(),
                 0x2f6e2b1L);
     }
 
@@ -15715,9 +15716,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     transfer.winningsAmount(), 0d) > 0)
                     .forEach(transfer -> {
                         liveWinnerStarts.putIfAbsent(transfer.nickname(), now);
-                        pendingStackRackRebalances.put(transfer.nickname(),
-                                totalTime);
                     });
+            payoutRackRecipients(active.transfers).forEach(
+                    nickname -> pendingStackRackRebalances.put(nickname,
+                            totalTime));
             active.barrier.complete(null);
         } catch (Throwable error) {
             active.barrier.completeExceptionally(error);
@@ -15967,6 +15969,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return List.copyOf(result);
     }
 
+    /**
+     * Reconstructs an authoritative amount when no physical chip history is
+     * available. Unlike a payment, a recovered rack must not prefer the fewest
+     * x10 chips: it mirrors a dealer's balanced four-denomination colour-up and
+     * therefore cannot manufacture the misleading all-green tower that used to
+     * appear after some hot-join, side-pot and Run It Twice cut-overs.
+     */
+    static List<VisualChipSpec> balancedVisualChips(double exactAmount,
+            double smallBlind, long variationSeed) {
+        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
+                exactAmount, smallBlind, exactAmount);
+        ArrayList<VisualChipSpec> result = new ArrayList<>(rack.chipCount());
+        for (GdxStackChipLayout.Column column : rack.columns()) {
+            for (GdxStackChipLayout.Chip chip : column.chips()) {
+                result.add(new VisualChipSpec(chip.amountMinor() / 100d,
+                        chip.color()));
+            }
+        }
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x510e527fade682d1L);
+        return List.copyOf(result);
+    }
+
     private List<VisualChipSpec> paymentVisualChips(String nickname,
             double exactAmount, double exactBalance, double smallBlind,
             long variationSeed) {
@@ -16010,18 +16035,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** A rebuy flies the same exact four-colour rack it adds to the player. */
     static List<VisualChipSpec> rebuyVisualChips(double exactAmount,
             double smallBlind, long variationSeed) {
-        GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
-                exactAmount, smallBlind, exactAmount);
-        ArrayList<VisualChipSpec> result = new ArrayList<>(rack.chipCount());
-        for (GdxStackChipLayout.Column column : rack.columns()) {
-            for (GdxStackChipLayout.Chip chip : column.chips()) {
-                result.add(new VisualChipSpec(chip.amountMinor() / 100d,
-                        chip.color()));
-            }
-        }
-        GdxPotChipInventory.shuffle(result,
-                variationSeed ^ 0x4a7484aa6ea6e483L);
-        return List.copyOf(result);
+        return balancedVisualChips(exactAmount, smallBlind,
+                variationSeed ^ 0x1a7c99e3354b2d6fL);
     }
 
     static List<PayoutVisualAssignment> allocatePayoutVisualChips(
@@ -16040,10 +16055,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     transfer.amount(), smallBlind,
                     variationSeed ^ transferIndex
                             * 0x9e3779b97f4a7c15L);
+            if (visualChipAmountMinor(visualChips)
+                    != Math.round(transfer.amount() * 100d)) {
+                throw new IllegalStateException("The physical pot cannot pay "
+                        + transfer.nickname() + " exactly: "
+                        + transfer.amount());
+            }
             assignments.add(new PayoutVisualAssignment(
                     transfer.nickname(), visualChips));
         }
+        if (physicalPot.size() != 0) {
+            throw new IllegalStateException(
+                    "Payout chip allocation left unassigned physical chips");
+        }
         return List.copyOf(assignments);
+    }
+
+    static List<String> payoutRackRecipients(
+            List<TableVisualEvent.PayoutBatch.Transfer> transfers) {
+        if (transfers == null || transfers.isEmpty()) return List.of();
+        return transfers.stream()
+                .filter(transfer -> MoneyMath.compare(
+                        transfer.amount(), 0d) > 0)
+                .map(TableVisualEvent.PayoutBatch.Transfer::nickname)
+                .distinct().toList();
     }
 
     static float variedChipImpactVolume(float baseVolume, long variationSeed) {

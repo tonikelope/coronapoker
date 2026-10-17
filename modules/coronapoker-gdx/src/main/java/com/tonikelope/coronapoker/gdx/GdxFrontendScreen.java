@@ -448,6 +448,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String frontendNoticeTitle = "";
     private String frontendNoticeMessage = "";
     private boolean frontendNoticeError;
+    private boolean modAdultWarning;
     private boolean avatarSelectionPending;
     private LobbySession lobbySession;
     private LobbySnapshot lobby;
@@ -777,6 +778,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     + roundedTextureShader.getLog());
         }
         modalBackdropBlur = new GdxModalBackdropBlur();
+        modAdultWarning = presentationSettings.modAdultWarningRequired();
         checkForUpdates();
         purgeExpiredVoiceNotes();
         rebuildFonts(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
@@ -1229,7 +1231,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (!frontendNoticeMessage.isBlank()) {
+            if (modAdultWarning) {
+                drawModAdultWarning();
+            } else if (!frontendNoticeMessage.isBlank()) {
                 drawFrontendNotice();
             } else if (settingsRestartNotice) {
                 drawSettingsRestartNotice();
@@ -1398,7 +1402,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasVisibleFrontendModal() {
-        return !frontendNoticeMessage.isBlank()
+        return modAdultWarning
+                || !frontendNoticeMessage.isBlank()
                 || settingsRestartNotice
                 || (surface == Surface.MENU
                         && (aboutOpen || updatePromptOpen
@@ -4341,6 +4346,39 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("ui.aceptar")),
                 frontendNoticeError ? ButtonTone.DANGER : ButtonTone.POSITIVE,
                 this::dismissFrontendNotice, true);
+    }
+
+    private void drawModAdultWarning() {
+        hits.clear();
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("gdx.dialog.warning")),
+                gameText.translate("mod.el_mod_cargado_contiene_material"));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
+                uppercase(gameText.translate("ui.no")), ButtonTone.DANGER,
+                this::declineModAdultContent, true);
+        themedButton(accept.x, accept.y, accept.width, accept.height,
+                uppercase(gameText.translate("ui.si")), ButtonTone.POSITIVE,
+                this::acceptModAdultContent, true);
+    }
+
+    private void acceptModAdultContent() {
+        try {
+            presentationSettings.acknowledgeModAdultContent();
+            modAdultWarning = false;
+        } catch (IOException failure) {
+            LOGGER.log(Level.WARNING,
+                    "Could not persist adult-mod acknowledgement", failure);
+            modAdultWarning = false;
+            showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                    gameText.translate("gdx.mod.adult_ack_failed"), true);
+        }
+    }
+
+    private void declineModAdultContent() {
+        modAdultWarning = false;
+        Gdx.app.exit();
     }
 
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
@@ -13095,6 +13133,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (GdxDialogKeyboard.isCancel(keycode)) {
+            if (modAdultWarning) {
+                declineModAdultContent();
+                return true;
+            }
             if (!frontendNoticeMessage.isBlank()) {
                 dismissFrontendNotice();
                 return true;
@@ -13349,6 +13391,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * confirmation from also activating the table or screen below it.
      */
     private boolean acceptActiveFrontendDialog() {
+        if (modAdultWarning) {
+            acceptModAdultContent();
+            return true;
+        }
         if (!frontendNoticeMessage.isBlank()) {
             dismissFrontendNotice();
             return true;

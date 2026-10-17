@@ -17,7 +17,7 @@ final class ModMediaCatalogTest {
             @TempDir Path installation) throws Exception {
         Path mod = Files.createDirectories(installation.resolve("mod"));
         Files.writeString(mod.resolve("mod.xml"), """
-                <mod fusion_sounds="true" fusion_cinematics="false">
+                <mod adults="true" fusion_sounds="true" fusion_cinematics="false">
                   <name>Chilean MOD</name><version>1.0</version>
                   <font>corona.ttf</font>
                   <updateurl>https://example.test/mod-version.txt</updateurl>
@@ -38,6 +38,8 @@ final class ModMediaCatalogTest {
         assertTrue(catalog.installed());
         assertEquals("Chilean MOD", catalog.name());
         assertEquals("1.0", catalog.version());
+        assertTrue(catalog.adults());
+        assertTrue(catalog.requiresAdultAcknowledgement());
         assertTrue(catalog.fuseSounds());
         assertFalse(catalog.fuseCinematics());
         assertEquals(java.util.List.of("pepsiman"), catalog.decks());
@@ -54,6 +56,9 @@ final class ModMediaCatalogTest {
         assertEquals(java.util.List.of("base.wav", "mod.wav"),
                 java.util.List.of(sounds.getValue()));
         assertTrue(catalog.resolve("../outside.txt").isEmpty());
+
+        catalog.acknowledgeAdultContent();
+        assertFalse(catalog.requiresAdultAcknowledgement());
     }
 
     @Test

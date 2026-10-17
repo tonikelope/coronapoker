@@ -152,6 +152,9 @@ balance_backup*.txt
 /reference/gdx-demo/
 /reference/gdx-demo/.m2/
 
+# Internal engineering audits (local only; never publish)
+/auditorias/
+
 # Runtime acknowledgement written beside user-supplied prototype mods
 /reference/gdx-demo/mod/.pegi18_warning
 

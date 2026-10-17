@@ -37,7 +37,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         TableVisualEvent.HandResult,
         TableVisualEvent.IwtsthCandidates,
         TableVisualEvent.RabbitCards, TableVisualEvent.RabbitResult,
-        TableVisualEvent.RabbitNotice,
+        TableVisualEvent.RabbitHand, TableVisualEvent.RabbitNotice,
         TableVisualEvent.ShowdownHighlight, TableVisualEvent.Payout,
         TableVisualEvent.PayoutBatch,
         TableVisualEvent.Rebuy,
@@ -731,6 +731,24 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
             requireMoney(stackAfter, "Rabbit stack");
             if (nickname.isEmpty() || requestCount < 1) {
                 throw new IllegalArgumentException("Invalid Rabbit result");
+            }
+        }
+    }
+
+    /**
+     * Renderer-local best hand after an authorized Rabbit reveal. This event
+     * is deliberately not part of the hot-join/public event codec: Rabbit
+     * cards and their hypothetical result remain private to the requester,
+     * exactly as in the Swing table.
+     */
+    record RabbitHand(long sequence, String nickname, String handName)
+            implements TableVisualEvent {
+
+        public RabbitHand {
+            nickname = Objects.requireNonNull(nickname, "nickname").trim();
+            handName = Objects.requireNonNull(handName, "handName").trim();
+            if (nickname.isEmpty() || handName.isEmpty()) {
+                throw new IllegalArgumentException("Invalid Rabbit hand");
             }
         }
     }

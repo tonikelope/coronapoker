@@ -13233,6 +13233,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             localPlayer().setRabbitJugada(
                                     jugada.getName(), jugada.getWinners());
+                            table_events.publishIfAttached(sequence
+                                    -> new TableVisualEvent.RabbitHand(
+                                            sequence,
+                                            localPlayer().getNickname(),
+                                            jugada.getName()));
+                            /*
+                             * Swing only replaces the hover combination when
+                             * the player has publicly shown their hole cards.
+                             * If Rabbit comes first, showAndBroadcastPlayerCards
+                             * evaluates the now revealed board later and emits
+                             * this same exact highlight then. This preserves
+                             * both action orders without exposing a hidden hand.
+                             */
+                            if (localPlayer().isMuestra()) {
+                                setShowdownHighlight(localPlayer(),
+                                        cardControllers(jugada.getWinners()));
+                            }
 
                             game_log
                                     .print(game_text.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")

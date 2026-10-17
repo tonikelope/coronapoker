@@ -1222,16 +1222,18 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 temporary.resolve("rabbit-host.sqlite").toString());
         DatabaseService clientDatabase = new DatabaseService(
                 temporary.resolve("rabbit-client.sqlite").toString());
+        GdxGameLogSink hostLog = new GdxGameLogSink();
+        GdxGameLogSink clientLog = new GdxGameLogSink();
         hostDatabase.start();
         clientDatabase.start();
         AtomicBoolean requestClaimed = new AtomicBoolean();
         try (hostDatabase; clientDatabase;
              NetworkLobbyGateway hostGateway = gateway(
                      temporary.resolve("rabbit-host"), hostDatabase,
-                     GameDecisionSink.noop(), iwtsthSettings());
+                     GameDecisionSink.noop(), iwtsthSettings(), hostLog);
              NetworkLobbyGateway clientGateway = gateway(
                      temporary.resolve("rabbit-client"), clientDatabase,
-                     GameDecisionSink.noop(), iwtsthSettings())) {
+                     GameDecisionSink.noop(), iwtsthSettings(), clientLog)) {
             LobbySession host = hostGateway.open(rabbitRequest(false,
                     "Anfitrion", port)).get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(rabbitRequest(true,
@@ -1259,17 +1261,37 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
                 await(() -> (hostRenderer.requested.get()
                                 && hostRenderer.revealed.get()
+                                && hostRenderer.rabbitHand.get()
                                 || clientRenderer.requested.get()
-                                && clientRenderer.revealed.get())
+                                && clientRenderer.revealed.get()
+                                && clientRenderer.rabbitHand.get())
                                 && hostRenderer.resultCount.get() == 1
                                 && clientRenderer.resultCount.get() == 1,
                         Duration.ofSeconds(25));
                 assertTrue(hostRenderer.requested.get()
                                 ^ clientRenderer.requested.get());
+                assertTrue(hostRenderer.rabbitHand.get()
+                                ^ clientRenderer.rabbitHand.get(),
+                        "the hypothetical Rabbit hand must remain requester-local");
+                assertTrue(hostRenderer.revealed.get()
+                                ^ clientRenderer.revealed.get(),
+                        "Rabbit board cards must not become free public reveals");
                 assertEquals(hostRenderer.resultNickname.get(),
                         clientRenderer.resultNickname.get());
                 assertEquals(hostRenderer.resultStack.get(),
                         clientRenderer.resultStack.get(), 0.000_001d);
+                boolean hostLoggedHypothetical = hostLog.snapshot().lines()
+                        .stream().anyMatch(line -> line.contains(
+                                "[RABBIT HUNTING] MEJOR"));
+                boolean clientLoggedHypothetical = clientLog.snapshot().lines()
+                        .stream().anyMatch(line -> line.contains(
+                                "[RABBIT HUNTING] MEJOR"));
+                assertEquals(hostRenderer.requested.get(),
+                        hostLoggedHypothetical,
+                        "the requester must receive the hypothetical hand in the game log");
+                assertEquals(clientRenderer.requested.get(),
+                        clientLoggedHypothetical,
+                        "private Rabbit detail must not leak into the other log");
                 if (hostRenderer.requested.get()) {
                     assertTrue(clientRenderer.notice.get());
                 } else {
@@ -4181,6 +4203,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean requested = new AtomicBoolean();
         private final AtomicBoolean revealed = new AtomicBoolean();
         private final AtomicBoolean notice = new AtomicBoolean();
+        private final AtomicBoolean rabbitHand = new AtomicBoolean();
         private final AtomicInteger resultCount = new AtomicInteger();
         private final AtomicReference<String> resultNickname
                 = new AtomicReference<>();
@@ -4229,6 +4252,12 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         .stream().filter(player -> player.nickname().equals(
                                 result.nickname())).findFirst().orElseThrow()
                         .stack(), 0.000_001d);
+            } else if (event instanceof TableVisualEvent.RabbitHand hand) {
+                rabbitHand.set(true);
+                assertEquals(projection.snapshot().localNickname(),
+                        hand.nickname());
+                assertEquals(hand.handName(),
+                        projection.rabbitHandName(hand.nickname()));
             } else if (event instanceof TableVisualEvent.RabbitNotice) {
                 notice.set(true);
             }

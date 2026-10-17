@@ -1120,6 +1120,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture foldThumbIcon;
     private Texture callThumbIcon;
     private Texture timeoutIcon;
+    private Texture rabbitActionIcon;
     private Texture fastMenuIcon;
     private Texture[] fastButtonIcons;
     private Texture talkIcon;
@@ -2881,10 +2882,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // seats. Use the matching 256 px artwork so the warning remains
             // clean at 1080p, 1440p, 4K and fractional desktop scaling.
             case 18 -> timeoutIcon = texture("images/action/timeout.png");
-            case 19 -> talkIcon = texture("images/talk.png");
-            case 20 -> fastMenuIcon = texture("images/fast_panel/menu.png");
+            case 19 -> rabbitActionIcon = texture(
+                    "images/action/rabbit_action.png");
+            case 20 -> talkIcon = texture("images/talk.png");
+            case 21 -> fastMenuIcon = texture("images/fast_panel/menu.png");
             default -> {
-                int fastIcon = resource - 21;
+                int fastIcon = resource - 22;
                 if (fastIcon >= FAST_BUTTON_ICON_PATHS.length) return true;
                 if (fastButtonIcons == null) {
                     fastButtonIcons = new Texture[FAST_BUTTON_ICON_PATHS.length];
@@ -4094,6 +4097,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean revealsRabbit = rabbit.cards().stream()
                     .anyMatch(candidate -> candidate.card().faceUp()
                     && liveState.isRabbitCard(candidate.slot()));
+            // Swing plays one uncover cue for the Rabbit batch, regardless of
+            // whether the peel animation is enabled. Trigger it at the same
+            // instant the overlay starts disappearing so sound and motion are
+            // perceived as one action rather than as a late UI side effect.
+            if (revealsRabbit && liveFlipSoundEnabled()) {
+                play(uncoverSound, 0.54f, 1f);
+            }
             if (revealsRabbit && liveFlipAnimationEnabled()) {
                 if (liveRabbitReveal != null) {
                     throw new IllegalStateException(
@@ -9312,7 +9322,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
             if (player == null || player.spectator()
                     || player.handName().isBlank()
-                    && liveState.resolvedHandName(player.nickname()).isBlank()) {
+                    && liveState.resolvedHandName(player.nickname()).isBlank()
+                    && liveState.rabbitHandName(player.nickname()).isBlank()) {
+                continue;
+            }
+            if (!liveState.rabbitHandName(player.nickname()).isBlank()
+                    && !player.presentation().showingCards()) {
+                // Swing displayed the hypothetical Rabbit caption immediately,
+                // but did not expose its exact five-card combination until the
+                // player also showed their hole cards.
                 continue;
             }
             boolean hovering;
@@ -9323,6 +9341,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 String renderedLabel = lastActionLabelForSeat(0);
                 String rawHandName = liveState.resolvedHandName(
                         player.nickname());
+                String rabbitHandName = liveState.rabbitHandName(
+                        player.nickname());
+                if (!rabbitHandName.isBlank()) {
+                    rawHandName = rabbitHandName;
+                }
                 if (rawHandName.isBlank()) {
                     rawHandName = player.handName();
                 }
@@ -9728,16 +9751,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         = livePlayer == null ? null
                                 : liveState.actionKind(livePlayer.nickname());
                 boolean timedOut = livePlayer != null && livePlayer.timedOut();
+                boolean rabbitIcon = rabbitActionIconVisible(livePlayer,
+                        actionLabel);
                 if (timedOut) {
                     batch.setColor(1f, 1f, 1f, presence);
                     batch.draw(timeoutIcon, seat.podX + 17f,
                             seat.podY + 15f, 28f, 28f);
                 }
+                float actionContentX = seat.podX
+                        + (timedOut ? 48f : 16f);
+                float actionContentWidth = PLAYER_POD_WIDTH
+                        - (timedOut ? 64f : 32f);
+                if (rabbitIcon) {
+                    float iconSize = 25f;
+                    batch.setColor(1f, 1f, 1f, presence);
+                    batch.draw(rabbitActionIcon, actionContentX,
+                            seat.podY + 16.5f, iconSize, iconSize);
+                    actionContentX += iconSize + 5f;
+                    actionContentWidth -= iconSize + 5f;
+                }
                 if (!actionLabel.isEmpty()) {
                     drawFittedCenteredInBox(seatActionFont, actionLabel,
-                            seat.podX + (timedOut ? 48f : 16f),
+                            actionContentX,
                             seat.podY + 13f,
-                            PLAYER_POD_WIDTH - (timedOut ? 64f : 32f), 32f,
+                            actionContentWidth, 32f,
                             folded ? Color.GRAY
                                     : lastActionTextColorForSeat(seat.index),
                             presence * seatActionTextAlpha(folded));
@@ -14919,6 +14956,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState.rabbitNoticeActive(player.nickname())) {
             return "RABBIT";
         }
+        String rabbitHandName = liveState.rabbitHandName(player.nickname());
+        if (!rabbitHandName.isBlank()) {
+            return localizedHandName(rabbitHandName, gameText);
+        }
         if (liveState.hasLateShownHand(player.nickname())) {
             String shownName = liveState.resolvedHandName(player.nickname());
             if (shownName.isBlank()) shownName = player.handName();
@@ -14979,6 +15020,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? canonicalLabel : player.lastAction();
         return localizedActionLabel(liveState.actionKind(player.nickname()),
                 fallback, gameText);
+    }
+
+    private boolean rabbitActionIconVisible(
+            TableSnapshot.PlayerSnapshot player, String renderedLabel) {
+        if (player == null || renderedLabel == null || renderedLabel.isBlank()
+                || !liveState.requestedRabbit(player.nickname())) {
+            return false;
+        }
+        return liveState.rabbitNoticeActive(player.nickname())
+                || !liveState.rabbitHandName(player.nickname()).isBlank()
+                || liveState.hasRevealedHoleCards(player.nickname())
+                || player.presentation().showingCards();
     }
 
     static String remoteRebuyLabel(
@@ -15132,6 +15185,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLiveThinkingSeat(seats[seat])) return LEGACY_THINKING;
         if (liveState.isIwtsthCandidate(player.nickname())) {
             return iwtsthBlinkOn() ? Color.WHITE : LEGACY_LOSER;
+        }
+        if (liveState.rabbitNoticeActive(player.nickname())
+                || !liveState.rabbitHandName(player.nickname()).isBlank()) {
+            return Color.BLUE;
         }
         Boolean resolvedWinner = liveState.resolvedHandWinner(player.nickname());
         boolean foldedThisHand = liveState.foldedThisHand(player.nickname());
@@ -17126,9 +17183,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     namePlate.y + 10f, 20f, 20f);
         }
         if (!localMonteCarlo && !lastLocalActionLabel.isEmpty()) {
+            boolean rabbitIcon = rabbitActionIconVisible(liveLocalPlayer,
+                    lastLocalActionLabel);
+            float actionTextX = actionBadge.x + 10f;
+            float actionTextWidth = actionBadge.width - 20f;
+            if (rabbitIcon) {
+                float iconSize = 28f;
+                batch.setColor(Color.WHITE);
+                batch.draw(rabbitActionIcon, actionTextX,
+                        actionBadge.y
+                                + (actionBadge.height - iconSize) / 2f,
+                        iconSize, iconSize);
+                actionTextX += iconSize + 6f;
+                actionTextWidth -= iconSize + 6f;
+            }
             drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
-                    actionBadge.x + 10f, actionBadge.y,
-                    actionBadge.width - 20f, actionBadge.height,
+                    actionTextX, actionBadge.y,
+                    actionTextWidth, actionBadge.height,
                     lastActionTextColorForSeat(0),
                     seatActionTextAlpha(dimLocalActionBadge));
         }
@@ -25243,6 +25314,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(foldThumbIcon);
         disposeSafely(callThumbIcon);
         disposeSafely(timeoutIcon);
+        disposeSafely(rabbitActionIcon);
         disposeSafely(talkIcon);
         disposeSafely(fastMenuIcon);
         disposeSafely(defaultCardBack);
@@ -25455,6 +25527,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         foldThumbIcon.dispose();
         callThumbIcon.dispose();
         timeoutIcon.dispose();
+        rabbitActionIcon.dispose();
         talkIcon.dispose();
         fastMenuIcon.dispose();
         for (Texture fastButtonIcon : fastButtonIcons) {

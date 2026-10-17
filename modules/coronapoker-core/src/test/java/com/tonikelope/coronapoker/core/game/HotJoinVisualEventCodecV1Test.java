@@ -142,6 +142,7 @@ class HotJoinVisualEventCodecV1Test {
                 TableVisualEvent.ActionControls.class,
                 TableVisualEvent.PreActionControls.class,
                 TableVisualEvent.IwtsthCandidates.class,
+                TableVisualEvent.RabbitHand.class,
                 TableVisualEvent.LateJoinRequest.class,
                 TableVisualEvent.CallCost.class,
                 TableVisualEvent.DeckChanged.class));
@@ -246,10 +247,13 @@ class HotJoinVisualEventCodecV1Test {
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
                 .IwtsthCandidates(3, List.of("ana"))).isEmpty());
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
-                .CallCost(4, "+1.2", "host")).isEmpty(),
+                .RabbitHand(4, "ana", "COLOR")).isEmpty(),
+                "a hypothetical Rabbit hand belongs only to its requester");
+        assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
+                .CallCost(5, "+1.2", "host")).isEmpty(),
                 "the call-cost overlay belongs to the local acting seat");
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
-                .DeckChanged(5, "local-deck")).isEmpty(),
+                .DeckChanged(6, "local-deck")).isEmpty(),
                 "a warming client must retain its own deck preference");
     }
 

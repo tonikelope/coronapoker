@@ -59,12 +59,46 @@ final class NewGameConnectionDraftTest {
 
         draft.setPort("0");
         assertFalse(draft.canSubmit());
+        assertFalse(draft.portValid());
         draft.setPort("65535");
         assertTrue(draft.canSubmit());
+        assertTrue(draft.portValid());
         draft.setPort("65536");
         assertFalse(draft.canSubmit());
         draft.setPort("99999");
         assertFalse(draft.canSubmit());
+    }
+
+    @Test
+    void portEditorCanBeClearedAndRetypedButRejectsNonNumericOrOversizedText() {
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                new Properties(), NewGameConnectionDraft.Mode.CREATE);
+
+        assertEquals("7234", draft.port());
+        draft.setPort("");
+        assertEquals("", draft.port());
+        draft.setPort("2");
+        draft.setPort("23");
+        draft.setPort("234");
+        draft.setPort("2345");
+        assertEquals("2345", draft.port());
+        assertTrue(draft.portValid());
+
+        draft.setPort("23x45");
+        draft.setPort("123456");
+        assertEquals("2345", draft.port());
+    }
+
+    @Test
+    void malformedPersistedPortFallsBackToTheSafeDefault() {
+        Properties properties = new Properties();
+        properties.setProperty("local_port", "not-a-port");
+
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                properties, NewGameConnectionDraft.Mode.CREATE);
+
+        assertEquals("7234", draft.port());
+        assertTrue(draft.portValid());
     }
 
     @Test

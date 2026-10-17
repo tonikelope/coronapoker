@@ -95,6 +95,9 @@ class NetworkLobbyGatewayTest {
             LobbySession client = clientGateway.open(request(true, "Invitado", port))
                     .get(5, TimeUnit.SECONDS);
             try {
+                String endpoint = "127.0.0.1:" + port;
+                assertEquals(endpoint, host.snapshot().serverAddress());
+                assertEquals(endpoint, client.snapshot().serverAddress());
                 await(() -> hostTrust.observed.get() != null
                         && clientTrust.observed.get() != null);
                 assertEquals("Invitado", hostTrust.observed.get());

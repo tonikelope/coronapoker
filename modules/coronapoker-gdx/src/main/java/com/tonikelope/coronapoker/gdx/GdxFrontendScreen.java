@@ -46,6 +46,7 @@ import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
+import com.tonikelope.coronapoker.core.network.UpnpPortProbe;
 import com.tonikelope.coronapoker.DebugLog;
 import org.dosse.upnp.UPnP;
 import java.awt.FileDialog;
@@ -53,7 +54,12 @@ import java.awt.Frame;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.net.BindException;
+import java.net.ConnectException;
 import java.net.InetAddress;
+import java.net.NoRouteToHostException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -427,6 +433,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Surface surface;
     private int historyIndex = -1;
     private boolean disposed;
+    private boolean upnpCheckInFlight;
+    private boolean submitAfterUpnpCheck;
+    private long upnpCheckGeneration;
+    private int verifiedUpnpPort = -1;
+    private String frontendNoticeTitle = "";
+    private String frontendNoticeMessage = "";
+    private boolean frontendNoticeError;
     private boolean avatarSelectionPending;
     private LobbySession lobbySession;
     private LobbySnapshot lobby;
@@ -480,6 +493,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String cachedLobbyPublicAddress = "";
     private boolean lobbyPublicAddressLoading;
     private long lobbyPublicAddressGeneration;
+    private String lastLobbyNoticeIdentity = "";
     private PresetDialog presetDialog = PresetDialog.NONE;
     private final GdxBlindStructureEditor blindStructureEditor =
             new GdxBlindStructureEditor();
@@ -1196,7 +1210,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (settingsRestartNotice) {
+            if (!frontendNoticeMessage.isBlank()) {
+                drawFrontendNotice();
+            } else if (settingsRestartNotice) {
                 drawSettingsRestartNotice();
             } else if (updateCheckingModalVisible()) {
                 drawUpdateCheckingDialog();
@@ -1217,7 +1233,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     drawSettingsDiscardConfirmation();
                 }
             } else if (surface == Surface.NEW_GAME) {
-                if (submissions.submitting()) {
+                if (upnpCheckInFlight) {
+                    drawUpnpCheckingDialog();
+                } else if (submissions.submitting()) {
                     drawNewGameSubmissionOverlay();
                 } else if (dropdown != Dropdown.NONE) {
                     drawDropdownOverlay();
@@ -1357,7 +1375,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasVisibleFrontendModal() {
-        return settingsRestartNotice
+        return !frontendNoticeMessage.isBlank()
+                || settingsRestartNotice
                 || (surface == Surface.MENU
                         && (aboutOpen || updatePromptOpen
                                 || updateCheckingModalVisible()))
@@ -1371,7 +1390,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || fingerprintDialog != null))
                 || surface == Surface.SETTINGS
                 || (surface == Surface.NEW_GAME
-                && (submissions.submitting() || dropdown != Dropdown.NONE
+                && (upnpCheckInFlight || submissions.submitting()
+                        || dropdown != Dropdown.NONE
                         || presetDialog != PresetDialog.NONE
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
@@ -1392,7 +1412,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean isFrontendRootModal() {
         if (isSettingsRootModal()) return true;
         if (surface == Surface.NEW_GAME) {
-            return !submissions.submitting()
+            return !upnpCheckInFlight
+                    && frontendNoticeMessage.isBlank()
+                    && !submissions.submitting()
                     && dropdown == Dropdown.NONE
                     && presetDialog == PresetDialog.NONE
                     && blindStructureDialog == BlindStructureDialog.NONE;
@@ -1408,6 +1430,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean isSettingsRootModal() {
         return surface == Surface.SETTINGS
+                && frontendNoticeMessage.isBlank()
                 && !settingsDiscardConfirmation
                 && settingsAutoCallDialog == null
                 && !voiceNotesOpen
@@ -1453,6 +1476,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // blocker and belongs exclusively to the main menu.
         return (surface == Surface.MENU && startupMenuWaitingForUpdate)
                 || hasVisibleFrontendModal();
+    }
+
+    /**
+     * A root workflow is itself the foreground surface and must keep its own
+     * keyboard, wheel and scrollbar input. Only a child dialog placed above
+     * that workflow consumes those events.
+     */
+    private boolean childModalOwnsInput() {
+        return childModalOwnsInput(hasBlockingFrontendModal(),
+                isFrontendRootModal());
+    }
+
+    static boolean childModalOwnsInput(boolean visibleModal,
+            boolean rootSurfaceModal) {
+        return visibleModal && !rootSurfaceModal;
     }
 
     /**
@@ -1539,17 +1577,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         selectedParticipant = null;
+        lastLobbyNoticeIdentity = "";
         loadLobbyPublicAddress(lobby.host());
         clearActiveField();
         activateSurface(Surface.LOBBY);
+        presentLobbyNotice(null, lobby);
         if (connection != null
                 && connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
             playPreferenceSound("misc/yahoo.wav", "sonido_conexion", 0.82f);
         }
         lobbySubscription = session.subscribe(next -> Gdx.app.postRunnable(() -> {
             if (!disposed && lobbySession == session) {
-                playLobbyRosterChange(lobby, next);
+                LobbySnapshot previous = lobby;
+                playLobbyRosterChange(previous, next);
                 lobby = next;
+                presentLobbyNotice(previous, next);
                 if (surface == Surface.SETTINGS
                         && settingsReturnSurface == Surface.LOBBY
                         && !next.host() && next.tableSettings() != null) {
@@ -1565,6 +1607,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 handleLobbyMedia(next);
             }
         }));
+    }
+
+    private void presentLobbyNotice(LobbySnapshot previous,
+            LobbySnapshot next) {
+        if (next == null) return;
+        String detail = Objects.requireNonNullElse(next.statusDetail(), "")
+                .trim();
+        boolean upnpFailure = "UPNP_UNAVAILABLE".equals(detail)
+                || "UPNP_ALREADY_MAPPED".equals(detail)
+                || "UPNP_FAILED".equals(detail)
+                || "UPNP_ERROR".equals(detail);
+        boolean fatal = next.phase() == LobbySnapshot.Phase.ERROR;
+        boolean terminalNotice = next.phase() == LobbySnapshot.Phase.CLOSED
+                && !detail.isBlank();
+        if (!upnpFailure && !fatal && !terminalNotice) return;
+        String identity = next.phase() + "\n" + detail;
+        if (identity.equals(lastLobbyNoticeIdentity)) return;
+        if (previous != null && previous.phase() == next.phase()
+                && Objects.equals(previous.statusDetail(), next.statusDetail())) {
+            return;
+        }
+        lastLobbyNoticeIdentity = identity;
+        if (upnpFailure) {
+            disableUpnpPreference();
+            detail = lobbyNetworkStatusText(detail, gameText);
+        }
+        showFrontendNotice(gameText.translate(fatal || upnpFailure
+                ? "gdx.dialog.error" : "gdx.dialog.information"), detail,
+                fatal || upnpFailure);
     }
 
     private void loadLobbyPublicAddress(boolean host) {
@@ -4204,6 +4275,50 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 panelW - 200f, 18f, 170f, 0.52f, 9f);
     }
 
+    private void drawUpnpCheckingDialog() {
+        hits.clear();
+        float panelX = 510f;
+        float panelY = 376f;
+        float panelW = 900f;
+        float panelH = 290f;
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
+                CYAN_DARK, 1f);
+        textFit(headingFont, uppercase(gameText.translate(
+                "gdx.newgame.upnp_checking")), WIDTH / 2f,
+                panelY + 190f, GOLD, true, panelW - 100f);
+        textFit(smallFont, gameText.translate("gdx.newgame.upnp_port",
+                connection == null ? "" : connection.port()), WIDTH / 2f,
+                panelY + 135f, Color.WHITE, true, panelW - 140f);
+        drawIndeterminateProgressBar(panelX + 110f, panelY + 65f,
+                panelW - 220f, 18f, 170f, 0.52f, 9f);
+    }
+
+    private void drawFrontendNotice() {
+        hits.clear();
+        float panelX = 470f;
+        float panelY = 322f;
+        float panelW = 980f;
+        float panelH = 390f;
+        Color border = frontendNoticeError ? ORANGE : CYAN_DARK;
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
+                border, 1f);
+        textFit(headingFont, uppercase(frontendNoticeTitle), WIDTH / 2f,
+                panelY + panelH - 74f,
+                frontendNoticeError ? ORANGE : GOLD, true, panelW - 110f);
+        List<String> lines = wrapText(smallFont, frontendNoticeMessage,
+                panelW - 150f, 5);
+        float lineY = panelY + panelH - 145f;
+        for (String line : lines) {
+            textFit(smallFont, line, WIDTH / 2f, lineY, Color.WHITE, true,
+                    panelW - 150f);
+            lineY -= 34f;
+        }
+        themedButton(WIDTH / 2f - 190f, panelY + 38f, 380f, 72f,
+                uppercase(gameText.translate("ui.aceptar")),
+                frontendNoticeError ? ButtonTone.DANGER : ButtonTone.POSITIVE,
+                this::dismissFrontendNotice, true);
+    }
+
     /** Native GDX counterpart of Swing's AboutDialog, including its music. */
     private void drawAboutDialog() {
         hits.clear();
@@ -5857,6 +5972,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (statusDetail == null || statusDetail.isBlank()) return "";
         return switch (statusDetail) {
             case "UPNP_OK" -> text.translate("gdx.lobby.upnp_ok");
+            case "UPNP_UNAVAILABLE" ->
+                text.translate("gdx.lobby.upnp_unavailable");
+            case "UPNP_ALREADY_MAPPED" ->
+                text.translate("gdx.lobby.upnp_already_mapped");
+            case "UPNP_FAILED" -> text.translate("gdx.lobby.upnp_failed");
             case "UPNP_ERROR" -> text.translate("gdx.lobby.upnp_error");
             default -> statusDetail;
         };
@@ -7975,7 +8095,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "gdx.settings.option.gdx_show_fps")),
                     preferenceBoolean("gdx_show_fps", false),
                     () -> togglePreference("gdx_show_fps", false), true);
-            settingsInfoRow(x + 34f, rowY - 5f * rowStride, w - 68f,
+            toggle(x + 34f, rowY - 5f * rowStride, w - 68f,
+                    uppercase(gameText.translate(
+                            "gdx.settings.option.auto_fullscreen")),
+                    preferenceBoolean("auto_fullscreen", true),
+                    () -> togglePreference("auto_fullscreen", true), true);
+            settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.gpu_renderer")),
@@ -9228,6 +9353,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void openNewGame(NewGameConnectionDraft.Mode mode) {
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
+        cancelUpnpCheck();
+        dismissFrontendNotice();
         connection = defaultConnection(initialProperties, mode);
         if (mode == NewGameConnectionDraft.Mode.CREATE) {
             refreshHostAddressOptions();
@@ -9243,6 +9370,101 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearActiveField();
         historyIndex = -1;
         activateSurface(Surface.NEW_GAME);
+        if (mode == NewGameConnectionDraft.Mode.CREATE && connection.upnp()) {
+            startUpnpPortCheck(false);
+        }
+    }
+
+    private void toggleUpnp() {
+        if (connection == null || upnpCheckInFlight) return;
+        if (connection.upnp()) {
+            cancelUpnpCheck();
+            connection.setUpnp(false);
+            verifiedUpnpPort = -1;
+        } else {
+            startUpnpPortCheck(false);
+        }
+    }
+
+    private void startUpnpPortCheck(boolean continueSubmission) {
+        if (connection == null || !connection.portValid()) return;
+        int port = Integer.parseInt(connection.port());
+        if (connection.upnp() && verifiedUpnpPort == port) {
+            if (continueSubmission) submitNewGameAfterChecks();
+            return;
+        }
+        connection.setUpnp(true);
+        submitAfterUpnpCheck = continueSubmission;
+        upnpCheckInFlight = true;
+        long generation = ++upnpCheckGeneration;
+        captureFrontendModalInput();
+        CompletableFuture.supplyAsync(
+                () -> UpnpPortProbe.probeSystemTcp(port),
+                networkInfoExecutor)
+                .completeOnTimeout(UpnpPortProbe.Status.FAILED,
+                        12L, TimeUnit.SECONDS)
+                .exceptionally(failure -> {
+                    LOGGER.log(Level.WARNING,
+                            "Unable to probe UPnP TCP port " + port,
+                            failure);
+                    return UpnpPortProbe.Status.FAILED;
+                })
+                .thenAccept(status -> Gdx.app.postRunnable(() ->
+                        completeUpnpPortCheck(generation, port, status)));
+    }
+
+    private void completeUpnpPortCheck(long generation, int port,
+            UpnpPortProbe.Status status) {
+        if (disposed || generation != upnpCheckGeneration
+                || surface != Surface.NEW_GAME || connection == null) return;
+        upnpCheckInFlight = false;
+        boolean continueSubmission = submitAfterUpnpCheck;
+        submitAfterUpnpCheck = false;
+        if (status == UpnpPortProbe.Status.AVAILABLE) {
+            verifiedUpnpPort = port;
+            if (continueSubmission) submitNewGameAfterChecks();
+            return;
+        }
+        disableUpnpPreference();
+        showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                gameText.translate(upnpProbeErrorKey(status)), true);
+    }
+
+    static String upnpProbeErrorKey(UpnpPortProbe.Status status) {
+        return switch (Objects.requireNonNull(status, "status")) {
+            case UNAVAILABLE -> "gdx.lobby.upnp_unavailable";
+            case ALREADY_MAPPED -> "gdx.lobby.upnp_already_mapped";
+            case FAILED -> "gdx.lobby.upnp_failed";
+            case AVAILABLE -> "";
+        };
+    }
+
+    private void cancelUpnpCheck() {
+        upnpCheckGeneration++;
+        upnpCheckInFlight = false;
+        submitAfterUpnpCheck = false;
+        verifiedUpnpPort = -1;
+    }
+
+    private void disableUpnpPreference() {
+        if (connection != null) connection.setUpnp(false);
+        verifiedUpnpPort = -1;
+        initialProperties.setProperty("upnp", "false");
+        if (preferences != null) preferences.saveDeferred();
+    }
+
+    private void showFrontendNotice(String title, String message,
+            boolean error) {
+        frontendNoticeTitle = Objects.requireNonNullElse(title, "");
+        frontendNoticeMessage = Objects.requireNonNullElse(message, "");
+        frontendNoticeError = error;
+        captureFrontendModalInput();
+    }
+
+    private void dismissFrontendNotice() {
+        frontendNoticeTitle = "";
+        frontendNoticeMessage = "";
+        frontendNoticeError = false;
     }
 
     private void drawHeader() {
@@ -9363,11 +9585,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 connection.server(), () -> openDropdown(
                         Dropdown.HOST_ADDRESS), true);
         field(1630f, 630f, 175f, gameText.translate("gdx.port"),
-                connection.port(), "port", false);
+                connection.port(), "port", false, connection.portValid());
         tooltip(1170f, 630f, 430f, 72f, "tooltip.cfg.server_ip");
         tooltip(1630f, 630f, 175f, 72f, "tooltip.cfg.server_port");
         toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
-                () -> connection.setUpnp(!connection.upnp()), true);
+                this::toggleUpnp, connection.portValid());
         tooltip(1170f, 475f, 635f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.upnp");
     }
@@ -9410,7 +9632,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), "server", false);
         field(1395f, 595f, 185f, gameText.translate("gdx.port"),
-                connection.port(), "port", false);
+                connection.port(), "port", false, connection.portValid());
         tooltip(985f, 595f, 385f, 72f, "tooltip.cfg.server_ip");
         tooltip(1395f, 595f, 185f, 72f, "tooltip.cfg.server_port");
         String history = connection.serverHistory().isEmpty()
@@ -10478,11 +10700,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             showToast(gameText.translate("gdx.newgame.missing_required"));
             return;
         }
+        if (connection.mode() == NewGameConnectionDraft.Mode.CREATE
+                && connection.upnp()
+                && verifiedUpnpPort != Integer.parseInt(connection.port())) {
+            startUpnpPortCheck(true);
+            return;
+        }
+        submitNewGameAfterChecks();
+    }
+
+    private void submitNewGameAfterChecks() {
         try {
             submissions.submit(connection, table).whenComplete((request, failure) ->
                     Gdx.app.postRunnable(() -> completeSubmission(request, failure)));
         } catch (RuntimeException failure) {
-            showToast(submissionError(failure));
+            showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                    submissionError(failure), true);
         }
     }
 
@@ -10501,7 +10734,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             activateSurface(Surface.MENU);
             clearActiveField();
         } else {
-            showToast(submissionError(cause));
+            showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                    submissionError(cause), true);
         }
     }
 
@@ -10514,6 +10748,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         clearActiveField();
+        cancelUpnpCheck();
+        dismissFrontendNotice();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
         connection.setRecoverRequested(false);
@@ -10527,9 +10763,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String submissionError(Throwable failure) {
+        String translatedKey = submissionErrorKey(failure);
+        if (!translatedKey.isEmpty()) return gameText.translate(translatedKey);
         String message = failure.getMessage();
         return message == null || message.isBlank()
                 ? gameText.translate("gdx.lobby.open_failed") : message;
+    }
+
+    static String submissionErrorKey(Throwable failure) {
+        Throwable cause = failure;
+        while (cause != null) {
+            if (cause instanceof BindException) {
+                return "gdx.lobby.port_in_use";
+            }
+            if (cause instanceof UnknownHostException) {
+                return "gdx.lobby.unknown_host";
+            }
+            if (cause instanceof NoRouteToHostException) {
+                return "gdx.lobby.no_route";
+            }
+            if (cause instanceof SocketTimeoutException) {
+                return "gdx.lobby.connection_timeout";
+            }
+            if (cause instanceof ConnectException) {
+                return "gdx.lobby.connection_refused";
+            }
+            cause = cause.getCause();
+        }
+        return "";
     }
 
     private void drawToast() {
@@ -10671,11 +10932,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void field(float x, float y, float w, String label, String value,
             String id, boolean secret) {
+        field(x, y, w, label, value, id, secret, true);
+    }
+
+    private void field(float x, float y, float w, String label, String value,
+            String id, boolean secret, boolean valid) {
         boolean focused = id.equals(activeField);
         boolean revealed = secret && id.equals(revealedPasswordField);
         textFit(smallFont, label, x, y + 98f, MUTED, false,
                 Math.max(0f, w));
-        outerBox(x, y, w, 70f, focused || hovered(x, y, w, 70f) ? CYAN : LINE,
+        Color border = !valid ? ORANGE
+                : focused || hovered(x, y, w, 70f) ? CYAN : LINE;
+        outerBox(x, y, w, 70f, border,
                 pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
         String visible = passwordDisplay(value, secret, revealed);
         float textWidth = w - (secret ? 102f : 44f);
@@ -10840,8 +11108,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean shouldDrawEditMenu() {
-        return editMenu != null && (!hasBlockingFrontendModal()
-                || surface == Surface.STATS && statsSyncExclusionsOpen);
+        return editMenu != null && (!childModalOwnsInput()
+                || frontendModalTextFieldActive());
     }
 
     private void drawEditMenuTopLayer() {
@@ -12179,9 +12447,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
-        boolean settingsOwnsPointer = surface == Surface.SETTINGS
-                && !settingsScrollBlockedByChildDialog();
-        if ((!blockingModal || settingsOwnsPointer
+        boolean rootSurfaceOwnsPointer = isFrontendRootModal();
+        if ((!blockingModal || rootSurfaceOwnsPointer
                 || statsPicker != StatsPicker.NONE || networkBlocksOpen)
                 && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y,
@@ -12617,6 +12884,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (GdxDialogKeyboard.isCancel(keycode)) {
+            if (!frontendNoticeMessage.isBlank()) {
+                dismissFrontendNotice();
+                return true;
+            }
+            if (upnpCheckInFlight) {
+                return true;
+            }
             if (dropdown != Dropdown.NONE) {
                 dropdown = Dropdown.NONE;
                 return true;
@@ -12800,9 +13074,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
-        if (hasBlockingFrontendModal()) {
-            // Every modal owns the keyboard as well as pointer feedback. The
-            // editable modal fields above are the only deliberate exception.
+        if (childModalOwnsInput()) {
+            // Child dialogs own the keyboard. Root workflows are themselves
+            // the active foreground and continue to receive navigation.
             return true;
         }
         if (activeField != null && handleActiveFieldKey(keycode)) {
@@ -12864,6 +13138,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * confirmation from also activating the table or screen below it.
      */
     private boolean acceptActiveFrontendDialog() {
+        if (!frontendNoticeMessage.isBlank()) {
+            dismissFrontendNotice();
+            return true;
+        }
         if (surface == Surface.LOBBY && !identityChangeNotices.isEmpty()
                 && !networkBlocksOpen && !lobbyPasswordDialog
                 && fingerprintDialog == null) {
@@ -13009,7 +13287,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean frontendModalTextFieldActive() {
-        return (lobbyPasswordDialog
+        return (surface == Surface.NEW_GAME
+                        && newGameTextField(activeField))
+                || (lobbyPasswordDialog
                         && "lobbyPassword".equals(activeField))
                 || (presetDialog == PresetDialog.NAME
                         && "presetName".equals(activeField))
@@ -13021,6 +13301,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && "blindStructureName".equals(activeField))
                 || (statsSyncExclusionsOpen
                         && "statsExcludeNicks".equals(activeField));
+    }
+
+    static boolean newGameTextField(String fieldId) {
+        return "nick".equals(fieldId)
+                || "password".equals(fieldId)
+                || "server".equals(fieldId)
+                || "port".equals(fieldId);
     }
 
     private boolean handleActiveFieldKey(int keycode) {
@@ -13156,7 +13443,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "nick" -> connection.setNickname(value);
             case "password" -> connection.setPassword(value);
             case "server" -> connection.setServer(value);
-            case "port" -> connection.setPort(value);
+            case "port" -> {
+                connection.setPort(value);
+                verifiedUpnpPort = -1;
+            }
             case "lobbyChat" -> lobbyChatDraft = value;
             case "lobbyImage" -> lobbyImageDraft = value;
             case "lobbyPassword" -> lobbyPasswordDraft = value;
@@ -13269,6 +13559,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void dispose() {
         disposed = true;
+        cancelUpnpCheck();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
         recoveryExecutor.shutdownNow();
@@ -13403,7 +13694,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             scrollActiveSettingsSection(amountY);
             return true;
         }
-        if (hasBlockingFrontendModal() && dropdown == Dropdown.NONE) {
+        if (childModalOwnsInput() && dropdown == Dropdown.NONE) {
             return true;
         }
         if (dropdown != Dropdown.NONE && amountY != 0f) {

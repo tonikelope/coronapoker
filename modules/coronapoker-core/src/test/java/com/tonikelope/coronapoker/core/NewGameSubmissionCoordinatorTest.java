@@ -40,6 +40,7 @@ final class NewGameSubmissionCoordinatorTest {
     @Test
     void hostRequestSnapshotsAllSettingsAndCommitsOnlyAfterLobbyAcceptsIt() {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.CREATE);
+        connection.setPort("2345");
         NewGameTableDraft table = new NewGameTableDraft();
         table.setRunItTwice(true);
         CompletableFuture<LobbySession> opening = new CompletableFuture<>();
@@ -56,6 +57,7 @@ final class NewGameSubmissionCoordinatorTest {
         assertTrue(coordinator.submitting());
         assertNull(preferences.properties().getProperty("nick"));
         assertTrue(observed.get().table().runItTwice());
+        assertEquals("2345", observed.get().connection().port());
         LobbySession lobby = lobby(true, "Alice");
         opening.complete(lobby);
 
@@ -63,11 +65,14 @@ final class NewGameSubmissionCoordinatorTest {
         assertSame(lobby, result.join().lobby());
         assertFalse(coordinator.submitting());
         assertEquals("Alice", preferences.properties().getProperty("nick"));
+        assertEquals("2345",
+                preferences.properties().getProperty("local_port"));
     }
 
     @Test
     void joinCarriesNoHostSettingsAndCannotBeSubmittedTwice() {
         NewGameConnectionDraft connection = draft(NewGameConnectionDraft.Mode.JOIN);
+        connection.setPort("3456");
         CompletableFuture<LobbySession> opening = new CompletableFuture<>();
         AtomicInteger calls = new AtomicInteger();
         NewGameSubmissionCoordinator coordinator = new NewGameSubmissionCoordinator(
@@ -75,6 +80,7 @@ final class NewGameSubmissionCoordinatorTest {
                     calls.incrementAndGet();
                     assertTrue(request.joining());
                     assertNull(request.table());
+                    assertEquals("3456", request.connection().port());
                     return opening;
                 });
 
@@ -84,6 +90,8 @@ final class NewGameSubmissionCoordinatorTest {
                 () -> coordinator.submit(connection, new NewGameTableDraft()));
         assertEquals(1, calls.get());
         opening.complete(lobby(false, "Alice"));
+        assertEquals("3456",
+                preferences.properties().getProperty("server_port"));
     }
 
     @Test

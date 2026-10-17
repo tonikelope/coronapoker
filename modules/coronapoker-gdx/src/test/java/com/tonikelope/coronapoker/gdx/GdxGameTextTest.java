@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(539, spanishKeys.size(),
+        assertEquals(549, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -96,6 +96,15 @@ final class GdxGameTextTest {
         assertEquals("UPnP unavailable",
                 GdxFrontendScreen.lobbyNetworkStatusText(
                         "UPNP_ERROR", text));
+        assertEquals("The router does not provide UPnP. The option has been disabled.",
+                GdxFrontendScreen.lobbyNetworkStatusText(
+                        "UPNP_UNAVAILABLE", text));
+        assertEquals("The port is already mapped on the router. Choose another port or remove the existing mapping. UPnP has been disabled.",
+                GdxFrontendScreen.lobbyNetworkStatusText(
+                        "UPNP_ALREADY_MAPPED", text));
+        assertEquals("The port could not be opened through UPnP. The option has been disabled.",
+                GdxFrontendScreen.lobbyNetworkStatusText(
+                        "UPNP_FAILED", text));
         assertEquals("", GdxFrontendScreen.lobbyNetworkStatusText(
                 "", text));
         assertEquals("Paste an image or GIF URL",

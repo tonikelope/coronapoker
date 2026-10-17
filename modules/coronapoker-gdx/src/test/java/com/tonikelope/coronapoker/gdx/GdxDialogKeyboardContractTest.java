@@ -21,4 +21,11 @@ final class GdxDialogKeyboardContractTest {
         assertFalse(GdxDialogKeyboard.isCancel(Input.Keys.BACKSPACE));
         assertFalse(GdxDialogKeyboard.isCancel(Input.Keys.ENTER));
     }
+
+    @Test
+    void rootModalWorkflowKeepsInputWhileAChildDialogOwnsIt() {
+        assertFalse(GdxFrontendScreen.childModalOwnsInput(true, true));
+        assertTrue(GdxFrontendScreen.childModalOwnsInput(true, false));
+        assertFalse(GdxFrontendScreen.childModalOwnsInput(false, false));
+    }
 }

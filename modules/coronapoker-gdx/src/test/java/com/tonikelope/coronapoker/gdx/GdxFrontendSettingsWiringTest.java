@@ -129,16 +129,16 @@ final class GdxFrontendSettingsWiringTest {
         int settingsWheel = frontend.indexOf(
                 "if (surface == Surface.SETTINGS && amountY != 0f", wheel);
         int modalShield = frontend.indexOf(
-                "if (hasBlockingFrontendModal() && dropdown == Dropdown.NONE)",
+                "if (childModalOwnsInput() && dropdown == Dropdown.NONE)",
                 wheel);
 
         assertTrue(wheel >= 0 && settingsWheel > wheel);
         assertTrue(settingsWheel < modalShield,
                 "settings must route their wheel before the root-modal shield");
         assertTrue(frontend.contains(
-                "boolean settingsOwnsPointer = surface == Surface.SETTINGS"));
+                "boolean rootSurfaceOwnsPointer = isFrontendRootModal();"));
         assertTrue(frontend.contains(
-                "&& !settingsScrollBlockedByChildDialog();"));
+                "(!blockingModal || rootSurfaceOwnsPointer"));
         assertTrue(frontend.contains("currentSettingsPixelRows()"),
                 "wheel limits must come from the current subsection rows");
     }

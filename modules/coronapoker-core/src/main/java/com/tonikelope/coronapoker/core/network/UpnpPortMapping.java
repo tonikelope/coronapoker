@@ -30,7 +30,7 @@ final class UpnpPortMapping implements AutoCloseable {
         boolean closeTcp(int port);
     }
 
-    private static final Gateway SYSTEM = new Gateway() {
+    static final Gateway SYSTEM = new Gateway() {
         @Override public boolean available() { return UPnP.isUPnPAvailable(); }
         @Override public boolean mappedTcp(int port) { return UPnP.isMappedTCP(port); }
         @Override public boolean openTcp(int port) { return UPnP.openPortTCP(port); }

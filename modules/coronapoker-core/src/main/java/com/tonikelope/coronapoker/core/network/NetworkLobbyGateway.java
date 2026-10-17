@@ -395,52 +395,67 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             Transport transport = new Transport(true, request, directory, executor, sessionId,
                     identity, request.table(), gameTables, identityTrust,
                     receiveStats, shareStats, statsSync, false);
-            int port = parsePort(request.connection().port());
-            ServerSocket server = new ServerSocket();
-            server.setReuseAddress(true);
-            server.bind(new InetSocketAddress(port));
-            transport.serverSocket = server;
-            String initialDetail = "";
-            if (request.connection().upnp()) {
-                UpnpPortMapping.Attempt attempt =
-                        UpnpPortMapping.openSystemTcp(port);
-                if (attempt.opened()) {
-                    transport.upnpMapping = attempt.lease();
-                    initialDetail = "UPNP_OK";
-                    LOGGER.log(Level.INFO,
-                            "UPnP mapping opened for TCP port {0}", port);
-                } else {
-                    initialDetail = "UPNP_ERROR";
-                    LOGGER.log(Level.WARNING,
-                            "UPnP mapping failed for TCP port {0}: {1}",
-                            new Object[]{port, attempt.status()});
-                }
-            }
-            transport.networkStatusDetail = initialDetail;
-            transport.peers.put(transport.localNickname,
-                    Peer.local(transport.localNickname, request.connection().avatar(), true,
-                            identity.publicKey(), identity.signJoin(sessionId)));
-            if (request.connection().recover() && recoverableGames != null) {
-                for (String nickname : recoverableGames.activeBotNicknames(
-                        transport.recoveryGameId)) {
-                    if (transport.peers.size() >= LobbySnapshot.MAX_PARTICIPANTS) {
-                        throw new IllegalStateException(
-                                "Recovered bot roster exceeds table capacity");
-                    }
-                    if (transport.peers.putIfAbsent(nickname,
-                            new Peer(nickname, null, false, false, true, true,
-                                    null, null, null)) != null) {
-                        throw new IllegalStateException(
-                                "Recovered bot duplicates a lobby participant");
+            boolean opened = false;
+            try {
+                int port = parsePort(request.connection().port());
+                ServerSocket server = new ServerSocket();
+                server.setReuseAddress(true);
+                server.bind(new InetSocketAddress(port));
+                transport.serverSocket = server;
+                String initialDetail = "";
+                if (request.connection().upnp()) {
+                    UpnpPortMapping.Attempt attempt =
+                            UpnpPortMapping.openSystemTcp(port);
+                    if (attempt.opened()) {
+                        transport.upnpMapping = attempt.lease();
+                        initialDetail = "UPNP_OK";
+                        LOGGER.log(Level.INFO,
+                                "UPnP mapping opened for TCP port {0}", port);
+                    } else {
+                        initialDetail = switch (attempt.status()) {
+                            case UNAVAILABLE -> "UPNP_UNAVAILABLE";
+                            case ALREADY_MAPPED -> "UPNP_ALREADY_MAPPED";
+                            case FAILED -> "UPNP_FAILED";
+                            case OPEN -> throw new IllegalStateException(
+                                    "Open UPnP attempt has no lease");
+                        };
+                        LOGGER.log(Level.WARNING,
+                                "UPnP mapping failed for TCP port {0}: {1}",
+                                new Object[]{port, attempt.status()});
                     }
                 }
+                transport.networkStatusDetail = initialDetail;
+                transport.peers.put(transport.localNickname,
+                        Peer.local(transport.localNickname,
+                                request.connection().avatar(), true,
+                                identity.publicKey(),
+                                identity.signJoin(sessionId)));
+                if (request.connection().recover() && recoverableGames != null) {
+                    for (String nickname : recoverableGames.activeBotNicknames(
+                            transport.recoveryGameId)) {
+                        if (transport.peers.size()
+                                >= LobbySnapshot.MAX_PARTICIPANTS) {
+                            throw new IllegalStateException(
+                                    "Recovered bot roster exceeds table capacity");
+                        }
+                        if (transport.peers.putIfAbsent(nickname,
+                                new Peer(nickname, null, false, false, true,
+                                        true, null, null, null)) != null) {
+                            throw new IllegalStateException(
+                                    "Recovered bot duplicates a lobby participant");
+                        }
+                    }
+                }
+                LobbySession session = new LobbySession(transport.snapshot(
+                        LobbySnapshot.Phase.WAITING_FOR_PLAYERS, initialDetail),
+                        transport::submit, transport, transport);
+                transport.session = session;
+                executor.execute(transport::acceptLoop);
+                opened = true;
+                return session;
+            } finally {
+                if (!opened) transport.close();
             }
-            LobbySession session = new LobbySession(transport.snapshot(
-                    LobbySnapshot.Phase.WAITING_FOR_PLAYERS, initialDetail),
-                    transport::submit, transport, transport);
-            transport.session = session;
-            executor.execute(transport::acceptLoop);
-            return session;
         }
 
         static LobbySession openClient(NewGameRequest request, Path directory,

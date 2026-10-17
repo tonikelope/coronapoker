@@ -453,7 +453,12 @@ final class GdxSettingsContractTest {
                 "mostrar_coste_igualar",
                 "chat_images_ingame", "chat_game_notifications",
                 "resaltar_jugada_showdown",
-                "resaltar_avatares", "auto_fullscreen")));
+                "resaltar_avatares")));
+        assertFalse(keys.contains("auto_fullscreen"));
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
+                "auto_fullscreen"));
+        assertEquals(7,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
         assertEquals(java.util.List.of("CINEMÁTICAS", "ANIMACIONES",
                 "INFORMACIÓN", "CHAT"),
                 GdxSettingsContract.APPEARANCE_PAGES.stream()

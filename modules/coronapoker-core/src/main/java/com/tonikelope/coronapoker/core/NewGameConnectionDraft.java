@@ -30,7 +30,7 @@ public final class NewGameConnectionDraft {
     private String nickname;
     private String password = "";
     private String server;
-    private String port;
+    private String port = Integer.toString(DEFAULT_PORT);
     private Path avatar;
     private boolean upnp;
     private boolean recoverRequested;
@@ -92,12 +92,22 @@ public final class NewGameConnectionDraft {
         return port;
     }
 
-    /** Applies the same numeric-only, five-character replacement contract as Swing. */
+    /**
+     * Stores the editable text, not merely a finished TCP port. Keeping the
+     * empty and other numeric intermediate states here is what lets a user
+     * erase and replace the current value. {@link #portValid()} is the strict
+     * submission boundary.
+     */
     public void setPort(String value) {
         String candidate = Objects.requireNonNullElse(value, "");
         if (candidate.length() <= MAX_PORT_LENGTH && candidate.matches("[0-9]*")) {
             port = candidate;
         }
+    }
+
+    /** True only for a complete TCP port in the IANA numeric range. */
+    public boolean portValid() {
+        return validPort(port);
     }
 
     public Path avatar() {
@@ -174,7 +184,7 @@ public final class NewGameConnectionDraft {
         return !submitting && !committed && !recoverLoading
                 && !submittedNickname().isBlank()
                 && !server.trim().isEmpty()
-                && validPort(port)
+                && portValid()
                 && (!recoverRequested || recoveredGameId != null);
     }
 

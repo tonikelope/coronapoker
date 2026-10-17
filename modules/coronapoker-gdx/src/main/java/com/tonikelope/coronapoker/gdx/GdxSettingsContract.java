@@ -21,7 +21,7 @@ final class GdxSettingsContract {
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
-    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 6;
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 7;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
@@ -380,9 +380,7 @@ final class GdxSettingsContract {
                     option("resaltar_avatares", "RESALTAR AVATARES", false,
                             Gate.NONE),
                     option("screenshot_fin_timba",
-                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
-                    option("auto_fullscreen",
-                            "PANTALLA COMPLETA AL INICIAR", true, Gate.NONE)),
+                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE)),
             page("CHAT",
                     option(CHAT_GAME_NOTIFICATIONS_KEY,
                             "NOTIFICACIONES DURANTE LA PARTIDA", true,

@@ -17918,6 +17918,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     toggleTablePreference("gdx_show_fps", false);
                     return;
                 }
+                if (contains(x, y, contentX,
+                        firstRowY - 5f * rowStride, rowW,
+                        GdxSettingsLayout.ROW_HEIGHT)) {
+                    toggleTablePreference("auto_fullscreen", true);
+                    return;
+                }
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();
@@ -21465,7 +21471,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         presentationSettings != null, alpha);
                 drawSettingsToggleShape(x, firstY - 4f * rowStride, width,
                         tablePreference("gdx_show_fps", false), alpha);
-                drawSettingsInfoShape(x, firstY - 5f * rowStride, width,
+                drawSettingsToggleShape(x, firstY - 5f * rowStride, width,
+                        tablePreference("auto_fullscreen", true), alpha);
+                drawSettingsInfoShape(x, firstY - 6f * rowStride, width,
                         alpha);
             } else {
                 GdxSettingsContract.TogglePage page =
@@ -22079,7 +22087,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawSettingsRowText(x, firstY - 4f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.option.gdx_show_fps")), alpha);
-                drawSettingsInfoText(x, firstY - 5f * rowStride, width,
+                drawSettingsRowText(x, firstY - 5f * rowStride, width,
+                        uppercase(gameText.translate(
+                                "gdx.settings.option.auto_fullscreen")), alpha);
+                drawSettingsInfoText(x, firstY - 6f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.gpu_renderer")),
                         GdxGraphicsInfo.displayValue(gameText), alpha);

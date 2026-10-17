@@ -15,13 +15,17 @@ final class UpnpPortMappingTest {
     void successfulMappingIsOwnedAndClosedExactlyOnce() {
         FakeGateway gateway = new FakeGateway();
 
-        UpnpPortMapping.Attempt attempt = UpnpPortMapping.openTcp(7234, gateway);
+        UpnpPortMapping.Attempt attempt = UpnpPortMapping.openTcp(49_152,
+                gateway);
 
         assertTrue(attempt.opened());
         assertNotNull(attempt.lease());
+        assertEquals(49_152, gateway.mappedPort.get());
+        assertEquals(49_152, gateway.openedPort.get());
         assertEquals(1, gateway.opens.get());
         attempt.lease().close();
         attempt.lease().close();
+        assertEquals(49_152, gateway.closedPort.get());
         assertEquals(1, gateway.closes.get());
     }
 
@@ -60,14 +64,22 @@ final class UpnpPortMappingTest {
         private boolean opensSuccessfully = true;
         private final AtomicInteger opens = new AtomicInteger();
         private final AtomicInteger closes = new AtomicInteger();
+        private final AtomicInteger mappedPort = new AtomicInteger(-1);
+        private final AtomicInteger openedPort = new AtomicInteger(-1);
+        private final AtomicInteger closedPort = new AtomicInteger(-1);
 
         @Override public boolean available() { return available; }
-        @Override public boolean mappedTcp(int port) { return mapped; }
+        @Override public boolean mappedTcp(int port) {
+            mappedPort.set(port);
+            return mapped;
+        }
         @Override public boolean openTcp(int port) {
+            openedPort.set(port);
             opens.incrementAndGet();
             return opensSuccessfully;
         }
         @Override public boolean closeTcp(int port) {
+            closedPort.set(port);
             closes.incrementAndGet();
             return true;
         }

@@ -241,11 +241,6 @@ the responsibilities of `TableSession`, `TableCommandSink`,
 events, is in
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
 
-The audited mapping from the 91 main-process warning/confirmation call sites
-in the last stable Swing release to their engine contracts, native GDX
-workflows or retired Swing-only tools is recorded in
-**[`docs/GDX_SWING_DIALOG_PARITY.md`](docs/GDX_SWING_DIALOG_PARITY.md)**.
-
 Product Java sources have one physical owner. Game logic and renderer-neutral
 contracts live in `modules/coronapoker-core`. Presentation and input live in
 `modules/coronapoker-gdx`. Shared assets remain in `src/main/resources` and are
@@ -270,10 +265,6 @@ duplicated product classes.
   GitHub self-update mechanism.
 
 The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer-Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus, has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
-
-The frontend warning and confirmation parity audit, including the mandatory
-Zero Trust and anti-DoS routes, is maintained in
-**[`docs/GDX_SWING_DIALOG_PARITY.md`](docs/GDX_SWING_DIALOG_PARITY.md)**.
 
 The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
 

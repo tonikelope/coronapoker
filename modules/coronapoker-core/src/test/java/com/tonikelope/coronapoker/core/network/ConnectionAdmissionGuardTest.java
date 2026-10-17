@@ -32,7 +32,7 @@ final class ConnectionAdmissionGuardTest {
         assertEquals(0, guard.globalPending());
     }
 
-    @Test void repeatedRejectedJoinsCauseARecoverableTemporaryIpBan() {
+    @Test void repeatedRejectedJoinsBlockTheIpForTheHostSession() {
         ConnectionAdmissionGuard guard = guard();
         long now = 1_000L;
         for (int attempt = 0; attempt < 3; attempt++) {
@@ -45,9 +45,10 @@ final class ConnectionAdmissionGuardTest {
         assertTrue(guard.banned("203.0.113.9", now + 3));
         assertEquals(ConnectionAdmissionGuard.Denial.BANNED,
                 guard.acquire("203.0.113.9", now + 3).denial());
-        assertFalse(guard.banned("203.0.113.9", now + 10_003L));
-        assertTrue(guard.acquire("203.0.113.9", now + 10_003L)
-                .admitted());
+        assertTrue(guard.banned("203.0.113.9", now + 10_003L));
+        assertEquals(Long.MAX_VALUE,
+                guard.acquire("203.0.113.9", now + 10_003L)
+                        .retryAfterMillis());
     }
 
     @Test void aSuccessfulAuthenticatedJoinClearsPriorRejections() {
@@ -96,9 +97,10 @@ final class ConnectionAdmissionGuardTest {
         var blocks = guard.activeBlocks(now + 3L);
         assertEquals(1, blocks.size());
         assertEquals("192.0.2.45", blocks.get(0).address());
-        assertEquals(NetworkBlock.Reason.CONNECTION_ABUSE,
-                blocks.get(0).reason());
-        assertTrue(blocks.get(0).remainingMillis(now + 3L) > 0L);
+        assertEquals("", blocks.get(0).lastNickname());
+        assertTrue(blocks.get(0).sessionLifetime());
+        assertEquals(Long.MAX_VALUE,
+                blocks.get(0).remainingMillis(now + 3L));
 
         assertTrue(guard.unblock("192.0.2.45", now + 4L));
         assertTrue(guard.activeBlocks(now + 4L).isEmpty());
@@ -106,8 +108,19 @@ final class ConnectionAdmissionGuardTest {
         assertTrue(guard.acquire("192.0.2.45", now + 5L).admitted());
     }
 
+    @Test void hostApprovedSessionBanKeepsTheLastKnownNickname() {
+        ConnectionAdmissionGuard guard = guard();
+        guard.banForSession("203.0.113.77", "Alice", 100L);
+
+        var blocks = guard.activeBlocks(101L);
+        assertEquals(1, blocks.size());
+        assertEquals("203.0.113.77", blocks.get(0).address());
+        assertEquals("Alice", blocks.get(0).lastNickname());
+        assertTrue(blocks.get(0).sessionLifetime());
+    }
+
     private static ConnectionAdmissionGuard guard() {
         return new ConnectionAdmissionGuard(3, 2, 3, 1_000L,
-                10_000L, 20_000L);
+                20_000L);
     }
 }

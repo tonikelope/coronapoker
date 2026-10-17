@@ -13,8 +13,9 @@ import java.util.function.Consumer;
 public interface GameChannel extends AutoCloseable {
 
     enum SecurityIncidentType {
-        INBOUND_FLOOD_EXPELLED,
-        BINARY_FLOOD_DROPPED
+        INBOUND_FLOOD_DETECTED,
+        BINARY_FLOOD_DETECTED,
+        HOST_BINARY_FLOOD_DETECTED
     }
 
     record Inbound(String peerNickname, String command) {
@@ -25,13 +26,23 @@ public interface GameChannel extends AutoCloseable {
     }
 
     /** Authenticated transport abuse with enough context for one user alert. */
-    record SecurityIncident(String peerNickname, SecurityIncidentType type) {
+    record SecurityIncident(long id, String peerNickname, String address,
+            SecurityIncidentType type) {
         public SecurityIncident {
+            if (id <= 0L) {
+                throw new IllegalArgumentException(
+                        "Security incident id must be positive");
+            }
             peerNickname = Objects.requireNonNull(peerNickname,
                     "peerNickname");
             if (peerNickname.isBlank()) {
                 throw new IllegalArgumentException(
                         "Security incident peer nickname is required");
+            }
+            address = Objects.requireNonNull(address, "address").trim();
+            if (address.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Security incident address is required");
             }
             type = Objects.requireNonNull(type, "type");
         }
@@ -61,6 +72,10 @@ public interface GameChannel extends AutoCloseable {
             Consumer<SecurityIncident> listener) {
         Objects.requireNonNull(listener, "listener");
         return () -> { };
+    }
+
+    /** Host decision for one transport incident; true expels and blocks it. */
+    default void resolveSecurityIncident(long incidentId, boolean expel) {
     }
 
     /** Client-to-host command; completes only after the authenticated ACK. */

@@ -81,6 +81,8 @@ import javax.crypto.spec.SecretKeySpec;
 public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(NetworkLobbyGateway.class.getName());
     static final byte[] MAGIC = java.util.HexFormat.of().parseHex("5c1f158dd9855cc9");
+    /** Negative length reserved for a constant-size pre-authentication block notice. */
+    static final int HANDSHAKE_BLOCKED_MARKER = 0xC0B10C4D;
     static final int HANDSHAKE_TIMEOUT_MS = 30_000;
     static final int CLIENT_HANDSHAKE_ATTEMPTS = 5;
     static final long CLIENT_HANDSHAKE_RETRY_BASE_MS = 100L;
@@ -88,7 +90,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final int MAX_PENDING_HANDSHAKES_PER_ADDRESS = 4;
     static final int HANDSHAKE_REJECTION_BAN_THRESHOLD = 8;
     static final long HANDSHAKE_REJECTION_WINDOW_MS = 30_000L;
-    static final long HANDSHAKE_ADDRESS_BAN_MS = 120_000L;
     static final long HANDSHAKE_ADDRESS_RETENTION_MS = 600_000L;
     static final int MAX_HOT_JOIN_ADMISSIONS_PER_IDENTITY = 10;
     static final int MAX_HOT_JOIN_ADMISSIONS_GLOBAL = 64;
@@ -107,8 +108,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final long MAX_CHAT_HISTORY_PAYLOAD_CHARS = 4L * 1024L * 1024L;
     static final int MAX_CLIENT_FRAMES_PER_SECOND = 512;
     static final long MAX_CLIENT_BYTES_PER_SECOND = 64L * 1024L * 1024L;
-    static final int MAX_CLIENT_CHATS_PER_WINDOW = 12;
-    static final int MAX_CLIENT_BINARY_OPERATIONS_PER_WINDOW = 64;
+    static final int MAX_CLIENT_VOICE_OPERATIONS_PER_WINDOW = 64;
     static final long CLIENT_FEATURE_RATE_WINDOW_MS = 10_000L;
     static final long GAME_CONFIRMATION_TIMEOUT_MS = 10_000L;
     static final int GAME_OUTBOX_MAX_ELEMENTS = 10_000;
@@ -325,6 +325,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final List<LobbyChatMessage> chat = new ArrayList<>();
         private long chatPayloadChars;
         private final AtomicLong chatSequence = new AtomicLong();
+        private final AtomicLong securityIncidentSequence = new AtomicLong(1L);
         private final AtomicBoolean closed = new AtomicBoolean();
         private final AtomicBoolean clientReconnectRunning = new AtomicBoolean();
         private final ConnectionAdmissionGuard admissionGuard
@@ -332,7 +333,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         MAX_PENDING_HANDSHAKES_PER_ADDRESS,
                         HANDSHAKE_REJECTION_BAN_THRESHOLD,
                         HANDSHAKE_REJECTION_WINDOW_MS,
-                        HANDSHAKE_ADDRESS_BAN_MS,
                         HANDSHAKE_ADDRESS_RETENTION_MS);
         private final AuthenticatedHotJoinAdmissionGuard hotJoinAdmissionGuard
                 = new AuthenticatedHotJoinAdmissionGuard(
@@ -563,7 +563,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             dataOut.write(pair.getPublic().getEncoded());
             dataOut.flush();
             DataInputStream dataIn = new DataInputStream(input);
-            byte[] remotePublic = readBounded(dataIn, MAX_PUBLIC_KEY_BYTES, "server public key");
+            byte[] remotePublic = readServerPublicKey(dataIn);
             byte[] sessionId = readBounded(dataIn, MAX_SESSION_ID_BYTES, "session id");
             SecretKeySpec[] keys = keys(pair, remotePublic, request.connection().password());
             Connection connection = new Connection(socket, input, output, keys[0], keys[1],
@@ -682,6 +682,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             = admissionGuard.acquire(address,
                                     System.currentTimeMillis());
                     if (!admission.admitted()) {
+                        notifyAdmissionDenial(socket, admission);
                         try { socket.close(); } catch (IOException ignored) { }
                         continue;
                     }
@@ -1416,22 +1417,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         long frameBytes = frame.isBinary()
                                 ? frame.binary().length
                                 : frame.text().length();
-                        InboundTrafficGuard.FrameDecision decision
-                                = connection.inboundTraffic.frameDecision(
-                                        frameBytes,
-                                        System.currentTimeMillis());
-                        if (decision
-                                == InboundTrafficGuard.FrameDecision.DROP) {
-                            continue;
-                        }
-                        if (decision
-                                == InboundTrafficGuard.FrameDecision.DISCONNECT) {
-                            publishSecurityIncidentIfGameActive(connection,
+                        if (connection.inboundTraffic.observeFrame(frameBytes,
+                                System.currentTimeMillis())) {
+                            requestHostSecurityDecisionIfGameActive(connection,
                                     GameChannel.SecurityIncidentType
-                                            .INBOUND_FLOOD_EXPELLED);
-                            disconnectFloodingPeer(connection);
-                            throw new IOException(
-                                    "Sustained inbound traffic flood");
+                                            .INBOUND_FLOOD_DETECTED);
+                            // Monitoring is deliberately passive: the valid
+                            // frame continues through the normal protocol and
+                            // only the host can approve disciplinary action.
                         }
                     }
                     if (frame.isBinary()) {
@@ -1487,13 +1480,16 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     else { publish(LobbySnapshot.Phase.CLOSED, "El servidor ha cancelado la timba"); close(); }
                 }
                 case "KICKED" -> { publish(LobbySnapshot.Phase.CLOSED, "Has sido expulsado de la timba"); close(); }
+                case "KICKED_FLOOD" -> {
+                    publish(LobbySnapshot.Phase.CLOSED,
+                            "ANTI_DOS_CONNECTION_BLOCKED_SESSION");
+                    close();
+                }
                 case "NEWPASS" -> { if (!fromClient && parts.length > 1) password = "*".equals(parts[1]) ? null : text64(parts[1]); }
                 case "CHAT" -> {
                     String nickname = fromClient ? source.remoteNickname : text64(parts[1]);
                     String text = parts.length == 3 ? text64(parts[2]) : "";
-                    if (fromClient && (text.length() > MAX_CHAT_TEXT_CHARS
-                            || !source.inboundTraffic.allowChat(
-                                    System.currentTimeMillis()))) {
+                    if (fromClient && text.length() > MAX_CHAT_TEXT_CHARS) {
                         return;
                     }
                     if (fromClient) broadcastDirect("CHAT#" + b64(nickname) + "#" + b64(text), source);
@@ -1660,34 +1656,40 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             };
         }
 
-        private synchronized void receiveBinary(Connection source, byte[] clear,
+        private void receiveBinary(Connection source, byte[] clear,
                 boolean fromClient) throws Exception {
-            if (!source.inboundTraffic.allowBinaryOperation(
-                    System.currentTimeMillis())) {
-                if (fromClient) {
-                    publishSecurityIncidentIfGameActive(source,
-                            GameChannel.SecurityIncidentType
-                                    .BINARY_FLOOD_DROPPED);
-                }
-                return;
-            }
             BinaryPayloadCodec.Payload payload = BinaryPayloadCodec.decode(clear);
             String nickname = fromClient ? source.remoteNickname : payload.nickname();
             if (payload.type() == BinaryPayloadCodec.TYPE_VOICE) {
+                if (source.inboundTraffic.observeVoiceOperation(
+                        System.currentTimeMillis())) {
+                    if (fromClient) {
+                        requestHostSecurityDecisionIfGameActive(source,
+                                GameChannel.SecurityIncidentType
+                                        .BINARY_FLOOD_DETECTED);
+                    } else {
+                        publishHostBinaryFloodIfGameActive(source);
+                    }
+                }
                 if (!VoiceWavContract.isValid(payload.body())) return;
-                if (fromClient) broadcastBinary(BinaryPayloadCodec.encode(
-                        payload.type(), nickname, payload.body()), source);
-                appendChat(new LobbyChatMessage(chatSequence.getAndIncrement(),
-                        Instant.now(), nickname, LobbyChatMessage.Type.VOICE,
-                        Base64.getEncoder().encodeToString(payload.body())));
-                publishCurrent();
+                synchronized (this) {
+                    if (fromClient) broadcastBinary(BinaryPayloadCodec.encode(
+                            payload.type(), nickname, payload.body()), source);
+                    appendChat(new LobbyChatMessage(
+                            chatSequence.getAndIncrement(), Instant.now(),
+                            nickname, LobbyChatMessage.Type.VOICE,
+                            Base64.getEncoder().encodeToString(
+                                    payload.body())));
+                    publishCurrent();
+                }
             } else if (payload.type() == BinaryPayloadCodec.TYPE_DATABASE
                     && statsSync != null
                     && (receiveStats.getAsBoolean()
                             || shareStats.getAsBoolean())) {
-                byte[] message = payload.body();
-                executor.execute(() -> processStatsSync(source, nickname,
-                        message, fromClient));
+                // Each connection owns one reader. Processing here provides
+                // natural TCP backpressure for a large legitimate import,
+                // without dropping batches or growing an unbounded task queue.
+                processStatsSync(source, nickname, payload.body(), fromClient);
             }
         }
 
@@ -2010,35 +2012,83 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
-        private synchronized void disconnectFloodingPeer(
-                Connection connection) throws Exception {
-            Peer peer = connection.remoteNickname == null ? null
-                    : findNormalized(connection.remoteNickname);
-            if (peer != null && peer.connection == connection) {
-                // Authenticated traffic abuse is contained by disconnecting
-                // the authenticated peer. It deliberately does not create an
-                // IP block: temporary address quarantines are reserved for
-                // hostile connection/handshake attempts.
-                LOGGER.log(Level.WARNING,
-                        "Anti-DoS disconnected authenticated peer {0} after sustained inbound traffic flood",
-                        peer.nickname);
-                removePeer(peer.nickname, true);
-            } else {
-                LOGGER.log(Level.WARNING,
-                        "Anti-DoS closed an unaffiliated connection after sustained inbound traffic flood");
-                connection.close();
-            }
-        }
-
-        private void publishSecurityIncidentIfGameActive(
+        private boolean requestHostSecurityDecisionIfGameActive(
                 Connection connection,
                 GameChannel.SecurityIncidentType type) {
             LobbySession active = session;
             String nickname = connection.remoteNickname;
             if (active == null || !active.snapshot().startingOrStarted()
-                    || nickname == null || nickname.isBlank()) return;
+                    || nickname == null || nickname.isBlank()) return false;
+            long incidentId = securityIncidentSequence.getAndIncrement();
+            if (!connection.beginSecurityDecision(incidentId, type)) {
+                return true;
+            }
             gameChannel.publishSecurityIncident(
-                    new GameChannel.SecurityIncident(nickname, type));
+                    new GameChannel.SecurityIncident(incidentId, nickname,
+                            connection.remoteAddress(), type));
+            return true;
+        }
+
+        private void publishHostBinaryFloodIfGameActive(
+                Connection connection) {
+            LobbySession active = session;
+            String nickname = connection.remoteNickname;
+            if (active == null || !active.snapshot().startingOrStarted()
+                    || nickname == null || nickname.isBlank()
+                    || !connection.markHostBinaryIncidentReported()) {
+                return;
+            }
+            gameChannel.publishSecurityIncident(
+                    new GameChannel.SecurityIncident(
+                            securityIncidentSequence.getAndIncrement(),
+                            nickname, connection.remoteAddress(),
+                            GameChannel.SecurityIncidentType
+                                    .HOST_BINARY_FLOOD_DETECTED));
+        }
+
+        private void resolveSecurityIncident(long incidentId,
+                boolean expel) {
+            Peer peer;
+            Connection connection;
+            String address = null;
+            synchronized (this) {
+                peer = peers.values().stream()
+                        .filter(candidate -> candidate.connection != null
+                                && candidate.connection
+                                        .hasPendingSecurityDecision(incidentId))
+                        .findFirst().orElse(null);
+                if (peer == null) return;
+                connection = peer.connection;
+                if (!expel) {
+                    connection.forgiveSecurityIncident(incidentId);
+                } else {
+                    address = connection.pendingSecurityAddress(incidentId);
+                    GameChannel.SecurityIncidentType type
+                            = connection.approveSecurityIncident(incidentId);
+                    if (type == null) return;
+                    admissionGuard.banForSession(address, peer.nickname,
+                            System.currentTimeMillis());
+                }
+            }
+            if (!expel) {
+                LOGGER.log(Level.INFO,
+                        "Host forgave anti-DoS incident for peer {0}; counters reset",
+                        peer.nickname);
+                return;
+            }
+            LOGGER.log(Level.WARNING,
+                    "Host expelled anti-DoS peer {0} and blocked address {1} for this lobby session",
+                    new Object[]{peer.nickname, address});
+            try {
+                connection.writeEncrypted("KICKED_FLOOD");
+            } catch (Exception notificationFailure) {
+                LOGGER.log(Level.FINE,
+                        "Could not deliver anti-DoS expulsion notice to "
+                        + peer.nickname, notificationFailure);
+            }
+            connection.close();
+            gameChannel.publishPeerLoss(peer.nickname);
+            publishCurrent();
         }
 
         private synchronized LobbySnapshot snapshot(LobbySnapshot.Phase phase, String detail) {
@@ -2464,6 +2514,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             return transport.forceReconnectRemotePeers();
         }
 
+        @Override public void resolveSecurityIncident(long incidentId,
+                boolean expel) {
+            transport.resolveSecurityIncident(incidentId, expel);
+        }
+
         @Override public void retirePeerAfterExit(String nickname) {
             try {
                 transport.removePeer(Objects.requireNonNull(nickname,
@@ -2565,8 +2620,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final InboundTrafficGuard inboundTraffic
                 = new InboundTrafficGuard(MAX_CLIENT_FRAMES_PER_SECOND,
                         MAX_CLIENT_BYTES_PER_SECOND, 1_000L,
-                        MAX_CLIENT_CHATS_PER_WINDOW,
-                        MAX_CLIENT_BINARY_OPERATIONS_PER_WINDOW,
+                        MAX_CLIENT_VOICE_OPERATIONS_PER_WINDOW,
                         CLIENT_FEATURE_RATE_WINDOW_MS);
         private final ExecutorService executor;
         private final SessionOutbox gameOutbox = new SessionOutbox(
@@ -2589,6 +2643,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile boolean confirmationReceived;
         private volatile int latency = LobbyParticipant.NO_LATENCY;
         private volatile int secondaryLatency = LobbyParticipant.NO_LATENCY;
+        private long pendingSecurityIncidentId;
+        private GameChannel.SecurityIncidentType pendingSecurityIncidentType;
+        private String pendingSecurityAddress;
+        private boolean hostBinaryIncidentReported;
         private byte[] sessionId;
         private String remoteNickname;
         private Path remoteAvatar;
@@ -2641,6 +2699,57 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         boolean isReconnecting() { return reconnecting && !closed.get(); }
         int reconnectionCount() { return reconnectionCount; }
+
+        String remoteAddress() {
+            Generation current = generation;
+            if (current == null || current.socket.getInetAddress() == null) {
+                return "unknown";
+            }
+            return current.socket.getInetAddress().getHostAddress();
+        }
+
+        synchronized boolean beginSecurityDecision(long incidentId,
+                GameChannel.SecurityIncidentType type) {
+            if (closed.get() || pendingSecurityIncidentId != 0L) return false;
+            pendingSecurityIncidentId = incidentId;
+            pendingSecurityIncidentType = Objects.requireNonNull(type,
+                    "type");
+            pendingSecurityAddress = remoteAddress();
+            return true;
+        }
+
+        synchronized boolean hasPendingSecurityDecision(long incidentId) {
+            return pendingSecurityIncidentId == incidentId;
+        }
+
+        synchronized String pendingSecurityAddress(long incidentId) {
+            return pendingSecurityIncidentId == incidentId
+                    ? pendingSecurityAddress : "unknown";
+        }
+
+        synchronized void forgiveSecurityIncident(long incidentId) {
+            if (pendingSecurityIncidentId != incidentId) return;
+            pendingSecurityIncidentId = 0L;
+            pendingSecurityIncidentType = null;
+            pendingSecurityAddress = null;
+            inboundTraffic.reset();
+        }
+
+        synchronized GameChannel.SecurityIncidentType approveSecurityIncident(
+                long incidentId) {
+            if (pendingSecurityIncidentId != incidentId) return null;
+            GameChannel.SecurityIncidentType type = pendingSecurityIncidentType;
+            pendingSecurityIncidentId = 0L;
+            pendingSecurityIncidentType = null;
+            pendingSecurityAddress = null;
+            return type;
+        }
+
+        synchronized boolean markHostBinaryIncidentReported() {
+            if (hostBinaryIncidentReported) return false;
+            hostBinaryIncidentReported = true;
+            return true;
+        }
 
         boolean forceReconnectCurrentGeneration() {
             synchronized (generationLock) {
@@ -3098,6 +3207,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
     private static byte[] readBounded(DataInputStream input, int cap, String label) throws IOException {
         int length = input.readInt();
+        return readBounded(input, length, cap, label);
+    }
+
+    private static byte[] readServerPublicKey(DataInputStream input)
+            throws IOException {
+        int length = input.readInt();
+        if (length == HANDSHAKE_BLOCKED_MARKER) {
+            long encodedDuration = input.readLong();
+            long retryAfterSeconds = encodedDuration < 0L ? 0L
+                    : Math.max(1L, (encodedDuration + 999L) / 1_000L);
+            throw new LobbyConnectionRefusedException(
+                    LobbyConnectionRefusedException.Reason
+                            .CONNECTION_ABUSE_BLOCKED,
+                    retryAfterSeconds,
+                    "Connection temporarily blocked by the host anti-DoS guard");
+        }
+        return readBounded(input, length, MAX_PUBLIC_KEY_BYTES,
+                "server public key");
+    }
+
+    private static byte[] readBounded(DataInputStream input, int length,
+            int cap, String label) throws IOException {
         if (length <= 0 || length > cap) {
             throw new ProtocolViolationException(
                     "Invalid " + label + " length: " + length);
@@ -3141,8 +3272,36 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         return target;
     }
 
-    private static IOException rejection(String[] parts) {
+    private static LobbyConnectionRefusedException rejection(String[] parts) {
         String code = parts.length == 0 ? "UNKNOWN" : parts[0];
+        long retryAfterSeconds = 0L;
+        if ("HOTJOINTHROTTLED".equals(code) && parts.length > 1) {
+            try {
+                retryAfterSeconds = Math.max(1L,
+                        Long.parseLong(parts[1]));
+            } catch (NumberFormatException ignored) {
+                retryAfterSeconds = 1L;
+            }
+        }
+        LobbyConnectionRefusedException.Reason reason = switch (code) {
+            case "BADVERSION" ->
+                LobbyConnectionRefusedException.Reason.BAD_VERSION;
+            case "YOUARELATE" ->
+                LobbyConnectionRefusedException.Reason.TABLE_STARTED;
+            case "HOTJOINDISABLED" ->
+                LobbyConnectionRefusedException.Reason.HOT_JOIN_DISABLED;
+            case "NOSPACE" ->
+                LobbyConnectionRefusedException.Reason.TABLE_FULL;
+            case "NICKFAIL" ->
+                LobbyConnectionRefusedException.Reason.NICK_TAKEN;
+            case "NICKUNAUTHORIZED" ->
+                LobbyConnectionRefusedException.Reason.NICK_UNAUTHORIZED;
+            case "IDENTITYMISMATCH" ->
+                LobbyConnectionRefusedException.Reason.IDENTITY_MISMATCH;
+            case "HOTJOINTHROTTLED" ->
+                LobbyConnectionRefusedException.Reason.HOT_JOIN_THROTTLED;
+            default -> LobbyConnectionRefusedException.Reason.SERVER_REJECTED;
+        };
         String message = switch (code) {
             case "BADVERSION" -> "Versión incompatible";
             case "YOUARELATE" -> "La timba ya ha empezado";
@@ -3154,7 +3313,25 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             case "HOTJOINTHROTTLED" -> "Demasiadas entradas en caliente; inténtalo de nuevo en unos segundos";
             default -> "El servidor rechazó la conexión";
         };
-        return new IOException(message);
+        return new LobbyConnectionRefusedException(reason,
+                retryAfterSeconds, message);
+    }
+
+    private static void notifyAdmissionDenial(Socket socket,
+            ConnectionAdmissionGuard.Admission admission) {
+        if (admission.denial() != ConnectionAdmissionGuard.Denial.BANNED) {
+            return;
+        }
+        try {
+            DataOutputStream output = new DataOutputStream(
+                    new BufferedOutputStream(socket.getOutputStream()));
+            output.writeInt(HANDSHAKE_BLOCKED_MARKER);
+            output.writeLong(admission.retryAfterMillis() == Long.MAX_VALUE
+                    ? -1L : Math.max(1L, admission.retryAfterMillis()));
+            output.flush();
+        } catch (IOException ignored) {
+            // Best effort only: containment must not depend on the peer reading.
+        }
     }
 
     private static String identityRateKey(byte[] publicKey) {

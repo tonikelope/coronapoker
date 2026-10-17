@@ -68,6 +68,18 @@ final class GdxTableDialogLayout {
                 panelWidth - 112f, panelHeight - 222f);
     }
 
+    static Rectangle standaloneOption(float panelX, float panelY,
+            float panelWidth) {
+        return new Rectangle(panelX + 56f, panelY + 132f,
+                panelWidth - 112f, GdxSettingsLayout.ROW_HEIGHT);
+    }
+
+    static Rectangle messageAboveStandaloneOption(float panelX, float panelY,
+            float panelWidth, float panelHeight) {
+        return new Rectangle(panelX + 56f, panelY + 212f,
+                panelWidth - 112f, panelHeight - 310f);
+    }
+
     record AutoActionHud(Rectangle bounds, Rectangle message,
             Rectangle cancel, Rectangle progress) {
     }

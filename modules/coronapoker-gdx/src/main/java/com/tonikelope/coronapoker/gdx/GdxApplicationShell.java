@@ -64,6 +64,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private int frameRateMonitorRefresh;
     private int appliedForegroundFps = -1;
     private Boolean appliedVsync;
+    private JvmDeadlockWatchdog deadlockWatchdog;
+    private volatile boolean fatalDeadlockExitRequested;
 
     GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
@@ -114,6 +116,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
         preferences = application.service(PreferencesService.class);
+        deadlockWatchdog = new JvmDeadlockWatchdog(5_000L,
+                JvmDeadlockWatchdog::detectJvmDeadlock,
+                this::handleFatalDeadlock);
+        deadlockWatchdog.start();
         DatabaseService database = application.service(DatabaseService.class);
         menu = new GdxFrontendScreen(
                 preferences, sessionGateway, new RecoverableGameRepository(
@@ -209,6 +215,42 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Throwable root = failure;
         while (root.getCause() != null) root = root.getCause();
         return root.getMessage() == null ? root.getClass().getSimpleName() : root.getMessage();
+    }
+
+    private void handleFatalDeadlock(String report) {
+        System.err.println("FATAL JVM DEADLOCK DETECTED");
+        System.err.println(report);
+        try {
+            Gdx.app.postRunnable(() -> {
+                if (fatalDeadlockExitRequested) return;
+                fatalDeadlockExitRequested = true;
+                String message = gameText.translate("error.fatal_deadlock");
+                CoronaPokerGdxTable current = table;
+                if (current != null) {
+                    GdxTableDialog dialog = new GdxTableDialog(
+                            GdxTableDialog.Kind.ERROR, message,
+                            GameDialogSink.Icon.STOP, 960, 0);
+                    current.showDialog(dialog);
+                    dialog.result().whenComplete((ignored, failure) ->
+                            Gdx.app.postRunnable(Gdx.app::exit));
+                } else if (menu != null) {
+                    menu.showSessionError(message);
+                }
+            });
+        } catch (Throwable ignored) {
+            // The render thread itself may be one side of the deadlock.
+        }
+        Thread fallback = new Thread(() -> {
+            try {
+                Thread.sleep(15_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            System.exit(1);
+        }, "coronapoker-deadlock-exit");
+        fallback.setDaemon(true);
+        fallback.start();
     }
 
     @Override
@@ -659,6 +701,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        JvmDeadlockWatchdog watchdog = deadlockWatchdog;
+        deadlockWatchdog = null;
+        if (watchdog != null) watchdog.close();
         // Release the native per-thread execution state before any resource
         // teardown can fail. Windows also clears it automatically if this
         // process terminates abnormally.

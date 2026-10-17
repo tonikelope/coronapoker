@@ -47,6 +47,7 @@ import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
+import com.tonikelope.coronapoker.core.network.LobbyConnectionRefusedException;
 import com.tonikelope.coronapoker.DebugLog;
 import org.dosse.upnp.UPnP;
 import java.awt.FileDialog;
@@ -494,6 +495,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String lobbyPasswordDraft = "";
     private boolean networkBlocksOpen;
     private float networkBlocksScroll;
+    private NetworkBlock networkBlockUnblockConfirmation;
     private String networkBlockPendingAddress;
     private String networkBlockError = "";
     private String lobbyPublicAddress = "";
@@ -1272,7 +1274,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (surface == Surface.SCREENSHOTS) {
                 drawScreenshotDeleteConfirmation();
             } else if (networkBlocksOpen) {
-                drawNetworkBlocksDialog();
+                if (networkBlockUnblockConfirmation != null) {
+                    drawNetworkBlockUnblockConfirmation();
+                } else {
+                    drawNetworkBlocksDialog();
+                }
             } else if (lobbyPasswordDialog) {
                 drawLobbyPasswordDialog();
             } else if (fingerprintDialog != null) {
@@ -1649,8 +1655,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (upnpFailure) {
             if (connection != null) connection.setUpnp(false);
             verifiedUpnpPort = -1;
-            detail = lobbyNetworkStatusText(detail, gameText);
         }
+        detail = lobbyNetworkStatusText(detail, gameText);
         showFrontendNotice(gameText.translate(fatal || upnpFailure
                 ? "gdx.dialog.error" : "gdx.dialog.information"), detail,
                 fatal || upnpFailure);
@@ -6001,6 +6007,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 text.translate("gdx.lobby.upnp_already_mapped");
             case "UPNP_FAILED" -> text.translate("gdx.lobby.upnp_failed");
             case "UPNP_ERROR" -> text.translate("gdx.lobby.upnp_error");
+            case "ANTI_DOS_CONNECTION_BLOCKED",
+                    "ANTI_DOS_CONNECTION_BLOCKED_SESSION" ->
+                text.translate("gdx.lobby.anti_dos_connection_blocked");
             default -> statusDetail;
         };
     }
@@ -6201,6 +6210,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void openNetworkBlocks() {
         if (activeNetworkBlocks().isEmpty()) return;
         networkBlocksScroll = 0f;
+        networkBlockUnblockConfirmation = null;
         networkBlockPendingAddress = null;
         networkBlockError = "";
         networkBlocksOpen = true;
@@ -6209,10 +6219,49 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeNetworkBlocks() {
         if (networkBlockPendingAddress != null) return;
+        if (networkBlockUnblockConfirmation != null) {
+            networkBlockUnblockConfirmation = null;
+            return;
+        }
         if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) clearScrollDrag();
         networkBlocksOpen = false;
         networkBlocksScroll = 0f;
         networkBlockError = "";
+    }
+
+    private void requestNetworkAddressUnblock(NetworkBlock block) {
+        if (block == null || networkBlockPendingAddress != null) return;
+        networkBlockUnblockConfirmation = block;
+    }
+
+    private void confirmNetworkAddressUnblock() {
+        NetworkBlock block = networkBlockUnblockConfirmation;
+        networkBlockUnblockConfirmation = null;
+        if (block != null) unblockNetworkAddress(block.address());
+    }
+
+    private void drawNetworkBlockUnblockConfirmation() {
+        NetworkBlock block = networkBlockUnblockConfirmation;
+        if (block == null) return;
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate(
+                        "gdx.network_blocks.confirm_title")),
+                gameText.translate("gdx.network_blocks.confirm_remove",
+                        block.address(),
+                        GdxNetworkBlockDialogLayout.identity(block,
+                                gameText)));
+        themedButton(layout.negativeButton().x, layout.negativeButton().y,
+                layout.negativeButton().width,
+                layout.negativeButton().height,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> networkBlockUnblockConfirmation = null, true);
+        themedButton(layout.positiveButton().x, layout.positiveButton().y,
+                layout.positiveButton().width,
+                layout.positiveButton().height,
+                uppercase(gameText.translate(
+                        "gdx.network_blocks.remove")),
+                ButtonTone.DANGER, this::confirmNetworkAddressUnblock, true);
     }
 
     private void unblockNetworkAddress(String address) {
@@ -6272,31 +6321,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             NetworkBlock block = blocks.get(index);
             outerBox(row.x, row.y, row.width, row.height,
                     new Color(0x31445fcc), new Color(0x081525f2));
-            themedButton(row.x + row.width - 194f, row.y + 10f,
-                    174f, row.height - 20f,
-                    uppercase(gameText.translate(
-                            "gdx.network_blocks.remove")),
+            themedButton(row.x + row.width - 84f, row.y + 10f,
+                    64f, row.height - 20f,
+                    GdxUiDialogStyle.CLOSE_GLYPH,
                     ButtonTone.DANGER,
-                    () -> unblockNetworkAddress(block.address()),
+                    () -> requestNetworkAddressUnblock(block),
                     networkBlockPendingAddress == null);
             textFit(uiFont, block.address(), row.x + 22f,
                     row.y + 49f, Color.WHITE, false, 290f);
-            textFit(tinyFont, uppercase(gameText.translate(
-                    "gdx.network_blocks.connection_abuse")),
-                    row.x + 330f, row.y + 47f, ORANGE, false, 255f);
-            textFit(tinyFont, uppercase(gameText.translate(
-                    "gdx.network_blocks.remaining")) + ": "
-                    + GdxNetworkBlockDialogLayout.remaining(
-                            block.remainingMillis(now)),
+            textFit(tinyFont, GdxNetworkBlockDialogLayout.identity(
+                    block, gameText), row.x + 330f, row.y + 47f,
+                    ORANGE, false, 255f);
+            textFit(tinyFont, uppercase(
+                    GdxNetworkBlockDialogLayout.duration(block, now,
+                            gameText)),
                     row.x + 600f, row.y + 47f, GOLD, false,
-                    row.width - 814f);
+                    row.width - 704f);
         }
         drawNetworkBlocksScrollbar(layout, blocks.size());
         themedButton(layout.closeButton().x, layout.closeButton().y,
                 layout.closeButton().width, layout.closeButton().height,
-                uppercase(gameText.translate("ui.cerrar")),
-                ButtonTone.NEUTRAL, this::closeNetworkBlocks,
-                networkBlockPendingAddress == null);
+                GdxUiDialogStyle.CLOSE_GLYPH,
+                ButtonTone.DANGER, this::closeNetworkBlocks,
+                networkBlockPendingAddress == null,
+                settingsStepperSignFont);
 
         textFit(headingFont, uppercase(gameText.translate(
                 "gdx.network_blocks.title")), panel.x + 138f,
@@ -7424,6 +7472,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyPasswordDraft = "";
         networkBlocksOpen = false;
         networkBlocksScroll = 0f;
+        networkBlockUnblockConfirmation = null;
         networkBlockPendingAddress = null;
         networkBlockError = "";
         if (networkBlockCache != null) networkBlockCache.clear();
@@ -10884,6 +10933,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String submissionError(Throwable failure) {
+        LobbyConnectionRefusedException refusal
+                = lobbyConnectionRefusal(failure);
+        if (refusal != null) {
+            return switch (refusal.reason()) {
+                case BAD_VERSION -> gameText.translate(
+                    "gdx.lobby.reject.bad_version");
+                case TABLE_STARTED -> gameText.translate(
+                    "gdx.lobby.reject.table_started");
+                case HOT_JOIN_DISABLED -> gameText.translate(
+                    "gdx.lobby.reject.hot_join_disabled");
+                case TABLE_FULL -> gameText.translate(
+                    "gdx.lobby.reject.table_full");
+                case NICK_TAKEN -> gameText.translate(
+                    "gdx.lobby.reject.nick_taken");
+                case NICK_UNAUTHORIZED -> gameText.translate(
+                    "gdx.lobby.reject.nick_unauthorized");
+                case IDENTITY_MISMATCH -> gameText.translate(
+                    "gdx.lobby.reject.identity_mismatch");
+                case HOT_JOIN_THROTTLED -> gameText.translate(
+                    "gdx.lobby.reject.hot_join_throttled",
+                    Math.max(1L, refusal.retryAfterSeconds()));
+                case CONNECTION_ABUSE_BLOCKED -> gameText.translate(
+                    "gdx.lobby.reject.connection_blocked",
+                    Math.max(1L, refusal.retryAfterSeconds()));
+                case SERVER_REJECTED -> gameText.translate(
+                    "gdx.lobby.reject.server_rejected");
+            };
+        }
         String translatedKey = submissionErrorKey(failure);
         if (!translatedKey.isEmpty()) return gameText.translate(translatedKey);
         String message = failure.getMessage();
@@ -10912,6 +10989,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             cause = cause.getCause();
         }
         return "";
+    }
+
+    static LobbyConnectionRefusedException lobbyConnectionRefusal(
+            Throwable failure) {
+        Throwable cause = failure;
+        while (cause != null) {
+            if (cause instanceof LobbyConnectionRefusedException refusal) {
+                return refusal;
+            }
+            cause = cause.getCause();
+        }
+        return null;
     }
 
     private void drawToast() {
@@ -12697,6 +12786,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean beginScrollDrag(float x, float y, int pointerIndex,
             int button) {
         if (networkBlocksOpen) {
+            if (networkBlockUnblockConfirmation != null) return false;
             GdxNetworkBlockDialogLayout.Layout layout
                     = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
             Rectangle track = layout.scrollbar();
@@ -13263,6 +13353,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             dismissFrontendNotice();
             return true;
         }
+        if (surface == Surface.LOBBY && networkBlocksOpen
+                && networkBlockUnblockConfirmation != null) {
+            confirmNetworkAddressUnblock();
+            return true;
+        }
         if (surface == Surface.LOBBY && !identityChangeNotices.isEmpty()
                 && !networkBlocksOpen && !lobbyPasswordDialog
                 && fingerprintDialog == null) {
@@ -13802,12 +13897,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public boolean scrolled(float amountX, float amountY) {
         if (networkBlocksOpen && amountY != 0f) {
+            if (networkBlockUnblockConfirmation != null) return true;
             GdxNetworkBlockDialogLayout.Layout layout
                     = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
-            networkBlocksScroll = MathUtils.clamp(networkBlocksScroll
-                    + amountY * 42f, 0f,
+            networkBlocksScroll = GdxSettingsLayout.pixelScrollAfterWheel(
+                    networkBlocksScroll,
                     GdxNetworkBlockDialogLayout.maximumScroll(
-                            activeNetworkBlocks().size(), layout.rows()));
+                            activeNetworkBlocks().size(), layout.rows()),
+                    amountY);
             return true;
         }
         if (statsPicker != StatsPicker.NONE && amountY != 0f) {

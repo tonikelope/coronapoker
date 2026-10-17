@@ -3890,8 +3890,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Exception failure) {
         LOGGER.log(Level.SEVERE, "Failed to process critical " + phase
                 + "; closing host channel", failure);
-        setFin_de_la_transmision(true);
-        game_transport.closeHostConnection();
+        triggerSecurityLockdown(MessageFormat.format(game_text.translate(
+                "zero_trust.host_critical_command_invalid"), phase));
     }
 
     void acceptRotationRequestOnce() {

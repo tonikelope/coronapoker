@@ -49,6 +49,7 @@ final class GdxTableDialog {
     private float timerPausedAt = Float.NaN;
     private float autoDismissSeconds;
     private boolean optionEnabled;
+    private String standaloneOptionLabel = "";
     private boolean noLimit;
     private boolean externallyControlled;
     private boolean recovery;
@@ -288,6 +289,8 @@ final class GdxTableDialog {
                 || externalCloseReleased);
     }
     boolean optionEnabled() { return optionEnabled; }
+    boolean hasStandaloneOption() { return !standaloneOptionLabel.isBlank(); }
+    String standaloneOptionLabel() { return standaloneOptionLabel; }
     boolean noLimit() { return noLimit; }
     int amount() { return amount; }
     String amountText() {
@@ -299,6 +302,13 @@ final class GdxTableDialog {
 
     GdxTableDialog exitChoice() {
         exitChoice = true;
+        return this;
+    }
+
+    GdxTableDialog standaloneOption(String label, boolean enabled) {
+        standaloneOptionLabel = plainText(Objects.requireNonNull(label,
+                "label"));
+        optionEnabled = enabled;
         return this;
     }
 
@@ -416,7 +426,9 @@ final class GdxTableDialog {
     }
 
     void toggleOptionEnabled() {
-        if (isAutoCall()) optionEnabled = !optionEnabled;
+        if (isAutoCall() || hasStandaloneOption()) {
+            optionEnabled = !optionEnabled;
+        }
     }
 
     void toggleNoLimit() {

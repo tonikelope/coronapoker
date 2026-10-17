@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-/** Host-local administrative boundary for temporary network blocks. */
+/** Host-local administrative boundary for the current lobby's blocked IPs. */
 public interface NetworkBlockControl {
 
     List<NetworkBlock> activeBlocks();

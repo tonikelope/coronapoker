@@ -144,8 +144,8 @@ final class LobbySessionTest {
     @Test
     void temporaryNetworkBlocksAreHostLocalAndCanBeRemoved() {
         long until = System.currentTimeMillis() + 60_000L;
-        NetworkBlock block = new NetworkBlock("203.0.113.17", until,
-                NetworkBlock.Reason.CONNECTION_ABUSE);
+        NetworkBlock block = new NetworkBlock("203.0.113.17", "Alice",
+                until);
         AtomicReference<String> removed = new AtomicReference<>();
         NetworkBlockControl controls = new NetworkBlockControl() {
             @Override public List<NetworkBlock> activeBlocks() {

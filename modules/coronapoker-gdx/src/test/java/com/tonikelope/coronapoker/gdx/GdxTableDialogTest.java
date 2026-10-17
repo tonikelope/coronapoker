@@ -116,6 +116,24 @@ final class GdxTableDialogTest {
     }
 
     @Test
+    void standalonePreferenceSwitchIsIndependentFromConfirmationResult() {
+        GdxTableDialog dialog = dialog(GdxTableDialog.Kind.CONFIRM, 0)
+                .standaloneOption("No mostrar estos avisos", false);
+
+        assertTrue(dialog.hasStandaloneOption());
+        assertEquals("No mostrar estos avisos",
+                dialog.standaloneOptionLabel());
+        assertFalse(dialog.optionEnabled());
+        dialog.toggleOptionEnabled();
+        assertTrue(dialog.optionEnabled());
+        assertFalse(dialog.complete());
+        dialog.dismiss();
+        assertFalse(dialog.result().toCompletableFuture().join());
+        assertTrue(dialog.optionEnabled(),
+                "the preference switch must survive either host decision");
+    }
+
+    @Test
     void timedWarningUsesItsOwnMonotonicDisplayClock() {
         GdxTableDialog warning = dialog(GdxTableDialog.Kind.TIMED_WARNING, 3);
         warning.opened(10f);

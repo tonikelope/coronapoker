@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" type="device">
   <diagram id="dos-resistance" name="DoS resistance and reaction ladder">
-    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1420" pageHeight="840" math="0" shadow="0">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1541" pageHeight="840" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -8,7 +8,7 @@
         <mxCell id="title" value="Denial-of-service resistance and the section 8 reaction ladder" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="16" width="1340" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="Threat model: an invited peer who already passed AES and HMAC, now trying to exhaust or freeze the table rather than read cards. The philosophy is always the same. Detect the abuse, remove the one peer responsible, keep the table running for everyone else." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
+        <mxCell id="subtitle" value="Threat model: an invited authenticated peer trying to exhaust or freeze the table. Structural violations are contained deterministically; high valid traffic is shown to the host, who alone decides whether to expel." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
           <mxGeometry x="40" y="54" width="1340" height="34" as="geometry" />
         </mxCell>
 
@@ -20,7 +20,7 @@
           <mxGeometry x="60" y="138" width="620" height="150" as="geometry" />
         </mxCell>
 
-        <mxCell id="f2" value="&lt;b&gt;F2. Bounded inbound resources and AUTO-EXPEL&lt;/b&gt;&lt;br&gt;&lt;br&gt;A per-peer size cap and token bucket gate every inbound text command. Enough strikes AUTO-EXPEL the peer. Voice/stats binary frames use a separate generous bucket and safe drops.&lt;br&gt;&lt;br&gt;AvatarIO rejects oversized Base64, bytes, dimensions, frames and GIF canvas work before rasterization; owned files/thumbnails share a bounded lifecycle. NEWUSER/USERSLIST also enforce the ten-seat roster and NFC uniqueness before avatar allocation." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="f2" value="&lt;b&gt;F2. Structural bounds and host-governed monitoring&lt;/b&gt;&lt;br&gt;&lt;br&gt;Hard frame, codec and queue bounds contain resource use. Passive per-peer thresholds never drop valid traffic. Sustained excess asks the host: Yes expels and blocks the IP for this lobby; No keeps the peer and resets counters. Stats sync uses per-connection TCP backpressure.&lt;br&gt;&lt;br&gt;AvatarIO rejects oversized Base64, bytes, dimensions, frames and GIF canvas work before rasterization; owned files/thumbnails share a bounded lifecycle. NEWUSER/USERSLIST also enforce the ten-seat roster and NFC uniqueness before avatar allocation." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="300" width="620" height="210" as="geometry" />
         </mxCell>
 
@@ -44,7 +44,7 @@
         <mxCell id="r4" value="&lt;b&gt;MISDEAL&lt;/b&gt;   Host + client refund and atomically close locally; stop transmission; host routes recovery (zero-trust may exit)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="740" y="360" width="580" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="r5" value="&lt;b&gt;AUTO-EXPEL&lt;/b&gt;   Remove one abusive peer and keep the table running. The reserved response for availability attacks (flood, or withholding a needed message). host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="r5" value="&lt;b&gt;AUTO-EXPEL&lt;/b&gt;   Remove one abusive peer and keep the table running. Protocol/liveness failures can invoke it directly; structurally valid high traffic requires host approval. host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="740" y="430" width="580" height="66" as="geometry" />
         </mxCell>
         <mxCell id="r6" value="&lt;b&gt;HARD-LOCKDOWN&lt;/b&gt;   Freeze balance, blacklist the peer, close the socket, end the game for this side. host and client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
@@ -58,7 +58,7 @@
           </mxGeometry>
         </mxCell>
 
-        <mxCell id="ladderNote" value="The engine presumes good faith and always picks the least destructive response that still protects the honest players. AUTO-EXPEL is the availability counterpart of FORFEIT. FORFEIT isolates one peer's bad data for one hand, AUTO-EXPEL isolates one peer's bad behaviour for the rest of the game, and in both cases the honest players keep playing." style="text;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
+        <mxCell id="ladderNote" value="The engine presumes good faith and always picks the least destructive response that still protects the honest players. AUTO-EXPEL is the availability counterpart of FORFEIT. Deterministic protocol failures may isolate a peer directly; structurally valid high traffic is never punished until the host approves. In either case the normal peer-loss path protects the remaining table." style="text;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
           <mxGeometry x="740" y="580" width="580" height="80" as="geometry" />
         </mxCell>
 

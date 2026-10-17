@@ -50,7 +50,7 @@ Peer-hosted, with no external central game server, accounts or third-party hand 
 
 ## 🌐 Networking & resilience
 
-- **Automatic UPnP port mapping**: when you host a game, CoronaPoker tries to open the listening port on your router and cleans it up when the table closes. Manual port forwarding works as a fallback.
+- **Explicit UPnP port mapping**: the host option always opens disabled. Enabling it checks and opens the selected TCP port immediately, reports any failure without locking the control, and keeps ownership of that exact mapping only for the current lobby. Cancelling creation, leaving the waiting room or closing the table removes it. Manual port forwarding remains available as a fallback.
 - **Adjustable listening port**: defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.

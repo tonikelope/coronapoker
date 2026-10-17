@@ -19,6 +19,7 @@ import com.tonikelope.coronapoker.core.game.GameCinematicSink;
 import com.tonikelope.coronapoker.core.game.GameCinematicState;
 import com.tonikelope.coronapoker.core.game.GameChannelPeerController;
 import com.tonikelope.coronapoker.core.game.GameCancellationException;
+import com.tonikelope.coronapoker.core.game.GameChannel;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
@@ -1216,15 +1217,50 @@ public final class CoreGameTableFactory implements GameTableFactory {
         });
         AutoCloseable securityIncidents = context.channel()
                 .subscribeSecurityIncidents(incident -> {
-                    if (!lobby.host() || closing.get()) return;
+                    if (closing.get()) return;
+                    if (!lobby.host()) {
+                        if (incident.type() == GameChannel
+                                .SecurityIncidentType
+                                .HOST_BINARY_FLOOD_DETECTED) {
+                            dealer.warnSuspiciousHost(gameText.translate(
+                                    "zero_trust.host_binary_flood"));
+                        }
+                        return;
+                    }
                     String reasonKey = switch (incident.type()) {
-                        case INBOUND_FLOOD_EXPELLED
-                                -> "zero_trust.peer_expelled_flood";
-                        case BINARY_FLOOD_DROPPED
+                        case INBOUND_FLOOD_DETECTED
+                                -> "zero_trust.peer_inbound_flood";
+                        case BINARY_FLOOD_DETECTED
                                 -> "zero_trust.peer_binary_flood";
+                        case HOST_BINARY_FLOOD_DETECTED -> null;
                     };
-                    dealer.warnMaliciousPeer(incident.peerNickname(),
-                            reasonKey);
+                    if (reasonKey == null) return;
+                    String reason = gameText.translate(reasonKey);
+                    String line = gameText.translate(
+                            "zero_trust.peer_flood_log",
+                            incident.peerNickname(), incident.address(),
+                            reason);
+                    gameLog.print(gameText.translate(
+                            "zero_trust.peer_alert") + " " + line);
+                    if (!gameDialogs.antiDosWarningsEnabled()) {
+                        context.channel().resolveSecurityIncident(
+                                incident.id(), false);
+                        return;
+                    }
+                    gameDialogs.confirmAntiDos(gameText.translate(
+                            "zero_trust.peer_flood_confirm",
+                            incident.peerNickname(), incident.address(),
+                            reason), gameText.translate(
+                                    "zero_trust.peer_flood_suppress"),
+                            gameText.translate("ui.no"),
+                            gameText.translate("ui.si"))
+                            .whenComplete((decision, failure) -> {
+                                boolean expel = failure == null
+                                        && decision != null
+                                        && decision.expel();
+                                context.channel().resolveSecurityIncident(
+                                        incident.id(), expel);
+                            });
                 });
 
                 TableSession table = new TableSession(initialSnapshot(lobby,

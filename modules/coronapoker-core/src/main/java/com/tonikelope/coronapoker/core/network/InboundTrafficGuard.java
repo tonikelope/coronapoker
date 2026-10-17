@@ -1,18 +1,22 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.network;
 
-/** Per-authenticated-peer flood guard; deliberately independent of UI/game state. */
+/**
+ * Passive per-authenticated-peer traffic monitor.
+ *
+ * <p>Crossing an observation threshold never discards a valid frame and never
+ * expels a player.  The host remains the only authority that can turn a
+ * sustained observation into an expulsion.  Structural protocol limits live
+ * in the codecs and bounded queues instead.</p>
+ */
 final class InboundTrafficGuard {
 
-    enum FrameDecision { ALLOW, DROP, DISCONNECT }
-
-    private static final int CONSECUTIVE_ABUSIVE_WINDOWS_TO_DISCONNECT = 3;
+    private static final int CONSECUTIVE_EXCESSIVE_WINDOWS_TO_ALERT = 3;
 
     private final int maxFrames;
     private final long maxBytes;
     private final long frameWindowMillis;
-    private final int maxChats;
-    private final int maxBinaryOperations;
+    private final int maxVoiceOperations;
     private final long featureWindowMillis;
     private long frameWindowStartedAt;
     private int frames;
@@ -20,28 +24,26 @@ final class InboundTrafficGuard {
     private boolean frameWindowExceeded;
     private int consecutiveExceededFrameWindows;
     private long featureWindowStartedAt;
-    private int chats;
-    private int binaryOperations;
+    private int voiceOperations;
 
     InboundTrafficGuard(int maxFrames, long maxBytes, long frameWindowMillis,
-            int maxChats, int maxBinaryOperations, long featureWindowMillis) {
+            int maxVoiceOperations, long featureWindowMillis) {
         if (maxFrames <= 0 || maxBytes <= 0L || frameWindowMillis <= 0L
-                || maxChats <= 0 || maxBinaryOperations <= 0
+                || maxVoiceOperations <= 0
                 || featureWindowMillis <= 0L) {
             throw new IllegalArgumentException("Invalid inbound traffic limits");
         }
         this.maxFrames = maxFrames;
         this.maxBytes = maxBytes;
         this.frameWindowMillis = frameWindowMillis;
-        this.maxChats = maxChats;
-        this.maxBinaryOperations = maxBinaryOperations;
+        this.maxVoiceOperations = maxVoiceOperations;
         this.featureWindowMillis = featureWindowMillis;
     }
 
-    synchronized FrameDecision frameDecision(long byteCount, long nowMillis) {
-        if (byteCount < 0L || byteCount > maxBytes) {
-            return FrameDecision.DISCONNECT;
-        }
+    /** Returns true only after excessive traffic persists for three windows. */
+    synchronized boolean observeFrame(long byteCount, long nowMillis) {
+        if (byteCount < 0L) throw new IllegalArgumentException(
+                "Negative frame size");
         if (frameWindowStartedAt == 0L
                 || nowMillis - frameWindowStartedAt >= frameWindowMillis) {
             long elapsed = frameWindowStartedAt == 0L ? 0L
@@ -57,37 +59,43 @@ final class InboundTrafficGuard {
             bytes = 0L;
             frameWindowExceeded = false;
         }
-        if (frames >= maxFrames || byteCount > maxBytes - bytes) {
+        boolean excessive = frames >= maxFrames
+                || byteCount > maxBytes - Math.min(bytes, maxBytes);
+        frames = frames == Integer.MAX_VALUE ? frames : frames + 1;
+        bytes = byteCount > Long.MAX_VALUE - bytes
+                ? Long.MAX_VALUE : bytes + byteCount;
+        if (excessive) {
             frameWindowExceeded = true;
             return consecutiveExceededFrameWindows
-                    >= CONSECUTIVE_ABUSIVE_WINDOWS_TO_DISCONNECT - 1
-                            ? FrameDecision.DISCONNECT : FrameDecision.DROP;
+                    >= CONSECUTIVE_EXCESSIVE_WINDOWS_TO_ALERT - 1;
         }
-        frames++;
-        bytes += byteCount;
-        return FrameDecision.ALLOW;
+        return false;
     }
 
-    synchronized boolean allowChat(long nowMillis) {
+    /** Returns true when voice traffic is excessive; it is never rejected. */
+    synchronized boolean observeVoiceOperation(long nowMillis) {
         rotateFeatureWindow(nowMillis);
-        if (chats >= maxChats) return false;
-        chats++;
-        return true;
+        boolean excessive = voiceOperations >= maxVoiceOperations;
+        if (voiceOperations < Integer.MAX_VALUE) voiceOperations++;
+        return excessive;
     }
 
-    synchronized boolean allowBinaryOperation(long nowMillis) {
-        rotateFeatureWindow(nowMillis);
-        if (binaryOperations >= maxBinaryOperations) return false;
-        binaryOperations++;
-        return true;
+    /** Starts a fresh observation window after the host forgives an alert. */
+    synchronized void reset() {
+        frameWindowStartedAt = 0L;
+        frames = 0;
+        bytes = 0L;
+        frameWindowExceeded = false;
+        consecutiveExceededFrameWindows = 0;
+        featureWindowStartedAt = 0L;
+        voiceOperations = 0;
     }
 
     private void rotateFeatureWindow(long nowMillis) {
         if (featureWindowStartedAt == 0L
                 || nowMillis - featureWindowStartedAt >= featureWindowMillis) {
             featureWindowStartedAt = nowMillis;
-            chats = 0;
-            binaryOperations = 0;
+            voiceOperations = 0;
         }
     }
 }

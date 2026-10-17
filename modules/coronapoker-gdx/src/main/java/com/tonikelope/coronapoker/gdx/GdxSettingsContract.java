@@ -27,6 +27,7 @@ final class GdxSettingsContract {
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
+    static final String ANTI_DOS_WARNINGS_KEY = "anti_dos_warnings";
     private static final String LEGACY_GDX_CHAT_NOTIFICATIONS_KEY =
             "chat_notifications_ingame";
 
@@ -380,7 +381,9 @@ final class GdxSettingsContract {
                     option("resaltar_avatares", "RESALTAR AVATARES", false,
                             Gate.NONE),
                     option("screenshot_fin_timba",
-                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE)),
+                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
+                    option(ANTI_DOS_WARNINGS_KEY,
+                            "MOSTRAR AVISOS ANTIDOS", true, Gate.NONE)),
             page("CHAT",
                     option(CHAT_GAME_NOTIFICATIONS_KEY,
                             "NOTIFICACIONES DURANTE LA PARTIDA", true,
@@ -421,7 +424,8 @@ final class GdxSettingsContract {
             "show_time", "gdx_show_fps", "mostrar_coste_igualar",
             "chat_images_ingame", CHAT_GAME_NOTIFICATIONS_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
-            "screenshot_fin_timba", "animacion_contador_final",
+            "screenshot_fin_timba", ANTI_DOS_WARNINGS_KEY,
+            "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             "animaciones", "cinematicas", "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",

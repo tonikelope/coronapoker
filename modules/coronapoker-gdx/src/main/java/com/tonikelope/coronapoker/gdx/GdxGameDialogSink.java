@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
@@ -10,13 +11,19 @@ import java.util.concurrent.CompletionStage;
 final class GdxGameDialogSink implements GameDialogSink {
 
     private final GameText text;
+    private final PreferencesService preferences;
 
     GdxGameDialogSink() {
-        this(GameText.keys());
+        this(GameText.keys(), null);
     }
 
     GdxGameDialogSink(GameText text) {
+        this(text, null);
+    }
+
+    GdxGameDialogSink(GameText text, PreferencesService preferences) {
         this.text = Objects.requireNonNull(text, "text");
+        this.preferences = preferences;
     }
 
     @Override
@@ -56,6 +63,37 @@ final class GdxGameDialogSink implements GameDialogSink {
         }
         shell.showDialog(request);
         return request.result();
+    }
+
+    @Override
+    public CompletionStage<AntiDosDecision> confirmAntiDos(String message,
+            String suppressLabel, String negativeLabel,
+            String positiveLabel) {
+        GdxTableDialog request = request(GdxTableDialog.Kind.CONFIRM,
+                message, Icon.STOP, 0, 0, negativeLabel, positiveLabel)
+                .standaloneOption(suppressLabel, false);
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        if (shell == null) {
+            request.dismiss();
+        } else {
+            shell.showDialog(request);
+        }
+        return request.result().thenApply(expel -> {
+            boolean suppress = request.optionEnabled();
+            if (suppress && preferences != null) {
+                preferences.properties().setProperty(
+                        GdxSettingsContract.ANTI_DOS_WARNINGS_KEY, "false");
+                preferences.saveDeferred();
+            }
+            return new AntiDosDecision(expel, suppress);
+        });
+    }
+
+    @Override
+    public boolean antiDosWarningsEnabled() {
+        return preferences == null || Boolean.parseBoolean(
+                preferences.properties().getProperty(
+                        GdxSettingsContract.ANTI_DOS_WARNINGS_KEY, "true"));
     }
 
     @Override

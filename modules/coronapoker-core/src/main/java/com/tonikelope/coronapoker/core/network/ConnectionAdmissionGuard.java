@@ -17,10 +17,14 @@ final class ConnectionAdmissionGuard {
 
     enum Denial { NONE, BANNED, GLOBAL_CAPACITY, ADDRESS_CAPACITY }
 
-    record Admission(String address, Denial denial) {
+    record Admission(String address, Denial denial, long retryAfterMillis) {
         Admission {
             Objects.requireNonNull(address, "address");
             Objects.requireNonNull(denial, "denial");
+            if (retryAfterMillis < 0L) {
+                throw new IllegalArgumentException(
+                        "retryAfterMillis must not be negative");
+            }
         }
         boolean admitted() { return denial == Denial.NONE; }
     }
@@ -30,7 +34,7 @@ final class ConnectionAdmissionGuard {
         private int rejected;
         private long rejectionWindowStartedAt;
         private long bannedUntil;
-        private NetworkBlock.Reason banReason;
+        private String lastNickname = "";
         private long lastSeenAt;
     }
 
@@ -38,25 +42,23 @@ final class ConnectionAdmissionGuard {
     private final int maxAddressPending;
     private final int rejectionThreshold;
     private final long rejectionWindowMillis;
-    private final long banMillis;
     private final long idleRetentionMillis;
     private final Map<String, AddressState> addresses = new HashMap<>();
     private int globalPending;
 
     ConnectionAdmissionGuard(int maxGlobalPending, int maxAddressPending,
             int rejectionThreshold, long rejectionWindowMillis,
-            long banMillis, long idleRetentionMillis) {
+            long idleRetentionMillis) {
         if (maxGlobalPending <= 0 || maxAddressPending <= 0
                 || maxAddressPending > maxGlobalPending
                 || rejectionThreshold <= 0 || rejectionWindowMillis <= 0L
-                || banMillis <= 0L || idleRetentionMillis < banMillis) {
+                || idleRetentionMillis <= 0L) {
             throw new IllegalArgumentException("Invalid admission-guard limits");
         }
         this.maxGlobalPending = maxGlobalPending;
         this.maxAddressPending = maxAddressPending;
         this.rejectionThreshold = rejectionThreshold;
         this.rejectionWindowMillis = rejectionWindowMillis;
-        this.banMillis = banMillis;
         this.idleRetentionMillis = idleRetentionMillis;
     }
 
@@ -67,13 +69,16 @@ final class ConnectionAdmissionGuard {
         if (state != null) {
             state.lastSeenAt = nowMillis;
             if (nowMillis < state.bannedUntil) {
-                return new Admission(key, Denial.BANNED);
+                return new Admission(key, Denial.BANNED,
+                        state.bannedUntil == Long.MAX_VALUE
+                                ? Long.MAX_VALUE
+                                : state.bannedUntil - nowMillis);
             }
         }
         // Do not allocate attacker-controlled map entries while all global
         // handshake slots are already occupied.
         if (globalPending >= maxGlobalPending) {
-            return new Admission(key, Denial.GLOBAL_CAPACITY);
+            return new Admission(key, Denial.GLOBAL_CAPACITY, 0L);
         }
         if (state == null) {
             state = new AddressState();
@@ -87,11 +92,11 @@ final class ConnectionAdmissionGuard {
              * same time. Refuse excess work, but never let that refusal build
              * an IP ban by itself.
              */
-            return new Admission(key, Denial.ADDRESS_CAPACITY);
+            return new Admission(key, Denial.ADDRESS_CAPACITY, 0L);
         }
         state.pending++;
         globalPending++;
-        return new Admission(key, Denial.NONE);
+        return new Admission(key, Denial.NONE, 0L);
     }
 
     synchronized void release(Admission admission, long nowMillis) {
@@ -118,8 +123,25 @@ final class ConnectionAdmissionGuard {
         if (state == null) return;
         state.rejected = 0;
         state.rejectionWindowStartedAt = nowMillis;
-        state.bannedUntil = 0L;
-        state.banReason = null;
+        // A handshake admitted just before another connection from the same
+        // address triggers a session quarantine must not erase that block.
+        if (nowMillis >= state.bannedUntil) {
+            state.bannedUntil = 0L;
+            state.lastNickname = "";
+        }
+        state.lastSeenAt = nowMillis;
+    }
+
+    synchronized void banForSession(String address, String lastNickname,
+            long nowMillis) {
+        AddressState state = addresses.computeIfAbsent(
+                Objects.requireNonNull(address, "address"),
+                ignored -> new AddressState());
+        state.bannedUntil = Long.MAX_VALUE;
+        state.lastNickname = lastNickname == null ? ""
+                : lastNickname.trim();
+        state.rejected = 0;
+        state.rejectionWindowStartedAt = nowMillis;
         state.lastSeenAt = nowMillis;
     }
 
@@ -140,10 +162,8 @@ final class ConnectionAdmissionGuard {
         ArrayList<NetworkBlock> result = new ArrayList<>();
         addresses.forEach((address, state) -> {
             if (nowMillis < state.bannedUntil) {
-                result.add(new NetworkBlock(address, state.bannedUntil,
-                        state.banReason == null
-                                ? NetworkBlock.Reason.CONNECTION_ABUSE
-                                : state.banReason));
+                result.add(new NetworkBlock(address, state.lastNickname,
+                        state.bannedUntil));
             }
         });
         result.sort(Comparator.comparingLong(
@@ -160,7 +180,7 @@ final class ConnectionAdmissionGuard {
             return false;
         }
         state.bannedUntil = 0L;
-        state.banReason = null;
+        state.lastNickname = "";
         state.rejected = 0;
         state.rejectionWindowStartedAt = nowMillis;
         state.lastSeenAt = nowMillis;
@@ -177,9 +197,11 @@ final class ConnectionAdmissionGuard {
         }
         state.rejected++;
         if (state.rejected >= rejectionThreshold) {
-            state.bannedUntil = Math.max(state.bannedUntil,
-                    nowMillis + banMillis);
-            state.banReason = NetworkBlock.Reason.CONNECTION_ABUSE;
+            // Repeated malformed handshakes are hostile, not an ordinary
+            // connection error. Keep the address quarantined for this host
+            // session; closing the lobby destroys the guard and the block.
+            state.bannedUntil = Long.MAX_VALUE;
+            state.lastNickname = "";
             state.rejected = 0;
             state.rejectionWindowStartedAt = nowMillis;
         }

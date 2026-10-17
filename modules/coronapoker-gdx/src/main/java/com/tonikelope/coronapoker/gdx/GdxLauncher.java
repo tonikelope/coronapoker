@@ -156,7 +156,7 @@ public final class GdxLauncher {
         IdentityTrustStore identityTrust = new SqlIdentityTrustStore(database);
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 database, gameText, gameLog,
-                new GdxGameDialogSink(gameText),
+                new GdxGameDialogSink(gameText, preferences),
                 new GdxGameDecisionSink(gameText),
                 presentationSettings, cinematics, modMedia.installed(),
                 preferences.properties(), identityTrust);

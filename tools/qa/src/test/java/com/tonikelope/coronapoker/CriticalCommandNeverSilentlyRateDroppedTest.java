@@ -20,13 +20,15 @@ public class CriticalCommandNeverSilentlyRateDroppedTest {
     }
 
     @Test
-    public void publicSecurityContractRequiresClosingRateLimitedGameFrames() throws IOException {
+    public void publicSecurityContractKeepsObservedValidFramesFlowing()
+            throws IOException {
         String security = Files.readString(projectRoot().resolve("docs/SECURITY.md"));
         assertTrue(security.contains(
-                "Every `GAME` frame is critical. If it exceeds the size or rate budget, "
-                + "the authenticated connection is closed explicitly"));
+                "Crossing a threshold does **not** discard a valid frame"));
+        assertTrue(security.contains(
+                "Nothing is frozen or blocked before approval"));
         assertFalse(security.contains(
-                "Every inbound text command passes a per-peer **size cap** and **token bucket**"));
+                "the authenticated connection is closed explicitly"));
     }
 
     private static Path projectRoot() {

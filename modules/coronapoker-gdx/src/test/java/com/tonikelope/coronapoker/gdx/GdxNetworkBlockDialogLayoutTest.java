@@ -15,6 +15,11 @@ final class GdxNetworkBlockDialogLayoutTest {
                 layout.panel().x, 0.01f);
         assertEquals((1_080f - layout.panel().height) / 2f,
                 layout.panel().y, 0.01f);
+        assertTrue(layout.closeButton().x > layout.panel().x
+                + layout.panel().width / 2f);
+        assertTrue(layout.closeButton().y > layout.panel().y
+                + layout.panel().height / 2f,
+                "the block list uses the same top-right close affordance as the game log");
 
         Rectangle rows = layout.rows();
         float maximum = GdxNetworkBlockDialogLayout.maximumScroll(12, rows);
@@ -27,6 +32,13 @@ final class GdxNetworkBlockDialogLayoutTest {
                 GdxNetworkBlockDialogLayout.row(rows, 0, maximum).y
                 - GdxNetworkBlockDialogLayout.row(rows, 1, maximum).y,
                 0.01f);
+
+        var trackClick = GdxScrollbarDrag.begin(
+                layout.scrollbar().y + layout.scrollbar().height * 0.25f,
+                layout.scrollbar().y, layout.scrollbar().height,
+                46f, 0f, true);
+        assertTrue(trackClick.ratio() > 0f,
+                "clicking empty scrollbar track must reposition and capture the thumb");
     }
 
     @Test void remainingTimeRoundsUpSoAValidBlockNeverShowsZeroEarly() {

@@ -15,6 +15,9 @@ import java.util.concurrent.CompletionStage;
 /** Modal and transient decisions requested by the game without owning widgets. */
 public interface GameDialogSink {
 
+    record AntiDosDecision(boolean expel, boolean suppressWarnings) {
+    }
+
     enum Icon {
         NONE,
         ROBOT,
@@ -33,6 +36,22 @@ public interface GameDialogSink {
     default CompletionStage<Boolean> confirm(String message, Icon icon,
             String negativeLabel, String positiveLabel) {
         return confirm(message, icon);
+    }
+
+    /**
+     * Gives the host the final decision for suspicious authenticated traffic.
+     * Renderers may add a live preference switch to this confirmation.
+     */
+    default CompletionStage<AntiDosDecision> confirmAntiDos(String message,
+            String suppressLabel, String negativeLabel,
+            String positiveLabel) {
+        return confirm(message, Icon.STOP, negativeLabel, positiveLabel)
+                .thenApply(expel -> new AntiDosDecision(expel, false));
+    }
+
+    /** Whether authenticated-traffic decisions should currently be shown. */
+    default boolean antiDosWarningsEnabled() {
+        return true;
     }
 
     CompletionStage<Void> showTimedWarning(String message, int seconds);

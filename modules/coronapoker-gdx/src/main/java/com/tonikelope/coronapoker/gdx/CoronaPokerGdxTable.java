@@ -1507,10 +1507,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         = GdxNetworkBlockDialogLayout.layout(
                                 viewport.getWorldWidth(),
                                 viewport.getWorldHeight());
-                networkBlocksScroll = MathUtils.clamp(networkBlocksScroll
-                        + amountY * 42f, 0f,
+                networkBlocksScroll = GdxSettingsLayout.pixelScrollAfterWheel(
+                        networkBlocksScroll,
                         GdxNetworkBlockDialogLayout.maximumScroll(
-                                activeNetworkBlocks().size(), layout.rows()));
+                                activeNetworkBlocks().size(), layout.rows()),
+                        amountY);
                 return true;
             }
             if (uiLayer == UI_SETTINGS && amountY != 0f) {
@@ -6447,10 +6448,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? autoCallLayout.amount().plusButton()
                 : new Rectangle(panelX + panelW / 2f + 118f,
                         panelY + 155f, 72f, 64f);
+        Rectangle standaloneOption = dialog.hasStandaloneOption()
+                ? GdxTableDialogLayout.standaloneOption(
+                        panelX, panelY, panelW) : null;
         if (dialog.showsNegative()
                 && contains(pointer.x, pointer.y, negativeX,
                         buttonY, negativeW, buttonH)) {
             resolveActiveDialogChoice(false);
+        } else if (standaloneOption != null
+                && standaloneOption.contains(pointer.x, pointer.y)) {
+            runSwitchAction(dialog.optionEnabled(),
+                    dialog::toggleOptionEnabled);
         } else if (dialog.isAutoCall()
                 && autoCallLayout.enabled().contains(pointer.x, pointer.y)) {
             runSwitchAction(dialog.optionEnabled(),
@@ -6840,6 +6848,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : dialog.isRebuy() ? 390f
                 : dialog.isZeroTrust() ? 760f
                 : dialog.isNotice() ? 470f
+                : dialog.hasStandaloneOption() ? 500f
                 : dialog.hasAmount() ? 470f : 390f;
     }
 
@@ -7663,6 +7672,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }));
     }
 
+    private void confirmUnblockNetworkAddress(NetworkBlock block) {
+        if (block == null || networkBlockPendingAddress != null) return;
+        GdxTableDialog confirmation = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM,
+                uppercase(gameText.translate(
+                        "gdx.network_blocks.confirm_title")),
+                gameText.translate("gdx.network_blocks.confirm_remove",
+                        block.address(),
+                        GdxNetworkBlockDialogLayout.identity(block, gameText)),
+                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.STOP,
+                920, 0, false,
+                uppercase(gameText.translate("ui.cancelar")),
+                uppercase(gameText.translate("gdx.network_blocks.remove")));
+        confirmation.result().thenAccept(accepted -> {
+            if (accepted) unblockNetworkAddress(block.address());
+        });
+        showDialog(confirmation);
+    }
+
     private void handleNetworkBlocksClick(float x, float y) {
         GdxNetworkBlockDialogLayout.Layout layout
                 = GdxNetworkBlockDialogLayout.layout(
@@ -7681,10 +7709,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (row.y < layout.rows().y
                     || row.y + row.height > layout.rows().y
                             + layout.rows().height) continue;
-            Rectangle remove = new Rectangle(row.x + row.width - 194f,
-                    row.y + 10f, 174f, row.height - 20f);
+            Rectangle remove = new Rectangle(row.x + row.width - 84f,
+                    row.y + 10f, 64f, row.height - 20f);
             if (remove.contains(x, y)) {
-                unblockNetworkAddress(blocks.get(index).address());
+                confirmUnblockNetworkAddress(blocks.get(index));
                 return;
             }
         }
@@ -7741,8 +7769,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.setColor(0.010f, 0.028f, 0.050f, 0.97f * alpha);
             roundedRect(row.x + 2f, row.y + 2f,
                     row.width - 4f, row.height - 4f, 9f);
-            Rectangle remove = new Rectangle(row.x + row.width - 194f,
-                    row.y + 10f, 174f, row.height - 20f);
+            Rectangle remove = new Rectangle(row.x + row.width - 84f,
+                    row.y + 10f, 64f, row.height - 20f);
             drawDialogButton(remove.x, remove.y, remove.width, remove.height,
                     FOLD_RED, networkBlockPendingAddress == null
                             && remove.contains(pointer), alpha);
@@ -7750,7 +7778,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTableNetworkBlocksScrollbar(layout, blocks.size(), alpha);
         drawDialogButton(layout.closeButton().x, layout.closeButton().y,
                 layout.closeButton().width, layout.closeButton().height,
-                BUTTON_LINE, networkBlockPendingAddress == null
+                FOLD_RED, networkBlockPendingAddress == null
                         && layout.closeButton().contains(pointer), alpha);
         shapes.end();
 
@@ -7773,25 +7801,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLeftInBox(uiFont, block.address(), row.x + 22f,
                     row.y + 14f, 290f, row.height - 28f,
                     Color.WHITE, alpha);
-            drawLeftInBox(settingsTinyFont, uppercase(gameText.translate(
-                    "gdx.network_blocks.connection_abuse")),
+            drawLeftInBox(settingsTinyFont, uppercase(
+                    GdxNetworkBlockDialogLayout.identity(block, gameText)),
                     row.x + 330f, row.y + 14f, 255f,
                     row.height - 28f, ORANGE, alpha);
-            drawLeftInBox(settingsTinyFont, uppercase(gameText.translate(
-                    "gdx.network_blocks.remaining")) + ": "
-                    + GdxNetworkBlockDialogLayout.remaining(
-                            block.remainingMillis(now)),
+            drawLeftInBox(settingsTinyFont, uppercase(
+                    GdxNetworkBlockDialogLayout.duration(block, now,
+                            gameText)),
                     row.x + 600f, row.y + 14f,
-                    row.width - 814f, row.height - 28f,
+                    row.width - 704f, row.height - 28f,
                     POT_GOLD, alpha);
-            drawDialogButtonLabel(actionFont,
-                    uppercase(gameText.translate(
-                            "gdx.network_blocks.remove")),
-                    row.x + row.width - 194f, row.y + 10f,
-                    174f, row.height - 20f, Color.WHITE, alpha);
+            drawDialogButtonLabel(settingsStepperSignFont,
+                    GdxUiDialogStyle.CLOSE_GLYPH,
+                    row.x + row.width - 84f, row.y + 10f,
+                    64f, row.height - 20f, Color.WHITE, alpha);
         }
-        drawDialogButtonLabel(actionFont,
-                uppercase(gameText.translate("ui.cerrar")),
+        drawDialogButtonLabel(settingsStepperSignFont,
+                GdxUiDialogStyle.CLOSE_GLYPH,
                 layout.closeButton().x, layout.closeButton().y,
                 layout.closeButton().width, layout.closeButton().height,
                 Color.WHITE, alpha);
@@ -8206,8 +8232,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (hasPendingLocalActionSubmission() || !hasActiveLocalTurn()) {
             return false;
         }
-        if (!liveState.actionControls().foldEnabled()) return false;
-        submitConfirmedAction(1, new TableCommand.Fold());
+        ActionControlState controls = liveState.actionControls();
+        if (!controls.foldEnabled()) return false;
+        if (!actionConfirmationPassed(1)) return true;
+        if (requiresFreeFoldConfirmation(controls.callAction(),
+                isTestMode())) {
+            GdxTableDialog confirmation = new GdxTableDialog(
+                    GdxTableDialog.Kind.CONFIRM,
+                    uppercase(gameText.translate(
+                            "gdx.dialog.confirmation")),
+                    uppercase(gameText.translate(
+                            "ui.perder_mano_confirmacion")),
+                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.STOP,
+                    760, 0, false,
+                    uppercase(gameText.translate("ui.cancelar")),
+                    uppercase(gameText.translate("action.label.fold2")));
+            confirmation.result().thenAccept(accepted -> {
+                if (!accepted || hasPendingLocalActionSubmission()
+                        || !hasActiveLocalTurn()) return;
+                ActionControlState current = liveState.actionControls();
+                if (current.foldEnabled()
+                        && current.callAction()
+                        == ActionControlState.CallAction.CHECK) {
+                    submit(new TableCommand.Fold());
+                }
+            });
+            showDialog(confirmation);
+            return true;
+        }
+        submit(new TableCommand.Fold());
         return true;
     }
 
@@ -8312,19 +8365,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Swing's CONFIRMAR ACCIONES contract: first press arms, second executes. */
     private void submitConfirmedAction(int target, TableCommand command) {
+        if (actionConfirmationPassed(target)) submit(command);
+    }
+
+    private boolean actionConfirmationPassed(int target) {
         if (activeDialog != null && activeDialog.isAutoAction()) {
             activeDialog.dismiss();
         }
         if (!requiresActionConfirmation(target, confirmActions, isTestMode())) {
             armedHudTarget = 0;
-            submit(command);
-            return;
+            return true;
         }
         if (armedHudTarget == target) {
             armedHudTarget = 0;
-            submit(command);
+            return true;
         } else {
             armedHudTarget = target;
+            return false;
         }
     }
 
@@ -8404,6 +8461,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static boolean requiresActionConfirmation(int target,
             boolean confirmEveryAction, boolean testMode) {
         return !testMode && (target == 6 || confirmEveryAction);
+    }
+
+    /** Swing always asks before folding when checking would cost nothing. */
+    static boolean requiresFreeFoldConfirmation(
+            ActionControlState.CallAction callAction, boolean testMode) {
+        return !testMode && callAction == ActionControlState.CallAction.CHECK;
     }
 
     static LocalHudLayout localHudLayout(float worldWidth) {
@@ -19896,6 +19959,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 dialog.isRunItTwice()
                         ? GdxTableDialogLayout.runItTwice(
                                 panelX, panelY, panelW) : null;
+        Rectangle standaloneOption = dialog.hasStandaloneOption()
+                ? GdxTableDialogLayout.standaloneOption(
+                        panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
         float negativeX = panelX + 42f;
         float negativeW = 230f;
@@ -19997,6 +20063,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (dialog.isHandLimit()) {
             drawSettingsToggleShape(panelX + 56f, panelY + 244f,
                     panelW - 112f, dialog.noLimit(), 1f);
+        } else if (standaloneOption != null) {
+            drawSettingsToggleShape(standaloneOption.x, standaloneOption.y,
+                    standaloneOption.width, dialog.optionEnabled(), 1f);
         }
         if (dialog.waitingForExternalClose()) {
             float progressW = panelW - 84f;
@@ -20092,6 +20161,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle messageBounds = dialog.hasAmount()
                     ? new Rectangle(panelX + 56f, panelY + 263f,
                             panelW - 112f, 86f)
+                    : standaloneOption != null
+                            ? GdxTableDialogLayout
+                                    .messageAboveStandaloneOption(
+                                            panelX, panelY, panelW, panelH)
                     : GdxTableDialogLayout.standardMessage(
                             panelX, panelY, panelW, panelH);
             String message = dialog.isNotice()
@@ -20190,6 +20263,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsRowText(panelX + 56f, panelY + 244f,
                     panelW - 112f, uppercase(gameText.translate(
                             "auto_call.sin_limite")), 1f);
+        } else if (standaloneOption != null) {
+            drawSettingsRowText(standaloneOption.x, standaloneOption.y,
+                    standaloneOption.width,
+                    uppercase(dialog.standaloneOptionLabel()), 1f);
         }
         if (dialog.showsNegative() && !dialog.waitingForExternalClose()) {
             drawDialogButtonLabel(actionFont,

@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
+import com.tonikelope.coronapoker.core.NetworkBlock;
 
 /** Shared geometry and time formatting for both host blocklist entry points. */
 final class GdxNetworkBlockDialogLayout {
@@ -27,7 +28,7 @@ final class GdxNetworkBlockDialogLayout {
         Rectangle rows = new Rectangle(x + 44f, y + 128f,
                 width - 88f, height - 244f);
         return new Layout(panel, rows,
-                new Rectangle(x + width - 252f, y + 34f, 208f, 64f),
+                new Rectangle(x + width - 78f, y + height - 70f, 54f, 48f),
                 new Rectangle(x + width - 30f, rows.y, 10f, rows.height));
     }
 
@@ -56,5 +57,19 @@ final class GdxNetworkBlockDialogLayout {
         long remainder = seconds % 60L;
         return minutes > 0L ? minutes + " min " + remainder + " s"
                 : remainder + " s";
+    }
+
+    static String identity(NetworkBlock block, GdxGameText text) {
+        return block.lastNickname().isBlank()
+                ? text.translate("gdx.network_blocks.unknown_nickname")
+                : block.lastNickname();
+    }
+
+    static String duration(NetworkBlock block, long now,
+            GdxGameText text) {
+        return block.sessionLifetime()
+                ? text.translate("gdx.network_blocks.session")
+                : text.translate("gdx.network_blocks.remaining") + ": "
+                        + remaining(block.remainingMillis(now));
     }
 }

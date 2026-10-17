@@ -15,8 +15,8 @@ final class GdxNetworkBlockCacheTest {
     void renderingOnlySchedulesRefreshAndReusesItsImmutableSnapshot() {
         AtomicInteger reads = new AtomicInteger();
         AtomicReference<Runnable> worker = new AtomicReference<>();
-        NetworkBlock block = new NetworkBlock("127.0.0.2", 10_000L,
-                NetworkBlock.Reason.CONNECTION_ABUSE);
+        NetworkBlock block = new NetworkBlock("127.0.0.2", "Alice",
+                10_000L);
         GdxNetworkBlockCache cache = new GdxNetworkBlockCache(() -> {
             reads.incrementAndGet();
             return List.of(block);
@@ -61,8 +61,8 @@ final class GdxNetworkBlockCacheTest {
     void transientReadFailurePreservesTheLastKnownAdministrativeView() {
         AtomicReference<Runnable> worker = new AtomicReference<>();
         AtomicInteger attempts = new AtomicInteger();
-        NetworkBlock block = new NetworkBlock("127.0.0.3", 20_000L,
-                NetworkBlock.Reason.CONNECTION_ABUSE);
+        NetworkBlock block = new NetworkBlock("127.0.0.3", "Bob",
+                20_000L);
         GdxNetworkBlockCache cache = new GdxNetworkBlockCache(() -> {
             if (attempts.incrementAndGet() > 1) {
                 throw new IllegalStateException("transient read failure");

@@ -2,6 +2,8 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,18 @@ final class GdxWindowModeTest {
         defaults.setProperty("auto_fullscreen", "false");
         assertEquals(GdxWindowMode.BORDERLESS,
                 GdxWindowMode.configured(defaults));
+    }
+
+    @Test
+    void automaticFullscreenIsAvailableOnlyForFullscreenModes() {
+        Properties properties = new Properties();
+        assertTrue(GdxWindowMode.allowsAutomaticFullscreen(properties));
+
+        GdxWindowMode.persist(properties, GdxWindowMode.EXCLUSIVE);
+        assertTrue(GdxWindowMode.allowsAutomaticFullscreen(properties));
+
+        GdxWindowMode.persist(properties, GdxWindowMode.WINDOWED);
+        assertFalse(GdxWindowMode.allowsAutomaticFullscreen(properties));
     }
 
     @Test

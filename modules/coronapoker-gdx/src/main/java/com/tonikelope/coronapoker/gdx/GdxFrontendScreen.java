@@ -8200,16 +8200,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     == GdxWindowMode.BORDERLESS),
                     this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
-            settingsValueToggle(x + 34f, rowY - rowStride, w - 68f,
+            Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
+                    x + 34f, rowY - rowStride, w - 68f, true);
+            boolean autoFullscreenEnabled =
+                    GdxWindowMode.allowsAutomaticFullscreen(
+                            initialProperties);
+            toggle(autoFullscreenRow.x, autoFullscreenRow.y,
+                    autoFullscreenRow.width,
+                    uppercase(gameText.translate(
+                            "gdx.settings.option.auto_fullscreen")),
+                    preferenceBoolean("auto_fullscreen", true),
+                    () -> togglePreference("auto_fullscreen", true),
+                    autoFullscreenEnabled);
+            settingsValueToggle(x + 34f, rowY - 2f * rowStride, w - 68f,
                     uppercase(gameText.translate("gdx.settings.row.vsync")),
                     GdxSettingsContract.vsyncStatusLabel(
                             presentationSettings.vsyncEnabled(), gameText),
                     presentationSettings.vsyncEnabled(),
                     () -> presentationSettings.toggleVsync(false), true);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - rowStride, w - 68f,
+                    rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT), "gdx_vsync");
-            settingsStepper(x + 34f, rowY - 2f * rowStride, w - 68f,
+            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.fps_limit")),
@@ -8219,11 +8231,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     this::selectPreviousFrameRateLimit,
                     this::selectNextFrameRateLimit);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - 2f * rowStride, w - 68f,
+                    rowY - 3f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_fps_limit");
             settingsStepperWithStatus(x + 34f,
-                    rowY - 3f * rowStride, w - 68f,
+                    rowY - 4f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing")),
@@ -8233,19 +8245,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     msaaRestartStatus(),
                     this::selectPreviousMsaa, this::selectNextMsaa);
             performanceTooltip(new Rectangle(x + 34f,
-                    rowY - 3f * rowStride, w - 68f,
+                    rowY - 4f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_msaa_samples");
-            toggle(x + 34f, rowY - 4f * rowStride, w - 68f,
+            toggle(x + 34f, rowY - 5f * rowStride, w - 68f,
                     uppercase(gameText.translate(
                             "gdx.settings.option.gdx_show_fps")),
                     preferenceBoolean("gdx_show_fps", false),
                     () -> togglePreference("gdx_show_fps", false), true);
-            toggle(x + 34f, rowY - 5f * rowStride, w - 68f,
-                    uppercase(gameText.translate(
-                            "gdx.settings.option.auto_fullscreen")),
-                    preferenceBoolean("auto_fullscreen", true),
-                    () -> togglePreference("auto_fullscreen", true), true);
             settingsInfoRow(x + 34f, rowY - 6f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(

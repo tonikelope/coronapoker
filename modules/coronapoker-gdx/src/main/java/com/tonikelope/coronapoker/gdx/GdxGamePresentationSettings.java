@@ -388,7 +388,10 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         if (persist) preferences.saveDeferred();
         return selected;
     }
-    @Override public boolean autoFullscreen() { return bool("auto_fullscreen", true); }
+    @Override public boolean autoFullscreen() {
+        return GdxWindowMode.allowsAutomaticFullscreen(properties)
+                && bool("auto_fullscreen", true);
+    }
     @Override public boolean cinematics() {
         return animations() && bool("cinematicas", true);
     }

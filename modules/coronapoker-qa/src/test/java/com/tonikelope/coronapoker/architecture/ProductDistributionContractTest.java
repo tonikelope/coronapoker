@@ -106,6 +106,80 @@ final class ProductDistributionContractTest {
     }
 
     @Test
+    void windowsInstallerPreservesThePortableUpdaterContract()
+            throws IOException {
+        Path repository = reactor.resolve("..").normalize();
+        Path scriptPath = repository.resolve(
+                "tools/windows/build-installer.ps1");
+        Path releaseScriptPath = repository.resolve(
+                "tools/windows/build-release-installer.ps1");
+        Path iconPath = repository.resolve(
+                "packaging/windows/CoronaPoker.ico");
+        Path installerSpecPath = repository.resolve(
+                "packaging/windows/CoronaPoker.iss");
+        Path wizardImagePath = repository.resolve(
+                "packaging/windows/installer-wizard.png");
+        Path smallImagePath = repository.resolve(
+                "packaging/windows/installer-small.png");
+        String script = Files.readString(scriptPath, StandardCharsets.UTF_8);
+        String releaseScript = Files.readString(releaseScriptPath,
+                StandardCharsets.UTF_8);
+        String installerSpec = Files.readString(installerSpecPath,
+                StandardCharsets.UTF_8);
+
+        assertTrue(Files.size(iconPath) > 10_000L,
+                "The Windows launcher must carry a real multi-size icon");
+        assertTrue(Files.size(wizardImagePath) > 10_000L,
+                "The installer needs real CoronaPoker wizard artwork");
+        assertTrue(Files.size(smallImagePath) > 5_000L,
+                "The installer needs a high-DPI CoronaPoker header logo");
+        assertTrue(script.contains("\"CoronaPoker.jar\""),
+                "The installed JAR name must remain stable for updates");
+        assertTrue(script.contains("\"--runtime-image\""));
+        assertTrue(script.contains(
+                "The Windows installer must be built with JDK 25."));
+        assertTrue(script.contains("bin\\java.exe"),
+                "The private runtime must retain Java for coronaupdater.jar");
+        assertFalse(script.contains("--strip-native-commands"),
+                "jpackage's stripped runtime would break coronaupdater.jar");
+        assertTrue(script.contains(
+                "$jlinkArguments += @(\"--module-path\", $jmods)"),
+                "JDKs with jmods must remain supported");
+        assertTrue(script.contains(
+                "$setupArtifactBase = \"${appImageArtifactBase}_Setup\""));
+        assertTrue(installerSpec.contains(
+                "AppId={{8E6B1337-F015-4F21-A920-73ACF3EF0A55}"),
+                "Installer upgrades need one stable Windows identity");
+        assertTrue(installerSpec.contains(
+                "DefaultDirName={localappdata}\\Programs\\CoronaPoker"),
+                "The updater needs a user-writable installation");
+        assertTrue(installerSpec.contains(
+                "compiler:Languages\\Spanish.isl"));
+        assertTrue(installerSpec.contains("ShowLanguageDialog=auto"));
+        assertTrue(installerSpec.contains(
+                "WizardImageFile=installer-wizard.png"));
+        assertTrue(installerSpec.contains(
+                "WizardSmallImageFile=installer-small.png"));
+        assertFalse(script.contains("-Duser.home"),
+                "Installer must preserve %USERPROFILE%/.coronapoker");
+        assertTrue(script.contains(
+                "installed CoronaPoker.jar differs from the canonical"),
+                "The packaged JAR must be hash-checked before release");
+        assertTrue(script.contains(
+                "Updater-compatible runtime is missing module"));
+        assertTrue(script.contains("Invoke-Sign $nativeLauncher"));
+        assertTrue(script.contains("Invoke-Sign $finalPath"));
+        assertTrue(releaseScript.contains(
+                "microsoft-jdk-25-windows-x64.zip"));
+        assertTrue(releaseScript.contains("Get-FileHash"),
+                "The downloaded JDK must be verified before use");
+        assertTrue(releaseScript.contains("finally"));
+        assertTrue(releaseScript.contains(
+                "Remove-Item -LiteralPath $temporaryPath -Recurse -Force"),
+                "Temporary JDK and staging data must always be removed");
+    }
+
+    @Test
     void gdxDoesNotRecompileClassesOwnedByTheSharedCore() throws IOException {
         Path coreClasses = reactor.resolve("coronapoker-core/target/classes");
         Path gdxClasses = reactor.resolve("coronapoker-gdx/target/classes");

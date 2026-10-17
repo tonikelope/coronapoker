@@ -17979,15 +17979,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (direction != 0) adjustTableWindowMode(direction);
                     return;
                 }
+                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
+                        contentX, firstRowY - rowStride, rowW, true);
+                if (GdxWindowMode.allowsAutomaticFullscreen(
+                        tableSettingsProperties())
+                        && autoFullscreenRow.contains(x, y)) {
+                    toggleTablePreference("auto_fullscreen", true);
+                    return;
+                }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - rowStride, rowW,
+                        contentX, firstRowY - 2f * rowStride, rowW,
                         GdxSettingsLayout.ROW_HEIGHT)) {
                     toggleTablePreference("gdx_vsync",
                             GdxSettingsContract.DEFAULT_VSYNC);
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 2f * rowStride, rowW,
+                        contentX, firstRowY - 3f * rowStride, rowW,
                         GdxSettingsLayout.ROW_HEIGHT)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
@@ -17999,7 +18007,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
                 if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 3f * rowStride, rowW,
+                        contentX, firstRowY - 4f * rowStride, rowW,
                         GdxSettingsLayout.ROW_HEIGHT)) {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
@@ -18011,15 +18019,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
                 if (contains(x, y, contentX,
-                        firstRowY - 4f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    toggleTablePreference("gdx_show_fps", false);
-                    return;
-                }
-                if (contains(x, y, contentX,
                         firstRowY - 5f * rowStride, rowW,
                         GdxSettingsLayout.ROW_HEIGHT)) {
-                    toggleTablePreference("auto_fullscreen", true);
+                    toggleTablePreference("gdx_show_fps", false);
                     return;
                 }
             } else {
@@ -21572,19 +21574,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         currentSettingsContent().height,
                         GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
                 drawSettingsStepperShape(x, firstY, width, alpha);
-                drawSettingsToggleShape(x, firstY - rowStride, width,
+                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
+                        x, firstY - rowStride, width, true);
+                boolean autoFullscreenEnabled =
+                        GdxWindowMode.allowsAutomaticFullscreen(
+                                tableSettingsProperties());
+                drawSettingsToggleShape(autoFullscreenRow.x,
+                        autoFullscreenRow.y, autoFullscreenRow.width,
+                        tablePreference("auto_fullscreen", true),
+                        autoFullscreenEnabled, alpha);
+                drawSettingsToggleShape(x, firstY - 2f * rowStride, width,
                         presentationSettings != null
                                 && presentationSettings.vsyncEnabled(),
                         presentationSettings != null, alpha);
-                drawSettingsStepperShape(x, firstY - 2f * rowStride, width,
+                drawSettingsStepperShape(x, firstY - 3f * rowStride, width,
                         presentationSettings != null,
                         alpha);
-                drawSettingsStepperShape(x, firstY - 3f * rowStride, width,
+                drawSettingsStepperShape(x, firstY - 4f * rowStride, width,
                         presentationSettings != null, alpha);
-                drawSettingsToggleShape(x, firstY - 4f * rowStride, width,
-                        tablePreference("gdx_show_fps", false), alpha);
                 drawSettingsToggleShape(x, firstY - 5f * rowStride, width,
-                        tablePreference("auto_fullscreen", true), alpha);
+                        tablePreference("gdx_show_fps", false), alpha);
                 drawSettingsInfoShape(x, firstY - 6f * rowStride, width,
                         alpha);
             } else {
@@ -22172,7 +22181,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxWindowMode.configured(
                                         tableSettingsProperties())
                                         == GdxWindowMode.BORDERLESS), alpha);
-                drawSettingsToggleText(x, firstY - rowStride, width,
+                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
+                        x, firstY - rowStride, width, true);
+                boolean autoFullscreenEnabled =
+                        GdxWindowMode.allowsAutomaticFullscreen(
+                                tableSettingsProperties());
+                drawSettingsRowText(autoFullscreenRow.x,
+                        autoFullscreenRow.y, autoFullscreenRow.width,
+                        uppercase(gameText.translate(
+                                "gdx.settings.option.auto_fullscreen")),
+                        autoFullscreenEnabled, alpha);
+                drawSettingsToggleText(x, firstY - 2f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.vsync")),
                         presentationSettings == null ? ""
@@ -22180,7 +22199,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         presentationSettings.vsyncEnabled(),
                                         gameText),
                         presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 2f * rowStride, width,
+                drawSettingsStepperText(x, firstY - 3f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.fps_limit")),
                         GdxSettingsContract.markDefault(
@@ -22188,7 +22207,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxSettingsContract.isDefaultFrameRateLimit(
                                         tableSettingsProperties())),
                         presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 3f * rowStride, width,
+                drawSettingsStepperText(x, firstY - 4f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.antialiasing")),
                         GdxSettingsContract.markDefault(tableMsaaSettingLabel(),
@@ -22196,12 +22215,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         .getProperty("gdx_msaa_samples", "4"))),
                         tableMsaaRestartStatus(),
                         presentationSettings != null, alpha);
-                drawSettingsRowText(x, firstY - 4f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.option.gdx_show_fps")), alpha);
                 drawSettingsRowText(x, firstY - 5f * rowStride, width,
                         uppercase(gameText.translate(
-                                "gdx.settings.option.auto_fullscreen")), alpha);
+                                "gdx.settings.option.gdx_show_fps")), alpha);
                 drawSettingsInfoText(x, firstY - 6f * rowStride, width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.gpu_renderer")),

@@ -138,6 +138,10 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.autoFullscreen());
         preferences.properties().setProperty("auto_fullscreen", "true");
         assertTrue(settings.autoFullscreen());
+        preferences.properties().setProperty("gdx_window_mode", "windowed");
+        assertFalse(settings.autoFullscreen());
+        preferences.properties().setProperty("gdx_window_mode", "exclusive");
+        assertTrue(settings.autoFullscreen());
     }
 
     @Test

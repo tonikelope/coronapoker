@@ -48,6 +48,11 @@ enum GdxWindowMode {
         return BORDERLESS;
     }
 
+    /** Automatic table-start fullscreen only applies to fullscreen modes. */
+    static boolean allowsAutomaticFullscreen(Properties properties) {
+        return configured(properties) != WINDOWED;
+    }
+
     static GdxWindowMode requested(String[] arguments,
             Properties properties) {
         for (String argument : arguments) {

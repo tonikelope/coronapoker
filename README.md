@@ -259,8 +259,10 @@ duplicated product classes.
 - `modules/coronapoker-qa/`: architecture and source-ownership tests.
 - `tools/qa/`: opt-in protocol, recovery, security and headless simulation
   tests. Behavioural certification scenarios live with the GDX test sources.
+- `tools/windows/` and `packaging/windows/`: reproducible Windows installer
+  build and its native CoronaPoker icon.
 - `docs/`: architecture, security, testing and contributor documentation.
-- `target/`: the only directory containing the product JAR.
+- `target/`: generated product JAR and platform distribution artifacts.
 - `coronaupdater.jar`: special root-level updater artifact required by the
   GitHub self-update mechanism.
 
@@ -319,6 +321,19 @@ The local distribution and the GitHub release asset use the historical name
 `target/CoronaPoker_<version>.jar`. The updater downloads that versioned asset
 and installs it beside the running application as `CoronaPoker.jar`, then
 relaunches that stable filename. No manual rename is required.
+
+Windows releases additionally provide
+`CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user
+installer contains a native `CoronaPoker.exe` with the official splash logo
+and a reduced private Java 25 runtime, so it neither requires nor modifies a
+system Java installation. Its wizard uses the local Windows language (Spanish
+or English) and CoronaPoker artwork instead of generic installer graphics.
+Its internal stable JAR and retained private `java.exe` preserve the same
+`coronaupdater.jar` self-update path used by the portable release. Build it
+after the product JAR with `tools/windows/build-release-installer.ps1`; the
+wrapper securely downloads and removes its temporary JDK 25 toolchain. See
+[`packaging/windows/README.md`](packaging/windows/README.md) for prerequisites,
+layout and optional Authenticode signing.
 
 ### The simple local workflow
 

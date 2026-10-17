@@ -324,16 +324,19 @@ relaunches that stable filename. No manual rename is required.
 
 Windows releases additionally provide
 `CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user
-installer contains a native `CoronaPoker.exe` with the official splash logo
-and a reduced private Java 25 runtime, so it neither requires nor modifies a
-system Java installation. Its wizard uses the local Windows language (Spanish
-or English) and CoronaPoker artwork instead of generic installer graphics.
+installer contains a native `CoronaPoker.exe` with the official CoronaPoker
+logo and a reduced private Java 25 runtime, so it neither requires nor modifies
+a system Java installation. Its wizard uses the local Windows language
+(Spanish or English) and CoronaPoker artwork instead of generic installer
+graphics.
 Its internal stable JAR and retained private `java.exe` preserve the same
 `coronaupdater.jar` self-update path used by the portable release. Build it
 after the product JAR with `tools/windows/build-release-installer.ps1`; the
 wrapper securely downloads and removes its temporary JDK 25 toolchain. See
 [`packaging/windows/README.md`](packaging/windows/README.md) for prerequisites,
 layout and optional Authenticode signing.
+The native launcher intentionally skips the legacy JVM splash for a more
+direct startup; the portable JAR keeps its existing splash screen.
 
 ### The simple local workflow
 

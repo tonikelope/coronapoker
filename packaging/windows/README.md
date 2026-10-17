@@ -14,6 +14,12 @@ the bundled runtime, without administrator elevation. Installing the game does
 not redirect `user.home`; both the portable and installed editions continue to
 use `%USERPROFILE%\.coronapoker` for preferences and user data.
 
+The native `.exe` intentionally starts without the legacy JVM splash screen.
+`jpackage` invokes the main class directly instead of reading the JAR's
+`SplashScreen-Image` manifest entry, which avoids adding a separate splash
+resource and keeps the native startup path as direct as possible. The portable
+JAR continues to show its existing splash when launched with `java -jar`.
+
 Install Inno Setup once on the release machine:
 
 ```powershell

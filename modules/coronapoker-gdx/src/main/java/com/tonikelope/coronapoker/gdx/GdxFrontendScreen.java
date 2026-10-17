@@ -132,13 +132,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE = 112f;
     static final float MENU_QUOTE_LINE_HEIGHT = 24f;
     static final int MENU_QUOTE_MAX_LINES = 2;
-    static final float LOBBY_LEFT_ACTION_X = 70f;
-    static final float LOBBY_LEFT_ACTION_WIDTH = 360f;
+    static final float LOBBY_LEFT_ACTION_X = 55f;
+    static final float LOBBY_LEFT_ACTION_WIDTH = 390f;
     static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
     static final float LOBBY_LEFT_CONTENT_WIDTH = LOBBY_LEFT_ACTION_WIDTH;
     static final float LOBBY_CONNECTION_Y = 674f;
     static final float LOBBY_PUBLIC_ADDRESS_BASELINE = 702f;
     static final float LOBBY_CONNECTION_HEIGHT = 82f;
+    static final float LOBBY_CONNECTION_VALUE_OFFSET = 120f;
+    static final float LOBBY_CONNECTION_RIGHT_PADDING = 16f;
+    static final float LOBBY_CONNECTION_STATUS_WIDTH = 98f;
+    static final float LOBBY_CONNECTION_STATUS_GAP = 12f;
     static final float LOBBY_PASSWORD_Y = 608f;
     static final float LOBBY_PASSWORD_HEIGHT = 48f;
     static final float LOBBY_GAME_INFO_Y = 454f;
@@ -4765,41 +4769,46 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(LOBBY_LEFT_CONTENT_X, connectionY,
                 LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
                 new Color(0x31445fcc), new Color(0x081525a8));
+        LobbyConnectionRowLayout connectionLayout = lobbyConnectionRowLayout(
+                LOBBY_LEFT_CONTENT_X, LOBBY_LEFT_CONTENT_WIDTH,
+                state.host() && "UPNP_OK".equals(state.statusDetail()));
         float connectionLabelX = LOBBY_LEFT_CONTENT_X + 16f;
-        float connectionValueX = LOBBY_LEFT_CONTENT_X + 164f;
+        float connectionValueX = connectionLayout.valueX();
         float serverBaseline = 733f;
         text(tinyFont, uppercase(gameText.translate("ui.servidor")),
                 connectionLabelX, serverBaseline, MUTED, false);
-        if (state.host()) {
+        if (connectionLayout.statusVisible()) {
             String networkStatus = lobbyNetworkStatusText(
                     state.statusDetail(), gameText);
-            if (!networkStatus.isBlank()) {
-                textFit(tinyFont, uppercase(networkStatus), 326f,
-                        serverBaseline,
-                        "UPNP_OK".equals(state.statusDetail())
-                                ? new Color(0x65e89fff) : ORANGE,
-                        true, 102f);
-            }
+            outerBox(connectionLayout.statusX(), serverBaseline - 26f,
+                    connectionLayout.statusWidth(), 34f,
+                    new Color(0x46d78dff), new Color(0x103a2dd9));
+            textFit(tinyFont, uppercase(networkStatus),
+                    connectionLayout.statusX()
+                            + connectionLayout.statusWidth() / 2f,
+                    serverBaseline - 2f, new Color(0x76f0adff), true,
+                    connectionLayout.statusWidth() - 12f);
         }
-        float serverAddressWidth = state.host() ? 116f : 190f;
         textFit(smallFont, state.serverAddress(), connectionValueX,
                 serverBaseline,
-                Color.WHITE, false, serverAddressWidth);
+                Color.WHITE, false, connectionLayout.valueWidth());
         if (state.host()) {
             text(tinyFont, uppercase(gameText.translate(
                     "gdx.lobby.public_address")), connectionLabelX,
                     LOBBY_PUBLIC_ADDRESS_BASELINE,
                     MUTED, false);
+            String publicEndpoint = lobbyPublicAddressEndpoint(
+                    state.serverAddress(), lobbyPublicAddress);
             String publicAddress = lobbyPublicAddressLoading
                     ? gameText.translate("gdx.loading")
-                    : lobbyPublicAddress.isBlank()
+                    : publicEndpoint.isBlank()
                             ? gameText.translate(
                                     "gdx.lobby.public_address_unavailable")
-                            : lobbyPublicAddress;
+                            : publicEndpoint;
             textFit(smallFont, publicAddress, connectionValueX,
                     LOBBY_PUBLIC_ADDRESS_BASELINE,
-                    lobbyPublicAddress.isBlank() ? DISABLED : Color.WHITE,
-                    false, LOBBY_LEFT_CONTENT_WIDTH - 180f);
+                    publicEndpoint.isBlank() ? DISABLED : Color.WHITE,
+                    false, connectionLayout.fullValueWidth());
             hit(LOBBY_LEFT_CONTENT_X, connectionY,
                     LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
                     this::copyLobbyConnectionData);
@@ -6021,6 +6030,42 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         return "[CoronaPoker] " + endpoint + System.lineSeparator()
                 + "[CoronaPoker] " + publicEndpoint;
+    }
+
+    static String lobbyPublicAddressEndpoint(String localEndpoint,
+            String publicAddress) {
+        String publicIp = Objects.requireNonNullElse(publicAddress, "").trim();
+        String port = endpointPort(Objects.requireNonNullElse(
+                localEndpoint, "").trim());
+        if (publicIp.isEmpty() || port.isEmpty()) return "";
+        if (publicIp.indexOf(':') >= 0
+                && !(publicIp.startsWith("[") && publicIp.endsWith("]"))) {
+            publicIp = "[" + publicIp + "]";
+        }
+        return publicIp + ":" + port;
+    }
+
+    static LobbyConnectionRowLayout lobbyConnectionRowLayout(float panelX,
+            float panelWidth, boolean statusVisible) {
+        float valueX = panelX + LOBBY_CONNECTION_VALUE_OFFSET;
+        float fullValueWidth = panelX + panelWidth
+                - LOBBY_CONNECTION_RIGHT_PADDING - valueX;
+        if (!statusVisible) {
+            return new LobbyConnectionRowLayout(valueX, fullValueWidth,
+                    0f, 0f, fullValueWidth, false);
+        }
+        float statusX = panelX + panelWidth
+                - LOBBY_CONNECTION_RIGHT_PADDING
+                - LOBBY_CONNECTION_STATUS_WIDTH;
+        float valueWidth = Math.max(1f, statusX
+                - LOBBY_CONNECTION_STATUS_GAP - valueX);
+        return new LobbyConnectionRowLayout(valueX, valueWidth, statusX,
+                LOBBY_CONNECTION_STATUS_WIDTH, fullValueWidth, true);
+    }
+
+    record LobbyConnectionRowLayout(float valueX, float valueWidth,
+            float statusX, float statusWidth, float fullValueWidth,
+            boolean statusVisible) {
     }
 
     private static String endpointPort(String endpoint) {
@@ -9357,6 +9402,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         dismissFrontendNotice();
         connection = defaultConnection(initialProperties, mode);
         if (mode == NewGameConnectionDraft.Mode.CREATE) {
+            disableUpnpPreference();
             refreshHostAddressOptions();
         } else {
             hostAddressLoadGeneration++;
@@ -9370,17 +9416,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearActiveField();
         historyIndex = -1;
         activateSurface(Surface.NEW_GAME);
-        if (mode == NewGameConnectionDraft.Mode.CREATE && connection.upnp()) {
-            startUpnpPortCheck(false);
-        }
     }
 
     private void toggleUpnp() {
-        if (connection == null || upnpCheckInFlight) return;
+        if (!upnpToggleEnabled(connection, upnpCheckInFlight)) return;
         if (connection.upnp()) {
             cancelUpnpCheck();
-            connection.setUpnp(false);
-            verifiedUpnpPort = -1;
+            disableUpnpPreference();
         } else {
             startUpnpPortCheck(false);
         }
@@ -9417,14 +9459,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             UpnpPortProbe.Status status) {
         if (disposed || generation != upnpCheckGeneration
                 || surface != Surface.NEW_GAME || connection == null) return;
-        upnpCheckInFlight = false;
         boolean continueSubmission = submitAfterUpnpCheck;
-        submitAfterUpnpCheck = false;
         if (status == UpnpPortProbe.Status.AVAILABLE) {
+            upnpCheckInFlight = false;
+            submitAfterUpnpCheck = false;
             verifiedUpnpPort = port;
             if (continueSubmission) submitNewGameAfterChecks();
             return;
         }
+        cancelUpnpCheck();
         disableUpnpPreference();
         showFrontendNotice(gameText.translate("gdx.dialog.error"),
                 gameText.translate(upnpProbeErrorKey(status)), true);
@@ -9447,10 +9490,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void disableUpnpPreference() {
-        if (connection != null) connection.setUpnp(false);
+        disableUpnpAndRemember(initialProperties, connection);
         verifiedUpnpPort = -1;
-        initialProperties.setProperty("upnp", "false");
         if (preferences != null) preferences.saveDeferred();
+    }
+
+    static void disableUpnpAndRemember(Properties properties,
+            NewGameConnectionDraft connection) {
+        Objects.requireNonNull(properties, "properties")
+                .setProperty("upnp", "false");
+        if (connection != null) connection.setUpnp(false);
+    }
+
+    static boolean upnpToggleEnabled(NewGameConnectionDraft connection,
+            boolean checkInFlight) {
+        return connection != null && connection.portValid() && !checkInFlight;
     }
 
     private void showFrontendNotice(String title, String message,
@@ -9589,7 +9643,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(1170f, 630f, 430f, 72f, "tooltip.cfg.server_ip");
         tooltip(1630f, 630f, 175f, 72f, "tooltip.cfg.server_port");
         toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
-                this::toggleUpnp, connection.portValid());
+                this::toggleUpnp,
+                upnpToggleEnabled(connection, upnpCheckInFlight));
         tooltip(1170f, 475f, 635f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.upnp");
     }

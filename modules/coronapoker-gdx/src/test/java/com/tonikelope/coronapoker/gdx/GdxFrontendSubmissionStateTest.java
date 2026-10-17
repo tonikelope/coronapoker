@@ -87,4 +87,34 @@ final class GdxFrontendSubmissionStateTest {
         assertEquals("", GdxFrontendScreen.upnpProbeErrorKey(
                 UpnpPortProbe.Status.AVAILABLE));
     }
+
+    @Test
+    void upnpCanBeRetriedAfterTheModalCheckFinishes() {
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                new Properties(), NewGameConnectionDraft.Mode.CREATE);
+        draft.setPort("21339");
+
+        assertTrue(GdxFrontendScreen.upnpToggleEnabled(draft, false));
+        assertFalse(GdxFrontendScreen.upnpToggleEnabled(draft, true));
+
+        draft.setUpnp(false);
+        assertTrue(GdxFrontendScreen.upnpToggleEnabled(draft, false));
+        draft.setPort("");
+        assertFalse(GdxFrontendScreen.upnpToggleEnabled(draft, false));
+    }
+
+    @Test
+    void openingCreateAndAnyProbeFailureRestoreTheSafeUpnpDefault() {
+        Properties properties = new Properties();
+        properties.setProperty("upnp", "true");
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                properties, NewGameConnectionDraft.Mode.CREATE);
+        assertTrue(draft.upnp());
+
+        GdxFrontendScreen.disableUpnpAndRemember(properties, draft);
+
+        assertFalse(draft.upnp());
+        assertEquals("false", properties.getProperty("upnp"));
+        assertTrue(GdxFrontendScreen.upnpToggleEnabled(draft, false));
+    }
 }

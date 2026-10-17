@@ -255,18 +255,22 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     public CompletableFuture<LobbySession> open(NewGameRequest request) {
         Objects.requireNonNull(request, "request");
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Network gateway is closed"));
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<LobbySession> result = new CompletableFuture<>();
+        executor.execute(() -> {
+            LobbySession opened = null;
             try {
-                return request.joining() ? Transport.openClient(request,
+                opened = request.joining() ? Transport.openClient(request,
                         coronaDirectory, executor, gameTables, identityTrust,
                         receiveStats, shareStats, statsSync)
                         : Transport.openHost(request, coronaDirectory, executor,
                                 gameTables, recoverableGames, identityTrust,
-                                 receiveStats, shareStats, statsSync, sessionIds);
+                                receiveStats, shareStats, statsSync, sessionIds);
+                if (!result.complete(opened)) opened.close();
             } catch (Exception failure) {
-                throw new java.util.concurrent.CompletionException(failure);
+                result.completeExceptionally(failure);
             }
-        }, executor);
+        });
+        return result;
     }
 
     private static byte[] secureSessionId() {
@@ -404,24 +408,36 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 transport.serverSocket = server;
                 String initialDetail = "";
                 if (request.connection().upnp()) {
-                    UpnpPortMapping.Attempt attempt =
-                            UpnpPortMapping.openSystemTcp(port);
-                    if (attempt.opened()) {
-                        transport.upnpMapping = attempt.lease();
+                    UpnpPortReservation reservation
+                            = request.upnpReservation();
+                    if (reservation != null) {
+                        transport.upnpMapping
+                                = reservation.transferToLobby(port);
                         initialDetail = "UPNP_OK";
                         LOGGER.log(Level.INFO,
-                                "UPnP mapping opened for TCP port {0}", port);
+                                "Pre-opened UPnP mapping adopted for TCP port {0}",
+                                port);
                     } else {
-                        initialDetail = switch (attempt.status()) {
-                            case UNAVAILABLE -> "UPNP_UNAVAILABLE";
-                            case ALREADY_MAPPED -> "UPNP_ALREADY_MAPPED";
-                            case FAILED -> "UPNP_FAILED";
-                            case OPEN -> throw new IllegalStateException(
-                                    "Open UPnP attempt has no lease");
-                        };
-                        LOGGER.log(Level.WARNING,
-                                "UPnP mapping failed for TCP port {0}: {1}",
-                                new Object[]{port, attempt.status()});
+                        UpnpPortMapping.Attempt attempt =
+                                UpnpPortMapping.openSystemTcp(port);
+                        if (attempt.opened()) {
+                            transport.upnpMapping = attempt.lease();
+                            initialDetail = "UPNP_OK";
+                            LOGGER.log(Level.INFO,
+                                    "UPnP mapping opened for TCP port {0}",
+                                    port);
+                        } else {
+                            initialDetail = switch (attempt.status()) {
+                                case UNAVAILABLE -> "UPNP_UNAVAILABLE";
+                                case ALREADY_MAPPED -> "UPNP_ALREADY_MAPPED";
+                                case FAILED -> "UPNP_FAILED";
+                                case OPEN -> throw new IllegalStateException(
+                                        "Open UPnP attempt has no lease");
+                            };
+                            LOGGER.log(Level.WARNING,
+                                    "UPnP mapping failed for TCP port {0}: {1}",
+                                    new Object[]{port, attempt.status()});
+                        }
                     }
                 }
                 transport.networkStatusDetail = initialDetail;
@@ -1189,7 +1205,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private void closeAfterGracefulExit() {
             if (!closed.compareAndSet(false, true)) return;
             gameChannel.close();
-            closeUpnpMappingAsync();
+            // The Leave command must not complete before the router mapping
+            // is gone. Otherwise the freshly reopened create form can race
+            // its own previous UPnP lease and report ALREADY_MAPPED.
+            closeUpnpMappingNow();
             try {
                 if (serverSocket != null) serverSocket.close();
             } catch (IOException ignored) { }
@@ -2128,6 +2147,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 cleanup.setDaemon(true);
                 cleanup.start();
             }
+        }
+
+        private void closeUpnpMappingNow() {
+            UpnpPortMapping mapping = upnpMapping;
+            upnpMapping = null;
+            if (mapping != null) mapping.close();
         }
 
         private void closeConnections() {

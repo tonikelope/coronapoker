@@ -41,6 +41,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import javax.sound.sampled.AudioFileFormat;
@@ -52,6 +53,42 @@ import org.junit.jupiter.api.io.TempDir;
 
 class NetworkLobbyGatewayTest {
     @TempDir Path temporary;
+
+    @Test
+    void lobbyAdoptsTheAlreadyOpenUpnpPortAndClosesItOnExit()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        TrackingUpnpGateway router = new TrackingUpnpGateway();
+        UpnpPortReservation mapping = UpnpPortReservation.openTcp(port,
+                router).reservation();
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Alice", "",
+                        "127.0.0.1", Integer.toString(port), null,
+                        true, false, null);
+        NewGameRequest request = new NewGameRequest(connection,
+                new NewGameTableDraft().snapshot(), mapping);
+
+        try (NetworkLobbyGateway gateway = new NetworkLobbyGateway(
+                temporary.resolve("upnp-handoff"))) {
+            LobbySession lobby = gateway.open(request).get(5,
+                    TimeUnit.SECONDS);
+            assertEquals("UPNP_OK", lobby.snapshot().statusDetail());
+            assertEquals(1, router.opens.get());
+            assertEquals(0, router.closes.get());
+
+            lobby.submit(new LobbyCommand.Leave()).toCompletableFuture()
+                    .get(5, TimeUnit.SECONDS);
+
+            assertEquals(1, router.closes.get(),
+                    "leaving the waiting room must close UPnP before returning");
+            assertEquals(1, router.opens.get(),
+                    "the lobby must adopt, not reopen, the selected port");
+        }
+    }
 
     @Test void closeInterruptsAndJoinsItsNetworkWorkers() throws Exception {
         NetworkLobbyGateway gateway = new NetworkLobbyGateway(
@@ -1408,6 +1445,23 @@ class NetworkLobbyGatewayTest {
         }
         @Override public boolean isVerified(String nickname, byte[] publicKey) {
             return false;
+        }
+    }
+
+    private static final class TrackingUpnpGateway
+            implements UpnpPortMapping.Gateway {
+        private final AtomicInteger opens = new AtomicInteger();
+        private final AtomicInteger closes = new AtomicInteger();
+
+        @Override public boolean available() { return true; }
+        @Override public boolean mappedTcp(int port) { return false; }
+        @Override public boolean openTcp(int port) {
+            opens.incrementAndGet();
+            return true;
+        }
+        @Override public boolean closeTcp(int port) {
+            closes.incrementAndGet();
+            return true;
         }
     }
 }

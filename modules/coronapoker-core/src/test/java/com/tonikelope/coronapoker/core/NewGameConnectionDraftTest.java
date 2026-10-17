@@ -102,6 +102,25 @@ final class NewGameConnectionDraftTest {
     }
 
     @Test
+    void upnpIsNeverRestoredOrPersistedAcrossCreateWorkflows()
+            throws Exception {
+        Path file = temporaryDirectory.resolve("upnp.properties");
+        Files.writeString(file, "nick=Alice\nupnp=true\n");
+        PreferencesService preferences = new PreferencesService(file);
+        preferences.start();
+        NewGameConnectionDraft draft = NewGameConnectionDraft.from(
+                preferences.properties(), NewGameConnectionDraft.Mode.CREATE);
+
+        assertFalse(draft.upnp());
+        draft.setUpnp(true);
+        NewGameConnectionDraft.Submission submission = draft.beginSubmission();
+        draft.commitSuccessful(preferences, submission);
+        preferences.close();
+
+        assertFalse(load(file).containsKey("upnp"));
+    }
+
+    @Test
     void failedSubmissionUnlocksRetryButDoubleSubmissionIsRejected() {
         NewGameConnectionDraft draft = NewGameConnectionDraft.from(new Properties(),
                 NewGameConnectionDraft.Mode.CREATE);

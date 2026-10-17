@@ -46,7 +46,7 @@ import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
-import com.tonikelope.coronapoker.core.network.UpnpPortProbe;
+import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import com.tonikelope.coronapoker.DebugLog;
 import org.dosse.upnp.UPnP;
 import java.awt.FileDialog;
@@ -85,6 +85,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -361,6 +362,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final ExecutorService recoveryExecutor;
     private final ExecutorService statsExecutor;
     private final ExecutorService networkInfoExecutor;
+    private final ExecutorService upnpExecutor;
     private final Consumer<NewGameSubmissionCoordinator.OpenedSession> sessionAccepted;
     private final Runnable sessionReturnedToMenu;
     private Runnable statsReturnAction;
@@ -437,10 +439,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Surface surface;
     private int historyIndex = -1;
     private boolean disposed;
-    private boolean upnpCheckInFlight;
-    private boolean submitAfterUpnpCheck;
-    private long upnpCheckGeneration;
+    private boolean upnpOpenInFlight;
+    private boolean submitAfterUpnpOpen;
+    private long upnpOpenGeneration;
     private int verifiedUpnpPort = -1;
+    private UpnpPortReservation upnpReservation;
     private String frontendNoticeTitle = "";
     private String frontendNoticeMessage = "";
     private boolean frontendNoticeError;
@@ -665,6 +668,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "secureRandom");
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
+        if (forgetPersistedUpnp(initialProperties)) {
+            // UPnP is explicit authority for one lobby, not a preference.
+            this.preferences.saveDeferred();
+        }
         if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
                 initialProperties)) {
             this.preferences.saveDeferred();
@@ -693,6 +700,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         networkInfoExecutor = Executors.newFixedThreadPool(2, task -> {
             Thread thread = new Thread(task,
                     "CoronaPoker-GDX-public-address-loader");
+            thread.setDaemon(true);
+            return thread;
+        });
+        upnpExecutor = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(task,
+                    "CoronaPoker-GDX-UPnP-mapping");
             thread.setDaemon(true);
             return thread;
         });
@@ -1237,8 +1250,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     drawSettingsDiscardConfirmation();
                 }
             } else if (surface == Surface.NEW_GAME) {
-                if (upnpCheckInFlight) {
-                    drawUpnpCheckingDialog();
+                if (upnpOpenInFlight) {
+                    drawUpnpOpeningDialog();
                 } else if (submissions.submitting()) {
                     drawNewGameSubmissionOverlay();
                 } else if (dropdown != Dropdown.NONE) {
@@ -1394,7 +1407,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || fingerprintDialog != null))
                 || surface == Surface.SETTINGS
                 || (surface == Surface.NEW_GAME
-                && (upnpCheckInFlight || submissions.submitting()
+                && (upnpOpenInFlight || submissions.submitting()
                         || dropdown != Dropdown.NONE
                         || presetDialog != PresetDialog.NONE
                         || blindStructureDialog != BlindStructureDialog.NONE))
@@ -1416,7 +1429,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean isFrontendRootModal() {
         if (isSettingsRootModal()) return true;
         if (surface == Surface.NEW_GAME) {
-            return !upnpCheckInFlight
+            return !upnpOpenInFlight
                     && frontendNoticeMessage.isBlank()
                     && !submissions.submitting()
                     && dropdown == Dropdown.NONE
@@ -1634,7 +1647,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         lastLobbyNoticeIdentity = identity;
         if (upnpFailure) {
-            disableUpnpPreference();
+            if (connection != null) connection.setUpnp(false);
+            verifiedUpnpPort = -1;
             detail = lobbyNetworkStatusText(detail, gameText);
         }
         showFrontendNotice(gameText.translate(fatal || upnpFailure
@@ -4279,7 +4293,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 panelW - 200f, 18f, 170f, 0.52f, 9f);
     }
 
-    private void drawUpnpCheckingDialog() {
+    private void drawUpnpOpeningDialog() {
         hits.clear();
         float panelX = 510f;
         float panelY = 376f;
@@ -9398,11 +9412,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void openNewGame(NewGameConnectionDraft.Mode mode) {
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
-        cancelUpnpCheck();
+        cancelAndReleaseUpnp();
         dismissFrontendNotice();
         connection = defaultConnection(initialProperties, mode);
         if (mode == NewGameConnectionDraft.Mode.CREATE) {
-            disableUpnpPreference();
             refreshHostAddressOptions();
         } else {
             hostAddressLoadGeneration++;
@@ -9415,96 +9428,133 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         page = 0;
         clearActiveField();
         historyIndex = -1;
+        clearNewGameToggleAnimations(toggleAnimations);
         activateSurface(Surface.NEW_GAME);
     }
 
     private void toggleUpnp() {
-        if (!upnpToggleEnabled(connection, upnpCheckInFlight)) return;
+        if (!upnpToggleEnabled(connection, upnpOpenInFlight)) return;
         if (connection.upnp()) {
-            cancelUpnpCheck();
-            disableUpnpPreference();
+            cancelAndReleaseUpnp();
         } else {
-            startUpnpPortCheck(false);
+            startUpnpPortOpen(false);
         }
     }
 
-    private void startUpnpPortCheck(boolean continueSubmission) {
+    private void startUpnpPortOpen(boolean continueSubmission) {
         if (connection == null || !connection.portValid()) return;
         int port = Integer.parseInt(connection.port());
         if (connection.upnp() && verifiedUpnpPort == port) {
             if (continueSubmission) submitNewGameAfterChecks();
             return;
         }
-        connection.setUpnp(true);
-        submitAfterUpnpCheck = continueSubmission;
-        upnpCheckInFlight = true;
-        long generation = ++upnpCheckGeneration;
+        cancelAndReleaseUpnp();
+        submitAfterUpnpOpen = continueSubmission;
+        upnpOpenInFlight = true;
+        long generation = ++upnpOpenGeneration;
         captureFrontendModalInput();
         CompletableFuture.supplyAsync(
-                () -> UpnpPortProbe.probeSystemTcp(port),
-                networkInfoExecutor)
-                .completeOnTimeout(UpnpPortProbe.Status.FAILED,
-                        12L, TimeUnit.SECONDS)
-                .exceptionally(failure -> {
-                    LOGGER.log(Level.WARNING,
-                            "Unable to probe UPnP TCP port " + port,
-                            failure);
-                    return UpnpPortProbe.Status.FAILED;
-                })
-                .thenAccept(status -> Gdx.app.postRunnable(() ->
-                        completeUpnpPortCheck(generation, port, status)));
+                () -> UpnpPortReservation.openSystemTcp(port), upnpExecutor)
+                .whenComplete((attempt, failure) -> Gdx.app.postRunnable(() ->
+                        completeUpnpPortOpen(generation, port, attempt,
+                                failure)));
+        CompletableFuture.delayedExecutor(12L, TimeUnit.SECONDS).execute(() ->
+                Gdx.app.postRunnable(() -> timeoutUpnpPortOpen(generation)));
     }
 
-    private void completeUpnpPortCheck(long generation, int port,
-            UpnpPortProbe.Status status) {
-        if (disposed || generation != upnpCheckGeneration
-                || surface != Surface.NEW_GAME || connection == null) return;
-        boolean continueSubmission = submitAfterUpnpCheck;
-        if (status == UpnpPortProbe.Status.AVAILABLE) {
-            upnpCheckInFlight = false;
-            submitAfterUpnpCheck = false;
+    private void completeUpnpPortOpen(long generation, int port,
+            UpnpPortReservation.Attempt attempt, Throwable failure) {
+        if (disposed || generation != upnpOpenGeneration
+                || surface != Surface.NEW_GAME || connection == null) {
+            if (attempt != null) closeUpnpAttemptAsync(attempt);
+            return;
+        }
+        boolean continueSubmission = submitAfterUpnpOpen;
+        if (failure == null && attempt != null && attempt.opened()) {
+            upnpOpenInFlight = false;
+            submitAfterUpnpOpen = false;
             verifiedUpnpPort = port;
+            upnpReservation = attempt.reservation();
+            connection.setUpnp(true);
             if (continueSubmission) submitNewGameAfterChecks();
             return;
         }
-        cancelUpnpCheck();
-        disableUpnpPreference();
+        cancelUpnpOpen();
+        if (attempt != null) closeUpnpAttemptAsync(attempt);
+        connection.setUpnp(false);
+        UpnpPortReservation.Status status = failure == null && attempt != null
+                ? attempt.status() : UpnpPortReservation.Status.FAILED;
+        if (failure != null) {
+            LOGGER.log(Level.WARNING,
+                    "Unable to open UPnP TCP port " + port, failure);
+        }
         showFrontendNotice(gameText.translate("gdx.dialog.error"),
-                gameText.translate(upnpProbeErrorKey(status)), true);
+                gameText.translate(upnpOpenErrorKey(status)), true);
     }
 
-    static String upnpProbeErrorKey(UpnpPortProbe.Status status) {
+    private void timeoutUpnpPortOpen(long generation) {
+        if (disposed || generation != upnpOpenGeneration
+                || !upnpOpenInFlight) return;
+        cancelUpnpOpen();
+        if (connection != null) connection.setUpnp(false);
+        showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                gameText.translate(upnpOpenErrorKey(
+                        UpnpPortReservation.Status.FAILED)), true);
+    }
+
+    static String upnpOpenErrorKey(UpnpPortReservation.Status status) {
         return switch (Objects.requireNonNull(status, "status")) {
             case UNAVAILABLE -> "gdx.lobby.upnp_unavailable";
             case ALREADY_MAPPED -> "gdx.lobby.upnp_already_mapped";
             case FAILED -> "gdx.lobby.upnp_failed";
-            case AVAILABLE -> "";
+            case OPEN -> "";
         };
     }
 
-    private void cancelUpnpCheck() {
-        upnpCheckGeneration++;
-        upnpCheckInFlight = false;
-        submitAfterUpnpCheck = false;
+    private void cancelUpnpOpen() {
+        upnpOpenGeneration++;
+        upnpOpenInFlight = false;
+        submitAfterUpnpOpen = false;
         verifiedUpnpPort = -1;
     }
 
-    private void disableUpnpPreference() {
-        disableUpnpAndRemember(initialProperties, connection);
-        verifiedUpnpPort = -1;
-        if (preferences != null) preferences.saveDeferred();
-    }
-
-    static void disableUpnpAndRemember(Properties properties,
-            NewGameConnectionDraft connection) {
-        Objects.requireNonNull(properties, "properties")
-                .setProperty("upnp", "false");
+    private void cancelAndReleaseUpnp() {
+        cancelUpnpOpen();
+        UpnpPortReservation owned = upnpReservation;
+        upnpReservation = null;
         if (connection != null) connection.setUpnp(false);
+        closeUpnpReservationAsync(owned);
+    }
+
+    private void closeUpnpAttemptAsync(UpnpPortReservation.Attempt attempt) {
+        closeUpnpReservationAsync(attempt.reservation());
+    }
+
+    private void closeUpnpReservationAsync(UpnpPortReservation reservation) {
+        if (reservation == null) return;
+        try {
+            upnpExecutor.execute(reservation::close);
+        } catch (RejectedExecutionException rejected) {
+            Thread cleanup = new Thread(reservation::close,
+                    "CoronaPoker-UPnP-form-close");
+            cleanup.setDaemon(true);
+            cleanup.start();
+        }
     }
 
     static boolean upnpToggleEnabled(NewGameConnectionDraft connection,
             boolean checkInFlight) {
         return connection != null && connection.portValid() && !checkInFlight;
+    }
+
+    static boolean forgetPersistedUpnp(Properties properties) {
+        return Objects.requireNonNull(properties, "properties")
+                .remove("upnp") != null;
+    }
+
+    static void clearNewGameToggleAnimations(Map<String, Float> animations) {
+        Objects.requireNonNull(animations, "animations").keySet()
+                .removeIf(key -> key.startsWith(Surface.NEW_GAME.name() + ':'));
     }
 
     private void showFrontendNotice(String title, String message,
@@ -9644,7 +9694,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(1630f, 630f, 175f, 72f, "tooltip.cfg.server_port");
         toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
                 this::toggleUpnp,
-                upnpToggleEnabled(connection, upnpCheckInFlight));
+                upnpToggleEnabled(connection, upnpOpenInFlight));
         tooltip(1170f, 475f, 635f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.upnp");
     }
@@ -10757,18 +10807,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (connection.mode() == NewGameConnectionDraft.Mode.CREATE
                 && connection.upnp()
-                && verifiedUpnpPort != Integer.parseInt(connection.port())) {
-            startUpnpPortCheck(true);
+                && (verifiedUpnpPort != Integer.parseInt(connection.port())
+                        || upnpReservation == null
+                        || !upnpReservation.active())) {
+            startUpnpPortOpen(true);
             return;
         }
         submitNewGameAfterChecks();
     }
 
     private void submitNewGameAfterChecks() {
+        UpnpPortReservation reservation = connection != null
+                && connection.upnp() ? upnpReservation : null;
         try {
-            submissions.submit(connection, table).whenComplete((request, failure) ->
+            CompletableFuture<NewGameSubmissionCoordinator.OpenedSession> opening
+                    = submissions.submit(connection, table, reservation);
+            if (reservation != null) upnpReservation = null;
+            opening.whenComplete((request, failure) ->
                     Gdx.app.postRunnable(() -> completeSubmission(request, failure)));
         } catch (RuntimeException failure) {
+            if (reservation != null) {
+                upnpReservation = null;
+                connection.setUpnp(false);
+                verifiedUpnpPort = -1;
+            }
             showFrontendNotice(gameText.translate("gdx.dialog.error"),
                     submissionError(failure), true);
         }
@@ -10786,9 +10848,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (cause == null) {
             sessionAccepted.accept(session);
         } else if (cause instanceof CancellationException) {
+            if (connection != null) connection.setUpnp(false);
+            verifiedUpnpPort = -1;
             activateSurface(Surface.MENU);
             clearActiveField();
         } else {
+            if (connection != null) connection.setUpnp(false);
+            verifiedUpnpPort = -1;
             showFrontendNotice(gameText.translate("gdx.dialog.error"),
                     submissionError(cause), true);
         }
@@ -10803,7 +10869,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         clearActiveField();
-        cancelUpnpCheck();
+        cancelAndReleaseUpnp();
         dismissFrontendNotice();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
@@ -12943,7 +13009,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 dismissFrontendNotice();
                 return true;
             }
-            if (upnpCheckInFlight) {
+            if (upnpOpenInFlight) {
                 return true;
             }
             if (dropdown != Dropdown.NONE) {
@@ -13499,6 +13565,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "password" -> connection.setPassword(value);
             case "server" -> connection.setServer(value);
             case "port" -> {
+                if (!Objects.equals(connection.port(), value)
+                        && (upnpOpenInFlight || connection.upnp()
+                                || upnpReservation != null)) {
+                    cancelAndReleaseUpnp();
+                }
                 connection.setPort(value);
                 verifiedUpnpPort = -1;
             }
@@ -13614,12 +13685,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void dispose() {
         disposed = true;
-        cancelUpnpCheck();
+        cancelAndReleaseUpnp();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
         recoveryExecutor.shutdownNow();
         statsExecutor.shutdownNow();
         networkInfoExecutor.shutdownNow();
+        upnpExecutor.shutdown();
         cancelLobbyVoiceRecording();
         audioPreview.stop();
         GdxVoicePlayback.stop();

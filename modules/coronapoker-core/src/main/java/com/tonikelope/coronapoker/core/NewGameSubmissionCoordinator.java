@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core;
 
+import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -27,13 +28,27 @@ public final class NewGameSubmissionCoordinator {
 
     public CompletableFuture<OpenedSession> submit(
             NewGameConnectionDraft connection, NewGameTableDraft table) {
+        return submit(connection, table, null);
+    }
+
+    public CompletableFuture<OpenedSession> submit(
+            NewGameConnectionDraft connection, NewGameTableDraft table,
+            UpnpPortReservation upnpReservation) {
         Objects.requireNonNull(connection, "connection");
         final Attempt attempt;
         synchronized (this) {
             if (active != null) {
+                if (upnpReservation != null) upnpReservation.close();
                 throw new IllegalStateException("A new-game submission is already active");
             }
-            NewGameRequest request = NewGameRequest.begin(connection, table);
+            NewGameRequest request;
+            try {
+                request = NewGameRequest.begin(connection, table,
+                        upnpReservation);
+            } catch (RuntimeException | Error failure) {
+                if (upnpReservation != null) upnpReservation.close();
+                throw failure;
+            }
             attempt = new Attempt(connection, request);
             active = attempt;
         }
@@ -81,6 +96,7 @@ public final class NewGameSubmissionCoordinator {
             if (lobby != null) {
                 lobby.close();
             }
+            attempt.request.closeUnclaimedResources();
             attempt.result.completeExceptionally(outcome);
         }
     }

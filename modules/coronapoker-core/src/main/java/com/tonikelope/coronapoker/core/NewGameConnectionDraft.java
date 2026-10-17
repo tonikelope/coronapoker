@@ -55,7 +55,8 @@ public final class NewGameConnectionDraft {
         draft.setServer(properties.getProperty(host ? "local_ip" : "server_ip", "localhost"));
         draft.setPort(properties.getProperty(host ? "local_port" : "server_port",
                 Integer.toString(DEFAULT_PORT)));
-        draft.upnp = host && Boolean.parseBoolean(properties.getProperty("upnp", "false"));
+        // UPnP is explicit per-lobby authority, never a persisted preference.
+        draft.upnp = false;
         draft.recoverRequested = mode == Mode.RECOVER;
         return draft;
     }
@@ -229,7 +230,7 @@ public final class NewGameConnectionDraft {
         properties.setProperty("avatar", submission.avatar() == null
                 ? "" : submission.avatar().toString());
         if (host) {
-            properties.setProperty("upnp", Boolean.toString(submission.upnp()));
+            properties.remove("upnp");
         } else {
             rememberServer(submission.server() + ":" + submission.port());
             properties.setProperty("server_history", String.join("@", serverHistory));

@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
-import com.tonikelope.coronapoker.core.network.UpnpPortProbe;
+import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import java.net.BindException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -74,18 +76,18 @@ final class GdxFrontendSubmissionStateTest {
     }
 
     @Test
-    void everyUpnpProbeFailureHasADistinctUserFacingMessage() {
+    void everyUpnpOpeningFailureHasADistinctUserFacingMessage() {
         assertEquals("gdx.lobby.upnp_unavailable",
-                GdxFrontendScreen.upnpProbeErrorKey(
-                        UpnpPortProbe.Status.UNAVAILABLE));
+                GdxFrontendScreen.upnpOpenErrorKey(
+                        UpnpPortReservation.Status.UNAVAILABLE));
         assertEquals("gdx.lobby.upnp_already_mapped",
-                GdxFrontendScreen.upnpProbeErrorKey(
-                        UpnpPortProbe.Status.ALREADY_MAPPED));
+                GdxFrontendScreen.upnpOpenErrorKey(
+                        UpnpPortReservation.Status.ALREADY_MAPPED));
         assertEquals("gdx.lobby.upnp_failed",
-                GdxFrontendScreen.upnpProbeErrorKey(
-                        UpnpPortProbe.Status.FAILED));
-        assertEquals("", GdxFrontendScreen.upnpProbeErrorKey(
-                UpnpPortProbe.Status.AVAILABLE));
+                GdxFrontendScreen.upnpOpenErrorKey(
+                        UpnpPortReservation.Status.FAILED));
+        assertEquals("", GdxFrontendScreen.upnpOpenErrorKey(
+                UpnpPortReservation.Status.OPEN));
     }
 
     @Test
@@ -104,17 +106,30 @@ final class GdxFrontendSubmissionStateTest {
     }
 
     @Test
-    void openingCreateAndAnyProbeFailureRestoreTheSafeUpnpDefault() {
+    void openingCreateForgetsLegacyUpnpAndStartsFromOff() {
         Properties properties = new Properties();
         properties.setProperty("upnp", "true");
         NewGameConnectionDraft draft = NewGameConnectionDraft.from(
                 properties, NewGameConnectionDraft.Mode.CREATE);
-        assertTrue(draft.upnp());
-
-        GdxFrontendScreen.disableUpnpAndRemember(properties, draft);
 
         assertFalse(draft.upnp());
-        assertEquals("false", properties.getProperty("upnp"));
+        assertTrue(GdxFrontendScreen.forgetPersistedUpnp(properties));
+        assertFalse(properties.containsKey("upnp"));
         assertTrue(GdxFrontendScreen.upnpToggleEnabled(draft, false));
+    }
+
+    @Test
+    void reopeningCreateDoesNotAnimateThePreviousUpnpStateToOff() {
+        Map<String, Float> animations = new HashMap<>();
+        animations.put(GdxToggleMotion.stableKey("NEW_GAME:0", "UPnP",
+                1170f, 475f, 635f, false), 1f);
+        animations.put(GdxToggleMotion.stableKey("SETTINGS:MENU:GRAPHICS:0",
+                "FPS", 100f, 100f, 500f, false), 1f);
+
+        GdxFrontendScreen.clearNewGameToggleAnimations(animations);
+
+        assertEquals(1, animations.size());
+        assertTrue(animations.keySet().iterator().next()
+                .startsWith("SETTINGS:"));
     }
 }

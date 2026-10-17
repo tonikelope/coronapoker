@@ -741,12 +741,18 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
      * cards and their hypothetical result remain private to the requester,
      * exactly as in the Swing table.
      */
-    record RabbitHand(long sequence, String nickname, String handName)
+    record RabbitHand(long sequence, String nickname, String handName,
+            List<Integer> holeCardSlots,
+            List<Integer> communityCardSlots)
             implements TableVisualEvent {
 
         public RabbitHand {
             nickname = Objects.requireNonNull(nickname, "nickname").trim();
             handName = Objects.requireNonNull(handName, "handName").trim();
+            holeCardSlots = List.copyOf(Objects.requireNonNull(
+                    holeCardSlots, "holeCardSlots"));
+            communityCardSlots = List.copyOf(Objects.requireNonNull(
+                    communityCardSlots, "communityCardSlots"));
             if (nickname.isEmpty() || handName.isEmpty()) {
                 throw new IllegalArgumentException("Invalid Rabbit hand");
             }

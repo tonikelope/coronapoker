@@ -4258,6 +4258,15 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         hand.nickname());
                 assertEquals(hand.handName(),
                         projection.rabbitHandName(hand.nickname()));
+                GdxTableViewState.ShowdownHighlightState highlight
+                        = projection.showdownHighlight(hand.nickname());
+                assertNotNull(highlight);
+                assertEquals(hand.holeCardSlots(), highlight.holeCardSlots());
+                assertEquals(hand.communityCardSlots(),
+                        highlight.communityCardSlots());
+                assertFalse(highlight.holeCardSlots().isEmpty()
+                        && highlight.communityCardSlots().isEmpty(),
+                        "the Rabbit result must identify its made-hand cards");
             } else if (event instanceof TableVisualEvent.RabbitNotice) {
                 notice.set(true);
             }

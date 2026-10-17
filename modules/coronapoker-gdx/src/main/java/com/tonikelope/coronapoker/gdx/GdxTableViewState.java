@@ -745,6 +745,10 @@ final class GdxTableViewState {
                     player.handName(), player.holeCards()));
         } else if (event instanceof TableVisualEvent.RabbitHand hand) {
             rabbitHandNames.put(hand.nickname(), hand.handName());
+            showdownHighlights.put(hand.nickname(),
+                    new ShowdownHighlightState(hand.nickname(), true,
+                            hand.holeCardSlots(),
+                            hand.communityCardSlots()));
         } else if (event instanceof TableVisualEvent.RabbitNotice notice) {
             rabbitNoticeNickname = notice.nickname();
             rabbitNoticeUntilNanos = nanoTime.getAsLong()

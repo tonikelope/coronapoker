@@ -247,7 +247,8 @@ class HotJoinVisualEventCodecV1Test {
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
                 .IwtsthCandidates(3, List.of("ana"))).isEmpty());
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
-                .RabbitHand(4, "ana", "COLOR")).isEmpty(),
+                .RabbitHand(4, "ana", "COLOR", List.of(0, 1),
+                        List.of(1, 2, 4))).isEmpty(),
                 "a hypothetical Rabbit hand belongs only to its requester");
         assertTrue(HotJoinVisualEventCodecV1.encode(new TableVisualEvent
                 .CallCost(5, "+1.2", "host")).isEmpty(),

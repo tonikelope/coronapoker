@@ -39,6 +39,10 @@ final class GdxRabbitPresentationContractTest {
                 "u_texture must remain active and cannot be optimized away");
         assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"),
                 "Rabbit cards need the same transparent AA canvas as every other card");
+        assertTrue(shader.contains("uniform vec4 u_highlight;"));
+        assertTrue(shader.contains(
+                "mix(pixel.rgb, u_highlight.rgb, u_highlight.a)"),
+                "Rabbit cards must honor the existing yellow hand highlight");
     }
 
     @Test

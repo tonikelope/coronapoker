@@ -533,6 +533,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform float u_cornerRadius;\n"
             + "uniform float u_edgeSoftness;\n"
             + "uniform float u_canvasScale;\n"
+            + "uniform vec4 u_highlight;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
             + "void main() {\n"
             + "    vec2 uv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
@@ -547,6 +548,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    vec4 revealed = vec4(mix(face.rgb, flap.rgb, flap.a),\n"
             + "            flap.a + face.a * (1.0 - flap.a));\n"
             + "    vec4 pixel = revealed * v_color;\n"
+            + "    pixel.rgb = mix(pixel.rgb, u_highlight.rgb, u_highlight.a);\n"
             + "    pixel.a *= covered.a * peel * rounded;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
@@ -9326,13 +9328,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && liveState.rabbitHandName(player.nickname()).isBlank()) {
                 continue;
             }
-            if (!liveState.rabbitHandName(player.nickname()).isBlank()
-                    && !player.presentation().showingCards()) {
-                // Swing displayed the hypothetical Rabbit caption immediately,
-                // but did not expose its exact five-card combination until the
-                // player also showed their hole cards.
-                continue;
-            }
             boolean hovering;
             if (seat.index == 0) {
                 boolean localMonteCarlo = showsLocalMonteCarloHud(
@@ -11987,21 +11982,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         placement));
         GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
-        boolean showdownTint = !rabbitCard && highlight != null && alpha >= 1f;
+        boolean showdownTint = highlight != null
+                && (communityCard
+                        ? highlight.communityCardSlots().contains(slot)
+                        : highlight.nickname().equals(nickname)
+                        && highlight.holeCardSlots().contains(slot));
         if (rabbitCard) {
-            drawLiveRabbitCard(card, placement, 1f);
+            drawLiveRabbitCard(card, placement, 1f, showdownTint);
         } else {
             drawLiveRestingCard(card, placement, cardBack,
-                    1f, alpha, showdownTint);
+                    1f, alpha, showdownTint && alpha >= 1f);
         }
     }
 
     private void drawLiveRabbitCard(TableSnapshot.CardSnapshot card,
-            LiveCardPlacement placement, float alpha) {
+            LiveCardPlacement placement, float alpha,
+            boolean showdownTint) {
         drawRabbitCoveredCard(placement, alpha);
         if (card.faceUp() && !card.code().isBlank()) {
             drawRabbitPeelLayer(liveCardFace(card.code()), placement, 1f,
-                    alpha);
+                    alpha, showdownTint);
         }
     }
 
@@ -12021,8 +12021,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawRabbitPeelLayer(Texture face,
-            LiveCardPlacement placement, float progress, float alpha) {
-        useRabbitPeelShader(face, progress);
+            LiveCardPlacement placement, float progress, float alpha,
+            boolean showdownTint) {
+        useRabbitPeelShader(face, progress, showdownTint);
         batch.setColor(1f, 1f, 1f, alpha);
         float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
         float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
@@ -12448,7 +12449,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveRabbitReveal.progress());
         Texture face = liveCardFace(card.code());
         drawRabbitCoveredCard(placement, 1f);
-        drawRabbitPeelLayer(face, placement, progress, 1f);
+        drawRabbitPeelLayer(face, placement, progress, 1f, false);
     }
 
     private void drawCardsAndPot(float cx, float cy, float tableWidth) {
@@ -13206,7 +13207,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         configureCardShader(front, defaultCardBack, angle, true, aspect);
     }
 
-    private void useRabbitPeelShader(Texture front, float progress) {
+    private void useRabbitPeelShader(Texture front, float progress,
+            boolean showdownTint) {
         Objects.requireNonNull(front, "Rabbit reveal requires a card face");
         batch.flush();
         batch.setShader(rabbitPeelShader);
@@ -13225,6 +13227,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         rabbitPeelShader.setUniformf("u_edgeSoftness", CARD_EDGE_SOFTNESS);
         rabbitPeelShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
+        rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
+                showdownTint ? 0.31f : 0f);
     }
 
     private void configureCardShader(Texture front, float angle, boolean perspective, float aspect) {
@@ -15239,6 +15243,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return Color.BLACK;
         }
         if (player == null) {
+            return Color.WHITE;
+        }
+        if (liveState.rabbitNoticeActive(player.nickname())
+                || !liveState.rabbitHandName(player.nickname()).isBlank()) {
+            // Match Swing's Rabbit action badge: blue surface, white caption.
+            // The existing showdown hover branch above still switches the
+            // caption to black while its selected cards turn yellow.
             return Color.WHITE;
         }
         Boolean resolvedWinner = liveState.resolvedHandWinner(player.nickname());

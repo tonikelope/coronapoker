@@ -5047,9 +5047,7 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.RabbitResult(
                 3, "ana", 0.2d, 999.8d, 1));
         state.apply(new TableVisualEvent.RabbitHand(
-                4, "ana", "COLOR"));
-        state.apply(new TableVisualEvent.ShowdownHighlight(5, "ana", true,
-                List.of(0, 1), List.of(1, 2, 4)));
+                4, "ana", "COLOR", List.of(0, 1), List.of(1, 2, 4)));
 
         assertTrue(state.requestedRabbit("ana"));
         assertEquals("COLOR", state.rabbitHandName("ana"));
@@ -5060,30 +5058,22 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void showingAfterRabbitActivatesTheExactHypotheticalCombination() {
+    void rabbitImmediatelyActivatesTheExactPrivateHypotheticalCombination() {
         GdxTableViewState state = new GdxTableViewState(snapshotAt(
                 TableSnapshot.Street.SHOWDOWN));
         state.apply(new TableVisualEvent.RabbitResult(
                 1, "ana", 0.2d, 999.8d, 1));
         state.apply(new TableVisualEvent.RabbitHand(
-                2, "ana", "ESCALERA"));
+                2, "ana", "ESCALERA", List.of(1), List.of(1, 2, 3, 4)));
 
-        assertEquals(null, state.showdownHighlight("ana"));
         assertFalse(player(state, "ana").presentation().showingCards());
-
-        state.apply(new TableVisualEvent.RevealHoleCards(3, "ana",
-                card("A_C"), card("K_C"), "ESCALERA"));
-        state.apply(new TableVisualEvent.ShowdownHighlight(4, "ana", true,
-                List.of(1), List.of(1, 2, 3, 4)));
-
-        assertTrue(player(state, "ana").presentation().showingCards());
         assertEquals("ESCALERA", state.rabbitHandName("ana"));
         assertEquals(List.of(1),
                 state.showdownHighlight("ana").holeCardSlots());
         assertEquals(List.of(1, 2, 3, 4),
                 state.showdownHighlight("ana").communityCardSlots());
 
-        state.apply(new TableVisualEvent.HandBoundary(5, 2,
+        state.apply(new TableVisualEvent.HandBoundary(3, 2,
                 TableVisualEvent.HandBoundary.Phase.PREPARE, snapshot()));
         assertFalse(state.requestedRabbit("ana"));
         assertEquals("", state.rabbitHandName("ana"));

@@ -13233,23 +13233,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             localPlayer().setRabbitJugada(
                                     jugada.getName(), jugada.getWinners());
+                            java.util.List<GameCardController> winningCards
+                                    = cardControllers(jugada.getWinners());
                             table_events.publishIfAttached(sequence
                                     -> new TableVisualEvent.RabbitHand(
                                             sequence,
                                             localPlayer().getNickname(),
-                                            jugada.getName()));
-                            /*
-                             * Swing only replaces the hover combination when
-                             * the player has publicly shown their hole cards.
-                             * If Rabbit comes first, showAndBroadcastPlayerCards
-                             * evaluates the now revealed board later and emits
-                             * this same exact highlight then. This preserves
-                             * both action orders without exposing a hidden hand.
-                             */
-                            if (localPlayer().isMuestra()) {
-                                setShowdownHighlight(localPlayer(),
-                                        cardControllers(jugada.getWinners()));
-                            }
+                                            jugada.getName(),
+                                            showdownHoleSlots(localPlayer(),
+                                                    winningCards),
+                                            showdownCommunitySlots(
+                                                    winningCards)));
 
                             game_log
                                     .print(game_text.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
@@ -25959,22 +25953,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void setShowdownHighlight(GamePlayerController player,
             java.util.List<? extends GameCardController> winningCards) {
-        java.util.ArrayList<Integer> holeSlots = new java.util.ArrayList<>();
-        java.util.ArrayList<Integer> communitySlots = new java.util.ArrayList<>();
-        if (winningCards != null) {
-            if (winningCards.contains(player.getHoleCard1())) {
-                holeSlots.add(0);
-            }
-            if (winningCards.contains(player.getHoleCard2())) {
-                holeSlots.add(1);
-            }
-            GameCardController[] community = communityCards();
-            for (int slot = 0; slot < community.length; slot++) {
-                if (winningCards.contains(community[slot])) {
-                    communitySlots.add(slot);
-                }
-            }
-        }
+        java.util.List<Integer> holeSlots = showdownHoleSlots(player,
+                winningCards);
+        java.util.List<Integer> communitySlots = showdownCommunitySlots(
+                winningCards);
         boolean enabled = winningCards != null;
         player.setPresentationShowdownHighlight(enabled, holeSlots,
                 communitySlots);
@@ -25983,6 +25965,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         table_events.publish(sequence -> new TableVisualEvent.ShowdownHighlight(
                 sequence, player.getNickname(), enabled, holeSlots,
                 communitySlots));
+    }
+
+    private java.util.List<Integer> showdownHoleSlots(
+            GamePlayerController player,
+            java.util.List<? extends GameCardController> winningCards) {
+        java.util.ArrayList<Integer> slots = new java.util.ArrayList<>();
+        if (winningCards != null) {
+            if (winningCards.contains(player.getHoleCard1())) slots.add(0);
+            if (winningCards.contains(player.getHoleCard2())) slots.add(1);
+        }
+        return java.util.List.copyOf(slots);
+    }
+
+    private java.util.List<Integer> showdownCommunitySlots(
+            java.util.List<? extends GameCardController> winningCards) {
+        java.util.ArrayList<Integer> slots = new java.util.ArrayList<>();
+        if (winningCards != null) {
+            GameCardController[] community = communityCards();
+            for (int slot = 0; slot < community.length; slot++) {
+                if (winningCards.contains(community[slot])) slots.add(slot);
+            }
+        }
+        return java.util.List.copyOf(slots);
     }
 
     private void rejectCriticalShowdownMessage(String command, String detail, Exception error) {

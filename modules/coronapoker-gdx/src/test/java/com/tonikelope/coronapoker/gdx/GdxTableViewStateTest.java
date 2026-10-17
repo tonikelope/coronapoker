@@ -5020,6 +5020,8 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.RabbitResult(
                 2, "borja", 0.2d, 999.8d, 1));
         assertEquals(999.8d, player(state, "borja").stack());
+        assertEquals(1, state.rabbitRequestCount("borja"));
+        assertEquals(0, state.rabbitRequestCount("ana"));
 
         state.dismissRabbitRequest();
         assertFalse(state.rabbitRequestable());

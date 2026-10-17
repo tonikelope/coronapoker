@@ -1226,7 +1226,6 @@ class GdxNetworkHumanProjectionIntegrationTest {
         GdxGameLogSink clientLog = new GdxGameLogSink();
         hostDatabase.start();
         clientDatabase.start();
-        AtomicBoolean requestClaimed = new AtomicBoolean();
         try (hostDatabase; clientDatabase;
              NetworkLobbyGateway hostGateway = gateway(
                      temporary.resolve("rabbit-host"), hostDatabase,
@@ -1248,55 +1247,64 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         .get(5, TimeUnit.SECONDS);
                 RabbitProjectionRenderer hostRenderer
                         = new RabbitProjectionRenderer(hostTable,
-                                requestClaimed, false);
+                                true, false);
                 hostTable.attach(hostRenderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 TableSession clientTable = client.tableSession().toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
                 RabbitProjectionRenderer clientRenderer
                         = new RabbitProjectionRenderer(clientTable,
-                                requestClaimed, true);
+                                false, true);
                 clientTable.attach(clientRenderer).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
 
-                await(() -> (hostRenderer.requested.get()
+                await(() -> hostRenderer.requestCount.get() == 2
                                 && hostRenderer.revealed.get()
                                 && hostRenderer.rabbitHand.get()
-                                || clientRenderer.requested.get()
-                                && clientRenderer.revealed.get()
-                                && clientRenderer.rabbitHand.get())
-                                && hostRenderer.resultCount.get() == 1
-                                && clientRenderer.resultCount.get() == 1,
-                        Duration.ofSeconds(25));
-                assertTrue(hostRenderer.requested.get()
-                                ^ clientRenderer.requested.get());
+                                && hostRenderer.resultCount.get() == 2
+                                && clientRenderer.resultCount.get() == 2
+                                && hostRenderer.thirdHandOpeningPot.get() != null
+                                && clientRenderer.thirdHandOpeningPot.get() != null,
+                        Duration.ofSeconds(35));
+                assertEquals(2, hostRenderer.requestCount.get());
+                assertEquals(0, clientRenderer.requestCount.get());
                 assertTrue(hostRenderer.rabbitHand.get()
-                                ^ clientRenderer.rabbitHand.get(),
+                                && !clientRenderer.rabbitHand.get(),
                         "the hypothetical Rabbit hand must remain requester-local");
                 assertTrue(hostRenderer.revealed.get()
-                                ^ clientRenderer.revealed.get(),
+                                && !clientRenderer.revealed.get(),
                         "Rabbit board cards must not become free public reveals");
                 assertEquals(hostRenderer.resultNickname.get(),
                         clientRenderer.resultNickname.get());
                 assertEquals(hostRenderer.resultStack.get(),
                         clientRenderer.resultStack.get(), 0.000_001d);
+                assertEquals(List.of(0d, 0.1d), hostRenderer.resultFees,
+                        "the first Rabbit is free and the next one costs the small blind");
+                assertEquals(List.of(0, 1),
+                        hostRenderer.rabbitCountsBeforeRequests,
+                        "the next-hand snapshot must retain the requester counter for the cost badge");
+                assertEquals(hostRenderer.resultFees,
+                        clientRenderer.resultFees,
+                        "all peers must apply the same cumulative Rabbit fee");
+                assertEquals(0.1d, hostRenderer.thirdHandOpeningPot.get(),
+                        0.000_001d,
+                        "the paid Rabbit fee must open the following hand's pot");
+                assertEquals(hostRenderer.thirdHandOpeningPot.get(),
+                        clientRenderer.thirdHandOpeningPot.get(),
+                        "the Rabbit carry-in must converge on every peer");
                 boolean hostLoggedHypothetical = hostLog.snapshot().lines()
                         .stream().anyMatch(line -> line.contains(
                                 "[RABBIT HUNTING] MEJOR"));
                 boolean clientLoggedHypothetical = clientLog.snapshot().lines()
                         .stream().anyMatch(line -> line.contains(
                                 "[RABBIT HUNTING] MEJOR"));
-                assertEquals(hostRenderer.requested.get(),
+                assertEquals(true,
                         hostLoggedHypothetical,
                         "the requester must receive the hypothetical hand in the game log");
-                assertEquals(clientRenderer.requested.get(),
+                assertEquals(false,
                         clientLoggedHypothetical,
                         "private Rabbit detail must not leak into the other log");
-                if (hostRenderer.requested.get()) {
-                    assertTrue(clientRenderer.notice.get());
-                } else {
-                    assertTrue(hostRenderer.notice.get());
-                }
+                assertTrue(clientRenderer.notice.get());
             } finally {
                 client.close();
                 host.close();
@@ -3020,10 +3028,11 @@ class GdxNetworkHumanProjectionIntegrationTest {
         if (joining) return new NewGameRequest(connection, null);
         NewGameTableDraft table = new NewGameTableDraft();
         table.setHandLimit(true);
-        table.setHandLimitCount(1);
+        table.setHandLimitCount(3);
         table.setThinkTime(false);
         table.setShowdownSeconds(2);
-        table.setRabbitHunting(NewGameTableDraft.RabbitHunting.FREE);
+        table.setRabbitHunting(
+                NewGameTableDraft.RabbitHunting.FREE_SMALL_BLIND);
         return new NewGameRequest(connection, table.snapshot());
     }
 
@@ -4196,11 +4205,11 @@ class GdxNetworkHumanProjectionIntegrationTest {
     private static final class RabbitProjectionRenderer
             implements TableRenderer {
         private final TableSession table;
-        private final AtomicBoolean requestClaimed;
+        private final boolean requestRabbit;
         private final boolean foldLocal;
         private final AtomicReference<GdxTableViewState> state
                 = new AtomicReference<>();
-        private final AtomicBoolean requested = new AtomicBoolean();
+        private final AtomicInteger requestCount = new AtomicInteger();
         private final AtomicBoolean revealed = new AtomicBoolean();
         private final AtomicBoolean notice = new AtomicBoolean();
         private final AtomicBoolean rabbitHand = new AtomicBoolean();
@@ -4209,11 +4218,17 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 = new AtomicReference<>();
         private final AtomicReference<Double> resultStack
                 = new AtomicReference<>();
+        private final java.util.List<Double> resultFees
+                = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final java.util.List<Integer> rabbitCountsBeforeRequests
+                = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final AtomicReference<Double> thirdHandOpeningPot
+                = new AtomicReference<>();
 
         RabbitProjectionRenderer(TableSession table,
-                AtomicBoolean requestClaimed, boolean foldLocal) {
+                boolean requestRabbit, boolean foldLocal) {
             this.table = table;
-            this.requestClaimed = requestClaimed;
+            this.requestRabbit = requestRabbit;
             this.foldLocal = foldLocal;
         }
 
@@ -4234,11 +4249,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         ? new TableCommand.Fold()
                         : new TableCommand.CheckOrCall());
             } else if (event instanceof TableVisualEvent.RabbitCards rabbit) {
-                if (rabbit.requestable()
-                        && requestClaimed.compareAndSet(false, true)) {
-                    requested.set(true);
+                if (rabbit.requestable() && requestRabbit
+                        && requestCount.get() < 2) {
+                    rabbitCountsBeforeRequests.add(
+                            projection.rabbitRequestCount(
+                                    projection.snapshot().localNickname()));
+                    requestCount.incrementAndGet();
                     table.commands().submit(new TableCommand.RequestRabbit());
-                } else if (!rabbit.requestable() && requested.get()
+                } else if (!rabbit.requestable() && requestCount.get() > 0
                         && rabbit.cards().stream()
                                 .allMatch(card -> card.card().faceUp()
                                 && !card.card().code().isBlank())) {
@@ -4248,6 +4266,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 resultCount.incrementAndGet();
                 resultNickname.set(result.nickname());
                 resultStack.set(result.stackAfter());
+                resultFees.add(result.fee());
                 assertEquals(result.stackAfter(), projection.snapshot().players()
                         .stream().filter(player -> player.nickname().equals(
                                 result.nickname())).findFirst().orElseThrow()
@@ -4267,6 +4286,12 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 assertFalse(highlight.holeCardSlots().isEmpty()
                         && highlight.communityCardSlots().isEmpty(),
                         "the Rabbit result must identify its made-hand cards");
+            } else if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase()
+                    == TableVisualEvent.HandBoundary.Phase.PREPARE
+                    && boundary.handId() == 3) {
+                thirdHandOpeningPot.compareAndSet(null,
+                        projection.snapshot().pot());
             } else if (event instanceof TableVisualEvent.RabbitNotice) {
                 notice.set(true);
             }

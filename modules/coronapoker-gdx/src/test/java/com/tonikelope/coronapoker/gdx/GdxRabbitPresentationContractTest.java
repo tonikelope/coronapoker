@@ -18,6 +18,20 @@ final class GdxRabbitPresentationContractTest {
     }
 
     @Test
+    void rabbitCostChipMatchesTheOriginalSwingTableLifetimeRule() {
+        assertEquals(CoronaPokerGdxTable.RabbitCostChipKind.NONE,
+                CoronaPokerGdxTable.rabbitCostChipKind(1, 8));
+        assertEquals(CoronaPokerGdxTable.RabbitCostChipKind.NONE,
+                CoronaPokerGdxTable.rabbitCostChipKind(2, 0));
+        assertEquals(CoronaPokerGdxTable.RabbitCostChipKind.SMALL_BLIND,
+                CoronaPokerGdxTable.rabbitCostChipKind(2, 1));
+        assertEquals(CoronaPokerGdxTable.RabbitCostChipKind.SMALL_BLIND,
+                CoronaPokerGdxTable.rabbitCostChipKind(3, 1));
+        assertEquals(CoronaPokerGdxTable.RabbitCostChipKind.BIG_BLIND,
+                CoronaPokerGdxTable.rabbitCostChipKind(3, 2));
+    }
+
+    @Test
     void packagesTheOriginalSwingRabbitCardArtwork() throws Exception {
         BufferedImage covered = image("/images/bugs2.png");
         BufferedImage revealed = image("/images/bugs2_b.png");

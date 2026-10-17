@@ -4352,6 +4352,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 activeDialog.dismiss();
             }
             syncSeatsFromLiveState();
+            if (event instanceof TableVisualEvent.RabbitResult result) {
+                // Rabbit has no flying-chip animation, but its fee is real
+                // money. Reconcile the rack in the same ordered frame as the
+                // numeric stack so both representations agree immediately.
+                rebalanceSeatRack(result.nickname());
+            }
             barrier.complete(null);
         }
     }
@@ -11999,10 +12005,60 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             LiveCardPlacement placement, float alpha,
             boolean showdownTint) {
         drawRabbitCoveredCard(placement, alpha);
+        if (!card.faceUp() && liveState.rabbitRequestable()) {
+            GameConfigCodecV1.Configuration configuration
+                    = liveState.gameConfiguration();
+            int mode = configuration == null ? 0
+                    : configuration.rabbitHunting();
+            RabbitCostChipKind cost = rabbitCostChipKind(mode,
+                    liveState.rabbitRequestCount(
+                            liveState.snapshot().localNickname()));
+            drawRabbitCostChip(cost, placement, alpha);
+        }
         if (card.faceUp() && !card.code().isBlank()) {
             drawRabbitPeelLayer(liveCardFace(card.code()), placement, 1f,
                     alpha, showdownTint);
         }
+    }
+
+    private void drawRabbitCostChip(RabbitCostChipKind kind,
+            LiveCardPlacement placement, float alpha) {
+        Texture texture = switch (kind) {
+            case SMALL_BLIND -> smallBlindChip;
+            case BIG_BLIND -> bigBlindChip;
+            case NONE -> null;
+        };
+        if (texture == null) return;
+        batch.setShader(null);
+        float size = placement.width * 0.40f;
+        float localX = placement.width * 0.5f - size * 0.55f;
+        float localY = placement.height * 0.5f - size * 0.55f;
+        float radians = placement.rotation * MathUtils.degreesToRadians;
+        float cos = MathUtils.cos(radians);
+        float sin = MathUtils.sin(radians);
+        float centerX = placement.x + localX * cos - localY * sin;
+        float centerY = placement.y + localX * sin + localY * cos;
+        drawPositionTexture(texture, centerX, centerY, size,
+                placement.rotation, alpha);
+    }
+
+    static RabbitCostChipKind rabbitCostChipKind(int mode,
+            int completedRequests) {
+        int count = Math.max(0, completedRequests);
+        if (mode == 2 && count >= 1) {
+            return RabbitCostChipKind.SMALL_BLIND;
+        }
+        if (mode == 3 && count == 1) {
+            return RabbitCostChipKind.SMALL_BLIND;
+        }
+        if (mode == 3 && count > 1) {
+            return RabbitCostChipKind.BIG_BLIND;
+        }
+        return RabbitCostChipKind.NONE;
+    }
+
+    enum RabbitCostChipKind {
+        NONE, SMALL_BLIND, BIG_BLIND
     }
 
     private void drawRabbitCoveredCard(LiveCardPlacement placement,

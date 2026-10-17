@@ -469,7 +469,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 = canonicalPlayers(base.players());
         return new TableSnapshot(base.revision(), base.localNickname(),
                 base.street(), base.pot(), base.currentTurnNickname(),
-                base.paused(), players, base.communityCards());
+                base.paused(), players, base.communityCards(),
+                new TableSnapshot.TablePresentation("", 0,
+                        java.util.List.of(), rabbitRequestCountSnapshot()));
     }
 
     /** Current public clock projection for a newcomer joining mid-turn. */
@@ -793,7 +795,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 gameSession().isPaused(), publicPlayers, board,
                 new TableSnapshot.TablePresentation(potPrefix,
                         Math.max(0, getTiempoPausa()),
-                        rabbitVisualCardSlots()));
+                        rabbitVisualCardSlots(),
+                        rabbitRequestCountSnapshot()));
+    }
+
+    /** Public cumulative Rabbit state required by a live newcomer. */
+    public void restoreRabbitRequestCounts(
+            java.util.Map<String, Integer> counts) {
+        java.util.Objects.requireNonNull(counts, "counts");
+        synchronized (lock_rabbit) {
+            rabbit_request_counts.clear();
+            counts.forEach((nickname, count) -> {
+                if (nickname == null || nickname.isBlank() || count == null
+                        || count < 0) {
+                    throw new IllegalArgumentException(
+                            "invalid Rabbit request counter snapshot");
+                }
+                if (count > 0) rabbit_request_counts.put(nickname, count);
+            });
+        }
+    }
+
+    private java.util.Map<String, Integer> rabbitRequestCountSnapshot() {
+        return java.util.Map.copyOf(new java.util.TreeMap<>(
+                rabbit_request_counts));
     }
 
     /**
@@ -1407,7 +1432,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ? base.pot() : MoneyMath.clean(this.bote_total);
         return new TableSnapshot(base.revision(), base.localNickname(), street,
                 visiblePot, "", base.paused(),
-                base.players(), board);
+                base.players(), board, base.presentation());
     }
 
     private TableSnapshot pendingPayoutPresentation(TableSnapshot settled,
@@ -4039,6 +4064,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Per-hand Rabbit sequence and idempotency state. Requests never carry count or fee;
     // the host assigns the sequence and every peer verifies it against this reducer.
     private volatile RabbitFeeLedger rabbit_fee_ledger = null;
+    /*
+     * Swing charged Rabbit against a table-lifetime counter: the first
+     * request was free, not the first request of every hand. Keep that public
+     * counter outside the per-hand signed ledger and seed each new ledger from
+     * it. A hot join restores the same map before it receives live events.
+     */
+    private final ConcurrentHashMap<String, Integer> rabbit_request_counts
+            = new ConcurrentHashMap<>();
 
     // ConcurrentHashMap (not HashMap): written under lock_contabilidad (auditorCuentas,
     // updateExitPlayers) but ITERATED outside that lock, under SQL_LOCK, in sqlNewHand/
@@ -10228,7 +10261,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         : new RabbitFeeLedger(this.rabbit_open_hand_id,
                                 gameSession().configuration().rabbitHunting(),
                                 settlementAmountToCents(this.ciega_pequeña),
-                                settlementAmountToCents(this.ciega_grande));
+                                settlementAmountToCents(this.ciega_grande),
+                                rabbitRequestCountSnapshot());
             }
         }
         synchronized (protocol_state_lock) {
@@ -13158,6 +13192,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (acceptance != RabbitFeeLedger.Acceptance.ACCEPTED) {
                                 throw new IllegalArgumentException("invalid Rabbit sequence or fee");
                             }
+                            rabbit_request_counts.put(nick, conta_rabbit);
+                            jugador.setConta_rabbit(conta_rabbit);
                             // The stack is read INSIDE the lock, same pattern as the misdeal path:
                             // reading it outside and writing inside would open a window where the
                             // showdown pays out winnings and this subtraction overwrites the
@@ -13184,7 +13220,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // fee application have succeeded. This prevents a stale worker from
                         // uncovering the new hand's board after NUEVA_MANO wins the race.
                         if (nick.equals(localPlayer().getNickname())) {
-                            localPlayer().setConta_rabbit(conta_rabbit);
                             destaparRabbitCards();
                         }
 

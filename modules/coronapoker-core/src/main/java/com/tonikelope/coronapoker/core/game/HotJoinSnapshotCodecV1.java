@@ -11,7 +11,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /** Compact, bounded public table-state bootstrap for a live newcomer. */
 public final class HotJoinSnapshotCodecV1 {
@@ -66,6 +68,8 @@ public final class HotJoinSnapshotCodecV1 {
                 out.writeInt(snapshot.presentation()
                         .sharedProgressRemainingSeconds());
                 writeIntegers(out, snapshot.presentation().rabbitCardSlots());
+                writeRabbitCounts(out,
+                        snapshot.presentation().rabbitRequestCounts());
             }
             byte[] encoded = bytes.toByteArray();
             if (encoded.length > MAX_BYTES) {
@@ -145,7 +149,8 @@ public final class HotJoinSnapshotCodecV1 {
                     = new TableSnapshot.TablePresentation(readText(in),
                             boundedCount(in.readInt(), 0, 86_400,
                                     "shared progress"),
-                            readIntegers(in, 5, "rabbit card slots"));
+                            readIntegers(in, 5, "rabbit card slots"),
+                            readRabbitCounts(in));
             if (in.available() != 0) {
                 throw new IllegalArgumentException("Trailing hot-join snapshot data");
             }
@@ -226,6 +231,33 @@ public final class HotJoinSnapshotCodecV1 {
             List<Integer> values) throws IOException {
         out.writeInt(values.size());
         for (Integer value : values) out.writeInt(value);
+    }
+
+    private static void writeRabbitCounts(DataOutputStream out,
+            Map<String, Integer> counts) throws IOException {
+        TreeMap<String, Integer> ordered = new TreeMap<>(counts);
+        out.writeInt(ordered.size());
+        for (Map.Entry<String, Integer> entry : ordered.entrySet()) {
+            writeText(out, entry.getKey());
+            out.writeInt(entry.getValue());
+        }
+    }
+
+    private static Map<String, Integer> readRabbitCounts(DataInputStream in)
+            throws IOException {
+        int count = boundedCount(in.readInt(), 0, 10,
+                "Rabbit request counters");
+        TreeMap<String, Integer> result = new TreeMap<>();
+        for (int index = 0; index < count; index++) {
+            String nickname = readText(in);
+            int requests = boundedCount(in.readInt(), 1, Integer.MAX_VALUE,
+                    "Rabbit request counter");
+            if (nickname.isBlank() || result.put(nickname, requests) != null) {
+                throw new IllegalArgumentException(
+                        "Invalid Rabbit request counter roster");
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private static List<Integer> readIntegers(DataInputStream in, int maximum,

@@ -429,6 +429,12 @@ final class GdxTableViewState {
         return rabbitRequesters.contains(nickname);
     }
 
+    int rabbitRequestCount(String nickname) {
+        if (nickname == null || nickname.isBlank()) return 0;
+        return snapshot.presentation().rabbitRequestCounts()
+                .getOrDefault(nickname, 0);
+    }
+
     String rabbitHandName(String nickname) {
         return rabbitHandNames.getOrDefault(nickname, "");
     }
@@ -518,7 +524,8 @@ final class GdxTableViewState {
                     new TableSnapshot.TablePresentation(board.potPrefix(),
                             snapshot.presentation()
                                     .sharedProgressRemainingSeconds(),
-                            snapshot.presentation().rabbitCardSlots()));
+                            snapshot.presentation().rabbitCardSlots(),
+                            snapshot.presentation().rabbitRequestCounts()));
         } else if (event instanceof TableVisualEvent.SwapHoleCards swap) {
             // RevealHoleCards is intentionally preserved across later legacy
             // snapshots. Keep that presentation copy in the same order as the
@@ -734,10 +741,20 @@ final class GdxTableViewState {
                             snapshot.presentation().potPrefix(),
                             snapshot.presentation()
                                     .sharedProgressRemainingSeconds(),
-                            rabbitCardSlots.stream().sorted().toList()));
+                            rabbitCardSlots.stream().sorted().toList(),
+                            snapshot.presentation().rabbitRequestCounts()));
             rabbitRequestable = rabbit.requestable();
         } else if (event instanceof TableVisualEvent.RabbitResult result) {
             rabbitRequesters.add(result.nickname());
+            java.util.Map<String, Integer> counts = new HashMap<>(
+                    snapshot.presentation().rabbitRequestCounts());
+            counts.put(result.nickname(), result.requestCount());
+            snapshot = copySnapshotPresentation(snapshot,
+                    new TableSnapshot.TablePresentation(
+                            snapshot.presentation().potPrefix(),
+                            snapshot.presentation()
+                                    .sharedProgressRemainingSeconds(),
+                            snapshot.presentation().rabbitCardSlots(), counts));
             replacePlayer(result.nickname(), player -> copyPlayer(player,
                     result.stackAfter(), player.streetBet(),
                     player.potContribution(), player.active(),
@@ -1455,7 +1472,8 @@ final class GdxTableViewState {
                         progress.mode()
                                 == TableVisualEvent.SharedProgress.Mode.COUNTDOWN
                                 ? progress.seconds() : 0,
-                        snapshot.presentation().rabbitCardSlots()));
+                        snapshot.presentation().rabbitCardSlots(),
+                        snapshot.presentation().rabbitRequestCounts()));
     }
 
     private void updateSharedProgressPause(boolean wasPaused, boolean paused) {

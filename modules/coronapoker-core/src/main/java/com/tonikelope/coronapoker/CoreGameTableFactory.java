@@ -2410,6 +2410,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
         void acceptSnapshot(String encoded) {
             TableSnapshot snapshot = HotJoinSnapshotCodecV1.decode(encoded,
                     localNickname);
+            Crupier current = dealer;
+            if (current != null) {
+                current.restoreRabbitRequestCounts(
+                        snapshot.presentation().rabbitRequestCounts());
+            }
             LOGGER.log(java.util.logging.Level.INFO,
                     "HOT JOIN: accepted public table bootstrap for {0} with {1} seat(s)",
                     new Object[]{localNickname, snapshot.players().size()});

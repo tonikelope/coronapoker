@@ -491,7 +491,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private LobbyConfirmation lobbyConfirmation;
     private final ArrayDeque<String> identityChangeNotices =
             new ArrayDeque<>();
-    private String lobbyKickTarget = "";
     private boolean lobbyPasswordDialog;
     private String lobbyPasswordDraft = "";
     private boolean networkBlocksOpen;
@@ -6148,9 +6147,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 lobbyConfirmation) {
             case START -> "ui.seguro_que_quieres_empezar_ya";
             case LEAVE -> "ui.seguro_que_quieres_salir_ahora";
-            case KICK -> "ui.seguro_que_quieres_expulsar_a";
-        }, lobbyConfirmation == LobbyConfirmation.KICK
-                ? lobbyKickTarget : ""));
+        }));
         GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
                 uppercase(gameText.translate("ui.seguro")), prompt);
         Rectangle cancel = layout.negativeButton();
@@ -6163,7 +6160,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate(switch (lobbyConfirmation) {
                     case START -> "ui.a_jugar";
                     case LEAVE -> "ui.salir";
-                    case KICK -> "ui.expulsar_jugador";
                 })),
                 lobbyConfirmation == LobbyConfirmation.START
                         ? ButtonTone.POSITIVE : ButtonTone.DANGER,
@@ -6688,9 +6684,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (action == LobbyConfirmation.START) {
             lobbyGameStarting = true;
             submitLobbyCommand(new LobbyCommand.StartGame(), null);
-        } else if (action == LobbyConfirmation.KICK) {
-            kickParticipant(lobbyKickTarget);
-            lobbyKickTarget = "";
         } else {
             submitLobbyCommand(new LobbyCommand.Leave(), this::returnFromLobby);
         }
@@ -6698,7 +6691,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeLobbyConfirmation() {
         lobbyConfirmation = null;
-        lobbyKickTarget = "";
     }
 
     private void drawLobbyLoadingOverlay() {
@@ -6776,8 +6768,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     "ui.tienes_que_seleccionar_algun_participante"));
             return;
         }
-        lobbyKickTarget = target.nickname();
-        lobbyConfirmation = LobbyConfirmation.KICK;
+        kickParticipant(target.nickname());
     }
 
     private void kickParticipant(String nickname) {
@@ -7504,7 +7495,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyGameStarting = false;
         lobbyConfirmation = null;
         identityChangeNotices.clear();
-        lobbyKickTarget = "";
         fingerprintDialog = null;
         lobbyPasswordDialog = false;
         lobbyPasswordDraft = "";
@@ -14233,7 +14223,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum LobbyConfirmation {
-        START, LEAVE, KICK
+        START, LEAVE
     }
 
     private enum FingerprintMode {

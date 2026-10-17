@@ -9,7 +9,9 @@
 package com.tonikelope.coronapoker.table;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * Immutable, renderer-neutral state of a CoronaPoker table.
@@ -118,14 +120,23 @@ public record TableSnapshot(
      */
     public record TablePresentation(String potPrefix,
             int sharedProgressRemainingSeconds,
-            List<Integer> rabbitCardSlots) {
+            List<Integer> rabbitCardSlots,
+            Map<String, Integer> rabbitRequestCounts) {
 
         public static final TablePresentation EMPTY
-                = new TablePresentation("", 0, List.of());
+                = new TablePresentation("", 0, List.of(), Map.of());
+
+        public TablePresentation(String potPrefix,
+                int sharedProgressRemainingSeconds,
+                List<Integer> rabbitCardSlots) {
+            this(potPrefix, sharedProgressRemainingSeconds, rabbitCardSlots,
+                    Map.of());
+        }
 
         public TablePresentation(String potPrefix,
                 int sharedProgressRemainingSeconds) {
-            this(potPrefix, sharedProgressRemainingSeconds, List.of());
+            this(potPrefix, sharedProgressRemainingSeconds, List.of(),
+                    Map.of());
         }
 
         public TablePresentation {
@@ -136,6 +147,19 @@ public record TableSnapshot(
             }
             rabbitCardSlots = PlayerPresentation.checkedSlots(
                     rabbitCardSlots, 5, "rabbit card slots");
+            Objects.requireNonNull(rabbitRequestCounts,
+                    "rabbitRequestCounts");
+            TreeMap<String, Integer> checkedCounts = new TreeMap<>();
+            rabbitRequestCounts.forEach((nickname, count) -> {
+                String checkedNickname = Objects.requireNonNullElse(
+                        nickname, "").trim();
+                if (checkedNickname.isEmpty() || count == null || count < 0) {
+                    throw new IllegalArgumentException(
+                            "Invalid Rabbit request counter");
+                }
+                if (count > 0) checkedCounts.put(checkedNickname, count);
+            });
+            rabbitRequestCounts = Map.copyOf(checkedCounts);
         }
     }
 

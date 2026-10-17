@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class HotJoinSnapshotCodecV1Test {
@@ -25,7 +26,7 @@ class HotJoinSnapshotCodecV1Test {
                 List.of(new TableSnapshot.CardSnapshot("KH", true, false),
                         new TableSnapshot.CardSnapshot("", false, false)),
                 new TableSnapshot.TablePresentation("CARA B - BOTE: ", 7,
-                        List.of(3, 4)));
+                        List.of(3, 4), Map.of("Host", 2, "Alice", 1)));
 
         TableSnapshot decoded = HotJoinSnapshotCodecV1.decode(
                 HotJoinSnapshotCodecV1.encode(source), "Late");
@@ -42,6 +43,8 @@ class HotJoinSnapshotCodecV1Test {
         assertEquals(TableSnapshot.ActionKind.CALL,
                 decoded.players().get(0).actionKind());
         assertEquals(source.presentation(), decoded.presentation());
+        assertEquals(Map.of("Host", 2, "Alice", 1),
+                decoded.presentation().rabbitRequestCounts());
         assertEquals(source.players().get(0).presentation(),
                 decoded.players().get(0).presentation());
         assertEquals(TableSnapshot.RebuyPhase.WAITING,

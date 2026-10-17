@@ -40,14 +40,36 @@ public final class RabbitFeeLedger {
     private final Map<String, Authorization> appliedByRequest = new HashMap<>();
 
     public RabbitFeeLedger(byte[] handId, int mode, long smallBlindCents, long bigBlindCents) {
+        this(handId, mode, smallBlindCents, bigBlindCents, Map.of());
+    }
+
+    /**
+     * Opens a hand with the table-lifetime Rabbit counters already committed
+     * by previous hands. Swing deliberately made the first request of the
+     * whole table free, not the first request of every hand.
+     */
+    public RabbitFeeLedger(byte[] handId, int mode, long smallBlindCents,
+            long bigBlindCents, Map<String, Integer> initialCounts) {
         if (handId == null || handId.length != HAND_BYTES || mode < 0 || mode > 3
-                || smallBlindCents < 0 || bigBlindCents < smallBlindCents) {
+                || smallBlindCents < 0 || bigBlindCents < smallBlindCents
+                || initialCounts == null) {
             throw new IllegalArgumentException("invalid Rabbit ledger parameters");
         }
         this.handId = handId.clone();
         this.mode = mode;
         this.smallBlindCents = smallBlindCents;
         this.bigBlindCents = bigBlindCents;
+        initialCounts.forEach((player, count) -> {
+            if (player == null || player.isBlank() || count == null
+                    || count < 0) {
+                throw new IllegalArgumentException(
+                        "invalid Rabbit counter baseline");
+            }
+            if (count > 0) {
+                authorizedCounts.put(player, count);
+                appliedCounts.put(player, count);
+            }
+        });
     }
 
     /** Host-only transition: assigns the next sequence; the request has no count/fee. */

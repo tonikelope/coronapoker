@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
@@ -32,7 +33,7 @@ final class GdxBlindStructureEditorTest {
     }
 
     @Test
-    void rejectsDuplicateNamesAndInvalidLevelMoves() {
+    void rejectsDuplicateNamesAndOnlyAbsoluteValueLimitsDuringEditing() {
         Properties properties = propertiesWith("Turbo", "0.1/0.2,0.2/0.4");
         properties.setProperty("blind_structures.count", "2");
         properties.setProperty("blind_structure.1.name", "Deep");
@@ -43,8 +44,31 @@ final class GdxBlindStructureEditorTest {
         assertFalse(editor.rename("Deep"));
         assertFalse(editor.adjustSmallBlind(-2));
         editor.selectLevel(1);
-        assertFalse(editor.adjustSmallBlind(-2));
-        assertEquals(0.2d, editor.selectedLevel().smallBlind());
+        assertTrue(editor.adjustSmallBlind(-2));
+        assertEquals(0.1d, editor.selectedLevel().smallBlind());
+        assertThrows(IllegalArgumentException.class,
+                () -> editor.save(properties));
+        assertEquals("0.1/0.2,0.2/0.4",
+                properties.getProperty("blind_structure.0.levels"),
+                "failed validation must not partially rewrite preferences");
+    }
+
+    @Test
+    void levelCanCrossItsNeighbourWhileEditingAndIsValidatedOnSave() {
+        Properties properties = propertiesWith("Turbo", "0.1/0.2,0.2/0.4");
+        GdxBlindStructureEditor editor = new GdxBlindStructureEditor();
+        editor.begin(properties, "Turbo");
+
+        assertTrue(editor.adjustSmallBlind(4));
+        assertEquals(0.3d, editor.selectedLevel().smallBlind());
+        assertTrue(editor.dirty());
+        assertThrows(IllegalArgumentException.class,
+                () -> editor.save(properties));
+
+        assertTrue(editor.adjustSmallBlind(-3));
+        editor.save(properties);
+        assertEquals(0.15d, BlindStructureCatalog.read(properties).get(0)
+                .levels().get(0).smallBlind());
     }
 
     @Test

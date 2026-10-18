@@ -9908,6 +9908,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             showToast(gameText.translate("gdx.newgame.profile_loaded",
                     preset.name()));
         } catch (IllegalArgumentException invalid) {
+            selectedGamePreset = -1;
             showToast(gameText.translate("gdx.newgame.profile_invalid"));
         }
     }
@@ -10021,7 +10022,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         all.remove(name);
         if (!persistGamePresets(all.values(), previous)) return;
         refreshGamePresets(null);
-        table = new NewGameTableDraft();
         closePresetDialog();
         showToast(gameText.translate("gdx.newgame.profile_deleted", name));
     }
@@ -10398,20 +10398,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void saveBlindStructures() {
-        try {
-            blindStructureEditor.save(initialProperties);
-        } catch (IllegalArgumentException invalid) {
-            showToast(gameText.translate(
-                    "gdx.newgame.blind_editor.review"));
-            return;
-        }
-        BlindStructureCatalog.Entry selected = blindStructureEditor.selected();
         NewGameTableDraft target = blindStructureSettingsTarget
                 ? settingsTable : table;
         if (target == null) {
             closeBlindStructureEditor();
             return;
         }
+        List<BlindStructureCatalog.Entry> previous =
+                BlindStructureCatalog.read(initialProperties);
+        try {
+            blindStructureEditor.writeTo(initialProperties);
+        } catch (IllegalArgumentException invalid) {
+            showToast(gameText.translate(
+                    "gdx.newgame.blind_editor.review"));
+            return;
+        }
+        if (!blindStructureSettingsTarget && preferences != null) {
+            try {
+                // The Save button is a durability boundary: keep the editor
+                // open and dirty until the catalogue is safely on disk.
+                preferences.save();
+            } catch (IOException failure) {
+                BlindStructureCatalog.writeTo(initialProperties, previous);
+                LOGGER.log(Level.SEVERE,
+                        "Could not persist blind structures", failure);
+                showToast(gameText.translate(
+                        "gdx.newgame.blind_editor.persist_failed"));
+                return;
+            }
+        }
+        blindStructureEditor.markPersisted();
+        BlindStructureCatalog.Entry selected = blindStructureEditor.selected();
         if (selected == null) {
             target.setBlindStructure(null,
                     Arrays.stream(BlindStructureRules.defaultLevels())
@@ -10423,9 +10440,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     .map(level -> new NewGameTableDraft.BlindLevel(
                             level.smallBlind(), level.bigBlind()))
                     .toList(), target.blindLevelIndex());
-        }
-        if (!blindStructureSettingsTarget && preferences != null) {
-            preferences.saveDeferred();
         }
         closeBlindStructureEditor();
         showToast(gameText.translate("gdx.newgame.blind_editor.saved"));
@@ -10584,8 +10598,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? blindStructureEditor.adjustSmallBlind(stepCount)
                 : blindStructureEditor.adjustBigBlind(stepCount);
         if (!accepted) {
-            showToast(gameText.translate(
-                    "gdx.newgame.blind_editor.order_error"));
+            showToast(gameText.translate(BlindStructureRules.ERR_VALUE_RANGE));
         }
     }
 

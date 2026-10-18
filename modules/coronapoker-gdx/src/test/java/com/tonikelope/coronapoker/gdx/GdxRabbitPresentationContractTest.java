@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.image.BufferedImage;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +60,25 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains(
                 "mix(pixel.rgb, u_highlight.rgb, u_highlight.a)"),
                 "Rabbit cards must honor the existing yellow hand highlight");
+    }
+
+    @Test
+    void rabbitHandHighlightTintsTheCoveredAndPeeledLayers()
+            throws Exception {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
+        int start = source.indexOf("private void drawLiveRabbitCard(");
+        int end = source.indexOf("private void drawRabbitCostChip(", start);
+        assertTrue(start >= 0 && end > start);
+        String method = source.substring(start, end);
+
+        assertTrue(method.contains(
+                "drawRabbitCoveredCard(placement, alpha, showdownTint);"),
+                "the yellow highlight must cover the still-covered card area");
+        assertTrue(method.contains(
+                "drawRabbitPeelLayer(liveCardFace(card.code()), placement, 1f,"),
+                "the revealed Rabbit layer must remain highlighted too");
     }
 
     @Test

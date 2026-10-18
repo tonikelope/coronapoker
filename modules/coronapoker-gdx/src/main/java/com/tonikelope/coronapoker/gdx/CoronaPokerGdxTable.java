@@ -12004,7 +12004,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveRabbitCard(TableSnapshot.CardSnapshot card,
             LiveCardPlacement placement, float alpha,
             boolean showdownTint) {
-        drawRabbitCoveredCard(placement, alpha);
+        // The covered Rabbit artwork remains visible below the peeled layer.
+        // Tint both layers so the hand highlight covers the complete card,
+        // including the still-covered right-hand portion.
+        drawRabbitCoveredCard(placement, alpha, showdownTint);
         if (!card.faceUp() && liveState.rabbitRequestable()) {
             GameConfigCodecV1.Configuration configuration
                     = liveState.gameConfiguration();
@@ -12063,8 +12066,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawRabbitCoveredCard(LiveCardPlacement placement,
             float alpha) {
+        drawRabbitCoveredCard(placement, alpha, false);
+    }
+
+    private void drawRabbitCoveredCard(LiveCardPlacement placement,
+            float alpha, boolean showdownTint) {
         batch.setColor(1f, 1f, 1f, alpha);
         useRoundedCardShader(rabbitCardBack);
+        setCardShowdownOverlay(showdownTint);
         float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
         float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
         batch.draw(rabbitCardBack,

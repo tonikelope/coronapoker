@@ -33,9 +33,7 @@ public final class BlindStructureRules {
             }
             double small = levels[i][0];
             double big = levels[i][1];
-            if (small < MIN_BLIND || big < MIN_BLIND
-                    || small > MAX_BLIND || big > MAX_BLIND
-                    || !Double.isFinite(small) || !Double.isFinite(big)) {
+            if (!isValidBlindValue(small) || !isValidBlindValue(big)) {
                 return ERR_VALUE_RANGE;
             }
             if (!isBlindStep(small) || !isBlindStep(big)) {
@@ -49,6 +47,12 @@ public final class BlindStructureRules {
             }
         }
         return null;
+    }
+
+    /** Whether one editor value is inside the supported monetary range. */
+    public static boolean isValidBlindValue(double value) {
+        return Double.isFinite(value)
+                && value >= MIN_BLIND && value <= MAX_BLIND;
     }
 
     public static double[][] defaultLevels() {

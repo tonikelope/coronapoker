@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core;
 
+import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -89,6 +90,10 @@ class GamePresetCatalogTest {
         draft.setAnte(true);
         draft.setStraddle(true);
         draft.setRunItTwice(true);
+        draft.setBlindStructure("Turbo viernes", List.of(
+                new NewGameTableDraft.BlindLevel(0.25, 0.5),
+                new NewGameTableDraft.BlindLevel(0.5, 1),
+                new NewGameTableDraft.BlindLevel(1, 2)), 1);
         NewGameTableDraft.Settings expected = draft.snapshot();
         GamePresetCatalog.writeTo(writer.properties(), List.of(
                 new GamePresetCatalog.Entry("Viernes",
@@ -101,6 +106,17 @@ class GamePresetCatalogTest {
                 concurrentReader.properties()).get("Viernes");
         assertEquals(expected, NewGameTableDraft.Settings.parseWire(
                 restored.settings()));
+        GameConfigCodecV1.Configuration configuration =
+                GameConfigCodecV1.fromSettings(
+                        NewGameTableDraft.Settings.parseWire(
+                                restored.settings()), false,
+                        "profile-audit");
+        assertEquals(List.of(
+                new GameConfigCodecV1.BlindLevel(0.25, 0.5),
+                new GameConfigCodecV1.BlindLevel(0.5, 1),
+                new GameConfigCodecV1.BlindLevel(1, 2)),
+                configuration.blindStructure(),
+                "saved GDX profiles must feed the authoritative blind ladder");
         concurrentReader.close();
         writer.close();
     }

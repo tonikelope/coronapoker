@@ -148,8 +148,12 @@ final class GdxBlindStructureEditor {
                 ? new BlindLevel(25d, 50d)
                 : new BlindLevel(roundBlind(previous.smallBlind() * 2d),
                         roundBlind(previous.bigBlind() * 2d));
+        if (!BlindStructureRules.isValidBlindValue(added.smallBlind())
+                || !BlindStructureRules.isValidBlindValue(
+                        added.bigBlind())) {
+            return false;
+        }
         levels.add(added);
-        if (!valid(levels)) return false;
         replaceLevels(levels);
         selectedLevel = levels.size() - 1;
         return true;
@@ -174,7 +178,15 @@ final class GdxBlindStructureEditor {
     }
 
     void save(Properties properties) {
+        writeTo(properties);
+        markPersisted();
+    }
+
+    void writeTo(Properties properties) {
         BlindStructureCatalog.writeTo(properties, entries);
+    }
+
+    void markPersisted() {
         dirty = false;
     }
 
@@ -190,8 +202,10 @@ final class GdxBlindStructureEditor {
                         current.bigBlind())
                 : new BlindLevel(current.smallBlind(),
                         roundBlind(current.bigBlind() + delta));
+        double edited = small ? replacement.smallBlind()
+                : replacement.bigBlind();
+        if (!BlindStructureRules.isValidBlindValue(edited)) return false;
         levels.set(index, replacement);
-        if (!valid(levels)) return false;
         replaceLevels(levels);
         return true;
     }
@@ -220,15 +234,6 @@ final class GdxBlindStructureEditor {
             if (entries.get(index).name().equals(name)) return index;
         }
         return -1;
-    }
-
-    private static boolean valid(List<BlindLevel> levels) {
-        double[][] raw = new double[levels.size()][2];
-        for (int index = 0; index < levels.size(); index++) {
-            raw[index][0] = levels.get(index).smallBlind();
-            raw[index][1] = levels.get(index).bigBlind();
-        }
-        return BlindStructureRules.validateLevels(raw) == null;
     }
 
     private static double roundBlind(double value) {

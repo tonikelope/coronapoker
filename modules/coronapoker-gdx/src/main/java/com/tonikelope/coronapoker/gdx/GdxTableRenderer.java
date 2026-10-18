@@ -14,6 +14,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Event adapter for the table scene hosted by the single GDX window. */
 public final class GdxTableRenderer implements TableRenderer {
 
+    private static final int MAX_EVENTS_PER_FRAME = 8;
+    private static final long EVENT_FRAME_BUDGET_NANOS = 2_000_000L;
+
     /**
      * A final visual barrier may release controller/network cleanup that waits
      * for owned executors.  It must never run inline on libGDX's render thread.
@@ -27,6 +30,9 @@ public final class GdxTableRenderer implements TableRenderer {
     };
 
     private final TableCommandSink commands;
+    private final GdxFrameTaskPump eventPump = new GdxFrameTaskPump(
+            runnable -> Gdx.app.postRunnable(runnable), System::nanoTime,
+            MAX_EVENTS_PER_FRAME, EVENT_FRAME_BUDGET_NANOS);
     private final AtomicBoolean opened = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private volatile CoronaPokerGdxTable table;
@@ -65,19 +71,27 @@ public final class GdxTableRenderer implements TableRenderer {
             throw new IllegalStateException("GDX table renderer is not open");
         }
         CompletableFuture<Void> barrier = new CompletableFuture<>();
-        Gdx.app.postRunnable(() -> {
-            CompletableFuture<Void> presentationBarrier = barrier;
-            if (event instanceof TableVisualEvent.CloseTable) {
-                presentationBarrier = new CompletableFuture<>();
-                transferCompletionAsync(presentationBarrier, barrier,
-                        TABLE_CLOSE_EXECUTOR);
-            }
+        CompletableFuture<Void> presentationBarrier;
+        if (event instanceof TableVisualEvent.CloseTable) {
+            presentationBarrier = new CompletableFuture<>();
+            transferCompletionAsync(presentationBarrier, barrier,
+                    TABLE_CLOSE_EXECUTOR);
+        } else {
+            presentationBarrier = barrier;
+        }
+        CompletableFuture<Void> queuedBarrier = presentationBarrier;
+        eventPump.submit(() -> {
             try {
-                table.acceptEvent(event, presentationBarrier);
+                CoronaPokerGdxTable current = table;
+                if (current == null) {
+                    throw new IllegalStateException(
+                            "GDX table renderer closed before event delivery");
+                }
+                current.acceptEvent(event, queuedBarrier);
             } catch (Throwable error) {
-                presentationBarrier.completeExceptionally(error);
+                queuedBarrier.completeExceptionally(error);
             }
-        });
+        }, queuedBarrier::completeExceptionally);
         return barrier;
     }
 
@@ -95,6 +109,7 @@ public final class GdxTableRenderer implements TableRenderer {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true) && opened.getAndSet(false)) {
+            eventPump.close();
             GdxApplicationShell shell = GdxApplicationShell.active();
             if (shell != null) {
                 shell.closeTable(table);

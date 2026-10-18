@@ -1150,6 +1150,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private StreamingGifTextureAnimation recoveryAnimation;
     private GdxTableDialog recoveryAnimationDialog;
     private boolean recoveryAnimationFailureReported;
+    private long recoveryAnimationStartedAtNanos;
     private final Map<String, Sound> liveCinematicSounds = new HashMap<>();
     private final Map<String, Sound> liveAudioCueSounds = new HashMap<>();
     private final Set<String> failedPreferenceSoundCues = new HashSet<>();
@@ -1225,6 +1226,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private StreamingGifTextureAnimation.PreparedLooping preparedShuffle;
     private String preparedShuffleDeck = "";
     private int preparedShuffleMaxWidth;
+    private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+            recoveryPreparation;
+    private StreamingGifTextureAnimation.PreparedLooping preparedRecovery;
+    private String preparedRecoveryPath = "";
     private boolean readySignalled;
     private boolean introVisibleSignalled;
     private boolean introLightsSignalled;
@@ -2701,7 +2706,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             throw new IllegalStateException("GDX table creation already started");
         }
         creationPhase = 0;
-        if (!startupIntroOnly) prepareShuffleAnimation(liveDeck);
+        if (!startupIntroOnly) {
+            prepareShuffleAnimation(liveDeck);
+            prepareRecoveryAnimation();
+        }
     }
 
     boolean createNextPhase() {
@@ -2722,7 +2730,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 7 -> advanceCreationStep(createNextPrimaryFont());
             case 8 -> advanceCreationStep(createNextReportAndLogFont());
             case 9 -> {
-                if (completeShufflePreparation()) {
+                boolean shuffleReady = completeShufflePreparation();
+                boolean recoveryReady = completeRecoveryPreparation();
+                if (shuffleReady && recoveryReady) {
                     finishTableCreation();
                     finishCreationPhase();
                 }
@@ -14559,6 +14569,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
+    private void prepareRecoveryAnimation() {
+        String path = recoveryGifPath();
+        preparedRecovery = null;
+        preparedRecoveryPath = path;
+        recoveryPreparation = CompletableFuture.supplyAsync(() -> {
+            try {
+                return StreamingGifTextureAnimation.prepareLooping(
+                        path, 1600);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        });
+    }
+
+    private boolean completeRecoveryPreparation() {
+        CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+                preparation = recoveryPreparation;
+        if (preparation == null) return true;
+        if (!preparation.isDone()) return false;
+        recoveryPreparation = null;
+        try {
+            preparedRecovery = preparation.join();
+        } catch (CompletionException failure) {
+            preparedRecovery = null;
+            LOGGER.log(Level.WARNING,
+                    "Could not prepare the recovery animation off the render thread",
+                    failure.getCause() == null ? failure : failure.getCause());
+        }
+        return true;
+    }
+
     private static StreamingGifTextureAnimation loopingGif(String path,
             int maxWidth) {
         try {
@@ -21272,7 +21313,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float worldH) {
         StreamingGifTextureAnimation animation = recoveryAnimation(dialog);
         Texture frame = animation == null ? null
-                : animation.frameAt(dialog.elapsedSeconds(totalTime));
+                : animation.frameAt(recoveryAnimationElapsedSeconds(
+                        recoveryAnimationStartedAtNanos,
+                        System.nanoTime()));
         if (animation != null && animation.failed()
                 && !recoveryAnimationFailureReported) {
             recoveryAnimationFailureReported = true;
@@ -21300,13 +21343,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (recoveryAnimationDialog != dialog) {
             releaseRecoveryAnimation();
             recoveryAnimationDialog = dialog;
-            String language = gameText.language().toLowerCase(Locale.ROOT);
-            String localized = "cinematics/misc/recover_" + language + ".gif";
-            String path = Gdx.files.internal(localized).exists()
-                    ? localized : "cinematics/misc/recover.gif";
+            recoveryAnimationStartedAtNanos = System.nanoTime();
+            String path = recoveryGifPath();
             try {
-                recoveryAnimation = StreamingGifTextureAnimation.loadLooping(
-                        path, 1600);
+                if (preparedRecovery != null
+                        && path.equals(preparedRecoveryPath)) {
+                    recoveryAnimation =
+                            StreamingGifTextureAnimation.loadLooping(
+                                    preparedRecovery);
+                    preparedRecovery = null;
+                } else {
+                    recoveryAnimation =
+                            StreamingGifTextureAnimation.loadLooping(
+                                    path, 1600);
+                }
             } catch (IOException | RuntimeException missing) {
                 recoveryAnimationFailureReported = true;
                 Gdx.app.error("CoronaPoker GDX",
@@ -21316,11 +21366,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return recoveryAnimation;
     }
 
+    private String recoveryGifPath() {
+        String language = gameText.language().toLowerCase(Locale.ROOT);
+        String localized = "cinematics/misc/recover_" + language + ".gif";
+        return Gdx.files.internal(localized).exists()
+                ? localized : "cinematics/misc/recover.gif";
+    }
+
+    static float recoveryAnimationElapsedSeconds(long startedAtNanos,
+            long nowNanos) {
+        if (startedAtNanos <= 0L || nowNanos <= startedAtNanos) return 0f;
+        return (nowNanos - startedAtNanos) / 1_000_000_000f;
+    }
+
     private void releaseRecoveryAnimation() {
         if (recoveryAnimation != null) recoveryAnimation.dispose();
         recoveryAnimation = null;
         recoveryAnimationDialog = null;
         recoveryAnimationFailureReported = false;
+        recoveryAnimationStartedAtNanos = 0L;
     }
 
     private void openTableVoiceNotes(boolean purgeConfirmation) {
@@ -25338,6 +25402,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposed = true;
         networkBlockCache.clear();
         cancelShufflePreparation();
+        cancelRecoveryPreparation();
         disposeSafely(creationFontGenerator);
         creationFontGenerator = null;
         if (shouldDisposeBackgroundMusic(sharedBackgroundMusic)) {
@@ -25452,6 +25517,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposed = true;
         networkBlockCache.clear();
         cancelShufflePreparation();
+        cancelRecoveryPreparation();
         CompletableFuture<Void> closingSummaryBarrier = finalSummaryBarrier;
         finalSummaryBarrier = null;
         if (closingSummaryBarrier != null
@@ -25647,6 +25713,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 preparation = shufflePreparation;
         shufflePreparation = null;
         if (preparation != null) preparation.cancel(true);
+    }
+
+    private void cancelRecoveryPreparation() {
+        CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
+                preparation = recoveryPreparation;
+        recoveryPreparation = null;
+        if (preparation != null) preparation.cancel(true);
+        preparedRecovery = null;
+        preparedRecoveryPath = "";
     }
 
     private static final class SilentChatNotice {

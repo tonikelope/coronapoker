@@ -11,6 +11,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -20,6 +21,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class StreamingGifTextureAnimationTest {
+
+    @Test
+    void loopingTimelineAdvancesByExactlyOneCycleWithoutFrozenGaps() {
+        long cycle = 1_720L;
+        long offset = 0L;
+        for (int repetition = 1; repetition <= 8; repetition++) {
+            offset = StreamingGifTextureAnimation.nextLoopStart(offset,
+                    cycle);
+            assertEquals(repetition * cycle, offset);
+        }
+        assertThrows(ArithmeticException.class,
+                () -> StreamingGifTextureAnimation.nextLoopStart(
+                        Long.MAX_VALUE - 2L, cycle));
+    }
 
     @Test
     void gameOverFramesDecodeIncrementallyWithOriginalTiming()

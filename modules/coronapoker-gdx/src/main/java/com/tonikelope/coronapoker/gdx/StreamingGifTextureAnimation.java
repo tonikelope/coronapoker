@@ -82,6 +82,8 @@ final class StreamingGifTextureAnimation implements Disposable {
             try {
                 byte[] data = source.read();
                 long cycleOffset = 0L;
+                long cycleDuration = timing == null
+                        ? 0L : timing.durationMs();
                 do {
                     long currentOffset = cycleOffset;
                     decode(data, label, maxWidth, frame -> {
@@ -93,7 +95,14 @@ final class StreamingGifTextureAnimation implements Disposable {
                                     + currentOffset;
                             long shiftedEnd = frame.endMs()
                                     + currentOffset;
-                            durationMs = Math.max(durationMs, shiftedEnd);
+                            // A looping animation owns one stable authored
+                            // duration. Growing it to the absolute end of each
+                            // decoded cycle made the next offset progress as
+                            // D, 3D, 7D... and left increasingly long frozen
+                            // gaps between otherwise valid recovery frames.
+                            if (!looping) {
+                                durationMs = Math.max(durationMs, shiftedEnd);
+                            }
                             decoded.put(new CpuFrame(frame.width(),
                                     frame.height(), shiftedStart, shiftedEnd,
                                     frame.rgba()));
@@ -102,8 +111,9 @@ final class StreamingGifTextureAnimation implements Disposable {
                         }
                     }, () -> disposed
                             || Thread.currentThread().isInterrupted());
-                    cycleOffset += durationMs;
-                } while (looping && durationMs > 0L && !disposed
+                    cycleOffset = nextLoopStart(cycleOffset,
+                            cycleDuration);
+                } while (looping && cycleDuration > 0L && !disposed
                         && !Thread.currentThread().isInterrupted());
                 decodingFinished = !looping && !disposed;
             } catch (Throwable problem) {
@@ -112,6 +122,11 @@ final class StreamingGifTextureAnimation implements Disposable {
         }, "coronapoker-gdx-gif-" + sanitizeThreadLabel(label));
         decoderThread.setDaemon(true);
         decoderThread.start();
+    }
+
+    static long nextLoopStart(long currentOffset, long cycleDuration) {
+        if (cycleDuration <= 0L) return currentOffset;
+        return Math.addExact(currentOffset, cycleDuration);
     }
 
     static StreamingGifTextureAnimation load(String path, int maxWidth)

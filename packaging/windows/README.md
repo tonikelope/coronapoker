@@ -63,6 +63,17 @@ English. The same stable application ID must remain unchanged so later Setup
 versions upgrade the existing per-user installation instead of creating a
 second copy.
 
+The published installer is a single executable of roughly 300 MB because it
+contains both the game and its private Java runtime. On the first launch,
+Windows or endpoint protection may scan the complete unsigned executable
+before Inno Setup is allowed to show the license page; subsequent launches are
+normally immediate once that scan is cached. A scripted Inno splash cannot
+cover this interval because its code only runs after the operating system has
+finished loading the executable. Keep solid compression enabled to minimise
+the file that Windows must inspect. Splitting the payload would make the
+wizard appear sooner, but would replace the one-file installer with an EXE
+plus external data files and is therefore deliberately not used.
+
 For a signed public build, install the code-signing certificate in the Windows
 certificate store and pass its thumbprint:
 

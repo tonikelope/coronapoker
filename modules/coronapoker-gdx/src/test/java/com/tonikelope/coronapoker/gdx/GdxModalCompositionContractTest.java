@@ -18,14 +18,19 @@ final class GdxModalCompositionContractTest {
         int blur = source.indexOf("modalBackdropBlur.endCaptureAndDraw(");
         int shade = source.indexOf("drawUnifiedModalBackdrop();", blur);
         int modal = source.indexOf("if (hasVisibleFrontendModal())", shade);
+        int toast = source.indexOf("drawToastTopLayer();", modal);
         int signature = source.indexOf(
                 "drawFrontendVersionLabelTopLayer();", modal);
 
         assertTrue(blur >= 0 && shade > blur);
         assertTrue(modal > shade,
                 "the common shade must be ready before modal chrome");
-        assertTrue(signature > modal,
+        assertTrue(toast > modal,
+                "transient feedback must remain visible above every modal");
+        assertTrue(signature > toast,
                 "the product signature must be a sharp top layer");
+        assertEquals(1, occurrences(source, "drawToastTopLayer();"),
+                "frontend feedback needs one common top-layer pass");
         assertEquals(1, occurrences(source,
                 "GdxUiDialogStyle.drawBackdrop("));
     }

@@ -182,6 +182,8 @@ final class ProductDistributionContractTest {
                 "WizardImageFile=installer-wizard.png"));
         assertTrue(installerSpec.contains(
                 "WizardSmallImageFile=installer-small.png"));
+        assertTrue(installerSpec.contains("SolidCompression=yes"),
+                "The single-file installer should stay as small as possible for Windows first-launch scanning");
         assertFalse(script.contains("-Duser.home"),
                 "Installer must preserve %USERPROFILE%/.coronapoker");
         assertTrue(script.contains(

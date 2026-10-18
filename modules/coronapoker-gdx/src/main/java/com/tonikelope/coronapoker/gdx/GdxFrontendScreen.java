@@ -1152,10 +1152,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             drawNewGameScreen();
         }
-        if (!rootSurfaceModal
-                && System.currentTimeMillis() < toastUntil) {
-            drawToast();
-        }
         shapes.end();
 
         batch.begin();
@@ -1382,6 +1378,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawScreenshotToastTopLayer();
         }
         if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
+        if (System.currentTimeMillis() < toastUntil) drawToastTopLayer();
         drawFrontendVersionLabelTopLayer();
         if (preferenceBoolean("gdx_show_fps", false)) {
             drawFrontendFpsCounter();
@@ -1491,9 +1488,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case NEW_GAME -> drawNewGameScreen();
             default -> { }
         }
-        // Toasts belong to the active surface; the product signature is a
-        // global top layer and is composed once at the end of the frame.
-        if (System.currentTimeMillis() < toastUntil) drawToast();
     }
 
     private boolean hasBlockingFrontendModal() {
@@ -11058,10 +11052,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return null;
     }
 
-    private void drawToast() {
+    private void drawToastTopLayer() {
         float w = 820f;
-        outerBox(WIDTH / 2f - w / 2f, 145f, w, 76f, ORANGE, PANEL_LIGHT);
-        textFit(uiFont, toast, WIDTH / 2f, 193f, Color.WHITE, true, w - 52f);
+        float x = WIDTH / 2f - w / 2f;
+        float y = 145f;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        outerBox(x, y, w, 76f, ORANGE, PANEL_LIGHT);
+        shapes.end();
+        batch.begin();
+        drawFittedCenteredInBox(uiFont, toast,
+                x + 26f, y + 8f, w - 52f, 60f, Color.WHITE, 1f);
+        batch.end();
     }
 
     private void drawScreenshotToastTopLayer() {

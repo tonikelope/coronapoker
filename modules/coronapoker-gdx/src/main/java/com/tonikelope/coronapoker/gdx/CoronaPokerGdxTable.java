@@ -311,12 +311,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_EDGE_SUBSAMPLE_SOFTNESS_PIXELS = 0.30f;
     private static final float CARD_EDGE_GUARD_UV = 0.05f;
     private static final float CARD_SHADER_CANVAS_SCALE = 1.5f;
-    // Thin printed details need extra reconstruction only once they approach
-    // one physical pixel. Keeping the transition footprint-driven avoids a
-    // local/remote special case and preserves the crisp larger cards.
-    private static final float CARD_ARTWORK_AA_START_TEXELS_PER_PIXEL = 4.25f;
-    private static final float CARD_ARTWORK_AA_FULL_TEXELS_PER_PIXEL = 6.25f;
-    private static final float CARD_ARTWORK_AA_MAX_BLEND = 0.75f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
     private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
@@ -440,7 +434,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    gl_Position = u_projTrans * a_position;\n"
             + "}\n";
 
-    /** Four rotated subpixel samples resolve the procedural card silhouette. */
+    /**
+     * Four rotated subpixel samples resolve only the procedural card
+     * silhouette. Card artwork is still sampled once, so ranks and suits keep
+     * their native sharpness instead of being blurred by whole-sprite SSAA.
+     */
     private static final String ROUNDED_CARD_COVERAGE_GLSL = "float roundedCardDistance(vec2 uv) {\n"
             + "    vec2 centered = abs(uv - vec2(0.5));\n"
             + "    vec2 corner = centered - (vec2(0.5) - vec2(u_cornerRadius));\n"
@@ -465,31 +463,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    return coverage * 0.25;\n"
             + "}\n";
 
-    /**
-     * Reconstructs subpixel printed details without softening artwork that is
-     * already large enough on screen. The rotated grid only fades in while
-     * minifying; its capped contribution keeps ranks and suits crisp.
-     */
-    private static final String CARD_ARTWORK_SAMPLING_GLSL = "vec4 sampleCardArtwork(vec2 uv) {\n"
-            + "    vec2 uvDx = dFdx(uv);\n"
-            + "    vec2 uvDy = dFdy(uv);\n"
-            + "    float footprintX = length(vec2(uvDx.x, uvDy.x)) * u_frontTextureSize.x;\n"
-            + "    float footprintY = length(vec2(uvDx.y, uvDy.y)) * u_frontTextureSize.y;\n"
-            + "    float footprint = max(footprintX, footprintY);\n"
-            + "    float blend = smoothstep("
-            + CARD_ARTWORK_AA_START_TEXELS_PER_PIXEL + ", "
-            + CARD_ARTWORK_AA_FULL_TEXELS_PER_PIXEL
-            + ", footprint) * " + CARD_ARTWORK_AA_MAX_BLEND + ";\n"
-            + "    vec4 center = texture2D(u_frontTexture, uv);\n"
-            + "    if (blend <= 0.001) return center;\n"
-            + "    vec4 filtered = vec4(0.0);\n"
-            + "    filtered += texture2D(u_frontTexture, uv - uvDx * 0.375 - uvDy * 0.125);\n"
-            + "    filtered += texture2D(u_frontTexture, uv - uvDx * 0.125 + uvDy * 0.375);\n"
-            + "    filtered += texture2D(u_frontTexture, uv + uvDx * 0.125 - uvDy * 0.375);\n"
-            + "    filtered += texture2D(u_frontTexture, uv + uvDx * 0.375 + uvDy * 0.125);\n"
-            + "    return mix(center, filtered * 0.25, blend);\n"
-            + "}\n";
-
     static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"
             + "#extension GL_OES_standard_derivatives : enable\n"
             + "precision mediump float;\n"
@@ -504,10 +477,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform float u_flipAngle;\n"
             + "uniform float u_cardAspect;\n"
             + "uniform float u_canvasScale;\n"
-            + "uniform vec2 u_frontTextureSize;\n"
             + "uniform vec4 u_overlay;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
-            + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
             + "    vec2 sourceUv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
             + "    if (u_perspective > 0.5) {\n"
@@ -537,7 +508,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    float mask = roundedCardCoverage(sourceUv);\n"
             + "    if (mask <= 0.001) discard;\n"
             + "    vec4 backPixel = texture2D(u_texture, sourceUv);\n"
-            + "    vec4 frontPixel = sampleCardArtwork(sourceUv);\n"
+            + "    vec4 frontPixel = texture2D(u_frontTexture, sourceUv);\n"
             + "    vec4 pixel = (u_flipAngle > 1.5707963 ? frontPixel : backPixel) * v_color;\n"
             + "    pixel.rgb = mix(pixel.rgb, u_overlay.rgb, u_overlay.a);\n"
             + "    pixel.a *= mask;\n"
@@ -3228,18 +3199,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static float cardShaderCanvasScale() {
         return CARD_SHADER_CANVAS_SCALE;
-    }
-
-    static float cardArtworkAaStartTexelsPerPixel() {
-        return CARD_ARTWORK_AA_START_TEXELS_PER_PIXEL;
-    }
-
-    static float cardArtworkAaFullTexelsPerPixel() {
-        return CARD_ARTWORK_AA_FULL_TEXELS_PER_PIXEL;
-    }
-
-    static float cardArtworkAaMaxBlend() {
-        return CARD_ARTWORK_AA_MAX_BLEND;
     }
 
     private static Texture cardTexture(FileHandle file) {
@@ -13359,8 +13318,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_cardAspect", aspect);
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
-        roundedCardShader.setUniformf("u_frontTextureSize",
-                front.getWidth(), front.getHeight());
         roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);
     }
 

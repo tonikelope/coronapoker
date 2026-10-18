@@ -88,10 +88,6 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("uniform float u_canvasScale;"));
         assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"));
         assertTrue(shader.contains("roundedCardCoverage(sourceUv)"));
-        assertTrue(shader.contains("uniform vec2 u_frontTextureSize;"));
-        assertTrue(shader.contains("sampleCardArtwork(sourceUv)"));
-        assertTrue(shader.contains("if (blend <= 0.001) return center;"),
-                "large card artwork must retain its original single sample");
         assertTrue(shader.contains("if (mask <= 0.001) discard;"),
                 "transparent guard pixels should not perform texture reads");
     }

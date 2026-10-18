@@ -100,11 +100,6 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
-        assertEquals(4.25f,
-                CoronaPokerGdxTable.cardArtworkAaStartTexelsPerPixel());
-        assertEquals(6.25f,
-                CoronaPokerGdxTable.cardArtworkAaFullTexelsPerPixel());
-        assertEquals(0.75f, CoronaPokerGdxTable.cardArtworkAaMaxBlend());
     }
 
     @Test

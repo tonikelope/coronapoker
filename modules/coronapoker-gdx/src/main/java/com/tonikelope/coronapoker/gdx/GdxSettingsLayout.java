@@ -65,6 +65,7 @@ final class GdxSettingsLayout {
     static final float STEPPER_SIGN_BASELINE = 48f;
     static final float INFO_LABEL_BASELINE = 44f;
     static final float INFO_VALUE_BASELINE = 45f;
+    static final float INFO_VALUE_RIGHT_INSET = 20f;
     static final float VOLUME_TEXT_BASELINE = 41f;
     static final float SHORTCUT_KEY_BASELINE = 38f;
     static final float SHORTCUT_DESCRIPTION_BASELINE = 38f;
@@ -78,6 +79,10 @@ final class GdxSettingsLayout {
         return new Rectangle((worldWidth - panelWidth) / 2f,
                 (worldHeight - panelHeight) / 2f,
                 panelWidth, panelHeight);
+    }
+
+    static float infoValueRight(float x, float width) {
+        return x + width - INFO_VALUE_RIGHT_INSET;
     }
 
     /**

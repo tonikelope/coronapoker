@@ -92,6 +92,25 @@ final class GdxBlindStructureEditorTest {
         assertNull(editor.selected());
     }
 
+    @Test
+    void defaultLadderCanGrowToFiftyLevelsWithoutExceedingMoneyLimits() {
+        GdxBlindStructureEditor editor = new GdxBlindStructureEditor();
+        Properties properties = new Properties();
+        editor.begin(properties, null);
+        assertTrue(editor.create("Cincuenta"));
+
+        while (editor.selected().levels().size() < 50) {
+            assertTrue(editor.addLevel());
+        }
+
+        assertEquals(50, editor.selected().levels().size());
+        assertEquals(50, GdxBlindStructureEditor.MAX_EDITABLE_LEVELS);
+        assertFalse(editor.addLevel());
+        editor.save(properties);
+        assertEquals(50, BlindStructureCatalog.read(properties).get(0)
+                .levels().size());
+    }
+
     private static Properties propertiesWith(String name, String levels) {
         Properties properties = new Properties();
         properties.setProperty("blind_structures.count", "1");

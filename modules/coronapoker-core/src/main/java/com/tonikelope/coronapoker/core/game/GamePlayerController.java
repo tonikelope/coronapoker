@@ -149,6 +149,10 @@ public interface GamePlayerController
     default void setPresentationActionLabel(String actionLabel) {
     }
 
+    /** Stores the localized base action used by the public game log. */
+    default void setGameLogActionLabel(String actionLabel) {
+    }
+
     void markFoldedOnRecover();
 
     void setStack(double stack);

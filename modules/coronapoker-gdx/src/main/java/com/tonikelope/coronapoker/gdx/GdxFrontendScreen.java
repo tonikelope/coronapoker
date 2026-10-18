@@ -8448,9 +8448,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, label, x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
                 Color.WHITE, false, w - valueWidth - 52f);
-        textFit(uiFont, value, x + w - valueWidth / 2f - 18f,
-                GdxSettingsLayout.infoValueBaseline(y), GOLD, true,
-                valueWidth);
+        textFitRight(uiFont, value,
+                GdxSettingsLayout.infoValueRight(x, w),
+                GdxSettingsLayout.infoValueBaseline(y), GOLD, valueWidth);
     }
 
     private void adjustLightLevel(int direction) {
@@ -12402,6 +12402,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Color color, boolean centered, float maxWidth) {
         (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
                 preferred, value, x, y, color, centered, maxWidth, false));
+    }
+
+    private void textFitRight(BitmapFont preferred, String value,
+            float rightX, float y, Color color, float maxWidth) {
+        TextItem fitted = fittedTextItem(preferred, value, 0f, y, color,
+                false, maxWidth, false);
+        float renderedWidth = textWidth(fitted.font(), fitted.text())
+                * fitted.scale();
+        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(
+                fitted.font(), fitted.text(), rightX - renderedWidth, y,
+                fitted.color(), false, fitted.italic(), fitted.scale(),
+                fitted.pixelSnapped()));
     }
 
     /** Fits table headers by scaling them down, never by truncating them. */

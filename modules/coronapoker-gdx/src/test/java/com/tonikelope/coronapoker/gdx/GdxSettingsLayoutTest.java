@@ -169,6 +169,13 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void informationValuesAreAnchoredToTheCanonicalRightEdge() {
+        assertEquals(1_200f,
+                GdxSettingsLayout.infoValueRight(100f, 1_120f));
+        assertEquals(20f, GdxSettingsLayout.INFO_VALUE_RIGHT_INSET);
+    }
+
+    @Test
     void ordinaryRowLabelUsesTheSameSafeLaneAsFrontendToggles() {
         Rectangle label = GdxSettingsLayout.rowLabel(100f, 200f, 1120f);
 

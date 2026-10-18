@@ -22868,8 +22868,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedLeft(settingsSmallFont, label, x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
                 width - valueWidth - 52f, Color.WHITE, alpha);
-        drawFittedCentered(settingsBodyFont, value,
-                x + width - valueWidth / 2f - 18f,
+        drawFittedRight(settingsBodyFont, value,
+                GdxSettingsLayout.infoValueRight(x, width),
                 GdxSettingsLayout.infoValueBaseline(y),
                 valueWidth, POT_GOLD, alpha);
     }
@@ -25172,6 +25172,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         font.setColor(color.r, color.g, color.b, alpha);
         font.draw(batch, text, x, baselineY);
+        font.setColor(Color.WHITE);
+        data.setScale(originalScaleX, originalScaleY);
+    }
+
+    private void drawFittedRight(BitmapFont font, String text, float rightX,
+            float baselineY, float maxWidth, Color color, float alpha) {
+        BitmapFont.BitmapFontData data = font.getData();
+        float originalScaleX = data.scaleX;
+        float originalScaleY = data.scaleY;
+        glyph.setText(font, text);
+        if (glyph.width > maxWidth) {
+            float fit = maxWidth / glyph.width;
+            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            glyph.setText(font, text);
+        }
+        font.setColor(color.r, color.g, color.b, alpha);
+        font.draw(batch, text, rightX - glyph.width, baselineY);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

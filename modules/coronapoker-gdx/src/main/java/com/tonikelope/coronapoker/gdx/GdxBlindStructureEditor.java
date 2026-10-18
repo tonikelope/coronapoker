@@ -14,6 +14,8 @@ import java.util.Properties;
 /** Transactional, renderer-independent state for the native GDX editor. */
 final class GdxBlindStructureEditor {
 
+    static final int MAX_EDITABLE_LEVELS = 50;
+
     private final ArrayList<Entry> entries = new ArrayList<>();
     private int selectedStructure = -1;
     private int selectedLevel;
@@ -138,7 +140,7 @@ final class GdxBlindStructureEditor {
     boolean addLevel() {
         Entry selected = selected();
         if (selected == null
-                || selected.levels().size() >= BlindStructureRules.MAX_LEVELS) {
+                || selected.levels().size() >= MAX_EDITABLE_LEVELS) {
             return false;
         }
         ArrayList<BlindLevel> levels = new ArrayList<>(selected.levels());
@@ -148,14 +150,26 @@ final class GdxBlindStructureEditor {
                 ? new BlindLevel(25d, 50d)
                 : new BlindLevel(roundBlind(previous.smallBlind() * 2d),
                         roundBlind(previous.bigBlind() * 2d));
-        if (!BlindStructureRules.isValidBlindValue(added.smallBlind())
-                || !BlindStructureRules.isValidBlindValue(
-                        added.bigBlind())) {
-            return false;
+        int insertionIndex = levels.size();
+        if (!validBlindLevel(added)) {
+            if (levels.size() < 2) return false;
+            BlindLevel lower = levels.get(levels.size() - 2);
+            BlindLevel upper = levels.get(levels.size() - 1);
+            added = new BlindLevel(midpointBlind(lower.smallBlind(),
+                    upper.smallBlind()), midpointBlind(lower.bigBlind(),
+                    upper.bigBlind()));
+            if (!validBlindLevel(added)
+                    || added.smallBlind() <= lower.smallBlind()
+                    || added.smallBlind() >= upper.smallBlind()
+                    || added.bigBlind() <= lower.bigBlind()
+                    || added.bigBlind() >= upper.bigBlind()) {
+                return false;
+            }
+            insertionIndex = levels.size() - 1;
         }
-        levels.add(added);
+        levels.add(insertionIndex, added);
         replaceLevels(levels);
-        selectedLevel = levels.size() - 1;
+        selectedLevel = insertionIndex;
         return true;
     }
 
@@ -239,6 +253,21 @@ final class GdxBlindStructureEditor {
     private static double roundBlind(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    private static boolean validBlindLevel(BlindLevel level) {
+        return BlindStructureRules.isValidBlindValue(level.smallBlind())
+                && BlindStructureRules.isValidBlindValue(level.bigBlind());
+    }
+
+    private static double midpointBlind(double lower, double upper) {
+        long lowerCents = Math.round(lower * 100d);
+        long upperCents = Math.round(upper * 100d);
+        long stepCents = Math.round(BlindStructureRules.BLIND_STEP * 100d);
+        long midpoint = ((lowerCents + upperCents) / 2L / stepCents)
+                * stepCents;
+        if (midpoint <= lowerCents) midpoint = lowerCents + stepCents;
+        return midpoint >= upperCents ? Double.NaN : midpoint / 100d;
     }
 
     private static int adjacent(int current, int size, int direction) {

@@ -377,6 +377,10 @@ public final class CorePlayerController implements GamePlayerController {
     @Override public void setPresentationActionLabel(String actionLabel) {
         state.setPublicActionLabel(actionLabel);
     }
+    @Override public void setGameLogActionLabel(String actionLabel) {
+        state.setLastAction(getNickname() + " " + actionLabel + " ("
+                + MoneyMath.clean(getBote()) + ")");
+    }
     @Override public void markFoldedOnRecover() { setDecision(FOLD, "FOLD"); }
     @Override public void setStack(double stack) {
         state.setStack(MoneyMath.clean(stack));

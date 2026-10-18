@@ -269,6 +269,21 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void acceptedActionCanReplaceItsInternalLabelForTheLocalizedGameLog() {
+        CorePlayerController player = CorePlayerController.local("player");
+        player.setStack(10d);
+        player.bindDealer(new StubDealer(0d));
+        player.esTuTurno();
+
+        assertTrue(player.submitDecision(GamePlayerController.CHECK, 0d));
+        assertEquals("player CHECK (0.0)", player.getLastActionString());
+
+        player.setGameLogActionLabel("PASA");
+
+        assertEquals("player PASA (0.0)", player.getLastActionString());
+    }
+
+    @Test
     void staleTimeoutCannotOverrideACompletedManualDecision() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(10d);

@@ -46,6 +46,13 @@ final class GdxCardSmaaRenderer implements Disposable {
     static final int QUALITY_OFF = 0;
     static final int QUALITY_ULTRA = 1;
 
+    /**
+     * Keeps most of the unprocessed artwork at opaque internal edges while
+     * retaining enough of the SMAA resolve to remove visible stair steps.
+     * Alpha-changing silhouette pixels still receive the complete resolve.
+     */
+    private static final float INTERIOR_EDGE_BLEND_STRENGTH = 0.72f;
+
     private static final String RESOURCE_ROOT = "smaa/";
     private static final String PRESET_ULTRA =
             "#define SMAA_PRESET_ULTRA\n";
@@ -146,6 +153,8 @@ final class GdxCardSmaaRenderer implements Disposable {
         blendShader.setUniformi("uColorTexture", 0);
         blendShader.setUniformi("uBlendTexture", 1);
         blendShader.setUniformf("uTexelSize", texelX, texelY);
+        blendShader.setUniformf("uInteriorEdgeBlendStrength",
+                INTERIOR_EDGE_BLEND_STRENGTH);
         fullscreenTriangle.render(blendShader, GL20.GL_TRIANGLES);
         blendShader.end();
 
@@ -186,6 +195,10 @@ final class GdxCardSmaaRenderer implements Disposable {
 
     int activeHeight() {
         return active ? colorLayer.getHeight() : 0;
+    }
+
+    static float interiorEdgeBlendStrength() {
+        return INTERIOR_EDGE_BLEND_STRENGTH;
     }
 
     static boolean fitsMaximumTextureSize(int width, int height,

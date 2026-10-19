@@ -25,6 +25,7 @@ uniform sampler2D uBlendTexture;
 #endif
 
 uniform vec2 uTexelSize;
+uniform float uInteriorEdgeBlendStrength;
 
 varying vec2 vTexCoord0;
 varying vec4 vOffset;
@@ -43,6 +44,7 @@ void SMAAMovc(bvec4 cond, inout vec4 variable, vec4 value) {
 }
 
 void main() {
+  vec4 original = texture2D(uColorTexture, vTexCoord0);
   vec4 color;
 
   // Fetch the blending weights for current pixel:
@@ -53,7 +55,8 @@ void main() {
 
   // Is there any blending weight with a value greater than 0.0?
   if (dot(a, vec4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
-    color = texture2D(uColorTexture, vTexCoord0); // LinearSampler
+    // Non-edge pixels remain bit-for-bit on the original sampling path.
+    color = original;
 
     #if SMAA_REPROJECTION
       vec2 velocity = SMAA_DECODE_VELOCITY(texture2D(uVelocityTexture, vTexCoord0));
@@ -78,6 +81,17 @@ void main() {
     // neighbor:
     color = blendingWeight.x * texture2D(uColorTexture, blendingCoord.xy); // LinearSampler
     color += blendingWeight.y * texture2D(uColorTexture, blendingCoord.zw); // LinearSampler
+
+    // Card artwork contains dense printed detail. A full neighbourhood
+    // resolve on every opaque colour edge makes that detail look softer even
+    // though only edge pixels changed. Preserve part of the original sample
+    // for internal edges, while alpha-changing silhouette pixels retain the
+    // complete SMAA resolve and therefore their clean transparent outline.
+    float alphaTransition = smoothstep(0.003, 0.04,
+      abs(color.a - original.a));
+    float resolveStrength = mix(uInteriorEdgeBlendStrength, 1.0,
+      alphaTransition);
+    color = mix(original, color, resolveStrength);
 
     #if SMAA_REPROJECTION
       // Antialias velocity for proper reprojection in a later stage:

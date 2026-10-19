@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -114,6 +115,7 @@ final class GdxCardSmaaRendererContractTest {
     void usesOfficialThreePassUltraSmaaWithoutSupersampling()
             throws IOException {
         String smaa = Files.readString(source("GdxCardSmaaRenderer.java"));
+        String blend = Files.readString(resource("smaa-blend.frag"));
 
         assertTrue(smaa.contains("SMAA_PRESET_ULTRA"));
         assertTrue(smaa.contains("SMAA_EDGES_COLOR"));
@@ -125,6 +127,14 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(smaa.contains("TextureFilter.Linear"));
         assertFalse(smaa.contains("supersampledDimension"));
         assertFalse(smaa.contains("u_linearScale"));
+        assertEquals(0.72f,
+                GdxCardSmaaRenderer.interiorEdgeBlendStrength());
+        assertTrue(blend.contains(
+                "color = mix(original, color, resolveStrength)"));
+        assertTrue(blend.contains(
+                "mix(uInteriorEdgeBlendStrength, 1.0"));
+        assertFalse(blend.contains("sharpen"),
+                "selective SMAA must not add an image-sharpening pass");
 
         assertTrue(Files.isRegularFile(resource("area.png")));
         assertTrue(Files.isRegularFile(resource("search.png")));

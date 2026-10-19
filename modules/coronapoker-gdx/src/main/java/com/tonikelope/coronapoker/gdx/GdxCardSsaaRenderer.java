@@ -48,6 +48,7 @@ final class GdxCardSsaaRenderer implements Disposable {
             + "varying vec2 v_texCoords;\n"
             + "void main() {\n"
             + "    v_color = a_color;\n"
+            + "    v_color.a = v_color.a * (255.0 / 254.0);\n"
             + "    v_texCoords = a_texCoord0;\n"
             + "    gl_Position = u_projTrans * a_position;\n"
             + "}\n";

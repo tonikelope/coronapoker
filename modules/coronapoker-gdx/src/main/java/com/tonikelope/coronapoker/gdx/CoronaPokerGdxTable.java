@@ -12329,7 +12329,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Texture layer = disabledHoleCardsLayer.getColorBufferTexture();
         GdxCardSsaaRenderer.usePremultipliedComposite(batch);
         batch.begin();
-        batch.setColor(1f, 1f, 1f, alpha);
+        // The framebuffer already stores RGB premultiplied by its own alpha.
+        // Applying an additional fold/showdown opacity to alpha alone breaks
+        // that invariant and produces bright orange colours and hard fringes.
+        // Fade premultiplied RGB and alpha together.
+        batch.setColor(alpha, alpha, alpha, alpha);
         batch.draw(layer, 0f, 0f, viewport.getWorldWidth(),
                 viewport.getWorldHeight(), 0, 0, layer.getWidth(),
                 layer.getHeight(), false, true);

@@ -46,6 +46,21 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
+    void disabledCardOpacityPreservesPremultipliedColour() throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        int method = table.indexOf(
+                "private void finishHoleCardsLayer(float alpha)");
+        int premultiplied = table.indexOf(
+                "usePremultipliedComposite(batch);", method);
+        int fade = table.indexOf(
+                "batch.setColor(alpha, alpha, alpha, alpha);", method);
+
+        assertTrue(method >= 0 && premultiplied > method);
+        assertTrue(fade > premultiplied,
+                "fold/showdown opacity must scale premultiplied RGB and alpha together");
+    }
+
+    @Test
     void ssaaLayerRebindsItsFramebufferAndHighResolutionViewport()
             throws IOException {
         String ssaa = Files.readString(source("GdxCardSsaaRenderer.java"));

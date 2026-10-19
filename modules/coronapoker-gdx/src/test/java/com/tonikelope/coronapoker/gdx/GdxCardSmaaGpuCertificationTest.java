@@ -168,9 +168,8 @@ final class GdxCardSmaaGpuCertificationTest {
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         pixmap.setColor(0.08f, 0.10f, 0.72f, 1f);
-        for (int offset = -1; offset <= 1; offset++) {
-            pixmap.drawLine(8, 68 + offset, 61, 13 + offset);
-        }
+        pixmap.drawRectangle(8, 12, 54, 57);
+        pixmap.drawLine(8, 68, 61, 13);
         Texture texture = new Texture(pixmap, false);
         texture.setFilter(Texture.TextureFilter.Nearest,
                 Texture.TextureFilter.Nearest);

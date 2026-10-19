@@ -132,7 +132,13 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(blend.contains(
                 "color = mix(original, color, resolveStrength)"));
         assertTrue(blend.contains(
-                "mix(uInteriorEdgeBlendStrength, 1.0"));
+                "maximumChannelDelta(outsideNegative.rgb, outsidePositive.rgb)"));
+        assertTrue(blend.contains(
+                "float thinStroke = outsideAgreement * strokeContrast"));
+        assertTrue(blend.contains(
+                "float interiorStrength = mix(uInteriorEdgeBlendStrength, 1.0"));
+        assertTrue(blend.contains(
+                "float resolveStrength = mix(interiorStrength, 1.0"));
         assertFalse(blend.contains("sharpen"),
                 "selective SMAA must not add an image-sharpening pass");
 

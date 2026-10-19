@@ -90,7 +90,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void cardsUseNeutralTexturesAndFourSampleGpuSsaa() {
+    void cardsUseNeutralTexturesAndNativeResolutionGpuSmaa() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
         assertEquals(TextureFilter.MipMapLinearLinear,
                 CoronaPokerGdxTable.cardMinificationFilter());
@@ -100,15 +100,12 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
-        assertEquals(2, GdxCardSsaaRenderer.linearScaleForSamples(4));
-        assertEquals(3, GdxCardSsaaRenderer.linearScaleForSamples(9));
-        assertEquals(4, GdxCardSsaaRenderer.linearScaleForSamples(16));
-        assertEquals(5_120,
-                GdxCardSsaaRenderer.supersampledDimension(2_560, 4));
-        assertTrue(GdxCardSsaaRenderer.fitsMaximumTextureSize(
-                3_840, 2_160, 4, 8_192));
-        assertFalse(GdxCardSsaaRenderer.fitsMaximumTextureSize(
-                5_120, 2_880, 4, 8_192));
+        assertEquals(0, GdxCardSmaaRenderer.QUALITY_OFF);
+        assertEquals(1, GdxCardSmaaRenderer.QUALITY_ULTRA);
+        assertTrue(GdxCardSmaaRenderer.fitsMaximumTextureSize(
+                3_840, 2_160, 8_192));
+        assertFalse(GdxCardSmaaRenderer.fitsMaximumTextureSize(
+                8_193, 2_880, 8_192));
     }
 
     @Test

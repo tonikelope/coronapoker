@@ -26,8 +26,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
-    private static final List<Integer> CARD_SSAA_LEVELS = List.of(
-            0, 4, 9, 16);
+    private static final List<Integer> CARD_SMAA_QUALITIES = List.of(
+            GdxCardSmaaRenderer.QUALITY_OFF,
+            GdxCardSmaaRenderer.QUALITY_ULTRA);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;
@@ -336,29 +337,29 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         if (persist) preferences.saveDeferred();
         return selected;
     }
-    int requestedCardSsaaSamples() {
-        int configured = integer("gdx_card_ssaa_samples",
-                GdxSettingsContract.DEFAULT_CARD_SSAA_SAMPLES);
-        return CARD_SSAA_LEVELS.contains(configured) ? configured
-                : GdxSettingsContract.DEFAULT_CARD_SSAA_SAMPLES;
+    int requestedCardSmaaQuality() {
+        int configured = integer("gdx_card_smaa_quality",
+                GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY);
+        return CARD_SMAA_QUALITIES.contains(configured) ? configured
+                : GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY;
     }
-    int selectNextCardSsaaSamples() {
-        return selectNextCardSsaaSamples(true);
+    int selectNextCardSmaaQuality() {
+        return selectNextCardSmaaQuality(true);
     }
-    int selectNextCardSsaaSamples(boolean persist) {
-        return adjustCardSsaaSamples(1, persist);
+    int selectNextCardSmaaQuality(boolean persist) {
+        return adjustCardSmaaQuality(1, persist);
     }
-    int selectPreviousCardSsaaSamples() {
-        return selectPreviousCardSsaaSamples(true);
+    int selectPreviousCardSmaaQuality() {
+        return selectPreviousCardSmaaQuality(true);
     }
-    int selectPreviousCardSsaaSamples(boolean persist) {
-        return adjustCardSsaaSamples(-1, persist);
+    int selectPreviousCardSmaaQuality(boolean persist) {
+        return adjustCardSmaaQuality(-1, persist);
     }
-    private int adjustCardSsaaSamples(int direction, boolean persist) {
-        int current = CARD_SSAA_LEVELS.indexOf(requestedCardSsaaSamples());
-        int selected = CARD_SSAA_LEVELS.get(Math.floorMod(current
-                + Integer.signum(direction), CARD_SSAA_LEVELS.size()));
-        properties.setProperty("gdx_card_ssaa_samples",
+    private int adjustCardSmaaQuality(int direction, boolean persist) {
+        int current = CARD_SMAA_QUALITIES.indexOf(requestedCardSmaaQuality());
+        int selected = CARD_SMAA_QUALITIES.get(Math.floorMod(current
+                + Integer.signum(direction), CARD_SMAA_QUALITIES.size()));
+        properties.setProperty("gdx_card_smaa_quality",
                 Integer.toString(selected));
         if (persist) preferences.saveDeferred();
         return selected;

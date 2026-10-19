@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsNavigationContractTest {
 
     @Test
-    void liveGraphicsRowsPaintSsaaAsAStepperWithoutToggleOverlap()
+    void liveGraphicsRowsPaintSmaaAsAStepperWithoutToggleOverlap()
             throws IOException {
         String source = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
@@ -34,7 +34,7 @@ final class GdxSettingsNavigationContractTest {
                 "drawSettingsInfoShape(x, firstY - 7f * rowStride"));
         assertFalse(shapes.contains(
                 "drawSettingsToggleShape(x, firstY - 5f * rowStride"),
-                "the FPS toggle must never be painted over the SSAA plus "
+                "the FPS toggle must never be painted over the SMAA plus "
                 + "button");
     }
 
@@ -197,7 +197,7 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
-    void graphicsSettingsKeepsTheLiveTableSharpForSsaaPreview() {
+    void graphicsSettingsKeepsTheLiveTableSharpForSmaaPreview() {
         assertTrue(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
                 CoronaPokerGdxTable.UI_SETTINGS,
                 GdxSettingsContract.Section.APPEARANCE, 1));

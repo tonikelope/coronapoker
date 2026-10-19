@@ -437,7 +437,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /**
      * Four rotated subpixel samples resolve only the procedural card
      * silhouette. Card artwork is still sampled once, so ranks and suits keep
-     * their native sharpness instead of being blurred by whole-sprite SSAA.
+     * their native sharpness instead of being blurred by whole-sprite scaling.
      */
     private static final String ROUNDED_CARD_COVERAGE_GLSL = "float roundedCardDistance(vec2 uv) {\n"
             + "    vec2 centered = abs(uv - vec2(0.5));\n"
@@ -576,7 +576,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /**
      * Keeps cinematic artwork sharp while resolving its rounded silhouette
      * with four rotated subpixel coverage samples. The GIF texture itself is
-     * sampled only once, avoiding the softening caused by whole-image SSAA.
+     * sampled only once, avoiding the softening caused by whole-image scaling.
      */
     static final String CINEMATIC_FRAGMENT_SHADER = "#ifdef GL_ES\n"
             + "#extension GL_OES_standard_derivatives : enable\n"
@@ -1102,8 +1102,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram allInFireShader;
     private GdxModalBackdropBlur modalBackdropBlur;
     private boolean modalBackdropCaptureActive;
-    private final GdxCardSsaaRenderer cardSsaaRenderer
-            = new GdxCardSsaaRenderer();
+    private final GdxCardSmaaRenderer cardSmaaRenderer
+            = new GdxCardSmaaRenderer();
     private FrameBuffer disabledHoleCardsLayer;
 
     private BitmapFont uiFont;
@@ -3271,7 +3271,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static Texture cardTexture(FileHandle file) {
         // Preserve neutral deck pixels here. Hardware trilinear filtering
         // handles ordinary texture minification; the dedicated screen-space
-        // SSAA layer resolves the complete transformed card without LOD bias,
+        // SMAA resolves the complete transformed card without source-texture
         // sharpening or colour-dependent artwork filtering.
         Texture texture = new Texture(file, cardMipMapsEnabled());
         texture.setFilter(cardMinificationFilter(),
@@ -5298,7 +5298,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (sharpGraphicsPreview && !blurModalBackdrop) {
             // This is the only settings page whose effect must be judged on
             // the live table. Keep the usual modal shade, but do not destroy
-            // SSAA detail by first downsampling and blurring the cards.
+            // card detail by first downsampling and blurring the cards.
             drawUnifiedModalBackdrop();
         }
         drawUiLayer();
@@ -8820,19 +8820,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
-    private String tableCardSsaaSettingLabel() {
+    private String tableCardSmaaSettingLabel() {
         if (presentationSettings == null) {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        return GdxSettingsContract.cardSsaaStatusLabel(
-                presentationSettings.requestedCardSsaaSamples(), gameText);
+        return GdxSettingsContract.cardSmaaStatusLabel(
+                presentationSettings.requestedCardSmaaQuality(), gameText);
     }
 
-    private String tableCardSsaaRuntimeStatus() {
+    private String tableCardSmaaRuntimeStatus() {
         if (presentationSettings == null) return "";
-        int requested = presentationSettings.requestedCardSsaaSamples();
-        if (!cardSsaaRenderer.isUnavailable(requested)) {
+        int requested = presentationSettings.requestedCardSmaaQuality();
+        if (!cardSmaaRenderer.isUnavailable(requested)) {
             return "";
         }
         return uppercase(gameText.translate(
@@ -12340,7 +12340,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         batch.setProjectionMatrix(camera.combined);
-        GdxCardSsaaRenderer.useStraightAlphaCapture(batch);
+        GdxCardSmaaRenderer.useStraightAlphaCapture(batch);
         batch.begin();
     }
 
@@ -12351,13 +12351,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disabledHoleCardsLayer.end();
 
         // FrameBuffer.end() always binds the default backbuffer; it does not
-        // restore an outer framebuffer. Restore the card SSAA layer first
+        // restore an outer framebuffer. Restore the card SMAA layer first
         // when present, then the modal backdrop or physical backbuffer.
         restoreParentFramebufferAfterNestedPass();
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         Texture layer = disabledHoleCardsLayer.getColorBufferTexture();
-        GdxCardSsaaRenderer.usePremultipliedComposite(batch);
+        GdxCardSmaaRenderer.usePremultipliedComposite(batch);
         batch.begin();
         // The framebuffer already stores RGB premultiplied by its own alpha.
         // Applying an additional fold/showdown opacity to alpha alone breaks
@@ -12369,10 +12369,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 layer.getHeight(), false, true);
         batch.setColor(Color.WHITE);
         batch.end();
-        if (cardSsaaRenderer.isActive()) {
-            GdxCardSsaaRenderer.useStraightAlphaCapture(batch);
+        if (cardSmaaRenderer.isActive()) {
+            GdxCardSmaaRenderer.useStraightAlphaCapture(batch);
         } else {
-            GdxCardSsaaRenderer.useStandardAlpha(batch);
+            GdxCardSmaaRenderer.useStandardAlpha(batch);
         }
     }
 
@@ -12390,11 +12390,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void ensureDisabledHoleCardsLayer() {
-        int width = cardSsaaRenderer.isActive()
-                ? cardSsaaRenderer.activeWidth()
+        int width = cardSmaaRenderer.isActive()
+                ? cardSmaaRenderer.activeWidth()
                 : Math.max(1, Gdx.graphics.getBackBufferWidth());
-        int height = cardSsaaRenderer.isActive()
-                ? cardSsaaRenderer.activeHeight()
+        int height = cardSmaaRenderer.isActive()
+                ? cardSmaaRenderer.activeHeight()
                 : Math.max(1, Gdx.graphics.getBackBufferHeight());
         if (disabledHoleCardsLayer != null
                 && disabledHoleCardsLayer.getWidth() == width
@@ -12481,27 +12481,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawHoleCards(boolean foregroundRevealFlights) {
         Objects.requireNonNull(liveState,
                 "Hole-card rendering requires authoritative live state");
-        boolean supersampled = beginCardSsaaLayer();
+        boolean antialiased = beginCardSmaaLayer();
         drawLiveHoleCards(foregroundRevealFlights);
-        if (supersampled) finishCardSsaaLayer();
+        if (antialiased) finishCardSmaaLayer();
     }
 
-    private boolean beginCardSsaaLayer() {
-        int samples = presentationSettings == null
-                ? GdxSettingsContract.DEFAULT_CARD_SSAA_SAMPLES
-                : presentationSettings.requestedCardSsaaSamples();
-        return cardSsaaRenderer.begin(Gdx.graphics.getBackBufferWidth(),
-                Gdx.graphics.getBackBufferHeight(), samples, batch);
+    private boolean beginCardSmaaLayer() {
+        int quality = presentationSettings == null
+                ? GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY
+                : presentationSettings.requestedCardSmaaQuality();
+        return cardSmaaRenderer.begin(Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight(), quality, batch);
     }
 
-    private void finishCardSsaaLayer() {
-        cardSsaaRenderer.endAndComposite(viewport, batch, camera.combined,
+    private void finishCardSmaaLayer() {
+        cardSmaaRenderer.endAndComposite(batch, camera.combined,
                 this::restoreParentFramebufferAfterNestedPass);
     }
 
     private void restoreParentFramebufferAfterNestedPass() {
-        if (cardSsaaRenderer.isActive()) {
-            cardSsaaRenderer.resumeAfterNestedPass();
+        if (cardSmaaRenderer.isActive()) {
+            cardSmaaRenderer.resumeAfterNestedPass();
         } else if (modalBackdropCaptureActive) {
             modalBackdropBlur.resumeCaptureAfterNestedPass();
         } else {
@@ -12666,13 +12666,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
         float cardY = cy - cardH * 0.36f;
-        boolean supersampled = beginCardSsaaLayer();
+        boolean antialiased = beginCardSmaaLayer();
         batch.begin();
         drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX, cardBack);
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
-        if (supersampled) finishCardSsaaLayer();
+        if (antialiased) finishCardSmaaLayer();
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -18330,9 +18330,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
                     if (direction < 0) {
-                        presentationSettings.selectPreviousCardSsaaSamples(false);
+                        presentationSettings.selectPreviousCardSmaaQuality(false);
                     } else if (direction > 0) {
-                        presentationSettings.selectNextCardSsaaSamples(false);
+                        presentationSettings.selectNextCardSmaaQuality(false);
                     }
                     return;
                 }
@@ -21403,7 +21403,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             bounds.set(x, firstY - 5f * rowStride, width,
                     GdxSettingsLayout.ROW_HEIGHT);
             return settingsPerformanceHover(bounds,
-                    "gdx_card_ssaa_samples", viewportBounds, properties);
+                    "gdx_card_smaa_quality", viewportBounds, properties);
         }
 
         GdxSettingsContract.TogglePage page =
@@ -22573,15 +22573,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         uppercase(gameText.translate(
                                 "gdx.settings.row.antialiasing_cards")),
                         GdxSettingsContract.markDefault(
-                                tableCardSsaaSettingLabel(),
+                                tableCardSmaaSettingLabel(),
                                 Integer.toString(GdxSettingsContract
-                                        .DEFAULT_CARD_SSAA_SAMPLES).equals(
+                                        .DEFAULT_CARD_SMAA_QUALITY).equals(
                                         tableSettingsProperties().getProperty(
-                                                "gdx_card_ssaa_samples",
+                                                "gdx_card_smaa_quality",
                                                 Integer.toString(
                                                         GdxSettingsContract
-                                                                .DEFAULT_CARD_SSAA_SAMPLES)))),
-                        tableCardSsaaRuntimeStatus(),
+                                                                .DEFAULT_CARD_SMAA_QUALITY)))),
+                        tableCardSmaaRuntimeStatus(),
                         presentationSettings != null, alpha);
                 boolean showFps = booleanPreference(
                         tableSettingsProperties(), "gdx_show_fps", false);
@@ -25725,7 +25725,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         while (!dialogQueue.isEmpty()) dialogQueue.removeFirst().dismiss();
         if (startupIntroOnly) {
-            cardSsaaRenderer.dispose();
+            cardSmaaRenderer.dispose();
             batch.dispose();
             shapes.dispose();
             roundedCardShader.dispose();
@@ -25767,7 +25767,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (cinematicShader != null) cinematicShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
-        cardSsaaRenderer.dispose();
+        cardSmaaRenderer.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         uiFont.dispose();
         potFont.dispose();

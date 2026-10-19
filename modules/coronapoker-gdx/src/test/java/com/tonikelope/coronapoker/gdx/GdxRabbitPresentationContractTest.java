@@ -94,9 +94,9 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("texture2D(u_texture, sourceUv)"));
         assertTrue(shader.contains("texture2D(u_frontTexture, sourceUv)"));
         assertFalse(shader.contains("cardArtworkLodBias"),
-                "the obsolete biased artwork filter must not be stacked below SSAA");
+                "the obsolete biased artwork filter must not be stacked below SMAA");
         assertFalse(shader.contains("cardArtworkContrast"),
-                "SSAA must replace the old colour-gradient heuristic");
+                "SMAA must replace the old colour-gradient heuristic");
         assertTrue(CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER.contains(
                 "texture2D(u_overlayTexture, uv)"));
     }

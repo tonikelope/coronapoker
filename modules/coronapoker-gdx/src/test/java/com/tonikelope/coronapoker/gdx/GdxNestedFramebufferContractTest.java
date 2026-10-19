@@ -35,14 +35,14 @@ final class GdxNestedFramebufferContractTest {
         int method = table.indexOf(
                 "private void restoreParentFramebufferAfterNestedPass()");
         int card = table.indexOf(
-                "cardSsaaRenderer.resumeAfterNestedPass();", method);
+                "cardSmaaRenderer.resumeAfterNestedPass();", method);
         int modal = table.indexOf(
                 "modalBackdropBlur.resumeCaptureAfterNestedPass();", method);
         int physical = table.indexOf("viewport.apply();", method);
 
         assertTrue(method >= 0);
         assertTrue(card > method && modal > card && physical > modal,
-                "nested passes must restore card SSAA, modal capture and then the backbuffer");
+                "nested passes must restore card SMAA, modal capture and then the backbuffer");
     }
 
     @Test
@@ -61,12 +61,12 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
-    void ssaaLayerRebindsItsFramebufferAndHighResolutionViewport()
+    void smaaLayerRebindsItsFramebufferAndNativeResolutionViewport()
             throws IOException {
-        String ssaa = Files.readString(source("GdxCardSsaaRenderer.java"));
-        int method = ssaa.indexOf("void resumeAfterNestedPass()");
-        int bind = ssaa.indexOf("layer.bind();", method);
-        int viewport = ssaa.indexOf("Gdx.gl.glViewport(", bind);
+        String smaa = Files.readString(source("GdxCardSmaaRenderer.java"));
+        int method = smaa.indexOf("void resumeAfterNestedPass()");
+        int bind = smaa.indexOf("colorLayer.bind();", method);
+        int viewport = smaa.indexOf("Gdx.gl.glViewport(", bind);
 
         assertTrue(method >= 0);
         assertTrue(bind > method);

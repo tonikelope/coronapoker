@@ -20,7 +20,8 @@ final class GdxSettingsContract {
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
-    static final int DEFAULT_CARD_SSAA_SAMPLES = 4;
+    static final int DEFAULT_CARD_SMAA_QUALITY =
+            GdxCardSmaaRenderer.QUALITY_ULTRA;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
@@ -442,7 +443,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            "gdx_msaa_samples", "gdx_card_ssaa_samples",
+            "gdx_msaa_samples", "gdx_card_smaa_quality",
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max");
@@ -472,7 +473,7 @@ final class GdxSettingsContract {
                 PerformanceImpact.LOW;
             case "card_flip_zoom" -> integer(values, key, 100) <= 100
                     ? PerformanceImpact.LOW : PerformanceImpact.MEDIUM;
-            case "gdx_msaa_samples", "gdx_card_ssaa_samples" ->
+            case "gdx_msaa_samples", "gdx_card_smaa_quality" ->
                 PerformanceImpact.HIGH;
             case "gdx_fps_limit" -> {
                 int limit = integer(values, key, DEFAULT_FRAME_RATE_LIMIT);
@@ -605,12 +606,12 @@ final class GdxSettingsContract {
         return openedRequested != requested && requested != actual;
     }
 
-    static String cardSsaaStatusLabel(int samples, GdxGameText text) {
-        if (samples == 0) {
-            return antialiasingValue("SSAA", samples, text);
+    static String cardSmaaStatusLabel(int quality, GdxGameText text) {
+        if (quality == GdxCardSmaaRenderer.QUALITY_OFF) {
+            return "SMAA " + translatedUpper(text,
+                    "gdx.settings.value.disabled", "DESACTIVADO");
         }
-        int scale = GdxCardSsaaRenderer.linearScaleForSamples(samples);
-        return "SSAA " + scale + "×" + scale;
+        return "SMAA 1X ULTRA";
     }
 
     private static String antialiasingValue(String technique, int samples,
@@ -792,8 +793,8 @@ final class GdxSettingsContract {
             properties.setProperty("gdx_fps_limit",
                     Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
             properties.setProperty("gdx_show_fps", "false");
-            properties.setProperty("gdx_card_ssaa_samples",
-                    Integer.toString(DEFAULT_CARD_SSAA_SAMPLES));
+            properties.setProperty("gdx_card_smaa_quality",
+                    Integer.toString(DEFAULT_CARD_SMAA_QUALITY));
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
@@ -832,8 +833,8 @@ final class GdxSettingsContract {
                     && stringAtDefault(properties, "gdx_fps_limit",
                             Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
                     && booleanAtDefault(properties, "gdx_show_fps", false)
-                    && stringAtDefault(properties, "gdx_card_ssaa_samples",
-                            Integer.toString(DEFAULT_CARD_SSAA_SAMPLES));
+                    && stringAtDefault(properties, "gdx_card_smaa_quality",
+                            Integer.toString(DEFAULT_CARD_SMAA_QUALITY));
             return runtime && (!includeStartupGraphics
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,

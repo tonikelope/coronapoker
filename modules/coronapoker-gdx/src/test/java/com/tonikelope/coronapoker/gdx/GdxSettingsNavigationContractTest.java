@@ -5,10 +5,38 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class GdxSettingsNavigationContractTest {
+
+    @Test
+    void liveGraphicsRowsPaintSsaaAsAStepperWithoutToggleOverlap()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        int start = source.indexOf(
+                "private void drawSettingsContentShapes(");
+        int end = source.indexOf(
+                "private float settingsToggleAnimation(", start);
+        assertTrue(start >= 0 && end > start);
+        String shapes = source.substring(start, end);
+
+        assertTrue(shapes.contains(
+                "drawSettingsStepperShape(x, firstY - 5f * rowStride"));
+        assertTrue(shapes.contains(
+                "drawSettingsToggleShape(x, firstY - 6f * rowStride"));
+        assertTrue(shapes.contains(
+                "drawSettingsInfoShape(x, firstY - 7f * rowStride"));
+        assertFalse(shapes.contains(
+                "drawSettingsToggleShape(x, firstY - 5f * rowStride"),
+                "the FPS toggle must never be painted over the SSAA plus "
+                + "button");
+    }
 
     @Test
     void gamePagesHaveOneSharedContextAwareContract() {

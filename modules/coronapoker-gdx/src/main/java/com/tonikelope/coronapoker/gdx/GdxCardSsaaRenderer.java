@@ -92,6 +92,7 @@ final class GdxCardSsaaRenderer implements Disposable {
     private ShaderProgram resolveShader;
     private boolean active;
     private int activeLinearScale;
+    private int activeSamples;
     private int effectiveSamples;
     private int lastAttemptedSamples = -1;
     private int rejectedBackBufferWidth = -1;
@@ -124,7 +125,7 @@ final class GdxCardSsaaRenderer implements Disposable {
         layer.begin();
         active = true;
         activeLinearScale = linearScaleForSamples(requestedSamples);
-        effectiveSamples = requestedSamples;
+        activeSamples = requestedSamples;
         Gdx.gl.glViewport(0, 0, layer.getWidth(), layer.getHeight());
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -156,6 +157,10 @@ final class GdxCardSsaaRenderer implements Disposable {
         batch.end();
         batch.setShader(null);
         useStandardAlpha(batch);
+        // Report a level as effective only after its high-resolution layer
+        // has actually been resolved and composited into the parent target.
+        effectiveSamples = activeSamples;
+        activeSamples = 0;
     }
 
     /** Rebinds this layer after an inner disabled-card framebuffer pass. */
@@ -329,6 +334,7 @@ final class GdxCardSsaaRenderer implements Disposable {
         if (resolveShader != null) resolveShader.dispose();
         resolveShader = null;
         active = false;
+        activeSamples = 0;
         effectiveSamples = 0;
         lastAttemptedSamples = -1;
     }

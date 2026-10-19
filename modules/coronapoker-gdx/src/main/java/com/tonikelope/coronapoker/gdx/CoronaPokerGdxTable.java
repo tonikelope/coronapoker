@@ -21938,9 +21938,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         alpha);
                 drawSettingsStepperShape(x, firstY - 4f * rowStride, width,
                         presentationSettings != null, alpha);
-                drawSettingsToggleShape(x, firstY - 5f * rowStride, width,
+                drawSettingsStepperShape(x, firstY - 5f * rowStride, width,
+                        presentationSettings != null, alpha);
+                drawSettingsToggleShape(x, firstY - 6f * rowStride, width,
                         tablePreference("gdx_show_fps", false), alpha);
-                drawSettingsInfoShape(x, firstY - 6f * rowStride, width,
+                drawSettingsInfoShape(x, firstY - 7f * rowStride, width,
                         alpha);
             } else {
                 GdxSettingsContract.TogglePage page =

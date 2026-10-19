@@ -125,14 +125,14 @@ final class GdxCardSmaaRendererContractTest {
                 "private void useRabbitPeelShader(Texture front, float progress,",
                 "private void configureCardShader(Texture front, float angle,");
 
-        assertEquals(4, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());
+        assertEquals(8, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());
         assertTrue(artwork.contains("uniform float u_artworkSmooth"));
-        assertTrue(artwork.contains("if (u_artworkSmooth < 0.5)"));
+        assertTrue(artwork.contains("if (u_artworkSmooth < 0.5) {"));
         assertTrue(artwork.contains("vec2 uvDx = dFdx(uv)"));
         assertTrue(artwork.contains("vec2 uvDy = dFdy(uv)"));
-        assertEquals(4, occurrences(artwork,
+        assertEquals(8, occurrences(artwork,
                 "resolved += texture2D(artwork"));
-        assertTrue(artwork.contains("return resolved * 0.25"));
+        assertTrue(artwork.contains("return resolved * 0.125"));
         assertFalse(artwork.toLowerCase().contains("sharpen"));
         assertTrue(regular.contains(
                 "setUniformf(\"u_artworkSmooth\""));

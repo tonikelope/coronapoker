@@ -553,6 +553,11 @@ final class GdxScenarioRenderer implements TableRenderer {
                     && controls.state().foldEnabled()) {
                 assertTrue(productTable().activateFoldAction(),
                         "native GDX fold control did not submit");
+                if (controls.state().callAction()
+                        == ActionControlState.CallAction.CHECK) {
+                    assertTrue(productTable().resolveActiveDialogChoice(true),
+                            "native GDX free-fold confirmation did not resolve");
+                }
             } else if ((allInAtFirstOpportunity.get()
                     || allInEveryHand.get()
                     || allInHand.get() == currentHand.get())

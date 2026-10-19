@@ -130,8 +130,20 @@ $jpackage = Resolve-JdkTool "jpackage"
 $jlink = Resolve-JdkTool "jlink"
 $jdeps = Resolve-JdkTool "jdeps"
 $java = Resolve-JdkTool "java"
-$jdkProperties = @(& $java -XshowSettings:properties -version 2>&1)
-if ($LASTEXITCODE -ne 0 -or -not ($jdkProperties -match
+$savedErrorActionPreference = $ErrorActionPreference
+try {
+    # Windows PowerShell reports native stderr as ErrorRecord objects when
+    # ErrorActionPreference is Stop. java -XshowSettings intentionally writes
+    # its successful diagnostic output there, so capture it without turning it
+    # into a terminating PowerShell error.
+    $ErrorActionPreference = "Continue"
+    $jdkProperties = @(& $java -XshowSettings:properties -version 2>&1 |
+            ForEach-Object { $_.ToString() })
+    $javaExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $savedErrorActionPreference
+}
+if ($javaExitCode -ne 0 -or -not ($jdkProperties -match
         '^\s*java\.specification\.version\s*=\s*25\s*$')) {
     throw "The Windows installer must be built with JDK 25."
 }
@@ -203,9 +215,6 @@ foreach ($launcher in @("java.exe", "javaw.exe")) {
 }
 
 $icon = Join-Path $repositoryRoot "packaging\windows\CoronaPoker.ico"
-$assetBuilder = Join-Path $repositoryRoot `
-        "tools\windows\build-installer-assets.ps1"
-& $assetBuilder | Out-Host
 $wizardImage = Join-Path $repositoryRoot `
         "packaging\windows\installer-wizard.png"
 $smallImage = Join-Path $repositoryRoot `
@@ -307,6 +316,18 @@ try {
     }
     Invoke-Sign $finalPath
     $hash = (Get-FileHash -LiteralPath $finalPath -Algorithm SHA256).Hash
+    $savedErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $installedJavaVersion = @(& $installedJava -version 2>&1 |
+                ForEach-Object { $_.ToString() }) | Select-Object -First 1
+        $installedJavaExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
+    if ($installedJavaExitCode -ne 0) {
+        throw "The packaged private Java runtime could not report its version."
+    }
     $succeeded = $true
     [pscustomobject]@{
         Type = "exe"
@@ -318,7 +339,7 @@ try {
         PrivateRuntime = $true
         UpdaterCompatible = $true
         Languages = "Spanish (automatic), English"
-        JavaRuntime = (& $installedJava -version 2>&1 | Select-Object -First 1)
+        JavaRuntime = $installedJavaVersion
         Signed = -not [string]::IsNullOrWhiteSpace(
                 $SigningCertificateThumbprint)
     }

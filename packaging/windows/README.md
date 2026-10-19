@@ -94,7 +94,8 @@ not as a replacement for the portable package. For every release:
 
 1. Build the canonical `CoronaPoker_<version>.jar` and `chilean_mod.zip`.
 2. Run `tools/windows/build-release-installer.ps1` to download and verify the
-   current JDK 25 temporarily and build
+   current JDK 25 when the verified local `.toolchains` cache is absent or
+   stale, and build
    `CoronaPoker_<version>_Windows_x64_Setup.exe` from that exact JAR.
 3. Verify the embedded JAR hash, Java 25 runtime, native icon and metadata,
    updater layout, language resources, installer hash and signing status.

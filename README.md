@@ -331,12 +331,12 @@ a system Java installation. Its wizard uses the local Windows language
 graphics.
 Its internal stable JAR and retained private `java.exe` preserve the same
 `coronaupdater.jar` self-update path used by the portable release. Build it
-after the product JAR with `tools/windows/build-release-installer.ps1`; the
-wrapper securely downloads and removes its temporary JDK 25 toolchain. See
+after the product JAR with `tools/windows/build-release-installer.ps1`. The
+wrapper securely verifies and reuses its Git-ignored local JDK 25 cache. See
 [`packaging/windows/README.md`](packaging/windows/README.md) for prerequisites,
 layout and optional Authenticode signing.
 The native launcher intentionally skips the legacy JVM splash for a more
-direct startup; the portable JAR keeps its existing splash screen.
+direct startup. The portable JAR keeps its existing splash screen.
 
 ### The simple local workflow
 

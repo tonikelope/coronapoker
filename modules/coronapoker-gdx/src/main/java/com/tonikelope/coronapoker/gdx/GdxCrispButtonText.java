@@ -1,6 +1,5 @@
 package com.tonikelope.coronapoker.gdx;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -111,53 +110,22 @@ final class GdxCrispButtonText {
     }
 
     static float snapX(float worldX, Viewport viewport) {
-        return snapWorldCoordinate(worldX, viewport.getScreenX(),
-                viewport.getScreenWidth(), viewport.getWorldWidth(),
-                physicalPixelScaleX());
+        return GdxPixelText.snapX(worldX, viewport);
     }
 
     static float snapY(float worldY, Viewport viewport) {
-        return snapWorldCoordinate(worldY, viewport.getScreenY(),
-                viewport.getScreenHeight(), viewport.getWorldHeight(),
-                physicalPixelScaleY());
+        return GdxPixelText.snapY(worldY, viewport);
     }
 
     static float snapWorldCoordinate(float worldCoordinate, float screenOrigin,
             float screenExtent, float worldExtent) {
-        return snapWorldCoordinate(worldCoordinate, screenOrigin,
-                screenExtent, worldExtent, 1f);
+        return GdxPixelText.snapWorldCoordinate(worldCoordinate, screenOrigin,
+                screenExtent, worldExtent);
     }
 
     static float snapWorldCoordinate(float worldCoordinate, float screenOrigin,
             float screenExtent, float worldExtent, float physicalPixelScale) {
-        if (!Float.isFinite(worldCoordinate) || !Float.isFinite(screenOrigin)
-                || !Float.isFinite(screenExtent) || screenExtent <= 0f
-                || !Float.isFinite(worldExtent) || worldExtent <= 0f
-                || !Float.isFinite(physicalPixelScale)
-                || physicalPixelScale <= 0f) {
-            return worldCoordinate;
-        }
-        float logicalPixelsPerWorldUnit = screenExtent / worldExtent;
-        float physicalOrigin = screenOrigin * physicalPixelScale;
-        float physicalPixelsPerWorldUnit = logicalPixelsPerWorldUnit
-                * physicalPixelScale;
-        float physical = physicalOrigin
-                + worldCoordinate * physicalPixelsPerWorldUnit;
-        return (Math.round(physical) - physicalOrigin)
-                / physicalPixelsPerWorldUnit;
-    }
-
-    private static float physicalPixelScaleX() {
-        int logicalWidth = Gdx.graphics.getWidth();
-        return logicalWidth > 0
-                ? (float) Gdx.graphics.getBackBufferWidth() / logicalWidth
-                : 1f;
-    }
-
-    private static float physicalPixelScaleY() {
-        int logicalHeight = Gdx.graphics.getHeight();
-        return logicalHeight > 0
-                ? (float) Gdx.graphics.getBackBufferHeight() / logicalHeight
-                : 1f;
+        return GdxPixelText.snapWorldCoordinate(worldCoordinate, screenOrigin,
+                screenExtent, worldExtent, physicalPixelScale);
     }
 }

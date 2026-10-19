@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 /** One visual and typographic contract for the global FPS/VSync overlay. */
 final class GdxFrameRateOverlayStyle {
@@ -42,7 +43,7 @@ final class GdxFrameRateOverlayStyle {
 
     static void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont font,
             GlyphLayout glyph, String label, float surfaceWidth,
-            float surfaceHeight) {
+            float surfaceHeight, Viewport viewport) {
         float x = x(surfaceWidth);
         float y = y(surfaceHeight);
 
@@ -56,7 +57,7 @@ final class GdxFrameRateOverlayStyle {
         batch.begin();
         drawFittedCenteredInBox(batch, font, glyph, label,
                 x + HORIZONTAL_PADDING, y, WIDTH - 2f * HORIZONTAL_PADDING,
-                HEIGHT);
+                HEIGHT, viewport);
         batch.end();
     }
 
@@ -97,7 +98,7 @@ final class GdxFrameRateOverlayStyle {
 
     private static void drawFittedCenteredInBox(SpriteBatch batch,
             BitmapFont font, GlyphLayout glyph, String text, float x, float y,
-            float width, float height) {
+            float width, float height, Viewport viewport) {
         BitmapFont.BitmapFontData data = font.getData();
         float originalScaleX = data.scaleX;
         float originalScaleY = data.scaleY;
@@ -106,11 +107,13 @@ final class GdxFrameRateOverlayStyle {
         float fit = CoronaPokerGdxTable.fittedSingleLineScale(glyph.width,
                 glyph.height, width, height);
         if (fit < 1f) {
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
             glyph.setText(font, text);
         }
-        font.draw(batch, glyph, x + (width - glyph.width) / 2f,
-                y + (height + glyph.height) / 2f);
+        GdxPixelText.draw(font, batch, glyph,
+                x + (width - glyph.width) / 2f,
+                y + (height + glyph.height) / 2f, viewport);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

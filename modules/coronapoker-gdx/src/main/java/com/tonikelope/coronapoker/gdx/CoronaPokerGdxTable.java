@@ -5509,17 +5509,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 STARTUP_PRESENTATION_TEXT_COLOR.r,
                 STARTUP_PRESENTATION_TEXT_COLOR.g,
                 STARTUP_PRESENTATION_TEXT_COLOR.b, alpha);
-        startupPresentationFont.draw(batch, STARTUP_PRESENTATION_TITLE,
+        GdxPixelText.draw(startupPresentationFont, batch,
+                STARTUP_PRESENTATION_TITLE,
                 rowLeft + iconWidth + gap,
-                titleCenterY + titleHeight / 2f);
+                titleCenterY + titleHeight / 2f, viewport);
         startupPresentationSubtitleFont.setColor(
                 STARTUP_PRESENTATION_TEXT_COLOR.r,
                 STARTUP_PRESENTATION_TEXT_COLOR.g,
                 STARTUP_PRESENTATION_TEXT_COLOR.b, alpha);
-        startupPresentationSubtitleFont.draw(batch,
+        GdxPixelText.draw(startupPresentationSubtitleFont, batch,
                 STARTUP_PRESENTATION_SUBTITLE,
                 centerX - subtitleWidth / 2f,
-                centerY - 58f + subtitleHeight / 2f);
+                centerY - 58f + subtitleHeight / 2f, viewport);
         batch.setColor(Color.WHITE);
         startupPresentationFont.setColor(Color.WHITE);
         startupPresentationSubtitleFont.setColor(Color.WHITE);
@@ -9420,12 +9421,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String label = productVersionLabelFor(presentationSettings);
         glyph.setText(versionFont, label);
         if (glyph.width > GdxProductVersionBrand.MAX_WIDTH) {
-            data.setScale(originalScaleX
-                    * GdxProductVersionBrand.MAX_WIDTH / glyph.width,
-                    originalScaleY);
+            GdxPixelText.applyScaleDown(versionFont, originalScaleX,
+                    originalScaleY,
+                    GdxProductVersionBrand.MAX_WIDTH / glyph.width,
+                    viewport);
         }
-        versionFont.draw(batch, label, GdxProductVersionBrand.X,
-                GdxProductVersionBrand.BASELINE_Y);
+        GdxPixelText.draw(versionFont, batch, label,
+                GdxProductVersionBrand.X,
+                GdxProductVersionBrand.BASELINE_Y, viewport);
         versionFont.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }
@@ -12988,17 +12991,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float oldY = data.scaleY;
         float desiredScale = Math.max(0.15f,
                 height * 1.35f / callCostFont.getLineHeight());
-        data.setScale(oldX * desiredScale, oldY * desiredScale);
+        float appliedScale = desiredScale < 1f
+                ? GdxPixelText.applyScaleDown(callCostFont, oldX, oldY,
+                        desiredScale, viewport)
+                : GdxPixelText.applyScale(callCostFont, oldX, oldY,
+                        desiredScale, viewport);
         glyph.setText(callCostFont, liveState.callCostText());
         float widthBudget = width * 0.92f;
         if (glyph.width > widthBudget && glyph.width > 0f) {
             float fit = widthBudget / glyph.width;
-            data.setScale(data.scaleX * fit, data.scaleY * fit);
+            GdxPixelText.applyScaleDown(callCostFont, oldX, oldY,
+                    appliedScale * fit, viewport);
             glyph.setText(callCostFont, liveState.callCostText());
         }
         callCostFont.setColor(1f, 1f, 1f, 1f);
-        callCostFont.draw(batch, glyph, x + (width - glyph.width) / 2f,
-                y + (height + glyph.height) / 2f);
+        GdxPixelText.draw(callCostFont, batch, glyph,
+                x + (width - glyph.width) / 2f,
+                y + (height + glyph.height) / 2f, viewport);
         callCostFont.setColor(Color.WHITE);
         data.setScale(oldX, oldY);
         batch.end();
@@ -13115,7 +13124,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float oldY = data.scaleY;
         float scale = Math.max(0.20f,
                 bannerHeight * 0.68f / pauseFont.getLineHeight());
-        data.setScale(oldX * scale, oldY * scale);
+        float appliedScale = scale < 1f
+                ? GdxPixelText.applyScaleDown(pauseFont, oldX, oldY, scale,
+                        viewport)
+                : GdxPixelText.applyScale(pauseFont, oldX, oldY, scale,
+                        viewport);
         glyph.setText(pauseFont, text);
         float iconSize = bannerHeight * 0.60f;
         float iconGap = Math.max(12f, iconSize * 0.20f);
@@ -13123,7 +13136,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float maxWidth = width * 0.90f;
         if (groupWidth > maxWidth) {
             float fit = maxWidth / groupWidth;
-            data.setScale(data.scaleX * fit, data.scaleY * fit);
+            GdxPixelText.applyScaleDown(pauseFont, oldX, oldY,
+                    appliedScale * fit, viewport);
             glyph.setText(pauseFont, text);
             iconSize *= fit;
             iconGap *= fit;
@@ -13136,8 +13150,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 bannerY + (bannerHeight - iconSize) / 2f,
                 iconSize, iconSize);
         pauseFont.setColor(PAUSE_RED);
-        pauseFont.draw(batch, glyph, groupX + iconSize + iconGap,
-                bannerY + (bannerHeight + glyph.height) / 2f);
+        GdxPixelText.draw(pauseFont, batch, glyph,
+                groupX + iconSize + iconGap,
+                bannerY + (bannerHeight + glyph.height) / 2f, viewport);
         pauseFont.setColor(Color.WHITE);
         batch.end();
         data.setScale(oldX, oldY);
@@ -15880,7 +15895,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float scaleX = data.scaleX;
         float scaleY = data.scaleY;
         float scale = 0.92f + 0.055f * pulse;
-        data.setScale(scaleX * scale, scaleY * scale);
+        GdxPixelText.applyScaleDown(pauseFont, scaleX, scaleY, scale,
+                viewport);
         glyph.setText(pauseFont, label);
         float baseline = centerY + glyph.height / 2f;
         batch.begin();
@@ -16958,26 +16974,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont.BitmapFontData data = actionFont.getData();
         float previousScaleX = data.scaleX;
         float previousScaleY = data.scaleY;
-        data.setScale(previousScaleX * LOCAL_HUD_ACTION_TEXT_SCALE,
-                previousScaleY * LOCAL_HUD_ACTION_TEXT_SCALE);
+        float appliedScale = LOCAL_HUD_ACTION_TEXT_SCALE < 1f
+                ? GdxPixelText.applyScaleDown(actionFont, previousScaleX,
+                        previousScaleY, LOCAL_HUD_ACTION_TEXT_SCALE, viewport)
+                : GdxPixelText.applyScale(actionFont, previousScaleX,
+                        previousScaleY, LOCAL_HUD_ACTION_TEXT_SCALE, viewport);
         actionFont.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(actionFont, text);
         float maximumTextWidth = Math.max(1f,
                 contentWidth - iconSize - gap);
-        float scale = Math.min(1f, maximumTextWidth
+        float fit = Math.min(1f, maximumTextWidth
                 / Math.max(1f, glyph.width));
-        float textWidth = glyph.width * scale;
+        if (fit < 1f) {
+            GdxPixelText.applyScaleDown(actionFont, previousScaleX,
+                    previousScaleY, appliedScale * fit, viewport);
+            glyph.setText(actionFont, text);
+        }
+        float textWidth = glyph.width;
         float groupWidth = iconSize + gap + textWidth;
         float groupX = contentX + (contentWidth - groupWidth) / 2f;
         batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(icon, groupX,
                 y + (height - iconSize) / 2f,
                 iconSize, iconSize);
-        data.setScale(previousScaleX * LOCAL_HUD_ACTION_TEXT_SCALE * scale,
-                previousScaleY * LOCAL_HUD_ACTION_TEXT_SCALE * scale);
-        glyph.setText(actionFont, text);
-        actionFont.draw(batch, glyph, groupX + iconSize + gap,
-                contentY + (contentHeight + glyph.height) / 2f);
+        GdxPixelText.draw(actionFont, batch, glyph,
+                groupX + iconSize + gap,
+                contentY + (contentHeight + glyph.height) / 2f, viewport);
         data.setScale(previousScaleX, previousScaleY);
         actionFont.setColor(Color.WHITE);
         batch.setColor(Color.WHITE);
@@ -20585,14 +20607,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     messageW, Align.left, true);
             float readableScale = zeroTrustTextScale(glyph.height, messageH);
             if (readableScale < 1f) {
-                dialogFontData.setScale(originalScaleX * readableScale,
-                        originalScaleY * readableScale);
+                GdxPixelText.applyScaleDown(uiFont, originalScaleX,
+                        originalScaleY, readableScale, viewport);
                 glyph.setText(uiFont, dialog.message(), Color.WHITE,
                         messageW, Align.left, true);
             }
             uiFont.setColor(Color.WHITE);
-            uiFont.draw(batch, glyph, messageX,
-                    messageY + (messageH + glyph.height) / 2f);
+            GdxPixelText.draw(uiFont, batch, glyph, messageX,
+                    messageY + (messageH + glyph.height) / 2f, viewport);
             dialogFontData.setScale(originalScaleX, originalScaleY);
             uiFont.setColor(Color.WHITE);
         } else {
@@ -20613,22 +20635,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     : dialog.message();
             float requestedScale = dialog.isNotice()
                     ? GdxUiDialogStyle.NOTICE_MESSAGE_SCALE : 1f;
-            dialogFontData.setScale(originalScaleX * requestedScale,
-                    originalScaleY * requestedScale);
+            float appliedScale = requestedScale < 1f
+                    ? GdxPixelText.applyScaleDown(uiFont, originalScaleX,
+                            originalScaleY, requestedScale, viewport)
+                    : GdxPixelText.applyScale(uiFont, originalScaleX,
+                            originalScaleY, requestedScale, viewport);
             glyph.setText(uiFont, message, Color.WHITE,
                     messageBounds.width, Align.center, true);
             if (glyph.height > messageBounds.height) {
                 float fit = messageBounds.height / glyph.height;
-                dialogFontData.setScale(originalScaleX * requestedScale * fit,
-                        originalScaleY * requestedScale * fit);
+                GdxPixelText.applyScaleDown(uiFont, originalScaleX,
+                        originalScaleY, appliedScale * fit, viewport);
                 glyph.setText(uiFont, message, Color.WHITE,
                         messageBounds.width, Align.center, true);
             }
             uiFont.setColor(Color.WHITE);
-            uiFont.draw(batch, glyph, messageBounds.x,
+            GdxPixelText.draw(uiFont, batch, glyph, messageBounds.x,
                 dialog.isHandLimit() ? panelY + 414f
                         : messageBounds.y
-                                + (messageBounds.height + glyph.height) / 2f);
+                                + (messageBounds.height + glyph.height) / 2f,
+                    viewport);
             uiFont.setColor(Color.WHITE);
             dialogFontData.setScale(originalScaleX, originalScaleY);
         }
@@ -23078,8 +23104,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Color foreground = run.foreground();
                 font.setColor(foreground.r, foreground.g, foreground.b,
                         alpha);
-                font.draw(batch, fitted, runX,
-                        lineY + GdxSettingsLayout.DEBUG_TEXT_BASELINE);
+                GdxPixelText.draw(font, batch, fitted, runX,
+                        lineY + GdxSettingsLayout.DEBUG_TEXT_BASELINE,
+                        viewport);
                 glyph.setText(font, fitted);
                 runX += glyph.width;
                 if (!fitted.equals(run.text())) break;
@@ -23691,14 +23718,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color color = run.color();
                     gameLogBoldFont.setColor(color.r, color.g, color.b,
                             alpha);
-                    gameLogBoldFont.draw(batch, cardValue, runX + 6f,
-                            rowY + 22f);
+                    GdxPixelText.draw(gameLogBoldFont, batch, cardValue,
+                            runX + 6f, rowY + 22f, viewport);
                     glyph.setText(gameLogBoldFont, cardValue);
                     float valueWidth = glyph.width;
                     gameLogSuitFont.setColor(color.r, color.g, color.b,
                             alpha);
-                    gameLogSuitFont.draw(batch, cardSuit,
-                            runX + 6f + valueWidth, rowY + 25f);
+                    GdxPixelText.draw(gameLogSuitFont, batch, cardSuit,
+                            runX + 6f + valueWidth, rowY + 25f, viewport);
                     runX += cardWidth + 3f;
                     continue;
                 }
@@ -23714,7 +23741,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     drawGameLogFixedPitchText(runFont, fitted, runX, runY,
                             tableCellWidth);
                 } else {
-                    runFont.draw(batch, fitted, runX, runY);
+                    GdxPixelText.draw(runFont, batch, fitted, runX, runY,
+                            viewport);
                     glyph.setText(runFont, fitted);
                     runX += glyph.width;
                 }
@@ -23827,8 +23855,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             while (end < text.length()
                     && !GdxGameLogFormatter.isBoxDrawingCharacter(
                             text.charAt(end))) end++;
-            font.draw(batch, text.substring(start, end),
-                    x + start * cellWidth, y);
+            GdxPixelText.draw(font, batch, text.substring(start, end),
+                    x + start * cellWidth, y, viewport);
             start = end;
         }
     }
@@ -24499,7 +24527,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (text.isEmpty() || available <= 3f) return x;
         String fitted = fitChatText(text, available);
         smallFont.setColor(color.r, color.g, color.b, alpha);
-        smallFont.draw(batch, fitted, x, baseline);
+        GdxPixelText.draw(smallFont, batch, fitted, x, baseline, viewport);
         glyph.setText(smallFont, fitted);
         smallFont.setColor(Color.WHITE);
         return x + glyph.width;
@@ -24661,14 +24689,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color color, float alpha) {
         font.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(font, text);
-        float drawX = GdxCrispButtonText.snapX(
-                x + (width - glyph.width) / 2f, viewport);
-        float drawY = GdxCrispButtonText.snapY(
+        GdxPixelText.draw(font, batch, glyph,
+                x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f, viewport);
-        boolean previousIntegerPositions = font.usesIntegerPositions();
-        font.setUseIntegerPositions(false);
-        font.draw(batch, glyph, drawX, drawY);
-        font.setUseIntegerPositions(previousIntegerPositions);
         font.setColor(Color.WHITE);
     }
 
@@ -25431,14 +25454,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont, glyph,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
-                width, height);
+                width, height, viewport);
     }
 
     private void drawCentered(BitmapFont font, String text, float centerX, float baselineY,
             Color color, float alpha) {
         font.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(font, text);
-        font.draw(batch, text, centerX - glyph.width / 2f, baselineY);
+        GdxPixelText.draw(font, batch, text,
+                centerX - glyph.width / 2f, baselineY, viewport);
         font.setColor(Color.WHITE);
     }
 
@@ -25471,7 +25495,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         glyph.setText(font, text);
         if (glyph.width > maxWidth) {
             float fit = maxWidth / glyph.width;
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
         }
         drawCentered(font, text, centerX, baselineY, color, alpha);
         data.setScale(originalScaleX, originalScaleY);
@@ -25486,7 +25511,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         glyph.setText(font, text);
         if (glyph.width > maxWidth) {
             float fit = maxWidth / glyph.width;
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
             glyph.setText(font, text);
         }
         drawCentered(font, text, centerX, centerY + glyph.height / 2f,
@@ -25502,10 +25528,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         glyph.setText(font, text);
         if (glyph.width > maxWidth) {
             float fit = maxWidth / glyph.width;
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
         }
         font.setColor(color.r, color.g, color.b, alpha);
-        font.draw(batch, text, x, baselineY);
+        GdxPixelText.draw(font, batch, text, x, baselineY, viewport);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }
@@ -25518,11 +25545,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         glyph.setText(font, text);
         if (glyph.width > maxWidth) {
             float fit = maxWidth / glyph.width;
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
             glyph.setText(font, text);
         }
         font.setColor(color.r, color.g, color.b, alpha);
-        font.draw(batch, text, rightX - glyph.width, baselineY);
+        GdxPixelText.draw(font, batch, text, rightX - glyph.width, baselineY,
+                viewport);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }
@@ -25538,12 +25567,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float fit = fittedSingleLineScale(glyph.width, glyph.height, width,
                 height);
         if (fit < 1f) {
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
             glyph.setText(font, text);
         }
-        font.draw(batch, glyph,
+        GdxPixelText.draw(font, batch, glyph,
                 x + (width - glyph.width) / 2f,
-                y + (height + glyph.height) / 2f);
+                y + (height + glyph.height) / 2f, viewport);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }
@@ -25553,9 +25583,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color color, float alpha) {
         font.setColor(color.r, color.g, color.b, alpha);
         glyph.setText(font, text);
-        font.draw(batch, glyph,
+        GdxPixelText.draw(font, batch, glyph,
                 x + (width - glyph.width) / 2f,
-                y + (height + glyph.height) / 2f);
+                y + (height + glyph.height) / 2f, viewport);
         font.setColor(Color.WHITE);
     }
 
@@ -25582,8 +25612,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 referenceHeight,
                 Math.min(stackBounds.width, investedBounds.width),
                 Math.min(stackBounds.height, investedBounds.height));
-        data.setScale(originalScaleX * sharedScale,
-                originalScaleY * sharedScale);
+        GdxPixelText.applyScaleDown(stackFont, originalScaleX, originalScaleY,
+                sharedScale, viewport);
         drawCenteredInBox(stackFont, stackCaption,
                 stackBounds.x, stackBounds.y,
                 stackBounds.width, stackBounds.height,
@@ -25618,7 +25648,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont.BitmapFontData data = font.getData();
         float originalScaleX = data.scaleX;
         float originalScaleY = data.scaleY;
-        data.setScale(originalScaleX * scale, originalScaleY * scale);
+        if (scale < 1f) {
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    scale, viewport);
+        } else {
+            GdxPixelText.applyScale(font, originalScaleX, originalScaleY,
+                    scale, viewport);
+        }
         drawFittedCenteredInBox(font, text, x, y, width, height,
                 color, alpha);
         data.setScale(originalScaleX, originalScaleY);
@@ -25644,10 +25680,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float fitY = glyph.height > 0f ? height / glyph.height : 1f;
         float fit = Math.min(1f, Math.min(fitX, fitY));
         if (fit < 1f) {
-            data.setScale(originalScaleX * fit, originalScaleY * fit);
+            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
+                    fit, viewport);
             glyph.setText(font, text);
         }
-        font.draw(batch, glyph, x, y + (height + glyph.height) / 2f);
+        GdxPixelText.draw(font, batch, glyph, x,
+                y + (height + glyph.height) / 2f, viewport);
         font.setColor(Color.WHITE);
         data.setScale(originalScaleX, originalScaleY);
     }

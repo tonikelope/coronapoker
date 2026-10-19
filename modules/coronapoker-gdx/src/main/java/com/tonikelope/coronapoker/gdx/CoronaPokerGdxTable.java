@@ -320,6 +320,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_ARTWORK_LOD_BIAS_FULL_TEXELS_PER_PIXEL
             = 7f;
     private static final float CARD_ARTWORK_MAX_NEGATIVE_LOD_BIAS = -0.65f;
+    private static final float CARD_ARTWORK_EDGE_AA_START_TEXELS_PER_PIXEL
+            = 4.5f;
+    private static final float CARD_ARTWORK_EDGE_AA_FULL_TEXELS_PER_PIXEL
+            = 6.5f;
+    private static final float CARD_ARTWORK_EDGE_AA_CONTRAST_START = 0.08f;
+    private static final float CARD_ARTWORK_EDGE_AA_CONTRAST_FULL = 0.35f;
+    private static final float CARD_ARTWORK_EDGE_AA_SUBPIXEL_OFFSET = 0.38f;
+    private static final float CARD_ARTWORK_EDGE_AA_MAX_BLEND = 0.30f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
     private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
@@ -477,18 +485,50 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * A smooth negative bias counters the excessive softness of tiny rotated
      * cards without adding shader taps or changing already magnified artwork.
      */
-    private static final String CARD_ARTWORK_LOD_GLSL = "float cardArtworkLodBias(vec2 uv, vec2 textureSize) {\n"
+    private static final String CARD_ARTWORK_SAMPLING_GLSL = "float cardArtworkTexelsPerPixel(vec2 uv, vec2 textureSize) {\n"
             + "    vec2 uvDx = dFdx(uv);\n"
             + "    vec2 uvDy = dFdy(uv);\n"
             + "    float footprintX = length(vec2(uvDx.x, uvDy.x)) * textureSize.x;\n"
             + "    float footprintY = length(vec2(uvDx.y, uvDy.y)) * textureSize.y;\n"
-            + "    float texelsPerPixel = max(footprintX, footprintY);\n"
+            + "    return max(footprintX, footprintY);\n"
+            + "}\n"
+            + "float cardArtworkLodBias(float texelsPerPixel) {\n"
             + "    float detailPressure = smoothstep("
             + CARD_ARTWORK_LOD_BIAS_START_TEXELS_PER_PIXEL + ", "
             + CARD_ARTWORK_LOD_BIAS_FULL_TEXELS_PER_PIXEL
             + ", texelsPerPixel);\n"
             + "    return detailPressure * "
             + CARD_ARTWORK_MAX_NEGATIVE_LOD_BIAS + ";\n"
+            + "}\n"
+            + "float cardArtworkContrast(vec3 gradient) {\n"
+            + "    vec3 magnitude = abs(gradient);\n"
+            + "    return max(magnitude.r, max(magnitude.g, magnitude.b));\n"
+            + "}\n"
+            + "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv, vec2 textureSize) {\n"
+            + "    vec2 uvDx = dFdx(uv);\n"
+            + "    vec2 uvDy = dFdy(uv);\n"
+            + "    float texelsPerPixel = cardArtworkTexelsPerPixel(uv, textureSize);\n"
+            + "    float lodBias = cardArtworkLodBias(texelsPerPixel);\n"
+            + "    vec4 center = texture2D(artwork, uv, lodBias);\n"
+            + "    float contrastX = cardArtworkContrast(dFdx(center.rgb));\n"
+            + "    float contrastY = cardArtworkContrast(dFdy(center.rgb));\n"
+            + "    vec2 edgeNormal = contrastX >= contrastY ? uvDx : uvDy;\n"
+            + "    vec4 negativeSample = texture2D(artwork, uv - edgeNormal * "
+            + CARD_ARTWORK_EDGE_AA_SUBPIXEL_OFFSET + ", lodBias);\n"
+            + "    vec4 positiveSample = texture2D(artwork, uv + edgeNormal * "
+            + CARD_ARTWORK_EDGE_AA_SUBPIXEL_OFFSET + ", lodBias);\n"
+            + "    vec4 integrated = (negativeSample + positiveSample) * 0.5;\n"
+            + "    float minification = smoothstep("
+            + CARD_ARTWORK_EDGE_AA_START_TEXELS_PER_PIXEL + ", "
+            + CARD_ARTWORK_EDGE_AA_FULL_TEXELS_PER_PIXEL
+            + ", texelsPerPixel);\n"
+            + "    float edge = smoothstep("
+            + CARD_ARTWORK_EDGE_AA_CONTRAST_START + ", "
+            + CARD_ARTWORK_EDGE_AA_CONTRAST_FULL
+            + ", max(contrastX, contrastY));\n"
+            + "    float blend = minification * edge * "
+            + CARD_ARTWORK_EDGE_AA_MAX_BLEND + ";\n"
+            + "    return mix(center, integrated, blend);\n"
             + "}\n";
 
     static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"
@@ -509,7 +549,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform vec2 u_frontTextureSize;\n"
             + "uniform vec4 u_overlay;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
-            + CARD_ARTWORK_LOD_GLSL
+            + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
             + "    vec2 sourceUv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
             + "    if (u_perspective > 0.5) {\n"
@@ -538,11 +578,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    }\n"
             + "    float mask = roundedCardCoverage(sourceUv);\n"
             + "    if (mask <= 0.001) discard;\n"
-            + "    float backLodBias = cardArtworkLodBias(sourceUv, u_backTextureSize);\n"
-            + "    float frontLodBias = cardArtworkLodBias(sourceUv, u_frontTextureSize);\n"
-            + "    vec4 backPixel = texture2D(u_texture, sourceUv, backLodBias);\n"
-            + "    vec4 frontPixel = texture2D(u_frontTexture, sourceUv, frontLodBias);\n"
-            + "    vec4 pixel = (u_flipAngle > 1.5707963 ? frontPixel : backPixel) * v_color;\n"
+            + "    vec4 pixel;\n"
+            + "    if (u_flipAngle > 1.5707963) {\n"
+            + "        pixel = sampleCardArtwork(u_frontTexture, sourceUv, u_frontTextureSize);\n"
+            + "    } else {\n"
+            + "        pixel = sampleCardArtwork(u_texture, sourceUv, u_backTextureSize);\n"
+            + "    }\n"
+            + "    pixel *= v_color;\n"
             + "    pixel.rgb = mix(pixel.rgb, u_overlay.rgb, u_overlay.a);\n"
             + "    pixel.a *= mask;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
@@ -571,7 +613,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform vec2 u_overlayTextureSize;\n"
             + "uniform vec4 u_highlight;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
-            + CARD_ARTWORK_LOD_GLSL
+            + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
             + "    vec2 uv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
             + "    float diagonal = uv.x + uv.y;\n"
@@ -579,12 +621,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    float peel = 1.0 - smoothstep(frontier - 0.008, frontier + 0.008, diagonal);\n"
             + "    float rounded = roundedCardCoverage(uv);\n"
             + "    if (peel * rounded <= 0.001) discard;\n"
-            + "    vec4 covered = texture2D(u_texture, uv,\n"
-            + "            cardArtworkLodBias(uv, u_backTextureSize));\n"
-            + "    vec4 face = texture2D(u_frontTexture, uv,\n"
-            + "            cardArtworkLodBias(uv, u_frontTextureSize));\n"
-            + "    vec4 flap = texture2D(u_overlayTexture, uv,\n"
-            + "            cardArtworkLodBias(uv, u_overlayTextureSize));\n"
+            + "    vec4 covered = sampleCardArtwork(u_texture, uv, u_backTextureSize);\n"
+            + "    vec4 face = sampleCardArtwork(u_frontTexture, uv, u_frontTextureSize);\n"
+            + "    vec4 flap = sampleCardArtwork(u_overlayTexture, uv, u_overlayTextureSize);\n"
             + "    vec4 revealed = vec4(mix(face.rgb, flap.rgb, flap.a),\n"
             + "            flap.a + face.a * (1.0 - flap.a));\n"
             + "    vec4 pixel = revealed * v_color;\n"
@@ -3312,6 +3351,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static float cardArtworkMaxNegativeLodBias() {
         return CARD_ARTWORK_MAX_NEGATIVE_LOD_BIAS;
+    }
+
+    static float cardArtworkEdgeAaStartTexelsPerPixel() {
+        return CARD_ARTWORK_EDGE_AA_START_TEXELS_PER_PIXEL;
+    }
+
+    static float cardArtworkEdgeAaFullTexelsPerPixel() {
+        return CARD_ARTWORK_EDGE_AA_FULL_TEXELS_PER_PIXEL;
+    }
+
+    static float cardArtworkEdgeAaSubpixelOffset() {
+        return CARD_ARTWORK_EDGE_AA_SUBPIXEL_OFFSET;
+    }
+
+    static float cardArtworkEdgeAaMaxBlend() {
+        return CARD_ARTWORK_EDGE_AA_MAX_BLEND;
     }
 
     private static Texture cardTexture(FileHandle file) {

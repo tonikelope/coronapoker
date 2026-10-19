@@ -106,6 +106,14 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardArtworkLodBiasFullTexelsPerPixel());
         assertEquals(-0.65f,
                 CoronaPokerGdxTable.cardArtworkMaxNegativeLodBias());
+        assertEquals(4.5f,
+                CoronaPokerGdxTable.cardArtworkEdgeAaStartTexelsPerPixel());
+        assertEquals(6.5f,
+                CoronaPokerGdxTable.cardArtworkEdgeAaFullTexelsPerPixel());
+        assertEquals(0.38f,
+                CoronaPokerGdxTable.cardArtworkEdgeAaSubpixelOffset());
+        assertEquals(0.30f,
+                CoronaPokerGdxTable.cardArtworkEdgeAaMaxBlend());
     }
 
     @Test

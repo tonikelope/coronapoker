@@ -76,25 +76,22 @@ final class GdxCardSmaaGpuCertificationTest {
         Texture card = diagnosticCard();
         GdxCardSmaaRenderer renderer = new GdxCardSmaaRenderer();
         try {
+            int artworkChanged = countChangedPixels(
+                    renderProductCard(batch, card, projection, 0f),
+                    renderProductCard(batch, card, projection, 1f));
+            assertTrue(artworkChanged >= 12,
+                    () -> "Smooth card artwork prefilter was effectively a "
+                    + "no-op: only " + artworkChanged
+                    + " framebuffer pixels changed");
             byte[] direct = renderNative(renderer, batch, card, projection);
             byte[] antialiased = renderSmaa(renderer, batch, card, projection);
             int weightedPixels = countNonZeroWeightPixels(renderer);
             assertTrue(weightedPixels >= 12,
                     () -> "SMAA generated only " + weightedPixels
                     + " non-zero blend-weight pixels");
-            int changed = 0;
-            for (int pixel = 0; pixel < WIDTH * HEIGHT; pixel++) {
-                int offset = pixel * 4;
-                int delta = Math.abs(unsigned(direct[offset])
-                        - unsigned(antialiased[offset]))
-                        + Math.abs(unsigned(direct[offset + 1])
-                        - unsigned(antialiased[offset + 1]))
-                        + Math.abs(unsigned(direct[offset + 2])
-                        - unsigned(antialiased[offset + 2]))
-                        + Math.abs(unsigned(direct[offset + 3])
-                        - unsigned(antialiased[offset + 3]));
-                if (delta >= 4) changed++;
-            }
+            int changed = countChangedPixels(direct, antialiased);
+            System.out.println("Card artwork GPU proof: " + artworkChanged
+                    + " final framebuffer pixels changed");
             System.out.println("Card SMAA GPU proof: " + weightedPixels
                     + " weighted pixels, " + changed
                     + " final framebuffer pixels changed");
@@ -103,6 +100,45 @@ final class GdxCardSmaaGpuCertificationTest {
             renderer.dispose();
             card.dispose();
             batch.dispose();
+        }
+    }
+
+    private static byte[] renderProductCard(SpriteBatch batch, Texture card,
+            Matrix4 projection, float artworkSmooth) {
+        clearBackBuffer();
+        ShaderProgram shader = new ShaderProgram(
+                CoronaPokerGdxTable.CARD_VERTEX_SHADER,
+                CoronaPokerGdxTable.CARD_FRAGMENT_SHADER);
+        assertTrue(shader.isCompiled(), shader::getLog);
+        try {
+            batch.setProjectionMatrix(projection);
+            batch.setShader(shader);
+            batch.begin();
+            card.bind(1);
+            card.bind(0);
+            shader.setUniformi("u_texture", 0);
+            shader.setUniformi("u_frontTexture", 1);
+            shader.setUniformf("u_cornerRadius", 0.075f);
+            shader.setUniformf("u_edgeSoftness", 0.006f);
+            shader.setUniformf("u_perspective", 0f);
+            shader.setUniformf("u_flipAngle", 0f);
+            shader.setUniformf("u_cardAspect", 80f / 70f);
+            shader.setUniformf("u_canvasScale",
+                    CoronaPokerGdxTable.cardShaderCanvasScale());
+            shader.setUniformf("u_artworkSmooth", artworkSmooth);
+            shader.setUniformf("u_overlay", 1f, 1f, 1f, 0f);
+            batch.setColor(Color.WHITE);
+            batch.draw(card, 27.5f, 4f, 52.5f, 60f, 105f, 120f,
+                    1f, 1f, 13f, 0, 0, card.getWidth(), card.getHeight(),
+                    false, false);
+            batch.end();
+            Gdx.gl.glFinish();
+            return ScreenUtils.getFrameBufferPixels(0, 0,
+                    WIDTH, HEIGHT, false);
+        } finally {
+            if (batch.isDrawing()) batch.end();
+            batch.setShader(null);
+            shader.dispose();
         }
     }
 
@@ -170,11 +206,28 @@ final class GdxCardSmaaGpuCertificationTest {
         pixmap.setColor(0.08f, 0.10f, 0.72f, 1f);
         pixmap.drawRectangle(8, 12, 54, 57);
         pixmap.drawLine(8, 68, 61, 13);
-        Texture texture = new Texture(pixmap, false);
-        texture.setFilter(Texture.TextureFilter.Nearest,
-                Texture.TextureFilter.Nearest);
+        Texture texture = new Texture(pixmap, true);
+        texture.setFilter(CoronaPokerGdxTable.cardMinificationFilter(),
+                Texture.TextureFilter.Linear);
         pixmap.dispose();
         return texture;
+    }
+
+    private static int countChangedPixels(byte[] first, byte[] second) {
+        int changed = 0;
+        for (int pixel = 0; pixel < WIDTH * HEIGHT; pixel++) {
+            int offset = pixel * 4;
+            int delta = Math.abs(unsigned(first[offset])
+                    - unsigned(second[offset]))
+                    + Math.abs(unsigned(first[offset + 1])
+                    - unsigned(second[offset + 1]))
+                    + Math.abs(unsigned(first[offset + 2])
+                    - unsigned(second[offset + 2]))
+                    + Math.abs(unsigned(first[offset + 3])
+                    - unsigned(second[offset + 3]));
+            if (delta >= 4) changed++;
+        }
+        return changed;
     }
 
     private static int countNonZeroWeightPixels(GdxCardSmaaRenderer renderer) {

@@ -308,6 +308,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int CARD_EDGE_SUPERSAMPLES = 4;
+    private static final int CARD_ARTWORK_SMOOTH_SAMPLES = 4;
     private static final float CARD_EDGE_SUBSAMPLE_SOFTNESS_PIXELS = 0.30f;
     private static final float CARD_EDGE_GUARD_UV = 0.05f;
     private static final float CARD_SHADER_CANVAS_SCALE = 1.5f;
@@ -317,9 +318,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * The bundled 484-pixel artwork crosses a nearest-mip boundary between
      * the 140-unit board cards and the 125-unit rival cards at common output
      * resolutions.  A half-level detail bias removes that discontinuity while
-     * preserving mipmaps for genuinely small cards.  This is deliberately a
-     * texture-footprint rule shared by every deck and card family; SMAA still
-     * owns only the final screen-space edge treatment.
+     * preserving mipmaps for genuinely small cards. This is deliberately a
+     * texture-footprint rule shared by every deck and card family.
      */
     private static final float CARD_ARTWORK_DETAIL_LOD_BIAS = -0.5f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
@@ -474,10 +474,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    return coverage * 0.25;\n"
             + "}\n";
 
+    /**
+     * Smooth mode integrates artwork at four rotated locations inside the
+     * final screen pixel. This resolves subpixel printed strokes before they
+     * can become a staircase; it does not rescale, sharpen or colour-process
+     * the card. Native mode retains the single historical texture lookup.
+     */
     private static final String CARD_ARTWORK_SAMPLING_GLSL =
-            "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
-            + "    return texture2D(artwork, uv, "
+            "uniform float u_artworkSmooth;\n"
+            + "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
+            + "    vec4 nativeSample = texture2D(artwork, uv, "
             + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    if (u_artworkSmooth < 0.5) return nativeSample;\n"
+            + "    vec2 uvDx = dFdx(uv);\n"
+            + "    vec2 uvDy = dFdy(uv);\n"
+            + "    vec4 resolved = vec4(0.0);\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.375"
+            + " - uvDy * 0.125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.125"
+            + " + uvDy * 0.375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.125"
+            + " - uvDy * 0.375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.375"
+            + " + uvDy * 0.125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    return resolved * 0.25;\n"
             + "}\n";
 
     static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"
@@ -3273,6 +3293,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static int cardEdgeSupersampleCount() {
         return CARD_EDGE_SUPERSAMPLES;
+    }
+
+    static int cardArtworkSmoothSampleCount() {
+        return CARD_ARTWORK_SMOOTH_SAMPLES;
     }
 
     static float cardEdgeSubsampleSoftnessPixels() {
@@ -13457,6 +13481,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         rabbitPeelShader.setUniformf("u_edgeSoftness", CARD_EDGE_SOFTNESS);
         rabbitPeelShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
+        rabbitPeelShader.setUniformf("u_artworkSmooth",
+                cardArtworkSmoothValue());
         rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
                 showdownTint ? 0.31f : 0f);
     }
@@ -13483,7 +13509,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_cardAspect", aspect);
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
+        roundedCardShader.setUniformf("u_artworkSmooth",
+                cardArtworkSmoothValue());
         roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);
+    }
+
+    private float cardArtworkSmoothValue() {
+        int mode = presentationSettings == null
+                ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
+                : presentationSettings.requestedCardRenderingMode();
+        return mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f;
     }
 
     private void setCardShowdownOverlay(boolean highlighted) {

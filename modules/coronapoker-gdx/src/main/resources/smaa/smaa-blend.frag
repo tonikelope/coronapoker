@@ -43,11 +43,6 @@ void SMAAMovc(bvec4 cond, inout vec4 variable, vec4 value) {
   SMAAMovc(cond.zw, variable.zw, value.zw);
 }
 
-float maximumChannelDelta(vec3 first, vec3 second) {
-  vec3 delta = abs(first - second);
-  return max(max(delta.r, delta.g), delta.b);
-}
-
 void main() {
   vec4 original = texture2D(uColorTexture, vTexCoord0);
   vec4 color;
@@ -87,34 +82,15 @@ void main() {
     color = blendingWeight.x * texture2D(uColorTexture, blendingCoord.xy); // LinearSampler
     color += blendingWeight.y * texture2D(uColorTexture, blendingCoord.zw); // LinearSampler
 
-    // A thin printed stroke has matching background on both sides of its
-    // centre pixel. Resolve those high-confidence strokes completely: this is
-    // what removes stair steps from deck-agnostic frames and fine line art.
-    // Broad artwork edges have different colours on both sides and retain the
-    // conservative resolve, preserving the native texture's apparent detail.
-    vec2 edgeNormal = h ? vec2(uTexelSize.x, 0.0)
-      : vec2(0.0, uTexelSize.y);
-    vec4 outsideNegative = texture2D(uColorTexture,
-      vTexCoord0 - 2.0 * edgeNormal);
-    vec4 outsidePositive = texture2D(uColorTexture,
-      vTexCoord0 + 2.0 * edgeNormal);
-    float outsideAgreement = 1.0 - smoothstep(0.025, 0.10,
-      maximumChannelDelta(outsideNegative.rgb, outsidePositive.rgb));
-    vec3 outsideAverage = 0.5
-      * (outsideNegative.rgb + outsidePositive.rgb);
-    float strokeContrast = smoothstep(0.08, 0.28,
-      maximumChannelDelta(original.rgb, outsideAverage));
-    float opaqueStroke = smoothstep(0.98, 1.0,
-      min(original.a, min(outsideNegative.a, outsidePositive.a)));
-    float thinStroke = outsideAgreement * strokeContrast * opaqueStroke;
-    float interiorStrength = mix(uInteriorEdgeBlendStrength, 1.0,
-      thinStroke);
-
-    // Alpha-changing silhouette pixels also retain the complete resolve so
-    // rounded corners and animated fades remain clean and colour-stable.
+    // Card artwork contains dense printed detail. A full neighbourhood
+    // resolve on every opaque colour edge makes that detail look softer even
+    // though only edge pixels changed. Preserve part of the original sample
+    // for internal edges. Thin artwork strokes are resolved before
+    // rasterization by the card shader instead of guessed from this finished
+    // image. Alpha-changing silhouette pixels retain the complete resolve.
     float alphaTransition = smoothstep(0.003, 0.04,
       abs(color.a - original.a));
-    float resolveStrength = mix(interiorStrength, 1.0,
+    float resolveStrength = mix(uInteriorEdgeBlendStrength, 1.0,
       alphaTransition);
     color = mix(original, color, resolveStrength);
 

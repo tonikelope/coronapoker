@@ -112,6 +112,37 @@ final class GdxCardSmaaRendererContractTest {
     }
 
     @Test
+    void smoothModePrefiltersSharedCardArtworkBeforeRasterization()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String artwork = method(table,
+                "private static final String CARD_ARTWORK_SAMPLING_GLSL",
+                "static final String CARD_FRAGMENT_SHADER");
+        String regular = method(table,
+                "private void configureCardShader(Texture front, Texture cardBack,",
+                "private void setCardShowdownOverlay(boolean highlighted)");
+        String rabbit = method(table,
+                "private void useRabbitPeelShader(Texture front, float progress,",
+                "private void configureCardShader(Texture front, float angle,");
+
+        assertEquals(4, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());
+        assertTrue(artwork.contains("uniform float u_artworkSmooth"));
+        assertTrue(artwork.contains("if (u_artworkSmooth < 0.5)"));
+        assertTrue(artwork.contains("vec2 uvDx = dFdx(uv)"));
+        assertTrue(artwork.contains("vec2 uvDy = dFdy(uv)"));
+        assertEquals(4, occurrences(artwork,
+                "resolved += texture2D(artwork"));
+        assertTrue(artwork.contains("return resolved * 0.25"));
+        assertFalse(artwork.toLowerCase().contains("sharpen"));
+        assertTrue(regular.contains(
+                "setUniformf(\"u_artworkSmooth\""));
+        assertTrue(rabbit.contains(
+                "setUniformf(\"u_artworkSmooth\""));
+        assertTrue(table.contains(
+                "mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f"));
+    }
+
+    @Test
     void usesOfficialThreePassUltraSmaaWithoutSupersampling()
             throws IOException {
         String smaa = Files.readString(source("GdxCardSmaaRenderer.java"));
@@ -132,19 +163,24 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(blend.contains(
                 "color = mix(original, color, resolveStrength)"));
         assertTrue(blend.contains(
-                "maximumChannelDelta(outsideNegative.rgb, outsidePositive.rgb)"));
-        assertTrue(blend.contains(
-                "float thinStroke = outsideAgreement * strokeContrast"));
-        assertTrue(blend.contains(
-                "float interiorStrength = mix(uInteriorEdgeBlendStrength, 1.0"));
-        assertTrue(blend.contains(
-                "float resolveStrength = mix(interiorStrength, 1.0"));
+                "float resolveStrength = mix(uInteriorEdgeBlendStrength, 1.0"));
+        assertFalse(blend.contains("thinStroke"));
         assertFalse(blend.contains("sharpen"),
                 "selective SMAA must not add an image-sharpening pass");
 
         assertTrue(Files.isRegularFile(resource("area.png")));
         assertTrue(Files.isRegularFile(resource("search.png")));
         assertTrue(Files.isRegularFile(resource("LICENSE.txt")));
+    }
+
+    private static int occurrences(String value, String token) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = value.indexOf(token, offset)) >= 0) {
+            count++;
+            offset += token.length();
+        }
+        return count;
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
+import java.util.Objects;
 
 /**
  * Rasterizes FreeType glyphs at their final physical output density.
@@ -53,6 +54,22 @@ final class GdxAdaptiveFontQuality {
     static BitmapFont generate(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor, String extraCharacters,
             Profile profile) {
+        String characters = FreeTypeFontGenerator.DEFAULT_CHARS;
+        if (extraCharacters != null && !extraCharacters.isEmpty()) {
+            characters += extraCharacters;
+        }
+        return generateForCharacters(generator, size, border, color,
+                borderColor, characters, profile);
+    }
+
+    /**
+     * Generates a native-density atlas with an exact semantic repertoire.
+     * Dense size families use this to avoid duplicating unrelated lowercase,
+     * card-suit and box-drawing glyphs in every texture.
+     */
+    static BitmapFont generateForCharacters(FreeTypeFontGenerator generator,
+            int size, float border, Color color, Color borderColor,
+            String characters, Profile profile) {
         int rasterSize = rasterSizeFor(size, profile);
         float actualRasterScale = (float) rasterSize / size;
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
@@ -65,13 +82,13 @@ final class GdxAdaptiveFontQuality {
         parameter.genMipMaps = false;
         parameter.minFilter = TextureFilter.Linear;
         parameter.magFilter = TextureFilter.Linear;
-        if (extraCharacters != null && !extraCharacters.isEmpty()) {
-            parameter.characters = FreeTypeFontGenerator.DEFAULT_CHARS
-                    + extraCharacters;
-        }
+        parameter.characters = Objects.requireNonNull(characters,
+                "characters");
         BitmapFont result = generator.generateFont(parameter);
-        // Use the real rounded raster size so logical metrics remain bit-for-bit
-        // stable even for quarter-step profiles and odd point sizes.
+        // This is coordinate normalization, not post-raster fitting: FreeType
+        // has already generated one texel density for the physical framebuffer.
+        // The inverse density maps those native texels back to world units so
+        // one atlas pixel still lands on one physical output pixel.
         result.getData().setScale((float) size / rasterSize);
         return result;
     }

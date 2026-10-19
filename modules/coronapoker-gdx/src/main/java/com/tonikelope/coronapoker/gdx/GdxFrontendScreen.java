@@ -74,6 +74,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -104,7 +105,6 @@ import java.time.format.DateTimeFormatter;
 /** Native menu and staged NewGameDialog replacement. */
 final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
 
-    private static final float MIN_FITTED_TEXT_SCALE = 0.72f;
 
     private static final Logger LOGGER = Logger.getLogger(
             GdxFrontendScreen.class.getName());
@@ -340,8 +340,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final Matrix4 pixelProjection = new Matrix4();
-    private final Matrix4 identityTransform = new Matrix4();
-    private final Matrix4 italicTransform = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
@@ -416,6 +414,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont versionFont;
     private GdxCrispButtonText.FontTiers actionButtonFontTiers;
     private GdxCrispButtonText.FontTiers compactButtonFontTiers;
+    private final Map<BitmapFont, GdxCrispButtonText.FontTiers>
+            nativeTextTiers = new IdentityHashMap<>();
     private final GdxCrispButtonText.Result crispButtonText =
             new GdxCrispButtonText.Result();
     private GdxAdaptiveFontQuality.Profile fontQualityProfile;
@@ -954,12 +954,47 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 smallFont, buttonTinyFont, tinyFont, versionFont);
         compactButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 smallFont, buttonTinyFont, tinyFont, versionFont);
+        rebuildNativeTextTiers();
         fontQualityProfile = profile;
         pendingFontQualityProfile = null;
     }
 
     private static void disposeFont(BitmapFont font) {
         if (font != null) font.dispose();
+    }
+
+    /** Native FreeType sizes shared by every non-table surface. */
+    private void rebuildNativeTextTiers() {
+        nativeTextTiers.clear();
+        BitmapFont[] standard = {
+            titleFont, settingsStepperSignFont, volumeOverlayFont,
+            headingFont, actionFont, uiFont, buttonMediumFont,
+            buttonCompactFont, smallFont, buttonTinyFont, tinyFont,
+            versionFont
+        };
+        for (BitmapFont font : standard) {
+            if (font != null) {
+                nativeTextTiers.put(font,
+                        GdxCrispButtonText.FontTiers.atOrBelow(font,
+                                standard));
+            }
+        }
+        registerNativeTextFamily(fpsFont);
+        registerNativeTextFamily(debugLogFont);
+        registerNativeTextFamily(debugLogBoldFont);
+    }
+
+    private void registerNativeTextFamily(BitmapFont preferred,
+            BitmapFont... smaller) {
+        if (preferred == null) return;
+        nativeTextTiers.put(preferred,
+                GdxCrispButtonText.FontTiers.atOrBelow(preferred, smaller));
+    }
+
+    private GdxCrispButtonText.FontTiers nativeTextTiers(BitmapFont font) {
+        GdxCrispButtonText.FontTiers tiers = nativeTextTiers.get(font);
+        return tiers != null ? tiers
+                : new GdxCrispButtonText.FontTiers(font);
     }
 
     private void refreshFontQualityIfDue() {
@@ -1899,7 +1934,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : MENU_QUOTE_SINGLE_BASELINE;
         for (String line : lines) {
             texts.add(new TextItem(smallFont, line, WIDTH / 2f, baseline,
-                    new Color(Color.WHITE), true, true));
+                    new Color(Color.WHITE), true));
             baseline -= MENU_QUOTE_LINE_HEIGHT;
         }
     }
@@ -4614,7 +4649,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxProductVersionBrand.BASELINE_Y,
                 new Color((GdxProductVersionBrand.RGB << 8)
                         | Math.round(GdxProductVersionBrand.ALPHA * 255f)),
-                false, GdxProductVersionBrand.MAX_WIDTH, false);
+                false, GdxProductVersionBrand.MAX_WIDTH);
         batch.begin();
         drawTextItem(label);
         batch.end();
@@ -9103,8 +9138,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 BitmapFont font = run.bold()
                         ? debugLogBoldFont : debugLogFont;
                 settingsDebugTexts.add(new TextItem(font, run.text(),
-                        runX, lineY, new Color(run.foreground()), false,
-                        false));
+                        runX, lineY, new Color(run.foreground()), false));
                 runX += textWidth(font, run.text());
             }
         }
@@ -11165,23 +11199,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawFittedCenteredInBox(BitmapFont font, String text,
             float x, float y, float width, float height,
             Color color, float alpha) {
-        BitmapFont.BitmapFontData data = font.getData();
-        float originalScaleX = data.scaleX;
-        float originalScaleY = data.scaleY;
-        font.setColor(color.r, color.g, color.b, alpha);
-        glyph.setText(font, text);
-        float fit = CoronaPokerGdxTable.fittedSingleLineScale(glyph.width,
-                glyph.height, width, height);
-        if (fit < 1f) {
-            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
-                    fit, viewport);
-            glyph.setText(font, text);
-        }
-        GdxPixelText.draw(font, batch, glyph,
+        GdxCrispButtonText.resolveWithinBox(glyph, text, width, height,
+                nativeTextTiers(font), crispButtonText);
+        BitmapFont selected = crispButtonText.font();
+        selected.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(selected, crispButtonText.text());
+        GdxPixelText.draw(selected, batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f, viewport);
-        font.setColor(Color.WHITE);
-        data.setScale(originalScaleX, originalScaleY);
+        selected.setColor(Color.WHITE);
     }
 
     private void panel(float x, float y, float w, float h, String title) {
@@ -12076,7 +12102,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         glyph.setText(uiFont, value);
         float baseline = y + (h + glyph.height) / 2f;
         texts.add(new TextItem(uiFont, value, x + 22f, baseline,
-                new Color(Color.WHITE), false, false, 1f));
+                new Color(Color.WHITE), false));
         shapes.setColor(GOLD);
         float cx = x + w - 36f;
         float cy = y + h / 2f;
@@ -12115,8 +12141,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float drawX = x + (width - glyph.width) / 2f;
         float baselineY = y + (height + glyph.height) / 2f;
         (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
-                value, drawX, baselineY, new Color(color), false, false,
-                1f));
+                value, drawX, baselineY, new Color(color), false));
     }
 
     private void drawButtonIconColumn(float x, float y, float w, float h,
@@ -12424,35 +12449,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void text(BitmapFont font, String value, float x, float y,
             Color color, boolean centered) {
         (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
-                value, x, y, new Color(color), centered, false));
+                value, x, y, new Color(color), centered));
     }
 
     private void textFit(BitmapFont preferred, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
         (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
-                preferred, value, x, y, color, centered, maxWidth, false));
+                preferred, value, x, y, color, centered, maxWidth));
     }
 
     private void textFitRight(BitmapFont preferred, String value,
             float rightX, float y, Color color, float maxWidth) {
         TextItem fitted = fittedTextItem(preferred, value, 0f, y, color,
-                false, maxWidth, false);
-        float quantizedScale = GdxPixelText.quantizeScaleDown(fitted.font(),
-                fitted.scale(), viewport);
-        float renderedWidth = textWidth(fitted.font(), fitted.text())
-                * quantizedScale;
+                false, maxWidth);
+        float renderedWidth = textWidth(fitted.font(), fitted.text());
         (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(
                 fitted.font(), fitted.text(), rightX - renderedWidth, y,
-                fitted.color(), false, fitted.italic(), quantizedScale));
+                fitted.color(), false));
     }
 
-    /** Fits table headers by scaling them down, never by truncating them. */
+    /** Fits table headers by selecting a smaller native atlas. */
     private void textExactFit(BitmapFont font, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
-        float width = Math.max(1f, textWidth(font, value));
-        float scale = Math.min(1f, maxWidth / width);
-        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
-                value, x, y, new Color(color), centered, false, scale));
+        (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
+                font, value, x, y, color, centered, maxWidth));
     }
 
     private void beginStatsChartCanvas(float x, float y, float width,
@@ -12547,70 +12567,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void chartTextFit(BitmapFont font, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
-        float width = Math.max(1f, textWidth(font, value));
-        float scale = Math.min(1f, maxWidth / width);
         List<TextItem> target = statsChartCanvasActive
                 ? statsChartTexts : texts;
-        target.add(new TextItem(font, value,
+        target.add(fittedTextItem(font, value,
                 statsChartCanvasActive ? statsChartX(x) : x,
                 statsChartCanvasActive ? statsChartY(y) : y,
-                new Color(color), centered, false, scale));
+                color, centered, maxWidth));
     }
 
     private void italicTextFit(BitmapFont preferred, String value, float x,
             float y, Color color, boolean centered, float maxWidth) {
+        // Synthetic shear distorts raster glyphs. Quotes keep the native face
+        // until a genuine italic font asset is available.
         (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
-                preferred, value, x, y, color, centered, maxWidth, true));
+                preferred, value, x, y, color, centered, maxWidth));
     }
 
     private TextItem fittedTextItem(BitmapFont preferred, String value,
-            float x, float y, Color color, boolean centered, float maxWidth,
-            boolean italic) {
-        BitmapFont selected = preferred;
-        if (!fits(selected, value, maxWidth) && selected != smallFont) {
-            selected = smallFont;
-        }
-        if (!fits(selected, value, maxWidth)) {
-            selected = tinyFont;
-        }
-        float scale = fittedTextScale(textWidth(selected, value), maxWidth,
-                MIN_FITTED_TEXT_SCALE);
-        String fitted = ellipsize(selected, value, maxWidth / scale);
-        return new TextItem(selected, fitted, x, y, new Color(color),
-                centered, italic, scale);
-    }
-
-    static float fittedTextScale(float textWidth, float maxWidth,
-            float minimumScale) {
-        if (textWidth <= 0f || maxWidth <= 0f) return 1f;
-        return MathUtils.clamp(maxWidth / textWidth,
-                MathUtils.clamp(minimumScale, 0f, 1f), 1f);
+            float x, float y, Color color, boolean centered, float maxWidth) {
+        GdxCrispButtonText.resolveWithinContentWidth(glyph, value, maxWidth,
+                nativeTextTiers(preferred), crispButtonText);
+        return new TextItem(crispButtonText.font(), crispButtonText.text(),
+                x, y, new Color(color), centered);
     }
 
     private void drawTextItem(TextItem item) {
-        float previousScaleX = item.font.getData().scaleX;
-        float previousScaleY = item.font.getData().scaleY;
-        if (item.scale < 1f) {
-            GdxPixelText.applyScaleDown(item.font, previousScaleX,
-                    previousScaleY, item.scale, viewport);
-        } else {
-            GdxPixelText.applyScale(item.font, previousScaleX,
-                    previousScaleY, item.scale, viewport);
-        }
         item.font.setColor(item.color);
         glyph.setText(item.font, item.text);
         float x = item.centered ? item.x - glyph.width / 2f : item.x;
-        float y = item.y;
-        if (item.italic) {
-            float shear = 0.18f;
-            italicTransform.idt();
-            italicTransform.val[Matrix4.M01] = shear;
-            italicTransform.val[Matrix4.M03] = -shear * y;
-            batch.setTransformMatrix(italicTransform);
-        }
-        GdxPixelText.draw(item.font, batch, item.text, x, y, viewport);
-        if (item.italic) batch.setTransformMatrix(identityTransform);
-        item.font.getData().setScale(previousScaleX, previousScaleY);
+        GdxPixelText.draw(item.font, batch, item.text, x, item.y, viewport);
     }
 
     private boolean fits(BitmapFont font, String value, float maxWidth) {
@@ -14166,12 +14151,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered, boolean italic, float scale) {
-
-        private TextItem(BitmapFont font, String text, float x, float y,
-                Color color, boolean centered, boolean italic) {
-            this(font, text, x, y, color, centered, italic, 1f);
-        }
+            Color color, boolean centered) {
     }
 
     record StatsCardGlyph(String rank, String suit, boolean red) {

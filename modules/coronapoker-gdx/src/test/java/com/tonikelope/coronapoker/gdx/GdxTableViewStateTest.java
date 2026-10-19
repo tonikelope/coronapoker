@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.math.Rectangle;
 import com.tonikelope.coronapoker.table.TableCommand;
+import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -2184,6 +2185,100 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void rejectedLocalActionImmediatelyReleasesTheOptimisticHudLatch() {
+        GdxTableViewState state = new GdxTableViewState(
+                snapshot(false, "ana"));
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CHECK, 0d,
+                ActionControlState.RaiseAction.BET,
+                2d, 10d, 1d, 2d, true, false, -1, 0d, 100d);
+        state.apply(new TableVisualEvent.ActionControls(1, controls));
+        TableCommandSink rejecting = new TableCommandSink() {
+            @Override
+            public void submit(TableCommand command) {
+            }
+
+            @Override
+            public boolean trySubmit(TableCommand command) {
+                return false;
+            }
+        };
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                rejecting, () -> { }, new GdxGameLogSink(), null);
+
+        assertTrue(table.activateFoldAction());
+        assertNull(table.pendingLocalActionKind(),
+                "a rejected command must never freeze the local controls");
+        assertTrue(table.activateFoldAction(),
+                "the HUD must remain actionable after a rejection");
+    }
+
+    @Test
+    void betAndRaiseAtMaximumBecomeAllInWithoutChangingLowerAmounts() {
+        ActionControlState opening = new ActionControlState(true,
+                ActionControlState.CallAction.CHECK, 0d,
+                ActionControlState.RaiseAction.BET,
+                0.2d, 10d, 0.1d, 0.2d, true, false, -1, 0d, 10d);
+        assertEquals(new TableCommand.Bet(9.9d),
+                CoronaPokerGdxTable.betCommand(9.9d, opening));
+        assertEquals(new TableCommand.AllIn(),
+                CoronaPokerGdxTable.betCommand(10d, opening),
+                "SUBIR at the stack ceiling is canonically ALL IN");
+
+        ActionControlState reraising = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 4.1d,
+                ActionControlState.RaiseAction.RERAISE,
+                3d, 5.7d, 0.1d, 3d, true, false, -1, 4.3d, 9.8d);
+        assertEquals(new TableCommand.Bet(5.6d),
+                CoronaPokerGdxTable.betCommand(5.6d, reraising));
+        assertEquals(new TableCommand.AllIn(),
+                CoronaPokerGdxTable.betCommand(5.7d, reraising),
+                "RESUBIR at the stack ceiling is canonically ALL IN");
+    }
+
+    @Test
+    void maximumReraiseActivationSubmitsAllInAndKeepsTheHudResponsive() {
+        GdxTableViewState state = new GdxTableViewState(
+                snapshot(false, "ana"));
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 4.1d,
+                ActionControlState.RaiseAction.RERAISE,
+                3d, 5.7d, 0.1d, 5.7d, true, false, -1, 4.3d, 9.8d);
+        List<TableCommand> submitted = new java.util.ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(60, state,
+                submitted::add, () -> { }, new GdxGameLogSink(), null);
+        CompletableFuture<Void> applied = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.ActionControls(1, controls),
+                applied);
+
+        assertTrue(applied.isDone());
+        assertTrue(table.activateBetAction());
+        assertEquals(List.of(), submitted,
+                "the first maximum-raise press must arm classic ALL IN safety");
+        assertTrue(table.activateBetAction());
+        assertEquals(List.of(new TableCommand.AllIn()), submitted);
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                table.pendingLocalActionKind());
+        assertFalse(table.activateBetAction(),
+                "an accepted maximum raise must block duplicate submissions");
+    }
+
+    @Test
+    void betStepperUsesExactCentsAndClampsAtBothCanonicalLimits() {
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 4.1d,
+                ActionControlState.RaiseAction.RERAISE,
+                3d, 5.7d, 0.1d, 3d, true, false, -1, 4.3d, 9.8d);
+
+        assertEquals(3.1d,
+                CoronaPokerGdxTable.adjustedBetAmount(3d, 1, controls));
+        assertEquals(5.7d,
+                CoronaPokerGdxTable.adjustedBetAmount(5.7d, 1, controls));
+        assertEquals(3d,
+                CoronaPokerGdxTable.adjustedBetAmount(3d, -1, controls));
+    }
+
+    @Test
     void nextActionableTurnReleasesAStaleSubmissionLatch() {
         GdxTableViewState state = new GdxTableViewState(
                 snapshot(false, "ana"));
@@ -3207,8 +3302,6 @@ final class GdxTableViewStateTest {
                 "a rackless pending rebuy amount must be centred in STACK");
         assertTrue(stackValueWithoutRack.width
                 > layout.stackValueBounds().width);
-        assertTrue(CoronaPokerGdxTable.localStackValueScale(true)
-                < CoronaPokerGdxTable.localStackValueScale(false));
         Rectangle racklessInvestedValue = layout.investedValueBounds();
         assertEquals(invested.x + invested.width / 2f,
                 racklessInvestedValue.x + racklessInvestedValue.width / 2f,
@@ -3228,8 +3321,6 @@ final class GdxTableViewStateTest {
                 layout.investedCaptionBounds().x
                         + layout.investedCaptionBounds().width / 2f,
                 0.000_001f);
-        assertEquals(0.94f, CoronaPokerGdxTable.localCounterCaptionScale(
-                100f, 20f, 100f, 20f), 0.000_001f);
         GdxGameText text = new GdxGameText("es");
         assertEquals("STACK", CoronaPokerGdxTable.localStackCaption(
                 false, text));
@@ -3468,16 +3559,6 @@ final class GdxTableViewStateTest {
         assertTrue(CoronaPokerGdxTable.hasSettledPresentation(
                 state.hasHandResult("borja"),
                 state.resolvedHandWinner("borja")));
-    }
-
-    @Test
-    void longMultiPotOutcomeScalesDownBeforeEscapingTheHud() {
-        assertEquals(1f, CoronaPokerGdxTable.fittedSingleLineScale(
-                600f, 50f, 900f, 80f));
-        assertEquals(0.5f, CoronaPokerGdxTable.fittedSingleLineScale(
-                1_800f, 50f, 900f, 80f));
-        assertEquals(0.5f, CoronaPokerGdxTable.fittedSingleLineScale(
-                600f, 160f, 900f, 80f));
     }
 
     @Test
@@ -4064,17 +4145,6 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.pauseOverlayRequestsResume(true, false,
                 120f, 520f, worldWidth, bannerY, bannerHeight,
                 buttonX, buttonY, buttonWidth, buttonHeight));
-    }
-
-    @Test
-    void zeroTrustTextNeverShrinksBelowItsReadableFloor() {
-        assertEquals(1f, CoronaPokerGdxTable.zeroTrustTextScale(400f, 500f),
-                0.000_001f);
-        assertEquals(0.9f, CoronaPokerGdxTable.zeroTrustTextScale(500f, 450f),
-                0.000_001f);
-        assertEquals(0.78f,
-                CoronaPokerGdxTable.zeroTrustTextScale(900f, 450f),
-                0.000_001f);
     }
 
     @Test

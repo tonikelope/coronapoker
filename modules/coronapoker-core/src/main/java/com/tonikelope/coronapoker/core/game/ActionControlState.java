@@ -53,6 +53,18 @@ public record ActionControlState(boolean foldEnabled, CallAction callAction,
                 currentBet, playerStack);
     }
 
+    /**
+     * Whether the selected raise increment commits every remaining chip.
+     * Such a ceiling action must travel through the canonical ALL IN command;
+     * the engine deliberately rejects it as an ordinary BET.
+     */
+    public boolean raiseConsumesEntireStack(double raiseIncrement) {
+        return Double.isFinite(raiseIncrement) && raiseIncrement >= 0d
+                && raiseAction != RaiseAction.DISABLED && allInEnabled
+                && MoneyMath.compare(raiseIncrement + callAmount,
+                        playerStack) >= 0;
+    }
+
     public static ActionControlState forTurn(double currentBet,
             double lastRaise, double bigBlind, double smallBlind,
             double playerBet, double playerStack, int playersAbleToBet,

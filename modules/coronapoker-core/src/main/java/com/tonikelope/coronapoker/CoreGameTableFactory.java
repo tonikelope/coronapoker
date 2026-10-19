@@ -52,6 +52,7 @@ import com.tonikelope.coronapoker.core.game.TableEventGameAudioSink;
 import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.table.TableCommand;
+import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableSession;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -1263,15 +1264,32 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             });
                 });
 
+                TableCommandSink commandSink = new TableCommandSink() {
+                    @Override
+                    public void submit(TableCommand command) {
+                        submitAndReport(command, dealer, local,
+                                pauseCoordinator, events, presentationSettings,
+                                context.channel(), lobby.host(),
+                                context.hotJoining(), controlExecutor,
+                                terminationExecutor, requestedCloseReason,
+                                botDifficulty, textToSpeech, voiceMessages,
+                                closing);
+                    }
+
+                    @Override
+                    public boolean trySubmit(TableCommand command) {
+                        return submitAndReport(command, dealer, local,
+                                pauseCoordinator, events, presentationSettings,
+                                context.channel(), lobby.host(),
+                                context.hotJoining(), controlExecutor,
+                                terminationExecutor, requestedCloseReason,
+                                botDifficulty, textToSpeech, voiceMessages,
+                                closing);
+                    }
+                };
                 TableSession table = new TableSession(initialSnapshot(lobby,
-                initialConfiguration.buyin(), context.hotJoining()), command -> {
-                    submit(command, dealer, local, pauseCoordinator, events,
-                            presentationSettings, context.channel(),
-                            lobby.host(), context.hotJoining(), controlExecutor,
-                            terminationExecutor, requestedCloseReason,
-                            botDifficulty, textToSpeech, voiceMessages,
-                            closing);
-                }, events, () -> {
+                initialConfiguration.buyin(), context.hotJoining()), commandSink,
+                events, () -> {
                     if (!started.compareAndSet(false, true)) {
                         return CompletableFuture.failedFuture(
                                 new IllegalStateException("La mesa GDX ya esta iniciada"));
@@ -1539,7 +1557,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 List.of());
     }
 
-    private static void submit(TableCommand command, Crupier dealer,
+    private static boolean submitAndReport(TableCommand command, Crupier dealer,
             CorePlayerController local,
             NetworkPauseCoordinator pauseCoordinator,
             TableEventBridge events,
@@ -1555,16 +1573,18 @@ public final class CoreGameTableFactory implements GameTableFactory {
             AtomicBoolean textToSpeech, AtomicBoolean voiceMessages,
             AtomicBoolean closing) {
         Objects.requireNonNull(command, "command");
-        if (closing.get()) return;
+        if (closing.get()) return false;
+        boolean accepted = true;
         try {
         if (command instanceof TableCommand.Fold) {
-            local.submitDecision(CorePlayerController.FOLD, 0d);
+            accepted = local.submitDecision(CorePlayerController.FOLD, 0d);
         } else if (command instanceof TableCommand.CheckOrCall) {
-            local.submitDecision(CorePlayerController.CHECK, 0d);
+            accepted = local.submitDecision(CorePlayerController.CHECK, 0d);
         } else if (command instanceof TableCommand.Bet bet) {
-            local.submitDecision(CorePlayerController.BET, bet.amount());
+            accepted = local.submitDecision(CorePlayerController.BET,
+                    bet.amount());
         } else if (command instanceof TableCommand.AllIn) {
-            local.submitDecision(CorePlayerController.ALLIN, 0d);
+            accepted = local.submitDecision(CorePlayerController.ALLIN, 0d);
         } else if (command instanceof TableCommand.ShowCards) {
             dealer.requestVoluntaryShowCards(local.getNickname());
         } else if (command instanceof TableCommand.RequestIwtsth request) {
@@ -1749,7 +1769,9 @@ public final class CoreGameTableFactory implements GameTableFactory {
             // Once closing is armed, that late input belongs to the dead table
             // and must be ignored instead of escaping on the render/UI thread.
             if (!closing.get()) throw rejected;
+            accepted = false;
         }
+        return accepted;
     }
 
     private static boolean booleanPreference(Properties properties, String key,

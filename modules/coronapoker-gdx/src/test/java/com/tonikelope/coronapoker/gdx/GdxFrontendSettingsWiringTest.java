@@ -257,13 +257,14 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
-    void fittedTextUsesProportionalScalingBeforeItsFinalEllipsisGuard() {
-        assertEquals(1f, GdxFrontendScreen.fittedTextScale(
-                100f, 120f, 0.72f));
-        assertEquals(0.8f, GdxFrontendScreen.fittedTextScale(
-                150f, 120f, 0.72f));
-        assertEquals(0.72f, GdxFrontendScreen.fittedTextScale(
-                300f, 120f, 0.72f));
+    void fittedTextSelectsNativeTiersWithoutScalingRasterGlyphs()
+            throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"));
+        assertTrue(source.contains(
+                "GdxCrispButtonText.resolveWithinContentWidth("));
+        assertFalse(source.contains("GdxPixelText.applyScale"));
+        assertFalse(source.contains("setTransformMatrix(italicTransform)"));
     }
 
     @Test

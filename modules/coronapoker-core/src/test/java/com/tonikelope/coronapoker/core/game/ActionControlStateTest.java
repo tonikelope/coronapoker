@@ -27,6 +27,20 @@ final class ActionControlStateTest {
         assertEquals(3.5d, reraise.raiseMinimum());
         assertEquals(22.5d, reraise.raiseMaximum());
         assertTrue(reraise.allInEnabled());
+        assertFalse(reraise.raiseConsumesEntireStack(22.49d));
+        assertTrue(reraise.raiseConsumesEntireStack(22.5d));
+    }
+
+    @Test
+    void stackCeilingDetectionUsesCanonicalCentPrecision() {
+        ActionControlState controls = new ActionControlState(true,
+                ActionControlState.CallAction.CALL, 4.1d,
+                ActionControlState.RaiseAction.RERAISE,
+                3d, 5.7d, 0.1d, 3d, true, false, -1, 4.3d, 9.8d);
+
+        assertFalse(controls.raiseConsumesEntireStack(5.69d));
+        assertTrue(controls.raiseConsumesEntireStack(5.7d));
+        assertTrue(controls.raiseConsumesEntireStack(5.700000000000001d));
     }
 
     @Test

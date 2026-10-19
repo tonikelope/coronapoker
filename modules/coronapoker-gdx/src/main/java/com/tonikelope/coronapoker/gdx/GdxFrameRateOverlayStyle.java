@@ -99,23 +99,12 @@ final class GdxFrameRateOverlayStyle {
     private static void drawFittedCenteredInBox(SpriteBatch batch,
             BitmapFont font, GlyphLayout glyph, String text, float x, float y,
             float width, float height, Viewport viewport) {
-        BitmapFont.BitmapFontData data = font.getData();
-        float originalScaleX = data.scaleX;
-        float originalScaleY = data.scaleY;
         font.setColor(Color.WHITE);
         glyph.setText(font, text);
-        float fit = CoronaPokerGdxTable.fittedSingleLineScale(glyph.width,
-                glyph.height, width, height);
-        if (fit < 1f) {
-            GdxPixelText.applyScaleDown(font, originalScaleX, originalScaleY,
-                    fit, viewport);
-            glyph.setText(font, text);
-        }
         GdxPixelText.draw(font, batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f, viewport);
         font.setColor(Color.WHITE);
-        data.setScale(originalScaleX, originalScaleY);
     }
 
     private GdxFrameRateOverlayStyle() {

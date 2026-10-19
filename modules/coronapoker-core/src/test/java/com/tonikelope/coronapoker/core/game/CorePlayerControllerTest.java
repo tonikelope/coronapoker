@@ -269,6 +269,32 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void stackCeilingIsRejectedAsBetAndAcceptedOnlyAsAllIn() {
+        CorePlayerController invalidBet = CorePlayerController.local("player");
+        invalidBet.setStack(10d);
+        invalidBet.setBet(0.2d);
+        invalidBet.bindDealer(new StubDealer(4.3d));
+        invalidBet.esTuTurno();
+
+        assertFalse(invalidBet.submitDecision(GamePlayerController.BET, 5.7d),
+                "a BET that consumes the complete remaining stack is illegal");
+        assertTrue(invalidBet.isTurno(),
+                "a rejected frontend command must not complete the turn");
+        assertEquals(GamePlayerController.NODEC, invalidBet.getDecision());
+
+        CorePlayerController allIn = CorePlayerController.local("player");
+        allIn.setStack(10d);
+        allIn.setBet(0.2d);
+        allIn.bindDealer(new StubDealer(4.3d));
+        allIn.esTuTurno();
+
+        assertTrue(allIn.submitDecision(GamePlayerController.ALLIN, 0d));
+        assertEquals(GamePlayerController.ALLIN, allIn.getDecision());
+        assertEquals(0d, allIn.getStack());
+        assertEquals(10d, allIn.getBet());
+    }
+
+    @Test
     void acceptedActionCanReplaceItsInternalLabelForTheLocalizedGameLog() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(10d);

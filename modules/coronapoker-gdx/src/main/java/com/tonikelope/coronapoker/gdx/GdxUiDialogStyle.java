@@ -13,7 +13,6 @@ final class GdxUiDialogStyle {
     static final int PANEL_RGBA = 0x071321cc;
     static final int INSET_RGBA = 0x08182870;
     static final float BACKDROP_ALPHA = 0.68f;
-    static final float NOTICE_MESSAGE_SCALE = 1.08f;
     static final String CLOSE_GLYPH = "\u00d7";
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);

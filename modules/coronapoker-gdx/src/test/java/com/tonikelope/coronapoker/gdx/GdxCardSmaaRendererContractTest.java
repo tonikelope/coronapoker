@@ -105,7 +105,7 @@ final class GdxCardSmaaRendererContractTest {
                 "private void finishCardSmaaLayer()");
 
         assertTrue(begin.contains(
-                "presentationSettings.requestedCardSmaaQuality()"));
+                "presentationSettings.requestedCardRenderingMode()"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferWidth()"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferHeight()"));
         assertFalse(begin.contains("settingsOpened"));
@@ -153,11 +153,13 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(smaa.contains("Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0)"));
         int composite = smaa.indexOf(
                 "fullscreenTriangle.render(blendShader");
-        int effective = smaa.indexOf("effectiveQuality = activeQuality");
+        int effective = smaa.indexOf(
+                "effectiveRenderingMode = activeRenderingMode");
         assertTrue(composite >= 0 && effective > composite);
-        assertTrue(smaa.contains("effectiveQuality = QUALITY_OFF"));
         assertTrue(smaa.contains(
-                "lastAttemptedQuality == requestedQuality"));
+                "effectiveRenderingMode = RENDERING_NATIVE"));
+        assertTrue(smaa.contains(
+                "lastAttemptedRenderingMode == requestedRenderingMode"));
     }
 
     private static String method(String source, String startText,

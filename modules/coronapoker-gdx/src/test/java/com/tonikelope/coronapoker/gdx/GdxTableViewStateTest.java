@@ -103,8 +103,8 @@ final class GdxTableViewStateTest {
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
         assertEquals(-0.5f,
                 CoronaPokerGdxTable.cardArtworkDetailLodBias());
-        assertEquals(0, GdxCardSmaaRenderer.QUALITY_OFF);
-        assertEquals(1, GdxCardSmaaRenderer.QUALITY_ULTRA);
+        assertEquals(0, GdxCardSmaaRenderer.RENDERING_NATIVE);
+        assertEquals(1, GdxCardSmaaRenderer.RENDERING_SMOOTH);
         assertTrue(GdxCardSmaaRenderer.fitsMaximumTextureSize(
                 3_840, 2_160, 8_192));
         assertFalse(GdxCardSmaaRenderer.fitsMaximumTextureSize(

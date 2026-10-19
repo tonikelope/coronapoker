@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -33,7 +34,7 @@ final class GdxCardSmaaGpuCertificationTest {
     private static final int HEIGHT = 128;
 
     @Test
-    void ultraSmaaChangesActualEdgePixelsOnTheGpu() {
+    void smoothRenderingChangesActualEdgePixelsOnTheGpu() {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         AtomicReference<Integer> changedPixels = new AtomicReference<>(0);
 
@@ -75,7 +76,7 @@ final class GdxCardSmaaGpuCertificationTest {
         Texture card = diagnosticCard();
         GdxCardSmaaRenderer renderer = new GdxCardSmaaRenderer();
         try {
-            byte[] direct = renderDirect(batch, card, projection);
+            byte[] direct = renderNative(renderer, batch, card, projection);
             byte[] antialiased = renderSmaa(renderer, batch, card, projection);
             int weightedPixels = countNonZeroWeightPixels(renderer);
             assertTrue(weightedPixels >= 12,
@@ -125,10 +126,13 @@ final class GdxCardSmaaGpuCertificationTest {
         }
     }
 
-    private static byte[] renderDirect(SpriteBatch batch, Texture card,
-            Matrix4 projection) {
+    private static byte[] renderNative(GdxCardSmaaRenderer renderer,
+            SpriteBatch batch, Texture card, Matrix4 projection) {
         clearBackBuffer();
         batch.setProjectionMatrix(projection);
+        assertFalse(renderer.begin(WIDTH, HEIGHT,
+                GdxCardSmaaRenderer.RENDERING_NATIVE, batch),
+                "native rendering must bypass every SMAA framebuffer");
         GdxCardSmaaRenderer.useStandardAlpha(batch);
         drawCard(batch, card);
         Gdx.gl.glFinish();
@@ -140,7 +144,7 @@ final class GdxCardSmaaGpuCertificationTest {
         clearBackBuffer();
         batch.setProjectionMatrix(projection);
         assertTrue(renderer.begin(WIDTH, HEIGHT,
-                GdxCardSmaaRenderer.QUALITY_ULTRA, batch));
+                GdxCardSmaaRenderer.RENDERING_SMOOTH, batch));
         drawCard(batch, card);
         renderer.endAndComposite(batch, projection, () -> {
             Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, 0);

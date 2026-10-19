@@ -8235,20 +8235,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.antialiasing_cards")),
-                    GdxSettingsContract.markDefault(cardSmaaSettingLabel(),
+                    GdxSettingsContract.markDefault(cardRenderingSettingLabel(),
                             Integer.toString(GdxSettingsContract
-                                    .DEFAULT_CARD_SMAA_QUALITY).equals(
+                                    .DEFAULT_CARD_RENDERING_MODE).equals(
                                     initialProperties.getProperty(
-                                            "gdx_card_smaa_quality",
+                                            GdxSettingsContract
+                                                    .CARD_RENDERING_KEY,
                                             Integer.toString(
                                                     GdxSettingsContract
-                                                            .DEFAULT_CARD_SMAA_QUALITY)))),
-                    this::selectPreviousCardSmaa,
-                    this::selectNextCardSmaa);
+                                                            .DEFAULT_CARD_RENDERING_MODE)))),
+                    this::selectPreviousCardRendering,
+                    this::selectNextCardRendering);
             performanceTooltip(new Rectangle(x + 34f,
                     rowY - 5f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
-                    "gdx_card_smaa_quality");
+                    GdxSettingsContract.CARD_RENDERING_KEY);
             settingsBooleanToggle(x + 34f,
                     rowY - 6f * rowStride, w - 68f,
                     uppercase(gameText.translate(
@@ -9301,9 +9302,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
-    private String cardSmaaSettingLabel() {
-        return GdxSettingsContract.cardSmaaStatusLabel(
-                presentationSettings.requestedCardSmaaQuality(), gameText);
+    private String cardRenderingSettingLabel() {
+        return GdxSettingsContract.cardRenderingStatusLabel(
+                presentationSettings.requestedCardRenderingMode(), gameText);
     }
 
     private String frameRateLimitSettingLabel() {
@@ -9330,12 +9331,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         presentationSettings.selectPreviousMsaaSamples(false);
     }
 
-    private void selectNextCardSmaa() {
-        presentationSettings.selectNextCardSmaaQuality(false);
+    private void selectNextCardRendering() {
+        presentationSettings.selectNextCardRenderingMode(false);
     }
 
-    private void selectPreviousCardSmaa() {
-        presentationSettings.selectPreviousCardSmaaQuality(false);
+    private void selectPreviousCardRendering() {
+        presentationSettings.selectPreviousCardRenderingMode(false);
     }
 
     private String windowModeSettingLabel() {

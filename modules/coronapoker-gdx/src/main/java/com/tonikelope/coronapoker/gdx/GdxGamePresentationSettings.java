@@ -26,9 +26,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
-    private static final List<Integer> CARD_SMAA_QUALITIES = List.of(
-            GdxCardSmaaRenderer.QUALITY_OFF,
-            GdxCardSmaaRenderer.QUALITY_ULTRA);
+    private static final List<Integer> CARD_RENDERING_MODES = List.of(
+            GdxCardSmaaRenderer.RENDERING_NATIVE,
+            GdxCardSmaaRenderer.RENDERING_SMOOTH);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;
@@ -337,29 +337,29 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         if (persist) preferences.saveDeferred();
         return selected;
     }
-    int requestedCardSmaaQuality() {
-        int configured = integer("gdx_card_smaa_quality",
-                GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY);
-        return CARD_SMAA_QUALITIES.contains(configured) ? configured
-                : GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY;
+    int requestedCardRenderingMode() {
+        int configured = integer(GdxSettingsContract.CARD_RENDERING_KEY,
+                GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE);
+        return CARD_RENDERING_MODES.contains(configured) ? configured
+                : GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE;
     }
-    int selectNextCardSmaaQuality() {
-        return selectNextCardSmaaQuality(true);
+    int selectNextCardRenderingMode() {
+        return selectNextCardRenderingMode(true);
     }
-    int selectNextCardSmaaQuality(boolean persist) {
-        return adjustCardSmaaQuality(1, persist);
+    int selectNextCardRenderingMode(boolean persist) {
+        return adjustCardRenderingMode(1, persist);
     }
-    int selectPreviousCardSmaaQuality() {
-        return selectPreviousCardSmaaQuality(true);
+    int selectPreviousCardRenderingMode() {
+        return selectPreviousCardRenderingMode(true);
     }
-    int selectPreviousCardSmaaQuality(boolean persist) {
-        return adjustCardSmaaQuality(-1, persist);
+    int selectPreviousCardRenderingMode(boolean persist) {
+        return adjustCardRenderingMode(-1, persist);
     }
-    private int adjustCardSmaaQuality(int direction, boolean persist) {
-        int current = CARD_SMAA_QUALITIES.indexOf(requestedCardSmaaQuality());
-        int selected = CARD_SMAA_QUALITIES.get(Math.floorMod(current
-                + Integer.signum(direction), CARD_SMAA_QUALITIES.size()));
-        properties.setProperty("gdx_card_smaa_quality",
+    private int adjustCardRenderingMode(int direction, boolean persist) {
+        int current = CARD_RENDERING_MODES.indexOf(requestedCardRenderingMode());
+        int selected = CARD_RENDERING_MODES.get(Math.floorMod(current
+                + Integer.signum(direction), CARD_RENDERING_MODES.size()));
+        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY,
                 Integer.toString(selected));
         if (persist) preferences.saveDeferred();
         return selected;

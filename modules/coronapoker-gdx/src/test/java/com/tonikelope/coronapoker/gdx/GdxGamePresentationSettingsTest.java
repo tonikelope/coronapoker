@@ -266,7 +266,7 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void cardSmaaAppliesLiveAndCyclesBetweenOffAndUltra(
+    void cardRenderingAppliesLiveAndCyclesBetweenNativeAndSmooth(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -275,18 +275,18 @@ final class GdxGamePresentationSettingsTest {
             GdxGamePresentationSettings settings =
                     new GdxGamePresentationSettings(preferences);
 
-            assertEquals(GdxCardSmaaRenderer.QUALITY_ULTRA,
-                    settings.requestedCardSmaaQuality());
-            assertEquals(GdxCardSmaaRenderer.QUALITY_OFF,
-                    settings.selectNextCardSmaaQuality(false));
-            assertEquals(GdxCardSmaaRenderer.QUALITY_ULTRA,
-                    settings.selectNextCardSmaaQuality(false));
-            assertEquals(GdxCardSmaaRenderer.QUALITY_OFF,
-                    settings.selectPreviousCardSmaaQuality(false));
+            assertEquals(GdxCardSmaaRenderer.RENDERING_SMOOTH,
+                    settings.requestedCardRenderingMode());
+            assertEquals(GdxCardSmaaRenderer.RENDERING_NATIVE,
+                    settings.selectNextCardRenderingMode(false));
+            assertEquals(GdxCardSmaaRenderer.RENDERING_SMOOTH,
+                    settings.selectNextCardRenderingMode(false));
+            assertEquals(GdxCardSmaaRenderer.RENDERING_NATIVE,
+                    settings.selectPreviousCardRenderingMode(false));
             preferences.properties().setProperty(
                     "gdx_card_smaa_quality", "8");
-            assertEquals(GdxCardSmaaRenderer.QUALITY_ULTRA,
-                    settings.requestedCardSmaaQuality());
+            assertEquals(GdxCardSmaaRenderer.RENDERING_SMOOTH,
+                    settings.requestedCardRenderingMode());
         } finally {
             preferences.close();
         }
@@ -350,7 +350,7 @@ final class GdxGamePresentationSettingsTest {
         assertEquals("goliat", settings.selectNextCardBack(false));
         assertEquals("azul", settings.selectNextFelt(false));
         assertEquals(8, settings.selectNextMsaaSamples(false));
-        assertEquals(0, settings.selectNextCardSmaaQuality(false));
+        assertEquals(0, settings.selectNextCardRenderingMode(false));
         assertEquals("coronapoker", preferences.properties()
                 .getProperty("baraja"));
         preferences.close();

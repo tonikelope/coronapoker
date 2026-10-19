@@ -8843,18 +8843,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
-    private String tableCardSmaaSettingLabel() {
+    private String tableCardRenderingSettingLabel() {
         if (presentationSettings == null) {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        return GdxSettingsContract.cardSmaaStatusLabel(
-                presentationSettings.requestedCardSmaaQuality(), gameText);
+        return GdxSettingsContract.cardRenderingStatusLabel(
+                presentationSettings.requestedCardRenderingMode(), gameText);
     }
 
-    private String tableCardSmaaRuntimeStatus() {
+    private String tableCardRenderingRuntimeStatus() {
         if (presentationSettings == null) return "";
-        int requested = presentationSettings.requestedCardSmaaQuality();
+        int requested = presentationSettings.requestedCardRenderingMode();
         if (!cardSmaaRenderer.isUnavailable(requested)) {
             return "";
         }
@@ -12511,8 +12511,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean beginCardSmaaLayer() {
         int quality = presentationSettings == null
-                ? GdxSettingsContract.DEFAULT_CARD_SMAA_QUALITY
-                : presentationSettings.requestedCardSmaaQuality();
+                ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
+                : presentationSettings.requestedCardRenderingMode();
         return cardSmaaRenderer.begin(Gdx.graphics.getBackBufferWidth(),
                 Gdx.graphics.getBackBufferHeight(), quality, batch);
     }
@@ -18353,9 +18353,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     int direction = settingsStepperDirection(x, contentX,
                             rowW);
                     if (direction < 0) {
-                        presentationSettings.selectPreviousCardSmaaQuality(false);
+                        presentationSettings
+                                .selectPreviousCardRenderingMode(false);
                     } else if (direction > 0) {
-                        presentationSettings.selectNextCardSmaaQuality(false);
+                        presentationSettings.selectNextCardRenderingMode(
+                                false);
                     }
                     return;
                 }
@@ -21426,7 +21428,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             bounds.set(x, firstY - 5f * rowStride, width,
                     GdxSettingsLayout.ROW_HEIGHT);
             return settingsPerformanceHover(bounds,
-                    "gdx_card_smaa_quality", viewportBounds, properties);
+                    GdxSettingsContract.CARD_RENDERING_KEY, viewportBounds,
+                    properties);
         }
 
         GdxSettingsContract.TogglePage page =
@@ -22596,15 +22599,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         uppercase(gameText.translate(
                                 "gdx.settings.row.antialiasing_cards")),
                         GdxSettingsContract.markDefault(
-                                tableCardSmaaSettingLabel(),
+                                tableCardRenderingSettingLabel(),
                                 Integer.toString(GdxSettingsContract
-                                        .DEFAULT_CARD_SMAA_QUALITY).equals(
+                                        .DEFAULT_CARD_RENDERING_MODE).equals(
                                         tableSettingsProperties().getProperty(
-                                                "gdx_card_smaa_quality",
+                                                GdxSettingsContract
+                                                        .CARD_RENDERING_KEY,
                                                 Integer.toString(
                                                         GdxSettingsContract
-                                                                .DEFAULT_CARD_SMAA_QUALITY)))),
-                        tableCardSmaaRuntimeStatus(),
+                                                                .DEFAULT_CARD_RENDERING_MODE)))),
+                        tableCardRenderingRuntimeStatus(),
                         presentationSettings != null, alpha);
                 boolean showFps = booleanPreference(
                         tableSettingsProperties(), "gdx_show_fps", false);

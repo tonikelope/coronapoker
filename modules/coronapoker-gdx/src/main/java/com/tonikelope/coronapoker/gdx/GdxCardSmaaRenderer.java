@@ -43,8 +43,10 @@ import java.nio.IntBuffer;
  */
 final class GdxCardSmaaRenderer implements Disposable {
 
-    static final int QUALITY_OFF = 0;
-    static final int QUALITY_ULTRA = 1;
+    /** Draw the cards directly, preserving the deck's natural texture. */
+    static final int RENDERING_NATIVE = 0;
+    /** Apply selective SMAA while preserving the native card detail. */
+    static final int RENDERING_SMOOTH = 1;
 
     /**
      * Keeps most of the unprocessed artwork at opaque internal edges while
@@ -73,32 +75,32 @@ final class GdxCardSmaaRenderer implements Disposable {
     private Mesh fullscreenTriangle;
     private boolean active;
     private boolean resourceInitializationFailed;
-    private int activeQuality;
-    private int effectiveQuality;
-    private int lastAttemptedQuality = -1;
+    private int activeRenderingMode;
+    private int effectiveRenderingMode;
+    private int lastAttemptedRenderingMode = -1;
     private int rejectedBackBufferWidth = -1;
     private int rejectedBackBufferHeight = -1;
 
     boolean begin(int backBufferWidth, int backBufferHeight,
-            int requestedQuality, SpriteBatch batch) {
+            int requestedRenderingMode, SpriteBatch batch) {
         if (active) {
             throw new IllegalStateException("Card SMAA pass is already active");
         }
-        lastAttemptedQuality = requestedQuality;
-        if (requestedQuality != QUALITY_ULTRA) {
+        lastAttemptedRenderingMode = requestedRenderingMode;
+        if (requestedRenderingMode != RENDERING_SMOOTH) {
             disposeBuffers();
-            effectiveQuality = QUALITY_OFF;
+            effectiveRenderingMode = RENDERING_NATIVE;
             return false;
         }
         if (!ensureResources()
                 || !ensureBuffers(backBufferWidth, backBufferHeight)) {
-            effectiveQuality = QUALITY_OFF;
+            effectiveRenderingMode = RENDERING_NATIVE;
             return false;
         }
 
         colorLayer.begin();
         active = true;
-        activeQuality = requestedQuality;
+        activeRenderingMode = requestedRenderingMode;
         clearTarget(colorLayer);
         useStraightAlphaCapture(batch);
         return true;
@@ -165,8 +167,8 @@ final class GdxCardSmaaRenderer implements Disposable {
         useStandardAlpha(batch);
         // The setting is reported as effective only after all three GPU passes
         // have completed and the result is in the actual parent target.
-        effectiveQuality = activeQuality;
-        activeQuality = QUALITY_OFF;
+        effectiveRenderingMode = activeRenderingMode;
+        activeRenderingMode = RENDERING_NATIVE;
     }
 
     /** Rebinds this card target after an inner fold/showdown framebuffer. */
@@ -183,10 +185,10 @@ final class GdxCardSmaaRenderer implements Disposable {
         return active;
     }
 
-    boolean isUnavailable(int requestedQuality) {
-        return requestedQuality == QUALITY_ULTRA
-                && lastAttemptedQuality == requestedQuality
-                && effectiveQuality != requestedQuality;
+    boolean isUnavailable(int requestedRenderingMode) {
+        return requestedRenderingMode == RENDERING_SMOOTH
+                && lastAttemptedRenderingMode == requestedRenderingMode
+                && effectiveRenderingMode != requestedRenderingMode;
     }
 
     int activeWidth() {
@@ -367,9 +369,9 @@ final class GdxCardSmaaRenderer implements Disposable {
         disposeBuffers();
         disposeResources();
         active = false;
-        activeQuality = QUALITY_OFF;
-        effectiveQuality = QUALITY_OFF;
-        lastAttemptedQuality = -1;
+        activeRenderingMode = RENDERING_NATIVE;
+        effectiveRenderingMode = RENDERING_NATIVE;
+        lastAttemptedRenderingMode = -1;
     }
 
     private void disposeBuffers() {

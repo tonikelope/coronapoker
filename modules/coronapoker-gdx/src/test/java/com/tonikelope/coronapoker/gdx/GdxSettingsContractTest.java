@@ -45,11 +45,11 @@ final class GdxSettingsContractTest {
         assertEquals("MSAA 4X",
                 GdxSettingsContract.msaaStatusLabel(4, 0,
                         new GdxGameText("en")));
-        assertEquals("SMAA 1X ULTRA",
-                GdxSettingsContract.cardSmaaStatusLabel(1,
+        assertEquals("SUAVE",
+                GdxSettingsContract.cardRenderingStatusLabel(1,
                         new GdxGameText("es")));
-        assertEquals("SMAA DISABLED",
-                GdxSettingsContract.cardSmaaStatusLabel(0,
+        assertEquals("NATIVE",
+                GdxSettingsContract.cardRenderingStatusLabel(0,
                         new GdxGameText("en")));
         assertEquals("", GdxSettingsContract.msaaRestartStatus(
                 4, 4, new GdxGameText("es")));

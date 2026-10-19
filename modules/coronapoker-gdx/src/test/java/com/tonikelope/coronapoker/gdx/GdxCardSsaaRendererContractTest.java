@@ -50,6 +50,91 @@ final class GdxCardSsaaRendererContractTest {
     }
 
     @Test
+    void tableKeepsEveryLiveCardFamilyInsideAnSsaaOwnedPass()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String scene = method(table, "private void drawTableScene()",
+                "private void drawTableBranding(float height)");
+        String holeCards = method(table,
+                "private void drawLiveHoleCards(boolean foregroundFlights)",
+                "static boolean shouldCompositeDisabledHoleCards(");
+        String communityCards = method(table,
+                "private void drawLiveCommunityCards(float cx, float cardY, float cardW,",
+                "private boolean hasActiveCommunityFlight(int slot)");
+
+        int rearHoleCards = scene.indexOf("drawHoleCards(false)");
+        int seats = scene.indexOf("drawSeats()", rearHoleCards);
+        int community = scene.indexOf("drawCardsAndPot(", seats);
+        int foregroundHoleCards = scene.indexOf("drawHoleCards(true)",
+                community);
+        assertTrue(rearHoleCards >= 0 && seats > rearHoleCards
+                        && community > seats
+                        && foregroundHoleCards > community,
+                "rear hands, seats, board and foreground flights must retain "
+                + "their intentional depth order");
+
+        assertTrue(holeCards.contains("drawDisabledHoleCardsLayer("),
+                "dimmed showdown hands must remain in the hole-card pass");
+        assertTrue(holeCards.contains("drawLiveHoleFoldLayer("),
+                "fold fades must remain in the hole-card pass");
+        assertTrue(holeCards.contains("drawLiveHoleSwap("),
+                "swapping hands must remain in the hole-card pass");
+        assertTrue(holeCards.contains("drawLiveHoleRevealResting("),
+                "resting IWTSTH cards must remain in the hole-card pass");
+        assertTrue(holeCards.contains("drawLiveRestingCard("),
+                "local and remote resting cards share the hole-card pass");
+        assertTrue(holeCards.contains("TableVisualEvent.DealHoleCard"),
+                "deal flights must remain in the foreground hole-card pass");
+        assertTrue(holeCards.contains("drawLiveHoleRevealFlights("),
+                "IWTSTH reveal flights must remain in the foreground pass");
+
+        assertTrue(communityCards.contains("drawLiveRabbitRevealCard("),
+                "Rabbit peel animations must remain in the board pass");
+        assertTrue(communityCards.contains("drawLiveCommunityRevealCard("),
+                "flop/turn/river reveals must remain in the board pass");
+        assertTrue(communityCards.contains("drawLiveRestingCard("),
+                "resting community and Rabbit cards share the board pass");
+        assertTrue(communityCards.contains(
+                "TableVisualEvent.DealCommunityCard"),
+                "community deal flights must remain in the board pass");
+    }
+
+    @Test
+    void nestedFoldAndShowdownLayerUsesTheOuterSsaaResolution()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String ensure = method(table,
+                "private void ensureDisabledHoleCardsLayer()",
+                "private void drawLiveHoleFoldLayer(Texture cardBack)");
+        String restore = method(table,
+                "private void restoreParentFramebufferAfterNestedPass()",
+                "private void drawLiveCommunityCards(float cx, float cardY, float cardW,");
+
+        assertTrue(ensure.contains("cardSsaaRenderer.activeWidth()"));
+        assertTrue(ensure.contains("cardSsaaRenderer.activeHeight()"));
+        assertTrue(restore.contains("cardSsaaRenderer.resumeAfterNestedPass()"),
+                "the nested fold/showdown pass must return to the outer SSAA "
+                + "framebuffer instead of the physical backbuffer");
+    }
+
+    @Test
+    void everyCardPassReadsTheCurrentLiveSettingAndPhysicalBackbuffer()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String begin = method(table,
+                "private boolean beginCardSsaaLayer()",
+                "private void finishCardSsaaLayer()");
+
+        assertTrue(begin.contains(
+                "presentationSettings.requestedCardSsaaSamples()"));
+        assertTrue(begin.contains("Gdx.graphics.getBackBufferWidth()"));
+        assertTrue(begin.contains("Gdx.graphics.getBackBufferHeight()"));
+        assertFalse(begin.contains("settingsOpened"),
+                "rendering must not use the stale value captured when the "
+                + "settings dialog opened");
+    }
+
+    @Test
     void neutralCardShadersDoNotRetainTheSupersededArtworkHeuristic()
             throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));

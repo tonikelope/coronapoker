@@ -12,9 +12,9 @@ final class GdxSettingsLayoutTest {
     void sharedSettingsFrameIsCenteredAndStaysInsideTheViewport() {
         Rectangle fullHd = GdxSettingsLayout.panelBounds(1920f, 1080f);
         assertEquals(160f, fullHd.x);
-        assertEquals(80f, fullHd.y);
+        assertEquals(55f, fullHd.y);
         assertEquals(1600f, fullHd.width);
-        assertEquals(920f, fullHd.height);
+        assertEquals(970f, fullHd.height);
 
         Rectangle compact = GdxSettingsLayout.panelBounds(1280f, 720f);
         assertTrue(compact.x >= 0f && compact.y >= 0f);

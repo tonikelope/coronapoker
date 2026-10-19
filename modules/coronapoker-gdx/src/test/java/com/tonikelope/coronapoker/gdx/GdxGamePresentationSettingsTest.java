@@ -266,6 +266,30 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void cardSsaaAppliesLiveAndCyclesThroughSquareSampleGrids(
+            @TempDir Path temporary) throws Exception {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences);
+
+            assertEquals(4, settings.requestedCardSsaaSamples());
+            assertEquals(9, settings.selectNextCardSsaaSamples(false));
+            assertEquals(16, settings.selectNextCardSsaaSamples(false));
+            assertEquals(0, settings.selectNextCardSsaaSamples(false));
+            assertEquals(16,
+                    settings.selectPreviousCardSsaaSamples(false));
+            preferences.properties().setProperty(
+                    "gdx_card_ssaa_samples", "8");
+            assertEquals(4, settings.requestedCardSsaaSamples());
+        } finally {
+            preferences.close();
+        }
+    }
+
+    @Test
     void frameRateLimitDefaultsTo120WithVsync(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
@@ -314,6 +338,7 @@ final class GdxGamePresentationSettingsTest {
         preferences.properties().setProperty("trasera", "default");
         preferences.properties().setProperty("color_tapete", "verde");
         preferences.properties().setProperty("gdx_msaa_samples", "4");
+        preferences.properties().setProperty("gdx_card_ssaa_samples", "4");
         preferences.save();
 
         GdxGamePresentationSettings settings =
@@ -322,6 +347,7 @@ final class GdxGamePresentationSettingsTest {
         assertEquals("goliat", settings.selectNextCardBack(false));
         assertEquals("azul", settings.selectNextFelt(false));
         assertEquals(8, settings.selectNextMsaaSamples(false));
+        assertEquals(9, settings.selectNextCardSsaaSamples(false));
         assertEquals("coronapoker", preferences.properties()
                 .getProperty("baraja"));
         preferences.close();
@@ -333,6 +359,8 @@ final class GdxGamePresentationSettingsTest {
                 .getProperty("color_tapete"));
         assertEquals("4", reopened.properties()
                 .getProperty("gdx_msaa_samples"));
+        assertEquals("4", reopened.properties()
+                .getProperty("gdx_card_ssaa_samples"));
         reopened.close();
     }
 

@@ -75,7 +75,10 @@ final class GdxSettingsLayout {
 
     static Rectangle panelBounds(float worldWidth, float worldHeight) {
         float panelWidth = Math.min(1600f, worldWidth - 64f);
-        float panelHeight = Math.min(920f, worldHeight - 54f);
+        // The graphics page now exposes independent scene and card AA rows.
+        // At Full HD, 970 keeps all eight canonical 68 px controls and their
+        // breathing room visible without overlap or a one-row scrollbar.
+        float panelHeight = Math.min(970f, worldHeight - 54f);
         return new Rectangle((worldWidth - panelWidth) / 2f,
                 (worldHeight - panelHeight) / 2f,
                 panelWidth, panelHeight);

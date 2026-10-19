@@ -17,16 +17,45 @@ final class GdxNestedFramebufferContractTest {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));
         int nestedEnd = table.indexOf("disabledHoleCardsLayer.end();");
         int restore = table.indexOf(
-                "modalBackdropBlur.resumeCaptureAfterNestedPass();",
-                nestedEnd);
+                "restoreParentFramebufferAfterNestedPass();", nestedEnd);
         int projectionRestore = table.indexOf(
                 "batch.setProjectionMatrix(camera.combined);", restore);
 
         assertTrue(nestedEnd >= 0, "disabled-card framebuffer pass missing");
         assertTrue(restore > nestedEnd,
-                "nested pass must restore the outer modal framebuffer");
+                "nested pass must restore whichever outer framebuffer owns it");
         assertTrue(projectionRestore > restore,
-                "the modal target must be restored before drawing continues");
+                "the parent target must be restored before drawing continues");
+    }
+
+    @Test
+    void cardLayerTakesPriorityOverTheModalCaptureWhenPassesNest()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        int method = table.indexOf(
+                "private void restoreParentFramebufferAfterNestedPass()");
+        int card = table.indexOf(
+                "cardSsaaRenderer.resumeAfterNestedPass();", method);
+        int modal = table.indexOf(
+                "modalBackdropBlur.resumeCaptureAfterNestedPass();", method);
+        int physical = table.indexOf("viewport.apply();", method);
+
+        assertTrue(method >= 0);
+        assertTrue(card > method && modal > card && physical > modal,
+                "nested passes must restore card SSAA, modal capture and then the backbuffer");
+    }
+
+    @Test
+    void ssaaLayerRebindsItsFramebufferAndHighResolutionViewport()
+            throws IOException {
+        String ssaa = Files.readString(source("GdxCardSsaaRenderer.java"));
+        int method = ssaa.indexOf("void resumeAfterNestedPass()");
+        int bind = ssaa.indexOf("layer.bind();", method);
+        int viewport = ssaa.indexOf("Gdx.gl.glViewport(", bind);
+
+        assertTrue(method >= 0);
+        assertTrue(bind > method);
+        assertTrue(viewport > bind);
     }
 
     @Test

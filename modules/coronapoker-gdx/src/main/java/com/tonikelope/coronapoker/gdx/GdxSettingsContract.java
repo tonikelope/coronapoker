@@ -20,8 +20,9 @@ final class GdxSettingsContract {
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
+    static final int DEFAULT_CARD_SSAA_SAMPLES = 4;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
-    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 7;
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
@@ -441,7 +442,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            "gdx_msaa_samples",
+            "gdx_msaa_samples", "gdx_card_ssaa_samples",
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max");
@@ -471,12 +472,8 @@ final class GdxSettingsContract {
                 PerformanceImpact.LOW;
             case "card_flip_zoom" -> integer(values, key, 100) <= 100
                     ? PerformanceImpact.LOW : PerformanceImpact.MEDIUM;
-            case "gdx_msaa_samples" -> {
-                int samples = integer(values, key, 4);
-                yield samples <= 0 ? PerformanceImpact.LOW
-                        : samples <= 2 ? PerformanceImpact.MEDIUM
-                                : PerformanceImpact.HIGH;
-            }
+            case "gdx_msaa_samples", "gdx_card_ssaa_samples" ->
+                PerformanceImpact.HIGH;
             case "gdx_fps_limit" -> {
                 int limit = integer(values, key, DEFAULT_FRAME_RATE_LIMIT);
                 yield limit == 0 || limit >= 240 ? PerformanceImpact.HIGH
@@ -585,7 +582,7 @@ final class GdxSettingsContract {
     /** Clean selected MSAA value shared by every GDX settings entry point. */
     static String msaaStatusLabel(int requested, int actual,
             GdxGameText text) {
-        return msaaValue(requested, text);
+        return antialiasingValue("MSAA", requested, text);
     }
 
     /**
@@ -597,8 +594,9 @@ final class GdxSettingsContract {
         if (actual == requested) return "";
         return translatedUpper(text,
                 "gdx.settings.value.restart_current",
-                "REINICIAR (ACTUAL " + msaaValue(actual, text) + ")",
-                msaaValue(actual, text));
+                "REINICIAR (ACTUAL "
+                + antialiasingValue("MSAA", actual, text) + ")",
+                antialiasingValue("MSAA", actual, text));
     }
 
     /** Whether this edit selected an MSAA back buffer that needs a restart. */
@@ -607,10 +605,22 @@ final class GdxSettingsContract {
         return openedRequested != requested && requested != actual;
     }
 
-    private static String msaaValue(int samples, GdxGameText text) {
-        return samples == 0 ? translatedUpper(text,
+    static String cardSsaaStatusLabel(int samples, GdxGameText text) {
+        if (samples == 0) {
+            return antialiasingValue("SSAA", samples, text);
+        }
+        int scale = GdxCardSsaaRenderer.linearScaleForSamples(samples);
+        return "SSAA " + scale + "×" + scale + " (" + samples + " "
+                + translatedUpper(text, "gdx.settings.value.samples",
+                        "MUESTRAS") + ")";
+    }
+
+    private static String antialiasingValue(String technique, int samples,
+            GdxGameText text) {
+        String value = samples == 0 ? translatedUpper(text,
                 "gdx.settings.value.disabled", "DESACTIVADO")
                 : samples + "X";
+        return technique + " " + value;
     }
 
     /** Host-authoritative communication rules, unlike local audio choices. */
@@ -784,6 +794,8 @@ final class GdxSettingsContract {
             properties.setProperty("gdx_fps_limit",
                     Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
             properties.setProperty("gdx_show_fps", "false");
+            properties.setProperty("gdx_card_ssaa_samples",
+                    Integer.toString(DEFAULT_CARD_SSAA_SAMPLES));
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
@@ -821,7 +833,9 @@ final class GdxSettingsContract {
                     DEFAULT_VSYNC)
                     && stringAtDefault(properties, "gdx_fps_limit",
                             Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
-                    && booleanAtDefault(properties, "gdx_show_fps", false);
+                    && booleanAtDefault(properties, "gdx_show_fps", false)
+                    && stringAtDefault(properties, "gdx_card_ssaa_samples",
+                            Integer.toString(DEFAULT_CARD_SSAA_SAMPLES));
             return runtime && (!includeStartupGraphics
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,

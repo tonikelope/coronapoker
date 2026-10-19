@@ -38,16 +38,22 @@ final class GdxSettingsContractTest {
 
     @Test
     void msaaSummaryIsSharedAndFollowsTheLiveLanguage() {
-        assertEquals("4X", GdxSettingsContract.msaaStatusLabel(
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
                 4, 4, new GdxGameText("es")));
-        assertEquals("4X", GdxSettingsContract.msaaStatusLabel(
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
                 4, 4, new GdxGameText("en")));
-        assertEquals("4X",
+        assertEquals("MSAA 4X",
                 GdxSettingsContract.msaaStatusLabel(4, 0,
+                        new GdxGameText("en")));
+        assertEquals("SSAA 2×2 (4 MUESTRAS)",
+                GdxSettingsContract.cardSsaaStatusLabel(4,
+                        new GdxGameText("es")));
+        assertEquals("SSAA 3×3 (9 SAMPLES)",
+                GdxSettingsContract.cardSsaaStatusLabel(9,
                         new GdxGameText("en")));
         assertEquals("", GdxSettingsContract.msaaRestartStatus(
                 4, 4, new GdxGameText("es")));
-        assertEquals("[!] RESTART PENDING (CURRENT DISABLED)",
+        assertEquals("[!] RESTART PENDING (CURRENT MSAA DISABLED)",
                 GdxSettingsContract.msaaRestartStatus(4, 0,
                         new GdxGameText("en")));
     }
@@ -99,20 +105,32 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void performanceImpactReflectsTheSelectedGraphicsCost() {
+    void antialiasingImpactBelongsToTheSettingNotItsSelectedValue() {
         Properties properties = new Properties();
         properties.setProperty("gdx_msaa_samples", "0");
-        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
                         "gdx_msaa_samples", properties));
         properties.setProperty("gdx_msaa_samples", "2");
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
                         "gdx_msaa_samples", properties));
         properties.setProperty("gdx_msaa_samples", "8");
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
                         "gdx_msaa_samples", properties));
+        for (String samples : java.util.List.of("0", "4", "9", "16")) {
+            properties.setProperty("gdx_card_ssaa_samples", samples);
+            assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                    GdxSettingsContract.performanceImpact(
+                            "gdx_card_ssaa_samples", properties));
+        }
+
+    }
+
+    @Test
+    void otherGraphicsImpactStillReflectsItsConfiguredCost() {
+        Properties properties = new Properties();
 
         properties.setProperty("gdx_fps_limit", "60");
         assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
@@ -463,7 +481,7 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("auto_fullscreen"));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 "auto_fullscreen"));
-        assertEquals(7,
+        assertEquals(8,
                 GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
         assertEquals(java.util.List.of("CINEMÁTICAS", "ANIMACIONES",
                 "INFORMACIÓN", "CHAT"),
@@ -476,7 +494,8 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("animacion_downgrade"));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.containsAll(
                 java.util.List.of("gdx_vsync", "gdx_fps_limit",
-                        "gdx_show_fps", "gdx_msaa_samples")));
+                        "gdx_show_fps", "gdx_msaa_samples",
+                        "gdx_card_ssaa_samples")));
     }
 
     @Test
@@ -631,6 +650,7 @@ final class GdxSettingsContractTest {
         properties.setProperty("card_flip_duration", "1100");
         properties.setProperty("gdx_window_mode", "windowed");
         properties.setProperty("gdx_msaa_samples", "0");
+        properties.setProperty("gdx_card_ssaa_samples", "16");
         properties.setProperty("gdx_fps_limit", "240");
         properties.setProperty("gdx_vsync", "false");
         properties.setProperty("gdx_show_fps", "false");
@@ -650,6 +670,8 @@ final class GdxSettingsContractTest {
         assertEquals("620", properties.getProperty("card_flip_duration"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
+        assertEquals("4",
+                properties.getProperty("gdx_card_ssaa_samples"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
         assertEquals("true", properties.getProperty("gdx_vsync"));
 

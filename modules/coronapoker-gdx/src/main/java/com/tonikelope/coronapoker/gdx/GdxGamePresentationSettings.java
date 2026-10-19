@@ -26,6 +26,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
+    private static final List<Integer> CARD_SSAA_LEVELS = List.of(
+            0, 4, 9, 16);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;
@@ -331,6 +333,33 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int selected = MSAA_LEVELS.get(Math.floorMod(current
                 + Integer.signum(direction), MSAA_LEVELS.size()));
         properties.setProperty("gdx_msaa_samples", Integer.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
+    }
+    int requestedCardSsaaSamples() {
+        int configured = integer("gdx_card_ssaa_samples",
+                GdxSettingsContract.DEFAULT_CARD_SSAA_SAMPLES);
+        return CARD_SSAA_LEVELS.contains(configured) ? configured
+                : GdxSettingsContract.DEFAULT_CARD_SSAA_SAMPLES;
+    }
+    int selectNextCardSsaaSamples() {
+        return selectNextCardSsaaSamples(true);
+    }
+    int selectNextCardSsaaSamples(boolean persist) {
+        return adjustCardSsaaSamples(1, persist);
+    }
+    int selectPreviousCardSsaaSamples() {
+        return selectPreviousCardSsaaSamples(true);
+    }
+    int selectPreviousCardSsaaSamples(boolean persist) {
+        return adjustCardSsaaSamples(-1, persist);
+    }
+    private int adjustCardSsaaSamples(int direction, boolean persist) {
+        int current = CARD_SSAA_LEVELS.indexOf(requestedCardSsaaSamples());
+        int selected = CARD_SSAA_LEVELS.get(Math.floorMod(current
+                + Integer.signum(direction), CARD_SSAA_LEVELS.size()));
+        properties.setProperty("gdx_card_ssaa_samples",
+                Integer.toString(selected));
         if (persist) preferences.saveDeferred();
         return selected;
     }

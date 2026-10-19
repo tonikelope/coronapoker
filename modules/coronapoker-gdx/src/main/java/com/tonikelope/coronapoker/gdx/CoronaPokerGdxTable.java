@@ -569,6 +569,51 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    gl_FragColor = pixel;\n"
             + "}\n";
 
+    /**
+     * Keeps cinematic artwork sharp while resolving its rounded silhouette
+     * with four rotated subpixel coverage samples. The GIF texture itself is
+     * sampled only once, avoiding the softening caused by whole-image SSAA.
+     */
+    static final String CINEMATIC_FRAGMENT_SHADER = "#ifdef GL_ES\n"
+            + "#extension GL_OES_standard_derivatives : enable\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "uniform vec2 u_size;\n"
+            + "uniform float u_cornerRadius;\n"
+            + "float cinematicDistance(vec2 uv) {\n"
+            + "    vec2 size = max(u_size, vec2(1.0));\n"
+            + "    vec2 halfSize = size * 0.5;\n"
+            + "    float radius = min(u_cornerRadius, min(halfSize.x, halfSize.y));\n"
+            + "    vec2 point = uv * size;\n"
+            + "    vec2 q = abs(point - halfSize) - (halfSize - vec2(radius));\n"
+            + "    return length(max(q, vec2(0.0)))\n"
+            + "            + min(max(q.x, q.y), 0.0) - radius;\n"
+            + "}\n"
+            + "float cinematicCoverageAt(vec2 uv, float edgeAa) {\n"
+            + "    return 1.0 - smoothstep(-edgeAa, edgeAa, cinematicDistance(uv));\n"
+            + "}\n"
+            + "void main() {\n"
+            + "    vec2 uvDx = dFdx(v_texCoords);\n"
+            + "    vec2 uvDy = dFdy(v_texCoords);\n"
+            + "    float centerDistance = cinematicDistance(v_texCoords);\n"
+            + "    float edgeAa = max(0.18 * length(vec2(dFdx(centerDistance),\n"
+            + "            dFdy(centerDistance))), 0.0001);\n"
+            + "    float coverage = 0.0;\n"
+            + "    coverage += cinematicCoverageAt(v_texCoords - uvDx * 0.375 - uvDy * 0.125, edgeAa);\n"
+            + "    coverage += cinematicCoverageAt(v_texCoords - uvDx * 0.125 + uvDy * 0.375, edgeAa);\n"
+            + "    coverage += cinematicCoverageAt(v_texCoords + uvDx * 0.125 - uvDy * 0.375, edgeAa);\n"
+            + "    coverage += cinematicCoverageAt(v_texCoords + uvDx * 0.375 + uvDy * 0.125, edgeAa);\n"
+            + "    coverage *= 0.25;\n"
+            + "    if (coverage <= 0.001) discard;\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= coverage;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
+
     /** Buoyant multi-plume fire used only for the persistent ALL-IN state. */
     private static final String ALL_IN_FIRE_FRAGMENT_SHADER = """
             #ifdef GL_ES
@@ -1049,6 +1094,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram roundedCardShader;
     private ShaderProgram rabbitPeelShader;
     private ShaderProgram avatarShader;
+    private ShaderProgram cinematicShader;
     private ShaderProgram allInFireShader;
     private GdxModalBackdropBlur modalBackdropBlur;
     private boolean modalBackdropCaptureActive;
@@ -2794,6 +2840,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 requireCompiled(avatarShader, "Avatar shader");
             }
             case 4 -> {
+                cinematicShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        CINEMATIC_FRAGMENT_SHADER);
+                requireCompiled(cinematicShader, "Cinematic shader");
+            }
+            case 5 -> {
                 allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         ALL_IN_FIRE_FRAGMENT_SHADER);
                 if (!allInFireShader.isCompiled()) {
@@ -2803,8 +2854,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInFireShader = null;
                 }
             }
-            case 5 -> allInFireCanvas = createSolidTexture(Color.WHITE);
-            case 6 -> {
+            case 6 -> allInFireCanvas = createSolidTexture(Color.WHITE);
+            case 7 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
                 return true;
             }
@@ -15613,10 +15664,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float y = tableCenterY - height / 2f;
         Texture frame = active.animation.frameAt(active.elapsedSeconds());
         if (frame != null) {
-            batch.begin();
-            batch.setColor(Color.WHITE);
-            batch.draw(frame, x, y, width, height);
-            batch.end();
+            drawRoundedCinematicFrame(frame, x, y, width, height);
         }
     }
 
@@ -15703,12 +15751,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0f, 0f, 0f, 0.34f);
         shapes.rect(0f, 0f, worldWidth, worldHeight);
         shapes.end();
+        if (frame != null) {
+            drawRoundedCinematicFrame(frame, x, y, width, height);
+        }
+    }
+
+    static float cinematicCornerRadius(float width, float height) {
+        float shortEdge = Math.min(width, height);
+        if (shortEdge <= 0f) return 0f;
+        return MathUtils.clamp(shortEdge * 0.045f, 7f, 24f);
+    }
+
+    private void drawRoundedCinematicFrame(Texture frame, float x, float y,
+            float width, float height) {
+        if (frame == null || width <= 0f || height <= 0f) return;
+        batch.setShader(cinematicShader);
         batch.begin();
         batch.setColor(Color.WHITE);
-        if (frame != null) {
-            batch.draw(frame, x, y, width, height);
-        }
+        cinematicShader.setUniformf("u_size", width, height);
+        cinematicShader.setUniformf("u_cornerRadius",
+                cinematicCornerRadius(width, height));
+        batch.draw(frame, x, y, width, height);
         batch.end();
+        batch.setShader(null);
     }
 
     private boolean liveAllInCinematicVisible() {
@@ -20694,11 +20759,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "GAME OVER GIF decode failed; using live fallback",
                     animation.failure());
         }
-        batch.begin();
         if (gameOverFrame != null) {
-            batch.setColor(Color.WHITE);
-            batch.draw(gameOverFrame, imageX, imageY, imageW, imageH);
-        } else if (animation == null || animation.failed()) {
+            drawRoundedCinematicFrame(gameOverFrame, imageX, imageY,
+                    imageW, imageH);
+        }
+        batch.begin();
+        if (gameOverFrame == null
+                && (animation == null || animation.failed())) {
             drawFittedCenteredInBox(finalHeroFont, "GAME OVER",
                     contentX + 24f,
                     imageY + (choiceLayout ? imageH * 0.36f : 0f),
@@ -20880,10 +20947,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(imageX, imageY, imageW, imageH, 7f);
             shapes.end();
             if (frame != null) {
-                batch.begin();
-                batch.setColor(Color.WHITE);
-                batch.draw(frame, imageX, imageY, imageW, imageH);
-                batch.end();
+                drawRoundedCinematicFrame(frame, imageX, imageY,
+                        imageW, imageH);
             }
         }
     }
@@ -21331,11 +21396,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 (worldW - 48f) / imageW, (worldH - 48f) / imageH));
         imageW *= fit;
         imageH *= fit;
-        batch.begin();
-        batch.setColor(Color.WHITE);
-        batch.draw(frame, (worldW - imageW) / 2f,
+        drawRoundedCinematicFrame(frame, (worldW - imageW) / 2f,
                 (worldH - imageH) / 2f, imageW, imageH);
-        batch.end();
     }
 
     private StreamingGifTextureAnimation recoveryAnimation(
@@ -25492,6 +25554,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveCardFaces.clear();
         disposeSafely(modalBackdropBlur);
         disposeSafely(allInFireShader);
+        disposeSafely(cinematicShader);
         disposeSafely(avatarShader);
         disposeSafely(rabbitPeelShader);
         disposeSafely(roundedCardShader);
@@ -25580,6 +25643,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.dispose();
         if (rabbitPeelShader != null) rabbitPeelShader.dispose();
         if (avatarShader != null) avatarShader.dispose();
+        if (cinematicShader != null) cinematicShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();

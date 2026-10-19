@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
@@ -67,6 +68,7 @@ final class GdxCardSmaaGpuCertificationTest {
     }
 
     private static int renderAndCompare() {
+        certifyProductCardShaders();
         Matrix4 projection = new Matrix4().setToOrtho2D(0f, 0f,
                 WIDTH, HEIGHT);
         SpriteBatch batch = new SpriteBatch();
@@ -100,6 +102,26 @@ final class GdxCardSmaaGpuCertificationTest {
             renderer.dispose();
             card.dispose();
             batch.dispose();
+        }
+    }
+
+    private static void certifyProductCardShaders() {
+        ShaderProgram regular = new ShaderProgram(
+                CoronaPokerGdxTable.CARD_VERTEX_SHADER,
+                CoronaPokerGdxTable.CARD_FRAGMENT_SHADER);
+        ShaderProgram rabbit = new ShaderProgram(
+                CoronaPokerGdxTable.CARD_VERTEX_SHADER,
+                CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER);
+        try {
+            assertTrue(regular.isCompiled(), () ->
+                    "Card shader failed on the real GPU: "
+                    + regular.getLog());
+            assertTrue(rabbit.isCompiled(), () ->
+                    "Rabbit card shader failed on the real GPU: "
+                    + rabbit.getLog());
+        } finally {
+            regular.dispose();
+            rabbit.dispose();
         }
     }
 

@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -100,12 +101,43 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
+        assertEquals(-0.5f,
+                CoronaPokerGdxTable.cardArtworkDetailLodBias());
         assertEquals(0, GdxCardSmaaRenderer.QUALITY_OFF);
         assertEquals(1, GdxCardSmaaRenderer.QUALITY_ULTRA);
         assertTrue(GdxCardSmaaRenderer.fitsMaximumTextureSize(
                 3_840, 2_160, 8_192));
         assertFalse(GdxCardSmaaRenderer.fitsMaximumTextureSize(
                 8_193, 2_880, 8_192));
+    }
+
+    @Test
+    void halfMipDetailBiasKeepsRivalAndBoardCardsOnTheSameDetailLevel() {
+        float textureWidth = 484f;
+        float rivalWidth = 125f;
+        float boardWidth = 140f;
+        float scale2560x1440 = 2_560f / 1_920f;
+
+        assertNotEquals(nearestMip(textureWidth, rivalWidth,
+                scale2560x1440, 0f), nearestMip(textureWidth, boardWidth,
+                scale2560x1440, 0f),
+                "the uncorrected sizes straddle a hardware mip boundary");
+        for (float screenScale : new float[]{2f / 3f, 1f,
+            scale2560x1440, 2f}) {
+            assertEquals(nearestMip(textureWidth, rivalWidth, screenScale,
+                    CoronaPokerGdxTable.cardArtworkDetailLodBias()),
+                    nearestMip(textureWidth, boardWidth, screenScale,
+                            CoronaPokerGdxTable.cardArtworkDetailLodBias()),
+                    "adjacent card families must retain matching source detail");
+        }
+    }
+
+    private static int nearestMip(float texturePixels, float worldPixels,
+            float screenPixelsPerWorldUnit, float lodBias) {
+        double texelsPerPixel = texturePixels
+                / (worldPixels * screenPixelsPerWorldUnit);
+        double lod = Math.log(texelsPerPixel) / Math.log(2d) + lodBias;
+        return Math.max(0, (int) Math.floor(lod + 0.5d));
     }
 
     @Test

@@ -53,7 +53,8 @@ final class GdxRabbitPresentationContractTest {
         String shader = CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER;
 
         assertTrue(shader.contains("uniform sampler2D u_texture;"));
-        assertTrue(shader.contains("texture2D(u_texture, uv)"),
+        assertTrue(shader.contains(
+                "sampleCardArtwork(u_texture, uv)"),
                 "u_texture must remain active and cannot be optimized away");
         assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"),
                 "Rabbit cards need the same transparent AA canvas as every other card");
@@ -91,14 +92,16 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("roundedCardCoverage(sourceUv)"));
         assertTrue(shader.contains("if (mask <= 0.001) discard;"),
                 "transparent guard pixels should not perform texture reads");
-        assertTrue(shader.contains("texture2D(u_texture, sourceUv)"));
-        assertTrue(shader.contains("texture2D(u_frontTexture, sourceUv)"));
-        assertFalse(shader.contains("cardArtworkLodBias"),
-                "the obsolete biased artwork filter must not be stacked below SMAA");
+        assertTrue(shader.contains(
+                "sampleCardArtwork(u_texture, sourceUv)"));
+        assertTrue(shader.contains(
+                "sampleCardArtwork(u_frontTexture, sourceUv)"));
+        assertTrue(shader.contains("texture2D(artwork, uv, -0.5)"),
+                "all cards must share the half-mip detail policy");
         assertFalse(shader.contains("cardArtworkContrast"),
                 "SMAA must replace the old colour-gradient heuristic");
         assertTrue(CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER.contains(
-                "texture2D(u_overlayTexture, uv)"));
+                "sampleCardArtwork(u_overlayTexture, uv)"));
     }
 
     private static BufferedImage image(String resource) throws Exception {

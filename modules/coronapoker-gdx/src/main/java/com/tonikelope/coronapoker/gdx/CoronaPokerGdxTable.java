@@ -311,6 +311,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_EDGE_SUBSAMPLE_SOFTNESS_PIXELS = 0.30f;
     private static final float CARD_EDGE_GUARD_UV = 0.05f;
     private static final float CARD_SHADER_CANVAS_SCALE = 1.5f;
+    /**
+     * Keeps adjacent card sizes on the same sharp mip whenever practical.
+     *
+     * The bundled 484-pixel artwork crosses a nearest-mip boundary between
+     * the 140-unit board cards and the 125-unit rival cards at common output
+     * resolutions.  A half-level detail bias removes that discontinuity while
+     * preserving mipmaps for genuinely small cards.  This is deliberately a
+     * texture-footprint rule shared by every deck and card family; SMAA still
+     * owns only the final screen-space edge treatment.
+     */
+    private static final float CARD_ARTWORK_DETAIL_LOD_BIAS = -0.5f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
     private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
@@ -421,7 +432,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     };
     private static final float[][][] SEAT_LAYOUTS = createSeatLayouts();
 
-    private static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
+    static final String CARD_VERTEX_SHADER = "attribute vec4 a_position;\n"
             + "attribute vec4 a_color;\n"
             + "attribute vec2 a_texCoord0;\n"
             + "uniform mat4 u_projTrans;\n"
@@ -463,6 +474,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    return coverage * 0.25;\n"
             + "}\n";
 
+    private static final String CARD_ARTWORK_SAMPLING_GLSL =
+            "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
+            + "    return texture2D(artwork, uv, "
+            + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "}\n";
+
     static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"
             + "#extension GL_OES_standard_derivatives : enable\n"
             + "precision mediump float;\n"
@@ -479,6 +496,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform float u_canvasScale;\n"
             + "uniform vec4 u_overlay;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
+            + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
             + "    vec2 sourceUv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
             + "    if (u_perspective > 0.5) {\n"
@@ -509,9 +527,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    if (mask <= 0.001) discard;\n"
             + "    vec4 pixel;\n"
             + "    if (u_flipAngle > 1.5707963) {\n"
-            + "        pixel = texture2D(u_frontTexture, sourceUv);\n"
+            + "        pixel = sampleCardArtwork(u_frontTexture, sourceUv);\n"
             + "    } else {\n"
-            + "        pixel = texture2D(u_texture, sourceUv);\n"
+            + "        pixel = sampleCardArtwork(u_texture, sourceUv);\n"
             + "    }\n"
             + "    pixel *= v_color;\n"
             + "    pixel.rgb = mix(pixel.rgb, u_overlay.rgb, u_overlay.a);\n"
@@ -539,6 +557,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform float u_canvasScale;\n"
             + "uniform vec4 u_highlight;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
+            + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
             + "    vec2 uv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
             + "    float diagonal = uv.x + uv.y;\n"
@@ -546,9 +565,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    float peel = 1.0 - smoothstep(frontier - 0.008, frontier + 0.008, diagonal);\n"
             + "    float rounded = roundedCardCoverage(uv);\n"
             + "    if (peel * rounded <= 0.001) discard;\n"
-            + "    vec4 covered = texture2D(u_texture, uv);\n"
-            + "    vec4 face = texture2D(u_frontTexture, uv);\n"
-            + "    vec4 flap = texture2D(u_overlayTexture, uv);\n"
+            + "    vec4 covered = sampleCardArtwork(u_texture, uv);\n"
+            + "    vec4 face = sampleCardArtwork(u_frontTexture, uv);\n"
+            + "    vec4 flap = sampleCardArtwork(u_overlayTexture, uv);\n"
             + "    vec4 revealed = vec4(mix(face.rgb, flap.rgb, flap.a),\n"
             + "            flap.a + face.a * (1.0 - flap.a));\n"
             + "    vec4 pixel = revealed * v_color;\n"
@@ -3268,12 +3287,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return CARD_SHADER_CANVAS_SCALE;
     }
 
+    static float cardArtworkDetailLodBias() {
+        return CARD_ARTWORK_DETAIL_LOD_BIAS;
+    }
+
     private static Texture cardTexture(FileHandle file) {
         // Select one mip level and filter within it, matching the sharp 26.36
-        // baseline. Trilinear filtering blends adjacent mip levels and makes
-        // ranks/suits visibly soft even when the optional screen-space SMAA
-        // pass is disabled. SMAA owns only the final screen-space edges; it
-        // must not change the source-artwork sampling policy.
+        // baseline. The card shader applies a shared half-level detail bias so
+        // the slightly smaller rival cards do not fall onto a blurrier mip
+        // than board cards. SMAA owns only the final screen-space edges.
         Texture texture = new Texture(file, cardMipMapsEnabled());
         texture.setFilter(cardMinificationFilter(),
                 TextureFilter.Linear);

@@ -169,6 +169,19 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void graphicsSettingsKeepsTheLiveTableSharpForSsaaPreview() {
+        assertTrue(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
+                CoronaPokerGdxTable.UI_SETTINGS,
+                GdxSettingsContract.Section.APPEARANCE, 1));
+        assertFalse(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
+                CoronaPokerGdxTable.UI_SETTINGS,
+                GdxSettingsContract.Section.APPEARANCE, 0));
+        assertFalse(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
+                CoronaPokerGdxTable.UI_NONE,
+                GdxSettingsContract.Section.APPEARANCE, 1));
+    }
+
+    @Test
     void pauseOwnsSharpBannerUnlessAnotherModalIsAboveIt() {
         assertTrue(CoronaPokerGdxTable.pauseOverlayUsesSharpForeground(
                 true, false));

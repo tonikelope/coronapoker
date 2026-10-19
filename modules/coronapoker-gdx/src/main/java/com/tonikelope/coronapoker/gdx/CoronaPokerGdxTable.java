@@ -5203,6 +5203,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointerRepeatHits.clear();
         boolean preparationModal = !intro && preparationPhase
                 != TableVisualEvent.PreparationStatus.Phase.READY;
+        boolean sharpGraphicsPreview = usesSharpGraphicsSettingsPreview();
         boolean blockingBlur = hasBlurredTableModal(preparationModal);
         boolean pausedBackdrop = finalSummary == null && !intro
                 && liveState.snapshot().paused();
@@ -5294,6 +5295,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (preparationModal) drawPreparationOverlay();
+        if (sharpGraphicsPreview && !blurModalBackdrop) {
+            // This is the only settings page whose effect must be judged on
+            // the live table. Keep the usual modal shade, but do not destroy
+            // SSAA detail by first downsampling and blurring the cards.
+            drawUnifiedModalBackdrop();
+        }
         drawUiLayer();
         drawTerminationOverlay();
         drawActiveDialog();
@@ -5327,8 +5334,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasBlurredTableModal(boolean preparationModal) {
-        return preparationModal || uiLayerUsesBackdropBlur(uiLayer,
-                chatImageMode)
+        return preparationModal || (uiLayerUsesBackdropBlur(uiLayer,
+                chatImageMode) && !usesSharpGraphicsSettingsPreview())
                 || tableImageClearConfirmation
                 || blocksTableUtilities(activeDialog)
                 || chipCatalogVisible
@@ -5336,6 +5343,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null && !intro
                 || terminationRequested && finalSummary == null && !intro;
+    }
+
+    private boolean usesSharpGraphicsSettingsPreview() {
+        return uiLayer == UI_SETTINGS
+                && settingsUsesSharpTablePreview(uiLayer, settingsSection(),
+                        settingsAppearancePage);
+    }
+
+    static boolean settingsUsesSharpTablePreview(int layer,
+            GdxSettingsContract.Section section, int appearancePage) {
+        return layer == UI_SETTINGS
+                && section == GdxSettingsContract.Section.APPEARANCE
+                && appearancePage == 1;
     }
 
     static boolean pauseOverlayUsesSharpForeground(boolean paused,
@@ -8807,6 +8827,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         return GdxSettingsContract.cardSsaaStatusLabel(
                 presentationSettings.requestedCardSsaaSamples(), gameText);
+    }
+
+    private String tableCardSsaaRuntimeStatus() {
+        if (presentationSettings == null) return "";
+        int requested = presentationSettings.requestedCardSsaaSamples();
+        if (!cardSsaaRenderer.isUnavailable(requested)) {
+            return "";
+        }
+        return uppercase(gameText.translate(
+                "gdx.settings.value.unavailable"));
     }
 
     private String tableFrameRateLimitSettingLabel() {
@@ -22549,6 +22579,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 Integer.toString(
                                                         GdxSettingsContract
                                                                 .DEFAULT_CARD_SSAA_SAMPLES)))),
+                        tableCardSsaaRuntimeStatus(),
                         presentationSettings != null, alpha);
                 boolean showFps = booleanPreference(
                         tableSettingsProperties(), "gdx_show_fps", false);

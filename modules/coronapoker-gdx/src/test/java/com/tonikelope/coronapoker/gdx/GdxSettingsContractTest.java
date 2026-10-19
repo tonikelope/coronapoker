@@ -45,10 +45,10 @@ final class GdxSettingsContractTest {
         assertEquals("MSAA 4X",
                 GdxSettingsContract.msaaStatusLabel(4, 0,
                         new GdxGameText("en")));
-        assertEquals("SSAA 2×2 (4 MUESTRAS)",
+        assertEquals("SSAA 2×2",
                 GdxSettingsContract.cardSsaaStatusLabel(4,
                         new GdxGameText("es")));
-        assertEquals("SSAA 3×3 (9 SAMPLES)",
+        assertEquals("SSAA 3×3",
                 GdxSettingsContract.cardSsaaStatusLabel(9,
                         new GdxGameText("en")));
         assertEquals("", GdxSettingsContract.msaaRestartStatus(

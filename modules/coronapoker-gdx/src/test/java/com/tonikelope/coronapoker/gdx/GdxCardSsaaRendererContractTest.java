@@ -78,6 +78,14 @@ final class GdxCardSsaaRendererContractTest {
         assertTrue(ssaa.contains("TextureFilter.Nearest, TextureFilter.Nearest"));
         assertTrue(ssaa.contains("tap(-1.5, -1.5)"),
                 "the highest setting must resolve all sixteen subpixels");
+        assertTrue(ssaa.contains("effectiveSamples = requestedSamples"),
+                "the UI must report only levels actually activated by GPU");
+        assertTrue(ssaa.contains("effectiveSamples = 0"),
+                "failed allocations must be visible instead of silently "
+                + "pretending SSAA is active");
+        assertTrue(ssaa.contains("lastAttemptedSamples == requestedSamples"),
+                "a just-clicked level must not flash as unavailable before "
+                + "the next live frame tries it");
     }
 
     private static String method(String source, String startText,

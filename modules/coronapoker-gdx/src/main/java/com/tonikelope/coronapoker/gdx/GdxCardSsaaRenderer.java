@@ -92,6 +92,8 @@ final class GdxCardSsaaRenderer implements Disposable {
     private ShaderProgram resolveShader;
     private boolean active;
     private int activeLinearScale;
+    private int effectiveSamples;
+    private int lastAttemptedSamples = -1;
     private int rejectedBackBufferWidth = -1;
     private int rejectedBackBufferHeight = -1;
     private int rejectedSamples = -1;
@@ -101,19 +103,28 @@ final class GdxCardSsaaRenderer implements Disposable {
         if (active) {
             throw new IllegalStateException("Card SSAA pass is already active");
         }
+        lastAttemptedSamples = requestedSamples;
         if (linearScaleForSamples(requestedSamples) <= 1) {
             // OFF is a real resource release, not merely a bypass. Large
             // 9X/16X targets must not keep consuming VRAM after disabling it.
             disposeLayer();
+            effectiveSamples = 0;
             return false;
         }
-        if (!ensureResolveShader()) return false;
+        if (!ensureResolveShader()) {
+            effectiveSamples = 0;
+            return false;
+        }
         if (!ensureLayer(backBufferWidth, backBufferHeight,
-                requestedSamples)) return false;
+                requestedSamples)) {
+            effectiveSamples = 0;
+            return false;
+        }
 
         layer.begin();
         active = true;
         activeLinearScale = linearScaleForSamples(requestedSamples);
+        effectiveSamples = requestedSamples;
         Gdx.gl.glViewport(0, 0, layer.getWidth(), layer.getHeight());
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -158,6 +169,17 @@ final class GdxCardSsaaRenderer implements Disposable {
 
     boolean isActive() {
         return active;
+    }
+
+    /** Last requested level that the GPU actually rendered successfully. */
+    int effectiveSamples() {
+        return effectiveSamples;
+    }
+
+    boolean isUnavailable(int requestedSamples) {
+        return requestedSamples > 0
+                && lastAttemptedSamples == requestedSamples
+                && effectiveSamples != requestedSamples;
     }
 
     int activeWidth() {
@@ -307,6 +329,8 @@ final class GdxCardSsaaRenderer implements Disposable {
         if (resolveShader != null) resolveShader.dispose();
         resolveShader = null;
         active = false;
+        effectiveSamples = 0;
+        lastAttemptedSamples = -1;
     }
 
     private void disposeLayer() {

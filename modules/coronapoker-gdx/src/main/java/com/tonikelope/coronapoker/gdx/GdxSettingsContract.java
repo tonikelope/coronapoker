@@ -610,9 +610,7 @@ final class GdxSettingsContract {
             return antialiasingValue("SSAA", samples, text);
         }
         int scale = GdxCardSsaaRenderer.linearScaleForSamples(samples);
-        return "SSAA " + scale + "×" + scale + " (" + samples + " "
-                + translatedUpper(text, "gdx.settings.value.samples",
-                        "MUESTRAS") + ")";
+        return "SSAA " + scale + "×" + scale;
     }
 
     private static String antialiasingValue(String technique, int samples,

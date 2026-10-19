@@ -308,7 +308,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int CARD_EDGE_SUPERSAMPLES = 4;
-    private static final int CARD_ARTWORK_SMOOTH_SAMPLES = 8;
+    private static final int CARD_ARTWORK_SMOOTH_SAMPLES = 16;
     private static final float CARD_EDGE_SUBSAMPLE_SOFTNESS_PIXELS = 0.30f;
     private static final float CARD_EDGE_GUARD_UV = 0.05f;
     private static final float CARD_SHADER_CANVAS_SCALE = 1.5f;
@@ -475,7 +475,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "}\n";
 
     /**
-     * Smooth mode integrates artwork at eight symmetric, low-discrepancy
+     * Smooth mode integrates artwork at sixteen symmetric, low-discrepancy
      * locations inside the final screen pixel. This resolves subpixel printed
      * strokes before they can become a staircase; it does not rescale,
      * sharpen or colour-process the card. Native mode retains the single
@@ -491,23 +491,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    vec2 uvDx = dFdx(uv);\n"
             + "    vec2 uvDy = dFdy(uv);\n"
             + "    vec4 resolved = vec4(0.0);\n"
-            + "    resolved += texture2D(artwork, uv - uvDx * 0.0625"
-            + " - uvDy * 0.4375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv + uvDx * 0.0625"
-            + " + uvDy * 0.4375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv - uvDx * 0.1875"
-            + " + uvDy * 0.3125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv + uvDx * 0.1875"
-            + " - uvDy * 0.3125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv - uvDx * 0.3125"
-            + " - uvDy * 0.1875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv + uvDx * 0.3125"
-            + " + uvDy * 0.1875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv - uvDx * 0.4375"
-            + " + uvDy * 0.0625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    resolved += texture2D(artwork, uv + uvDx * 0.4375"
-            + " - uvDy * 0.0625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
-            + "    return resolved * 0.125;\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.03125"
+            + " - uvDy * 0.34375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.03125"
+            + " + uvDy * 0.34375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.09375"
+            + " + uvDy * 0.15625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.09375"
+            + " - uvDy * 0.15625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.15625"
+            + " - uvDy * 0.46875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.15625"
+            + " + uvDy * 0.46875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.21875"
+            + " + uvDy * 0.03125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.21875"
+            + " - uvDy * 0.03125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.28125"
+            + " - uvDy * 0.28125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.28125"
+            + " + uvDy * 0.28125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.34375"
+            + " + uvDy * 0.40625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.34375"
+            + " - uvDy * 0.40625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.40625"
+            + " - uvDy * 0.09375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.40625"
+            + " + uvDy * 0.09375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv - uvDx * 0.46875"
+            + " + uvDy * 0.21875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    resolved += texture2D(artwork, uv + uvDx * 0.46875"
+            + " - uvDy * 0.21875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "    return resolved * 0.0625;\n"
             + "}\n";
 
     static final String CARD_FRAGMENT_SHADER = "#ifdef GL_ES\n"

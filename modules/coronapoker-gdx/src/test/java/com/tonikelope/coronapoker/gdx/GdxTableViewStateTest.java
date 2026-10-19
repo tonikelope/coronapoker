@@ -92,7 +92,7 @@ final class GdxTableViewStateTest {
     @Test
     void cardsUseNeutralTexturesAndNativeResolutionGpuSmaa() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
-        assertEquals(TextureFilter.MipMapLinearLinear,
+        assertEquals(TextureFilter.MipMapLinearNearest,
                 CoronaPokerGdxTable.cardMinificationFilter());
         assertEquals(1f, CoronaPokerGdxTable.cardAnisotropyLevel());
         assertEquals(4, CoronaPokerGdxTable.cardEdgeSupersampleCount());

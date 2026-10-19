@@ -3241,7 +3241,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static TextureFilter cardMinificationFilter() {
-        return TextureFilter.MipMapLinearLinear;
+        return TextureFilter.MipMapLinearNearest;
     }
 
     static float cardAnisotropyLevel() {
@@ -3269,10 +3269,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static Texture cardTexture(FileHandle file) {
-        // Preserve neutral deck pixels here. Hardware trilinear filtering
-        // handles ordinary texture minification; the dedicated screen-space
-        // SMAA resolves the complete transformed card without source-texture
-        // sharpening or colour-dependent artwork filtering.
+        // Select one mip level and filter within it, matching the sharp 26.36
+        // baseline. Trilinear filtering blends adjacent mip levels and makes
+        // ranks/suits visibly soft even when the optional screen-space SMAA
+        // pass is disabled. SMAA owns only the final screen-space edges; it
+        // must not change the source-artwork sampling policy.
         Texture texture = new Texture(file, cardMipMapsEnabled());
         texture.setFilter(cardMinificationFilter(),
                 TextureFilter.Linear);

@@ -52,7 +52,7 @@ final class GdxRabbitPresentationContractTest {
         String shader = CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER;
 
         assertTrue(shader.contains("uniform sampler2D u_texture;"));
-        assertTrue(shader.contains("texture2D(u_texture, uv)"),
+        assertTrue(shader.contains("texture2D(u_texture, uv,"),
                 "u_texture must remain active and cannot be optimized away");
         assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"),
                 "Rabbit cards need the same transparent AA canvas as every other card");
@@ -90,6 +90,12 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("roundedCardCoverage(sourceUv)"));
         assertTrue(shader.contains("if (mask <= 0.001) discard;"),
                 "transparent guard pixels should not perform texture reads");
+        assertTrue(shader.contains("cardArtworkLodBias(sourceUv, u_backTextureSize)"));
+        assertTrue(shader.contains("cardArtworkLodBias(sourceUv, u_frontTextureSize)"));
+        assertTrue(shader.contains("texture2D(u_texture, sourceUv, backLodBias)"));
+        assertTrue(shader.contains("texture2D(u_frontTexture, sourceUv, frontLodBias)"));
+        assertTrue(CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER.contains(
+                "cardArtworkLodBias(uv, u_overlayTextureSize)"));
     }
 
     private static BufferedImage image(String resource) throws Exception {

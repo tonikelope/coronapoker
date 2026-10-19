@@ -90,9 +90,9 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void cardsUseOneBilinearMipLevelWithoutTrilinearBlur() {
+    void cardsUseAdaptiveTrilinearLodWithoutRuntimePreprocessing() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
-        assertEquals(TextureFilter.MipMapLinearNearest,
+        assertEquals(TextureFilter.MipMapLinearLinear,
                 CoronaPokerGdxTable.cardMinificationFilter());
         assertEquals(1f, CoronaPokerGdxTable.cardAnisotropyLevel());
         assertEquals(4, CoronaPokerGdxTable.cardEdgeSupersampleCount());
@@ -100,6 +100,12 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
+        assertEquals(1.25f,
+                CoronaPokerGdxTable.cardArtworkLodBiasStartTexelsPerPixel());
+        assertEquals(7f,
+                CoronaPokerGdxTable.cardArtworkLodBiasFullTexelsPerPixel());
+        assertEquals(-0.65f,
+                CoronaPokerGdxTable.cardArtworkMaxNegativeLodBias());
     }
 
     @Test

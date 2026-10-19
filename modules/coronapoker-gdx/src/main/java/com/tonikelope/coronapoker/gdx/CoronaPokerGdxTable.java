@@ -15664,7 +15664,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float y = tableCenterY - height / 2f;
         Texture frame = active.animation.frameAt(active.elapsedSeconds());
         if (frame != null) {
-            drawRoundedCinematicFrame(frame, x, y, width, height);
+            // The shuffle artwork already has a transparent silhouette. Keep
+            // it on the default SpriteBatch path so a redundant mask/shader
+            // switch cannot clip its soft alpha or add per-frame work.
+            batch.begin();
+            batch.setColor(Color.WHITE);
+            batch.draw(frame, x, y, width, height);
+            batch.end();
         }
     }
 

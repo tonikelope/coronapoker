@@ -37,14 +37,12 @@ final class GdxCinematicPresentationContractTest {
     }
 
     @Test
-    void everyBuiltInTableCinematicUsesTheRoundedGpuPath()
+    void everyOpaqueTableCinematicUsesTheRoundedGpuPath()
             throws Exception {
         String source = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
                 "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
 
-        assertRounded(source, "private void drawLiveShuffleOverlay()",
-                "private void drawTextOnlyShuffleOverlay(");
         assertRounded(source, "private void drawLiveCinematicOverlay()",
                 "static float cinematicCornerRadius(");
         assertRounded(source, "private void drawGameOverDialog(",
@@ -53,6 +51,22 @@ final class GdxCinematicPresentationContractTest {
                 "private Rectangle remoteRebuyOverlayBounds(");
         assertRounded(source, "private void drawRecoveryDialog(",
                 "private StreamingGifTextureAnimation recoveryAnimation(");
+    }
+
+    @Test
+    void transparentShuffleStaysOnTheUnmaskedFastPath() throws Exception {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
+        int start = source.indexOf("private void drawLiveShuffleOverlay()");
+        int end = source.indexOf("private void drawTextOnlyShuffleOverlay(",
+                start);
+        assertTrue(start >= 0 && end > start);
+        String method = source.substring(start, end);
+
+        assertTrue(method.contains("batch.draw(frame,"));
+        assertFalse(method.contains("drawRoundedCinematicFrame("),
+                "transparent shuffle artwork must not pay for a redundant mask");
     }
 
     private static void assertRounded(String source, String startMarker,

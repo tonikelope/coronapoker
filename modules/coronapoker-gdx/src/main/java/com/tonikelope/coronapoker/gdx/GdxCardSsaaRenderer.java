@@ -194,21 +194,36 @@ final class GdxCardSsaaRenderer implements Disposable {
     static void useStraightAlphaCapture(SpriteBatch batch) {
         // RGB is stored premultiplied, while alpha uses the mathematically
         // correct source-over equation rather than being multiplied twice.
-        batch.setBlendFunctionSeparate(GL20.GL_SRC_ALPHA,
+        applyBlendFunction(batch, GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     static void usePremultipliedComposite(SpriteBatch batch) {
-        batch.setBlendFunctionSeparate(GL20.GL_ONE,
+        applyBlendFunction(batch, GL20.GL_ONE,
                 GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     static void useStandardAlpha(SpriteBatch batch) {
-        batch.setBlendFunctionSeparate(GL20.GL_SRC_ALPHA,
+        applyBlendFunction(batch, GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    private static void applyBlendFunction(SpriteBatch batch,
+            int sourceColor, int destinationColor,
+            int sourceAlpha, int destinationAlpha) {
+        batch.setBlendFunctionSeparate(sourceColor, destinationColor,
+                sourceAlpha, destinationAlpha);
+        // SpriteBatch stores the requested factors but does not update OpenGL
+        // while it is idle. ShapeRenderer and the HUD share the same GL state,
+        // so leaving the premultiplied factors live after batch.end() tints and
+        // over-brightens every translucent surface drawn afterwards.
+        if (Gdx.gl != null) {
+            Gdx.gl.glBlendFuncSeparate(sourceColor, destinationColor,
+                    sourceAlpha, destinationAlpha);
+        }
     }
 
     private boolean ensureLayer(int backBufferWidth, int backBufferHeight,

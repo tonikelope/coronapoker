@@ -71,6 +71,9 @@ final class GdxCardSsaaRendererContractTest {
 
         assertTrue(ssaa.contains("useStraightAlphaCapture(batch)"));
         assertTrue(ssaa.contains("usePremultipliedComposite(batch)"));
+        assertTrue(ssaa.contains("Gdx.gl.glBlendFuncSeparate"),
+                "an idle SpriteBatch must not leak premultiplied blending "
+                + "into ShapeRenderer or the HUD");
         assertTrue(ssaa.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
         assertTrue(ssaa.contains("TextureFilter.Nearest, TextureFilter.Nearest"));
         assertTrue(ssaa.contains("tap(-1.5, -1.5)"),

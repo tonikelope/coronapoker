@@ -923,6 +923,11 @@ final class GdxScenarioRenderer implements TableRenderer {
         return actionTrace.stream().anyMatch(entry -> entry.contains(token));
     }
 
+    String foldGameLogPrefix(String nickname) {
+        return nickname + " "
+                + presentationText().translate("action.label.fold2") + " (";
+    }
+
     boolean requestedImmediateRebuy() {
         return immediateRebuyRequested.get();
     }

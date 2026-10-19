@@ -707,7 +707,8 @@ public final class GdxMultiprocessNodeMain {
                             "admitted hot-join exit fold projection");
                     await(() -> gameLog.snapshot().lines().stream()
                                     .anyMatch(line -> line.startsWith(
-                                            newcomerNickname + " FOLD (")),
+                                            renderer.foldGameLogPrefix(
+                                                    newcomerNickname))),
                             Duration.ofSeconds(30),
                             "admitted hot-join exit fold game log");
                     marker("HOT_JOIN_EXIT_FOLD_AUDITED", "nick="
@@ -1260,7 +1261,7 @@ public final class GdxMultiprocessNodeMain {
                         "active owner exit fold projection");
                 await(() -> gameLog.snapshot().lines().stream()
                                 .anyMatch(line -> line.startsWith(
-                                        owner + " FOLD (")),
+                                        renderer.foldGameLogPrefix(owner))),
                         Duration.ofSeconds(30),
                         "active owner exit fold game log");
                 marker("ACTIVE_REENTRY_EXIT_FOLD_AUDITED", "nick=" + owner);
@@ -1695,7 +1696,7 @@ public final class GdxMultiprocessNodeMain {
                         "admitted late owner exit fold projection");
                 await(() -> gameLog.snapshot().lines().stream()
                                 .anyMatch(line -> line.startsWith(
-                                        owner + " FOLD (")),
+                                        renderer.foldGameLogPrefix(owner))),
                         Duration.ofSeconds(30),
                         "admitted late owner exit fold game log");
                 marker("ADMITTED_REENTRY_EXIT_FOLD_AUDITED", "nick="

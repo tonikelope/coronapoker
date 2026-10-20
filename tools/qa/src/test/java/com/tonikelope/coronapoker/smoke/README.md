@@ -3,7 +3,7 @@
 This package contains the invariant smoke tests run before code changes are
 merged. [`docs/TESTING.md`](../../../../../../../../../docs/TESTING.md) is the
 canonical source for test lanes, execution order and
-[adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
+[adding test scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 
 ## Purpose
 
@@ -74,6 +74,6 @@ The default fast lane runs every smoke below except `GameFlowSmoke`.
 5. Add the class to the table above.
 
 Before adding one, use the layer selector in
-[Adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
+[Adding test scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 A normal domain regression usually belongs beside its package. A flow requiring
 real sockets or `Crupier` belongs in the multi-JVM simulator.

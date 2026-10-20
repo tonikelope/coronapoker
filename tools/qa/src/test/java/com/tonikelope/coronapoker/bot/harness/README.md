@@ -379,7 +379,7 @@ Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
 explicitly, with one of the flows below.
 
 Only statistical playing-strength regressions belong in this package. Use the
-layer selector in [Adding scenarios](../../../../../../../../../../docs/TESTING.md#adding-scenarios)
+layer selector in [Adding test scenarios](../../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md)
 before adding a harness class. Deterministic game-integrity behavior belongs in the
 fast, protocol-simulation or real-game E2E layer.
 

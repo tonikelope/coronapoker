@@ -52,11 +52,15 @@ Commands:
   list       Print the executable GDX scenario catalogue
   help       Show this help
 
-Scenario depth (only scenario repetitions/depth change):
-  quick      Critical subset, one pass, 5-hand normal soak
-  fast       Complete catalogue, one pass, 5-hand normal soak
-  balanced   Complete catalogue, two passes, 20-hand normal soak
-  stress     Complete catalogue, five passes, 50-hand normal soak
+Scenario modes:
+  mode       catalogue        passes  normal  heads-up  full-mixed  full-human
+  quick      critical subset  1       5       5         1           1
+  fast       complete         1       5       5         1           1
+  balanced   complete         1       20      20        3           1
+  stress     complete         5       50      50        10          3
+
+Passes repeat the mapped-test schedule. The four depth values affect only the
+scenario methods that implement those normal table topologies.
 
 Options:
   -Scenario <name>       Run only one GDX scenario and its mapped tests

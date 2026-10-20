@@ -61,7 +61,8 @@ not additional distributions.
 The `coronapoker-qa` module checks the architecture during the normal product
 build. The extended suite under `tools/qa` adds opt-in protocol, recovery,
 security and simulation tests. GDX behavioural certification is executed from
-the scenario contract in `coronapoker-gdx`. See `../docs/TESTING.md`.
+the scenario contract in `coronapoker-gdx`. See `../docs/TESTING.md` for
+execution and `../docs/ADDING_TEST_SCENARIOS.md` for authoring.
 
 A successful automated build does not validate visual fidelity, audio quality
 or frame pacing. Those release checks require a manual run on the supported

@@ -189,22 +189,60 @@ class QaBaselineWiringTest {
                 "each scenario process must receive its derived replay seed");
         assertFalse(certification.contains("'-o'"),
                 "the public certifier must work with an empty checkout-local Maven cache");
-
     }
 
     @Test
-    void publicTestingManualAndEditableDiagramStayDiscoverableAndPaired() throws IOException {
+    void certificationModeDefaultsStayDocumented() throws IOException {
+        Path root = locateRoot();
+        String certification = Files.readString(root.resolve(
+                "tools/qa/run-certification.ps1"));
+        String testing = Files.readString(root.resolve("docs/TESTING.md"));
+        Pattern modePattern = Pattern.compile("(?m)^\\s*"
+                + "(quick|fast|balanced|stress) = @\\{ Repeats = (\\d+); "
+                + "Soak = (\\d+); HeadsUp = (\\d+); FullMixed = (\\d+); "
+                + "FullHuman = (\\d+) \\}");
+        Matcher matcher = modePattern.matcher(certification);
+        Map<String, List<String>> defaults = new java.util.LinkedHashMap<>();
+        while (matcher.find()) {
+            defaults.put(matcher.group(1), List.of(matcher.group(2),
+                    matcher.group(3), matcher.group(4), matcher.group(5),
+                    matcher.group(6)));
+        }
+
+        assertEquals(Set.of("quick", "fast", "balanced", "stress"),
+                defaults.keySet(), "certification mode catalogue changed");
+        assertEquals("1", defaults.get("balanced").get(0),
+                "balanced must run one complete pass by default");
+        defaults.forEach((mode, values) -> {
+            String catalogue = mode.equals("quick")
+                    ? "Critical subset" : "Complete";
+            String documentedRow = "| `" + mode + "` | " + catalogue
+                    + " | " + String.join(" | ", values) + " |";
+            assertTrue(testing.contains(documentedRow),
+                    "public mode table differs from runner defaults: " + mode);
+        });
+    }
+
+    @Test
+    void publicTestingManualScenarioGuideAndDiagramStayDiscoverable()
+            throws IOException {
         Path root = locateRoot();
         String readme = Files.readString(root.resolve("README.md"));
         String testing = Files.readString(root.resolve("docs/TESTING.md"));
+        String scenarioGuide = Files.readString(root.resolve(
+                "docs/ADDING_TEST_SCENARIOS.md"));
         assertTrue(readme.contains("docs/TESTING.md"),
                 "README must link the canonical testing manual");
+        assertTrue(readme.contains("docs/ADDING_TEST_SCENARIOS.md"),
+                "README must link the scenario contributor guide");
         assertTrue(testing.contains("diagrams/testing-certification-flow.png"),
                 "testing manual must render its certification diagram");
-        assertTrue(testing.contains("## Adding scenarios"),
-                "scenario contributor guidance must live in the canonical testing manual");
-        assertFalse(Files.exists(root.resolve("docs/ADDING_TEST_SCENARIOS.md")),
-                "scenario guidance must not be split into a second manual");
+        assertTrue(testing.contains("ADDING_TEST_SCENARIOS.md"),
+                "testing manual must route contributors to the scenario guide");
+        assertTrue(scenarioGuide.contains("GdxScenarioContract.CERTIFICATION_SCENARIOS"),
+                "scenario guide must identify the one executable catalogue");
+        assertTrue(scenarioGuide.contains("CP_E2E_*"),
+                "scenario guide must require semantic process markers");
         assertTrue(Files.isRegularFile(root.resolve(
                 "docs/diagrams/testing-certification-flow.drawio")),
                 "editable Draw.io source is required");

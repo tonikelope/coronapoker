@@ -7,7 +7,7 @@ records, Ed25519 signatures, RIT pot division, settlement record and
 `HANDVERIFY` receipt parser.
 
 For a new regression, first use the layer selector in
-[Adding scenarios](../../../../../../../../../docs/TESTING.md#adding-scenarios).
+[Adding test scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 Add a case here when high-volume deterministic protocol/domain coverage is the
 claim. Use the real-game E2E path when the defect depends on production
 `Crupier`, GDX, sockets or recovery orchestration.

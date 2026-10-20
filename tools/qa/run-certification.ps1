@@ -24,7 +24,7 @@ CoronaPoker GDX scenario certification
 Usage:
   .\tools\qa\certify.cmd [-Mode quick|fast|balanced|stress]
   .\tools\qa\certify.cmd -Scenario spectator-rebuy-cycle -Mode fast
-  .\tools\qa\certify.cmd -StartAtScenario reconnect-every-street -StartAtRepeat 2 -Seed 42
+  .\tools\qa\certify.cmd -Mode stress -StartAtScenario reconnect-every-street -StartAtRepeat 2 -Seed 42
   .\tools\qa\certify.cmd -ListOnly
 
 This command certifies game behaviour. It runs the one authoritative GDX
@@ -33,10 +33,14 @@ mapping and result. Each mapped test receives a fresh Maven process and a fresh
 JVM. Code tests and mass headless campaigns are separate layers.
 
 Modes:
-  quick      Critical iteration subset, one pass, 5-hand normal soak
-  fast       Complete scenario catalogue, one pass, 5-hand normal soak
-  balanced   Complete catalogue, two passes, 20-hand normal soak
-  stress     Complete catalogue, five passes, 50-hand normal soak
+  mode       catalogue        passes  normal  heads-up  full-mixed  full-human
+  quick      critical subset  1       5       5         1           1
+  fast       complete         1       5       5         1           1
+  balanced   complete         1       20      20        3           1
+  stress     complete         5       50      50        10          3
+
+Passes repeat the mapped-test schedule. The four depth values affect only the
+scenario methods that implement those normal table topologies.
 
 Options:
   -Scenario <name>          Run one scenario and all of its mapped tests
@@ -78,7 +82,7 @@ if (-not $PSBoundParameters.ContainsKey('Seed')) {
 $modeDefaults = @{
     quick = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
     fast = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
-    balanced = @{ Repeats = 2; Soak = 20; HeadsUp = 20; FullMixed = 3; FullHuman = 1 }
+    balanced = @{ Repeats = 1; Soak = 20; HeadsUp = 20; FullMixed = 3; FullHuman = 1 }
     stress = @{ Repeats = 5; Soak = 50; HeadsUp = 50; FullMixed = 10; FullHuman = 3 }
 }[$Mode]
 if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) {

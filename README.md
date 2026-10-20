@@ -360,14 +360,15 @@ first failed layer:
 # Run only every GDX scenario once when gameplay wiring needs certification.
 .\qa.cmd scenarios fast
 
-# Complete release gate: product tests + extended QA + scenarios twice.
+# Complete release gate: product tests + extended QA + deeper scenarios once.
 .\qa.cmd all balanced
 ```
 
 Running `.\qa.cmd` without arguments is the same as `test`. Scenarios never
 start accidentally. Use `scenarios stress` or `all stress` for major protocol,
-recovery or concurrency work. The scenario modes change only GDX repetitions
-and soak depth. They do not create separate catalogues.
+recovery or concurrency work. `quick` selects a critical subset. `fast`,
+`balanced` and `stress` use the same complete catalogue and differ in internal
+depth or repetitions.
 Run `.\qa.cmd -Help` for focused scenario, seed replay and bot-quality options.
 The detailed interpretation guide is in
 [Testing and certification](docs/TESTING.md).
@@ -403,11 +404,12 @@ files. If the subsequent build fails, the increment remains visible in the
 working tree so it can be reviewed or corrected explicitly. The script never
 hides a partial release attempt.
 
-GDX gameplay certification has one catalogue and one result. `fast`,
-`balanced` and `stress` execute exactly the same scenarios. They differ only in
-repetitions and soak depth (one, two and five passes respectively). `quick` is
-the explicit short subset for iteration. See [Testing and certification](docs/TESTING.md)
-for the exact costs and report format.
+GDX gameplay certification has one catalogue and one result. `fast` and
+`balanced` execute the complete catalogue once. `balanced` increases the
+internal hand depth, while `stress` adds five complete passes and the deepest
+internal loads. `quick` is the explicit short subset for iteration. See
+[Testing and certification](docs/TESTING.md) for the exact costs and report
+format.
 
 Launch CoronaPoker:
 
@@ -426,8 +428,9 @@ are never packaged in the game JAR. `qa.cmd` is the recommended single entry
 point. The individual Maven and runner commands remain available for diagnosis.
 
 **[Testing and certification](docs/TESTING.md)** is the canonical guide for
-test groups, expected cost, dependencies, command order, scenario modes,
-release gates and adding scenarios to the unified catalogue.
+test groups, expected cost, dependencies, command order, scenario modes and
+release gates. Contributors extending the catalogue should use
+**[Adding test scenarios](docs/ADDING_TEST_SCENARIOS.md)**.
 
 ---
 

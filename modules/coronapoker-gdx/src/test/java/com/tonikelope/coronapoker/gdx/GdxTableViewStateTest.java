@@ -4001,22 +4001,32 @@ final class GdxTableViewStateTest {
     void rememberedActionDoesNotHideOtherwiseEligibleAutoButtons() {
         assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
                 true, true, false, false, false,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
         assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
                 true, true, false, false, true,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
         assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
                 false, true, false, false, true,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
         assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
                 true, false, false, false, true,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
         assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
                 true, true, false, true, true,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
         assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
                 true, true, false, false, true,
-                false, false, false, false, false, true));
+                false, false, false, false, false, false, true));
+    }
+
+    @Test
+    void voluntaryShowExclusivelyOwnsTheActionAreaOverAutoButtons() {
+        assertFalse(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, true, false, false,
+                false, false, false, false, false, true, false));
+        assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
+                true, true, true, false, false,
+                false, false, false, false, false, false, false));
     }
 
     @Test
@@ -4034,7 +4044,7 @@ final class GdxTableViewStateTest {
                 "a folded player may queue an AUTO choice for the next hand");
         assertTrue(CoronaPokerGdxTable.showsAutoPreActions(
                 true, false, true, false, true,
-                false, false, false, false, false, false));
+                false, false, false, false, false, false, false));
 
         assertFalse(CoronaPokerGdxTable.autoPreActionFallbackEligible(
                 true, waiting, null, false));

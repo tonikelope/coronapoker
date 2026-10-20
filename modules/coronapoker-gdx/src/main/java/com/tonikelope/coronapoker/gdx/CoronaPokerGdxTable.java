@@ -7534,7 +7534,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.preActionControlsActive(), preActionFallback,
                 localTurn, localActionMemory,
                 localSpectator, clickLocalAllIn, localMonteCarlo, localShownHand,
-                clickShowdownPresentation, autoActionVeto);
+                clickShowdownPresentation, voluntaryShow, autoActionVeto);
         boolean regularHudActionsVisible = !localShownHand
                 && !localMonteCarlo && !localActionMemory && localTurn;
         int localHudTarget = preActions
@@ -7808,15 +7808,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean controlsActive, boolean fallbackEligible,
             boolean localTurn, boolean localActionMemory, boolean spectator,
             boolean allIn, boolean monteCarlo, boolean shownHand,
-            boolean showdownPresentation, boolean autoActionVeto) {
+            boolean showdownPresentation, boolean voluntaryShow,
+            boolean autoActionVeto) {
         // A remembered action is presentation, not an interaction lock. AUTO
         // choices remain available beside it. The fallback bridges the short
         // gaps before/after canonical PreActionControls events; the explicit
         // lifecycle exclusions still prevent stale or impossible choices.
+        // MOSTRAR is a live, time-limited action and owns the detached action
+        // cell exclusively. Hiding AUTO here keeps painting and hit-testing in
+        // lockstep while preserving the queued selection for the next state.
         return enabledByPreference && (controlsActive || fallbackEligible)
                 && !localTurn && !spectator && !allIn
                 && !monteCarlo && !shownHand
-                && !showdownPresentation && !autoActionVeto;
+                && !showdownPresentation && !voluntaryShow && !autoActionVeto;
     }
 
     static boolean autoPreActionFallbackEligible(boolean localTurn,
@@ -17518,7 +17522,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         localActionKind, showdownPresentation),
                 localTurn, localActionMemory,
                 localSpectator, localAllIn, localMonteCarlo, localShownHand,
-                showdownPresentation, autoActionVeto);
+                showdownPresentation, voluntaryShow, autoActionVeto);
         boolean foldEnabled = !autoActionVeto
                 && ((localTurn && controls.foldEnabled()) || preActions);
         boolean checkEnabled = !autoActionVeto

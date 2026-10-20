@@ -92,7 +92,8 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("GdxSettingsContract.vsyncStatusLabel("));
         assertTrue(frontend.contains("GdxSettingsLayout.ROW_HEIGHT), \"gdx_vsync\")"));
         assertTrue(table.contains("GdxSettingsContract.vsyncStatusLabel("));
-        assertTrue(table.contains("\"gdx_vsync\", viewportBounds, properties"));
+        assertTrue(table.contains("\"gdx_vsync\", \"gdx_fps_limit\""));
+        assertTrue(table.contains("GdxSettingsTooltips.content("));
         assertTrue(table.contains(
                 "GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));
     }

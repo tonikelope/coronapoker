@@ -191,44 +191,13 @@ final class GdxUiButtonStyle {
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,
             float width, float height, float radius) {
-        float r = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rect(x + r, y, width - 2f * r, height);
-        shapes.rect(x, y + r, r, height - 2f * r);
-        shapes.rect(x + width - r, y + r, r, height - 2f * r);
-        shapes.arc(x + r, y + r, r, 180f, 90f, 18);
-        shapes.arc(x + width - r, y + r, r, 270f, 90f, 18);
-        shapes.arc(x + width - r, y + height - r, r, 0f, 90f, 18);
-        shapes.arc(x + r, y + height - r, r, 90f, 90f, 18);
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 
     private static void roundedRectOutline(ShapeRenderer shapes, float x,
             float y, float width, float height, float radius,
             float thickness) {
-        float r = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rectLine(x + r, y, x + width - r, y, thickness);
-        shapes.rectLine(x + r, y + height, x + width - r,
-                y + height, thickness);
-        shapes.rectLine(x, y + r, x, y + height - r, thickness);
-        shapes.rectLine(x + width, y + r, x + width,
-                y + height - r, thickness);
-        quarterArc(shapes, x + r, y + r, r, 180f, thickness);
-        quarterArc(shapes, x + width - r, y + r, r, 270f, thickness);
-        quarterArc(shapes, x + width - r, y + height - r, r, 0f, thickness);
-        quarterArc(shapes, x + r, y + height - r, r, 90f, thickness);
-    }
-
-    private static void quarterArc(ShapeRenderer shapes, float cx, float cy,
-            float radius, float startDegrees, float thickness) {
-        float previous = (float) Math.toRadians(startDegrees);
-        float previousX = cx + (float) Math.cos(previous) * radius;
-        float previousY = cy + (float) Math.sin(previous) * radius;
-        for (int step = 1; step <= 10; step++) {
-            float radians = (float) Math.toRadians(startDegrees + step * 9f);
-            float x = cx + (float) Math.cos(radians) * radius;
-            float y = cy + (float) Math.sin(radians) * radius;
-            shapes.rectLine(previousX, previousY, x, y, thickness);
-            previousX = x;
-            previousY = y;
-        }
+        GdxAntialiasedRoundedRect.outline(shapes, x, y, width, height,
+                radius, thickness);
     }
 }

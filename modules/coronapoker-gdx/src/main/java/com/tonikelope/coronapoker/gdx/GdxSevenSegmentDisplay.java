@@ -126,13 +126,6 @@ final class GdxSevenSegmentDisplay {
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,
             float width, float height, float radius) {
-        float r = Math.max(0f, Math.min(radius,
-                Math.min(width, height) / 2f));
-        shapes.rect(x + r, y, width - r * 2f, height);
-        shapes.rect(x, y + r, width, height - r * 2f);
-        shapes.circle(x + r, y + r, r, 12);
-        shapes.circle(x + width - r, y + r, r, 12);
-        shapes.circle(x + r, y + height - r, r, 12);
-        shapes.circle(x + width - r, y + height - r, r, 12);
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 }

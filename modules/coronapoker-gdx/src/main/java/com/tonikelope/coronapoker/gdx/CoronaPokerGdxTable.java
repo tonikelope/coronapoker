@@ -1300,6 +1300,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final IntroCardLayout introCardLayout;
     private final Color introShadeTop = new Color();
     private final Color introShadeBottom = new Color();
+    private final Color settingsTooltipTextColor = new Color();
     private Texture[] flyingChips;
     private Texture pot;
     private StreamingGifTextureAnimation gameOverAnimation;
@@ -17284,25 +17285,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void roundedRect(float x, float y, float width, float height, float radius) {
-        float safeRadius = Math.min(radius, Math.min(width, height) * 0.5f);
-        if (safeRadius <= 0f) {
-            shapes.rect(x, y, width, height);
-            return;
-        }
-        // These pieces only share boundaries. The previous implementation
-        // overlapped two rectangles and four circles; with alpha blending those
-        // overlaps appeared as bright balls in every rounded corner.
-        shapes.rect(x + safeRadius, y, width - safeRadius * 2f, height);
-        shapes.rect(x, y + safeRadius, safeRadius, height - safeRadius * 2f);
-        shapes.rect(x + width - safeRadius, y + safeRadius,
-                safeRadius, height - safeRadius * 2f);
-        shapes.arc(x + safeRadius, y + safeRadius, safeRadius, 180f, 90f, 18);
-        shapes.arc(x + width - safeRadius, y + safeRadius,
-                safeRadius, 270f, 90f, 18);
-        shapes.arc(x + width - safeRadius, y + height - safeRadius,
-                safeRadius, 0f, 90f, 18);
-        shapes.arc(x + safeRadius, y + height - safeRadius,
-                safeRadius, 90f, 90f, 18);
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,
@@ -21670,7 +21653,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settingsContentPage() == 9) {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
-        drawSettingsPerformanceTooltip(contentX, firstRowY, contentW, alpha);
+        drawSettingsTooltip(contentX, firstRowY, contentW, alpha);
         drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
     }
@@ -21820,24 +21803,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private record SettingsLockHover(String key, String identity) {
     }
 
-    private void drawSettingsPerformanceTooltip(float x, float firstY,
+    private void drawSettingsTooltip(float x, float firstY,
             float width, float alpha) {
-        SettingsPerformanceHover hovered = settingsPerformanceHover(x,
+        SettingsTooltipHover hovered = settingsTooltipHover(x,
                 firstY, width);
         if (hovered == null) {
             settingsPerformanceTooltipDelay.clear();
             return;
         }
         if (!settingsPerformanceTooltipDelay.ready(
-                "settings-performance:" + hovered.settingKey())) {
+                "settings-tooltip:" + hovered.settingKey())) {
             return;
         }
-        String label = gameText.translate(
-                "gdx.settings.performance_impact",
-                hovered.impact().label(gameText));
-        glyph.setText(settingsSmallFont, label);
-        float boxW = Math.max(280f, glyph.width + 38f);
-        float boxH = 44f;
+        String label = hovered.content().text();
+        float textWidth = 560f;
+        Color textColor = hovered.content().performanceImpact()
+                == GdxSettingsContract.PerformanceImpact.NONE
+                        ? Color.WHITE
+                        : settingsPerformanceImpactColor(
+                                hovered.content().performanceImpact());
+        glyph.setText(settingsSmallFont, label,
+                settingsTooltipTextColor.set(textColor.r, textColor.g,
+                        textColor.b, alpha),
+                textWidth, Align.left, true);
+        float boxW = Math.min(620f, Math.max(360f, glyph.width + 38f));
+        float boxH = Math.max(48f, glyph.height + 28f);
         float boxX = MathUtils.clamp(pointer.x + 18f, 12f,
                 viewport.getWorldWidth() - boxW - 12f);
         float boxY = pointer.y - boxH - 18f;
@@ -21845,7 +21835,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boxY = Math.min(viewport.getWorldHeight() - boxH - 12f,
                     pointer.y + 22f);
         }
-        Color accent = settingsPerformanceImpactColor(hovered.impact());
+        Color accent = hovered.content().performanceImpact()
+                == GdxSettingsContract.PerformanceImpact.NONE
+                        ? CYAN
+                        : settingsPerformanceImpactColor(
+                                hovered.content().performanceImpact());
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -21856,83 +21850,212 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(settingsSmallFont, label,
-                boxX + 12f, boxY + 5f, boxW - 24f, boxH - 10f,
-                accent, alpha);
+        GdxPixelText.draw(settingsSmallFont, batch, glyph,
+                boxX + 19f, boxY + boxH - 14f, viewport);
         batch.end();
     }
 
-    private SettingsPerformanceHover settingsPerformanceHover(float x,
+    private SettingsTooltipHover settingsTooltipHover(float x,
             float firstY, float width) {
-        if (settingsContentPage() != 1) return null;
         Rectangle content = currentSettingsContent();
         Rectangle viewportBounds = settingsRowsViewport(content, firstY);
+        if (!viewportBounds.contains(pointer)
+                || settingsLockHover(x, firstY, width) != null) return null;
         Properties properties = tableSettingsProperties();
-        if (settingsAppearancePage == 0) return null;
-        if (settingsAppearancePage == 1) {
+        int contentPage = settingsContentPage();
+        if (contentPage == 0) {
+            GdxSettingsContract.TogglePage page = settingsAudioPage();
+            float audioFirstY = firstY;
+            if (settingsAudioPage == 0) {
+                SettingsTooltipHover volume = settingsTooltipHover(
+                        GdxSettingsLayout.volumeRow(x, firstY, width).bounds(),
+                        "master_volume", viewportBounds, properties);
+                if (volume != null) return volume;
+                audioFirstY -= GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET;
+            }
+            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                    audioFirstY, GdxSettingsContract.audioRowCount(page),
+                    settingsAudioScroll);
+            if (GdxSettingsContract.hasAudioDevices(page)) {
+                SettingsTooltipHover output = settingsTooltipHover(
+                        new Rectangle(x, rows.rowY(0), width,
+                                GdxSettingsLayout.ROW_HEIGHT),
+                        "gdx_audio_output_device", viewportBounds,
+                        properties);
+                if (output != null) return output;
+                SettingsTooltipHover capture = settingsTooltipHover(
+                        new Rectangle(x, rows.rowY(1), width,
+                                GdxSettingsLayout.ROW_HEIGHT),
+                        "audio_capture_device", viewportBounds, properties);
+                if (capture != null) return capture;
+            }
+            for (int optionIndex = 0;
+                    optionIndex < page.options().size(); optionIndex++) {
+                int row = GdxSettingsContract.audioOptionRow(page,
+                        optionIndex);
+                if (row < rows.firstIndex()
+                        || row >= rows.lastExclusive()) continue;
+                GdxSettingsContract.ToggleOption option =
+                        page.options().get(optionIndex);
+                Rectangle bounds = GdxSettingsLayout.optionRow(x,
+                        rows.rowY(row), width,
+                        GdxSettingsContract.isChildOption(page, option));
+                SettingsTooltipHover hovered = settingsTooltipHover(bounds,
+                        option.key(), viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
+            if (GdxSettingsContract.hasVoiceRetention(page)) {
+                SettingsTooltipHover retention = settingsTooltipHover(
+                        new Rectangle(x, rows.rowY(
+                                GdxSettingsContract.voiceRetentionRow(page)),
+                                width, GdxSettingsLayout.ROW_HEIGHT),
+                        "audio_voice_note_retention_days", viewportBounds,
+                        properties);
+                if (retention != null) return retention;
+                GdxSettingsLayout.SplitRow actions =
+                        GdxSettingsLayout.splitActionRow(x, rows.rowY(
+                                GdxSettingsContract.voiceActionsRow(page)),
+                                width);
+                SettingsTooltipHover view = settingsTooltipHover(
+                        actions.left(), "voice_notes_view", viewportBounds,
+                        properties);
+                if (view != null) return view;
+                return settingsTooltipHover(actions.right(),
+                        "voice_notes_purge", viewportBounds, properties);
+            }
+            return null;
+        }
+        if (contentPage == 1 && settingsAppearancePage == 0) {
+            float rowStride = GdxSettingsLayout.rowStride(content.height,
+                    GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
+            String[] keys = {"baraja", "trasera", "color_tapete",
+                "nivel_luz"};
+            for (int row = 0; row < keys.length; row++) {
+                SettingsTooltipHover hovered = settingsTooltipHover(
+                        new Rectangle(x, firstY - row * rowStride, width,
+                                GdxSettingsLayout.ROW_HEIGHT), keys[row],
+                        viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
+            return null;
+        }
+        if (contentPage == 1 && settingsAppearancePage == 1) {
             float rowStride = GdxSettingsLayout.rowStride(content.height,
                     GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-            Rectangle bounds = new Rectangle(x, firstY - 2f * rowStride,
-                    width, GdxSettingsLayout.ROW_HEIGHT);
-            SettingsPerformanceHover hovered = settingsPerformanceHover(
-                    bounds, "gdx_vsync", viewportBounds, properties);
-            if (hovered != null) return hovered;
-            bounds.set(x, firstY - 3f * rowStride,
-                    width, GdxSettingsLayout.ROW_HEIGHT);
-            hovered = settingsPerformanceHover(bounds,
-                    "gdx_fps_limit", viewportBounds, properties);
-            if (hovered != null) return hovered;
-            bounds.set(x, firstY - 4f * rowStride, width,
-                    GdxSettingsLayout.ROW_HEIGHT);
-            hovered = settingsPerformanceHover(bounds, "gdx_msaa_samples",
-                    viewportBounds, properties);
-            if (hovered != null) return hovered;
-            bounds.set(x, firstY - 5f * rowStride, width,
-                    GdxSettingsLayout.ROW_HEIGHT);
-            return settingsPerformanceHover(bounds,
-                    GdxSettingsContract.CARD_RENDERING_KEY, viewportBounds,
-                    properties);
-        }
-
-        GdxSettingsContract.TogglePage page =
-                settingsAppearanceTogglePage();
-        int rowCount = GdxSettingsContract.appearanceRowCount(page);
-        GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                firstY, rowCount, settingsAppearanceScroll);
-        for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
-            String key;
-            boolean child;
-            if (row < page.options().size()) {
-                GdxSettingsContract.ToggleOption option =
-                        page.options().get(row);
-                key = option.key();
-                child = GdxSettingsContract.isChildOption(page, option);
-            } else {
-                GdxAppearanceOptions.Choice option =
-                        GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                row - page.options().size());
-                key = option.key();
-                child = GdxAppearanceOptions.isChildChoice(option);
+            String[] keys = {"gdx_window_mode", "auto_fullscreen",
+                "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
+                "gpu_renderer"};
+            for (int row = 0; row < keys.length; row++) {
+                Rectangle bounds = row == 1
+                        ? GdxSettingsLayout.optionRow(x,
+                                firstY - row * rowStride, width, true)
+                        : new Rectangle(x, firstY - row * rowStride, width,
+                                GdxSettingsLayout.ROW_HEIGHT);
+                SettingsTooltipHover hovered = settingsTooltipHover(bounds,
+                        keys[row], viewportBounds, properties);
+                if (hovered != null) return hovered;
             }
-            Rectangle bounds = GdxSettingsLayout.optionRow(x,
-                    rows.rowY(row), width, child);
-            SettingsPerformanceHover hovered = settingsPerformanceHover(
-                    bounds, key, viewportBounds, properties);
-            if (hovered != null) return hovered;
+            return null;
+        }
+        if (contentPage == 1) {
+            GdxSettingsContract.TogglePage page =
+                    settingsAppearanceTogglePage();
+            int rowCount = GdxSettingsContract.appearanceRowCount(page);
+            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                    firstY, rowCount, settingsAppearanceScroll);
+            for (int row = rows.firstIndex();
+                    row < rows.lastExclusive(); row++) {
+                String key;
+                boolean child;
+                if (row < page.options().size()) {
+                    GdxSettingsContract.ToggleOption option =
+                            page.options().get(row);
+                    key = option.key();
+                    child = GdxSettingsContract.isChildOption(page, option);
+                } else {
+                    GdxAppearanceOptions.Choice option =
+                            GdxAppearanceOptions.ANIMATION_CHOICES.get(
+                                    row - page.options().size());
+                    key = option.key();
+                    child = GdxAppearanceOptions.isChildChoice(option);
+                }
+                Rectangle bounds = GdxSettingsLayout.optionRow(x,
+                        rows.rowY(row), width, child);
+                SettingsTooltipHover hovered = settingsTooltipHover(bounds,
+                        key, viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
+            return null;
+        }
+        if (contentPage == 2) {
+            List<GdxShortcutBindings.ShortcutEntry> entries =
+                    shortcutBindings.editableEntries(gameText);
+            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                    firstY, GdxSettingsContract.CONTROL_ROWS + entries.size(),
+                    shortcutScroll);
+            for (int row = rows.firstIndex();
+                    row < rows.lastExclusive(); row++) {
+                Rectangle bounds = settingsControlRow(x, rows.rowY(row),
+                        width, row);
+                SettingsTooltipHover hovered = settingsTooltipHover(bounds,
+                        GdxSettingsContract.controlSettingKey(row),
+                        viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
+            return null;
+        }
+        if (contentPage == 3) {
+            GdxSettingsLayout.GameColumns columns =
+                    GdxSettingsLayout.gameColumns(x, width);
+            String[] left = {"structure", "initial_blinds", "ante",
+                "straddle", "blind_structures"};
+            String[] right = {"increase_blinds", "blind_unit",
+                "blind_interval", "blind_cap", "blind_cap_level"};
+            for (int row = 0; row < 5; row++) {
+                SettingsTooltipHover hovered = settingsTooltipHover(
+                        columns.left(firstY, row), left[row], viewportBounds,
+                        properties);
+                if (hovered != null) return hovered;
+                hovered = settingsTooltipHover(columns.right(firstY, row),
+                        right[row], viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
+            return null;
+        }
+        String[][] gameKeys = {
+            {"fixed_buyin", "initial_buyin", "minimum_buyin",
+                "maximum_buyin", "rebuy_cap"},
+            {"rebuy", "player_rebuy_limit", "maximum_rebuys"},
+            {"bot_difficulty", "bot_rebuy", "bot_balance"},
+            {"hand_limit", "hand_count", "think_time", "think_seconds",
+                "showdown_time", "allow_hot_join"},
+            {"iwtsth", "run_it_twice", "rabbit_hunting"}
+        };
+        if (contentPage >= 4 && contentPage <= 8) {
+            String[] keys = gameKeys[contentPage - 4];
+            for (int row = 0; row < keys.length; row++) {
+                SettingsTooltipHover hovered = settingsTooltipHover(
+                        settingsGameRow(x, firstY, width, row), keys[row],
+                        viewportBounds, properties);
+                if (hovered != null) return hovered;
+            }
         }
         return null;
     }
 
-    private SettingsPerformanceHover settingsPerformanceHover(
+    private SettingsTooltipHover settingsTooltipHover(
             Rectangle bounds, String key, Rectangle viewportBounds,
             Properties properties) {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
-        GdxSettingsContract.PerformanceImpact impact =
-                GdxSettingsContract.performanceImpact(key, properties);
-        return impact == GdxSettingsContract.PerformanceImpact.NONE
-                ? null : new SettingsPerformanceHover(key, impact);
+        return new SettingsTooltipHover(key, GdxSettingsTooltips.content(key,
+                properties, gameText));
+    }
+
+    private record SettingsTooltipHover(String settingKey,
+            GdxSettingsTooltips.Content content) {
     }
 
     private static Color settingsPerformanceImpactColor(
@@ -26967,10 +27090,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private record SettingsRowScroll(float x,
             GdxSettingsLayout.PixelRows rows) {
-    }
-
-    private record SettingsPerformanceHover(String settingKey,
-            GdxSettingsContract.PerformanceImpact impact) {
     }
 
     private static final class LiveHandProbability {

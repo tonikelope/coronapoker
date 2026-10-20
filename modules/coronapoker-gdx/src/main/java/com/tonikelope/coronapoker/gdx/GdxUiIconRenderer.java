@@ -257,57 +257,13 @@ final class GdxUiIconRenderer {
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,
             float width, float height, float radius) {
-        float r = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rect(x + r, y, width - 2f * r, height);
-        shapes.rect(x, y + r, width, height - 2f * r);
-        shapes.circle(x + r, y + r, r, 16);
-        shapes.circle(x + width - r, y + r, r, 16);
-        shapes.circle(x + r, y + height - r, r, 16);
-        shapes.circle(x + width - r, y + height - r, r, 16);
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 
     private static void roundedRectOutline(ShapeRenderer shapes, float x,
             float y, float width, float height, float radius,
             float thickness) {
-        float r = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rect(x + r, y - thickness / 2f,
-                width - 2f * r, thickness);
-        shapes.rect(x + r, y + height - thickness / 2f,
-                width - 2f * r, thickness);
-        shapes.rect(x - thickness / 2f, y + r,
-                thickness, height - 2f * r);
-        shapes.rect(x + width - thickness / 2f, y + r,
-                thickness, height - 2f * r);
-        arc(shapes, x + r, y + r, r, MathUtils.PI, thickness);
-        arc(shapes, x + width - r, y + r, r,
-                MathUtils.PI * 1.5f, thickness);
-        arc(shapes, x + width - r, y + height - r, r, 0f, thickness);
-        arc(shapes, x + r, y + height - r, r,
-                MathUtils.PI / 2f, thickness);
-    }
-
-    private static void arc(ShapeRenderer shapes, float cx, float cy,
-            float radius, float start, float thickness) {
-        float outer = radius + thickness / 2f;
-        float inner = Math.max(0f, radius - thickness / 2f);
-        float previousOuterX = cx + MathUtils.cos(start) * outer;
-        float previousOuterY = cy + MathUtils.sin(start) * outer;
-        float previousInnerX = cx + MathUtils.cos(start) * inner;
-        float previousInnerY = cy + MathUtils.sin(start) * inner;
-        for (int step = 1; step <= 8; step++) {
-            float angle = start + MathUtils.PI / 2f * step / 8f;
-            float outerX = cx + MathUtils.cos(angle) * outer;
-            float outerY = cy + MathUtils.sin(angle) * outer;
-            float innerX = cx + MathUtils.cos(angle) * inner;
-            float innerY = cy + MathUtils.sin(angle) * inner;
-            shapes.triangle(previousOuterX, previousOuterY,
-                    outerX, outerY, innerX, innerY);
-            shapes.triangle(previousOuterX, previousOuterY,
-                    innerX, innerY, previousInnerX, previousInnerY);
-            previousOuterX = outerX;
-            previousOuterY = outerY;
-            previousInnerX = innerX;
-            previousInnerY = innerY;
-        }
+        GdxAntialiasedRoundedRect.outline(shapes, x, y, width, height,
+                radius, thickness);
     }
 }

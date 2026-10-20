@@ -7983,6 +7983,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAudioPage == 0) {
             drawFrontendVolumeControl(x + 34f, rowY, w - 68f);
+            settingsTooltip(GdxSettingsLayout.volumeRow(
+                    x + 34f, rowY, w - 68f).bounds(), "master_volume");
             rowY -= GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET;
         }
         float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
@@ -8018,6 +8020,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     option.label(gameText), value,
                     GdxSettingsContract.displayedFallback(option), action,
                     enabled, preview != null);
+            settingsTooltip(row, option.key());
             if (preview != null) {
                 drawAudioPreviewControl(row, option.key(), preview);
             }
@@ -8042,6 +8045,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.adjustVoiceRetention(
                                 initialProperties, 1);
                     });
+            settingsTooltip(new Rectangle(x + 34f, rowY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT),
+                    "audio_voice_note_retention_days");
             rowY = rows.rowY(GdxSettingsContract.voiceActionsRow(page));
             GdxSettingsLayout.SplitRow actions =
                     GdxSettingsLayout.splitActionRow(baseX, rowY, baseWidth);
@@ -8056,6 +8062,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         voiceNotesPurgeConfirmation = true;
                         openVoiceNotes();
                     }, true);
+            settingsTooltip(view, "voice_notes_view");
+            settingsTooltip(purge, "voice_notes_purge");
         }
         if (GdxSettingsContract.hasAudioDevices(page)) {
             float outputY = rows.rowY(0);
@@ -8086,6 +8094,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     }, () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, 1);
                     });
+            settingsTooltip(new Rectangle(x + 34f, outputY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT),
+                    "gdx_audio_output_device");
+            settingsTooltip(new Rectangle(x + 34f, microphoneY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT), "audio_capture_device");
         }
     }
 
@@ -8199,6 +8212,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                             .DEFAULT_LIGHT_LEVEL)))),
                     () -> adjustLightLevel(-1),
                     () -> adjustLightLevel(1));
+            String[] keys = {"baraja", "trasera", "color_tapete",
+                "nivel_luz"};
+            for (int row = 0; row < keys.length; row++) {
+                settingsTooltip(new Rectangle(x + 34f,
+                        rowY - row * rowStride, w - 68f,
+                        GdxSettingsLayout.ROW_HEIGHT), keys[row]);
+            }
             return;
         }
         if (settingsAppearancePage == 1) {
@@ -8213,6 +8233,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     == GdxWindowMode.BORDERLESS),
                     this::selectPreviousWindowMode,
                     this::selectNextWindowMode);
+            settingsTooltip(new Rectangle(x + 34f, rowY, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT), "gdx_window_mode");
             Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
                     x + 34f, rowY - rowStride, w - 68f, true);
             boolean autoFullscreenEnabled =
@@ -8225,13 +8247,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     preferenceBoolean("auto_fullscreen", true), true,
                     () -> togglePreference("auto_fullscreen", true),
                     autoFullscreenEnabled);
+            settingsTooltip(autoFullscreenRow, "auto_fullscreen");
             settingsValueToggle(x + 34f, rowY - 2f * rowStride, w - 68f,
                     uppercase(gameText.translate("gdx.settings.row.vsync")),
                     GdxSettingsContract.vsyncStatusLabel(
                             presentationSettings.vsyncEnabled(), gameText),
                     presentationSettings.vsyncEnabled(),
                     () -> presentationSettings.toggleVsync(false), true);
-            performanceTooltip(new Rectangle(x + 34f,
+            settingsTooltip(new Rectangle(x + 34f,
                     rowY - 2f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT), "gdx_vsync");
             settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
@@ -8243,7 +8266,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     initialProperties)),
                     this::selectPreviousFrameRateLimit,
                     this::selectNextFrameRateLimit);
-            performanceTooltip(new Rectangle(x + 34f,
+            settingsTooltip(new Rectangle(x + 34f,
                     rowY - 3f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_fps_limit");
@@ -8257,7 +8280,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "gdx_msaa_samples", "4"))),
                     msaaRestartStatus(),
                     this::selectPreviousMsaa, this::selectNextMsaa);
-            performanceTooltip(new Rectangle(x + 34f,
+            settingsTooltip(new Rectangle(x + 34f,
                     rowY - 4f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     "gdx_msaa_samples");
@@ -8276,7 +8299,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                             .DEFAULT_CARD_RENDERING_MODE)))),
                     this::selectPreviousCardRendering,
                     this::selectNextCardRendering);
-            performanceTooltip(new Rectangle(x + 34f,
+            settingsTooltip(new Rectangle(x + 34f,
                     rowY - 5f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT),
                     GdxSettingsContract.CARD_RENDERING_KEY);
@@ -8286,11 +8309,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "gdx.settings.option.gdx_show_fps")),
                     preferenceBoolean("gdx_show_fps", false), false,
                     () -> togglePreference("gdx_show_fps", false), true);
+            settingsTooltip(new Rectangle(x + 34f,
+                    rowY - 6f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT), "gdx_show_fps");
             settingsInfoRow(x + 34f, rowY - 7f * rowStride, w - 68f,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.gpu_renderer")),
                     GdxGraphicsInfo.displayValue(gameText));
+            settingsTooltip(new Rectangle(x + 34f,
+                    rowY - 7f * rowStride, w - 68f,
+                    GdxSettingsLayout.ROW_HEIGHT), "gpu_renderer");
             return;
         }
         GdxSettingsContract.TogglePage page =
@@ -8321,7 +8350,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.displayedFallback(option),
                         () -> togglePreference(option.key(),
                                 option.fallback()), enabled);
-                performanceTooltip(rowBounds, option.key());
+                settingsTooltip(rowBounds, option.key());
             } else {
                 GdxAppearanceOptions.Choice option =
                         GdxAppearanceOptions.ANIMATION_CHOICES.get(
@@ -8348,7 +8377,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAppearanceOptions.adjust(option,
                                     initialProperties, 1);
                         }, enabled);
-                performanceTooltip(rowBounds, option.key());
+                settingsTooltip(rowBounds, option.key());
             }
         }
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
@@ -8935,6 +8964,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float rowW = w - 68f;
             if (row < GdxSettingsContract.CONTROL_ROWS) {
                 drawFrontendControlSetting(row, rowX, rowY, rowW);
+                settingsTooltip(GdxSettingsLayout.optionRow(rowX, rowY,
+                        rowW, row >= 1 && row <= 3),
+                        GdxSettingsContract.controlSettingKey(row));
                 continue;
             }
             GdxShortcutBindings.ShortcutEntry entry = entries.get(
@@ -8948,6 +8980,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             : entry.display(),
                     uppercase(entry.markedDescription()), capturing);
             Rectangle hitBounds = shortcut.bounds();
+            settingsTooltip(hitBounds, "shortcut");
             hit(hitBounds.x, hitBounds.y, hitBounds.width, hitBounds.height,
                     () -> {
                 settingsShortcutCaptureId = entry.id();
@@ -11462,14 +11495,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsContract.PerformanceImpact.NONE));
     }
 
-    private void performanceTooltip(Rectangle bounds, String settingKey) {
-        GdxSettingsContract.PerformanceImpact impact =
-                GdxSettingsContract.performanceImpact(settingKey,
-                        initialProperties);
-        if (impact == GdxSettingsContract.PerformanceImpact.NONE) return;
+    private void settingsTooltip(Rectangle bounds, String settingKey) {
+        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
+                settingKey, initialProperties, gameText);
         tooltipHits.add(new TooltipHit(new Rectangle(bounds),
-                "gdx.settings.performance_impact",
-                new Object[]{impact.label(gameText)}, impact));
+                "gdx.settings.tooltip.text",
+                new Object[]{content.text()}, content.performanceImpact()));
     }
 
     private void drawTooltipTopLayer() {
@@ -11521,9 +11552,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static Color performanceImpactColor(
             GdxSettingsContract.PerformanceImpact impact) {
         return switch (impact) {
-            case LOW -> new Color(0x4caf50ff);
-            case MEDIUM -> new Color(0xffc107ff);
-            case HIGH -> new Color(0xf44336ff);
+            case LOW -> LATENCY_GREEN;
+            case MEDIUM -> LATENCY_YELLOW;
+            case HIGH -> LATENCY_RED;
             case NONE -> CYAN_DARK;
         };
     }
@@ -12391,60 +12422,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void roundedRectOutline(float x, float y, float w, float h,
             float radius, float thickness) {
-        float r = Math.min(radius, Math.min(w, h) / 2f);
-        shapes.rectLine(x + r, y, x + w - r, y, thickness);
-        shapes.rectLine(x + r, y + h, x + w - r, y + h, thickness);
-        shapes.rectLine(x, y + r, x, y + h - r, thickness);
-        shapes.rectLine(x + w, y + r, x + w, y + h - r, thickness);
-        quarterArc(x + r, y + r, r, 180f, thickness);
-        quarterArc(x + w - r, y + r, r, 270f, thickness);
-        quarterArc(x + w - r, y + h - r, r, 0f, thickness);
-        quarterArc(x + r, y + h - r, r, 90f, thickness);
-    }
-
-    private void quarterArc(float cx, float cy, float radius,
-            float startDegrees, float thickness) {
-        final int segments = 10;
-        float previousRadians = (float) Math.toRadians(startDegrees);
-        float previousX = cx + (float) Math.cos(previousRadians) * radius;
-        float previousY = cy + (float) Math.sin(previousRadians) * radius;
-        for (int i = 1; i <= segments; i++) {
-            float radians = (float) Math.toRadians(
-                    startDegrees + 90f * i / segments);
-            float nextX = cx + (float) Math.cos(radians) * radius;
-            float nextY = cy + (float) Math.sin(radians) * radius;
-            shapes.rectLine(previousX, previousY, nextX, nextY, thickness);
-            previousX = nextX;
-            previousY = nextY;
-        }
+        GdxAntialiasedRoundedRect.outline(shapes, x, y, w, h, radius,
+                thickness);
     }
 
     private void roundedRect(float x, float y, float w, float h, float r) {
-        float radius = Math.min(r, Math.min(w, h) / 2f);
-        shapes.rect(x + radius, y, w - 2f * radius, h);
-        shapes.rect(x, y + radius, radius, h - 2f * radius);
-        shapes.rect(x + w - radius, y + radius, radius, h - 2f * radius);
-        quarterCircle(x + radius, y + radius, radius, 180f);
-        quarterCircle(x + w - radius, y + radius, radius, 270f);
-        quarterCircle(x + w - radius, y + h - radius, radius, 0f);
-        quarterCircle(x + radius, y + h - radius, radius, 90f);
-    }
-
-    private void quarterCircle(float cx, float cy, float radius,
-            float startDegrees) {
-        final int segments = 10;
-        float previousRadians = (float) Math.toRadians(startDegrees);
-        float previousX = cx + (float) Math.cos(previousRadians) * radius;
-        float previousY = cy + (float) Math.sin(previousRadians) * radius;
-        for (int i = 1; i <= segments; i++) {
-            float radians = (float) Math.toRadians(
-                    startDegrees + 90f * i / segments);
-            float nextX = cx + (float) Math.cos(radians) * radius;
-            float nextY = cy + (float) Math.sin(radians) * radius;
-            shapes.triangle(cx, cy, previousX, previousY, nextX, nextY);
-            previousX = nextX;
-            previousY = nextY;
-        }
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, w, h, r);
     }
 
     private void text(BitmapFont font, String value, float x, float y,

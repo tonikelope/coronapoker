@@ -20,7 +20,6 @@ final class GdxFrameRateOverlayStyle {
     static final int FONT_SIZE = 18;
     private static final float HORIZONTAL_PADDING = 8f;
     private static final float CORNER_RADIUS = 11f;
-    private static final int CORNER_SEGMENTS = 10;
     private static final Color PANEL = new Color(GdxSettingsStyle.PANEL_RGBA);
 
     static float x(float surfaceWidth) {
@@ -63,37 +62,7 @@ final class GdxFrameRateOverlayStyle {
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,
             float width, float height, float radius) {
-        float safeRadius = Math.min(radius, Math.min(width, height) / 2f);
-        shapes.rect(x + safeRadius, y, width - 2f * safeRadius, height);
-        shapes.rect(x, y + safeRadius, safeRadius,
-                height - 2f * safeRadius);
-        shapes.rect(x + width - safeRadius, y + safeRadius, safeRadius,
-                height - 2f * safeRadius);
-        quarterCircle(shapes, x + safeRadius, y + safeRadius, safeRadius,
-                180f);
-        quarterCircle(shapes, x + width - safeRadius, y + safeRadius,
-                safeRadius, 270f);
-        quarterCircle(shapes, x + width - safeRadius,
-                y + height - safeRadius, safeRadius, 0f);
-        quarterCircle(shapes, x + safeRadius, y + height - safeRadius,
-                safeRadius, 90f);
-    }
-
-    private static void quarterCircle(ShapeRenderer shapes, float centerX,
-            float centerY, float radius, float startDegrees) {
-        float previousRadians = (float) Math.toRadians(startDegrees);
-        float previousX = centerX + (float) Math.cos(previousRadians) * radius;
-        float previousY = centerY + (float) Math.sin(previousRadians) * radius;
-        for (int index = 1; index <= CORNER_SEGMENTS; index++) {
-            float radians = (float) Math.toRadians(startDegrees
-                    + 90f * index / CORNER_SEGMENTS);
-            float nextX = centerX + (float) Math.cos(radians) * radius;
-            float nextY = centerY + (float) Math.sin(radians) * radius;
-            shapes.triangle(centerX, centerY, previousX, previousY,
-                    nextX, nextY);
-            previousX = nextX;
-            previousY = nextY;
-        }
+        GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 
     private static void drawFittedCenteredInBox(SpriteBatch batch,

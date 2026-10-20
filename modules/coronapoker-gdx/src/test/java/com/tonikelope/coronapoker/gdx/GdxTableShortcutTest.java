@@ -95,7 +95,7 @@ final class GdxTableShortcutTest {
         int gate = source.indexOf("&& consumeForegroundEscape()) {");
         int consumedReturn = source.indexOf("return;", gate);
         int liveDispatch = source.indexOf(
-                "handleLiveTableInput(shortcutAction);", gate);
+                "handleLiveTableInput(shortcutAction,", gate);
 
         assertTrue(gate >= 0 && consumedReturn > gate
                 && liveDispatch > consumedReturn,

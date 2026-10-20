@@ -91,6 +91,9 @@ final class GdxUiButtonStyleTest {
         assertFalse(bevel.contains("bottomAlpha"));
         assertFalse(bevel.contains("rectLine("));
         assertFalse(bevel.contains("shapes.arc("));
+        assertFalse(bevel.contains("shapes.rect("),
+                "the bevel must not rebuild curved edges from stepped rectangles");
+        assertTrue(bevel.contains("shapes.triangle("));
         assertTrue(bevel.contains("roundedInset"));
         assertTrue(bevel.contains("smoothstep"));
     }

@@ -125,8 +125,7 @@ final class GdxUiButtonStyle {
         // edge-to-edge, especially on the light call/check material.
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
-        GdxGlassBevel.draw(shapes, x + 3f, y + 3f,
-                width - 6f, height - 6f, 11f,
+        GdxGlassBevel.draw(shapes, x, y, width, height, 14f,
                 (pressed ? 0.07f : 0.16f) + 0.04f * hover,
                 alpha);
         if (borderVisible) {

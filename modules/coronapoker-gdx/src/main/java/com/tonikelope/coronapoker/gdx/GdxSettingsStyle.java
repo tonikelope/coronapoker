@@ -189,9 +189,8 @@ final class GdxSettingsStyle {
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height,
                 Math.min(14f, height / 2f));
-        GdxGlassBevel.draw(shapes, x + 3f, y + 3f,
-                width - 6f, height - 6f,
-                Math.min(11f, height / 2f - 3f),
+        GdxGlassBevel.draw(shapes, x, y, width, height,
+                Math.min(14f, height / 2f),
                 0.13f, alpha);
         shapes.setColor(border.r, border.g, border.b, border.a * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,

@@ -183,6 +183,34 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void expandedQuickBarOwnsEveryPixelPaintedAboveAutoMode() {
+        float y = CoronaPokerGdxTable.FAST_BAR_Y + 30f;
+
+        // At 1920 logical pixels the host STOP and EXIT buttons overlap the
+        // AUTO action strip. The quick bar is painted last and must own them.
+        assertTrue(CoronaPokerGdxTable.autoActionHudLayout(1920f).bounds()
+                .contains(582f, y));
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                582f, y, true, true, false));
+        assertFalse(CoronaPokerGdxTable.autoActionHudOwnsPointer(
+                582f, y, 1920f, true, true, false));
+
+        // A quarantine inserts BLOCKS before STOP/EXIT and extends the same
+        // overlap; all of those topmost pixels remain quick-bar owned.
+        assertTrue(CoronaPokerGdxTable.autoActionHudLayout(1920f).bounds()
+                .contains(641f, y));
+        assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
+                641f, y, true, true, true));
+        assertFalse(CoronaPokerGdxTable.autoActionHudOwnsPointer(
+                641f, y, 1920f, true, true, true));
+
+        // The unobscured middle of the strip still belongs to AUTO and cannot
+        // click through to cards or controls beneath it.
+        assertTrue(CoronaPokerGdxTable.autoActionHudOwnsPointer(
+                800f, y, 1920f, true, true, true));
+    }
+
+    @Test
     void quickChatRemainsAPlainTablePanelWhileImageGalleryIsModal() {
         assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
                 CoronaPokerGdxTable.UI_NONE, false));

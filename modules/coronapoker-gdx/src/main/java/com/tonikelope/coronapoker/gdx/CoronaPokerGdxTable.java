@@ -1540,7 +1540,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (uiLayer == UI_CHAT) chatEditMenuOpen = false;
-            if (uiLayer == UI_CHAT && activeDialog == null
+            if (uiLayer == UI_CHAT && !blocksTableUtilities(activeDialog)
                     && handleChatEditingKey(keycode)) {
                 if (isTextDeletionKey(keycode)) {
                     textDeleteRepeat.press(keycode);
@@ -2078,14 +2078,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean editable = (activeDialog != null
                 && activeDialog.isAutoCall()
                 && activeDialog.autoCallAmountEditable())
-                || (uiLayer == UI_CHAT && activeDialog == null);
+                || (uiLayer == UI_CHAT
+                && !blocksTableUtilities(activeDialog));
         boolean pressed = editable && keycode >= 0
                 && Gdx.input.isKeyPressed(keycode);
         int repeats = textDeleteRepeat.update(delta, pressed);
         for (int repeat = 0; repeat < repeats; repeat++) {
             if (activeDialog != null && activeDialog.isAutoCall()) {
                 handleAutoCallAmountEditingKey(keycode);
-            } else if (uiLayer == UI_CHAT && activeDialog == null) {
+            } else if (uiLayer == UI_CHAT
+                    && !blocksTableUtilities(activeDialog)) {
                 handleChatEditingKey(keycode);
             }
         }
@@ -5865,6 +5867,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleInput() {
+        boolean autoActionDecisionInputReady = true;
         boolean screenshotAlt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         boolean screenshotControl = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
@@ -5904,13 +5907,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || Gdx.input.isKeyPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_ENTER)
                     || Gdx.input.isKeyPressed(Input.Keys.SPACE);
-            if (!dialogInputGate.accepts(activeDialog,
-                    dialogDecisionInputHeld)) {
-                return;
-            }
+            boolean dialogDecisionInputReady = dialogInputGate.accepts(
+                    activeDialog, dialogDecisionInputHeld);
             if (activeDialog.isAutoAction()) {
-                if (handleAutoActionDialogInput()) return;
+                // AUTO is a veto over poker actions, not an input modal. Its
+                // inherited-press gate may delay AUTO's own CANCEL/SPACE
+                // controls, but must never freeze shortcuts, the quick bar or
+                // any foreground table utility while the five-second strip is
+                // visible.
+                autoActionDecisionInputReady = dialogDecisionInputReady;
             } else {
+                if (!dialogDecisionInputReady) return;
                 if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
                     primaryPointer.capturePressedGesture();
                     if (beginPointerRepeat(RepeatOwner.DIALOG)) return;
@@ -6139,7 +6146,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || gameLogWindowPointer.active()
                         || tableScrollDrag == TableScrollDrag.GAME_LOG
                         || gameLogSelectionDragging) return;
-                handleLiveTableInput(shortcutAction);
+                handleLiveTableInput(shortcutAction,
+                        autoActionDecisionInputReady);
                 return;
             }
             if (uiLayer == UI_CHAT && tableImageClearConfirmation) {
@@ -6184,7 +6192,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return;
         }
-        handleLiveTableInput(shortcutAction);
+        handleLiveTableInput(shortcutAction, autoActionDecisionInputReady);
     }
 
     static boolean foregroundUiOwnsEscape(int layer) {
@@ -7291,6 +7299,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private boolean handleAutoActionDialogInput() {
         if (activeDialog == null || !activeDialog.isAutoAction()) return false;
+        if (liveState == null || liveState.snapshot().paused()) return false;
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             activeDialog.dismiss();
             return true;
@@ -7304,7 +7313,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         GdxTableDialogLayout.AutoActionHud layout =
                 autoActionHudLayout(viewport.getWorldWidth());
-        if (!layout.bounds().contains(pointer.x, pointer.y)) {
+        if (!autoActionHudOwnsPointer(pointer.x, pointer.y,
+                viewport.getWorldWidth(), fastBarExpanded, tableHost,
+                hasActiveNetworkBlocks())) {
             return false;
         }
         primaryPointer.capturePressedGesture();
@@ -7350,13 +7361,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return (viewport.getWorldHeight() - panelH) / 2f;
     }
 
-    private void handleLiveTableInput(String shortcutAction) {
+    private void handleLiveTableInput(String shortcutAction,
+            boolean autoActionDecisionInputReady) {
         // A captured push-to-talk gesture owns both the polled press and its
         // release. This keeps the HUD underneath from seeing either half.
         if (voicePointer.active()) {
             if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
                 primaryPointer.capturePressedGesture();
             }
+            return;
+        }
+        // Foreground UI layers and the floating log are routed before this
+        // method. Within the live table, AUTO owns only its visible HUD strip;
+        // the quick-access bar is painted above it and therefore wins every
+        // overlapping pixel. AUTO's decision gate applies only to AUTO itself.
+        if (autoActionDecisionInputReady
+                && handleAutoActionDialogInput()) {
             return;
         }
         ActionControlState controls = liveState.actionControls();
@@ -7402,10 +7422,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
-                && beginPointerRepeat(RepeatOwner.HUD)) {
-            primaryPointer.capturePressedGesture();
-            return;
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            // The expanded bar can overlap the local HUD at common desktop
+            // widths. Do not arm a hidden HUD repeat under its topmost surface.
+            if (fastAccessSurfaceContains(pointer.x, pointer.y)) return;
+            if (beginPointerRepeat(RepeatOwner.HUD)) {
+                primaryPointer.capturePressedGesture();
+                return;
+            }
         }
         if (!leftButtonReleasedThisFrame) {
             return;
@@ -7443,7 +7469,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             requestKickTimedOutPlayer(timedOutPlayer);
             return;
         }
-        if (activeDialog == null
+        if (!blocksTableUtilities(activeDialog)
                 && chipCatalogPileContains(pointer.x, pointer.y,
                         viewport.getWorldWidth())) {
             openChipCatalog();
@@ -9064,12 +9090,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return new PreActionHudLayout(bounds, fold, status, call);
     }
 
-    private static GdxTableDialogLayout.AutoActionHud autoActionHudLayout(
+    static GdxTableDialogLayout.AutoActionHud autoActionHudLayout(
             float worldWidth) {
         LocalHudLayout layout = localHudLayout(worldWidth);
         return GdxTableDialogLayout.autoActionHud(layout.actionX(),
                 layout.actionY(), layout.actionWidth(),
                 layout.actionHeight());
+    }
+
+    /**
+     * Resolves the AUTO strip only after the quick-access surface painted
+     * above it. This shared geometry keeps press capture aligned with visual
+     * z-order when STOP, EXIT or BLOCKS overlaps the local HUD.
+     */
+    static boolean autoActionHudOwnsPointer(float x, float y,
+            float worldWidth, boolean fastBarExpanded, boolean host,
+            boolean hasBlocks) {
+        return !fastAccessSurfaceContains(x, y, fastBarExpanded, host,
+                hasBlocks)
+                && autoActionHudLayout(worldWidth).bounds().contains(x, y);
     }
 
     private void submit(TableCommand command) {
@@ -9822,7 +9861,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void updateLiveShowdownHover(float worldWidth) {
         liveShowdownHoverNickname = null;
         if (liveState == null || uiLayer != UI_NONE
-                || activeDialog != null
+                || blocksTableUtilities(activeDialog)
                 || !tablePreference("resaltar_jugada_showdown", true)
                 || !liveState.hasShowdownHighlights()
                 || fastAccessSurfaceContains(pointer.x, pointer.y)) {
@@ -12004,7 +12043,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLatencyTooltip() {
-        if (liveState == null || uiLayer != UI_NONE || activeDialog != null) {
+        if (liveState == null || uiLayer != UI_NONE
+                || blocksTableUtilities(activeDialog)) {
             latencyTooltipDelay.clear();
             return;
         }
@@ -12055,7 +12095,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawAudioOutputUnavailableTooltip() {
         if (audioOutputAvailable() || liveState == null
-                || uiLayer != UI_NONE || activeDialog != null
+                || uiLayer != UI_NONE || blocksTableUtilities(activeDialog)
                 || !contains(pointer.x, pointer.y, communitySoundX,
                         communitySoundY, communitySoundWidth,
                         communitySoundHeight)) {
@@ -12635,7 +12675,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     communityCard);
         }
         boolean hovered = restingCardHoverAllowed(uiLayer == UI_NONE,
-                activeDialog == null,
+                !blocksTableUtilities(activeDialog),
                 tableChromeOccludesCards(pointer.x, pointer.y,
                         viewport.getWorldWidth()),
                 placementContains(placement, pointer.x, pointer.y));

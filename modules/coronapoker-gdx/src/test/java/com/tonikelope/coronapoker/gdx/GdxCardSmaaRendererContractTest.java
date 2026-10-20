@@ -81,10 +81,42 @@ final class GdxCardSmaaRendererContractTest {
                 null, null, 0f, true, 1.4f, 0f, 0f));
         assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
                 null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0.01f, false, 1.4f, 0f, 0f));
+        assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0f, false, 1.41f, 0f, 0f));
+        assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
                 null, null, 0f, false, 1.4f, 1f, 0f));
         assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
                 null, null, 0f, false, 1.4f, 0f, 0f,
                 null, null, 0f, false, 1.4f, 0f, 0.31f));
+    }
+
+    @Test
+    void emptyPassPredicatesRetainEveryTransientCardOwner()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String foreground = method(table,
+                "private boolean hasForegroundHoleCardLayerContent()",
+                "private boolean hasBackgroundHoleCardLayerContent()");
+        String background = method(table,
+                "private boolean hasBackgroundHoleCardLayerContent()",
+                "static boolean cardLayerHasContent(");
+        String community = method(table,
+                "private boolean hasCommunityCardLayerContent()",
+                "private void drawPotPanelSurface()");
+
+        assertTrue(foreground.contains("TableVisualEvent.DealHoleCard"));
+        assertTrue(foreground.contains("liveHoleReveal != null"));
+        assertTrue(background.contains("liveHoleSwap != null"));
+        assertTrue(background.contains("liveHoleFold != null"));
+        assertTrue(background.contains("liveHoleReveal != null"));
+        assertTrue(background.contains("isRestingHoleCardVisible("));
+        assertTrue(community.contains("TableVisualEvent.DealCommunityCard"));
+        assertTrue(community.contains("liveCommunityReveal != null"));
+        assertTrue(community.contains("liveRabbitReveal != null"));
+        assertTrue(community.contains("liveShuffle != null"));
     }
 
     @Test

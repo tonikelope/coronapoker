@@ -153,6 +153,61 @@ final class GdxAdaptiveFontQualityTest {
         assertFalse(rebuild.contains("Inter-Medium.ttf"));
     }
 
+    @Test
+    void finalHeroEstimatesAProportionalWholeNativeSize() {
+        assertEquals(173, CoronaPokerGdxTable.estimatedNativeFitSize(
+                173, 18, 1200f, 150f, 1800f,
+                Float.POSITIVE_INFINITY));
+        assertEquals(129, CoronaPokerGdxTable.estimatedNativeFitSize(
+                173, 18, 2400f, 150f, 1800f,
+                Float.POSITIVE_INFINITY));
+        assertEquals(86, CoronaPokerGdxTable.estimatedNativeFitSize(
+                173, 18, 1200f, 300f, 1800f, 150f));
+        assertEquals(18, CoronaPokerGdxTable.estimatedNativeFitSize(
+                173, 18, 5000f, 500f, 10f, 10f));
+    }
+
+    @Test
+    void finalHeroFitCoversEveryLocalizedOutcome() {
+        String characters = CoronaPokerGdxTable.localOutcomeCharacters();
+        for (String language : List.of("es", "en")) {
+            GdxGameText text = new GdxGameText(language);
+            for (String key : List.of(
+                    "gdx.final.hero.recoverable_stop",
+                    "gdx.final.hero.failure",
+                    "gdx.final.hero.win",
+                    "gdx.final.hero.loss",
+                    "gdx.final.hero.even")) {
+                assertCovered(characters,
+                        text.translate(key).toUpperCase(
+                                Locale.forLanguageTag(language)));
+            }
+        }
+    }
+
+    @Test
+    void largeResultHeadlinesNeverFallThroughTheSparseGenericFamily()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        String finalSummary = section(source,
+                "private void drawFinalSummary()",
+                "static String productVersionLabelFor(");
+        String gameOver = section(source,
+                "private void drawGameOverDialog(",
+                "private StreamingGifTextureAnimation gameOverAnimation(");
+
+        assertTrue(finalSummary.contains(
+                "BitmapFont heroFont = fittedFinalHero("));
+        assertFalse(finalSummary.contains(
+                "drawFittedCentered(finalHeroFont"));
+        assertTrue(gameOver.contains(
+                "? fittedFinalHero(\"GAME OVER\""));
+        assertFalse(gameOver.contains(
+                "drawFittedCenteredInBox(finalHeroFont"));
+    }
+
     private static String section(String source, String startMarker,
             String endMarker) {
         int start = source.indexOf(startMarker);

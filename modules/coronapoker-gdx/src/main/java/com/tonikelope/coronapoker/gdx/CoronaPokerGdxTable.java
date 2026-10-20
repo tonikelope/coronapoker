@@ -10318,12 +10318,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     actionContentWidth -= iconSize + 5f;
                 }
                 if (!actionLabel.isEmpty()) {
+                    // Folding is an opacity treatment. Keep the foreground
+                    // selected for the semantic surface underneath it.
                     drawFittedCenteredInBox(seatActionFont, actionLabel,
                             actionContentX,
                             seat.podY + 13f,
                             actionContentWidth, 32f,
-                            folded ? Color.GRAY
-                                    : lastActionTextColorForSeat(seat.index),
+                            lastActionTextColorForSeat(seat.index),
                             presence * seatActionTextAlpha(folded));
                 }
                 drawFittedCenteredInBox(stackFont,
@@ -10331,17 +10332,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         seat.podX + RIVAL_MONEY_CELL_X + 4f,
                         seat.podY + 62f,
                         RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
-                        folded ? Color.GRAY
-                                : playerStackTextColor(seat), presence);
+                        playerStackTextColor(seat),
+                        presence * seatActionTextAlpha(folded));
                 drawFittedCenteredInBox(stackFont, seat.investedText,
                         seat.podX + RIVAL_MONEY_CELL_X
                                 + RIVAL_MONEY_CELL_WIDTH
                                 + RIVAL_MONEY_CELL_GAP + 4f,
                         seat.podY + 62f,
                         RIVAL_MONEY_CELL_WIDTH - 8f, 23f,
-                        folded ? Color.GRAY
-                                : investedCounterText(remoteActionKind),
-                        presence);
+                        investedCounterText(remoteActionKind),
+                        presence * seatActionTextAlpha(folded));
             }
         }
         batch.end();
@@ -18204,9 +18204,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean showingBuyIn = player != null
                 && totalTime < seat.buyInVisibleUntil;
         boolean cyanRebuyStack = player != null && player.rebuyCount() > 0;
-        return showingBuyIn || cyanRebuyStack
-                || liveState.immediateRebuyAmount(seat.name) > 0
-                        ? Color.BLACK : Color.WHITE;
+        return stackCounterTextColor(showingBuyIn, cyanRebuyStack,
+                liveState.immediateRebuyAmount(seat.name) > 0);
+    }
+
+    static Color stackCounterTextColor(boolean showingBuyIn,
+            boolean cyanRebuyStack, boolean pendingRebuy) {
+        return showingBuyIn || cyanRebuyStack || pendingRebuy
+                ? Color.BLACK : Color.WHITE;
     }
 
     private void drawPendingRebuyTooltip(Rectangle namePlate, int amount) {

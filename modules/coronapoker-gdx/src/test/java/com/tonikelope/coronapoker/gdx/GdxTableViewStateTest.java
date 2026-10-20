@@ -2800,6 +2800,22 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void everyLightStackSurfaceKeepsBlackText() {
+        assertEquals(Color.BLACK,
+                CoronaPokerGdxTable.stackCounterTextColor(true,
+                        false, false));
+        assertEquals(Color.BLACK,
+                CoronaPokerGdxTable.stackCounterTextColor(false,
+                        true, false));
+        assertEquals(Color.BLACK,
+                CoronaPokerGdxTable.stackCounterTextColor(false,
+                        false, true));
+        assertEquals(Color.WHITE,
+                CoronaPokerGdxTable.stackCounterTextColor(false,
+                        false, false));
+    }
+
+    @Test
     void onlyAllInCinematicsKeepThePotInTheForeground() {
         assertTrue(CoronaPokerGdxTable.potStaysAboveCinematic(
                 TableVisualEvent.Cinematic.Type.ALL_IN));

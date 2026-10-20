@@ -9,7 +9,22 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 /** Physical-pixel placement for native-size rasterized text. */
 final class GdxPixelText {
 
+    private static float framePhysicalPixelScaleX = 1f;
+    private static float framePhysicalPixelScaleY = 1f;
+
     private GdxPixelText() {
+    }
+
+    /**
+     * Captures the logical-to-physical transform once for the current frame.
+     * Window and monitor changes are observed on the following frame without
+     * making every individual text draw query the graphics backend again.
+     */
+    static void beginFrame() {
+        framePhysicalPixelScaleX = physicalPixelScale(
+                Gdx.graphics.getWidth(), Gdx.graphics.getBackBufferWidth());
+        framePhysicalPixelScaleY = physicalPixelScale(
+                Gdx.graphics.getHeight(), Gdx.graphics.getBackBufferHeight());
     }
 
     static float snapX(float worldX, Viewport viewport) {
@@ -85,16 +100,15 @@ final class GdxPixelText {
     }
 
     private static float physicalPixelScaleX() {
-        int logicalWidth = Gdx.graphics.getWidth();
-        return logicalWidth > 0
-                ? (float) Gdx.graphics.getBackBufferWidth() / logicalWidth
-                : 1f;
+        return framePhysicalPixelScaleX;
     }
 
     private static float physicalPixelScaleY() {
-        int logicalHeight = Gdx.graphics.getHeight();
-        return logicalHeight > 0
-                ? (float) Gdx.graphics.getBackBufferHeight() / logicalHeight
-                : 1f;
+        return framePhysicalPixelScaleY;
+    }
+
+    static float physicalPixelScale(int logicalExtent, int physicalExtent) {
+        return logicalExtent > 0 && physicalExtent > 0
+                ? (float) physicalExtent / logicalExtent : 1f;
     }
 }

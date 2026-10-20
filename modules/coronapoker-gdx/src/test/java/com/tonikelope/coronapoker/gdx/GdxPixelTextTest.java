@@ -29,6 +29,31 @@ final class GdxPixelTextTest {
     }
 
     @Test
+    void physicalScaleIsResolvedOnceFromValidFrameDimensions() {
+        assertEquals(2f, GdxPixelText.physicalPixelScale(100, 200), 0.0001f);
+        assertEquals(1.5f, GdxPixelText.physicalPixelScale(200, 300),
+                0.0001f);
+        assertEquals(1f, GdxPixelText.physicalPixelScale(0, 200), 0.0001f);
+        assertEquals(1f, GdxPixelText.physicalPixelScale(100, 0), 0.0001f);
+    }
+
+    @Test
+    void frontendAndTableCapturePhysicalScaleAtFrameBoundary()
+            throws IOException {
+        Path source = Path.of("src", "main", "java", "com", "tonikelope",
+                "coronapoker", "gdx");
+        String frontend = Files.readString(source.resolve(
+                "GdxFrontendScreen.java"));
+        String table = Files.readString(source.resolve(
+                "CoronaPokerGdxTable.java"));
+
+        assertTrueBefore(frontend, "public void render() {",
+                "GdxPixelText.beginFrame();", "refreshFontQualityIfDue();");
+        assertTrueBefore(table, "public void render() {",
+                "GdxPixelText.beginFrame();", "refreshFontQualityIfDue();");
+    }
+
+    @Test
     void everyGdxRendererUsesPhysicalPixelCompositionWithoutRasterScaling()
             throws IOException {
         Path source = Path.of("src", "main", "java", "com", "tonikelope",
@@ -65,5 +90,14 @@ final class GdxPixelTextTest {
         assertFalse(fitting.contains("\"...\""));
         assertFalse(frameRate.contains("ellipsize"));
         assertFalse(frameRate.contains("\"...\""));
+    }
+
+    private static void assertTrueBefore(String source, String scope,
+            String first, String second) {
+        int start = source.indexOf(scope);
+        int firstIndex = source.indexOf(first, start);
+        int secondIndex = source.indexOf(second, start);
+        org.junit.jupiter.api.Assertions.assertTrue(start >= 0
+                && firstIndex > start && secondIndex > firstIndex);
     }
 }

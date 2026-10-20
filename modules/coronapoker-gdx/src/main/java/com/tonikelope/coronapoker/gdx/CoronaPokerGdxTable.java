@@ -1174,6 +1174,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private SpriteBatch batch;
     private ShaderProgram roundedCardShader;
     private ShaderProgram rabbitPeelShader;
+    /*
+     * Last rounded-card GPU state. Several remote cards normally share one
+     * back and one projection; retaining that exact state lets SpriteBatch
+     * submit them together instead of forcing one driver call per card.
+     */
+    private Texture configuredCardShaderFront;
+    private Texture configuredCardShaderBack;
+    private float configuredCardShaderAngle;
+    private boolean configuredCardShaderPerspective;
+    private float configuredCardShaderAspect;
+    private float configuredCardShaderArtworkSmooth;
+    private float configuredCardShaderOverlayAlpha = Float.NaN;
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
     private ShaderProgram allInFireShader;
@@ -5491,6 +5503,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void render() {
+        GdxPixelText.beginFrame();
         refreshFontQualityIfDue();
         float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
         if (startupIntroOnly && !introVisibleSignalled) {
@@ -12835,9 +12848,57 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawHoleCards(boolean foregroundRevealFlights) {
         Objects.requireNonNull(liveState,
                 "Hole-card rendering requires authoritative live state");
+        if (foregroundRevealFlights
+                ? !hasForegroundHoleCardLayerContent()
+                : !hasBackgroundHoleCardLayerContent()) {
+            return;
+        }
         boolean antialiased = beginCardSmaaLayer();
         drawLiveHoleCards(foregroundRevealFlights);
         if (antialiased) finishCardSmaaLayer();
+    }
+
+    private boolean hasForegroundHoleCardLayerContent() {
+        boolean activeFlight = false;
+        for (LiveCardFlight flight : liveCardFlights) {
+            if (!flight.visualFinished()
+                    && flight.event instanceof TableVisualEvent.DealHoleCard) {
+                activeFlight = true;
+                break;
+            }
+        }
+        return cardLayerHasContent(false, false,
+                liveHoleReveal != null, activeFlight);
+    }
+
+    private boolean hasBackgroundHoleCardLayerContent() {
+        if (liveHoleSwap != null || liveHoleFold != null
+                || liveHoleReveal != null) {
+            return true;
+        }
+        for (TableSnapshot.PlayerSnapshot player
+                : liveState.snapshot().players()) {
+            if (seatByNickname(player.nickname()) == null) {
+                continue;
+            }
+            List<TableSnapshot.CardSnapshot> cards
+                    = liveState.presentedHoleCards(player.nickname());
+            int visibleSlots = Math.min(2, cards.size());
+            for (int slot = 0; slot < visibleSlots; slot++) {
+                if (!hasActiveHoleFlight(player.nickname(), slot)
+                        && isRestingHoleCardVisible(cards.get(slot))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean cardLayerHasContent(boolean hidden,
+            boolean restingCards, boolean transientPresentation,
+            boolean activeFlight) {
+        return !hidden && (restingCards || transientPresentation
+                || activeFlight);
     }
 
     private boolean beginCardSmaaLayer() {
@@ -13020,13 +13081,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
         float cardY = cy - cardH * 0.36f;
-        boolean antialiased = beginCardSmaaLayer();
-        batch.begin();
-        drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX, cardBack);
-        batch.setShader(null);
-        batch.setColor(Color.WHITE);
-        batch.end();
-        if (antialiased) finishCardSmaaLayer();
+        if (hasCommunityCardLayerContent()) {
+            boolean antialiased = beginCardSmaaLayer();
+            batch.begin();
+            drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX,
+                    cardBack);
+            batch.setShader(null);
+            batch.setColor(Color.WHITE);
+            batch.end();
+            if (antialiased) finishCardSmaaLayer();
+        }
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -13044,6 +13108,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawPotPanelSurface();
         drawCommunityHud(firstX, cardY - COMMUNITY_HUD_Y_OFFSET,
                 boardWidth);
+    }
+
+    private boolean hasCommunityCardLayerContent() {
+        boolean restingCard = false;
+        for (TableSnapshot.CardSnapshot card
+                : liveState.snapshot().communityCards()) {
+            if (card.visible()) {
+                restingCard = true;
+                break;
+            }
+        }
+        boolean activeFlight = false;
+        for (LiveCardFlight flight : liveCardFlights) {
+            if (!flight.visualFinished()
+                    && flight.event
+                            instanceof TableVisualEvent.DealCommunityCard) {
+                activeFlight = true;
+                break;
+            }
+        }
+        return cardLayerHasContent(liveShuffle != null, restingCard,
+                liveCommunityReveal != null || liveRabbitReveal != null,
+                activeFlight);
     }
 
     private void drawPotPanelSurface() {
@@ -13780,9 +13867,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float angle, boolean perspective, float aspect) {
         Objects.requireNonNull(front, "Card shader requires a front texture");
         Objects.requireNonNull(cardBack, "Card shader requires a back texture");
+        float artworkSmooth = cardArtworkSmoothValue();
+        if (batch.getShader() == roundedCardShader
+                && sameCardShaderConfiguration(
+                        configuredCardShaderFront, configuredCardShaderBack,
+                        configuredCardShaderAngle,
+                        configuredCardShaderPerspective,
+                        configuredCardShaderAspect,
+                        configuredCardShaderArtworkSmooth,
+                        configuredCardShaderOverlayAlpha,
+                        front, cardBack, angle, perspective, aspect,
+                        artworkSmooth, 0f)) {
+            return;
+        }
         batch.flush();
-        batch.setShader(roundedCardShader);
-        batch.flush();
+        if (batch.getShader() != roundedCardShader) {
+            batch.setShader(roundedCardShader);
+        }
         front.bind(1);
         cardBack.bind(0);
         roundedCardShader.setUniformi("u_texture", 0);
@@ -13794,9 +13895,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_cardAspect", aspect);
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
-        roundedCardShader.setUniformf("u_artworkSmooth",
-                cardArtworkSmoothValue());
+        roundedCardShader.setUniformf("u_artworkSmooth", artworkSmooth);
         roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);
+        configuredCardShaderFront = front;
+        configuredCardShaderBack = cardBack;
+        configuredCardShaderAngle = angle;
+        configuredCardShaderPerspective = perspective;
+        configuredCardShaderAspect = aspect;
+        configuredCardShaderArtworkSmooth = artworkSmooth;
+        configuredCardShaderOverlayAlpha = 0f;
+    }
+
+    static boolean sameCardShaderConfiguration(
+            Texture configuredFront, Texture configuredBack,
+            float configuredAngle, boolean configuredPerspective,
+            float configuredAspect, float configuredArtworkSmooth,
+            float configuredOverlayAlpha,
+            Texture front, Texture back, float angle, boolean perspective,
+            float aspect, float artworkSmooth, float overlayAlpha) {
+        return configuredFront == front && configuredBack == back
+                && Float.compare(configuredAngle, angle) == 0
+                && configuredPerspective == perspective
+                && Float.compare(configuredAspect, aspect) == 0
+                && Float.compare(configuredArtworkSmooth, artworkSmooth) == 0
+                && Float.compare(configuredOverlayAlpha, overlayAlpha) == 0;
     }
 
     private float cardArtworkSmoothValue() {
@@ -13807,8 +13929,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void setCardShowdownOverlay(boolean highlighted) {
-        roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f,
-                highlighted ? 0.31f : 0f);
+        float overlayAlpha = highlighted ? 0.31f : 0f;
+        if (Float.compare(configuredCardShaderOverlayAlpha,
+                overlayAlpha) != 0) {
+            // Previously submitted cards must retain the uniform values with
+            // which they were queued. Flush only when the overlay really
+            // changes; identical consecutive backs remain one physical batch.
+            batch.flush();
+            roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f,
+                    overlayAlpha);
+            configuredCardShaderOverlayAlpha = overlayAlpha;
+        }
     }
 
     private Texture activeCardBack() {

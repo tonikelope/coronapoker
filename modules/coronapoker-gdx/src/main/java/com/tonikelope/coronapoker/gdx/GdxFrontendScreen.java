@@ -1056,6 +1056,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public void render() {
+        GdxPixelText.beginFrame();
         refreshFontQualityIfDue();
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         refreshPointerFromDevice();

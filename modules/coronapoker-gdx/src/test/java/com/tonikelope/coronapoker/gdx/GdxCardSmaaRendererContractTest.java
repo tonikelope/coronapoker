@@ -43,6 +43,51 @@ final class GdxCardSmaaRendererContractTest {
     }
 
     @Test
+    void emptyCardLayersAreRejectedBeforeAllocatingGpuPasses()
+            throws IOException {
+        assertFalse(CoronaPokerGdxTable.cardLayerHasContent(
+                false, false, false, false));
+        assertTrue(CoronaPokerGdxTable.cardLayerHasContent(
+                false, true, false, false));
+        assertTrue(CoronaPokerGdxTable.cardLayerHasContent(
+                false, false, true, false));
+        assertTrue(CoronaPokerGdxTable.cardLayerHasContent(
+                false, false, false, true));
+        assertFalse(CoronaPokerGdxTable.cardLayerHasContent(
+                true, true, true, true));
+
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        String holeCards = method(table,
+                "private void drawHoleCards(boolean foregroundRevealFlights)",
+                "private boolean beginCardSmaaLayer()");
+        String community = method(table,
+                "private void drawCardsAndPot(float cx, float cy, float tableWidth)",
+                "private void drawPotPanelSurface()");
+        assertTrue(holeCards.indexOf("hasForegroundHoleCardLayerContent()")
+                < holeCards.indexOf("beginCardSmaaLayer()"));
+        assertTrue(holeCards.indexOf("hasBackgroundHoleCardLayerContent()")
+                < holeCards.indexOf("beginCardSmaaLayer()"));
+        assertTrue(community.indexOf("hasCommunityCardLayerContent()")
+                < community.indexOf("beginCardSmaaLayer()"));
+    }
+
+    @Test
+    void identicalRoundedCardStateCanRemainInOnePhysicalBatch() {
+        assertTrue(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0f, false, 1.4f, 0f, 0f));
+        assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0f, true, 1.4f, 0f, 0f));
+        assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0f, false, 1.4f, 1f, 0f));
+        assertFalse(CoronaPokerGdxTable.sameCardShaderConfiguration(
+                null, null, 0f, false, 1.4f, 0f, 0f,
+                null, null, 0f, false, 1.4f, 0f, 0.31f));
+    }
+
+    @Test
     void tableKeepsEveryLiveCardFamilyInsideAnSmaaOwnedPass()
             throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));

@@ -907,7 +907,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return new TableVisualEvent.HandResult(result.sequence(),
                     result.nickname(), presentation.publicHandName(),
                     result.winner(), result.street(),
-                    presentation.wonPotIndexes(), result.soleSurvivor());
+                    presentation.wonPotIndexes(), result.soleSurvivor(),
+                    presentation.returnedSidePot());
         }
         if (event instanceof TableVisualEvent.ShowdownHighlight highlight) {
             TableSnapshot.PlayerSnapshot player = publicHotJoinRoster().stream()
@@ -7014,6 +7015,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             returned_side_pot_payouts.merge(player, clean,
                     (left, right) -> MoneyMath.clean(left + right));
         }
+    }
+
+    /**
+     * Classifies every genuinely uncalled side-pot return before showdown
+     * results are published.  The payout remains deferred; this only makes the
+     * already-determined presentation fact available alongside BOTE #n instead
+     * of introducing BOTE SOBRANTE later when the chips start flying.
+     */
+    private void prepareReturnedSidePotPresentation(GamePot firstSidePot) {
+        for (GamePot sidePot = firstSidePot; sidePot != null;
+                sidePot = sidePot.getSidePot()) {
+            if (sidePot.getPlayerControllers().size() != 1) continue;
+            double returned = MoneyMath.clean(sidePot.getUncalledBet());
+            if (MoneyMath.compare(returned, 0d) <= 0) continue;
+            GamePlayerController recipient
+                    = sidePot.getPlayerControllers().get(0);
+            recordReturnedSidePot(recipient, returned);
+            recipient.setPresentationReturnedSidePot(true);
+        }
+    }
+
+    private boolean returnsSidePot(GamePlayerController player) {
+        return MoneyMath.compare(returned_side_pot_payouts.getOrDefault(
+                player, 0d), 0d) > 0;
     }
 
     private double consumeReturnedSidePotAmount(
@@ -19865,6 +19890,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 sideWinners.add(new HashMap<>());
             }
         }
+        if (board == 0) {
+            prepareReturnedSidePotPresentation(this.bote.getSidePot());
+        }
         SettlementPresentation.Plan<GamePlayerController, GameHandResult> presentation = SettlementPresentation.plan(
                 jugadas, ganadores, sideHands, sideWinners);
 
@@ -19914,7 +19942,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     double returned = current_pot.getUncalledBet();
                     double winnings = MoneyMath.clean(
                             current_pot.getTotal() - returned);
-                    recordReturnedSidePot(only, returned);
                     if (MoneyMath.compare(winnings, 0d) > 0) {
                         wonAnySide.add(only);
                         only.marcarBotePot(sec);
@@ -27201,7 +27228,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         mustShow || isLocal ? jugada.getName() : "", isWinner,
                         TableSnapshot.Street.SHOWDOWN,
                         wonPotIndexes.getOrDefault(jugador_actual,
-                                java.util.List.of())),
+                                java.util.List.of()), false,
+                        returnsSidePot(jugador_actual)),
                         "Showdown-result presentation barrier failed");
             }
 
@@ -27886,6 +27914,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     = SettlementPresentation.plan(jugadas, ganadores,
                                                             jugadas_por_lateral, ganadores_por_lateral);
 
+                                            prepareReturnedSidePotPresentation(
+                                                    this.bote.getSidePot());
+
                                             this.showdown(new HashMap<>(presentation.losers()),
                                                     new HashMap<>(presentation.winners()), diferir_dim,
                                                     presentation.wonPotIndexes());
@@ -27911,7 +27942,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     double winnings = MoneyMath.clean(
                                                             current_pot.getTotal() - returned);
                                                     refundRecipient.pagar(current_pot.getTotal(), null);
-                                                    recordReturnedSidePot(refundRecipient, returned);
                                                     if (MoneyMath.compare(winnings, 0d) > 0) {
                                                         refundRecipient.marcarBotePot(
                                                                 conta_bote_secundario);

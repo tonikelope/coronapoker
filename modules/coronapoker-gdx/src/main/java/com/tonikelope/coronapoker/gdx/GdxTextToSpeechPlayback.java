@@ -155,7 +155,8 @@ final class GdxTextToSpeechPlayback implements AutoCloseable {
                 }
             }
         } catch (Exception ignored) {
-            // TTS is best effort: chat and its seat icon remain available.
+            // TTS is best effort: the chat message remains available and the
+            // completion still releases its matching seat indicator.
         } finally {
             if (mp3 != null) {
                 try {

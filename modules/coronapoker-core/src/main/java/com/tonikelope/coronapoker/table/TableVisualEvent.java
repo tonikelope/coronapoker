@@ -617,27 +617,35 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     /** Exact per-player showdown verdict emitted by the canonical dealer. */
     record HandResult(long sequence, String nickname, String handName,
             boolean winner, TableSnapshot.Street street,
-            List<Integer> wonPotIndexes, boolean soleSurvivor)
+            List<Integer> wonPotIndexes, boolean soleSurvivor,
+            boolean returnedSidePot)
             implements TableVisualEvent {
 
         public HandResult(long sequence, String nickname, String handName,
                 boolean winner, TableSnapshot.Street street) {
             this(sequence, nickname, handName, winner, street, List.of(),
-                    false);
+                    false, false);
         }
 
         public HandResult(long sequence, String nickname, String handName,
                 boolean winner, TableSnapshot.Street street,
                 List<Integer> wonPotIndexes) {
             this(sequence, nickname, handName, winner, street,
-                    wonPotIndexes, false);
+                    wonPotIndexes, false, false);
         }
 
         public HandResult(long sequence, String nickname, String handName,
                 boolean winner, TableSnapshot.Street street,
                 boolean soleSurvivor) {
             this(sequence, nickname, handName, winner, street, List.of(),
-                    soleSurvivor);
+                    soleSurvivor, false);
+        }
+
+        public HandResult(long sequence, String nickname, String handName,
+                boolean winner, TableSnapshot.Street street,
+                List<Integer> wonPotIndexes, boolean soleSurvivor) {
+            this(sequence, nickname, handName, winner, street,
+                    wonPotIndexes, soleSurvivor, false);
         }
 
         public HandResult {

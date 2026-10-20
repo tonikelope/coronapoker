@@ -190,6 +190,7 @@ public final class HotJoinVisualEventCodecV1 {
                     writeEnum(out, value.street());
                     writeIntegers(out, value.wonPotIndexes());
                     out.writeBoolean(value.soleSurvivor());
+                    out.writeBoolean(value.returnedSidePot());
                 } else if (event instanceof TableVisualEvent.RabbitCards value) {
                     out.writeByte(RABBIT_CARDS);
                     writeCount(out, value.cards().size());
@@ -436,7 +437,7 @@ public final class HotJoinVisualEventCodecV1 {
                         readText(in), readText(in), in.readBoolean(),
                         readEnum(in, TableSnapshot.Street.values(),
                                 "result street"),
-                        readIntegers(in), in.readBoolean());
+                        readIntegers(in), in.readBoolean(), in.readBoolean());
                 case RABBIT_CARDS -> readRabbitCards(in, sequence);
                 case RABBIT_RESULT -> new TableVisualEvent.RabbitResult(sequence,
                         readText(in), finite(in.readDouble(), "rabbit fee"),

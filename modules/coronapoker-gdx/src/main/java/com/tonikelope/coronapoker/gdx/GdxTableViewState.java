@@ -690,6 +690,11 @@ final class GdxTableViewState {
             resolvedHandWinners.put(result.nickname(), result.winner());
             resolvedWonPotIndexes.put(result.nickname(),
                     result.wonPotIndexes());
+            if (result.returnedSidePot()) {
+                returnedSidePotPlayers.add(result.nickname());
+            } else {
+                returnedSidePotPlayers.remove(result.nickname());
+            }
             // The sole-survivor event settles every peer's local HUD without
             // fabricating HandResult rows for the other seats. Their captions
             // therefore keep the real action (for example NO VA), while only
@@ -709,7 +714,7 @@ final class GdxTableViewState {
                         = new TableSnapshot.PlayerPresentation(
                                 current.showingCards(), false, -1f, true,
                                 result.handName(), result.wonPotIndexes(),
-                                current.returnedSidePot(),
+                                result.returnedSidePot(),
                                 current.showdownHighlightEnabled(),
                                 current.winningHoleCardSlots(),
                                  current.winningCommunityCardSlots(),

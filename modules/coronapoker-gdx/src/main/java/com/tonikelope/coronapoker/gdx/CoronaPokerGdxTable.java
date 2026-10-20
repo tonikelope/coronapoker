@@ -395,6 +395,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     private static final float VOICE_STATUS_SECONDS = 2.8f;
     private static final float VOICE_SENT_STATUS_SECONDS = 1.15f;
+    static final float SEAT_CHAT_AUDIO_TAIL_SECONDS = 0.25f;
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
     private static final float FELT_DOUBLE_CLICK_DRIFT = 32f;
@@ -1192,6 +1193,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
     private ShaderProgram allInFireShader;
+    private GdxAlphaEdgeRenderer alphaEdgeRenderer;
     private GdxModalBackdropBlur modalBackdropBlur;
     private boolean modalBackdropCaptureActive;
     private final GdxCardSmaaRenderer cardSmaaRenderer
@@ -2964,6 +2966,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 requireCompiled(cinematicShader, "Cinematic shader");
             }
             case 5 -> {
+                alphaEdgeRenderer = new GdxAlphaEdgeRenderer(
+                        CARD_VERTEX_SHADER);
+            }
+            case 6 -> {
                 allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         ALL_IN_FIRE_FRAGMENT_SHADER);
                 if (!allInFireShader.isCompiled()) {
@@ -2973,8 +2979,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInFireShader = null;
                 }
             }
-            case 6 -> allInFireCanvas = createSolidTexture(Color.WHITE);
-            case 7 -> {
+            case 7 -> allInFireCanvas = createSolidTexture(Color.WHITE);
+            case 8 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
                 return true;
             }
@@ -3044,14 +3050,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         switch (resource) {
             case 0 -> avatarDefault = texture("images/avatar_default.png");
             case 1 -> avatarBot = texture("images/avatar_bot.png");
-            case 2 -> dealerChip = texture("images/dealer.png");
-            case 3 -> smallBlindChip = texture("images/sb.png");
-            case 4 -> bigBlindChip = texture("images/bb.png");
+            case 2 -> dealerChip = alphaEdgeTexture("images/dealer.png");
+            case 3 -> smallBlindChip = alphaEdgeTexture("images/sb.png");
+            case 4 -> bigBlindChip = alphaEdgeTexture("images/bb.png");
             case 5 -> underTheGunIcon = texture("images/utg.png");
             case 6 -> logMoneyIcon = texture("images/chips.png");
-            case 7 -> logStraddleIcon = texture("images/straddle.png");
-            case 8 -> logDealerStraddleIcon = texture("images/dealer_straddle.png");
-            case 9 -> communityStraddleIcon = texture("images/straddle_small.png");
+            case 7 -> logStraddleIcon = alphaEdgeTexture(
+                    "images/straddle.png");
+            case 8 -> logDealerStraddleIcon = alphaEdgeTexture(
+                    "images/dealer_straddle.png");
+            case 9 -> communityStraddleIcon = alphaEdgeTexture(
+                    "images/straddle_small.png");
             case 10 -> soundIcon = texture("images/sound.png");
             case 11 -> muteIcon = texture("images/mute.png");
             case 12 -> blockedSoundIcon = texture("images/sound_b.png");
@@ -3066,7 +3075,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 18 -> timeoutIcon = texture("images/action/timeout.png");
             case 19 -> rabbitActionIcon = texture(
                     "images/action/rabbit_action.png");
-            case 20 -> talkIcon = texture("images/talk.png");
+            case 20 -> talkIcon = alphaEdgeTexture("images/talk.png");
             case 21 -> fastMenuIcon = texture("images/fast_panel/menu.png");
             default -> {
                 int fastIcon = resource - 22;
@@ -3339,6 +3348,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // prefiltered downscaling; linear magnification avoids blocky emoji
         // when a 32 px source is shown in the 38 px picker.
         return GdxTextureQuality.loadUi(Gdx.files.internal(path));
+    }
+
+    private static Texture alphaEdgeTexture(String path) {
+        return GdxTextureQuality.loadAlphaEdgeUi(Gdx.files.internal(path));
     }
 
     private static Texture feltTexture(String path) {
@@ -8487,11 +8500,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 LobbyChatMessage.Type.VOICE, "", totalTime,
                 totalTime + VoiceWavContract.MAX_SECONDS + 1f);
         GdxVoicePlayback.play(wav, effectsVolume,
-                () -> startVoiceSeatNotice(nickname, notice))
+                () -> startAudioSeatNotice(nickname, notice))
                 .whenComplete((ignored, failure) -> {
                     if (Gdx.app == null) return;
                     Gdx.app.postRunnable(() -> {
-                        finishVoiceSeatNotice(nickname, notice);
+                        finishSeatChatNotice(nickname, notice);
                         if (!disposed && failure != null) {
                             setVoiceStatus("gdx.lobby.voice_playback_failed");
                         }
@@ -8499,21 +8512,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 });
     }
 
-    private void startVoiceSeatNotice(String nickname,
+    private void startAudioSeatNotice(String nickname,
             SeatChatNotice notice) {
         if (disposed || seatByNickname(nickname) == null) return;
         SeatChatNotice previous = seatChatNotices.remove(nickname);
         if (previous != null) previous.dispose();
+        notice.audioTimed = true;
         notice.startedAt = totalTime;
-        notice.expiresAt = totalTime + seatChatPlaybackWatchdog(
-                LobbyChatMessage.Type.VOICE, notice.content);
+        float watchdog = notice.type == LobbyChatMessage.Type.VOICE
+                ? VoiceWavContract.MAX_SECONDS + 2f
+                : GdxTextToSpeechPlayback.playbackWatchdogSeconds(
+                        GdxTextToSpeechPlayback.serviceText(
+                                GdxTextToSpeechPlayback.cleanChatMessage(
+                                        notice.content)))
+                        + SEAT_CHAT_AUDIO_TAIL_SECONDS;
+        notice.expiresAt = totalTime + watchdog;
         seatChatNotices.put(nickname, notice);
     }
 
-    private void finishVoiceSeatNotice(String nickname,
+    private void finishSeatChatNotice(String nickname,
             SeatChatNotice notice) {
         if (!disposed && seatChatNotices.get(nickname) == notice) {
-            notice.expiresAt = totalTime + 0.5f;
+            notice.expiresAt = totalTime + SEAT_CHAT_AUDIO_TAIL_SECONDS;
         }
     }
 
@@ -10965,10 +10985,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static String sidePotOverlayLabel(boolean returnedResidualSidePot,
             Boolean winner, List<Integer> wonPotIndexes, GdxGameText text) {
+        String wonPots = derivedPotOverlayLabel(false, winner,
+                wonPotIndexes, text);
+        if (!wonPots.isEmpty()) return wonPots;
         if (returnedResidualSidePot) {
             return uppercase(text.translate("game.bote_sobrante"), text);
         }
-        return derivedPotOverlayLabel(false, winner, wonPotIndexes, text);
+        return "";
     }
 
     private boolean sidePotWinnerOverlayVisible(Seat seat) {
@@ -11585,48 +11608,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     totalTime + seatChatNoticeDuration(message.type(),
                             message.content()));
             if (spokenText) {
-                // The chat indicator acknowledges the message, not the audio
-                // backend. OpenAL can accept play() without an output device
-                // and then never report completion; tying the icon to that
-                // callback made the first icon linger and prevented later
-                // queued messages from showing any icon at all.
-                SeatChatNotice previous = seatChatNotices.remove(
-                        message.nickname());
-                if (previous != null) previous.dispose();
-                seatChatNotices.put(message.nickname(), notice);
+                // Start the indicator with the actual audio, not while the
+                // speech is queued or downloaded. Its matching completion
+                // starts the short identification tail.
                 textToSpeech.enqueue(message.content(),
                         presentationSettings == null
                                 ? tablePreferenceText("lenguaje", "es")
-                                : presentationSettings.language());
+                                : presentationSettings.language(),
+                        () -> startAudioSeatNotice(message.nickname(), notice))
+                        .whenComplete((played, failure) -> {
+                            if (Gdx.app == null) return;
+                            Gdx.app.postRunnable(() -> finishSeatChatNotice(
+                                    message.nickname(), notice));
+                        });
                 continue;
             }
             if (message.type() == LobbyChatMessage.Type.VOICE) {
-                playTableVoice(message, () -> {
-                    if (Gdx.app == null) return;
-                    Gdx.app.postRunnable(() -> {
-                        if (disposed || seatByNickname(
-                                message.nickname()) == null) return;
-                        SeatChatNotice previous = seatChatNotices.remove(
-                                message.nickname());
-                        if (previous != null) previous.dispose();
-                        notice.startedAt = totalTime;
-                        // Bounded only as a backend-failure guard. Normal
-                        // completion uses Swing's exact 500 ms tail below.
-                        notice.expiresAt = totalTime
-                                + seatChatPlaybackWatchdog(
-                                        message.type(), message.content());
-                        seatChatNotices.put(message.nickname(), notice);
-                    });
-                }).whenComplete((ignored, failure) -> {
-                    if (Gdx.app == null) return;
-                    Gdx.app.postRunnable(() -> {
-                        if (!disposed
-                                && seatChatNotices.get(message.nickname())
-                                        == notice) {
-                            notice.expiresAt = totalTime + 0.5f;
-                        }
-                    });
-                });
+                playTableVoice(message, () -> startAudioSeatNotice(
+                        message.nickname(), notice))
+                        .whenComplete((ignored, failure) -> {
+                            if (Gdx.app == null) return;
+                            Gdx.app.postRunnable(() -> {
+                                if (!disposed
+                                        && seatChatNotices.get(
+                                                message.nickname())
+                                                == notice) {
+                                    finishSeatChatNotice(message.nickname(),
+                                            notice);
+                                }
+                            });
+                        });
                 continue;
             }
             SeatChatNotice previous = seatChatNotices.remove(message.nickname());
@@ -11781,18 +11792,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat seat = seatByNickname(entry.getKey());
             if (seat == null) continue;
             SeatChatNotice notice = entry.getValue();
-            float remaining = MathUtils.clamp((notice.expiresAt - totalTime) / 0.35f,
+            float remaining = MathUtils.clamp((notice.expiresAt - totalTime)
+                    / seatChatFadeSeconds(notice.audioTimed),
                     0f, 1f);
             float appeared = MathUtils.clamp((totalTime - notice.startedAt) / 0.16f,
                     0f, 1f);
             float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
             Texture icon = seatChatNoticeTexture(notice);
             Rectangle bounds = seatChatNoticeBounds(seat, icon);
+            if (icon == talkIcon) alphaEdgeRenderer.begin(batch);
+            else alphaEdgeRenderer.end(batch);
             batch.setColor(1f, 1f, 1f, alpha);
             batch.draw(icon, bounds.x, bounds.y, bounds.width, bounds.height);
         }
         batch.setColor(Color.WHITE);
+        alphaEdgeRenderer.end(batch);
         batch.end();
+    }
+
+    static float seatChatFadeSeconds(boolean audioTimed) {
+        // Audio completion starts a complete 250 ms tail: its first frame must
+        // still be fully opaque instead of entering a pre-existing 350 ms fade
+        // already part-way through.
+        return audioTimed ? SEAT_CHAT_AUDIO_TAIL_SECONDS : 0.35f;
     }
 
     /** Swing uses a mute/blocked dialog instead of talk.png when TTS cannot play. */
@@ -12513,7 +12535,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case NONE -> null;
         };
         if (texture == null) return;
-        batch.setShader(null);
+        alphaEdgeRenderer.begin(batch);
         float size = placement.width * 0.40f;
         float localX = placement.width * 0.5f - size * 0.55f;
         float localY = placement.height * 0.5f - size * 0.55f;
@@ -12524,6 +12546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float centerY = placement.y + localX * sin + localY * cos;
         drawPositionTexture(texture, centerX, centerY, size,
                 placement.rotation, alpha);
+        alphaEdgeRenderer.end(batch);
     }
 
     static RabbitCostChipKind rabbitCostChipKind(int mode,
@@ -14131,6 +14154,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLivePositionChips() {
         LivePositionRotation active = livePositionRotation;
         batch.begin();
+        alphaEdgeRenderer.begin(batch);
         if (active == null) {
             for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
                 if (!hasVisiblePositionChip(player)) continue;
@@ -14143,6 +14167,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             POSITION_CHIP_SIZE, 0f, presence);
                 }
             }
+            alphaEdgeRenderer.end(batch);
             batch.end();
             return;
         }
@@ -14179,6 +14204,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     (1f - progress) * (role - 1) * 320f,
                     seatPresenceAlpha(target.index));
         }
+        alphaEdgeRenderer.end(batch);
         batch.end();
     }
 
@@ -26180,6 +26206,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(allInFireShader);
         disposeSafely(cinematicShader);
         disposeSafely(avatarShader);
+        disposeSafely(alphaEdgeRenderer);
         disposeSafely(rabbitPeelShader);
         disposeSafely(roundedCardShader);
         disposeSafely(batch);
@@ -26391,6 +26418,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         emojiTextures.clear();
         tableGalleryMedia.dispose();
+        disposeSafely(alphaEdgeRenderer);
         for (Texture avatarTexture : tableAvatarTextures.values()) {
             avatarTexture.dispose();
         }
@@ -26609,6 +26637,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final String content;
         float startedAt;
         float expiresAt;
+        boolean audioTimed;
         boolean loading = true;
         boolean failed;
         Texture image;

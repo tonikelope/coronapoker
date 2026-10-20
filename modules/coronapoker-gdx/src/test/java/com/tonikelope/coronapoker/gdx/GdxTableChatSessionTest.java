@@ -187,6 +187,14 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
+    void audioSeatIndicatorKeepsAQuarterSecondIdentificationTail() {
+        assertEquals(0.25f,
+                CoronaPokerGdxTable.SEAT_CHAT_AUDIO_TAIL_SECONDS);
+        assertEquals(0.25f, CoronaPokerGdxTable.seatChatFadeSeconds(true));
+        assertEquals(0.35f, CoronaPokerGdxTable.seatChatFadeSeconds(false));
+    }
+
+    @Test
     void voiceSeatIconFollowsSwingPlaybackGuards() {
         assertTrue(CoronaPokerGdxTable.shouldShowVoiceSeatNotice(
                 true, false, false, true));

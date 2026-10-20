@@ -332,6 +332,9 @@ final class GdxTableViewStateTest {
                 "an uncontested overbet return is not a numbered-pot win");
         assertEquals("POT #2", CoronaPokerGdxTable.sidePotOverlayLabel(
                 false, true, List.of(2), new GdxGameText("en")));
+        assertEquals("BOTE #2", CoronaPokerGdxTable.sidePotOverlayLabel(
+                true, true, List.of(2), new GdxGameText("es")),
+                "a real pot win must not be replaced by its residual return");
         assertEquals(1f, CoronaPokerGdxTable.DERIVED_POT_OVERLAY_ALPHA,
                 0.000_001f);
     }
@@ -3495,7 +3498,17 @@ final class GdxTableViewStateTest {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 
         state.apply(new TableVisualEvent.HandResult(1, "borja",
-                "CARTA ALTA", false, TableSnapshot.Street.SHOWDOWN));
+                "CARTA ALTA", false, TableSnapshot.Street.SHOWDOWN,
+                List.of(), false, true));
+
+        assertTrue(state.returnedSidePot("borja"),
+                "BOTE SOBRANTE must arrive with the showdown result");
+        assertEquals("BOTE SOBRANTE", CoronaPokerGdxTable.sidePotOverlayLabel(
+                state.returnedSidePot("borja"),
+                state.resolvedHandWinner("borja"),
+                state.resolvedWonPotIndexes("borja"),
+                new GdxGameText("es")));
+
         state.apply(new TableVisualEvent.PayoutBatch(2, List.of(
                 new TableVisualEvent.PayoutBatch.Transfer(
                         "borja", 20d, 20d, 1_020d)), 0d, 0d));
@@ -3517,7 +3530,15 @@ final class GdxTableViewStateTest {
 
         state.apply(new TableVisualEvent.HandResult(1, "borja",
                 "PAREJA", true, TableSnapshot.Street.SHOWDOWN,
-                List.of(2)));
+                List.of(2), false, true));
+
+        assertEquals("BOTE #2", CoronaPokerGdxTable.sidePotOverlayLabel(
+                state.returnedSidePot("borja"),
+                state.resolvedHandWinner("borja"),
+                state.resolvedWonPotIndexes("borja"),
+                new GdxGameText("es")),
+                "the numbered win is already final before payout starts");
+
         state.apply(new TableVisualEvent.PayoutBatch(2, List.of(
                 new TableVisualEvent.PayoutBatch.Transfer(
                         "borja", 65d, 5d, 1_065d)), 0d, 0d));
@@ -3526,7 +3547,7 @@ final class GdxTableViewStateTest {
         assertTrue(player(state, "borja").winner());
         assertTrue(state.returnedSidePot("borja"));
         assertEquals(List.of(2), state.resolvedWonPotIndexes("borja"));
-        assertEquals("BOTE SOBRANTE", CoronaPokerGdxTable.sidePotOverlayLabel(
+        assertEquals("BOTE #2", CoronaPokerGdxTable.sidePotOverlayLabel(
                 true, true, List.of(2), new GdxGameText("es")));
     }
 

@@ -316,11 +316,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * hairline appears where the face meets its wall.
      */
     private static final int STACK_CHIP_FACE_ALPHA_BLEED_PIXELS = 4;
-    /** Compact racks retain the already approved slightly inset side wall. */
+    /**
+     * Minification loses roughly one final pixel at each curved wall tangent.
+     * A six-source-pixel compensation restores the face's apparent width at
+     * the 22--30 px compact sizes without changing the detailed dialog.
+     */
     private static final int STACK_CHIP_EDGE_OUTER_RADIUS =
-            STACK_CHIP_FACE_BEVEL_RADIUS;
+            STACK_CHIP_FACE_OUTER_RADIUS + 6;
     private static final int STACK_CHIP_EDGE_INNER_RADIUS =
-            STACK_CHIP_FACE_COLOR_RADIUS;
+            STACK_CHIP_FACE_BEVEL_RADIUS;
     /** The large dialog uses one exact face/body silhouette without a lid. */
     private static final int DETAILED_STACK_CHIP_EDGE_OUTER_RADIUS =
             STACK_CHIP_FACE_OUTER_RADIUS;
@@ -373,6 +377,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private static final float POT_STACK_CHIP_MAX_VISUAL_HEIGHT
             = LOCAL_STACK_CHIP_MAX_VISUAL_HEIGHT;
+    /** Separate the two projected pot rows so neighbouring piles cannot cross. */
+    private static final float POT_STACK_CHIP_DEPTH_RISE_RATIO = 0.60f;
     private static final int STACK_CHIP_MAX_COMPRESSED_LEVELS = 24;
     private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
     private static final float POT_PANEL_WIDTH = 390f;
@@ -11847,7 +11853,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static StackChipRackGeometry potChipRackGeometry() {
         StackChipRackGeometry local = stackChipRackGeometry(true);
-        float zigzagRise = 6f;
+        float zigzagRise = local.chipSize()
+                * POT_STACK_CHIP_DEPTH_RISE_RATIO;
         float normalVerticalGap = stackChipPhysicalThickness(
                 local.chipSize());
         float minimumVerticalGap = stackChipMinimumThickness(

@@ -813,6 +813,9 @@ final class GdxTableViewStateTest {
         assertEquals(local.maximumHeight(), pot.maximumHeight(),
                 0.000_001f,
                 "the pot and local rack use equal-size chips and height");
+        assertEquals(0.60f, pot.zigzagRise() / pot.chipSize(),
+                0.000_001f,
+                "pot depth rows must keep neighbouring piles disjoint");
         assertTrue(pot.maximumHeight() * 1.035f < 82f,
                 "the pulsing pot rack must retain vertical panel margins");
         assertEquals(857f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
@@ -947,6 +950,17 @@ final class GdxTableViewStateTest {
                 + 2.15f * local.columnGap(), four[0], 0.000_01f);
         assertEquals(local.firstColumnOffset()
                 + 3f * local.columnGap(), four[2], 0.000_01f);
+
+        CoronaPokerGdxTable.StackChipRackGeometry pot =
+                CoronaPokerGdxTable.potChipRackGeometry();
+        float[] yellowBlueRed = CoronaPokerGdxTable.stackChipColumnOffsets(
+                pot, new float[]{1f, 1f, 1f, 0f});
+        float blueRedX = (yellowBlueRed[2] - yellowBlueRed[0])
+                / pot.chipSize();
+        float blueRedY = pot.zigzagRise()
+                / CoronaPokerGdxTable.stackChipProjectedHeight(pot);
+        assertTrue(blueRedX * blueRedX + blueRedY * blueRedY >= 1f,
+                "blue and red pot chips must not intersect");
     }
 
     @Test
@@ -1041,8 +1055,10 @@ final class GdxTableViewStateTest {
         assertEquals(281, CoronaPokerGdxTable.stackChipEdgeSourceHeight(
                 140f, CoronaPokerGdxTable.stackChipMinimumThickness(140f)),
                 "a compressed chip must crop the wall, not squash its art");
-        assertTrue(CoronaPokerGdxTable.stackChipEdgeInset(140f) > 0f,
-                "approved compact racks retain their inset wall profile");
+        assertEquals(-3.28125f,
+                CoronaPokerGdxTable.stackChipEdgeInset(140f),
+                0.000_001f,
+                "compact wall tangents compensate minification symmetrically");
         assertEquals(0f,
                 CoronaPokerGdxTable.detailedStackChipEdgeInset(140f),
                 0.000_001f,
@@ -1051,6 +1067,10 @@ final class GdxTableViewStateTest {
                 .detailedStackChipEdgeRimThickness(140f)
                 < 140f * 0.02f,
                 "the detailed lower edge must be a fine bevel, not a band");
+        assertEquals(0.703125f,
+                -CoronaPokerGdxTable.stackChipEdgeInset(30f),
+                0.000_001f,
+                "local compact walls recover about one filtered pixel per side");
     }
 
     @Test

@@ -294,6 +294,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CHIP_FLIGHT_STREAM_PITCH_RATIO = 0.56f;
     private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
     private static final float STACK_CHIP_COLUMN_STAGGER_SECONDS = 0.022f;
+    /**
+     * Small off-screen surface used to fade a folded rack as one physical
+     * object.  It deliberately has enough transparent padding for the larger
+     * local rack, so local and rival stacks can reuse the same allocation.
+     */
+    private static final float FOLDED_CHIP_RACK_LAYER_WIDTH = 128f;
+    private static final float FOLDED_CHIP_RACK_LAYER_HEIGHT = 96f;
+    private static final float FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET = 28f;
     /** Shared table-plane projection for every stationary physical chip. */
     private static final float STACK_CHIP_PERSPECTIVE_Y_RATIO = 0.62f;
     private static final int STACK_CHIP_TEXTURE_SIZE = 256;
@@ -1255,6 +1263,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxCardSmaaRenderer cardSmaaRenderer
             = new GdxCardSmaaRenderer();
     private FrameBuffer disabledHoleCardsLayer;
+    private FrameBuffer foldedChipRackLayer;
+    private final Matrix4 foldedChipRackLayerProjection = new Matrix4();
+    private boolean foldedChipRackLayerUnavailable;
 
     private BitmapFont uiFont;
     private BitmapFont potFont;
@@ -11087,7 +11098,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.setColor(avatarTint.r, avatarTint.g, avatarTint.b,
                     avatarTint.a * visualPresence);
-            if (seat.index != 0) drawSeatChipStack(seat, visualPresence);
+            if (seat.index != 0) {
+                drawSeatChipStack(seat, visualPresence, folded);
+            }
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
                 boolean underTheGun = player != null && player.underTheGun();
@@ -11197,10 +11210,146 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /** Drawn inside an active SpriteBatch. */
-    private void drawSeatChipStack(Seat seat, float alpha) {
+    private void drawSeatChipStack(Seat seat, float alpha, boolean folded) {
         GdxStackChipLayout.Layout layout = stackChipLayout(seat);
-        drawAmountChipStack(seat, seat.stackX, seat.stackY, layout, alpha,
+        float[] physicalCounts = animatedStackChipCounts(seat, layout);
+        StackChipRackGeometry geometry = stackChipRackGeometry(
                 seat.index == 0);
+        int rackSeed = seat.name.hashCode();
+        boolean composite = hasVisibleStackChips(physicalCounts)
+                && shouldCompositeFoldedChipRack(folded, alpha)
+                && beginFoldedChipRackLayer(seat.stackX, seat.stackY);
+        drawChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
+                composite ? 1f : alpha, geometry, rackSeed);
+        if (composite) {
+            finishFoldedChipRackLayer(seat.stackX, seat.stackY, alpha);
+        }
+    }
+
+    static boolean shouldCompositeFoldedChipRack(boolean folded, float alpha) {
+        return folded && alpha > 0f && alpha < 1f;
+    }
+
+    private static boolean hasVisibleStackChips(float[] physicalCounts) {
+        for (float count : physicalCounts) {
+            if (count > 0f) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Ends the caller's active batch and starts a transparent, rack-sized
+     * capture. Rendering every chip at normal opacity in this surface prevents
+     * the felt and neighbouring chips from bleeding through each overlapping
+     * primitive when the seat is folded.
+     */
+    private boolean beginFoldedChipRackLayer(float centerX, float centerY) {
+        batch.end();
+        int parentWidth = activeParentFramebufferWidth();
+        int parentHeight = activeParentFramebufferHeight();
+        int layerWidth = Math.max(1, MathUtils.ceil(
+                FOLDED_CHIP_RACK_LAYER_WIDTH * parentWidth
+                        / Math.max(1f, viewport.getWorldWidth())));
+        int layerHeight = Math.max(1, MathUtils.ceil(
+                FOLDED_CHIP_RACK_LAYER_HEIGHT * parentHeight
+                        / Math.max(1f, viewport.getWorldHeight())));
+        if (!ensureFoldedChipRackLayer(layerWidth, layerHeight)) {
+            restoreParentFramebufferAfterNestedPass();
+            batch.setProjectionMatrix(camera.combined);
+            restoreSpriteBatchBlendAfterNestedLayer();
+            batch.begin();
+            return false;
+        }
+
+        float layerX = centerX - FOLDED_CHIP_RACK_LAYER_WIDTH / 2f;
+        float layerY = centerY - FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET;
+        foldedChipRackLayer.begin();
+        Gdx.gl.glViewport(0, 0, foldedChipRackLayer.getWidth(),
+                foldedChipRackLayer.getHeight());
+        Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        foldedChipRackLayerProjection.setToOrtho2D(layerX, layerY,
+                FOLDED_CHIP_RACK_LAYER_WIDTH,
+                FOLDED_CHIP_RACK_LAYER_HEIGHT);
+        batch.setProjectionMatrix(foldedChipRackLayerProjection);
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        GdxCardSmaaRenderer.useStraightAlphaCapture(batch);
+        batch.begin();
+        return true;
+    }
+
+    /** Restores the parent table target and fades the complete crisp rack. */
+    private void finishFoldedChipRackLayer(float centerX, float centerY,
+            float alpha) {
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.end();
+        foldedChipRackLayer.end();
+        restoreParentFramebufferAfterNestedPass();
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
+        Texture layer = foldedChipRackLayer.getColorBufferTexture();
+        GdxCardSmaaRenderer.usePremultipliedComposite(batch);
+        batch.begin();
+        batch.setColor(alpha, alpha, alpha, alpha);
+        batch.draw(layer,
+                centerX - FOLDED_CHIP_RACK_LAYER_WIDTH / 2f,
+                centerY - FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET,
+                FOLDED_CHIP_RACK_LAYER_WIDTH,
+                FOLDED_CHIP_RACK_LAYER_HEIGHT,
+                0, 0, layer.getWidth(), layer.getHeight(), false, true);
+        batch.setColor(Color.WHITE);
+        batch.end();
+        restoreSpriteBatchBlendAfterNestedLayer();
+        batch.begin();
+    }
+
+    private void restoreSpriteBatchBlendAfterNestedLayer() {
+        if (cardSmaaRenderer.isActive()) {
+            GdxCardSmaaRenderer.useStraightAlphaCapture(batch);
+        } else {
+            GdxCardSmaaRenderer.useStandardAlpha(batch);
+        }
+    }
+
+    private int activeParentFramebufferWidth() {
+        if (cardSmaaRenderer.isActive()) return cardSmaaRenderer.activeWidth();
+        if (modalBackdropCaptureActive) return modalBackdropBlur.captureWidth();
+        return Math.max(1, Gdx.graphics.getBackBufferWidth());
+    }
+
+    private int activeParentFramebufferHeight() {
+        if (cardSmaaRenderer.isActive()) return cardSmaaRenderer.activeHeight();
+        if (modalBackdropCaptureActive) return modalBackdropBlur.captureHeight();
+        return Math.max(1, Gdx.graphics.getBackBufferHeight());
+    }
+
+    private boolean ensureFoldedChipRackLayer(int width, int height) {
+        if (foldedChipRackLayer != null
+                && foldedChipRackLayer.getWidth() == width
+                && foldedChipRackLayer.getHeight() == height) {
+            return true;
+        }
+        if (foldedChipRackLayerUnavailable) {
+            return foldedChipRackLayer != null;
+        }
+        try {
+            FrameBuffer replacement = new FrameBuffer(Pixmap.Format.RGBA8888,
+                    width, height, false);
+            replacement.getColorBufferTexture().setFilter(
+                    TextureFilter.Linear, TextureFilter.Linear);
+            if (foldedChipRackLayer != null) foldedChipRackLayer.dispose();
+            foldedChipRackLayer = replacement;
+            return true;
+        } catch (RuntimeException failure) {
+            foldedChipRackLayerUnavailable = true;
+            LOGGER.log(Level.WARNING,
+                    "Unable to create folded chip-rack composite layer; "
+                            + "falling back to direct rendering",
+                    failure);
+            return foldedChipRackLayer != null;
+        }
     }
 
     static boolean chipRackVisible(double amount) {
@@ -11501,14 +11650,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             rebalanceSeatRack(entry.getKey());
             iterator.remove();
         }
-    }
-
-    private void drawAmountChipStack(Seat seat, float centerX, float centerY,
-            GdxStackChipLayout.Layout layout, float alpha, boolean localSize) {
-        float[] physicalCounts = animatedStackChipCounts(seat, layout);
-        StackChipRackGeometry geometry = stackChipRackGeometry(localSize);
-        drawChipRack(centerX, centerY, layout, physicalCounts, alpha,
-                geometry, seat == null ? 0 : seat.name.hashCode());
     }
 
     private void drawStaticChipRack(float centerX, float centerY,
@@ -18906,7 +19047,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         Seat local = localSeat;
-        drawSeatChipStack(local, localSeatOpacity);
+        drawSeatChipStack(local, localSeatOpacity, localFolded);
         batch.setColor(Color.WHITE);
         if (localTurn) {
             drawFittedCenteredInBox(smallFont,
@@ -27460,6 +27601,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         cardSmaaRenderer.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
+        if (foldedChipRackLayer != null) foldedChipRackLayer.dispose();
         uiFont.dispose();
         potFont.dispose();
         smallFont.dispose();

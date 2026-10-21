@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableCommandSink;
@@ -791,6 +792,12 @@ final class GdxTableViewStateTest {
                 local.zigzagRise() / local.chipSize(), 0.000_001f);
         assertEquals(remote.normalVerticalGap() / remote.chipSize(),
                 local.normalVerticalGap() / local.chipSize(), 0.000_001f);
+        assertEquals(0.12f,
+                local.normalVerticalGap() / local.chipSize(), 0.000_001f,
+                "every rack must retain the photographed casino-chip edge");
+        assertEquals(0.06f,
+                local.minimumVerticalGap() / local.chipSize(), 0.000_001f,
+                "compressed edges must retain a legible lower bound");
         CoronaPokerGdxTable.StackChipRackGeometry pot =
                 CoronaPokerGdxTable.potChipRackGeometry();
         assertEquals(local.maximumHeight(), pot.maximumHeight(),
@@ -815,17 +822,17 @@ final class GdxTableViewStateTest {
                         / local.chipSize(),
                 CoronaPokerGdxTable.stackChipProjectedHeight(pot)
                         / pot.chipSize(), 0.000_001f);
-        assertEquals(10,
+        assertEquals(15,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 0));
-        assertEquals(10,
+        assertEquals(15,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 1));
-        assertEquals(9,
+        assertEquals(13,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(local, 2));
-        assertEquals(10,
+        assertEquals(15,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 0));
-        assertEquals(10,
+        assertEquals(15,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 1));
-        assertEquals(9,
+        assertEquals(13,
                 CoronaPokerGdxTable.stackChipRelaxedCapacity(remote, 2));
         assertEquals(2, CoronaPokerGdxTable.stackChipColumnSlot(0));
         assertEquals(0, CoronaPokerGdxTable.stackChipColumnSlot(1));
@@ -900,6 +907,26 @@ final class GdxTableViewStateTest {
                 new float[]{1f, 0f, 0f, 0f});
         assertEquals(rackCenter, one[0], 0.000_01f);
 
+        // The x1/x2 piles share the foreground plane. They must rest beside
+        // one another instead of intersecting when those are the only two
+        // colours in a pot or player HUD.
+        float[] foregroundPair = CoronaPokerGdxTable
+                .stackChipColumnOffsets(local,
+                        new float[]{1f, 1f, 0f, 0f});
+        assertTrue(foregroundPair[0] - foregroundPair[1]
+                > local.chipSize(),
+                "same-row foreground piles must have a physical gap");
+        assertEquals(rackCenter,
+                (foregroundPair[0] + foregroundPair[1]) / 2f,
+                0.000_01f);
+
+        float[] rearPair = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                new float[]{0f, 0f, 1f, 1f});
+        assertTrue(rearPair[2] - rearPair[3] > local.chipSize(),
+                "same-row rear piles must have a physical gap");
+        assertEquals(rackCenter, (rearPair[2] + rearPair[3]) / 2f,
+                0.000_01f);
+
         // The complete rack retains the deliberately opened centre lane.
         float[] four = CoronaPokerGdxTable.stackChipColumnOffsets(local,
                 new float[]{1f, 1f, 1f, 1f});
@@ -913,7 +940,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void hugeChipColumnsCompressSpacingButNeverChipSizeOrHudHeight() {
+    void hugeChipColumnsCompressEdgesProportionallyWithinTheirLimit() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
         CoronaPokerGdxTable.StackChipRackGeometry remote =
@@ -950,6 +977,8 @@ final class GdxTableViewStateTest {
         }
         assertTrue(localGap >= local.minimumVerticalGap());
         assertTrue(remoteGap >= remote.minimumVerticalGap());
+        assertTrue(localGap < local.normalVerticalGap());
+        assertTrue(remoteGap < remote.normalVerticalGap());
         float minimum = Float.POSITIVE_INFINITY;
         float maximum = Float.NEGATIVE_INFINITY;
         for (float height : physicalCounts) {
@@ -961,17 +990,20 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void chipColumnsRelaxContinuouslyBetweenNaturalAndMaximumCompression() {
+    void chipColumnsCompressContinuouslyWithoutCrossingMinimumEdge() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
-        int relaxedCapacity = CoronaPokerGdxTable
-                .stackChipRelaxedCapacity(local, 3);
+        float exactRelaxedCapacity = 1f + (local.maximumHeight()
+                - CoronaPokerGdxTable.stackChipProjectedHeight(local)
+                - local.zigzagRise()) / local.normalVerticalGap();
         float relaxed = CoronaPokerGdxTable.stackChipRackVerticalGap(local,
-                new float[]{0f, 0f, 0f, relaxedCapacity});
+                new float[]{0f, 0f, 0f, exactRelaxedCapacity});
         float firstHalfStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
-                local, new float[]{0f, 0f, 0f, relaxedCapacity + 0.5f});
+                local, new float[]{0f, 0f, 0f,
+                    exactRelaxedCapacity + 0.5f});
         float firstFullStep = CoronaPokerGdxTable.stackChipRackVerticalGap(
-                local, new float[]{0f, 0f, 0f, relaxedCapacity + 1f});
+                local, new float[]{0f, 0f, 0f,
+                    exactRelaxedCapacity + 1f});
         float compressedLevels = CoronaPokerGdxTable
                 .stackChipPerceivedLevels(local, 3, 120f);
         float beyondCompressionLimit =
@@ -981,9 +1013,61 @@ final class GdxTableViewStateTest {
         assertEquals(local.normalVerticalGap(), relaxed, 0.000_001f);
         assertTrue(firstHalfStep < relaxed);
         assertTrue(firstHalfStep > firstFullStep);
-        assertTrue(compressedLevels < 20f);
+        assertTrue(compressedLevels < 24f);
         assertTrue(beyondCompressionLimit >= local.minimumVerticalGap());
         assertTrue(beyondCompressionLimit < firstFullStep);
+        assertEquals(CoronaPokerGdxTable.stackChipPhysicalThickness(
+                local.chipSize()), CoronaPokerGdxTable
+                        .stackChipVisibleThickness(local, local.chipSize(),
+                                local.normalVerticalGap()), 0.000_001f);
+        assertEquals(CoronaPokerGdxTable.stackChipMinimumThickness(
+                local.chipSize()), CoronaPokerGdxTable
+                        .stackChipVisibleThickness(local, local.chipSize(),
+                                local.minimumVerticalGap()), 0.000_001f,
+                "edge height must compress proportionally to the rack gap");
+        assertEquals(306, CoronaPokerGdxTable.stackChipEdgeSourceHeight(
+                140f, CoronaPokerGdxTable.stackChipPhysicalThickness(140f)),
+                "a relaxed chip must use the complete cylindrical extrusion");
+        assertEquals(281, CoronaPokerGdxTable.stackChipEdgeSourceHeight(
+                140f, CoronaPokerGdxTable.stackChipMinimumThickness(140f)),
+                "a compressed chip must crop the wall, not squash its art");
+        assertTrue(CoronaPokerGdxTable.stackChipEdgeInset(140f) > 0f,
+                "approved compact racks retain their inset wall profile");
+        assertEquals(0f,
+                CoronaPokerGdxTable.detailedStackChipEdgeInset(140f),
+                0.000_001f,
+                "the detailed face and wall must share one exact silhouette");
+        assertTrue(CoronaPokerGdxTable
+                .detailedStackChipEdgeRimThickness(140f)
+                < 140f * 0.02f,
+                "the detailed lower edge must be a fine bevel, not a band");
+    }
+
+    @Test
+    void chipEdgeMarksShareTheFaceAngleButLevelsRotateIndependently() {
+        java.util.HashSet<Integer> orientations = new java.util.HashSet<>();
+        for (int level = 0; level < 16; level++) {
+            int variant = CoronaPokerGdxTable.stackChipRotationVariant(
+                    "CoronaBot$4".hashCode(), 2, level);
+            orientations.add(variant);
+            assertEquals(variant, CoronaPokerGdxTable
+                    .stackChipRotationVariant("CoronaBot$4".hashCode(),
+                            2, level),
+                    "pseudo-random chip rotation must remain frame-stable");
+        }
+        assertTrue(orientations.size() >= 5,
+                "one pile must not form an artificial aligned white column");
+
+        for (int variant = 0; variant < 8; variant++) {
+            float phase = CoronaPokerGdxTable.stackChipRotationPhase(variant);
+            for (int mark = 0; mark < 5; mark++) {
+                float angle = phase + mark * MathUtils.PI2 / 8f;
+                if (angle > MathUtils.PI) continue;
+                assertTrue(CoronaPokerGdxTable.stackChipEdgeMarkAt(
+                        MathUtils.cos(angle), phase),
+                        "side insert must meet its face wedge at the rim");
+            }
+        }
     }
 
     @Test

@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(599, spanishKeys.size(),
+        assertEquals(602, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -156,6 +156,11 @@ final class GdxGameTextTest {
                 text.translate("gdx.table.chat.close_on_send"));
         assertEquals("TOTAL BET",
                 text.translate("gdx.table.hud.total_bet"));
+        assertEquals("PEPE'S STACK",
+                text.translate("gdx.table.stack_viewer.player_title",
+                        "Pepe").toUpperCase(java.util.Locale.ROOT));
+        assertEquals("STACK",
+                text.translate("gdx.table.stack_viewer.total"));
         assertEquals("RESUME", text.translate("gdx.table.resume"));
         assertEquals("Probability: 46",
                 text.translate("gdx.hand_generator.probability", 46));
@@ -176,6 +181,8 @@ final class GdxGameTextTest {
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
         assertEquals("Confirmar todas las acciones",
                 text.translate("gdx.settings.game.row.confirm_actions"));
+        assertEquals("STACK",
+                text.translate("gdx.table.stack_viewer.total"));
         assertEquals("¿SEGURO QUE QUIERES EXPULSAR A Pepe?",
                 text.translate("ui.seguro_que_quieres_expulsar_a", "Pepe"));
         assertEquals("Forzar reconexión de jugadores",
@@ -205,6 +212,9 @@ final class GdxGameTextTest {
                 text.translate("gdx.table.chat.no_messages"));
         assertEquals("APUESTA TOTAL",
                 text.translate("gdx.table.hud.total_bet"));
+        assertEquals("STACK DE Pepe",
+                text.translate("gdx.table.stack_viewer.player_title",
+                        "Pepe"));
         assertEquals("REANUDAR", text.translate("gdx.table.resume"));
         assertEquals("Probabilidad: 46",
                 text.translate("gdx.hand_generator.probability", 46));

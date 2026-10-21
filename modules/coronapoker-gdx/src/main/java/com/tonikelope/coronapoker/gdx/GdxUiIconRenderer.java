@@ -23,6 +23,7 @@ final class GdxUiIconRenderer {
         STATISTICS,
         CONTINUE,
         CAMERA,
+        CLOSE,
         SETTINGS,
         INFO,
         BLOCKED
@@ -49,6 +50,7 @@ final class GdxUiIconRenderer {
             case STATISTICS -> drawStatistics(shapes, centerX, centerY, size);
             case CONTINUE -> drawContinue(shapes, centerX, centerY, size);
             case CAMERA -> drawCamera(shapes, centerX, centerY, size);
+            case CLOSE -> drawClose(shapes, centerX, centerY, size);
             case SETTINGS -> drawSettings(shapes, centerX, centerY, size);
             case INFO -> drawInfo(shapes, centerX, centerY, size);
             case BLOCKED -> drawBlocked(shapes, centerX, centerY, size);
@@ -165,6 +167,26 @@ final class GdxUiIconRenderer {
                 cx + size * 0.12f, shoulderTop,
                 cx + size * 0.20f, top);
         ring(shapes, cx, cy, size * 0.17f, stroke, 32);
+    }
+
+    /**
+     * Geometrically centred close mark shared by every dialog.  A font glyph
+     * is centred by its advance and baseline rather than by its visible ink,
+     * which made the multiplication sign look low and slightly off-axis in
+     * compact close buttons.  Two equal, rounded strokes have no such font
+     * metrics and remain centred at every DPI.
+     */
+    private static void drawClose(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        float arm = size * 0.32f;
+        float stroke = Math.max(2f, size * 0.13f);
+        shapes.rectLine(cx - arm, cy - arm, cx + arm, cy + arm, stroke);
+        shapes.rectLine(cx - arm, cy + arm, cx + arm, cy - arm, stroke);
+        float cap = stroke / 2f;
+        shapes.circle(cx - arm, cy - arm, cap, 20);
+        shapes.circle(cx + arm, cy + arm, cap, 20);
+        shapes.circle(cx - arm, cy + arm, cap, 20);
+        shapes.circle(cx + arm, cy - arm, cap, 20);
     }
 
     private static void drawSettings(ShapeRenderer shapes, float cx,

@@ -12082,8 +12082,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
                 hoverAmount, down, 1f);
         Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
-        if ("-".equals(label) || "+".equals(label)
-                || GdxUiDialogStyle.CLOSE_GLYPH.equals(label)) {
+        if (GdxUiDialogStyle.CLOSE_GLYPH.equals(label)) {
+            GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CLOSE,
+                    x + w / 2f, y + h / 2f,
+                    Math.min(w, h) * 0.46f, labelColor, 1f);
+        } else if ("-".equals(label) || "+".equals(label)) {
             pixelSnappedTextInBox(labelFont, label, x, y, w, h,
                     labelColor);
         } else {

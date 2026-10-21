@@ -110,4 +110,22 @@ final class GdxUiDialogStyleTest {
                 < layout.closeButton().x);
         assertEquals("\u00d7", GdxUiDialogStyle.CLOSE_GLYPH);
     }
+
+    @Test
+    void everyRendererUsesTheGeometricallyCenteredCloseIcon()
+            throws Exception {
+        String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
+        String frontend = Files.readString(Path.of(base
+                + "GdxFrontendScreen.java"), StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of(base
+                + "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
+        String icons = Files.readString(Path.of(base
+                + "GdxUiIconRenderer.java"), StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains("GdxUiIconRenderer.Icon.CLOSE"));
+        assertTrue(table.contains("drawCloseButtonIcon"));
+        assertFalse(table.contains("GdxUiDialogStyle.CLOSE_GLYPH,"),
+                "table dialogs must not fall back to font metrics for X");
+        assertTrue(icons.contains("case CLOSE -> drawClose"));
+    }
 }

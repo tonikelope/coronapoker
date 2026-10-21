@@ -354,6 +354,13 @@ final class GdxTableViewStateTest {
                 0.000_001f);
         assertEquals(1f,
                 CoronaPokerGdxTable.seatActionTextAlpha(false), 0.000_001f);
+        assertEquals(0.50f, CoronaPokerGdxTable.foldedSeatOpacity(true),
+                0.000_001f);
+        assertEquals(1f, CoronaPokerGdxTable.foldedSeatOpacity(false),
+                0.000_001f);
+        assertEquals(0.28f, CoronaPokerGdxTable.DISABLED_CARD_ALPHA,
+                0.000_001f,
+                "unifying seat opacity must not alter folded hole cards");
     }
 
     @Test

@@ -2152,8 +2152,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawScreenshotViewer() {
         shapes.setColor(0.005f, 0.012f, 0.022f, 0.99f);
         shapes.rect(0f, 0f, WIDTH, HEIGHT);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.84f);
-        shapes.rect(40f, 995f, WIDTH - 80f, 3f);
 
         textFit(headingFont,
                 uppercase(gameText.translate("menu.visor_capturas")),
@@ -11246,8 +11244,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void panel(float x, float y, float w, float h, String title) {
         outerBox(x, y, w, h, LINE, PANEL);
-        shapes.setColor(new Color(0x36d9ff70));
-        shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
         if (!title.isBlank()) {
             textFit(headingFont, title, x + 34f, y + h - 29f, GOLD,
                     false, Math.max(0f, w - 68f));
@@ -11260,8 +11256,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void lobbyPanel(float x, float y, float w, float h,
             String title) {
         outerBox(x, y, w, h, LINE, PANEL);
-        shapes.setColor(new Color(0x36d9ff70));
-        shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
         if (!title.isBlank()) {
             textFit(headingFont, title, x + 34f, y + h - 29f, GOLD,
                     false, Math.max(0f, w - 68f));
@@ -11273,8 +11267,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     /** Shared glass panel without content bands or a title/header region. */
     private void plainPanel(float x, float y, float w, float h) {
         outerBox(x, y, w, h, LINE, PANEL);
-        shapes.setColor(new Color(0x36d9ff70));
-        shapes.rect(x + 18f, y + h - 8f, w - 36f, 2f);
     }
 
     private void sectionTag(float x, float y, float w, String label,

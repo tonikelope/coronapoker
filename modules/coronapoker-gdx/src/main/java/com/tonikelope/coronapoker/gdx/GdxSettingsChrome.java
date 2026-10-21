@@ -51,9 +51,6 @@ final class GdxSettingsChrome {
         int sectionCount = sections.size();
 
         outerBox(shapes, panel, CYAN_DARK, PANEL, alpha);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.72f * alpha);
-        shapes.rect(panel.x + 22f, panel.y + panel.height - 11f,
-                panel.width - 44f, 3f);
         outerBox(shapes, content, LINE, CONTENT, alpha);
 
         for (int index = 0; index < sectionCount; index++) {

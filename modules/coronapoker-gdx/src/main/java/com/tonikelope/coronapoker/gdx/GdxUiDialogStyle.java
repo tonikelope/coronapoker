@@ -130,8 +130,6 @@ final class GdxUiDialogStyle {
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,
                 width - 2f, height - 2f, 17f, 2f);
-        shapes.setColor(accent.r, accent.g, accent.b, 0.72f * alpha);
-        shapes.rect(x + 28f, y + height - 10f, width - 56f, 3f);
     }
 
     static void drawInset(ShapeRenderer shapes, float x, float y,

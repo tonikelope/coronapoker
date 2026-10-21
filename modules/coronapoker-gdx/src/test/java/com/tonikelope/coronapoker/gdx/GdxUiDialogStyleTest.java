@@ -1,9 +1,13 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class GdxUiDialogStyleTest {
@@ -21,6 +25,30 @@ final class GdxUiDialogStyleTest {
         assertTrue(insetAlpha < panelAlpha,
                 "nested reading surfaces must not make the shell opaque");
         assertEquals(0.68f, GdxUiDialogStyle.BACKDROP_ALPHA);
+    }
+
+    @Test
+    void legacyTopEdgeRailsStayRemovedFromSharedSurfaces() throws Exception {
+        String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
+        String dialogs = Files.readString(Path.of(base
+                + "GdxUiDialogStyle.java"), StandardCharsets.UTF_8);
+        String settings = Files.readString(Path.of(base
+                + "GdxSettingsChrome.java"), StandardCharsets.UTF_8);
+        String frontend = Files.readString(Path.of(base
+                + "GdxFrontendScreen.java"), StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of(base
+                + "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
+
+        assertFalse(dialogs.contains("width - 56f, 3f"));
+        assertFalse(settings.contains("panel.width - 44f, 3f"));
+        assertFalse(frontend.contains("w - 36f, 2f"));
+        assertFalse(frontend.contains("WIDTH - 80f, 3f"));
+        assertFalse(table.contains("width - 20f, 2f"));
+        assertFalse(table.contains("boxW - 20f, 2f"));
+        assertFalse(table.contains("BASE_WIDTH - 80f, 3f"));
+        assertFalse(table.contains("width - 10f, 6f, 3f"));
+        assertFalse(table.contains("stackBounds.width - 24f, 2f"));
+        assertFalse(table.contains("investedBounds.width - 24f, 2f"));
     }
 
     @Test

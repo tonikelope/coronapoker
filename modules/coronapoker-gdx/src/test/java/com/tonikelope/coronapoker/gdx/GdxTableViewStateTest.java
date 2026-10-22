@@ -369,6 +369,12 @@ final class GdxTableViewStateTest {
                 true, 0f), "an invisible rack needs no off-screen pass");
         assertFalse(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
                 true, 1f), "an opaque rack needs no off-screen pass");
+        assertTrue(CoronaPokerGdxTable.shouldCompositePotChipRack(0.50f),
+                "the half-opacity all-in pot must fade after composition");
+        assertFalse(CoronaPokerGdxTable.shouldCompositePotChipRack(0f),
+                "an invisible pot rack needs no off-screen pass");
+        assertFalse(CoronaPokerGdxTable.shouldCompositePotChipRack(1f),
+                "the ordinary opaque pot keeps the direct rendering path");
         assertEquals(0.28f, CoronaPokerGdxTable.DISABLED_CARD_ALPHA,
                 0.000_001f,
                 "unifying seat opacity must not alter folded hole cards");

@@ -61,6 +61,27 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
+    void allInPotFadesItsCompleteCrispRackOnlyAfterComposition()
+            throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        int method = table.indexOf(
+                "private void drawPotPanelSurface(float alpha)");
+        int begin = table.indexOf(
+                "beginFoldedChipRackLayer(iconCenterX, iconBaseY)",
+                method);
+        int opaqueRack = table.indexOf(
+                "physicalCounts, composite ? 1f : opacity", begin);
+        int finish = table.indexOf(
+                "finishFoldedChipRackLayer(iconCenterX, iconBaseY,",
+                opaqueRack);
+
+        assertTrue(method >= 0 && begin > method,
+                "the translucent all-in pot must capture its chip rack");
+        assertTrue(opaqueRack > begin && finish > opaqueRack,
+                "the rack must remain opaque until the completed layer fades");
+    }
+
+    @Test
     void smaaLayerRebindsItsFramebufferAndNativeResolutionViewport()
             throws IOException {
         String smaa = Files.readString(source("GdxCardSmaaRenderer.java"));

@@ -295,9 +295,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
     private static final float STACK_CHIP_COLUMN_STAGGER_SECONDS = 0.022f;
     /**
-     * Small off-screen surface used to fade a folded rack as one physical
-     * object.  It deliberately has enough transparent padding for the larger
-     * local rack, so local and rival stacks can reuse the same allocation.
+     * Small off-screen surface used to fade a rack as one physical object.
+     * It deliberately has enough transparent padding for the larger local and
+     * pot racks, so every compact stack can reuse the same allocation.
      */
     private static final float FOLDED_CHIP_RACK_LAYER_WIDTH = 128f;
     private static final float FOLDED_CHIP_RACK_LAYER_HEIGHT = 96f;
@@ -11233,7 +11233,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static boolean shouldCompositeFoldedChipRack(boolean folded, float alpha) {
-        return folded && alpha > 0f && alpha < 1f;
+        return folded && shouldCompositeChipRack(alpha);
+    }
+
+    static boolean shouldCompositePotChipRack(float alpha) {
+        return shouldCompositeChipRack(alpha);
+    }
+
+    private static boolean shouldCompositeChipRack(float alpha) {
+        return alpha > 0f && alpha < 1f;
     }
 
     private static boolean hasVisibleStackChips(float[] physicalCounts) {
@@ -11247,7 +11255,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * Ends the caller's active batch and starts a transparent, rack-sized
      * capture. Rendering every chip at normal opacity in this surface prevents
      * the felt and neighbouring chips from bleeding through each overlapping
-     * primitive when the seat is folded.
+     * primitive when the complete rack receives reduced opacity.
      */
     private boolean beginFoldedChipRackLayer(float centerX, float centerY) {
         batch.end();
@@ -14322,9 +14330,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
             float iconBaseY = potChipRackBaseY(potGeometry);
             GdxStackChipLayout.Layout potLayout = visualChipLayout(potChips);
+            float[] physicalCounts = displayedPotChipCounts(potLayout);
+            boolean composite = hasVisibleStackChips(physicalCounts)
+                    && shouldCompositePotChipRack(opacity)
+                    && beginFoldedChipRackLayer(iconCenterX, iconBaseY);
             drawChipRack(iconCenterX, iconBaseY, potLayout,
-                    displayedPotChipCounts(potLayout), opacity, potGeometry,
+                    physicalCounts, composite ? 1f : opacity, potGeometry,
                     0x504f54);
+            if (composite) {
+                finishFoldedChipRackLayer(iconCenterX, iconBaseY,
+                        opacity);
+            }
         }
         float textAreaX = panelX + 98f;
         float textAreaWidth = panelWidth - 112f;

@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -910,45 +911,93 @@ final class GdxTableViewStateTest {
     void visibleChipColumnsCompactAndRecenterWithoutEmptySlots() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
-
-        // Only x2 and x5 exist: they must become adjacent instead of keeping
-        // their original extreme four-column anchors.
-        float[] two = CoronaPokerGdxTable.stackChipColumnOffsets(local,
-                new float[]{0f, 3f, 2f, 0f});
-        assertEquals(local.columnGap(), two[2] - two[1], 0.000_01f);
         float rackCenter = local.firstColumnOffset()
                 + 1.5f * local.columnGap();
+        float pairPitch = local.chipSize() * 1.04f;
+        float trianglePitch = (CoronaPokerGdxTable
+                .stackChipColumnSlotPosition(0) - CoronaPokerGdxTable
+                        .stackChipColumnSlotPosition(1)) * local.columnGap();
+
+        // Any two colours share one centred foreground row with a real gap.
+        float[] two = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                new float[]{0f, 3f, 2f, 0f});
+        float[] twoRises = CoronaPokerGdxTable.stackChipColumnBaseRises(
+                local, new float[]{0f, 3f, 2f, 0f});
+        assertEquals(pairPitch, two[2] - two[1], 0.000_01f);
         assertEquals(rackCenter, (two[1] + two[2]) / 2f, 0.000_01f);
+        assertEquals(0f, twoRises[1], 0.000_01f);
+        assertEquals(0f, twoRises[2], 0.000_01f);
 
-        // A lone x1 chip is centred in the rack rather than stranded in its
-        // former fixed third slot.
-        float[] one = CoronaPokerGdxTable.stackChipColumnOffsets(local,
-                new float[]{1f, 0f, 0f, 0f});
-        assertEquals(rackCenter, one[0], 0.000_01f);
+        // A lone column is centred and grounded regardless of denomination.
+        for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
+                column++) {
+            float[] heights = new float[GdxStackChipLayout.COLUMN_COUNT];
+            heights[column] = 1f;
+            float[] one = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                    heights);
+            float[] oneRise = CoronaPokerGdxTable
+                    .stackChipColumnBaseRises(local, heights);
+            assertEquals(rackCenter, one[column], 0.000_01f);
+            assertEquals(0f, oneRise[column], 0.000_01f);
+        }
 
-        // The x1/x2 piles share the foreground plane. They must rest beside
-        // one another instead of intersecting when those are the only two
-        // colours in a pot or player HUD.
-        float[] foregroundPair = CoronaPokerGdxTable
-                .stackChipColumnOffsets(local,
-                        new float[]{1f, 1f, 0f, 0f});
-        assertTrue(foregroundPair[0] - foregroundPair[1]
-                > local.chipSize(),
-                "same-row foreground piles must have a physical gap");
-        assertEquals(rackCenter,
-                (foregroundPair[0] + foregroundPair[1]) / 2f,
+        // Three colours always form a triangle. Red is centred behind the
+        // yellow/blue pair in the common case from the table pot.
+        float[] yellowBlueRed = {1f, 1f, 1f, 0f};
+        float[] triangle = CoronaPokerGdxTable.stackChipColumnOffsets(local,
+                yellowBlueRed);
+        float[] triangleRises = CoronaPokerGdxTable
+                .stackChipColumnBaseRises(local, yellowBlueRed);
+        assertEquals(rackCenter, triangle[2], 0.000_01f);
+        assertEquals(rackCenter, (triangle[1] + triangle[0]) / 2f,
+                0.000_01f);
+        assertEquals(trianglePitch, triangle[0] - triangle[1],
+                0.000_01f);
+        assertEquals(0f, triangleRises[0], 0.000_01f);
+        assertEquals(0f, triangleRises[1], 0.000_01f);
+        assertEquals(local.zigzagRise(), triangleRises[2], 0.000_01f);
+
+        // Replacing red with green keeps the same triangle: placement is
+        // driven by visible-column count rather than a hard-coded colour.
+        float[] yellowBlueGreen = {1f, 1f, 0f, 1f};
+        float[] greenTriangle = CoronaPokerGdxTable
+                .stackChipColumnOffsets(local, yellowBlueGreen);
+        float[] greenTriangleRises = CoronaPokerGdxTable
+                .stackChipColumnBaseRises(local, yellowBlueGreen);
+        assertEquals(rackCenter, greenTriangle[3], 0.000_01f);
+        assertEquals(local.zigzagRise(), greenTriangleRises[3],
                 0.000_01f);
 
-        float[] rearPair = CoronaPokerGdxTable.stackChipColumnOffsets(local,
-                new float[]{0f, 0f, 1f, 1f});
-        assertTrue(rearPair[2] - rearPair[3] > local.chipSize(),
-                "same-row rear piles must have a physical gap");
-        assertEquals(rackCenter, (rearPair[2] + rearPair[3]) / 2f,
-                0.000_01f);
+        // Rival pods and the pot use the same count-driven topology, scaled
+        // only by their own rack geometry.
+        for (CoronaPokerGdxTable.StackChipRackGeometry geometry : List.of(
+                CoronaPokerGdxTable.stackChipRackGeometry(false),
+                CoronaPokerGdxTable.potChipRackGeometry())) {
+            float center = geometry.firstColumnOffset()
+                    + 1.5f * geometry.columnGap();
+            float[] sharedTriangle = CoronaPokerGdxTable
+                    .stackChipColumnOffsets(geometry, yellowBlueRed);
+            float[] sharedRises = CoronaPokerGdxTable
+                    .stackChipColumnBaseRises(geometry, yellowBlueRed);
+            assertEquals(center, sharedTriangle[2], 0.000_01f);
+            assertEquals(center,
+                    (sharedTriangle[1] + sharedTriangle[0]) / 2f,
+                    0.000_01f);
+            float existingForegroundPitch = (CoronaPokerGdxTable
+                    .stackChipColumnSlotPosition(0) - CoronaPokerGdxTable
+                            .stackChipColumnSlotPosition(1))
+                                    * geometry.columnGap();
+            assertEquals(existingForegroundPitch,
+                    sharedTriangle[0] - sharedTriangle[1], 0.000_01f);
+            assertEquals(geometry.zigzagRise(), sharedRises[2],
+                    0.000_01f);
+        }
 
         // The complete rack retains the deliberately opened centre lane.
         float[] four = CoronaPokerGdxTable.stackChipColumnOffsets(local,
                 new float[]{1f, 1f, 1f, 1f});
+        float[] fourRises = CoronaPokerGdxTable.stackChipColumnBaseRises(
+                local, new float[]{1f, 1f, 1f, 1f});
         assertEquals(local.firstColumnOffset(), four[1], 0.000_01f);
         assertEquals(local.firstColumnOffset()
                 + 0.85f * local.columnGap(), four[3], 0.000_01f);
@@ -956,12 +1005,14 @@ final class GdxTableViewStateTest {
                 + 2.15f * local.columnGap(), four[0], 0.000_01f);
         assertEquals(local.firstColumnOffset()
                 + 3f * local.columnGap(), four[2], 0.000_01f);
+        assertArrayEquals(new float[]{0f, 0f, local.zigzagRise(),
+            local.zigzagRise()}, fourRises, 0.000_01f);
 
         CoronaPokerGdxTable.StackChipRackGeometry pot =
                 CoronaPokerGdxTable.potChipRackGeometry();
-        float[] yellowBlueRed = CoronaPokerGdxTable.stackChipColumnOffsets(
-                pot, new float[]{1f, 1f, 1f, 0f});
-        float blueRedX = (yellowBlueRed[2] - yellowBlueRed[0])
+        float[] potTriangle = CoronaPokerGdxTable.stackChipColumnOffsets(
+                pot, yellowBlueRed);
+        float blueRedX = (potTriangle[2] - potTriangle[0])
                 / pot.chipSize();
         float blueRedY = pot.zigzagRise()
                 / CoronaPokerGdxTable.stackChipProjectedHeight(pot);
@@ -1023,9 +1074,11 @@ final class GdxTableViewStateTest {
     void chipColumnsCompressContinuouslyWithoutCrossingMinimumEdge() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
+        // A lone denomination now rests on the foreground row regardless of
+        // colour, so all of the rack height is available to this column.
         float exactRelaxedCapacity = 1f + (local.maximumHeight()
-                - CoronaPokerGdxTable.stackChipProjectedHeight(local)
-                - local.zigzagRise()) / local.normalVerticalGap();
+                - CoronaPokerGdxTable.stackChipProjectedHeight(local))
+                / local.normalVerticalGap();
         float relaxed = CoronaPokerGdxTable.stackChipRackVerticalGap(local,
                 new float[]{0f, 0f, 0f, exactRelaxedCapacity});
         float firstHalfStep = CoronaPokerGdxTable.stackChipRackVerticalGap(

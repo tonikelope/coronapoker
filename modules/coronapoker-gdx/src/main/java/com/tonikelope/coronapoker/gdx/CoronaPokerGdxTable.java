@@ -342,7 +342,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float[] STACK_CHIP_SLOT_POSITIONS = {
         0f, 0.85f, 2.15f, 3f
     };
-    private static final float STACK_CHIP_CENTRE_LANE_EXPANSION = 0.15f;
     /**
      * Apparent side height of the low-angle casino-chip reference. The raw
      * 3.3:39.5 material ratio looked too thin after projecting the circular
@@ -11681,18 +11680,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxStackChipLayout.Layout layout, float[] physicalCounts,
             float alpha, StackChipRackGeometry geometry, int rackSeed) {
         float[] heights = new float[physicalCounts.length];
+        float[] physicalBaseRises = stackChipColumnBaseRises(geometry,
+                physicalCounts);
         for (int column = 0; column < physicalCounts.length; column++) {
-            heights[column] = stackChipPerceivedLevels(geometry, column,
-                    physicalCounts[column]);
+            heights[column] = stackChipPerceivedLevels(geometry,
+                    physicalBaseRises[column], physicalCounts[column]);
         }
         float fittedVerticalGap = stackChipRackVerticalGap(geometry, heights);
-        float[] columnOffsets = stackChipColumnOffsets(geometry, heights);
+        StackChipRackPlacement placement = stackChipRackPlacement(geometry,
+                heights);
         for (int column : STACK_CHIP_COLUMN_DRAW_ORDER) {
             float height = Math.max(0f, heights[column]);
-            float baseRise = stackChipColumnForeground(column) ? 0f
-                    : geometry.zigzagRise();
-            float columnX = centerX + columnOffsets[column];
-            float columnY = centerY + baseRise;
+            float columnX = centerX + placement.offsets()[column];
+            float columnY = centerY + placement.baseRises()[column];
             GdxStackChipLayout.Column chipColumn = layout.columns().get(column);
             int textureIndex = Math.floorMod(chipColumn.color(),
                     flyingChips.length);
@@ -11876,11 +11876,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static float stackChipRackVerticalGap(StackChipRackGeometry geometry,
             float[] heights) {
         float fittedGap = geometry.normalVerticalGap();
+        float[] baseRises = stackChipColumnBaseRises(geometry, heights);
         for (int column = 0; column < heights.length; column++) {
             float visibleLevels = Math.max(0f, heights[column]);
             if (visibleLevels <= 1f) continue;
-            float baseRise = stackChipColumnForeground(column) ? 0f
-                    : geometry.zigzagRise();
+            float baseRise = baseRises[column];
             float maximumRise = Math.max(0f, geometry.maximumHeight()
                     - stackChipProjectedHeight(geometry) - baseRise);
             fittedGap = Math.min(fittedGap, maximumRise
@@ -11894,6 +11894,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int column) {
         float baseRise = stackChipColumnForeground(column) ? 0f
                 : geometry.zigzagRise();
+        return stackChipRelaxedCapacity(geometry, baseRise);
+    }
+
+    private static int stackChipRelaxedCapacity(
+            StackChipRackGeometry geometry, float baseRise) {
         float maximumRise = Math.max(0f, geometry.maximumHeight()
                 - stackChipProjectedHeight(geometry) - baseRise);
         return 1 + MathUtils.floor(maximumRise
@@ -11914,8 +11919,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static float stackChipPerceivedLevels(StackChipRackGeometry geometry,
             int column, float physicalLevels) {
+        float baseRise = stackChipColumnForeground(column) ? 0f
+                : geometry.zigzagRise();
+        return stackChipPerceivedLevels(geometry, baseRise, physicalLevels);
+    }
+
+    private static float stackChipPerceivedLevels(
+            StackChipRackGeometry geometry, float baseRise,
+            float physicalLevels) {
         float levels = Math.max(0f, physicalLevels);
-        float relaxed = stackChipRelaxedCapacity(geometry, column);
+        float relaxed = stackChipRelaxedCapacity(geometry, baseRise);
         if (levels <= relaxed) return levels;
         float headroom = Math.max(1f,
                 STACK_CHIP_MAX_COMPRESSED_LEVELS - relaxed);
@@ -11927,90 +11940,120 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /**
-     * Packs only the denomination columns that are actually visible. The
-     * weighted presence makes a stack slide into its new compact position
-     * during the existing grow/shrink animation instead of jumping after a
-     * denomination disappears. With all four columns present, the subtle
-     * wider centre lane is restored so both rear stacks remain readable.
+     * Packs only the denomination columns that are actually visible. One
+     * column is centred, two share the foreground row, three form a triangle,
+     * and the established four-column zigzag remains unchanged. The weakest
+     * partially visible column blends between adjacent arrangements so the
+     * existing grow/shrink animation never makes the rack jump.
      */
     static float[] stackChipColumnOffsets(StackChipRackGeometry geometry,
             float[] heights) {
-        float[] offsets = new float[GdxStackChipLayout.COLUMN_COUNT];
-        float[] presence = new float[GdxStackChipLayout.COLUMN_COUNT];
-        float totalPresence = 0f;
-        float allPresent = 1f;
+        return stackChipRackPlacement(geometry, heights).offsets();
+    }
+
+    static float[] stackChipColumnBaseRises(
+            StackChipRackGeometry geometry, float[] heights) {
+        return stackChipRackPlacement(geometry, heights).baseRises();
+    }
+
+    private static StackChipRackPlacement stackChipRackPlacement(
+            StackChipRackGeometry geometry, float[] heights) {
+        boolean[] active = new boolean[GdxStackChipLayout.COLUMN_COUNT];
+        int activeCount = 0;
+        int weakestColumn = -1;
+        float weakestPresence = Float.POSITIVE_INFINITY;
         for (int slot = 0; slot < STACK_CHIP_COLUMN_SLOT_ORDER.length;
                 slot++) {
             int column = STACK_CHIP_COLUMN_SLOT_ORDER[slot];
             float raw = column < heights.length
                     ? MathUtils.clamp(heights[column], 0f, 1f) : 0f;
             float visible = Interpolation.smoother.apply(raw);
-            presence[column] = visible;
-            totalPresence += visible;
-            allPresent = Math.min(allPresent, visible);
-        }
-
-        float rackCenter = geometry.firstColumnOffset()
-                + 1.5f * geometry.columnGap();
-        if (totalPresence <= 0.000_001f) {
-            java.util.Arrays.fill(offsets, rackCenter);
-            return offsets;
-        }
-
-        float cursor = 0f;
-        for (int slot = 0; slot < STACK_CHIP_COLUMN_SLOT_ORDER.length;
-                slot++) {
-            int column = STACK_CHIP_COLUMN_SLOT_ORDER[slot];
-            float visible = presence[column];
-            offsets[column] = rackCenter + (cursor + visible / 2f
-                    - totalPresence / 2f) * geometry.columnGap();
-            cursor += visible;
-        }
-
-        float centreExpansion = geometry.columnGap()
-                * STACK_CHIP_CENTRE_LANE_EXPANSION * allPresent;
-        offsets[STACK_CHIP_COLUMN_SLOT_ORDER[1]] -= centreExpansion;
-        offsets[STACK_CHIP_COLUMN_SLOT_ORDER[2]] += centreExpansion;
-
-        // The compact four-colour layout uses two depth rows. Columns in
-        // different rows may occlude one another naturally, but two columns
-        // resting on the same row must never intersect as happened with a
-        // lone blue pile embedded in the yellow pot pile.
-        float minimumSameRowPitch = geometry.chipSize()
-                * STACK_CHIP_SAME_ROW_PITCH_RATIO;
-        enforceStackChipRowPitch(offsets, presence, 1, 0,
-                minimumSameRowPitch);
-        enforceStackChipRowPitch(offsets, presence, 3, 2,
-                minimumSameRowPitch);
-
-        float minimum = Float.POSITIVE_INFINITY;
-        float maximum = Float.NEGATIVE_INFINITY;
-        for (int column = 0; column < presence.length; column++) {
-            if (presence[column] <= 0.000_001f) continue;
-            minimum = Math.min(minimum, offsets[column]);
-            maximum = Math.max(maximum, offsets[column]);
-        }
-        if (minimum <= maximum) {
-            float correction = rackCenter - (minimum + maximum) / 2f;
-            for (int column = 0; column < offsets.length; column++) {
-                offsets[column] += correction;
+            if (visible <= 0.000_001f) continue;
+            active[column] = true;
+            activeCount++;
+            if (visible < weakestPresence) {
+                weakestPresence = visible;
+                weakestColumn = column;
             }
         }
-        return offsets;
+
+        StackChipRackPlacement full = stableStackChipRackPlacement(geometry,
+                active, activeCount);
+        if (activeCount <= 1 || weakestPresence >= 0.999_999f) {
+            return full;
+        }
+
+        boolean[] previousActive = active.clone();
+        previousActive[weakestColumn] = false;
+        StackChipRackPlacement previous = stableStackChipRackPlacement(
+                geometry, previousActive, activeCount - 1);
+        float[] offsets = full.offsets().clone();
+        float[] baseRises = full.baseRises().clone();
+        for (int column = 0; column < offsets.length; column++) {
+            if (column == weakestColumn) continue;
+            offsets[column] = MathUtils.lerp(previous.offsets()[column],
+                    full.offsets()[column], weakestPresence);
+            baseRises[column] = MathUtils.lerp(
+                    previous.baseRises()[column],
+                    full.baseRises()[column], weakestPresence);
+        }
+        return new StackChipRackPlacement(offsets, baseRises);
     }
 
-    private static void enforceStackChipRowPitch(float[] offsets,
-            float[] presence, int leftColumn, int rightColumn,
-            float minimumPitch) {
-        float sharedPresence = Math.min(presence[leftColumn],
-                presence[rightColumn]);
-        if (sharedPresence <= 0.000_001f) return;
-        float required = minimumPitch * sharedPresence;
-        float current = offsets[rightColumn] - offsets[leftColumn];
-        if (current >= required) return;
-        float expansion = (required - current) / 2f;
-        offsets[leftColumn] -= expansion;
-        offsets[rightColumn] += expansion;
+    private static StackChipRackPlacement stableStackChipRackPlacement(
+            StackChipRackGeometry geometry, boolean[] active,
+            int activeCount) {
+        float rackCenter = geometry.firstColumnOffset()
+                + 1.5f * geometry.columnGap();
+        float[] offsets = new float[GdxStackChipLayout.COLUMN_COUNT];
+        java.util.Arrays.fill(offsets, rackCenter);
+        float[] baseRises = new float[GdxStackChipLayout.COLUMN_COUNT];
+        if (activeCount <= 0) {
+            return new StackChipRackPlacement(offsets, baseRises);
+        }
+
+        if (activeCount == GdxStackChipLayout.COLUMN_COUNT) {
+            for (int column = 0; column < offsets.length; column++) {
+                offsets[column] = geometry.firstColumnOffset()
+                        + stackChipColumnSlotPosition(column)
+                                * geometry.columnGap();
+                baseRises[column] = stackChipColumnForeground(column)
+                        ? 0f : geometry.zigzagRise();
+            }
+            return new StackChipRackPlacement(offsets, baseRises);
+        }
+
+        int rearColumn = -1;
+        if (activeCount == 3) {
+            for (int column = active.length - 1; column >= 0; column--) {
+                if (active[column]) {
+                    rearColumn = column;
+                    baseRises[column] = geometry.zigzagRise();
+                    break;
+                }
+            }
+        }
+
+        int[] foreground = new int[2];
+        int foregroundCount = 0;
+        for (int column : STACK_CHIP_COLUMN_SLOT_ORDER) {
+            if (!active[column] || column == rearColumn) continue;
+            foreground[foregroundCount++] = column;
+        }
+        if (foregroundCount == 1) {
+            offsets[foreground[0]] = rackCenter;
+        } else if (foregroundCount == 2) {
+            float pitch = activeCount == 3
+                    ? (stackChipColumnSlotPosition(0)
+                            - stackChipColumnSlotPosition(1))
+                                    * geometry.columnGap()
+                    : geometry.chipSize()
+                            * STACK_CHIP_SAME_ROW_PITCH_RATIO;
+            float halfPitch = pitch / 2f;
+            offsets[foreground[0]] = rackCenter - halfPitch;
+            offsets[foreground[1]] = rackCenter + halfPitch;
+        }
+        return new StackChipRackPlacement(offsets, baseRises);
     }
 
     static float stackChipColumnVisualHeight(StackChipRackGeometry geometry,
@@ -12054,6 +12097,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     record StackChipRackGeometry(float chipSize, float firstColumnOffset,
             float columnGap, float zigzagRise, float normalVerticalGap,
             float minimumVerticalGap, float rackWidth, float maximumHeight) {
+    }
+
+    private record StackChipRackPlacement(float[] offsets,
+            float[] baseRises) {
     }
 
     private record PotChipAnchor(float x, float y) {
@@ -14384,20 +14431,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         StackChipRackGeometry geometry = animatedPotChipRackGeometry();
         float[] heights = new float[physicalCounts.length];
+        float[] physicalBaseRises = stackChipColumnBaseRises(geometry,
+                physicalCounts);
         for (int index = 0; index < physicalCounts.length; index++) {
-            heights[index] = stackChipPerceivedLevels(geometry, index,
-                    physicalCounts[index]);
+            heights[index] = stackChipPerceivedLevels(geometry,
+                    physicalBaseRises[index], physicalCounts[index]);
         }
         float fittedGap = stackChipRackVerticalGap(geometry, heights);
-        float[] offsets = stackChipColumnOffsets(geometry, heights);
+        StackChipRackPlacement placement = stackChipRackPlacement(geometry,
+                heights);
         float rackCenterX = potChipRackCenterX(potCenterX);
-        float baseRise = stackChipColumnForeground(column) ? 0f
-                : geometry.zigzagRise();
+        float baseRise = placement.baseRises()[column];
         float topLevel = Math.max(0f, heights[column] - 1f);
         float topCenterY = potChipRackBaseY(geometry) + baseRise
                 - geometry.chipSize() / 2f + topLevel * fittedGap
                 + stackChipProjectedHeight(geometry) / 2f;
-        return new PotChipAnchor(rackCenterX + offsets[column], topCenterY);
+        return new PotChipAnchor(
+                rackCenterX + placement.offsets()[column], topCenterY);
     }
 
     static float potChipRackCenterX(float panelCenterX) {

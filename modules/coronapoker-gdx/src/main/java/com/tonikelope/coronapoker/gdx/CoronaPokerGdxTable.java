@@ -275,10 +275,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_MAX_WIDTH = 820f;
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
-    private static final int WINNER_SPARK_PARTICLE_COUNT = 56;
+    private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
-    private static final WinnerSparkParticle[] WINNER_SPARK_PARTICLES =
-            createWinnerSparkParticles();
+    private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
+            createWinnerGlowParticles();
     private static final float AVATAR_ZOOM_HOVER_SECONDS = 0.250f;
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
@@ -12539,18 +12539,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return profiles;
     }
 
-    private static WinnerSparkParticle[] createWinnerSparkParticles() {
-        WinnerSparkParticle[] profiles =
-                new WinnerSparkParticle[WINNER_SPARK_PARTICLE_COUNT];
+    private static WinnerGlowParticle[] createWinnerGlowParticles() {
+        WinnerGlowParticle[] profiles =
+                new WinnerGlowParticle[WINNER_GLOW_PARTICLE_COUNT];
         for (int particle = 0; particle < profiles.length; particle++) {
-            profiles[particle] = new WinnerSparkParticle(
-                    0.105f + (particle % 7) * 0.009f,
-                    (particle * 0.61803398875f) % 1f,
-                    (((particle * 47) % 101) / 100f - 0.5f) * 122f,
-                    8f + particle % 6 * 4f,
-                    94f + particle % 9 * 13f,
-                    1.7f + particle % 4 * 0.65f,
-                    particle % 5 == 0);
+            profiles[particle] = new WinnerGlowParticle(
+                    particle * 1.731f,
+                    particle * 0.019f,
+                    particle % 2 == 0 ? 0.35f : -0.28f,
+                    90f + particle % 8 * 18f,
+                    2f + particle % 4,
+                    particle % 3 == 0);
         }
         return profiles;
     }
@@ -12559,8 +12558,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float primaryPhase, float secondaryPhase, float radiusOffset) {
     }
 
-    private record WinnerSparkParticle(float speed, float travelOffset,
-            float origin, float sway, float lift, float size,
+    private record WinnerGlowParticle(float phase, float travelOffset,
+            float angularSpeed, float radialDistance, float radius,
             boolean cyan) {
     }
 
@@ -17711,69 +17710,70 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float sweep = liveAnimationsEnabled()
                     ? (totalTime * 0.31f + winner.index * 0.23f) % 1f
                     : 0.5f;
-            float perimeter = 2f * (frameWidth + frameHeight);
-            float travel = sweep * perimeter;
-            float glintX;
-            float glintY;
-            if (travel < frameWidth) {
-                glintX = frameX + travel;
-                glintY = frameY + frameHeight;
-            } else if (travel < frameWidth + frameHeight) {
-                glintX = frameX + frameWidth;
-                glintY = frameY + frameHeight
-                        - (travel - frameWidth);
-            } else if (travel < frameWidth * 2f + frameHeight) {
-                glintX = frameX + frameWidth
-                        - (travel - frameWidth - frameHeight);
-                glintY = frameY;
-            } else {
-                glintX = frameX;
-                glintY = frameY + travel - frameWidth * 2f - frameHeight;
-            }
-            shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                    WINNER_NEON_GREEN.b, 0.34f * progress);
-            shapes.circle(glintX, glintY, 7f + pulse * 2f, 18);
-            shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
-                    WINNER_NEON_CORE.b, 0.96f * progress);
-            shapes.circle(glintX, glintY, 2.4f + pulse * 0.8f, 14);
+            float counterPhase = 0.5f - totalTime * 0.31f
+                    + winner.index * 0.17f;
+            float counterSweep = liveAnimationsEnabled()
+                    ? counterPhase - MathUtils.floor(counterPhase) : 0f;
+            drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
+                    sweep, pulse, progress, 1f);
+            drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
+                    counterSweep, 1f - pulse, progress, 0.86f);
         }
         shapes.end();
     }
 
+    private void drawWinnerFrameGlint(float frameX, float frameY,
+            float frameWidth, float frameHeight, float sweep, float pulse,
+            float progress, float scale) {
+        float perimeter = 2f * (frameWidth + frameHeight);
+        float travel = sweep * perimeter;
+        float glintX;
+        float glintY;
+        if (travel < frameWidth) {
+            glintX = frameX + travel;
+            glintY = frameY + frameHeight;
+        } else if (travel < frameWidth + frameHeight) {
+            glintX = frameX + frameWidth;
+            glintY = frameY + frameHeight - (travel - frameWidth);
+        } else if (travel < frameWidth * 2f + frameHeight) {
+            glintX = frameX + frameWidth
+                    - (travel - frameWidth - frameHeight);
+            glintY = frameY;
+        } else {
+            glintX = frameX;
+            glintY = frameY + travel - frameWidth * 2f - frameHeight;
+        }
+        shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
+                WINNER_NEON_GREEN.b, 0.34f * progress);
+        shapes.circle(glintX, glintY, (7f + pulse * 2f) * scale, 18);
+        shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
+                WINNER_NEON_CORE.b, 0.96f * progress);
+        shapes.circle(glintX, glintY,
+                (2.4f + pulse * 0.8f) * scale, 14);
+    }
+
     private void drawLiveWinnerParticles() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
             float winnerProgress = liveWinnerEffectProgress(winner);
             float centerX = seatAvatarX(winner);
-            float animationTime = liveAnimationsEnabled()
-                    ? totalTime : winnerProgress * 1.2f;
-            for (int particle = 0; particle < WINNER_SPARK_PARTICLE_COUNT;
+            for (int particle = 0; particle < WINNER_GLOW_PARTICLE_COUNT;
                     particle++) {
-                WinnerSparkParticle profile = WINNER_SPARK_PARTICLES[particle];
-                float travel = (animationTime * profile.speed()
+                WinnerGlowParticle profile = WINNER_GLOW_PARTICLES[particle];
+                float travel = (winnerProgress * 1.4f
                         + profile.travelOffset()) % 1f;
-                float rise = Interpolation.pow2Out.apply(travel);
-                float x = centerX + profile.origin()
-                        + MathUtils.sin(animationTime * 1.7f
-                                + particle * 1.37f) * profile.sway();
-                float y = winner.y - 34f + rise * profile.lift();
-                float life = MathUtils.sin(travel * MathUtils.PI);
-                Color color = profile.cyan() ? CYAN : WINNER_NEON_GREEN;
+                float angle = profile.phase() + totalTime
+                        * profile.angularSpeed();
+                float radius = 55f + Interpolation.circleOut.apply(travel)
+                        * profile.radialDistance();
+                Color color = profile.cyan() ? CYAN : POT_GOLD;
                 shapes.setColor(color.r, color.g, color.b,
-                        life * winnerProgress * 0.30f);
-                shapes.circle(x, y, profile.size() * 2.15f, 12);
-                shapes.setColor(0.82f, 1f, 0.86f,
-                        life * winnerProgress * 0.88f);
-                float size = profile.size();
-                shapes.triangle(x, y + size * 2.2f,
-                        x - size * 0.68f, y,
-                        x + size * 0.68f, y);
-                shapes.triangle(x, y - size * 2.2f,
-                        x - size * 0.68f, y,
-                        x + size * 0.68f, y);
+                        (1f - travel) * 0.62f);
+                shapes.circle(centerX + MathUtils.cos(angle) * radius,
+                        winner.y + MathUtils.sin(angle) * radius,
+                        profile.radius(), 10);
             }
         }
         shapes.end();

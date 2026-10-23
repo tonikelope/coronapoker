@@ -63,10 +63,13 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(frames.contains("GdxAntialiasedRoundedRect.outline"));
         assertTrue(frames.contains("WINNER_NEON_GREEN"));
         assertTrue(frames.contains("WINNER_NEON_CORE"));
-        assertTrue(frames.contains("float perimeter = 2f"));
+        assertTrue(frames.contains("float counterSweep"));
+        assertTrue(frames.contains("drawWinnerFrameGlint("));
         assertFalse(frames.contains("roundedRect(frameX"));
-        assertTrue(particles.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
-        assertFalse(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
+        assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
+        assertTrue(particles.contains("POT_GOLD"));
+        assertTrue(particles.contains("CYAN"));
+        assertFalse(particles.contains("shapes.triangle("));
         assertFalse(frames.contains("shapes.circle(avatarX"));
         assertFalse(table.contains("winnerAuraShader"));
         assertFalse(table.contains("winnerAuraTexture"));

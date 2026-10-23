@@ -17718,7 +17718,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
                     sweep, pulse, progress, 1f);
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
-                    counterSweep, 1f - pulse, progress, 0.92f);
+                    counterSweep, 1f - pulse, progress, 0.90f);
         }
         shapes.end();
     }
@@ -17745,18 +17745,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             glintY = frameY + travel - frameWidth * 2f - frameHeight;
         }
         shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.15f * progress);
+                WINNER_NEON_GREEN.b, 0.11f * progress);
         shapes.circle(glintX, glintY,
-                (11f + pulse * 2.5f) * scale, 22);
+                (10f + pulse * 2.2f) * scale, 22);
         shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.50f * progress);
-        shapes.circle(glintX, glintY, (7.5f + pulse * 2f) * scale, 20);
+                WINNER_NEON_GREEN.b, 0.42f * progress);
+        shapes.circle(glintX, glintY, (7f + pulse * 1.8f) * scale, 20);
         shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
-                WINNER_NEON_CORE.b, 0.94f * progress);
+                WINNER_NEON_CORE.b, 0.88f * progress);
         shapes.circle(glintX, glintY,
-                (3f + pulse * 0.8f) * scale, 16);
-        shapes.setColor(1f, 1f, 1f, 0.86f * progress);
-        shapes.circle(glintX, glintY, 1.2f * scale, 12);
+                (2.8f + pulse * 0.7f) * scale, 16);
+        shapes.setColor(1f, 1f, 1f, 0.78f * progress);
+        shapes.circle(glintX, glintY, 1.1f * scale, 12);
     }
 
     private void drawLiveWinnerParticles() {

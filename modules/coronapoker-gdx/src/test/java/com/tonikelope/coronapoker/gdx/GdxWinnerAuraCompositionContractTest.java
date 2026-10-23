@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void winnerAuraStaysBehindCardsWhileFireKeepsItsShowdownDepth()
+    void fireAndWinnerAuraKeepTheirHistoricalShowdownDepth()
             throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
@@ -23,9 +23,16 @@ final class GdxWinnerAuraCompositionContractTest {
         int backEffects = scene.indexOf("drawSeatBackEffects()");
         int rearCards = scene.indexOf("drawHoleCards(false)");
         int seatsLayer = scene.indexOf("drawSeats()", rearCards);
+        int handOverlay = scene.indexOf("drawHandOverlay()", seatsLayer);
+        int winnerEffects = scene.indexOf("drawLiveWinnerEffects()",
+                handOverlay);
+        int localHud = scene.indexOf("drawLocalHud(", winnerEffects);
         assertTrue(backEffects >= 0 && rearCards > backEffects
                         && seatsLayer > rearCards,
                 "seat lighting must remain below cards and seat surfaces");
+        assertTrue(handOverlay > seatsLayer && winnerEffects > handOverlay
+                        && localHud > winnerEffects,
+                "winner effects must cover the showdown but not the local HUD");
         assertFalse(scene.contains("drawShowdownOverlay()"));
         assertFalse(seats.contains("drawActiveSeatGlows()"));
         assertTrue(seats.contains("drawAllInSeatFlames()"));
@@ -39,7 +46,7 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private static final String WINNER_AURA_FRAGMENT_SHADER",
                 "private static final Color BACKGROUND_BOTTOM");
         String effects = method(table,
-                "private void drawLiveWinnerEffectsBehindCards()",
+                "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
 
         assertTrue(shader.contains("smoothstep(0.035, 1.0"));

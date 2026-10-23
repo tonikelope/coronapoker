@@ -10485,9 +10485,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
-        // Seat lighting belongs to the table plane. Keeping it below every
-        // card prevents additive fire/aura pixels from altering the card
-        // antialiasing that has already been resolved by the card renderer.
+        // The active-turn backlight belongs to the table plane, beneath cards.
         drawSeatBackEffects();
         drawChipTrails();
         // Hidden cards and completed showdown hands live behind their PlayerPod.
@@ -10502,6 +10500,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
+        // Preserve the historical winner-effect depth: the aura celebrates
+        // over the completed showdown while the local HUD remains foreground.
+        drawLiveWinnerEffects();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
             // The ALL-IN GIF deliberately covers the middle of the table, but
@@ -12370,7 +12371,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSeatBackEffects() {
         drawActiveSeatGlows();
-        drawLiveWinnerEffectsBehindCards();
     }
 
     /**
@@ -17671,7 +17671,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return type == TableVisualEvent.Cinematic.Type.ALL_IN;
     }
 
-    private void drawLiveWinnerEffectsBehindCards() {
+    private void drawLiveWinnerEffects() {
         Objects.requireNonNull(liveState,
                 "Winner rendering requires authoritative live state");
         if (!collectLiveWinnerEffectSeats()) {

@@ -157,6 +157,16 @@ final class ProductDistributionContractTest {
                 "The installer must stay per-user unless firewall access is selected");
         assertTrue(installerSpec.contains("Name: \"firewall\""),
                 "Firewall access must be an explicit installer task");
+        assertFalse(installerSpec.contains("🛡"),
+                "The installer must use the native Windows UAC shield, not an emoji substitute");
+        assertTrue(installerSpec.contains("BCM_SETSHIELD = $160C"),
+                "The firewall elevation cue must use the native Windows button shield");
+        assertTrue(installerSpec.contains(
+                "WizardForm.NextButton.Handle, BCM_SETSHIELD"),
+                "The native elevation cue must be attached to the install button");
+        assertTrue(installerSpec.contains(
+                "(CurPageID = wpReady) and WizardIsTaskSelected('firewall')"),
+                "The UAC shield must only appear when installation will configure the firewall");
         assertFalse(installerSpec.contains(
                 "Name: \"firewall\"; Description: \"{cm:FirewallAccess}\"; "
                         + "GroupDescription: \"{cm:NetworkAccess}\"; Flags: unchecked"),

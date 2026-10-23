@@ -1469,6 +1469,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int creationResourceIndex;
     private int creationCardIndex;
     private int creationAvatarIndex;
+    private int creationPrimaryFontFinalizationStep;
     private boolean creationComplete;
     private FreeTypeFontGenerator creationFontGenerator;
     private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
@@ -3035,35 +3036,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 camera = new OrthographicCamera();
                 viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT,
                         2560f, 1440f, camera);
-                shapes = new ShapeRenderer();
-                batch = new SpriteBatch(2000);
             }
-            case 1 -> {
+            case 1 -> shapes = new ShapeRenderer();
+            case 2 -> batch = new SpriteBatch(2000);
+            case 3 -> {
                 roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         CARD_FRAGMENT_SHADER);
                 requireCompiled(roundedCardShader, "Rounded-card shader");
                 if (startupIntroOnly) return true;
             }
-            case 2 -> {
+            case 4 -> {
                 rabbitPeelShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         RABBIT_PEEL_FRAGMENT_SHADER);
                 requireCompiled(rabbitPeelShader, "Rabbit peel shader");
             }
-            case 3 -> {
+            case 5 -> {
                 avatarShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         AVATAR_FRAGMENT_SHADER);
                 requireCompiled(avatarShader, "Avatar shader");
             }
-            case 4 -> {
+            case 6 -> {
                 cinematicShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         CINEMATIC_FRAGMENT_SHADER);
                 requireCompiled(cinematicShader, "Cinematic shader");
             }
-            case 5 -> {
+            case 7 -> {
                 alphaEdgeRenderer = new GdxAlphaEdgeRenderer(
                         CARD_VERTEX_SHADER);
             }
-            case 6 -> {
+            case 8 -> {
                 allInFireShader = new ShaderProgram(CARD_VERTEX_SHADER,
                         ALL_IN_FIRE_FRAGMENT_SHADER);
                 if (!allInFireShader.isCompiled()) {
@@ -3073,13 +3074,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInFireShader = null;
                 }
             }
-            case 7 -> {
+            case 9 -> {
                 allInFireCanvas = createSolidTexture(Color.WHITE);
             }
-            case 8 -> {
+            case 10 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
             }
-            case 9 -> {
+            case 11 -> {
                 if (!modalBackdropBlur.prepareNextBuffer(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
@@ -3287,22 +3288,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 FileHandle shuffleAudio = gameAudioResource("misc/shuffle.wav");
                 shuffleSoundDurationSeconds = wavDurationSeconds(shuffleAudio,
                         SHUFFLE_AUDIO_FALLBACK_SECONDS);
-                shuffleSound = Gdx.audio.newSound(shuffleAudio);
             }
-            case 1 -> dealSound = gameSound("misc/deal.wav");
-            case 2 -> uncoverSound = gameSound("misc/uncover.wav");
-            case 3 -> checkSound = gameSound("misc/check.wav");
-            case 4 -> callSound = gameSound("misc/call.wav");
-            case 5 -> betSound = gameSound("misc/bet.wav");
-            case 6 -> raiseSound = gameSound(GdxSoundFeedback.FUNNY_RAISE);
-            case 7 -> foldSound = gameSound("misc/fold.wav");
-            case 8 -> allInSound = gameSound("misc/allin.wav");
-            case 9 -> buttonOnSound = gameSound("misc/button_on.wav");
-            case 10 -> buttonOffSound = gameSound("misc/button_off.wav");
-            case 11 -> balanceCountSound = gameSound("misc/balance_count.wav");
-            case 12 -> cardViewerSound = gameSound("misc/card_visor.wav");
-            case 13 -> screenshotSound = gameSound("misc/screenshot.wav");
-            case 14 -> {
+            case 1 -> shuffleSound = gameSound("misc/shuffle.wav");
+            case 2 -> dealSound = gameSound("misc/deal.wav");
+            case 3 -> uncoverSound = gameSound("misc/uncover.wav");
+            case 4 -> checkSound = gameSound("misc/check.wav");
+            case 5 -> callSound = gameSound("misc/call.wav");
+            case 6 -> betSound = gameSound("misc/bet.wav");
+            case 7 -> raiseSound = gameSound(GdxSoundFeedback.FUNNY_RAISE);
+            case 8 -> foldSound = gameSound("misc/fold.wav");
+            case 9 -> allInSound = gameSound("misc/allin.wav");
+            case 10 -> buttonOnSound = gameSound("misc/button_on.wav");
+            case 11 -> buttonOffSound = gameSound("misc/button_off.wav");
+            case 12 -> balanceCountSound = gameSound("misc/balance_count.wav");
+            case 13 -> cardViewerSound = gameSound("misc/card_visor.wav");
+            case 14 -> screenshotSound = gameSound("misc/screenshot.wav");
+            case 15 -> {
                 feltChangeSound = gameSound("misc/mat.wav");
                 return true;
             }
@@ -3398,11 +3399,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     missingSize));
                     return false;
                 }
-                bindLocalOutcomeFontAliases();
-                rebuildButtonFontTiers();
-                rebuildNativeTextTiers();
-                disposeCreationFontGenerator();
-                return true;
+                switch (creationPrimaryFontFinalizationStep++) {
+                    case 0 -> bindLocalOutcomeFontAliases();
+                    case 1 -> rebuildButtonFontTiers();
+                    case 2 -> rebuildNativeTextTiers();
+                    case 3 -> {
+                        disposeCreationFontGenerator();
+                        return true;
+                    }
+                    default -> { return true; }
+                }
+                return false;
             }
         }
         return false;
@@ -3430,24 +3437,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 6 -> finalCardResultFont = font(creationFontGenerator, 20,
                     0f);
             case 7 -> finalDetailFont = font(creationFontGenerator, 38, 0f);
-            case 8 -> {
-                finalCardFont = font(creationFontGenerator, 18, 0f);
-                disposeCreationFontGenerator();
-                rebuildNativeTextTiers();
-            }
-            case 9 -> fpsFont = GdxFrameRateOverlayStyle.font(
+            case 8 -> finalCardFont = font(creationFontGenerator, 18, 0f);
+            case 9 -> disposeCreationFontGenerator();
+            case 10 -> rebuildNativeTextTiers();
+            case 11 -> fpsFont = GdxFrameRateOverlayStyle.font(
                     GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
-            case 10 -> creationFontGenerator =
+            case 12 -> creationFontGenerator =
                     GdxMonospaceFonts.generator(false);
-            case 11 -> gameLogFont = font(creationFontGenerator, 20, 0f);
-            case 12 -> {
-                disposeCreationFontGenerator();
-                creationFontGenerator = GdxMonospaceFonts.generator(true);
-            }
-            case 13 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
-            case 14 -> {
-                gameLogSuitFont = font(creationFontGenerator, 28, 0f);
-                disposeCreationFontGenerator();
+            case 13 -> gameLogFont = font(creationFontGenerator, 20, 0f);
+            case 14 -> disposeCreationFontGenerator();
+            case 15 -> creationFontGenerator =
+                    GdxMonospaceFonts.generator(true);
+            case 16 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
+            case 17 -> gameLogSuitFont = font(creationFontGenerator, 28, 0f);
+            case 18 -> disposeCreationFontGenerator();
+            case 19 -> {
                 rebuildNativeTextTiers();
                 return true;
             }
@@ -3474,11 +3478,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return false;
                 }
             }
-            case 1 -> {
-                creationPreparationExecutor.shutdown();
-                initialiseSeats();
-            }
-            case 2 -> {
+            case 1 -> creationPreparationExecutor.shutdown();
+            case 2 -> initialiseSeats();
+            case 3 -> {
                 if (backgroundMusic == null) {
                     backgroundMusic = gameMusic("misc/background_music.mp3");
                 }
@@ -3486,7 +3488,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // Same attenuation used by CoronaPoker's Audio subsystem.
                 backgroundMusic.setVolume(musicVolume);
             }
-            case 3 -> {
+            case 4 -> {
                 // Recheck immediately before handoff in case the window moved
                 // to a differently scaled monitor during the intervening
                 // preparation frames.
@@ -3495,12 +3497,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         Gdx.graphics.getBackBufferHeight())) {
                     return false;
                 }
-                if (!startupIntroOnly && musicEnabled()) {
-                    backgroundMusic.play();
-                }
-                Gdx.input.setCursorCatched(false);
-                fontQualityProfile = GdxAdaptiveFontQuality.current(
-                        BASE_WIDTH, BASE_HEIGHT);
+            }
+            case 5 -> {
+                if (!startupIntroOnly && musicEnabled()) backgroundMusic.play();
+            }
+            case 6 -> Gdx.input.setCursorCatched(false);
+            case 7 -> fontQualityProfile = GdxAdaptiveFontQuality.current(
+                    BASE_WIDTH, BASE_HEIGHT);
+            case 8 -> {
                 creationComplete = true;
                 return true;
             }
@@ -16997,7 +17001,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static String localActionBadgeLabel(boolean localTurn,
             String actionLabel, GdxGameText text) {
         if (localTurn) {
-            return uppercase(text.translate("gdx.table.hud.your_turn"), text);
+            return uppercase(text.translate("action.hablas_tu"), text);
         }
         return actionLabel == null ? "" : actionLabel;
     }
@@ -19736,7 +19740,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return "";
         }
         return uppercase(text.translate(localTurn
-                ? "gdx.table.hud.your_turn"
+                ? "action.hablas_tu"
                 : "gdx.table.hud.waiting_turn"), text);
     }
 

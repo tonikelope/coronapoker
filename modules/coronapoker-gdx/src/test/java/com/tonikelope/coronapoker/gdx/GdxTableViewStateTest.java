@@ -2194,7 +2194,7 @@ final class GdxTableViewStateTest {
                 false, false, false, false, inactive, spanish));
         assertEquals("", CoronaPokerGdxTable.localHudTurnStatus(
                 false, false, false, false, exited, spanish));
-        assertEquals("TU TURNO",
+        assertEquals("HABLAS TÚ",
                 CoronaPokerGdxTable.localHudTurnStatus(
                         true, false, false, false, active, spanish));
         assertEquals("ESPERANDO TURNO",
@@ -2593,7 +2593,7 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals("TU TURNO", CoronaPokerGdxTable.localActionBadgeLabel(
+        assertEquals("HABLAS TÚ", CoronaPokerGdxTable.localActionBadgeLabel(
                 true, "APUESTAS (+4)", spanish));
         assertEquals("YOUR TURN", CoronaPokerGdxTable.localActionBadgeLabel(
                 true, "BET (+4)", english));

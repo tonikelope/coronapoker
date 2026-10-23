@@ -58,6 +58,7 @@ final class GdxModalBackdropBlur implements Disposable {
     private final ShaderProgram shader;
     private FrameBuffer backdrop;
     private FrameBuffer scratch;
+    private boolean cachedReady;
 
     GdxModalBackdropBlur() {
         shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -71,6 +72,7 @@ final class GdxModalBackdropBlur implements Disposable {
 
     void beginCapture(int backBufferWidth, int backBufferHeight) {
         ensureBuffers(backBufferWidth, backBufferHeight);
+        cachedReady = false;
         backdrop.begin();
         Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
     }
@@ -133,6 +135,60 @@ final class GdxModalBackdropBlur implements Disposable {
                 viewport.getWorldWidth(), viewport.getWorldHeight(), 0f, 1f);
     }
 
+    /**
+     * Completes the blur into the reusable backdrop itself and presents it.
+     * The lobby loading dialog uses this once, then redraws only its animated
+     * foreground while table resources are created on later render turns.
+     */
+    void endCaptureAndCache(Viewport viewport, SpriteBatch batch,
+            Matrix4 projection, Color clearColor) {
+        backdrop.end();
+
+        scratch.begin();
+        ScreenUtils.clear(clearColor, true);
+        Gdx.gl.glViewport(0, 0, scratch.getWidth(), scratch.getHeight());
+        batch.setProjectionMatrix(projection);
+        drawPass(batch, backdrop.getColorBufferTexture(),
+                viewport.getWorldWidth(), viewport.getWorldHeight(), 1f, 0f);
+        scratch.end();
+
+        backdrop.begin();
+        ScreenUtils.clear(clearColor, true);
+        Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
+        batch.setProjectionMatrix(projection);
+        drawPass(batch, scratch.getColorBufferTexture(),
+                viewport.getWorldWidth(), viewport.getWorldHeight(), 0f, 1f);
+        backdrop.end();
+
+        cachedReady = true;
+        drawCached(viewport, batch, projection, clearColor);
+    }
+
+    boolean hasCachedFrame(int backBufferWidth, int backBufferHeight) {
+        return cachedReady
+                && !bufferHasDifferentSize(backdrop,
+                        downsampledDimension(backBufferWidth),
+                        downsampledDimension(backBufferHeight));
+    }
+
+    void drawCached(Viewport viewport, SpriteBatch batch,
+            Matrix4 projection, Color clearColor) {
+        if (!cachedReady || backdrop == null) {
+            throw new IllegalStateException("Modal backdrop cache is empty");
+        }
+        ScreenUtils.clear(clearColor, true);
+        viewport.apply();
+        batch.setProjectionMatrix(projection);
+        batch.setShader(null);
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        Texture texture = backdrop.getColorBufferTexture();
+        batch.draw(texture, 0f, 0f, viewport.getWorldWidth(),
+                viewport.getWorldHeight(), 0, 0, texture.getWidth(),
+                texture.getHeight(), false, true);
+        batch.end();
+    }
+
     int captureWidth() {
         return backdrop == null ? 1 : backdrop.getWidth();
     }
@@ -192,5 +248,6 @@ final class GdxModalBackdropBlur implements Disposable {
         if (scratch != null) scratch.dispose();
         backdrop = null;
         scratch = null;
+        cachedReady = false;
     }
 }

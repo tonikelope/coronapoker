@@ -1673,7 +1673,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                             "a non-actionable local player cannot advertise a turn state");
                 } else {
                     String expected = presentationText().translate(localTurn
-                            ? "gdx.table.hud.your_turn"
+                            ? "action.hablas_tu"
                             : "gdx.table.hud.waiting_turn");
                     assertTrue(expected.equalsIgnoreCase(status),
                             "an actionable local player needs the matching turn state");

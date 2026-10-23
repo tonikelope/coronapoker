@@ -46,6 +46,10 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("Recheck immediately before handoff"));
         assertTrue(table.contains("private boolean createNextGraphicsCore() {\n"
                 + "        switch (creationResourceIndex) {"));
+        assertTrue(table.contains("case 1 -> shapes = new ShapeRenderer();"));
+        assertTrue(table.contains("case 2 -> batch = new SpriteBatch(2000);"));
+        assertTrue(table.contains("case 11 -> {\n"
+                + "                if (!modalBackdropBlur.prepareNextBuffer("));
         assertTrue(table.contains(
                 "private boolean createNextTableFinalizationStep() {\n"
                 + "        switch (creationResourceIndex) {"));
@@ -54,6 +58,17 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(blur.contains("boolean prepareNextBuffer("));
         assertTrue(blur.contains("backdrop = createBuffer(width, height)"));
         assertTrue(blur.contains("scratch = createBuffer(width, height)"));
+        assertTrue(blur.contains("void endCaptureAndCache("));
+        assertTrue(blur.contains("boolean hasCachedFrame("));
+
+        String frontend = source("GdxFrontendScreen.java");
+        assertTrue(frontend.contains("renderCachedLobbyLoadingFrame()"));
+        assertTrue(frontend.contains("modalBackdropBlur.endCaptureAndCache("));
+        assertTrue(frontend.contains("modalBackdropBlur.hasCachedFrame("));
+
+        String shell = source("GdxApplicationShell.java");
+        assertTrue(shell.contains("switch (pending.handoffStep++)"));
+        assertTrue(shell.contains("if (!pending.creationComplete)"));
     }
 
     private static String source(String file) throws Exception {

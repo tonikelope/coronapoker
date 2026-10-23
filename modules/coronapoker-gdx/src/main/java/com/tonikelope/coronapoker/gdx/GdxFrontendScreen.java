@@ -397,6 +397,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
     private GdxModalBackdropBlur modalBackdropBlur;
+    private boolean lobbyLoadingBackdropCached;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont settingsStepperSignFont;
@@ -1105,6 +1106,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         updateLobbyVoiceRecording();
         audioPreview.update(frameDelta);
         syncMusicForSurface();
+        boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
+        if (!lobbyLoadingOverlay) {
+            lobbyLoadingBackdropCached = false;
+        } else if (lobbyLoadingBackdropCached
+                && modalBackdropBlur.hasCachedFrame(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+            renderCachedLobbyLoadingFrame();
+            return;
+        }
         boolean settingsRootModal = isSettingsRootModal();
         boolean rootSurfaceModal = isFrontendRootModal();
         boolean lobbyRootBackdrop = rootSurfaceModal && lobby != null
@@ -1213,8 +1224,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawStartupMenuReveal();
 
         if (blurModalBackdrop) {
-            modalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                    viewport.getCamera().combined, BACKGROUND);
+            if (lobbyLoadingOverlay) {
+                modalBackdropBlur.endCaptureAndCache(viewport, batch,
+                        viewport.getCamera().combined, BACKGROUND);
+                lobbyLoadingBackdropCached = true;
+            } else {
+                modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                        viewport.getCamera().combined, BACKGROUND);
+            }
             drawUnifiedModalBackdrop();
         }
 
@@ -1407,6 +1424,61 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (shouldDrawEditMenu()) drawEditMenuTopLayer();
         // Transient feedback must be the final composited layer. Drawing only
         // its shapes in the first pass lets queued page images cover the panel.
+        drawFrontendTopLayers();
+    }
+
+    /**
+     * Reuses the waiting room image captured on the first preparation frame.
+     * Only the indeterminate bar and sharp top layers change while resources
+     * are created, avoiding a full lobby draw plus two blur passes every turn.
+     */
+    private void renderCachedLobbyLoadingFrame() {
+        viewport.apply();
+        viewport.getCamera().update();
+        shapes.setProjectionMatrix(viewport.getCamera().combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        texts.clear();
+        lobbyAvatars.clear();
+        uiImages.clear();
+        lobbyChatTexts.clear();
+        lobbyChatAvatars.clear();
+        lobbyChatImages.clear();
+        lobbyChatBubbles.clear();
+        lobbyVoiceControls.clear();
+        settingsDebugTexts.clear();
+        settingsRowTexts.clear();
+        statsChartTexts.clear();
+        statsChartViewport.set(0f, 0f, 0f, 0f);
+        statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
+        statsChartVerticalTrack.set(0f, 0f, 0f, 0f);
+        statsChartCanvasActive = false;
+        settingsRowsClip.set(0f, 0f, 0f, 0f);
+        settingsRowsActive = false;
+        settingsDebugViewport.set(0f, 0f, 0f, 0f);
+        lobbyChatViewport.set(0f, 0f, 0f, 0f);
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        passwordRevealHits.clear();
+        editMenuHits.clear();
+        tooltipHits.clear();
+
+        modalBackdropBlur.drawCached(viewport, batch,
+                viewport.getCamera().combined, BACKGROUND);
+        drawUnifiedModalBackdrop();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawLobbyLoadingOverlay();
+        shapes.end();
+        batch.begin();
+        for (TextItem item : texts) drawTextItem(item);
+        batch.end();
+        drawFrontendTopLayers();
+    }
+
+    private void drawFrontendTopLayers() {
         if (surface == Surface.SCREENSHOTS
                 && !screenshotDeleteConfirmation
                 && !screenshotToast.isBlank()
@@ -1461,6 +1533,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.SCREENSHOTS
                         && screenshotDeleteConfirmation)
                 || isFrontendRootModal();
+    }
+
+    /** True only when PREPARANDO LA MESA owns the lobby modal foreground. */
+    private boolean lobbyLoadingOverlayVisible() {
+        return surface == Surface.LOBBY
+                && lobbyPreparationUsesBackdropBlur(lobbyGameStarting, lobby)
+                && !modAdultWarning
+                && frontendNoticeMessage.isBlank()
+                && !settingsRestartNotice
+                && !updateCheckingModalVisible()
+                && !aboutOpen
+                && !updatePromptOpen
+                && blindStructureDialog == BlindStructureDialog.NONE
+                && !voiceNotesOpen
+                && !isFrontendRootModal()
+                && !networkBlocksOpen
+                && !lobbyPasswordDialog
+                && fingerprintDialog == null
+                && identityChangeNotices.isEmpty()
+                && lobbyConfirmation == null
+                && !lobbyImageClearConfirmation;
     }
 
     /**

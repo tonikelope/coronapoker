@@ -426,18 +426,29 @@ final class GdxApplicationShell extends ApplicationAdapter {
         PendingTableOpen pending = pendingTableOpen;
         if (pending == null) return;
         try {
-            if (!pending.table.createNextPhase()) return;
-            pendingTableOpen = null;
-            menu.suspendForTable(true);
-            pending.table.activateBackgroundMusic();
-            pending.table.resize(Gdx.graphics.getWidth(),
-                    Gdx.graphics.getHeight());
-            flushPendingIdentityGameLogNotices();
-            table = pending.table;
-            // The lobby keeps its last hit map while the table is visible.
-            // Leaving it installed would make one table click reach the raw
-            // table input on press and a hidden lobby control on release.
-            Gdx.input.setInputProcessor(pending.table.inputProcessor());
+            if (!pending.creationComplete) {
+                if (!pending.table.createNextPhase()) return;
+                pending.creationComplete = true;
+                return;
+            }
+            switch (pending.handoffStep++) {
+                case 0 -> menu.suspendForTable(true);
+                case 1 -> pending.table.activateBackgroundMusic();
+                case 2 -> pending.table.resize(Gdx.graphics.getWidth(),
+                        Gdx.graphics.getHeight());
+                case 3 -> flushPendingIdentityGameLogNotices();
+                case 4 -> {
+                    table = pending.table;
+                    // The lobby keeps its last hit map while the table is
+                    // visible. Leaving it installed would make one table click
+                    // reach the raw table input on press and a hidden lobby
+                    // control on release.
+                    Gdx.input.setInputProcessor(pending.table.inputProcessor());
+                    pendingTableOpen = null;
+                }
+                default -> throw new IllegalStateException(
+                        "Unknown GDX table handoff step");
+            }
         } catch (Throwable error) {
             pendingTableOpen = null;
             error.printStackTrace(System.err);
@@ -735,7 +746,17 @@ final class GdxApplicationShell extends ApplicationAdapter {
         ACTIVE.compareAndSet(this, null);
     }
 
-    private record PendingTableOpen(CoronaPokerGdxTable table,
-            CompletableFuture<Void> openingBarrier) {
+    private static final class PendingTableOpen {
+
+        private final CoronaPokerGdxTable table;
+        private final CompletableFuture<Void> openingBarrier;
+        private boolean creationComplete;
+        private int handoffStep;
+
+        private PendingTableOpen(CoronaPokerGdxTable table,
+                CompletableFuture<Void> openingBarrier) {
+            this.table = table;
+            this.openingBarrier = openingBarrier;
+        }
     }
 }

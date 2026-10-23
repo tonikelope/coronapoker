@@ -44,26 +44,29 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void winnerCrestHasAHollowCoreAndPremiumBackplateAccents()
+    void winnerPresentationUsesDirectionalAccentsWithoutAnyAuraTexture()
             throws IOException {
         String table = Files.readString(source());
-        String texture = method(table,
-                "private static Texture createWinnerCrestTexture()",
-                "private void createChipTexturePair(");
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
+        String streaks = method(table,
+                "private void drawLiveWinnerStreaks()",
+                "private void drawLiveWinnerFrames()");
+        String frames = method(table,
+                "private void drawLiveWinnerFrames()",
+                "private void drawLiveWinnerParticles()");
 
-        assertTrue(texture.contains("Math.atan2(ny, nx)"));
-        assertTrue(texture.contains("distance < 0.40f ? 0f"));
-        assertTrue(texture.contains("engravedRim"));
-        assertTrue(texture.contains("facets"));
-        assertTrue(texture.contains("pixels.drawPixel(x, y"));
-        assertTrue(effects.contains("batch.draw(winnerCrestTexture"));
+        assertTrue(effects.contains("drawLiveWinnerStreaks()"));
         assertTrue(effects.contains("drawLiveWinnerFrames()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
+        assertTrue(streaks.contains("shapes.triangle("));
+        assertTrue(streaks.contains("for (int side = -1; side <= 1;"));
+        assertFalse(frames.contains("shapes.circle(avatarX"));
         assertFalse(table.contains("winnerAuraShader"));
         assertFalse(table.contains("winnerAuraTexture"));
+        assertFalse(table.contains("winnerCrestTexture"));
+        assertFalse(table.contains("WINNER_CREST"));
     }
 
     private static String method(String source, String startText,

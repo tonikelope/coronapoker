@@ -275,13 +275,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_MAX_WIDTH = 820f;
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
-    private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
-    private static final int WINNER_AURA_TEXTURE_SIZE = 256;
-    private static final float WINNER_AURA_WIDTH = 368f;
-    private static final float WINNER_AURA_HEIGHT = 316f;
+    private static final int WINNER_SPARK_PARTICLE_COUNT = 56;
+    private static final int WINNER_CREST_TEXTURE_SIZE = 384;
+    private static final float WINNER_CREST_DIAMETER = 236f;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
-    private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
-            createWinnerGlowParticles();
+    private static final WinnerSparkParticle[] WINNER_SPARK_PARTICLES =
+            createWinnerSparkParticles();
     private static final float AVATAR_ZOOM_HOVER_SECONDS = 0.250f;
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
@@ -1341,7 +1340,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture allInFireCanvas;
-    private Texture winnerAuraTexture;
+    private Texture winnerCrestTexture;
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
@@ -3057,7 +3056,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case 7 -> {
                 allInFireCanvas = createSolidTexture(Color.WHITE);
-                winnerAuraTexture = createWinnerAuraTexture();
+                winnerCrestTexture = createWinnerCrestTexture();
             }
             case 8 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
@@ -3608,33 +3607,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /**
-     * Builds one broad, continuous light field.  Its gently asymmetric edge
-     * avoids both a perfect circular stamp and the concentric bands produced
-     * by stacking translucent geometry.  A tiny deterministic dither prevents
-     * 8-bit alpha steps from becoming visible after enlargement.
+     * Builds a hollow prestige crest instead of a broad light field. The
+     * transparent core is intentional: even if this texture is moved in a
+     * future refactor it cannot wash out the avatar or cards at its centre.
+     * A narrow engraved rim and restrained radial facets read as a premium
+     * badge while deterministic dither keeps the feathered edge smooth.
      */
-    private static Texture createWinnerAuraTexture() {
-        int size = WINNER_AURA_TEXTURE_SIZE;
+    private static Texture createWinnerCrestTexture() {
+        int size = WINNER_CREST_TEXTURE_SIZE;
         Pixmap pixels = new Pixmap(size, size, Pixmap.Format.RGBA8888);
         for (int y = 0; y < size; y++) {
             float ny = ((y + 0.5f) / size - 0.5f) * 2f;
             for (int x = 0; x < size; x++) {
                 float nx = ((x + 0.5f) / size - 0.5f) * 2f;
                 float angle = (float) Math.atan2(ny, nx);
-                float contour = 1f
-                        + MathUtils.sin(angle * 3f + 0.61f) * 0.055f
-                        + MathUtils.sin(angle * 7f - 1.17f) * 0.024f;
-                float distance = (float) Math.sqrt(nx * nx + ny * ny)
-                        / contour;
-                float progress = MathUtils.clamp(
-                        (distance - 0.035f) / 0.965f, 0f, 1f);
-                float smooth = progress * progress
-                        * (3f - 2f * progress);
-                float glow = (float) Math.pow(1f - smooth, 1.15f);
+                float distance = (float) Math.sqrt(nx * nx + ny * ny);
+                float inner = smoothUnit((distance - 0.40f) / 0.10f);
+                float outer = 1f - smoothUnit((distance - 0.82f) / 0.16f);
+                float engravedRim = (float) Math.exp(-Math.pow(
+                        (distance - 0.61f) / 0.052f, 2d));
+                float facetWindow = smoothUnit((distance - 0.66f) / 0.08f)
+                        * (1f - smoothUnit((distance - 0.93f) / 0.06f));
+                float facets = (float) Math.pow(Math.max(0f,
+                        MathUtils.cos(angle * 12f + 0.17f)), 16d)
+                        * facetWindow;
+                float asymmetry = 0.88f + 0.12f
+                        * MathUtils.sin(angle * 5f - 0.43f);
                 int hash = x * 0x1f123bb5 ^ y * 0x5f356495;
                 hash ^= hash >>> 15;
                 float dither = ((hash & 0xff) / 255f - 0.5f) / 255f;
-                float alpha = MathUtils.clamp(glow + dither, 0f, 1f);
+                float alpha = distance < 0.40f ? 0f : MathUtils.clamp(
+                        (inner * outer * 0.24f + engravedRim * 0.74f
+                        + facets * 0.42f) * asymmetry + dither, 0f, 1f);
                 pixels.drawPixel(x, y, Color.rgba8888(
                         1f, 1f, 1f, alpha));
             }
@@ -3643,6 +3647,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pixels.dispose();
         return texture;
+    }
+
+    private static float smoothUnit(float value) {
+        float clamped = MathUtils.clamp(value, 0f, 1f);
+        return clamped * clamped * (3f - 2f * clamped);
     }
 
     private void createChipTexturePair(int index, Color base, Color dark) {
@@ -10491,9 +10500,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
-        // Preserve the historical winner-effect depth: the aura celebrates
-        // over the completed showdown while the local HUD remains foreground.
-        drawLiveWinnerEffects();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
             // The ALL-IN GIF deliberately covers the middle of the table, but
@@ -12362,6 +12368,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSeatBackEffects() {
         drawActiveSeatGlows();
+        // Winner light belongs to the felt plane. Cards, avatars and HUDs are
+        // composed afterwards and therefore retain their exact source gamma.
+        drawLiveWinnerEffects();
     }
 
     /**
@@ -12578,17 +12587,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return profiles;
     }
 
-    private static WinnerGlowParticle[] createWinnerGlowParticles() {
-        WinnerGlowParticle[] profiles =
-                new WinnerGlowParticle[WINNER_GLOW_PARTICLE_COUNT];
+    private static WinnerSparkParticle[] createWinnerSparkParticles() {
+        WinnerSparkParticle[] profiles =
+                new WinnerSparkParticle[WINNER_SPARK_PARTICLE_COUNT];
         for (int particle = 0; particle < profiles.length; particle++) {
-            profiles[particle] = new WinnerGlowParticle(
-                    particle * 1.731f,
-                    particle * 0.019f,
-                    particle % 2 == 0 ? 0.35f : -0.28f,
-                    90f + particle % 8 * 18f,
-                    2f + particle % 4,
-                    particle % 3 == 0);
+            profiles[particle] = new WinnerSparkParticle(
+                    0.105f + (particle % 7) * 0.009f,
+                    (particle * 0.61803398875f) % 1f,
+                    (((particle * 47) % 101) / 100f - 0.5f) * 122f,
+                    8f + particle % 6 * 4f,
+                    94f + particle % 9 * 13f,
+                    1.7f + particle % 4 * 0.65f,
+                    particle % 5 == 0);
         }
         return profiles;
     }
@@ -12597,8 +12607,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float primaryPhase, float secondaryPhase, float radiusOffset) {
     }
 
-    private record WinnerGlowParticle(float phase, float travelOffset,
-            float angularSpeed, float radialDistance, float radius,
+    private record WinnerSparkParticle(float speed, float travelOffset,
+            float origin, float sway, float lift, float size,
             boolean cyan) {
     }
 
@@ -17668,7 +17678,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!collectLiveWinnerEffectSeats()) {
             return;
         }
-        drawLiveWinnerAura();
+        drawLiveWinnerCrests();
+        drawLiveWinnerFrames();
         drawLiveWinnerParticles();
     }
 
@@ -17692,8 +17703,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return !liveWinnerEffectSeats.isEmpty();
     }
 
-    private void drawLiveWinnerAura() {
-        if (winnerAuraTexture == null) {
+    private void drawLiveWinnerCrests() {
+        if (winnerCrestTexture == null) {
             return;
         }
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -17703,21 +17714,89 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Seat winner : liveWinnerEffectSeats) {
             float winnerProgress = liveWinnerEffectProgress(winner);
             float pulse = liveAnimationsEnabled()
-                    ? 1f + MathUtils.sin(totalTime * 1.45f
-                            + winner.index * 0.81f) * 0.018f
+                    ? 1f + MathUtils.sin(totalTime * 1.8f
+                            + winner.index * 0.81f) * 0.022f
                     : 1f;
-            float width = WINNER_AURA_WIDTH * pulse;
-            float height = WINNER_AURA_HEIGHT * pulse;
+            float diameter = WINNER_CREST_DIAMETER * pulse;
             float centerX = seatAvatarX(winner);
-            batch.setColor(1f, 0.76f, 0.20f,
-                    winnerProgress * 0.48f);
-            batch.draw(winnerAuraTexture, centerX - width / 2f,
-                    winner.y - height / 2f, width, height);
+            batch.setColor(1f, 0.60f, 0.10f, winnerProgress * 0.68f);
+            batch.draw(winnerCrestTexture, centerX - diameter / 2f,
+                    winner.y - diameter / 2f, diameter, diameter);
+            float innerDiameter = diameter * 0.79f;
+            batch.setColor(0.18f, 0.86f, 1f, winnerProgress * 0.20f);
+            batch.draw(winnerCrestTexture,
+                    centerX - innerDiameter / 2f,
+                    winner.y - innerDiameter / 2f,
+                    innerDiameter, innerDiameter);
         }
         batch.end();
         batch.setColor(Color.WHITE);
         batch.setBlendFunction(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    private void drawLiveWinnerFrames() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (Seat winner : liveWinnerEffectSeats) {
+            float progress = liveWinnerEffectProgress(winner);
+            float pulse = liveAnimationsEnabled()
+                    ? 0.5f + 0.5f * MathUtils.sin(totalTime * 2.35f
+                            + winner.index * 0.73f)
+                    : 0.5f;
+            float frameX;
+            float frameY;
+            float frameWidth;
+            float frameHeight;
+            if (winner.index == 0) {
+                frameX = MathUtils.clamp(seatAvatarX(winner)
+                        + AVATAR_OUTER_RADIUS + 10f, 8f,
+                        Math.max(8f, viewport.getWorldWidth()
+                                - LOCAL_NAME_PLATE_WIDTH - 8f));
+                float nameY = winner.y - LOCAL_NAME_PLATE_HEIGHT / 2f
+                        + LOCAL_NAME_PLATE_VERTICAL_OFFSET;
+                frameY = nameY - LOCAL_ACTION_BADGE_HEIGHT - 4f;
+                frameWidth = LOCAL_NAME_PLATE_WIDTH;
+                frameHeight = LOCAL_NAME_PLATE_HEIGHT
+                        + LOCAL_ACTION_BADGE_HEIGHT + 4f;
+            } else {
+                frameX = winner.podX;
+                frameY = winner.podY;
+                frameWidth = PLAYER_POD_WIDTH;
+                frameHeight = PLAYER_POD_HEIGHT;
+            }
+            shapes.setColor(0.10f, 0.035f, 0.008f, 0.72f * progress);
+            roundedRect(frameX - 11f, frameY - 11f,
+                    frameWidth + 22f, frameHeight + 22f, 22f);
+            shapes.setColor(1f, 0.48f, 0.045f,
+                    (0.70f + pulse * 0.22f) * progress);
+            roundedRect(frameX - 7f, frameY - 7f,
+                    frameWidth + 14f, frameHeight + 14f, 19f);
+            shapes.setColor(1f, 0.83f, 0.32f, 0.82f * progress);
+            roundedRect(frameX - 3f, frameY - 3f,
+                    frameWidth + 6f, frameHeight + 6f, 16f);
+
+            float avatarX = seatAvatarX(winner);
+            shapes.setColor(0.09f, 0.025f, 0.006f, 0.78f * progress);
+            shapes.circle(avatarX, winner.y, AVATAR_ACTIVE_RADIUS + 13f, 64);
+            shapes.setColor(1f, 0.50f, 0.055f,
+                    (0.72f + pulse * 0.20f) * progress);
+            shapes.circle(avatarX, winner.y, AVATAR_ACTIVE_RADIUS + 8f, 64);
+            shapes.setColor(1f, 0.86f, 0.38f, 0.90f * progress);
+            shapes.circle(avatarX, winner.y, AVATAR_ACTIVE_RADIUS + 3f, 64);
+
+            float sweep = liveAnimationsEnabled()
+                    ? (totalTime * 0.31f + winner.index * 0.23f) % 1f
+                    : 0.5f;
+            float glintX = frameX + frameWidth * sweep;
+            shapes.setColor(0.68f, 0.96f, 1f,
+                    (0.55f + pulse * 0.30f) * progress);
+            shapes.circle(glintX, frameY + frameHeight + 7f,
+                    2.8f + pulse * 1.2f, 14);
+        }
+        shapes.end();
     }
 
     private void drawLiveWinnerParticles() {
@@ -17727,21 +17806,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Seat winner : liveWinnerEffectSeats) {
             float winnerProgress = liveWinnerEffectProgress(winner);
             float centerX = seatAvatarX(winner);
-            for (int particle = 0; particle < WINNER_GLOW_PARTICLE_COUNT;
+            float animationTime = liveAnimationsEnabled()
+                    ? totalTime : winnerProgress * 1.2f;
+            for (int particle = 0; particle < WINNER_SPARK_PARTICLE_COUNT;
                     particle++) {
-                WinnerGlowParticle profile = WINNER_GLOW_PARTICLES[particle];
-                float travel = (winnerProgress * 1.4f
+                WinnerSparkParticle profile = WINNER_SPARK_PARTICLES[particle];
+                float travel = (animationTime * profile.speed()
                         + profile.travelOffset()) % 1f;
-                float angle = profile.phase() + totalTime
-                        * profile.angularSpeed();
-                float radius = 55f + Interpolation.circleOut.apply(travel)
-                        * profile.radialDistance();
+                float rise = Interpolation.pow2Out.apply(travel);
+                float x = centerX + profile.origin()
+                        + MathUtils.sin(animationTime * 1.7f
+                                + particle * 1.37f) * profile.sway();
+                float y = winner.y - 34f + rise * profile.lift();
+                float life = MathUtils.sin(travel * MathUtils.PI);
                 Color color = profile.cyan() ? CYAN : POT_GOLD;
                 shapes.setColor(color.r, color.g, color.b,
-                        (1f - travel) * 0.62f);
-                shapes.circle(centerX + MathUtils.cos(angle) * radius,
-                        winner.y + MathUtils.sin(angle) * radius,
-                        profile.radius(), 10);
+                        life * winnerProgress * 0.30f);
+                shapes.circle(x, y, profile.size() * 2.15f, 12);
+                shapes.setColor(1f, 0.92f, 0.62f,
+                        life * winnerProgress * 0.88f);
+                float size = profile.size();
+                shapes.triangle(x, y + size * 2.2f,
+                        x - size * 0.68f, y,
+                        x + size * 0.68f, y);
+                shapes.triangle(x, y - size * 2.2f,
+                        x - size * 0.68f, y,
+                        x + size * 0.68f, y);
             }
         }
         shapes.end();
@@ -27631,7 +27721,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(avatarDefault);
         disposeSafely(avatarBot);
         disposeSafely(allInFireCanvas);
-        disposeSafely(winnerAuraTexture);
+        disposeSafely(winnerCrestTexture);
         disposeSafely(dealerChip);
         disposeSafely(smallBlindChip);
         disposeSafely(bigBlindChip);
@@ -27825,7 +27915,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         avatarDefault.dispose();
         avatarBot.dispose();
         allInFireCanvas.dispose();
-        winnerAuraTexture.dispose();
+        winnerCrestTexture.dispose();
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();

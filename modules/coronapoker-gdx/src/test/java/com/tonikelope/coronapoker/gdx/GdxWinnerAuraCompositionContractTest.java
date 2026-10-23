@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void fireAndWinnerAuraKeepTheirHistoricalShowdownDepth()
+    void winnerPresentationStaysBehindCardsWhileFireKeepsItsDepth()
             throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
@@ -24,43 +24,46 @@ final class GdxWinnerAuraCompositionContractTest {
         int rearCards = scene.indexOf("drawHoleCards(false)");
         int seatsLayer = scene.indexOf("drawSeats()", rearCards);
         int handOverlay = scene.indexOf("drawHandOverlay()", seatsLayer);
-        int winnerEffects = scene.indexOf("drawLiveWinnerEffects()",
-                handOverlay);
-        int localHud = scene.indexOf("drawLocalHud(", winnerEffects);
+        int localHud = scene.indexOf("drawLocalHud(", handOverlay);
+        String backEffectMethod = method(table,
+                "private void drawSeatBackEffects()",
+                "private void drawActiveSeatGlows()");
         assertTrue(backEffects >= 0 && rearCards > backEffects
                         && seatsLayer > rearCards,
                 "seat lighting must remain below cards and seat surfaces");
-        assertTrue(handOverlay > seatsLayer && winnerEffects > handOverlay
-                        && localHud > winnerEffects,
-                "winner effects must cover the showdown but not the local HUD");
+        assertTrue(handOverlay > seatsLayer && localHud > handOverlay,
+                "showdown overlays and the local HUD keep their normal depth");
+        assertTrue(backEffectMethod.contains("drawLiveWinnerEffects()"),
+                "winner effects must be submitted on the felt plane");
+        assertFalse(scene.substring(rearCards).contains(
+                "drawLiveWinnerEffects()"),
+                "winner effects must never be composited over cards or HUDs");
         assertFalse(scene.contains("drawShowdownOverlay()"));
         assertFalse(seats.contains("drawActiveSeatGlows()"));
         assertTrue(seats.contains("drawAllInSeatFlames()"));
     }
 
     @Test
-    void winnerAuraUsesOneContinuousFieldInsteadOfStackedDiscs()
+    void winnerCrestHasAHollowCoreAndPremiumBackplateAccents()
             throws IOException {
         String table = Files.readString(source());
         String texture = method(table,
-                "private static Texture createWinnerAuraTexture()",
+                "private static Texture createWinnerCrestTexture()",
                 "private void createChipTexturePair(");
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
 
         assertTrue(texture.contains("Math.atan2(ny, nx)"));
-        assertTrue(texture.contains("MathUtils.sin(angle * 3f"));
-        assertTrue(texture.contains("MathUtils.sin(angle * 7f"));
-        assertTrue(texture.contains("Math.pow(1f - smooth, 1.15f)"));
+        assertTrue(texture.contains("distance < 0.40f ? 0f"));
+        assertTrue(texture.contains("engravedRim"));
+        assertTrue(texture.contains("facets"));
         assertTrue(texture.contains("pixels.drawPixel(x, y"));
-        assertTrue(effects.contains("batch.draw(winnerAuraTexture"));
-        assertTrue(effects.contains("winnerProgress * 0.48f"));
+        assertTrue(effects.contains("batch.draw(winnerCrestTexture"));
+        assertTrue(effects.contains("drawLiveWinnerFrames()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertFalse(table.contains("winnerAuraShader"));
-        assertFalse(effects.contains("for (int ring"));
-        assertFalse(effects.contains(
-                "shapes.circle(winner.x, winner.y, radius"));
+        assertFalse(table.contains("winnerAuraTexture"));
     }
 
     private static String method(String source, String startText,

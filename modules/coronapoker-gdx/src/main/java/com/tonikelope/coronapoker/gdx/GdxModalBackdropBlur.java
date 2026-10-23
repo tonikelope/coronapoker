@@ -76,6 +76,28 @@ final class GdxModalBackdropBlur implements Disposable {
     }
 
     /**
+     * Allocates at most one framebuffer for the requested size. Table startup
+     * calls this once per render-loop turn so the first modal frame never has
+     * to allocate both half-resolution surfaces in one burst.
+     */
+    boolean prepareNextBuffer(int backBufferWidth, int backBufferHeight) {
+        int width = downsampledDimension(backBufferWidth);
+        int height = downsampledDimension(backBufferHeight);
+        if (bufferHasDifferentSize(backdrop, width, height)
+                || bufferHasDifferentSize(scratch, width, height)) {
+            disposeBuffers();
+        }
+        if (backdrop == null) {
+            backdrop = createBuffer(width, height);
+            return false;
+        }
+        if (scratch == null) {
+            scratch = createBuffer(width, height);
+        }
+        return true;
+    }
+
+    /**
      * Rebinds the backdrop after a nested framebuffer pass.
      *
      * <p>LibGDX framebuffers are not a stack: ending an inner framebuffer
@@ -124,24 +146,24 @@ final class GdxModalBackdropBlur implements Disposable {
     }
 
     private void ensureBuffers(int backBufferWidth, int backBufferHeight) {
-        int width = downsampledDimension(backBufferWidth);
-        int height = downsampledDimension(backBufferHeight);
-        if (backdrop != null && scratch != null
-                && backdrop.getWidth() == width
-                && backdrop.getHeight() == height
-                && scratch.getWidth() == width
-                && scratch.getHeight() == height) {
-            return;
+        while (!prepareNextBuffer(backBufferWidth, backBufferHeight)) {
+            // Runtime resizes still complete synchronously before capture.
+            // Phased table startup calls prepareNextBuffer() directly.
         }
-        disposeBuffers();
-        backdrop = new FrameBuffer(Pixmap.Format.RGBA8888,
+    }
+
+    private static boolean bufferHasDifferentSize(FrameBuffer buffer,
+            int width, int height) {
+        return buffer != null && (buffer.getWidth() != width
+                || buffer.getHeight() != height);
+    }
+
+    private static FrameBuffer createBuffer(int width, int height) {
+        FrameBuffer buffer = new FrameBuffer(Pixmap.Format.RGBA8888,
                 width, height, false);
-        scratch = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
-        backdrop.getColorBufferTexture().setFilter(
+        buffer.getColorBufferTexture().setFilter(
                 TextureFilter.Linear, TextureFilter.Linear);
-        scratch.getColorBufferTexture().setFilter(
-                TextureFilter.Linear, TextureFilter.Linear);
+        return buffer;
     }
 
     private void drawPass(SpriteBatch batch, Texture texture,

@@ -2993,10 +2993,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boolean shuffleReady = completeShufflePreparation();
                 boolean recoveryReady = completeRecoveryPreparation();
                 if (shuffleReady && recoveryReady) {
-                    finishTableCreation();
                     finishCreationPhase();
                 }
             }
+            case 10 -> advanceCreationStep(
+                    createNextTableFinalizationStep());
             default -> creationComplete = true;
         }
         return creationComplete;
@@ -3077,7 +3078,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case 8 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
-                return true;
+            }
+            case 9, 10 -> {
+                if (modalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return true;
+                }
             }
             default -> { return true; }
         }
@@ -3456,22 +3463,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         creationFontGenerator = null;
     }
 
-    private void finishTableCreation() {
-        creationPreparationExecutor.shutdown();
-        initialiseSeats();
-        if (backgroundMusic == null) {
-            backgroundMusic = gameMusic("misc/background_music.mp3");
+    private boolean createNextTableFinalizationStep() {
+        switch (creationResourceIndex++) {
+            case 0 -> {
+                creationPreparationExecutor.shutdown();
+                initialiseSeats();
+            }
+            case 1 -> {
+                if (backgroundMusic == null) {
+                    backgroundMusic = gameMusic("misc/background_music.mp3");
+                }
+                backgroundMusic.setLooping(true);
+                // Same attenuation used by CoronaPoker's Audio subsystem.
+                backgroundMusic.setVolume(musicVolume);
+            }
+            case 2 -> {
+                if (!startupIntroOnly && musicEnabled()) {
+                    backgroundMusic.play();
+                }
+                Gdx.input.setCursorCatched(false);
+                fontQualityProfile = GdxAdaptiveFontQuality.current(
+                        BASE_WIDTH, BASE_HEIGHT);
+                creationComplete = true;
+                return true;
+            }
+            default -> {
+                creationComplete = true;
+                return true;
+            }
         }
-        backgroundMusic.setLooping(true);
-        // Same ambient-music attenuation used by CoronaPoker's Audio subsystem.
-        backgroundMusic.setVolume(musicVolume);
-        if (!startupIntroOnly && musicEnabled()) {
-            backgroundMusic.play();
-        }
-        Gdx.input.setCursorCatched(false);
-        fontQualityProfile = GdxAdaptiveFontQuality.current(
-                BASE_WIDTH, BASE_HEIGHT);
-        creationComplete = true;
+        return false;
     }
 
     void shareBackgroundMusic(Music music) {
@@ -3480,7 +3501,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "Background music must be shared before table creation");
         }
         // A failed/disabled frontend track must not prevent the table from
-        // opening; finishTableCreation() will create its normal owned decoder.
+        // opening; finalization will create its normal owned decoder.
         if (music == null) return;
         backgroundMusic = music;
         sharedBackgroundMusic = true;

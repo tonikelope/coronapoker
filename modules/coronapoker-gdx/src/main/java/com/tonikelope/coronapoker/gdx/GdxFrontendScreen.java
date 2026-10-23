@@ -4706,16 +4706,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private Texture handGeneratorCardTexture(String code) {
-        String deck = configuredDeck();
-        if (!GdxGamePresentationSettings.OFFICIAL_DECKS.contains(deck)) {
-            deck = "goliat";
-        }
-        String key = deck + "/" + code;
-        String selectedDeck = deck;
-        return handGeneratorCardTextures.computeIfAbsent(key, ignored -> {
-            Texture texture = new Texture(Gdx.files.internal(
-                    "images/decks/" + selectedDeck + "/hq/" + code
-                            + ".jpg"), true);
+        GdxHandGeneratorCardSource source =
+                GdxHandGeneratorCardSource.resolve(presentationSettings, code);
+        return handGeneratorCardTextures.computeIfAbsent(source.cacheKey(),
+                ignored -> {
+            Texture texture = new Texture(source.external()
+                    ? Gdx.files.absolute(source.externalPath().toString())
+                    : Gdx.files.internal(source.internalPath()), true);
             texture.setFilter(TextureFilter.MipMapLinearNearest,
                     TextureFilter.Linear);
             return texture;

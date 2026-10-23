@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.PreferencesService;
@@ -513,6 +514,11 @@ final class GdxGamePresentationSettingsTest {
             assertTrue(settings.modDeck("pepsiman"));
             assertTrue(settings.modAsset("decks/pepsiman/hq/A_C.jpg")
                     .isPresent());
+            GdxHandGeneratorCardSource source =
+                    GdxHandGeneratorCardSource.resolve(settings, "A_C");
+            assertEquals(mod.resolve("A_C.jpg").toAbsolutePath().normalize(),
+                    source.externalPath());
+            assertNull(source.internalPath());
             assertEquals("Test v1", settings.modDisplayName());
             assertEquals("1", settings.modVersion());
             assertEquals("https://example.test/mod-version.txt",
@@ -525,6 +531,49 @@ final class GdxGamePresentationSettingsTest {
         } finally {
             preferences.close();
         }
+    }
+
+    @Test
+    void handGeneratorFollowsTheLiveOfficialDeckSelection(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+
+        settings.selectDeck("interstate60", false);
+        GdxHandGeneratorCardSource source =
+                GdxHandGeneratorCardSource.resolve(settings, "Q_P");
+
+        assertEquals("interstate60", source.deck());
+        assertEquals("images/decks/interstate60/hq/Q_P.jpg",
+                source.internalPath());
+        assertNull(source.externalPath());
+    }
+
+    @Test
+    void handGeneratorUsesTheSelectedModDeckWithStandardFallback(
+            @TempDir Path temporary) throws Exception {
+        Path installation = Files.createDirectories(temporary.resolve("app"));
+        Path deck = Files.createDirectories(installation.resolve(
+                "mod/decks/pepsiman"));
+        Files.writeString(installation.resolve("mod/mod.xml"),
+                "<mod><name>Test</name><version>1</version></mod>");
+        Path card = Files.writeString(deck.resolve("Q_P.jpg"), "external");
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences,
+                        ModMediaCatalog.discover(installation));
+
+        settings.selectDeck("pepsiman", false);
+        GdxHandGeneratorCardSource source =
+                GdxHandGeneratorCardSource.resolve(settings, "Q_P");
+
+        assertEquals("pepsiman", source.deck());
+        assertEquals(card.toAbsolutePath().normalize(), source.externalPath());
+        assertNull(source.internalPath());
+        assertTrue(source.external());
     }
 
     @Test

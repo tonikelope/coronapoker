@@ -185,6 +185,8 @@ final class GdxCardSmaaRendererContractTest {
                 "presentationSettings.requestedCardRenderingMode()"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferWidth()"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferHeight()"));
+        assertTrue(begin.contains("cardSmaaEnabled(quality)"));
+        assertTrue(begin.contains("RENDERING_NATIVE"));
         assertFalse(begin.contains("settingsOpened"));
     }
 
@@ -204,19 +206,33 @@ final class GdxCardSmaaRendererContractTest {
 
         assertEquals(16, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());
         assertTrue(artwork.contains("uniform float u_artworkSmooth"));
+        assertTrue(artwork.contains("uniform float u_artworkLodBias"));
         assertTrue(artwork.contains("if (u_artworkSmooth < 0.5) {"));
         assertTrue(artwork.contains("vec2 uvDx = dFdx(uv)"));
         assertTrue(artwork.contains("vec2 uvDy = dFdy(uv)"));
         assertEquals(16, occurrences(artwork,
                 "resolved += texture2D(artwork"));
+        assertEquals(17, occurrences(artwork, "u_artworkLodBias);"));
         assertTrue(artwork.contains("return resolved * 0.0625"));
         assertFalse(artwork.toLowerCase().contains("sharpen"));
         assertTrue(regular.contains(
                 "setUniformf(\"u_artworkSmooth\""));
+        assertTrue(regular.contains(
+                "setUniformf(\"u_artworkLodBias\""));
         assertTrue(rabbit.contains(
                 "setUniformf(\"u_artworkSmooth\""));
+        assertTrue(rabbit.contains(
+                "setUniformf(\"u_artworkLodBias\""));
         assertTrue(table.contains(
                 "mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f"));
+        assertEquals(0f, CoronaPokerGdxTable.cardArtworkLodBias(
+                GdxCardSmaaRenderer.RENDERING_NATIVE));
+        assertEquals(-0.25f, CoronaPokerGdxTable.cardArtworkLodBias(
+                GdxCardSmaaRenderer.RENDERING_SMOOTH));
+        assertFalse(CoronaPokerGdxTable.cardSmaaEnabled(
+                GdxCardSmaaRenderer.RENDERING_NATIVE));
+        assertFalse(CoronaPokerGdxTable.cardSmaaEnabled(
+                GdxCardSmaaRenderer.RENDERING_SMOOTH));
     }
 
     @Test

@@ -394,16 +394,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_EDGE_SUBSAMPLE_SOFTNESS_PIXELS = 0.30f;
     private static final float CARD_EDGE_GUARD_UV = 0.05f;
     private static final float CARD_SHADER_CANVAS_SCALE = 1.5f;
-    /**
-     * Keeps adjacent card sizes on the same sharp mip whenever practical.
-     *
-     * The bundled 484-pixel artwork crosses a nearest-mip boundary between
-     * the 140-unit board cards and the 125-unit rival cards at common output
-     * resolutions.  A half-level detail bias removes that discontinuity while
-     * preserving mipmaps for genuinely small cards. This is deliberately a
-     * texture-footprint rule shared by every deck and card family.
-     */
-    private static final float CARD_ARTWORK_DETAIL_LOD_BIAS = -0.5f;
+    /** Native and smooth profiles selected with the standalone render lab. */
+    private static final float CARD_ARTWORK_NATIVE_LOD_BIAS = 0f;
+    private static final float CARD_ARTWORK_SMOOTH_LOD_BIAS = -0.25f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
     private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
@@ -562,46 +555,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private static final String CARD_ARTWORK_SAMPLING_GLSL =
             "uniform float u_artworkSmooth;\n"
+            + "uniform float u_artworkLodBias;\n"
             + "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
             + "    if (u_artworkSmooth < 0.5) {\n"
-            + "        return texture2D(artwork, uv, "
-            + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + "        return texture2D(artwork, uv, u_artworkLodBias);\n"
             + "    }\n"
             + "    vec2 uvDx = dFdx(uv);\n"
             + "    vec2 uvDy = dFdy(uv);\n"
             + "    vec4 resolved = vec4(0.0);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.03125"
-            + " - uvDy * 0.34375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.34375, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.03125"
-            + " + uvDy * 0.34375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.34375, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.09375"
-            + " + uvDy * 0.15625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.15625, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.09375"
-            + " - uvDy * 0.15625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.15625, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.15625"
-            + " - uvDy * 0.46875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.46875, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.15625"
-            + " + uvDy * 0.46875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.46875, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.21875"
-            + " + uvDy * 0.03125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.03125, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.21875"
-            + " - uvDy * 0.03125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.03125, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.28125"
-            + " - uvDy * 0.28125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.28125, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.28125"
-            + " + uvDy * 0.28125, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.28125, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.34375"
-            + " + uvDy * 0.40625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.40625, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.34375"
-            + " - uvDy * 0.40625, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.40625, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.40625"
-            + " - uvDy * 0.09375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.09375, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.40625"
-            + " + uvDy * 0.09375, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.09375, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv - uvDx * 0.46875"
-            + " + uvDy * 0.21875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " + uvDy * 0.21875, u_artworkLodBias);\n"
             + "    resolved += texture2D(artwork, uv + uvDx * 0.46875"
-            + " - uvDy * 0.21875, " + CARD_ARTWORK_DETAIL_LOD_BIAS + ");\n"
+            + " - uvDy * 0.21875, u_artworkLodBias);\n"
             + "    return resolved * 0.0625;\n"
             + "}\n";
 
@@ -3523,15 +3516,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return CARD_SHADER_CANVAS_SCALE;
     }
 
-    static float cardArtworkDetailLodBias() {
-        return CARD_ARTWORK_DETAIL_LOD_BIAS;
+    static float cardCornerRadius() {
+        return CARD_CORNER_RADIUS;
+    }
+
+    static float cardEdgeSoftness() {
+        return CARD_EDGE_SOFTNESS;
+    }
+
+    static float cardArtworkLodBias(int renderingMode) {
+        return renderingMode == GdxCardSmaaRenderer.RENDERING_SMOOTH
+                ? CARD_ARTWORK_SMOOTH_LOD_BIAS
+                : CARD_ARTWORK_NATIVE_LOD_BIAS;
+    }
+
+    static boolean cardSmaaEnabled(int renderingMode) {
+        // The selected lab profiles are NATIVO and SUAVE 16X, both without the
+        // optional post-process variants.
+        return false;
     }
 
     private static Texture cardTexture(FileHandle file) {
-        // Select one mip level and filter within it, matching the sharp 26.36
-        // baseline. The card shader applies a shared half-level detail bias so
-        // the slightly smaller rival cards do not fall onto a blurrier mip
-        // than board cards. SMAA owns only the final screen-space edges.
+        // Both lab-selected profiles use bilinear filtering inside the nearest
+        // selected mip level and linear magnification.
+        // Their distinct LOD biases are applied by the card shader.
         Texture texture = new Texture(file, cardMipMapsEnabled());
         texture.setFilter(cardMinificationFilter(),
                 TextureFilter.Linear);
@@ -14109,8 +14117,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int quality = presentationSettings == null
                 ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
                 : presentationSettings.requestedCardRenderingMode();
+        int postProcessMode = cardSmaaEnabled(quality)
+                ? quality : GdxCardSmaaRenderer.RENDERING_NATIVE;
         return cardSmaaRenderer.begin(Gdx.graphics.getBackBufferWidth(),
-                Gdx.graphics.getBackBufferHeight(), quality, batch);
+                Gdx.graphics.getBackBufferHeight(), postProcessMode, batch);
     }
 
     private void finishCardSmaaLayer() {
@@ -15068,6 +15078,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 CARD_SHADER_CANVAS_SCALE);
         rabbitPeelShader.setUniformf("u_artworkSmooth",
                 cardArtworkSmoothValue());
+        rabbitPeelShader.setUniformf("u_artworkLodBias",
+                cardArtworkLodBiasValue());
         rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
                 showdownTint ? 0.31f : 0f);
     }
@@ -15109,6 +15121,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
         roundedCardShader.setUniformf("u_artworkSmooth", artworkSmooth);
+        roundedCardShader.setUniformf("u_artworkLodBias",
+                cardArtworkLodBiasValue());
         roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);
         configuredCardShaderFront = front;
         configuredCardShaderBack = cardBack;
@@ -15135,10 +15149,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float cardArtworkSmoothValue() {
-        int mode = presentationSettings == null
+        int mode = requestedCardRenderingMode();
+        return mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f;
+    }
+
+    private float cardArtworkLodBiasValue() {
+        return cardArtworkLodBias(requestedCardRenderingMode());
+    }
+
+    private int requestedCardRenderingMode() {
+        return presentationSettings == null
                 ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
                 : presentationSettings.requestedCardRenderingMode();
-        return mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f;
     }
 
     private void setCardShowdownOverlay(boolean highlighted) {

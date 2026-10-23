@@ -96,10 +96,11 @@ final class GdxRabbitPresentationContractTest {
                 "sampleCardArtwork(u_texture, sourceUv)"));
         assertTrue(shader.contains(
                 "sampleCardArtwork(u_frontTexture, sourceUv)"));
-        assertTrue(shader.contains("texture2D(artwork, uv, -0.5)"),
-                "all cards must share the half-mip detail policy");
+        assertTrue(shader.contains(
+                "texture2D(artwork, uv, u_artworkLodBias)"),
+                "all cards must receive the selected mode's LOD policy");
         assertFalse(shader.contains("cardArtworkContrast"),
-                "SMAA must replace the old colour-gradient heuristic");
+                "the lab-selected profiles must not restore colour heuristics");
         assertTrue(CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER.contains(
                 "sampleCardArtwork(u_overlayTexture, uv)"));
     }

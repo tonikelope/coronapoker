@@ -94,7 +94,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void cardsUseNeutralTexturesAndNativeResolutionGpuSmaa() {
+    void cardsUseTheTextureFilterAndModeProfilesSelectedInTheLab() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
         assertEquals(TextureFilter.MipMapLinearNearest,
                 CoronaPokerGdxTable.cardMinificationFilter());
@@ -104,8 +104,14 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
-        assertEquals(-0.5f,
-                CoronaPokerGdxTable.cardArtworkDetailLodBias());
+        assertEquals(0f, CoronaPokerGdxTable.cardArtworkLodBias(
+                GdxCardSmaaRenderer.RENDERING_NATIVE));
+        assertEquals(-0.25f, CoronaPokerGdxTable.cardArtworkLodBias(
+                GdxCardSmaaRenderer.RENDERING_SMOOTH));
+        assertFalse(CoronaPokerGdxTable.cardSmaaEnabled(
+                GdxCardSmaaRenderer.RENDERING_NATIVE));
+        assertFalse(CoronaPokerGdxTable.cardSmaaEnabled(
+                GdxCardSmaaRenderer.RENDERING_SMOOTH));
         assertEquals(0, GdxCardSmaaRenderer.RENDERING_NATIVE);
         assertEquals(1, GdxCardSmaaRenderer.RENDERING_SMOOTH);
         assertTrue(GdxCardSmaaRenderer.fitsMaximumTextureSize(
@@ -115,7 +121,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void halfMipDetailBiasKeepsRivalAndBoardCardsOnTheSameDetailLevel() {
+    void selectedSmoothMipBiasKeepsRivalAndBoardCardsOnTheSameDetailLevel() {
         float textureWidth = 484f;
         float rivalWidth = 125f;
         float boardWidth = 140f;
@@ -128,9 +134,11 @@ final class GdxTableViewStateTest {
         for (float screenScale : new float[]{2f / 3f, 1f,
             scale2560x1440, 2f}) {
             assertEquals(nearestMip(textureWidth, rivalWidth, screenScale,
-                    CoronaPokerGdxTable.cardArtworkDetailLodBias()),
+                    CoronaPokerGdxTable.cardArtworkLodBias(
+                            GdxCardSmaaRenderer.RENDERING_SMOOTH)),
                     nearestMip(textureWidth, boardWidth, screenScale,
-                            CoronaPokerGdxTable.cardArtworkDetailLodBias()),
+                            CoronaPokerGdxTable.cardArtworkLodBias(
+                                    GdxCardSmaaRenderer.RENDERING_SMOOTH)),
                     "adjacent card families must retain matching source detail");
         }
     }

@@ -29,6 +29,17 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("networkBlockCache.current()"));
     }
 
+    @Test
+    void tablePreparationDoesNotBurstChipTexturesOrCompeteOnCommonPool()
+            throws Exception {
+        String table = source("CoronaPokerGdxTable.java");
+        assertFalse(table.contains("createChipTexturePair("));
+        assertTrue(table.contains("createNextChipTexture(chipStep)"));
+        assertTrue(table.contains("CHIP_TEXTURES_PER_COLOR = 1"));
+        assertTrue(table.contains("worker.setPriority(Thread.MIN_PRIORITY)"));
+        assertTrue(table.contains("}, creationPreparationExecutor);"));
+    }
+
     private static String source(String file) throws Exception {
         return Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/" + file), StandardCharsets.UTF_8)

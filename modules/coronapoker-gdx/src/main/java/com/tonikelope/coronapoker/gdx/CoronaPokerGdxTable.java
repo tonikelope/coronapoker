@@ -87,6 +87,8 @@ import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -357,6 +359,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float STACK_CHIP_MINIMUM_THICKNESS_RATIO = 0.06f;
     /** Eight stable phases inside the repeating 45-degree edge pattern. */
     private static final int STACK_CHIP_ROTATION_VARIANTS = 8;
+    private static final int CHIP_COLOR_COUNT = 4;
+    private static final int CHIP_TEXTURES_PER_COLOR = 1
+            + STACK_CHIP_ROTATION_VARIANTS * 3;
+    private static final int CHIP_TEXTURE_CREATION_STEPS = CHIP_COLOR_COUNT
+            * CHIP_TEXTURES_PER_COLOR;
+    private static final int FIRST_CHIP_TEXTURE_CREATION_STEP = 4;
+    private static final int POT_TEXTURE_CREATION_STEP =
+            FIRST_CHIP_TEXTURE_CREATION_STEP + CHIP_TEXTURE_CREATION_STEPS;
     private static final float STACK_CHIP_MARK_PERIOD = MathUtils.PI2 / 8f;
     private static final float STACK_CHIP_MARK_HALF_ANGLE = 0.115f;
     /** Back row first, then the two low-value foreground columns. */
@@ -1470,6 +1480,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             recoveryPreparation;
     private StreamingGifTextureAnimation.PreparedLooping preparedRecovery;
     private String preparedRecoveryPath = "";
+    private final ExecutorService creationPreparationExecutor =
+            Executors.newSingleThreadExecutor(task -> {
+                Thread worker = new Thread(task,
+                        "coronapoker-table-preparation");
+                worker.setDaemon(true);
+                worker.setPriority(Thread.MIN_PRIORITY);
+                return worker;
+            });
     private boolean readySignalled;
     private boolean introVisibleSignalled;
     private boolean introLightsSignalled;
@@ -3172,7 +3190,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean createNextCardAndChipResource() {
-        switch (creationResourceIndex++) {
+        int resource = creationResourceIndex++;
+        switch (resource) {
             case 0 -> defaultCardBack = cardTexture(
                     "images/decks/goliat/hq/trasera.jpg");
             case 1 -> rabbitCardBack = cardTexture("images/bugs2.png");
@@ -3185,22 +3204,72 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         [STACK_CHIP_ROTATION_VARIANTS];
                 detailedStackChipEdges = new Texture[4]
                         [STACK_CHIP_ROTATION_VARIANTS];
-                createChipTexturePair(0, new Color(0xd72d3bff),
-                        new Color(0x7f101bff));
             }
-            case 4 -> createChipTexturePair(1, new Color(0x247ee8ff),
-                    new Color(0x10458fff));
-            case 5 -> createChipTexturePair(2, new Color(0x20a96bff),
-                    new Color(0x0d6840ff));
-            case 6 -> createChipTexturePair(3, new Color(0xe2a72fff),
-                    new Color(0x936312ff));
-            case 7 -> {
-                pot = texture("images/pot.png");
-                return true;
+            default -> {
+                int chipStep = resource - FIRST_CHIP_TEXTURE_CREATION_STEP;
+                if (chipStep >= 0
+                        && chipStep < CHIP_TEXTURE_CREATION_STEPS) {
+                    createNextChipTexture(chipStep);
+                } else if (resource == POT_TEXTURE_CREATION_STEP) {
+                    pot = texture("images/pot.png");
+                    return true;
+                } else {
+                    return true;
+                }
             }
-            default -> { return true; }
         }
         return false;
+    }
+
+    /**
+     * Builds one generated chip texture per render-loop turn. A complete chip
+     * colour owns 25 mipmapped textures; generating that whole set in one turn
+     * previously stopped the indeterminate preparation bar until the upload
+     * burst finished.
+     */
+    private void createNextChipTexture(int step) {
+        int colorIndex = step / CHIP_TEXTURES_PER_COLOR;
+        int colorStep = step % CHIP_TEXTURES_PER_COLOR;
+        Color base;
+        Color dark;
+        switch (colorIndex) {
+            case 0 -> {
+                base = new Color(0xd72d3bff);
+                dark = new Color(0x7f101bff);
+            }
+            case 1 -> {
+                base = new Color(0x247ee8ff);
+                dark = new Color(0x10458fff);
+            }
+            case 2 -> {
+                base = new Color(0x20a96bff);
+                dark = new Color(0x0d6840ff);
+            }
+            case 3 -> {
+                base = new Color(0xe2a72fff);
+                dark = new Color(0x936312ff);
+            }
+            default -> throw new IllegalArgumentException(
+                    "Unknown chip colour step " + step);
+        }
+        if (colorStep == 0) {
+            flyingChips[colorIndex] = createChipTexture(base, dark, 0f,
+                    true);
+            return;
+        }
+        int variantStep = colorStep - 1;
+        int variant = variantStep / 3;
+        float phase = stackChipRotationPhase(variant);
+        switch (variantStep % 3) {
+            case 0 -> stackedChipFaces[colorIndex][variant] =
+                    createChipTexture(base, dark, phase, false);
+            case 1 -> stackedChipEdges[colorIndex][variant] =
+                    createChipEdgeTexture(base, dark, phase, false);
+            case 2 -> detailedStackChipEdges[colorIndex][variant] =
+                    createChipEdgeTexture(base, dark, phase, true);
+            default -> throw new IllegalStateException(
+                    "Unknown chip texture step " + step);
+        }
     }
 
     private boolean createNextTableAudioResource() {
@@ -3388,6 +3457,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void finishTableCreation() {
+        creationPreparationExecutor.shutdown();
         initialiseSeats();
         if (backgroundMusic == null) {
             backgroundMusic = gameMusic("misc/background_music.mp3");
@@ -3603,20 +3673,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pixels.dispose();
         return texture;
-    }
-
-    private void createChipTexturePair(int index, Color base, Color dark) {
-        flyingChips[index] = createChipTexture(base, dark, 0f, true);
-        for (int variant = 0; variant < STACK_CHIP_ROTATION_VARIANTS;
-                variant++) {
-            float phase = stackChipRotationPhase(variant);
-            stackedChipFaces[index][variant] = createChipTexture(base, dark,
-                    phase, false);
-            stackedChipEdges[index][variant] = createChipEdgeTexture(base,
-                    dark, phase, false);
-            detailedStackChipEdges[index][variant] = createChipEdgeTexture(
-                    base, dark, phase, true);
-        }
     }
 
     /**
@@ -16410,7 +16466,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } catch (IOException failure) {
                 throw new CompletionException(failure);
             }
-        });
+        }, creationPreparationExecutor);
     }
 
     private boolean completeShufflePreparation() {
@@ -16441,7 +16497,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } catch (IOException failure) {
                 throw new CompletionException(failure);
             }
-        });
+        }, creationPreparationExecutor);
     }
 
     private boolean completeRecoveryPreparation() {
@@ -27614,6 +27670,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         networkBlockCache.clear();
         cancelShufflePreparation();
         cancelRecoveryPreparation();
+        creationPreparationExecutor.shutdownNow();
         disposeSafely(creationFontGenerator);
         creationFontGenerator = null;
         if (shouldDisposeBackgroundMusic(sharedBackgroundMusic)) {
@@ -27754,6 +27811,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         networkBlockCache.clear();
         cancelShufflePreparation();
         cancelRecoveryPreparation();
+        creationPreparationExecutor.shutdownNow();
         CompletableFuture<Void> closingSummaryBarrier = finalSummaryBarrier;
         finalSummaryBarrier = null;
         if (closingSummaryBarrier != null

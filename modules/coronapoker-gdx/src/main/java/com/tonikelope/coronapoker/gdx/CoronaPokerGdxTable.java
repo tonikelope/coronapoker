@@ -961,6 +961,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color ARMED_ACTION_TEXT = new Color(0x071b12ff);
     static final Color LEGACY_THINKING = new Color(0xcccccc4b);
     private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
+    private static final Color WINNER_NEON_GREEN = new Color(0x39ff5aff);
+    private static final Color WINNER_NEON_CORE = new Color(0xc7ffd2ff);
+    private static final Color WINNER_NEON_DEPTH = new Color(0x003d18ff);
     private static final Color LEGACY_LOSER = new Color(0xff0000ff);
     private static final Color LOCAL_OUTCOME_WIN = new Color(0x35b968ff);
     private static final Color LOCAL_OUTCOME_LOSS = new Color(0xb0182bff);
@@ -17627,7 +17630,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!collectLiveWinnerEffectSeats()) {
             return;
         }
-        drawLiveWinnerStreaks();
         drawLiveWinnerFrames();
         drawLiveWinnerParticles();
     }
@@ -17650,43 +17652,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         return !liveWinnerEffectSeats.isEmpty();
-    }
-
-    private void drawLiveWinnerStreaks() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        for (Seat winner : liveWinnerEffectSeats) {
-            float progress = liveWinnerEffectProgress(winner);
-            float pulse = liveAnimationsEnabled()
-                    ? 0.5f + 0.5f * MathUtils.sin(totalTime * 2.1f
-                            + winner.index * 0.81f)
-                    : 0.5f;
-            float centerX = seatAvatarX(winner);
-            for (int side = -1; side <= 1; side += 2) {
-                for (int streak = 0; streak < 4; streak++) {
-                    float startX = centerX + side * (53f + streak * 12f);
-                    float startY = winner.y - 39f + streak * 15f;
-                    float length = 34f + streak * 9f + pulse * 8f;
-                    float endX = startX + side * length;
-                    float endY = startY + length * (0.46f + streak * 0.035f);
-                    float halfWidth = 1.5f + streak * 0.42f;
-                    shapes.setColor(1f, 0.46f, 0.045f,
-                            progress * (0.32f + pulse * 0.18f));
-                    shapes.triangle(startX, startY - halfWidth,
-                            startX, startY + halfWidth, endX, endY);
-                    shapes.setColor(0.28f, 0.88f, 1f,
-                            progress * (0.10f + pulse * 0.08f));
-                    float innerX = startX + side * 7f;
-                    shapes.triangle(innerX, startY - halfWidth * 0.38f,
-                            innerX, startY + halfWidth * 0.38f,
-                            endX, endY);
-                }
-            }
-        }
-        shapes.end();
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     private void drawLiveWinnerFrames() {
@@ -17721,25 +17686,56 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 frameWidth = PLAYER_POD_WIDTH;
                 frameHeight = PLAYER_POD_HEIGHT;
             }
-            shapes.setColor(0.10f, 0.035f, 0.008f, 0.72f * progress);
-            roundedRect(frameX - 11f, frameY - 11f,
-                    frameWidth + 22f, frameHeight + 22f, 22f);
-            shapes.setColor(1f, 0.48f, 0.045f,
-                    (0.70f + pulse * 0.22f) * progress);
-            roundedRect(frameX - 7f, frameY - 7f,
-                    frameWidth + 14f, frameHeight + 14f, 19f);
-            shapes.setColor(1f, 0.83f, 0.32f, 0.82f * progress);
-            roundedRect(frameX - 3f, frameY - 3f,
-                    frameWidth + 6f, frameHeight + 6f, 16f);
+            // Three antialiased contour bands create real neon tubing without
+            // filling or tinting the HUD interior. The broad band is only the
+            // atmospheric falloff; the pale centre is the luminous tube.
+            shapes.setColor(WINNER_NEON_DEPTH.r, WINNER_NEON_DEPTH.g,
+                    WINNER_NEON_DEPTH.b,
+                    (0.24f + pulse * 0.08f) * progress);
+            GdxAntialiasedRoundedRect.outline(shapes,
+                    frameX - 7f, frameY - 7f,
+                    frameWidth + 14f, frameHeight + 14f, 20f, 13f);
+            shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
+                    WINNER_NEON_GREEN.b,
+                    (0.34f + pulse * 0.14f) * progress);
+            GdxAntialiasedRoundedRect.outline(shapes,
+                    frameX - 4f, frameY - 4f,
+                    frameWidth + 8f, frameHeight + 8f, 17f, 7f);
+            shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
+                    WINNER_NEON_CORE.b,
+                    (0.86f + pulse * 0.14f) * progress);
+            GdxAntialiasedRoundedRect.outline(shapes,
+                    frameX - 1.5f, frameY - 1.5f,
+                    frameWidth + 3f, frameHeight + 3f, 14.5f, 2.4f);
 
             float sweep = liveAnimationsEnabled()
                     ? (totalTime * 0.31f + winner.index * 0.23f) % 1f
                     : 0.5f;
-            float glintX = frameX + frameWidth * sweep;
-            shapes.setColor(0.68f, 0.96f, 1f,
-                    (0.55f + pulse * 0.30f) * progress);
-            shapes.circle(glintX, frameY + frameHeight + 7f,
-                    2.8f + pulse * 1.2f, 14);
+            float perimeter = 2f * (frameWidth + frameHeight);
+            float travel = sweep * perimeter;
+            float glintX;
+            float glintY;
+            if (travel < frameWidth) {
+                glintX = frameX + travel;
+                glintY = frameY + frameHeight;
+            } else if (travel < frameWidth + frameHeight) {
+                glintX = frameX + frameWidth;
+                glintY = frameY + frameHeight
+                        - (travel - frameWidth);
+            } else if (travel < frameWidth * 2f + frameHeight) {
+                glintX = frameX + frameWidth
+                        - (travel - frameWidth - frameHeight);
+                glintY = frameY;
+            } else {
+                glintX = frameX;
+                glintY = frameY + travel - frameWidth * 2f - frameHeight;
+            }
+            shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
+                    WINNER_NEON_GREEN.b, 0.34f * progress);
+            shapes.circle(glintX, glintY, 7f + pulse * 2f, 18);
+            shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
+                    WINNER_NEON_CORE.b, 0.96f * progress);
+            shapes.circle(glintX, glintY, 2.4f + pulse * 0.8f, 14);
         }
         shapes.end();
     }
@@ -17765,11 +17761,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + particle * 1.37f) * profile.sway();
                 float y = winner.y - 34f + rise * profile.lift();
                 float life = MathUtils.sin(travel * MathUtils.PI);
-                Color color = profile.cyan() ? CYAN : POT_GOLD;
+                Color color = profile.cyan() ? CYAN : WINNER_NEON_GREEN;
                 shapes.setColor(color.r, color.g, color.b,
                         life * winnerProgress * 0.30f);
                 shapes.circle(x, y, profile.size() * 2.15f, 12);
-                shapes.setColor(1f, 0.92f, 0.62f,
+                shapes.setColor(0.82f, 1f, 0.86f,
                         life * winnerProgress * 0.88f);
                 float size = profile.size();
                 shapes.triangle(x, y + size * 2.2f,

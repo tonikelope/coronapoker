@@ -44,15 +44,12 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void winnerPresentationUsesDirectionalAccentsWithoutAnyAuraTexture()
+    void winnerPresentationUsesANeonFrameWithoutSideMarksOrAuraTexture()
             throws IOException {
         String table = Files.readString(source());
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
-        String streaks = method(table,
-                "private void drawLiveWinnerStreaks()",
-                "private void drawLiveWinnerFrames()");
         String frames = method(table,
                 "private void drawLiveWinnerFrames()",
                 "private void drawLiveWinnerParticles()");
@@ -60,14 +57,15 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawLiveWinnerParticles()",
                 "private float liveWinnerEffectProgress(");
 
-        assertTrue(effects.contains("drawLiveWinnerStreaks()"));
         assertTrue(effects.contains("drawLiveWinnerFrames()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
-        assertTrue(streaks.contains("shapes.triangle("));
-        assertTrue(streaks.contains("for (int side = -1; side <= 1;"));
-        assertTrue(streaks.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
+        assertFalse(table.contains("drawLiveWinnerStreaks()"));
+        assertTrue(frames.contains("GdxAntialiasedRoundedRect.outline"));
+        assertTrue(frames.contains("WINNER_NEON_GREEN"));
+        assertTrue(frames.contains("WINNER_NEON_CORE"));
+        assertTrue(frames.contains("float perimeter = 2f"));
+        assertFalse(frames.contains("roundedRect(frameX"));
         assertTrue(particles.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
-        assertFalse(streaks.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertFalse(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertFalse(frames.contains("shapes.circle(avatarX"));
         assertFalse(table.contains("winnerAuraShader"));

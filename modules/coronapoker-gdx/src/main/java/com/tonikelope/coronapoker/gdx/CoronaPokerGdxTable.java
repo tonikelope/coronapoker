@@ -17707,13 +17707,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     frameX - 1.5f, frameY - 1.5f,
                     frameWidth + 3f, frameHeight + 3f, 14.5f, 2.4f);
 
-            float sweep = liveAnimationsEnabled()
-                    ? (totalTime * 0.31f + winner.index * 0.23f) % 1f
-                    : 0.5f;
-            float counterPhase = 0.5f - totalTime * 0.31f
-                    + winner.index * 0.17f;
-            float counterSweep = liveAnimationsEnabled()
-                    ? counterPhase - MathUtils.floor(counterPhase) : 0f;
+            float perimeter = 2f * (frameWidth + frameHeight);
+            float topCenterSweep = frameWidth * 0.5f / perimeter;
+            float glintPhase = liveAnimationsEnabled()
+                    ? totalTime * 0.31f + winner.index * 0.23f : 0f;
+            float sweepPhase = topCenterSweep + glintPhase;
+            float counterPhase = topCenterSweep - glintPhase;
+            float sweep = sweepPhase - MathUtils.floor(sweepPhase);
+            float counterSweep = counterPhase - MathUtils.floor(counterPhase);
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
                     sweep, pulse, progress, 1f);
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,

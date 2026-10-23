@@ -63,6 +63,9 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(frames.contains("GdxAntialiasedRoundedRect.outline"));
         assertTrue(frames.contains("WINNER_NEON_GREEN"));
         assertTrue(frames.contains("WINNER_NEON_CORE"));
+        assertTrue(frames.contains("float topCenterSweep"));
+        assertTrue(frames.contains("topCenterSweep + glintPhase"));
+        assertTrue(frames.contains("topCenterSweep - glintPhase"));
         assertTrue(frames.contains("float counterSweep"));
         assertTrue(frames.contains("drawWinnerFrameGlint("));
         assertFalse(frames.contains("roundedRect(frameX"));

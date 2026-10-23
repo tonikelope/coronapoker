@@ -11022,6 +11022,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSeats() {
         Objects.requireNonNull(liveState,
                 "Seat rendering requires authoritative live state");
+        // Fire historically burns in front of resting hole cards. Keep that
+        // deliberate showdown depth while the softer seat/winner lighting
+        // remains on the table plane behind the cards.
+        drawAllInSeatFlames();
         Gdx.gl.glEnable(GL20.GL_BLEND);
         // This entire ShapeRenderer batch is normal-alpha only.  Mixing the
         // active-seat additive glow into the same buffered batch allowed a
@@ -12367,7 +12371,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSeatBackEffects() {
         drawActiveSeatGlows();
         drawLiveWinnerEffectsBehindCards();
-        drawAllInSeatFlames();
     }
 
     /**

@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void seatLightingIsCompositedBehindEveryCardLayer() throws IOException {
+    void winnerAuraStaysBehindCardsWhileFireKeepsItsShowdownDepth()
+            throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
                 "private void drawTableBranding(float height)");
@@ -27,7 +28,7 @@ final class GdxWinnerAuraCompositionContractTest {
                 "seat lighting must remain below cards and seat surfaces");
         assertFalse(scene.contains("drawShowdownOverlay()"));
         assertFalse(seats.contains("drawActiveSeatGlows()"));
-        assertFalse(seats.contains("drawAllInSeatFlames()"));
+        assertTrue(seats.contains("drawAllInSeatFlames()"));
     }
 
     @Test

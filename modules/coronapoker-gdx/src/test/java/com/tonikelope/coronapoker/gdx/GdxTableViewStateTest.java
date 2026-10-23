@@ -2589,6 +2589,21 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void activeLocalTurnOwnsTheActionBadgeCaption() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("TU TURNO", CoronaPokerGdxTable.localActionBadgeLabel(
+                true, "APUESTAS (+4)", spanish));
+        assertEquals("YOUR TURN", CoronaPokerGdxTable.localActionBadgeLabel(
+                true, "BET (+4)", english));
+        assertEquals("APUESTAS (+4)", CoronaPokerGdxTable
+                .localActionBadgeLabel(false, "APUESTAS (+4)", spanish));
+        assertEquals("", CoronaPokerGdxTable.localActionBadgeLabel(
+                false, null, spanish));
+    }
+
+    @Test
     void voluntarilyShownLocalHandUsesTheOriginalSecondPersonCaption() {
         assertEquals("MUESTRAS (PAREJA)", CoronaPokerGdxTable
                 .localShownHandLabel("PAREJA", new GdxGameText("es")));

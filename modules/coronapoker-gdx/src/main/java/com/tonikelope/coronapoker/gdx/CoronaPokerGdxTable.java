@@ -3030,7 +3030,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean createNextGraphicsCore() {
-        switch (creationResourceIndex++) {
+        switch (creationResourceIndex) {
             case 0 -> {
                 camera = new OrthographicCamera();
                 viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT,
@@ -3079,15 +3079,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 8 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
             }
-            case 9, 10 -> {
-                if (modalBackdropBlur.prepareNextBuffer(
+            case 9 -> {
+                if (!modalBackdropBlur.prepareNextBuffer(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
-                    return true;
+                    return false;
                 }
+                return true;
             }
             default -> { return true; }
         }
+        creationResourceIndex++;
         return false;
     }
 
@@ -3464,12 +3466,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean createNextTableFinalizationStep() {
-        switch (creationResourceIndex++) {
+        switch (creationResourceIndex) {
             case 0 -> {
+                if (!modalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return false;
+                }
+            }
+            case 1 -> {
                 creationPreparationExecutor.shutdown();
                 initialiseSeats();
             }
-            case 1 -> {
+            case 2 -> {
                 if (backgroundMusic == null) {
                     backgroundMusic = gameMusic("misc/background_music.mp3");
                 }
@@ -3477,7 +3486,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // Same attenuation used by CoronaPoker's Audio subsystem.
                 backgroundMusic.setVolume(musicVolume);
             }
-            case 2 -> {
+            case 3 -> {
+                // Recheck immediately before handoff in case the window moved
+                // to a differently scaled monitor during the intervening
+                // preparation frames.
+                if (!modalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return false;
+                }
                 if (!startupIntroOnly && musicEnabled()) {
                     backgroundMusic.play();
                 }
@@ -3492,6 +3509,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
         }
+        creationResourceIndex++;
         return false;
     }
 
@@ -16968,9 +16986,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean localMonteCarlo = !localSpectator && showsLocalMonteCarloHud(
                 liveState.partialHandPercentage(seats[0].name),
                 liveState.hasHandResult(seats[0].name));
+        boolean localTurn = hasActiveLocalTurn()
+                && !hasPendingLocalActionSubmission();
         return localActionBadgeVisible(localMonteCarlo,
                 local != null && local.timedOut(),
-                lastActionLabelForSeat(0));
+                localActionBadgeLabel(localTurn, lastActionLabelForSeat(0),
+                        gameText));
+    }
+
+    static String localActionBadgeLabel(boolean localTurn,
+            String actionLabel, GdxGameText text) {
+        if (localTurn) {
+            return uppercase(text.translate("gdx.table.hud.your_turn"), text);
+        }
+        return actionLabel == null ? "" : actionLabel;
     }
 
     private String lastActionLabelForSeat(int seat) {
@@ -19019,8 +19048,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || localSpectator
                         || waitingForTurn || localFolded);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
+        String localActionBadgeLabel = localActionBadgeLabel(localTurn,
+                lastLocalActionLabel, gameText);
         Color localHudSemanticColor = lastActionSemanticColorForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
+        Color localActionBadgeColor = localTurn
+                ? ACTIVE_TURN_GOLD : lastLocalActionColor;
+        Color localActionBadgeTextColor = localTurn
+                ? Color.BLACK : lastActionTextColorForSeat(0);
         // Accounting follows only the canonical action palette. Showdown
         // hover may turn the action badge gold, but must never recolour the
         // invested-money counter (same contract as remote seats).
@@ -19236,9 +19271,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(namePlate.x, namePlate.y, namePlate.width,
                 namePlate.height, 8f);
         if (localActionBadgeVisible(localMonteCarlo, localTimedOut,
-                lastLocalActionLabel)) {
-            shapes.setColor(lastLocalActionColor.r, lastLocalActionColor.g,
-                    lastLocalActionColor.b, lastLocalActionColor.a
+                localActionBadgeLabel)) {
+            shapes.setColor(localActionBadgeColor.r, localActionBadgeColor.g,
+                    localActionBadgeColor.b, localActionBadgeColor.a
                     * seatActionSurfaceAlpha(dimLocalActionBadge,
                             settledShowdown || localShownHand)
                     * localSeatOpacity);
@@ -19347,13 +19382,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Seat local = localSeat;
         drawSeatChipStack(local, localSeatOpacity, localFolded);
         batch.setColor(Color.WHITE);
-        if (localTurn) {
-            drawFittedCenteredInBox(smallFont,
-                    uppercase(gameText.translate(
-                            "gdx.table.hud.your_turn"), gameText),
-                    layout.actionX() + 12f, hudY + 115f,
-                    layout.actionWidth() - 24f, 16f, POT_GOLD, 1f);
-        }
         boolean localUnderTheGun = liveLocalPlayer != null
                 && liveLocalPlayer.underTheGun();
         float rightIconsWidth = (localUnderTheGun ? 42f : 0f)
@@ -19389,9 +19417,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.draw(timeoutIcon, namePlate.x + 8f,
                     namePlate.y + 10f, 20f, 20f);
         }
-        if (!localMonteCarlo && !lastLocalActionLabel.isEmpty()) {
-            boolean rabbitIcon = rabbitActionIconVisible(liveLocalPlayer,
-                    lastLocalActionLabel);
+        if (!localMonteCarlo && !localActionBadgeLabel.isEmpty()) {
+            boolean rabbitIcon = !localTurn && rabbitActionIconVisible(
+                    liveLocalPlayer, lastLocalActionLabel);
             float actionTextX = actionBadge.x + 10f;
             float actionTextWidth = actionBadge.width - 20f;
             if (rabbitIcon) {
@@ -19405,10 +19433,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 actionTextWidth -= iconSize + 6f;
             }
             batch.setColor(Color.WHITE);
-            drawFittedCenteredInBox(actionFont, lastLocalActionLabel,
+            drawFittedCenteredInBox(actionFont, localActionBadgeLabel,
                     actionTextX, actionBadge.y,
                     actionTextWidth, actionBadge.height,
-                    lastActionTextColorForSeat(0),
+                    localActionBadgeTextColor,
                     seatActionTextAlpha(dimLocalActionBadge)
                     * localSeatOpacity);
         }

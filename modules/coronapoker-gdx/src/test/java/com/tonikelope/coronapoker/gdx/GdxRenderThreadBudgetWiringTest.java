@@ -38,9 +38,17 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("CHIP_TEXTURES_PER_COLOR = 1"));
         assertTrue(table.contains("worker.setPriority(Thread.MIN_PRIORITY)"));
         assertTrue(table.contains("}, creationPreparationExecutor);"));
-        assertTrue(table.contains("case 9, 10 ->"));
+        assertFalse(table.contains("case 9, 10 ->"));
+        assertTrue(table.contains("case 9 ->"));
+        assertTrue(table.contains("if (!modalBackdropBlur.prepareNextBuffer("));
         assertTrue(table.contains("modalBackdropBlur.prepareNextBuffer("));
         assertTrue(table.contains("createNextTableFinalizationStep()"));
+        assertTrue(table.contains("Recheck immediately before handoff"));
+        assertTrue(table.contains("private boolean createNextGraphicsCore() {\n"
+                + "        switch (creationResourceIndex) {"));
+        assertTrue(table.contains(
+                "private boolean createNextTableFinalizationStep() {\n"
+                + "        switch (creationResourceIndex) {"));
 
         String blur = source("GdxModalBackdropBlur.java");
         assertTrue(blur.contains("boolean prepareNextBuffer("));

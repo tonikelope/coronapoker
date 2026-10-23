@@ -276,6 +276,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
+    private static final float WINNER_AURA_WIDTH = 340f;
+    private static final float WINNER_AURA_HEIGHT = 292f;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
             createWinnerGlowParticles();
@@ -916,6 +918,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             """;
 
+    /**
+     * One continuous, softly dithered winner field.  The former presentation
+     * stacked seven translucent discs; their boundaries remained visible as
+     * concentric bands, especially on bright table backgrounds.
+     */
+    private static final String WINNER_AURA_FRAGMENT_SHADER = """
+            #ifdef GL_ES
+            precision mediump float;
+            #endif
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+            uniform sampler2D u_texture;
+            uniform float u_time;
+            uniform float u_seed;
+            uniform float u_alpha;
+
+            float auraHash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7)) + u_seed)
+                        * 43758.5453);
+            }
+
+            void main() {
+                vec2 p = (v_texCoords - vec2(0.5)) * 2.0;
+                float angle = atan(p.y, p.x);
+                float breathing = sin(u_time * 0.74 + u_seed) * 0.012;
+                float contour = 1.0 + breathing
+                        + sin(angle * 3.0 + u_time * 0.31 + u_seed) * 0.030
+                        + sin(angle * 7.0 - u_time * 0.19 + u_seed * 1.7)
+                                * 0.014;
+                float radialDistance = length(p) / contour;
+                float glow = 1.0 - smoothstep(0.035, 1.0,
+                        radialDistance);
+                glow = glow * glow * (3.0 - 2.0 * glow);
+                float dither = (auraHash(gl_FragCoord.xy) - 0.5)
+                        * (1.0 / 255.0);
+                float alpha = max(0.0, glow
+                        * (u_alpha * v_color.a + dither));
+                alpha *= texture2D(u_texture, v_texCoords).a;
+                if (alpha <= 0.001) discard;
+                gl_FragColor = vec4(1.0, 0.76, 0.20, alpha);
+            }
+            """;
+
     private static final Color BACKGROUND_BOTTOM = new Color(0x02050cff);
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
     private static final Color FELT_SHADE_BOTTOM = new Color(0x02050c52);
@@ -1255,6 +1300,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
     private ShaderProgram allInFireShader;
+    private ShaderProgram winnerAuraShader;
     private GdxAlphaEdgeRenderer alphaEdgeRenderer;
     private GdxModalBackdropBlur modalBackdropBlur;
     private boolean modalBackdropCaptureActive;
@@ -3049,6 +3095,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             + allInFireShader.getLog());
                     allInFireShader.dispose();
                     allInFireShader = null;
+                }
+                winnerAuraShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                        WINNER_AURA_FRAGMENT_SHADER);
+                if (!winnerAuraShader.isCompiled()) {
+                    System.err.println("Winner aura shader disabled: "
+                            + winnerAuraShader.getLog());
+                    winnerAuraShader.dispose();
+                    winnerAuraShader = null;
                 }
             }
             case 7 -> allInFireCanvas = createSolidTexture(Color.WHITE);
@@ -10431,6 +10485,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
+        // Seat lighting belongs to the table plane. Keeping it below every
+        // card prevents additive fire/aura pixels from altering the card
+        // antialiasing that has already been resolved by the card renderer.
+        drawSeatBackEffects();
         drawChipTrails();
         // Hidden cards and completed showdown hands live behind their PlayerPod.
         // A revealing card temporarily moves to the foreground while airborne,
@@ -10444,7 +10502,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
-        drawShowdownOverlay();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
             // The ALL-IN GIF deliberately covers the middle of the table, but
@@ -10965,8 +11022,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSeats() {
         Objects.requireNonNull(liveState,
                 "Seat rendering requires authoritative live state");
-        drawActiveSeatGlows();
-        drawAllInSeatFlames();
         Gdx.gl.glEnable(GL20.GL_BLEND);
         // This entire ShapeRenderer batch is normal-alpha only.  Mixing the
         // active-seat additive glow into the same buffered batch allowed a
@@ -12307,6 +12362,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean isSeatActive(Seat seat) {
         return !isLiveReconnectingPlayer(seat.name)
                 && isActionableTurn(liveState.snapshot(), seat.name);
+    }
+
+    private void drawSeatBackEffects() {
+        drawActiveSeatGlows();
+        drawLiveWinnerEffectsBehindCards();
+        drawAllInSeatFlames();
     }
 
     /**
@@ -17607,15 +17668,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return type == TableVisualEvent.Cinematic.Type.ALL_IN;
     }
 
-    private void drawShowdownOverlay() {
+    private void drawLiveWinnerEffectsBehindCards() {
         Objects.requireNonNull(liveState,
-                "Showdown rendering requires authoritative live state");
-        drawLiveWinnerGlow();
+                "Winner rendering requires authoritative live state");
+        if (!collectLiveWinnerEffectSeats()) {
+            return;
+        }
+        drawLiveWinnerAura();
+        drawLiveWinnerParticles();
     }
 
-    private void drawLiveWinnerGlow() {
+    private boolean collectLiveWinnerEffectSeats() {
         if (!liveWinnerEffectEnabled()) {
-            return;
+            return false;
         }
         List<TableSnapshot.PlayerSnapshot> players = liveState.snapshot().players();
         liveWinnerEffectSeats.clear();
@@ -17630,23 +17695,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        if (liveWinnerEffectSeats.isEmpty()) {
+        return !liveWinnerEffectSeats.isEmpty();
+    }
+
+    private void drawLiveWinnerAura() {
+        if (winnerAuraShader == null || allInFireCanvas == null) {
             return;
         }
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        batch.setShader(winnerAuraShader);
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        batch.begin();
+        for (Seat winner : liveWinnerEffectSeats) {
+            float winnerProgress = liveWinnerEffectProgress(winner);
+            float pulse = liveAnimationsEnabled()
+                    ? 1f + MathUtils.sin(totalTime * 1.45f
+                            + winner.index * 0.81f) * 0.018f
+                    : 1f;
+            float width = WINNER_AURA_WIDTH * pulse;
+            float height = WINNER_AURA_HEIGHT * pulse;
+            float centerX = seatAvatarX(winner);
+            batch.flush();
+            winnerAuraShader.setUniformf("u_time", totalTime);
+            winnerAuraShader.setUniformf("u_seed",
+                    winner.index * 2.137f + 0.73f);
+            winnerAuraShader.setUniformf("u_alpha",
+                    winnerProgress * 0.20f);
+            batch.setColor(Color.WHITE);
+            batch.draw(allInFireCanvas, centerX - width / 2f,
+                    winner.y - height / 2f, width, height);
+        }
+        batch.end();
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setShader(null);
+    }
+
+    private void drawLiveWinnerParticles() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
-            long startedAt = liveWinnerEffectStarts[winner.index];
-            float winnerProgress = startedAt == 0L ? 1f : MathUtils.clamp(
-                    (System.nanoTime() - startedAt) / 1_200_000_000f, 0f, 1f);
-            for (int ring = 7; ring >= 1; ring--) {
-                float radius = 48f + ring * 16f
-                        + MathUtils.sin(totalTime * 4f + ring) * 5f;
-                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
-                        winnerProgress * (0.018f + (8 - ring) * 0.006f));
-                shapes.circle(winner.x, winner.y, radius, 64);
-            }
+            float winnerProgress = liveWinnerEffectProgress(winner);
+            float centerX = seatAvatarX(winner);
             for (int particle = 0; particle < WINNER_GLOW_PARTICLE_COUNT;
                     particle++) {
                 WinnerGlowParticle profile = WINNER_GLOW_PARTICLES[particle];
@@ -17659,13 +17750,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Color color = profile.cyan() ? CYAN : POT_GOLD;
                 shapes.setColor(color.r, color.g, color.b,
                         (1f - travel) * 0.62f);
-                shapes.circle(winner.x + MathUtils.cos(angle) * radius,
+                shapes.circle(centerX + MathUtils.cos(angle) * radius,
                         winner.y + MathUtils.sin(angle) * radius,
                         profile.radius(), 10);
             }
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    private float liveWinnerEffectProgress(Seat winner) {
+        long startedAt = liveWinnerEffectStarts[winner.index];
+        return startedAt == 0L ? 1f : MathUtils.clamp(
+                (System.nanoTime() - startedAt) / 1_200_000_000f, 0f, 1f);
     }
 
     private void updateLiveChipBatch() {
@@ -27599,6 +27696,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
         liveCardFaces.clear();
         disposeSafely(modalBackdropBlur);
+        disposeSafely(winnerAuraShader);
         disposeSafely(allInFireShader);
         disposeSafely(cinematicShader);
         disposeSafely(avatarShader);
@@ -27692,6 +27790,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (rabbitPeelShader != null) rabbitPeelShader.dispose();
         if (avatarShader != null) avatarShader.dispose();
         if (cinematicShader != null) cinematicShader.dispose();
+        if (winnerAuraShader != null) winnerAuraShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         cardSmaaRenderer.dispose();

@@ -3407,6 +3407,16 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void freeFoldConfirmationUsesExplicitConsentLabel() {
+        assertEquals("SÍ, ME TIRO", new GdxGameText("es")
+                .translate("gdx.dialog.fold.confirm"));
+        assertEquals("YES, I FOLD", new GdxGameText("en")
+                .translate("gdx.dialog.fold.confirm"));
+        assertEquals("NO VA", new GdxGameText("es")
+                .translate("action.label.fold2"));
+    }
+
+    @Test
     void liveHudHitMapRoutesEveryCanonicalPokerAction() {
         CoronaPokerGdxTable.LocalHudLayout layout
                 = CoronaPokerGdxTable.localHudLayout(1920f);

@@ -9614,7 +9614,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.STOP,
                     760, 0, false,
                     uppercase(gameText.translate("ui.cancelar")),
-                    uppercase(gameText.translate("action.label.fold2")));
+                    uppercase(gameText.translate(
+                            "gdx.dialog.fold.confirm")));
             confirmation.result().thenAccept(accepted -> {
                 if (!accepted || hasPendingLocalActionSubmission()
                         || !hasActiveLocalTurn()) return;
@@ -17718,7 +17719,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
                     sweep, pulse, progress, 1f);
             drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
-                    counterSweep, 1f - pulse, progress, 0.90f);
+                    counterSweep, 1f - pulse, progress, 0.88f);
         }
         shapes.end();
     }
@@ -17745,18 +17746,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             glintY = frameY + travel - frameWidth * 2f - frameHeight;
         }
         shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.11f * progress);
+                WINNER_NEON_GREEN.b, 0.08f * progress);
         shapes.circle(glintX, glintY,
-                (10f + pulse * 2.2f) * scale, 22);
+                (9f + pulse * 2f) * scale, 22);
         shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.42f * progress);
-        shapes.circle(glintX, glintY, (7f + pulse * 1.8f) * scale, 20);
+                WINNER_NEON_GREEN.b, 0.35f * progress);
+        shapes.circle(glintX, glintY, (6.6f + pulse * 1.6f) * scale, 20);
         shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
-                WINNER_NEON_CORE.b, 0.88f * progress);
+                WINNER_NEON_CORE.b, 0.80f * progress);
         shapes.circle(glintX, glintY,
-                (2.8f + pulse * 0.7f) * scale, 16);
-        shapes.setColor(1f, 1f, 1f, 0.78f * progress);
-        shapes.circle(glintX, glintY, 1.1f * scale, 12);
+                (2.6f + pulse * 0.6f) * scale, 16);
+        shapes.setColor(1f, 1f, 1f, 0.68f * progress);
+        shapes.circle(glintX, glintY, scale, 12);
     }
 
     private void drawLiveWinnerParticles() {

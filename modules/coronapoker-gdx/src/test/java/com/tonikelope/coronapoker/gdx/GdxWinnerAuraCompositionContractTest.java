@@ -68,9 +68,9 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(frames.contains("topCenterSweep - glintPhase"));
         assertTrue(frames.contains("float counterSweep"));
         assertTrue(frames.contains("drawWinnerFrameGlint("));
-        assertTrue(frames.contains("(10f + pulse * 2.2f) * scale"));
-        assertTrue(frames.contains("0.42f * progress"));
-        assertTrue(frames.contains("1.1f * scale"));
+        assertTrue(frames.contains("(9f + pulse * 2f) * scale"));
+        assertTrue(frames.contains("0.35f * progress"));
+        assertTrue(frames.contains("shapes.circle(glintX, glintY, scale, 12)"));
         assertFalse(frames.contains("roundedRect(frameX"));
         assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertTrue(particles.contains("POT_GOLD"));

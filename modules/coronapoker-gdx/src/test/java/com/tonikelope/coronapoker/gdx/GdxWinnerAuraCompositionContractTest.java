@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void winnerPresentationStaysBehindCardsWhileFireKeepsItsDepth()
+    void winnerPresentationReturnsToForegroundWithoutRestoringTheAura()
             throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
@@ -24,20 +24,20 @@ final class GdxWinnerAuraCompositionContractTest {
         int rearCards = scene.indexOf("drawHoleCards(false)");
         int seatsLayer = scene.indexOf("drawSeats()", rearCards);
         int handOverlay = scene.indexOf("drawHandOverlay()", seatsLayer);
-        int localHud = scene.indexOf("drawLocalHud(", handOverlay);
+        int winnerEffects = scene.indexOf("drawLiveWinnerEffects()",
+                handOverlay);
+        int localHud = scene.indexOf("drawLocalHud(", winnerEffects);
         String backEffectMethod = method(table,
                 "private void drawSeatBackEffects()",
                 "private void drawActiveSeatGlows()");
         assertTrue(backEffects >= 0 && rearCards > backEffects
                         && seatsLayer > rearCards,
                 "seat lighting must remain below cards and seat surfaces");
-        assertTrue(handOverlay > seatsLayer && localHud > handOverlay,
-                "showdown overlays and the local HUD keep their normal depth");
-        assertTrue(backEffectMethod.contains("drawLiveWinnerEffects()"),
-                "winner effects must be submitted on the felt plane");
-        assertFalse(scene.substring(rearCards).contains(
-                "drawLiveWinnerEffects()"),
-                "winner effects must never be composited over cards or HUDs");
+        assertTrue(handOverlay > seatsLayer && winnerEffects > handOverlay
+                        && localHud > winnerEffects,
+                "winner accents must cover the showdown but not the local HUD");
+        assertFalse(backEffectMethod.contains("drawLiveWinnerEffects()"),
+                "winner accents must not be submitted on the felt plane");
         assertFalse(scene.contains("drawShowdownOverlay()"));
         assertFalse(seats.contains("drawActiveSeatGlows()"));
         assertTrue(seats.contains("drawAllInSeatFlames()"));
@@ -56,12 +56,19 @@ final class GdxWinnerAuraCompositionContractTest {
         String frames = method(table,
                 "private void drawLiveWinnerFrames()",
                 "private void drawLiveWinnerParticles()");
+        String particles = method(table,
+                "private void drawLiveWinnerParticles()",
+                "private float liveWinnerEffectProgress(");
 
         assertTrue(effects.contains("drawLiveWinnerStreaks()"));
         assertTrue(effects.contains("drawLiveWinnerFrames()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertTrue(streaks.contains("shapes.triangle("));
         assertTrue(streaks.contains("for (int side = -1; side <= 1;"));
+        assertTrue(streaks.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
+        assertTrue(particles.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
+        assertFalse(streaks.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
+        assertFalse(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertFalse(frames.contains("shapes.circle(avatarX"));
         assertFalse(table.contains("winnerAuraShader"));
         assertFalse(table.contains("winnerAuraTexture"));

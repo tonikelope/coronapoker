@@ -10448,6 +10448,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
+        // Winner accents deliberately celebrate in the foreground. Unlike the
+        // removed aura, they are discrete geometry with normal alpha blending,
+        // so no broad additive field changes the cards' perceived gamma.
+        drawLiveWinnerEffects();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
             // The ALL-IN GIF deliberately covers the middle of the table, but
@@ -12316,9 +12320,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSeatBackEffects() {
         drawActiveSeatGlows();
-        // Winner light belongs to the felt plane. Cards, avatars and HUDs are
-        // composed afterwards and therefore retain their exact source gamma.
-        drawLiveWinnerEffects();
     }
 
     /**
@@ -17653,7 +17654,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveWinnerStreaks() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
             float progress = liveWinnerEffectProgress(winner);
@@ -17744,7 +17746,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveWinnerParticles() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
             float winnerProgress = liveWinnerEffectProgress(winner);

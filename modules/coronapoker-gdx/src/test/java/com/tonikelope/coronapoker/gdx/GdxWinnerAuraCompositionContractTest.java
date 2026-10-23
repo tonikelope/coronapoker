@@ -42,17 +42,22 @@ final class GdxWinnerAuraCompositionContractTest {
     void winnerAuraUsesOneContinuousFieldInsteadOfStackedDiscs()
             throws IOException {
         String table = Files.readString(source());
-        String shader = method(table,
-                "private static final String WINNER_AURA_FRAGMENT_SHADER",
-                "private static final Color BACKGROUND_BOTTOM");
+        String texture = method(table,
+                "private static Texture createWinnerAuraTexture()",
+                "private void createChipTexturePair(");
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
 
-        assertTrue(shader.contains("smoothstep(0.035, 1.0"));
-        assertTrue(shader.contains("auraHash(gl_FragCoord.xy)"));
-        assertTrue(effects.contains("winnerAuraShader.setUniformf"));
+        assertTrue(texture.contains("Math.atan2(ny, nx)"));
+        assertTrue(texture.contains("MathUtils.sin(angle * 3f"));
+        assertTrue(texture.contains("MathUtils.sin(angle * 7f"));
+        assertTrue(texture.contains("Math.pow(1f - smooth, 1.15f)"));
+        assertTrue(texture.contains("pixels.drawPixel(x, y"));
+        assertTrue(effects.contains("batch.draw(winnerAuraTexture"));
+        assertTrue(effects.contains("winnerProgress * 0.48f"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
+        assertFalse(table.contains("winnerAuraShader"));
         assertFalse(effects.contains("for (int ring"));
         assertFalse(effects.contains(
                 "shapes.circle(winner.x, winner.y, radius"));

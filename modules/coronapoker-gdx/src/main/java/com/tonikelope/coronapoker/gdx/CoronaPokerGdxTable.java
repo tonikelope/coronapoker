@@ -276,8 +276,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
-    private static final float WINNER_AURA_WIDTH = 340f;
-    private static final float WINNER_AURA_HEIGHT = 292f;
+    private static final int WINNER_AURA_TEXTURE_SIZE = 256;
+    private static final float WINNER_AURA_WIDTH = 368f;
+    private static final float WINNER_AURA_HEIGHT = 316f;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
             createWinnerGlowParticles();
@@ -918,49 +919,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             """;
 
-    /**
-     * One continuous, softly dithered winner field.  The former presentation
-     * stacked seven translucent discs; their boundaries remained visible as
-     * concentric bands, especially on bright table backgrounds.
-     */
-    private static final String WINNER_AURA_FRAGMENT_SHADER = """
-            #ifdef GL_ES
-            precision mediump float;
-            #endif
-            varying vec4 v_color;
-            varying vec2 v_texCoords;
-            uniform sampler2D u_texture;
-            uniform float u_time;
-            uniform float u_seed;
-            uniform float u_alpha;
-
-            float auraHash(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7)) + u_seed)
-                        * 43758.5453);
-            }
-
-            void main() {
-                vec2 p = (v_texCoords - vec2(0.5)) * 2.0;
-                float angle = atan(p.y, p.x);
-                float breathing = sin(u_time * 0.74 + u_seed) * 0.012;
-                float contour = 1.0 + breathing
-                        + sin(angle * 3.0 + u_time * 0.31 + u_seed) * 0.030
-                        + sin(angle * 7.0 - u_time * 0.19 + u_seed * 1.7)
-                                * 0.014;
-                float radialDistance = length(p) / contour;
-                float glow = 1.0 - smoothstep(0.035, 1.0,
-                        radialDistance);
-                glow = glow * glow * (3.0 - 2.0 * glow);
-                float dither = (auraHash(gl_FragCoord.xy) - 0.5)
-                        * (1.0 / 255.0);
-                float alpha = max(0.0, glow
-                        * (u_alpha * v_color.a + dither));
-                alpha *= texture2D(u_texture, v_texCoords).a;
-                if (alpha <= 0.001) discard;
-                gl_FragColor = vec4(1.0, 0.76, 0.20, alpha);
-            }
-            """;
-
     private static final Color BACKGROUND_BOTTOM = new Color(0x02050cff);
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
     private static final Color FELT_SHADE_BOTTOM = new Color(0x02050c52);
@@ -1300,7 +1258,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
     private ShaderProgram allInFireShader;
-    private ShaderProgram winnerAuraShader;
     private GdxAlphaEdgeRenderer alphaEdgeRenderer;
     private GdxModalBackdropBlur modalBackdropBlur;
     private boolean modalBackdropCaptureActive;
@@ -1384,6 +1341,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture allInFireCanvas;
+    private Texture winnerAuraTexture;
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
@@ -3096,16 +3054,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInFireShader.dispose();
                     allInFireShader = null;
                 }
-                winnerAuraShader = new ShaderProgram(CARD_VERTEX_SHADER,
-                        WINNER_AURA_FRAGMENT_SHADER);
-                if (!winnerAuraShader.isCompiled()) {
-                    System.err.println("Winner aura shader disabled: "
-                            + winnerAuraShader.getLog());
-                    winnerAuraShader.dispose();
-                    winnerAuraShader = null;
-                }
             }
-            case 7 -> allInFireCanvas = createSolidTexture(Color.WHITE);
+            case 7 -> {
+                allInFireCanvas = createSolidTexture(Color.WHITE);
+                winnerAuraTexture = createWinnerAuraTexture();
+            }
             case 8 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
                 return true;
@@ -3648,6 +3601,44 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Pixmap pixels = new Pixmap(2, 2, Pixmap.Format.RGBA8888);
         pixels.setColor(color);
         pixels.fill();
+        Texture texture = new Texture(pixels);
+        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        pixels.dispose();
+        return texture;
+    }
+
+    /**
+     * Builds one broad, continuous light field.  Its gently asymmetric edge
+     * avoids both a perfect circular stamp and the concentric bands produced
+     * by stacking translucent geometry.  A tiny deterministic dither prevents
+     * 8-bit alpha steps from becoming visible after enlargement.
+     */
+    private static Texture createWinnerAuraTexture() {
+        int size = WINNER_AURA_TEXTURE_SIZE;
+        Pixmap pixels = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+        for (int y = 0; y < size; y++) {
+            float ny = ((y + 0.5f) / size - 0.5f) * 2f;
+            for (int x = 0; x < size; x++) {
+                float nx = ((x + 0.5f) / size - 0.5f) * 2f;
+                float angle = (float) Math.atan2(ny, nx);
+                float contour = 1f
+                        + MathUtils.sin(angle * 3f + 0.61f) * 0.055f
+                        + MathUtils.sin(angle * 7f - 1.17f) * 0.024f;
+                float distance = (float) Math.sqrt(nx * nx + ny * ny)
+                        / contour;
+                float progress = MathUtils.clamp(
+                        (distance - 0.035f) / 0.965f, 0f, 1f);
+                float smooth = progress * progress
+                        * (3f - 2f * progress);
+                float glow = (float) Math.pow(1f - smooth, 1.15f);
+                int hash = x * 0x1f123bb5 ^ y * 0x5f356495;
+                hash ^= hash >>> 15;
+                float dither = ((hash & 0xff) / 255f - 0.5f) / 255f;
+                float alpha = MathUtils.clamp(glow + dither, 0f, 1f);
+                pixels.drawPixel(x, y, Color.rgba8888(
+                        1f, 1f, 1f, alpha));
+            }
+        }
         Texture texture = new Texture(pixels);
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pixels.dispose();
@@ -17702,11 +17693,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawLiveWinnerAura() {
-        if (winnerAuraShader == null || allInFireCanvas == null) {
+        if (winnerAuraTexture == null) {
             return;
         }
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        batch.setShader(winnerAuraShader);
+        batch.setShader(null);
         batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         batch.begin();
         for (Seat winner : liveWinnerEffectSeats) {
@@ -17718,20 +17709,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float width = WINNER_AURA_WIDTH * pulse;
             float height = WINNER_AURA_HEIGHT * pulse;
             float centerX = seatAvatarX(winner);
-            batch.flush();
-            winnerAuraShader.setUniformf("u_time", totalTime);
-            winnerAuraShader.setUniformf("u_seed",
-                    winner.index * 2.137f + 0.73f);
-            winnerAuraShader.setUniformf("u_alpha",
-                    winnerProgress * 0.20f);
-            batch.setColor(Color.WHITE);
-            batch.draw(allInFireCanvas, centerX - width / 2f,
+            batch.setColor(1f, 0.76f, 0.20f,
+                    winnerProgress * 0.48f);
+            batch.draw(winnerAuraTexture, centerX - width / 2f,
                     winner.y - height / 2f, width, height);
         }
         batch.end();
+        batch.setColor(Color.WHITE);
         batch.setBlendFunction(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
-        batch.setShader(null);
     }
 
     private void drawLiveWinnerParticles() {
@@ -27645,6 +27631,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(avatarDefault);
         disposeSafely(avatarBot);
         disposeSafely(allInFireCanvas);
+        disposeSafely(winnerAuraTexture);
         disposeSafely(dealerChip);
         disposeSafely(smallBlindChip);
         disposeSafely(bigBlindChip);
@@ -27699,7 +27686,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
         liveCardFaces.clear();
         disposeSafely(modalBackdropBlur);
-        disposeSafely(winnerAuraShader);
         disposeSafely(allInFireShader);
         disposeSafely(cinematicShader);
         disposeSafely(avatarShader);
@@ -27793,7 +27779,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (rabbitPeelShader != null) rabbitPeelShader.dispose();
         if (avatarShader != null) avatarShader.dispose();
         if (cinematicShader != null) cinematicShader.dispose();
-        if (winnerAuraShader != null) winnerAuraShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         cardSmaaRenderer.dispose();
@@ -27840,6 +27825,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         avatarDefault.dispose();
         avatarBot.dispose();
         allInFireCanvas.dispose();
+        winnerAuraTexture.dispose();
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();

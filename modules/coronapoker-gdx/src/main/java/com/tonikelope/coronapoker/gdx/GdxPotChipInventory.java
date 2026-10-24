@@ -16,13 +16,19 @@ final class GdxPotChipInventory {
 
     private final ArrayList<CoronaPokerGdxTable.VisualChipSpec> chips
             = new ArrayList<>();
+    private List<CoronaPokerGdxTable.VisualChipSpec> snapshot = List.of();
+    private boolean snapshotDirty;
 
     void clear() {
+        if (chips.isEmpty()) return;
         chips.clear();
+        snapshotDirty = true;
     }
 
     void deposit(List<CoronaPokerGdxTable.VisualChipSpec> incoming) {
-        if (incoming != null) chips.addAll(incoming);
+        if (incoming == null || incoming.isEmpty()) return;
+        chips.addAll(incoming);
+        snapshotDirty = true;
     }
 
     /**
@@ -45,6 +51,7 @@ final class GdxPotChipInventory {
                         chip.amountMinor() / 100d, chip.color()));
             }
         }
+        snapshotDirty = true;
     }
 
     static List<CoronaPokerGdxTable.VisualChipSpec> relieveCompressedColumns(
@@ -118,6 +125,7 @@ final class GdxPotChipInventory {
             List<CoronaPokerGdxTable.VisualChipSpec> replacement) {
         chips.clear();
         chips.addAll(rebalance(replacement, cents(exactAmount)));
+        snapshotDirty = true;
     }
 
     /**
@@ -128,12 +136,14 @@ final class GdxPotChipInventory {
             List<CoronaPokerGdxTable.VisualChipSpec> fallback) {
         long target = cents(exactAmount);
         if (target <= 0L) {
-            chips.clear();
+            clear();
         } else if (chips.isEmpty()) {
             chips.addAll(rebalance(fallback, target));
+            snapshotDirty = true;
         } else if (cents(amount()) != target) {
             chips.clear();
             chips.addAll(rebalance(fallback, target));
+            snapshotDirty = true;
         }
     }
 
@@ -192,6 +202,7 @@ final class GdxPotChipInventory {
                         replacement.amountMinor() / 100d,
                         replacement.color()));
             }
+            snapshotDirty = true;
         }
     }
 
@@ -232,6 +243,7 @@ final class GdxPotChipInventory {
         ArrayList<CoronaPokerGdxTable.VisualChipSpec> selected =
                 new ArrayList<>(selectedIndices.size());
         for (int index : selectedIndices) selected.add(chips.remove(index));
+        if (!selected.isEmpty()) snapshotDirty = true;
         return selected;
     }
 
@@ -248,7 +260,11 @@ final class GdxPotChipInventory {
     }
 
     List<CoronaPokerGdxTable.VisualChipSpec> snapshot() {
-        return List.copyOf(chips);
+        if (snapshotDirty) {
+            snapshot = List.copyOf(chips);
+            snapshotDirty = false;
+        }
+        return snapshot;
     }
 
     static List<CoronaPokerGdxTable.VisualChipSpec> rebalance(

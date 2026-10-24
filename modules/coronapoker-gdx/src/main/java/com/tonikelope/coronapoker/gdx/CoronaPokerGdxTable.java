@@ -434,6 +434,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LOCAL_HUD_VALUE_CHIP_GAP = 6f;
     private static final float LOCAL_HUD_ACTION_WIDTH = 868f;
     private static final float LOCAL_HUD_PRE_ACTION_GAP = 12f;
+    private static final StackChipRackGeometry LOCAL_STACK_CHIP_GEOMETRY =
+            createStackChipRackGeometry(true);
+    private static final StackChipRackGeometry REMOTE_STACK_CHIP_GEOMETRY =
+            createStackChipRackGeometry(false);
+    private static final StackChipRackGeometry POT_STACK_CHIP_GEOMETRY =
+            createPotChipRackGeometry(LOCAL_STACK_CHIP_GEOMETRY);
+    private static final StackChipRackPlacement[] LOCAL_STACK_PLACEMENTS =
+            createStableStackChipRackPlacements(LOCAL_STACK_CHIP_GEOMETRY);
+    private static final StackChipRackPlacement[] REMOTE_STACK_PLACEMENTS =
+            createStableStackChipRackPlacements(REMOTE_STACK_CHIP_GEOMETRY);
+    private static final StackChipRackPlacement[] POT_STACK_PLACEMENTS =
+            createStableStackChipRackPlacements(POT_STACK_CHIP_GEOMETRY);
     private static final float LOCAL_HUD_PRE_ACTION_WIDTH = 200f;
     private static final float LOCAL_NAME_PLATE_WIDTH = 270f;
     private static final float LOCAL_NAME_PLATE_HEIGHT = 40f;
@@ -1504,6 +1516,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             = new HashMap<>();
     private final GdxPotChipInventory livePotChips =
             new GdxPotChipInventory();
+    private final float[] chipRackHeights =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private final float[] staticChipRackCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private final float[] potChipDisplayedCounts =
+            new float[GdxStackChipLayout.COLUMN_COUNT];
+    private List<VisualChipSpec> cachedPotLayoutSource = List.of();
+    private GdxStackChipLayout.Layout cachedPotLayout;
     /** Physical chips reserved for the second Run It Twice board. */
     private List<VisualChipSpec> runItTwiceSideBPotChips = List.of();
     /** Odd physical remainder carried beyond both Run It Twice boards. */
@@ -5433,12 +5453,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void rebalancePotChipInventory() {
-        GdxStackChipLayout.Layout before = visualChipLayout(
+        GdxStackChipLayout.Layout before = potVisualChipLayout(
                 livePotChips.snapshot());
         float[] displayedBefore = displayedPotChipCounts(before);
         livePotChips.relieveCompressedColumns(liveCounterDenomination(),
                 relaxedRackCapacities(potChipRackGeometry()));
-        GdxStackChipLayout.Layout after = visualChipLayout(
+        GdxStackChipLayout.Layout after = potVisualChipLayout(
                 livePotChips.snapshot());
         boolean changed = false;
         for (int column = 0; column < GdxStackChipLayout.COLUMN_COUNT;
@@ -5454,7 +5474,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float[] currentPotChipRebalanceCounts(
             GdxStackChipLayout.Layout currentLayout) {
-        float[] counts = new float[GdxStackChipLayout.COLUMN_COUNT];
+        float[] counts = potChipDisplayedCounts;
         if (Float.isNaN(potChipRebalanceStartedAt)) {
             for (int column = 0; column < counts.length; column++) {
                 counts[column] = currentLayout.columnHeight(column);
@@ -8119,7 +8139,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxStackChipLayout.Layout chipCatalogStackLayout() {
         if (chipCatalogTarget == null) return null;
         if (chipCatalogTarget.pot()) {
-            return visualChipLayout(displayedPotVisualChips(
+            return potVisualChipLayout(displayedPotVisualChips(
                     Math.max(0d, livePot())));
         }
         Seat seat = seatByNickname(chipCatalogTarget.nickname());
@@ -11582,6 +11602,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return new GdxStackChipLayout.Layout(columns);
     }
 
+    private GdxStackChipLayout.Layout potVisualChipLayout(
+            List<VisualChipSpec> chips) {
+        if (cachedPotLayout == null || cachedPotLayoutSource != chips) {
+            cachedPotLayoutSource = chips;
+            cachedPotLayout = visualChipLayout(chips);
+        }
+        return cachedPotLayout;
+    }
+
     private GdxStackChipLayout.Layout stackChipLayout(Seat seat) {
         double denomination = liveCounterDenomination();
         TableSnapshot.PlayerSnapshot player = livePlayer(seat);
@@ -11845,29 +11874,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawStaticChipRack(float centerX, float centerY,
             GdxStackChipLayout.Layout layout, float alpha,
             StackChipRackGeometry geometry) {
-        float[] physicalCounts = new float[GdxStackChipLayout.COLUMN_COUNT];
-        for (int column = 0; column < physicalCounts.length; column++) {
-            physicalCounts[column] = layout.columnHeight(column);
+        for (int column = 0; column < staticChipRackCounts.length; column++) {
+            staticChipRackCounts[column] = layout.columnHeight(column);
         }
-        drawChipRack(centerX, centerY, layout, physicalCounts, alpha,
+        drawChipRack(centerX, centerY, layout, staticChipRackCounts, alpha,
                 geometry, 0x504f54);
     }
 
     private void drawChipRack(float centerX, float centerY,
             GdxStackChipLayout.Layout layout, float[] physicalCounts,
             float alpha, StackChipRackGeometry geometry, int rackSeed) {
-        float[] heights = new float[physicalCounts.length];
-        float[] physicalBaseRises = stackChipColumnBaseRises(geometry,
-                physicalCounts);
+        StackChipRackPlacement physicalPlacement = stackChipRackPlacement(
+                geometry, physicalCounts);
+        float[] physicalBaseRises = physicalPlacement.baseRises();
         for (int column = 0; column < physicalCounts.length; column++) {
-            heights[column] = stackChipPerceivedLevels(geometry,
+            chipRackHeights[column] = stackChipPerceivedLevels(geometry,
                     physicalBaseRises[column], physicalCounts[column]);
         }
-        float fittedVerticalGap = stackChipRackVerticalGap(geometry, heights);
         StackChipRackPlacement placement = stackChipRackPlacement(geometry,
-                heights);
+                chipRackHeights);
+        float fittedVerticalGap = stackChipRackVerticalGap(geometry,
+                chipRackHeights, placement);
         for (int column : STACK_CHIP_COLUMN_DRAW_ORDER) {
-            float height = Math.max(0f, heights[column]);
+            float height = Math.max(0f, chipRackHeights[column]);
             float columnX = centerX + placement.offsets()[column];
             float columnY = centerY + placement.baseRises()[column];
             GdxStackChipLayout.Column chipColumn = layout.columns().get(column);
@@ -12012,6 +12041,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static StackChipRackGeometry stackChipRackGeometry(boolean localSize) {
+        return localSize ? LOCAL_STACK_CHIP_GEOMETRY
+                : REMOTE_STACK_CHIP_GEOMETRY;
+    }
+
+    private static StackChipRackGeometry createStackChipRackGeometry(
+            boolean localSize) {
         // Four full-size discs inside these compact counters collapse into a
         // single horizontal blob. A slightly smaller native draw size opens
         // a real gap between x2 and x1 while keeping every denomination
@@ -12037,7 +12072,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static StackChipRackGeometry potChipRackGeometry() {
-        StackChipRackGeometry local = stackChipRackGeometry(true);
+        return POT_STACK_CHIP_GEOMETRY;
+    }
+
+    private static StackChipRackGeometry createPotChipRackGeometry(
+            StackChipRackGeometry local) {
         float zigzagRise = local.chipSize()
                 * POT_STACK_CHIP_DEPTH_RISE_RATIO;
         float normalVerticalGap = stackChipPhysicalThickness(
@@ -12052,8 +12091,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static float stackChipRackVerticalGap(StackChipRackGeometry geometry,
             float[] heights) {
+        return stackChipRackVerticalGap(geometry, heights,
+                stackChipRackPlacement(geometry, heights));
+    }
+
+    private static float stackChipRackVerticalGap(
+            StackChipRackGeometry geometry, float[] heights,
+            StackChipRackPlacement placement) {
         float fittedGap = geometry.normalVerticalGap();
-        float[] baseRises = stackChipColumnBaseRises(geometry, heights);
+        float[] baseRises = placement.baseRises();
         for (int column = 0; column < heights.length; column++) {
             float visibleLevels = Math.max(0f, heights[column]);
             if (visibleLevels <= 1f) continue;
@@ -12125,17 +12171,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     static float[] stackChipColumnOffsets(StackChipRackGeometry geometry,
             float[] heights) {
-        return stackChipRackPlacement(geometry, heights).offsets();
+        return stackChipRackPlacement(geometry, heights).offsets().clone();
     }
 
     static float[] stackChipColumnBaseRises(
             StackChipRackGeometry geometry, float[] heights) {
-        return stackChipRackPlacement(geometry, heights).baseRises();
+        return stackChipRackPlacement(geometry, heights).baseRises().clone();
     }
 
     private static StackChipRackPlacement stackChipRackPlacement(
             StackChipRackGeometry geometry, float[] heights) {
-        boolean[] active = new boolean[GdxStackChipLayout.COLUMN_COUNT];
+        int activeMask = 0;
         int activeCount = 0;
         int weakestColumn = -1;
         float weakestPresence = Float.POSITIVE_INFINITY;
@@ -12146,7 +12192,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? MathUtils.clamp(heights[column], 0f, 1f) : 0f;
             float visible = Interpolation.smoother.apply(raw);
             if (visible <= 0.000_001f) continue;
-            active[column] = true;
+            activeMask |= 1 << column;
             activeCount++;
             if (visible < weakestPresence) {
                 weakestPresence = visible;
@@ -12155,15 +12201,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         StackChipRackPlacement full = stableStackChipRackPlacement(geometry,
-                active, activeCount);
+                activeMask, activeCount);
         if (activeCount <= 1 || weakestPresence >= 0.999_999f) {
             return full;
         }
 
-        boolean[] previousActive = active.clone();
-        previousActive[weakestColumn] = false;
+        int previousActiveMask = activeMask & ~(1 << weakestColumn);
         StackChipRackPlacement previous = stableStackChipRackPlacement(
-                geometry, previousActive, activeCount - 1);
+                geometry, previousActiveMask, activeCount - 1);
         float[] offsets = full.offsets().clone();
         float[] baseRises = full.baseRises().clone();
         for (int column = 0; column < offsets.length; column++) {
@@ -12178,8 +12223,42 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static StackChipRackPlacement stableStackChipRackPlacement(
-            StackChipRackGeometry geometry, boolean[] active,
-            int activeCount) {
+            StackChipRackGeometry geometry, int activeMask, int activeCount) {
+        StackChipRackPlacement cached = cachedStableStackChipRackPlacement(
+                geometry, activeMask);
+        return cached != null ? cached : createStableStackChipRackPlacement(
+                geometry, activeMask, activeCount);
+    }
+
+    private static StackChipRackPlacement cachedStableStackChipRackPlacement(
+            StackChipRackGeometry geometry, int activeMask) {
+        if (geometry == LOCAL_STACK_CHIP_GEOMETRY) {
+            return LOCAL_STACK_PLACEMENTS[activeMask];
+        }
+        if (geometry == REMOTE_STACK_CHIP_GEOMETRY) {
+            return REMOTE_STACK_PLACEMENTS[activeMask];
+        }
+        if (geometry == POT_STACK_CHIP_GEOMETRY) {
+            return POT_STACK_PLACEMENTS[activeMask];
+        }
+        return null;
+    }
+
+    private static StackChipRackPlacement[]
+            createStableStackChipRackPlacements(
+                    StackChipRackGeometry geometry) {
+        int count = 1 << GdxStackChipLayout.COLUMN_COUNT;
+        StackChipRackPlacement[] placements =
+                new StackChipRackPlacement[count];
+        for (int activeMask = 0; activeMask < count; activeMask++) {
+            placements[activeMask] = createStableStackChipRackPlacement(
+                    geometry, activeMask, Integer.bitCount(activeMask));
+        }
+        return placements;
+    }
+
+    private static StackChipRackPlacement createStableStackChipRackPlacement(
+            StackChipRackGeometry geometry, int activeMask, int activeCount) {
         float rackCenter = geometry.firstColumnOffset()
                 + 1.5f * geometry.columnGap();
         float[] offsets = new float[GdxStackChipLayout.COLUMN_COUNT];
@@ -12202,8 +12281,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         int rearColumn = -1;
         if (activeCount == 3) {
-            for (int column = active.length - 1; column >= 0; column--) {
-                if (active[column]) {
+            for (int column = GdxStackChipLayout.COLUMN_COUNT - 1;
+                    column >= 0; column--) {
+                if ((activeMask & 1 << column) != 0) {
                     rearColumn = column;
                     baseRises[column] = geometry.zigzagRise();
                     break;
@@ -12211,14 +12291,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
 
-        int[] foreground = new int[2];
+        int firstForeground = -1;
+        int secondForeground = -1;
         int foregroundCount = 0;
         for (int column : STACK_CHIP_COLUMN_SLOT_ORDER) {
-            if (!active[column] || column == rearColumn) continue;
-            foreground[foregroundCount++] = column;
+            if ((activeMask & 1 << column) == 0 || column == rearColumn) {
+                continue;
+            }
+            if (foregroundCount++ == 0) {
+                firstForeground = column;
+            } else {
+                secondForeground = column;
+            }
         }
         if (foregroundCount == 1) {
-            offsets[foreground[0]] = rackCenter;
+            offsets[firstForeground] = rackCenter;
         } else if (foregroundCount == 2) {
             float pitch = activeCount == 3
                     ? (stackChipColumnSlotPosition(0)
@@ -12227,8 +12314,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     : geometry.chipSize()
                             * STACK_CHIP_SAME_ROW_PITCH_RATIO;
             float halfPitch = pitch / 2f;
-            offsets[foreground[0]] = rackCenter - halfPitch;
-            offsets[foreground[1]] = rackCenter + halfPitch;
+            offsets[firstForeground] = rackCenter - halfPitch;
+            offsets[secondForeground] = rackCenter + halfPitch;
         }
         return new StackChipRackPlacement(offsets, baseRises);
     }
@@ -14559,7 +14646,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!potChips.isEmpty()) {
             StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
             float iconBaseY = potChipRackBaseY(potGeometry);
-            GdxStackChipLayout.Layout potLayout = visualChipLayout(potChips);
+            GdxStackChipLayout.Layout potLayout =
+                    potVisualChipLayout(potChips);
             float[] physicalCounts = displayedPotChipCounts(potLayout);
             boolean composite = hasVisibleStackChips(physicalCounts)
                     && shouldCompositePotChipRack(opacity)
@@ -14605,7 +14693,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** Exact on-screen contact point for one denomination in the table pot. */
     private PotChipAnchor potChipAnchor(int color,
             boolean includeMovingChip) {
-        GdxStackChipLayout.Layout layout = visualChipLayout(
+        GdxStackChipLayout.Layout layout = potVisualChipLayout(
                 displayedPotVisualChips(Math.max(0d, livePot())));
         float[] physicalCounts = displayedPotChipCounts(layout);
         int column = GdxChipDenominations.columnForColor(color);
@@ -14613,19 +14701,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (includeMovingChip) physicalCounts[column] += 1f;
 
         StackChipRackGeometry geometry = animatedPotChipRackGeometry();
-        float[] heights = new float[physicalCounts.length];
-        float[] physicalBaseRises = stackChipColumnBaseRises(geometry,
-                physicalCounts);
+        StackChipRackPlacement physicalPlacement = stackChipRackPlacement(
+                geometry, physicalCounts);
+        float[] physicalBaseRises = physicalPlacement.baseRises();
         for (int index = 0; index < physicalCounts.length; index++) {
-            heights[index] = stackChipPerceivedLevels(geometry,
+            chipRackHeights[index] = stackChipPerceivedLevels(geometry,
                     physicalBaseRises[index], physicalCounts[index]);
         }
-        float fittedGap = stackChipRackVerticalGap(geometry, heights);
         StackChipRackPlacement placement = stackChipRackPlacement(geometry,
-                heights);
+                chipRackHeights);
+        float fittedGap = stackChipRackVerticalGap(geometry,
+                chipRackHeights, placement);
         float rackCenterX = potChipRackCenterX(potCenterX);
         float baseRise = placement.baseRises()[column];
-        float topLevel = Math.max(0f, heights[column] - 1f);
+        float topLevel = Math.max(0f, chipRackHeights[column] - 1f);
         float topCenterY = potChipRackBaseY(geometry) + baseRise
                 - geometry.chipSize() / 2f + topLevel * fittedGap
                 + stackChipProjectedHeight(geometry) / 2f;
@@ -14640,10 +14729,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private List<VisualChipSpec> displayedPotVisualChips(double currentPot) {
         if (!chipRackVisible(currentPot)) return List.of();
-        ArrayList<VisualChipSpec> visible = new ArrayList<>(
-                livePotChips.snapshot());
+        List<VisualChipSpec> inventory = livePotChips.snapshot();
         LivePayout payout = livePayout;
         if (payout != null) {
+            ArrayList<VisualChipSpec> visible = new ArrayList<>(inventory);
             float elapsed = payout.elapsedSeconds();
             for (LivePayoutChip chip : payout.chips) {
                 // Withdraw reserves the exact payout immediately. Keep each
@@ -14654,9 +14743,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return List.copyOf(visible);
         }
-        if (visualChipAmountMinor(visible)
+        if (visualChipAmountMinor(inventory)
                 == Math.round(currentPot * 100d)) {
-            return List.copyOf(visible);
+            return inventory;
         }
         // Recovery/hot-join fallback: rebuild the missing presentation from
         // the same fixed denominations without changing canonical accounting.

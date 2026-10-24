@@ -798,6 +798,7 @@ final class GdxTableViewStateTest {
     void fourChipColumnsFillTheirRackWithoutCoveringTheStackValue() {
         CoronaPokerGdxTable.StackChipRackGeometry local =
                 CoronaPokerGdxTable.stackChipRackGeometry(true);
+        assertSame(local, CoronaPokerGdxTable.stackChipRackGeometry(true));
         assertEquals(30f, local.chipSize(), 0.000_001f);
         assertEquals(-28f, local.firstColumnOffset(), 0.000_001f);
         assertEquals(17.333_334f, local.columnGap(), 0.000_01f);
@@ -805,6 +806,7 @@ final class GdxTableViewStateTest {
 
         CoronaPokerGdxTable.StackChipRackGeometry remote =
                 CoronaPokerGdxTable.stackChipRackGeometry(false);
+        assertSame(remote, CoronaPokerGdxTable.stackChipRackGeometry(false));
         assertEquals(22f, remote.chipSize(), 0.000_001f);
         assertEquals(-25f, remote.firstColumnOffset(), 0.000_001f);
         assertEquals(13.666_667f, remote.columnGap(), 0.000_01f);
@@ -827,6 +829,7 @@ final class GdxTableViewStateTest {
                 "compressed edges must retain a legible lower bound");
         CoronaPokerGdxTable.StackChipRackGeometry pot =
                 CoronaPokerGdxTable.potChipRackGeometry();
+        assertSame(pot, CoronaPokerGdxTable.potChipRackGeometry());
         assertEquals(local.maximumHeight(), pot.maximumHeight(),
                 0.000_001f,
                 "the pot and local rack use equal-size chips and height");

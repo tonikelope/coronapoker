@@ -7,10 +7,32 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GdxPotChipInventoryTest {
+
+    @Test
+    void immutableSnapshotIsReusedUntilTheInventoryChanges() {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        inventory.deposit(List.of(chip(0.1d,
+                GdxChipDenominations.color(0))));
+
+        List<CoronaPokerGdxTable.VisualChipSpec> first =
+                inventory.snapshot();
+        assertSame(first, inventory.snapshot());
+
+        inventory.deposit(List.of(chip(0.2d,
+                GdxChipDenominations.color(1))));
+        List<CoronaPokerGdxTable.VisualChipSpec> second =
+                inventory.snapshot();
+
+        assertNotSame(first, second);
+        assertEquals(2, second.size());
+        assertSame(second, inventory.snapshot());
+    }
 
     @Test
     void recoveryFallbackBuildsBalancedRackInsteadOfMinimumGreenTower() {

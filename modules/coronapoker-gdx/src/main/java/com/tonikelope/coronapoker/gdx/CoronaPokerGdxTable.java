@@ -89,6 +89,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -644,7 +645,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "        float y = (v_texCoords.y - 0.5) * u_canvasScale * u_cardAspect;\n"
             + "        float halfWidth = 0.5;\n"
             + "        float depth = 2.0;\n"
-            + "        float projectedX = halfWidth * cos(u_flipAngle);\n"
+            + "        float flipAngle = abs(u_flipAngle);\n"
+            + "        float projectedX = halfWidth * cos(flipAngle);\n"
             + "        float projectedZ = halfWidth * sin(u_flipAngle);\n"
             + "        float denominator = projectedX * depth - x * projectedZ;\n"
             + "        if (abs(denominator) < 0.00001) discard;\n"
@@ -660,13 +662,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "        if (sourceUv.y < -" + CARD_EDGE_GUARD_UV
             + " || sourceUv.y > " + (1f + CARD_EDGE_GUARD_UV)
             + ") discard;\n"
-            + "        float facing = u_flipAngle > 1.5707963 ? -horizontal : horizontal;\n"
+            + "        float facing = flipAngle > 1.5707963 ? -horizontal : horizontal;\n"
             + "        sourceUv.x = facing * 0.5 + 0.5;\n"
             + "    }\n"
             + "    float mask = roundedCardCoverage(sourceUv);\n"
             + "    if (mask <= 0.001) discard;\n"
             + "    vec4 pixel;\n"
-            + "    if (u_flipAngle > 1.5707963) {\n"
+            + "    if (abs(u_flipAngle) > 1.5707963) {\n"
             + "        pixel = sampleCardArtwork(u_frontTexture, sourceUv);\n"
             + "    } else {\n"
             + "        pixel = sampleCardArtwork(u_texture, sourceUv);\n"
@@ -2561,6 +2563,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } catch (NumberFormatException invalid) {
             return DEFAULT_CARD_FLIP_SECONDS;
         }
+    }
+
+    static int cardFlipDirection(Properties properties,
+            boolean mixedTowardsRight) {
+        String configured = properties == null ? "right" : properties
+                .getProperty("card_flip_direction", "right")
+                .trim().toLowerCase(Locale.ROOT);
+        return switch (configured) {
+            case "left" -> -1;
+            case "mixed" -> mixedTowardsRight ? 1 : -1;
+            default -> 1;
+        };
+    }
+
+    static float cardFlipAngle(float progress, int direction) {
+        float sign = direction < 0 ? -1f : 1f;
+        return MathUtils.clamp(progress, 0f, 1f) * MathUtils.PI * sign;
+    }
+
+    private int nextCardFlipDirection() {
+        return cardFlipDirection(tableSettingsProperties(),
+                ThreadLocalRandom.current().nextBoolean());
     }
 
     static float communityRevealStartSeconds(int offset,
@@ -4942,7 +4966,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     flightSeconds,
                     animated && liveFlipAnimationEnabled()
                             ? cardFlipSeconds() : 0f,
-                    animated);
+                    animated, nextCardFlipDirection());
             // Commit the ordered projection when the renderer accepts the
             // event.  The flight remains the sole visible representation until
             // it finishes, so this does not make the card pop into place.
@@ -4974,7 +4998,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             LiveCardFlight flight = new LiveCardFlight(event,
                     System.nanoTime(),
                     barrier, barrierDelay, deal.slot(),
-                    flightSeconds, 0f, animated);
+                    flightSeconds, 0f, animated, 1);
             // As with hole cards, state order and visual timing are separate:
             // the back is drawn by this flight while the canonical slot is
             // already protected from unrelated higher-sequence events.
@@ -4997,7 +5021,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             LiveCommunityReveal animation = new LiveCommunityReveal(reveal,
                     barrier, cardFlipSeconds(),
-                    liveFlipAnimationEnabled());
+                    liveFlipAnimationEnabled(),
+                    nextCardFlipDirection());
             liveState.apply(event);
             liveCommunityReveal = animation;
         } else if (event instanceof TableVisualEvent.RabbitCards rabbit) {
@@ -5066,7 +5091,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else {
                 LiveHoleReveal animation = new LiveHoleReveal(reveal,
                         System.nanoTime(),
-                        barrier, player.holeCards(), cardFlipSeconds());
+                        barrier, player.holeCards(), cardFlipSeconds(),
+                        nextCardFlipDirection());
                 liveState.apply(event);
                 syncSeatsFromLiveState();
                 liveHoleReveal = animation;
@@ -13697,7 +13723,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float renderHeight = target.height * shaderCanvas;
                     if (reveal > 0f) {
                         usePerspectiveCardShader(liveCardFace(deal.card().code()),
-                                reveal * MathUtils.PI,
+                                cardFlipAngle(reveal, flight.flipDirection),
                                 target.height / target.width);
                     } else {
                         useRoundedCardShader();
@@ -13867,7 +13893,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float canvasHeight = target.height * CARD_SHADER_CANVAS_SCALE;
             float revealScale = cardFlipScale(progress);
             Texture face = liveCardFace(liveHoleReveal.revealedCard(slot).code());
-            usePerspectiveCardShader(face, progress * MathUtils.PI,
+            usePerspectiveCardShader(face, cardFlipAngle(progress,
+                    liveHoleReveal.flipDirection),
                     target.height / target.width);
             batch.setColor(Color.WHITE);
             batch.draw(cardBack, x - canvasWidth / 2f,
@@ -14530,7 +14557,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
         float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
         float revealScale = cardFlipScale(progress);
-        usePerspectiveCardShader(face, progress * MathUtils.PI,
+        usePerspectiveCardShader(face, cardFlipAngle(progress,
+                liveCommunityReveal.flipDirection),
                 placement.height / placement.width);
         batch.setColor(Color.WHITE);
         batch.draw(cardBack, placement.x - canvasWidth / 2f,
@@ -28505,6 +28533,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float flightSeconds;
         final float flipSeconds;
         final boolean animated;
+        final int flipDirection;
         boolean stateApplied;
         boolean barrierReleased;
         boolean revealSoundPlayed;
@@ -28512,7 +28541,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         LiveCardFlight(TableVisualEvent event, long startedAtNanos,
                 CompletableFuture<Void> barrier, float barrierDelaySeconds,
                 int dealOrder, float flightSeconds, float flipSeconds,
-                boolean animated) {
+                boolean animated, int flipDirection) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
@@ -28521,6 +28550,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.flightSeconds = flightSeconds;
             this.flipSeconds = flipSeconds;
             this.animated = animated;
+            this.flipDirection = flipDirection;
         }
 
         float elapsedSeconds() {
@@ -28608,16 +28638,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float flipSeconds;
         final boolean animated;
         final float leadInSeconds;
+        final int flipDirection;
 
         LiveCommunityReveal(TableVisualEvent.RevealCommunityCards event,
                 CompletableFuture<Void> barrier,
-                float flipSeconds, boolean animated) {
+                float flipSeconds, boolean animated, int flipDirection) {
             this.event = event;
             this.barrier = barrier;
             this.soundPlayed = new boolean[event.cards().size()];
             this.flipSeconds = flipSeconds;
             this.animated = animated;
             this.leadInSeconds = event.leadInMillis() / 1000f;
+            this.flipDirection = flipDirection;
         }
 
         boolean containsSlot(int slot) {
@@ -28714,16 +28746,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final List<TableSnapshot.CardSnapshot> originalCards;
         boolean soundPlayed;
         final float flipSeconds;
+        final int flipDirection;
 
         LiveHoleReveal(TableVisualEvent.RevealHoleCards event,
                 long startedAtNanos, CompletableFuture<Void> barrier,
                 List<TableSnapshot.CardSnapshot> originalCards,
-                float flipSeconds) {
+                float flipSeconds, int flipDirection) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
             this.originalCards = List.copyOf(originalCards);
             this.flipSeconds = flipSeconds;
+            this.flipDirection = flipDirection;
         }
 
         float elapsedSeconds() {

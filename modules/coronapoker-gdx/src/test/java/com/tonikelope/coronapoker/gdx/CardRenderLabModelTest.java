@@ -77,6 +77,16 @@ final class CardRenderLabModelTest {
         assertEquals(17, occurrences(shader, "u_artworkLodBias);"));
     }
 
+    @Test
+    void perspectiveCardShaderSupportsBothRevealDirections() {
+        String shader = CoronaPokerGdxTable.CARD_FRAGMENT_SHADER;
+
+        assertTrue(shader.contains("float flipAngle = abs(u_flipAngle);"));
+        assertTrue(shader.contains("sin(u_flipAngle)"));
+        assertTrue(shader.contains(
+                "if (abs(u_flipAngle) > 1.5707963)"));
+    }
+
     private static int occurrences(String source, String token) {
         int count = 0;
         int from = 0;

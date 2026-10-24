@@ -47,6 +47,8 @@ final class GdxSettingsTooltips {
             case "trasera" -> "tooltip.cfg.deck_back";
             case "color_tapete" -> "tooltip.cfg.table_felt";
             case "nivel_luz" -> "tooltip.cfg.nivel_luz";
+            case "card_flip_direction" ->
+                "tooltip.cfg.card_flip_direction";
             case "gdx_window_mode" -> "tooltip.cfg.display_mode";
             case "auto_fullscreen" ->
                 "gdx.settings.tooltip.auto_fullscreen";

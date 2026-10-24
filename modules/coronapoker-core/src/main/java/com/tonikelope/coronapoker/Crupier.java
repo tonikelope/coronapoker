@@ -22223,8 +22223,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             verified_showdown_signatures.put(nick, sigB64);
             GamePlayerController jugador = nick2player.get(nick);
             if (jugador != null) {
-                jugador.getHoleCard1().iniciarConValorNumerico(cards[0] + 1);
-                jugador.getHoleCard2().iniciarConValorNumerico(cards[1] + 1);
+                installOrderedRemoteHoleCards(jugador, cards[0], cards[1]);
             }
             return true;
         } catch (Exception e) {
@@ -26138,6 +26137,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || (firstA == secondB && secondA == firstB);
     }
 
+    static void installOrderedRemoteHoleCards(GamePlayerController player,
+            int firstZeroBased, int secondZeroBased) {
+        player.getHoleCard1().iniciarConValorNumerico(firstZeroBased + 1);
+        player.getHoleCard2().iniciarConValorNumerico(secondZeroBased + 1);
+        // Keep both cards covered while fixing their final visual slots. The
+        // subsequent RevealHoleCards event must expose the already ordered
+        // pair; swapping after the flip would be visible to the player.
+        player.ordenarCartas();
+    }
+
     private void applyVerifiedPotCards(PotCardsEnvelope envelope,
             Map<String, int[]> verified, String localNick) {
         LinkedHashMap<String, GamePlayerController> targets = new LinkedHashMap<>();
@@ -26160,9 +26169,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             GamePlayerController player = targets.get(entry.nick());
             int[] cards = verified.get(entry.nick());
-            player.getHoleCard1().iniciarConValorNumerico(cards[0] + 1);
-            player.getHoleCard2().iniciarConValorNumerico(cards[1] + 1);
-            player.ordenarCartas();
+            installOrderedRemoteHoleCards(player, cards[0], cards[1]);
         }
     }
 

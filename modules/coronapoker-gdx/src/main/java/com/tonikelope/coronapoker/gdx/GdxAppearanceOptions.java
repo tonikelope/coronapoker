@@ -35,6 +35,10 @@ final class GdxAppearanceOptions {
                     new String[]{"1100", "850", "620", "480", "350"},
                     new String[]{"MUY LENTA", "LENTA", "NORMAL", "RÁPIDA",
                         "MUY RÁPIDA"}),
+            exact("card_flip_direction", "SENTIDO DE DESTAPE", "right",
+                    new String[]{"right", "left", "mixed"},
+                    new String[]{"HACIA LA DERECHA", "HACIA LA IZQUIERDA",
+                        "MIXTO"}),
             numeric("card_flip_zoom", "EFECTO AL DESTAPAR", "100",
                     new String[]{"100", "115", "130", "145"},
                     new String[]{"DESACTIVADO", "SUAVE", "NORMAL", "FUERTE"}),
@@ -85,7 +89,8 @@ final class GdxAppearanceOptions {
     private static String parentKey(Choice choice) {
         return switch (choice.key()) {
             case "reparto_velocidad" -> "animacion_reparto";
-            case "card_flip_duration", "card_flip_zoom" ->
+            case "card_flip_duration", "card_flip_direction",
+                    "card_flip_zoom" ->
                 "animacion_destape";
             case "swap_velocidad", "swap_arco" -> "animacion_swap";
             default -> null;

@@ -29,6 +29,8 @@ final class GdxGamePresentationSettingsTest {
         assertEquals(320, settings.swapAnimationDuration());
         assertEquals(0.620f, CoronaPokerGdxTable.cardFlipSeconds(properties),
                 0.000_001f);
+        assertEquals(1, CoronaPokerGdxTable.cardFlipDirection(properties,
+                false));
 
         GdxAppearanceOptions.adjust(
                 appearanceChoice("reparto_velocidad"), properties, 1);
@@ -44,6 +46,34 @@ final class GdxGamePresentationSettingsTest {
         assertEquals(0.090f, CoronaPokerGdxTable
                 .liveDealFlightSeconds(10, settings.dealSpeed()),
                 0.000_001f);
+    }
+
+    @Test
+    void revealDirectionDefaultsRightAndMixedChoosesOncePerReveal() {
+        Properties properties = new Properties();
+        GdxAppearanceOptions.Choice direction = appearanceChoice(
+                "card_flip_direction");
+
+        assertEquals("HACIA LA DERECHA",
+                GdxAppearanceOptions.selectedLabel(direction, properties));
+        assertEquals(1, CoronaPokerGdxTable.cardFlipDirection(properties,
+                false));
+        assertEquals(Math.PI / 2f,
+                CoronaPokerGdxTable.cardFlipAngle(0.5f, 1), 0.000_001f);
+
+        GdxAppearanceOptions.adjust(direction, properties, 1);
+        assertEquals("left", properties.getProperty("card_flip_direction"));
+        assertEquals(-1, CoronaPokerGdxTable.cardFlipDirection(properties,
+                true));
+        assertEquals(-Math.PI / 2f,
+                CoronaPokerGdxTable.cardFlipAngle(0.5f, -1), 0.000_001f);
+
+        GdxAppearanceOptions.adjust(direction, properties, 1);
+        assertEquals("mixed", properties.getProperty("card_flip_direction"));
+        assertEquals(1, CoronaPokerGdxTable.cardFlipDirection(properties,
+                true));
+        assertEquals(-1, CoronaPokerGdxTable.cardFlipDirection(properties,
+                false));
     }
 
     @Test

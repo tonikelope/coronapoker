@@ -505,12 +505,14 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(12, page.options().size());
-        assertEquals(5, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(17, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(18, GdxSettingsContract.appearanceRowCount(page));
         assertEquals("animacion_apuestas",
                 page.options().get(page.options().size() - 1).key());
         assertEquals("reparto_velocidad",
                 GdxAppearanceOptions.ANIMATION_CHOICES.get(0).key());
+        assertEquals("card_flip_direction",
+                GdxAppearanceOptions.ANIMATION_CHOICES.get(2).key());
     }
 
     @Test
@@ -648,6 +650,7 @@ final class GdxSettingsContractTest {
         properties.setProperty("nivel_luz", "10");
         properties.setProperty("animaciones", "false");
         properties.setProperty("card_flip_duration", "1100");
+        properties.setProperty("card_flip_direction", "mixed");
         properties.setProperty("gdx_window_mode", "windowed");
         properties.setProperty("gdx_msaa_samples", "0");
         properties.setProperty("gdx_card_smaa_quality", "0");
@@ -668,6 +671,7 @@ final class GdxSettingsContractTest {
         assertEquals("true", properties.getProperty(
                 "animacion_efecto_ganador"));
         assertEquals("620", properties.getProperty("card_flip_duration"));
+        assertEquals("right", properties.getProperty("card_flip_direction"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
         assertEquals("1",

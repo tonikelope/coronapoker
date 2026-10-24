@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -1266,6 +1268,38 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.visibleSeatPlayers(snapshot).stream()
                         .map(TableSnapshot.PlayerSnapshot::nickname).toList());
         assertEquals(2, CoronaPokerGdxTable.visibleSeatCount(snapshot));
+    }
+
+    @Test
+    void livePlayerIndexReusesOneProjectionUntilSnapshotIdentityChanges() {
+        TableSnapshot snapshot = new TableSnapshot(5L, "local",
+                TableSnapshot.Street.PREFLOP, 0d, "local", false,
+                List.of(player("remote", false), player("local", false)),
+                List.of());
+        CoronaPokerGdxTable.LivePlayerIndex index =
+                new CoronaPokerGdxTable.LivePlayerIndex();
+
+        index.update(snapshot);
+        List<TableSnapshot.PlayerSnapshot> firstVisual =
+                index.visualSeatPlayers();
+        index.update(snapshot);
+
+        assertSame(firstVisual, index.visualSeatPlayers());
+        assertSame(snapshot.players().get(1), index.player("local"));
+        assertEquals(2, index.visibleSeatCount());
+        assertEquals(List.of("local", "remote"), firstVisual.stream()
+                .map(TableSnapshot.PlayerSnapshot::nickname).toList());
+
+        TableSnapshot replacement = new TableSnapshot(6L, "local",
+                snapshot.street(), snapshot.pot(), snapshot.currentTurnNickname(),
+                snapshot.paused(), List.of(player("remote", false),
+                        player("local", false), player("third", false)),
+                snapshot.communityCards());
+        index.update(replacement);
+
+        assertNotSame(firstVisual, index.visualSeatPlayers());
+        assertEquals(3, index.visibleSeatCount());
+        assertSame(replacement.players().get(2), index.player("third"));
     }
 
     @Test

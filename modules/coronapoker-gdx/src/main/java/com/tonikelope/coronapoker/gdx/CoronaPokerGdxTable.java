@@ -1028,6 +1028,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private double visualChipSmallBlind;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
+    private final LivePlayerIndex livePlayers = new LivePlayerIndex();
+    private final Map<String, Seat> seatsByNickname = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final GdxTooltipDelay latencyTooltipDelay =
@@ -4344,8 +4346,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void syncSeatsFromLiveState() {
-        List<TableSnapshot.PlayerSnapshot> ordered = visualSeatPlayers(
-                liveState.snapshot());
+        livePlayers.update(liveState.snapshot());
+        List<TableSnapshot.PlayerSnapshot> ordered =
+                livePlayers.visualSeatPlayers();
         boolean rosterChanged = false;
         for (int index = 0; index < seats.length; index++) {
             String expected = index < ordered.size()
@@ -4410,6 +4413,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 seats[index] = new Seat("", index);
             }
         }
+        seatsByNickname.clear();
+        for (Seat seat : seats) {
+            if (seat != null && !seat.name.isBlank()) {
+                seatsByNickname.put(seat.name, seat);
+            }
+        }
     }
 
     /**
@@ -4421,10 +4430,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     static List<TableSnapshot.PlayerSnapshot> visibleSeatPlayers(
             TableSnapshot snapshot) {
-        return snapshot.players().stream()
-                .filter(player -> !player.exited()
-                        || player.nickname().equals(snapshot.localNickname()))
-                .toList();
+        ArrayList<TableSnapshot.PlayerSnapshot> visible = new ArrayList<>(
+                snapshot.players().size());
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (!player.exited()
+                    || player.nickname().equals(snapshot.localNickname())) {
+                visible.add(player);
+            }
+        }
+        return List.copyOf(visible);
     }
 
     /**
@@ -4439,9 +4453,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static List<TableSnapshot.PlayerSnapshot> visualSeatPlayers(
             TableSnapshot snapshot) {
         List<TableSnapshot.PlayerSnapshot> visible = visibleSeatPlayers(snapshot);
+        return rotateVisibleSeatPlayers(visible, snapshot.localNickname());
+    }
+
+    private static List<TableSnapshot.PlayerSnapshot> rotateVisibleSeatPlayers(
+            List<TableSnapshot.PlayerSnapshot> visible,
+            String localNickname) {
         int localIndex = -1;
         for (int index = 0; index < visible.size(); index++) {
-            if (visible.get(index).nickname().equals(snapshot.localNickname())) {
+            if (visible.get(index).nickname().equals(localNickname)) {
                 localIndex = index;
                 break;
             }
@@ -4456,6 +4476,48 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return List.copyOf(rotated);
     }
 
+    /** Snapshot-identity cache for every lookup used by one or more frames. */
+    static final class LivePlayerIndex {
+
+        private TableSnapshot indexedSnapshot;
+        private List<TableSnapshot.PlayerSnapshot> visibleSeatPlayers =
+                List.of();
+        private List<TableSnapshot.PlayerSnapshot> visualSeatPlayers =
+                List.of();
+        private Map<String, TableSnapshot.PlayerSnapshot> playersByNickname =
+                Map.of();
+
+        void update(TableSnapshot snapshot) {
+            Objects.requireNonNull(snapshot, "snapshot");
+            if (snapshot == indexedSnapshot) return;
+
+            List<TableSnapshot.PlayerSnapshot> visible =
+                    CoronaPokerGdxTable.visibleSeatPlayers(snapshot);
+            HashMap<String, TableSnapshot.PlayerSnapshot> indexed =
+                    new HashMap<>(Math.max(1, snapshot.players().size() * 2));
+            for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+                indexed.put(player.nickname(), player);
+            }
+            indexedSnapshot = snapshot;
+            visibleSeatPlayers = visible;
+            visualSeatPlayers = rotateVisibleSeatPlayers(visible,
+                    snapshot.localNickname());
+            playersByNickname = Map.copyOf(indexed);
+        }
+
+        int visibleSeatCount() {
+            return Math.min(SEAT_COUNT, visibleSeatPlayers.size());
+        }
+
+        List<TableSnapshot.PlayerSnapshot> visualSeatPlayers() {
+            return visualSeatPlayers;
+        }
+
+        TableSnapshot.PlayerSnapshot player(String nickname) {
+            return playersByNickname.get(nickname);
+        }
+    }
+
     private TableSnapshot.PlayerSnapshot livePlayer(Seat seat) {
         if (liveState == null || seat == null || seat.name.isBlank()) {
             return null;
@@ -4467,13 +4529,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveState == null || nickname == null || nickname.isBlank()) {
             return null;
         }
-        for (TableSnapshot.PlayerSnapshot player
-                : liveState.snapshot().players()) {
-            if (player.nickname().equals(nickname)) {
-                return player;
-            }
-        }
-        return null;
+        livePlayers.update(liveState.snapshot());
+        return livePlayers.player(nickname);
     }
 
     static String formatAmount(double amount) {
@@ -15388,7 +15445,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int livePlayerCount() {
-        return visibleSeatCount(liveState.snapshot());
+        livePlayers.update(liveState.snapshot());
+        return livePlayers.visibleSeatCount();
     }
 
     static int visibleSeatCount(TableSnapshot snapshot) {
@@ -15556,12 +15614,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (nickname == null || nickname.isBlank()) {
             return null;
         }
-        for (Seat seat : seats) {
-            if (seat != null && nickname.equals(seat.name)) {
-                return seat;
-            }
-        }
-        return null;
+        return seatsByNickname.get(nickname);
     }
 
     private void drawPositionTexture(Texture texture, float x, float y,

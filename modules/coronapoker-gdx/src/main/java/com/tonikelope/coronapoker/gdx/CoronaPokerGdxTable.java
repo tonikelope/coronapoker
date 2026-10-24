@@ -262,7 +262,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.54f;
     private static final float POSITION_CHIP_HUD_GAP = 7f;
     private static final float AVATAR_SIZE = 72f;
-    private static final float AVATAR_ACTIVE_RADIUS = 61f;
     private static final float AVATAR_OUTER_RADIUS = 52f;
     private static final float AVATAR_RIM_RADIUS = 45f;
     private static final float AVATAR_INNER_RADIUS = 40f;
@@ -279,6 +278,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
+    private static final int SOFT_GLOW_LAYER_COUNT = 16;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
             createWinnerGlowParticles();
@@ -1049,6 +1049,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Map<String, Seat> seatsByNickname = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
+    private final Color callCostPulseTint = new Color();
     private final GdxTooltipDelay latencyTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay audioOutputTooltipDelay =
@@ -12617,23 +12618,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? 0.5f + 0.5f * MathUtils.sin(totalTime * 4.8f)
                     : 0.5f;
             if (seat.index != 0) {
-                shapes.setColor(ACTIVE_TURN_GOLD.r, ACTIVE_TURN_GOLD.g,
-                        ACTIVE_TURN_GOLD.b,
-                        (0.34f + activePulse * 0.24f) * presence);
-                roundedRect(seat.podX - 12f, seat.podY - 12f,
-                        PLAYER_POD_WIDTH + 24f,
-                        PLAYER_POD_HEIGHT + 24f, 22f);
+                drawSoftRoundedGlow(seat.podX - 2f, seat.podY - 2f,
+                        PLAYER_POD_WIDTH + 4f,
+                        PLAYER_POD_HEIGHT + 4f, 14f, 14f,
+                        ACTIVE_TURN_GOLD,
+                        (0.72f + activePulse * 0.42f) * presence);
             }
-            shapes.setColor(ACTIVE_TURN_GOLD.r, ACTIVE_TURN_GOLD.g,
-                    ACTIVE_TURN_GOLD.b,
-                    (0.30f + activePulse * 0.22f) * presence);
             float avatarX = seatAvatarX(seat);
-            shapes.circle(avatarX, seat.y,
-                    AVATAR_ACTIVE_RADIUS + 10f, 48);
-            shapes.setColor(ACTIVE_TURN_GOLD.r, ACTIVE_TURN_GOLD.g,
-                    ACTIVE_TURN_GOLD.b,
-                    (0.70f + activePulse * 0.25f) * presence);
-            shapes.circle(avatarX, seat.y, AVATAR_ACTIVE_RADIUS, 48);
+            drawSoftCircleGlow(avatarX, seat.y, AVATAR_OUTER_RADIUS,
+                    19f, ACTIVE_TURN_GOLD,
+                    (0.88f + activePulse * 0.52f) * presence);
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -14882,9 +14876,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawCallCostText(float x, float y, float width, float height) {
         batch.begin();
         float inset = width * 0.04f;
+        TableSnapshot snapshot = liveState.snapshot();
+        boolean localTurn = isActionableTurn(snapshot,
+                snapshot.localNickname());
+        float pulse = callCostBorderPulse(totalTime, localTurn);
         drawFittedCenteredInBox(callCostFont, liveState.callCostText(),
                 x + inset, y, width - inset * 2f, height,
-                Color.WHITE, 1f);
+                callCostBorderTint(pulse, callCostPulseTint), 1f);
         batch.end();
     }
 
@@ -17753,6 +17751,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return wave * wave;
     }
 
+    static float callCostBorderPulse(float time, boolean activeLocalTurn) {
+        return activeLocalTurn
+                ? 0.5f + 0.5f * MathUtils.sin(time * 5.2f) : 0f;
+    }
+
+    static Color callCostBorderTint(float pulse, Color target) {
+        float amount = MathUtils.clamp(pulse, 0f, 1f);
+        return target.set(1f, MathUtils.lerp(1f, 0.88f, amount), 1f, 1f);
+    }
+
     private void drawHandOverlay() {
         Objects.requireNonNull(liveState,
                 "Hand overlays require authoritative live state");
@@ -19029,6 +19037,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxAntialiasedRoundedRect.fill(shapes, x, y, width, height, radius);
     }
 
+    private void drawSoftRoundedGlow(float x, float y, float width,
+            float height, float radius, float spread, Color color,
+            float strength) {
+        for (int layer = 0; layer < SOFT_GLOW_LAYER_COUNT; layer++) {
+            float progress = (layer + 1f) / SOFT_GLOW_LAYER_COUNT;
+            float expansion = spread * (1f - progress);
+            shapes.setColor(color.r, color.g, color.b,
+                    softGlowLayerAlpha(layer, SOFT_GLOW_LAYER_COUNT,
+                            strength));
+            roundedRect(x - expansion, y - expansion,
+                    width + expansion * 2f, height + expansion * 2f,
+                    radius + expansion);
+        }
+    }
+
+    private void drawSoftCircleGlow(float centerX, float centerY,
+            float radius, float spread, Color color, float strength) {
+        for (int layer = 0; layer < SOFT_GLOW_LAYER_COUNT; layer++) {
+            float progress = (layer + 1f) / SOFT_GLOW_LAYER_COUNT;
+            float expansion = spread * (1f - progress);
+            shapes.setColor(color.r, color.g, color.b,
+                    softGlowLayerAlpha(layer, SOFT_GLOW_LAYER_COUNT,
+                            strength));
+            shapes.circle(centerX, centerY, radius + expansion, 48);
+        }
+    }
+
+    static float softGlowLayerAlpha(int layer, int layers, float strength) {
+        if (layers <= 0 || layer < 0 || layer >= layers
+                || strength <= 0f) {
+            return 0f;
+        }
+        float progress = (layer + 1f) / layers;
+        float smooth = progress * progress * (3f - 2f * progress);
+        return strength * (0.004f + 0.016f * smooth);
+    }
+
     private void drawHudActionSurface(float x, float y, float width, float height,
             Color color, boolean hover, boolean selected, boolean enabled) {
         drawHudActionSurface(x, y, width, height, color, hover, selected,
@@ -19414,14 +19459,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         danger ? FOLD_RED : localTurn ? ACTIVE_TURN_GOLD
                                 : SEAT_RIM);
         if (danger) {
-            shapes.setColor(FOLD_RED.r, FOLD_RED.g, FOLD_RED.b,
-                    0.24f + dangerPulse * 0.50f);
-            roundedRect(hudX - 22f, hudY - 22f,
-                    hudWidth + 44f, hudHeight + 53f, 29f);
-            shapes.setColor(1f, 0.08f, 0.04f,
-                    0.12f + dangerPulse * 0.34f);
-            roundedRect(hudX - 14f, hudY - 14f,
-                    hudWidth + 28f, hudHeight + 37f, 24f);
+            drawSoftRoundedGlow(hudX - 6f, hudY - 6f,
+                    hudWidth + 12f, hudHeight + 21f, 17f, 22f,
+                    FOLD_RED,
+                    (0.92f + dangerPulse * 0.62f) * localSeatOpacity);
         }
         float idleFrameLighten = subduedLocalHud ? 0.24f : 0f;
         float hudFrameAlpha = subduedLocalHud ? 0.40f

@@ -83,6 +83,31 @@ final class GdxWinnerAuraCompositionContractTest {
         assertFalse(table.contains("WINNER_CREST"));
     }
 
+    @Test
+    void seatAndTimeoutLightUseFeatheredGlowInsteadOfVisibleRings()
+            throws IOException {
+        String table = Files.readString(source());
+        String active = method(table,
+                "private void drawActiveSeatGlows()",
+                "private void drawAllInSeatFlames()");
+        String localHud = method(table,
+                "private void drawLocalHud(float width, float height)",
+                "private void drawPendingRebuyTooltip(");
+        String callCost = method(table,
+                "private void drawCallCostText(",
+                "private void drawPreparationOverlay()");
+
+        assertTrue(active.contains("drawSoftRoundedGlow("));
+        assertTrue(active.contains("drawSoftCircleGlow("));
+        assertFalse(active.contains("shapes.circle(avatarX"));
+        assertTrue(localHud.contains("drawSoftRoundedGlow("));
+        assertFalse(localHud.contains("hudX - 22f"));
+        assertFalse(localHud.contains("hudX - 14f"));
+        assertTrue(callCost.contains("isActionableTurn(snapshot"));
+        assertTrue(callCost.contains("callCostBorderTint("));
+        assertFalse(callCost.contains("liveAnimationsEnabled()"));
+    }
+
     private static String method(String source, String startText,
             String endText) {
         int start = source.indexOf(startText);

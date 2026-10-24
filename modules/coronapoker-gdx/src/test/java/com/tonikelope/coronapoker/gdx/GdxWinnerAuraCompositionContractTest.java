@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void winnerPresentationReturnsToForegroundWithoutRestoringTheAura()
+    void winnerPresentationKeepsItsFeatheredLightInTheForeground()
             throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
@@ -44,39 +44,36 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void winnerPresentationUsesANeonFrameWithoutSideMarksOrAuraTexture()
+    void winnerPresentationUsesFeatheredGreenLightWithoutRings()
             throws IOException {
         String table = Files.readString(source());
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
-        String frames = method(table,
-                "private void drawLiveWinnerFrames()",
+        String glows = method(table,
+                "private void drawLiveWinnerGlows()",
                 "private void drawLiveWinnerParticles()");
         String particles = method(table,
                 "private void drawLiveWinnerParticles()",
                 "private float liveWinnerEffectProgress(");
 
-        assertTrue(effects.contains("drawLiveWinnerFrames()"));
+        assertTrue(effects.contains("drawLiveWinnerGlows()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertFalse(table.contains("drawLiveWinnerStreaks()"));
-        assertTrue(frames.contains("GdxAntialiasedRoundedRect.outline"));
-        assertTrue(frames.contains("WINNER_NEON_GREEN"));
-        assertTrue(frames.contains("WINNER_NEON_CORE"));
-        assertTrue(frames.contains("float topCenterSweep"));
-        assertTrue(frames.contains("topCenterSweep + glintPhase"));
-        assertTrue(frames.contains("topCenterSweep - glintPhase"));
-        assertTrue(frames.contains("float counterSweep"));
-        assertTrue(frames.contains("drawWinnerFrameGlint("));
-        assertTrue(frames.contains("(9f + pulse * 2f) * scale"));
-        assertTrue(frames.contains("0.35f * progress"));
-        assertTrue(frames.contains("shapes.circle(glintX, glintY, scale, 12)"));
-        assertFalse(frames.contains("roundedRect(frameX"));
+        assertTrue(glows.contains("drawSoftRoundedOutlineGlow("));
+        assertTrue(glows.contains("winner.index == 0"));
+        assertTrue(glows.contains("WINNER_NEON_GREEN"));
+        assertTrue(glows.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
+        assertFalse(glows.contains("drawWinnerFrameGlint("));
+        assertFalse(glows.contains("GdxAntialiasedRoundedRect.outline"));
+        assertFalse(glows.contains("shapes.circle("));
         assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertTrue(particles.contains("POT_GOLD"));
         assertTrue(particles.contains("CYAN"));
         assertFalse(particles.contains("shapes.triangle("));
-        assertFalse(frames.contains("shapes.circle(avatarX"));
+        assertFalse(glows.contains("shapes.circle(avatarX"));
+        assertTrue(table.contains(
+                "&& !Boolean.TRUE.equals(settledWinner)"));
         assertFalse(table.contains("winnerAuraShader"));
         assertFalse(table.contains("winnerAuraTexture"));
         assertFalse(table.contains("winnerCrestTexture"));
@@ -98,10 +95,13 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawPreparationOverlay()");
 
         assertTrue(active.contains("drawSoftRoundedGlow("));
-        assertTrue(active.contains("drawSoftCircleGlow("));
+        assertFalse(active.contains("drawSoftCircleGlow("));
         assertFalse(active.contains("shapes.circle(avatarX"));
         assertTrue(localHud.contains("drawSoftRoundedGlow("));
         assertTrue(localHud.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
+        assertTrue(localHud.contains("winnerGlow || danger || localTurn"));
+        assertTrue(localHud.contains("WINNER_NEON_GREEN"));
+        assertTrue(localHud.contains("ACTIVE_TURN_GOLD"));
         assertFalse(localHud.contains("hudX - 22f"));
         assertFalse(localHud.contains("hudX - 14f"));
         assertTrue(callCost.contains("isActionableTurn(snapshot"));

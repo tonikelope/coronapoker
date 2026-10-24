@@ -989,8 +989,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final Color LEGACY_THINKING = new Color(0xcccccc4b);
     private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
     private static final Color WINNER_NEON_GREEN = new Color(0x39ff5aff);
-    private static final Color WINNER_NEON_CORE = new Color(0xc7ffd2ff);
-    private static final Color WINNER_NEON_DEPTH = new Color(0x003d18ff);
     private static final Color LEGACY_LOSER = new Color(0xff0000ff);
     private static final Color LOCAL_OUTCOME_WIN = new Color(0x35b968ff);
     private static final Color LOCAL_OUTCOME_LOSS = new Color(0xb0182bff);
@@ -10659,9 +10657,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
-        // Winner accents deliberately celebrate in the foreground. Unlike the
-        // removed aura, they are discrete geometry with normal alpha blending,
-        // so no broad additive field changes the cards' perceived gamma.
+        // Winner accents deliberately celebrate in the foreground. Their
+        // feathered outline confines additive light to the seat edge, keeping
+        // card faces free from a broad gamma-changing wash.
         drawLiveWinnerEffects();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
@@ -11294,7 +11292,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float avatarX = seatAvatarX(seat);
             shapes.circle(avatarX, seat.y, AVATAR_OUTER_RADIUS, 48);
             Color avatarRim = settledShowdown
-                    ? settledShowdownColor(Boolean.TRUE.equals(settledWinner))
+                    && !Boolean.TRUE.equals(settledWinner)
+                    ? settledShowdownColor(false)
                     : timeoutAwareRim(livePlayer, folded ? BUTTON_LINE
                             : (active ? ACTIVE_TURN_GOLD : SEAT_RIM));
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
@@ -12618,16 +12617,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? 0.5f + 0.5f * MathUtils.sin(totalTime * 4.8f)
                     : 0.5f;
             if (seat.index != 0) {
-                drawSoftRoundedGlow(seat.podX - 2f, seat.podY - 2f,
-                        PLAYER_POD_WIDTH + 4f,
-                        PLAYER_POD_HEIGHT + 4f, 14f, 14f,
+                drawSoftRoundedGlow(seat.podX - 6f, seat.podY - 6f,
+                        PLAYER_POD_WIDTH + 12f,
+                        PLAYER_POD_HEIGHT + 12f, 17f, 24f,
                         ACTIVE_TURN_GOLD,
-                        (0.72f + activePulse * 0.42f) * presence);
+                        (1.05f + activePulse * 0.75f) * presence);
             }
-            float avatarX = seatAvatarX(seat);
-            drawSoftCircleGlow(avatarX, seat.y, AVATAR_OUTER_RADIUS,
-                    19f, ACTIVE_TURN_GOLD,
-                    (0.88f + activePulse * 0.52f) * presence);
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -17939,7 +17934,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!collectLiveWinnerEffectSeats()) {
             return;
         }
-        drawLiveWinnerFrames();
+        drawLiveWinnerGlows();
         drawLiveWinnerParticles();
     }
 
@@ -17963,110 +17958,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return !liveWinnerEffectSeats.isEmpty();
     }
 
-    private void drawLiveWinnerFrames() {
+    private void drawLiveWinnerGlows() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
+            if (winner.index == 0) {
+                // The local winner uses the exact HUD glow geometry in
+                // drawLocalHud(), so its light follows the full local panel.
+                continue;
+            }
             float progress = liveWinnerEffectProgress(winner);
             float pulse = liveAnimationsEnabled()
                     ? 0.5f + 0.5f * MathUtils.sin(totalTime * 2.35f
                             + winner.index * 0.73f)
                     : 0.5f;
-            float frameX;
-            float frameY;
-            float frameWidth;
-            float frameHeight;
-            if (winner.index == 0) {
-                frameX = MathUtils.clamp(seatAvatarX(winner)
-                        + AVATAR_OUTER_RADIUS + 10f, 8f,
-                        Math.max(8f, viewport.getWorldWidth()
-                                - LOCAL_NAME_PLATE_WIDTH - 8f));
-                float nameY = winner.y - LOCAL_NAME_PLATE_HEIGHT / 2f
-                        + LOCAL_NAME_PLATE_VERTICAL_OFFSET;
-                frameY = nameY - LOCAL_ACTION_BADGE_HEIGHT - 4f;
-                frameWidth = LOCAL_NAME_PLATE_WIDTH;
-                frameHeight = LOCAL_NAME_PLATE_HEIGHT
-                        + LOCAL_ACTION_BADGE_HEIGHT + 4f;
-            } else {
-                frameX = winner.podX;
-                frameY = winner.podY;
-                frameWidth = PLAYER_POD_WIDTH;
-                frameHeight = PLAYER_POD_HEIGHT;
-            }
-            // Three antialiased contour bands create real neon tubing without
-            // filling or tinting the HUD interior. The broad band is only the
-            // atmospheric falloff; the pale centre is the luminous tube.
-            shapes.setColor(WINNER_NEON_DEPTH.r, WINNER_NEON_DEPTH.g,
-                    WINNER_NEON_DEPTH.b,
-                    (0.24f + pulse * 0.08f) * progress);
-            GdxAntialiasedRoundedRect.outline(shapes,
-                    frameX - 7f, frameY - 7f,
-                    frameWidth + 14f, frameHeight + 14f, 20f, 13f);
-            shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                    WINNER_NEON_GREEN.b,
-                    (0.34f + pulse * 0.14f) * progress);
-            GdxAntialiasedRoundedRect.outline(shapes,
-                    frameX - 4f, frameY - 4f,
-                    frameWidth + 8f, frameHeight + 8f, 17f, 7f);
-            shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
-                    WINNER_NEON_CORE.b,
-                    (0.86f + pulse * 0.14f) * progress);
-            GdxAntialiasedRoundedRect.outline(shapes,
-                    frameX - 1.5f, frameY - 1.5f,
-                    frameWidth + 3f, frameHeight + 3f, 14.5f, 2.4f);
-
-            float perimeter = 2f * (frameWidth + frameHeight);
-            float topCenterSweep = frameWidth * 0.5f / perimeter;
-            float glintPhase = liveAnimationsEnabled()
-                    ? totalTime * 0.31f + winner.index * 0.23f : 0f;
-            float sweepPhase = topCenterSweep + glintPhase;
-            float counterPhase = topCenterSweep - glintPhase;
-            float sweep = sweepPhase - MathUtils.floor(sweepPhase);
-            float counterSweep = counterPhase - MathUtils.floor(counterPhase);
-            drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
-                    sweep, pulse, progress, 1f);
-            drawWinnerFrameGlint(frameX, frameY, frameWidth, frameHeight,
-                    counterSweep, 1f - pulse, progress, 0.88f);
+            drawSoftRoundedOutlineGlow(winner.podX - 4f,
+                    winner.podY - 4f,
+                    PLAYER_POD_WIDTH + 8f, PLAYER_POD_HEIGHT + 8f,
+                    17f, 24f,
+                    WINNER_NEON_GREEN,
+                    (1.40f + pulse * 0.90f) * progress);
         }
         shapes.end();
-    }
-
-    private void drawWinnerFrameGlint(float frameX, float frameY,
-            float frameWidth, float frameHeight, float sweep, float pulse,
-            float progress, float scale) {
-        float perimeter = 2f * (frameWidth + frameHeight);
-        float travel = sweep * perimeter;
-        float glintX;
-        float glintY;
-        if (travel < frameWidth) {
-            glintX = frameX + travel;
-            glintY = frameY + frameHeight;
-        } else if (travel < frameWidth + frameHeight) {
-            glintX = frameX + frameWidth;
-            glintY = frameY + frameHeight - (travel - frameWidth);
-        } else if (travel < frameWidth * 2f + frameHeight) {
-            glintX = frameX + frameWidth
-                    - (travel - frameWidth - frameHeight);
-            glintY = frameY;
-        } else {
-            glintX = frameX;
-            glintY = frameY + travel - frameWidth * 2f - frameHeight;
-        }
-        shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.08f * progress);
-        shapes.circle(glintX, glintY,
-                (9f + pulse * 2f) * scale, 22);
-        shapes.setColor(WINNER_NEON_GREEN.r, WINNER_NEON_GREEN.g,
-                WINNER_NEON_GREEN.b, 0.35f * progress);
-        shapes.circle(glintX, glintY, (6.6f + pulse * 1.6f) * scale, 20);
-        shapes.setColor(WINNER_NEON_CORE.r, WINNER_NEON_CORE.g,
-                WINNER_NEON_CORE.b, 0.80f * progress);
-        shapes.circle(glintX, glintY,
-                (2.6f + pulse * 0.6f) * scale, 16);
-        shapes.setColor(1f, 1f, 1f, 0.68f * progress);
-        shapes.circle(glintX, glintY, scale, 12);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     private void drawLiveWinnerParticles() {
@@ -19052,15 +18968,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawSoftCircleGlow(float centerX, float centerY,
-            float radius, float spread, Color color, float strength) {
+    private void drawSoftRoundedOutlineGlow(float x, float y, float width,
+            float height, float radius, float spread, Color color,
+            float strength) {
+        float thickness = Math.max(1.6f,
+                spread / SOFT_GLOW_LAYER_COUNT * 2.2f);
         for (int layer = 0; layer < SOFT_GLOW_LAYER_COUNT; layer++) {
-            float progress = (layer + 1f) / SOFT_GLOW_LAYER_COUNT;
+            float progress = (layer + 1f) / (SOFT_GLOW_LAYER_COUNT + 1f);
             float expansion = spread * (1f - progress);
             shapes.setColor(color.r, color.g, color.b,
-                    softGlowLayerAlpha(layer, SOFT_GLOW_LAYER_COUNT,
+                    softOutlineGlowLayerAlpha(layer, SOFT_GLOW_LAYER_COUNT,
                             strength));
-            shapes.circle(centerX, centerY, radius + expansion, 48);
+            GdxAntialiasedRoundedRect.outline(shapes,
+                    x - expansion, y - expansion,
+                    width + expansion * 2f, height + expansion * 2f,
+                    radius + expansion, thickness);
         }
     }
 
@@ -19072,6 +18994,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float progress = (layer + 1f) / layers;
         float smooth = progress * progress * (3f - 2f * progress);
         return strength * (0.006f + 0.028f * smooth);
+    }
+
+    static float softOutlineGlowLayerAlpha(int layer, int layers,
+            float strength) {
+        if (layers <= 0 || layer < 0 || layer >= layers
+                || strength <= 0f) {
+            return 0f;
+        }
+        float progress = (layer + 1f) / (layers + 1f);
+        float feather = MathUtils.sin(MathUtils.PI * progress);
+        return strength * 0.042f * feather * feather;
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,
@@ -19443,21 +19376,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float dangerPulse = danger ? localHudDangerPulse(totalTime) : 0f;
         float outcomePulse = settledLocalWinner == null ? 0f
                 : 0.5f + 0.5f * MathUtils.sin(totalTime * 2.8f);
+        float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
+        boolean winnerGlow = Boolean.TRUE.equals(settledLocalWinner)
+                && liveWinnerEffectEnabled();
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        if (danger) {
+        if (winnerGlow || danger || localTurn) {
+            Color glowColor = winnerGlow ? WINNER_NEON_GREEN
+                    : danger ? FOLD_RED : ACTIVE_TURN_GOLD;
+            float glowStrength = winnerGlow
+                    ? 1.05f + outcomePulse * 0.75f
+                    : danger ? 1.05f + dangerPulse * 0.75f
+                            : 1.05f + turnPulse * 0.75f;
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
             drawSoftRoundedGlow(hudX - 6f, hudY - 6f,
                     hudWidth + 12f, hudHeight + 21f, 17f, 24f,
-                    FOLD_RED,
-                    (1.05f + dangerPulse * 0.75f) * localSeatOpacity);
+                    glowColor, glowStrength * localSeatOpacity);
             shapes.end();
         }
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
         Color hudFrame = localShownHand
                 ? settledLocalWinner == null ? localHudSemanticColor
                         : settledShowdownColor(settledLocalWinner)

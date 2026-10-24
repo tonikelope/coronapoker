@@ -293,6 +293,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
+    private static final float PAYOUT_FLIGHT_DELAY = 0.18f;
+    private static final float PAYOUT_FLIGHT_SECONDS = 1.05f;
+    private static final float PAYOUT_FLIGHT_WAVE_DELAY = 0.035f;
     /** Adjacent simultaneous chips overlap into one readable, dense stream. */
     private static final float CHIP_FLIGHT_STREAM_PITCH_RATIO = 0.56f;
     private static final float STACK_CHIP_TRANSITION_SECONDS = 0.34f;
@@ -18627,6 +18630,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return List.copyOf(created);
     }
 
+    /**
+     * Dense payouts can land several chips on the same frame. Preserve the
+     * established impact cadence while allowing at most one sound per wave;
+     * layering every coincident chip produces an artificial, phasey sample.
+     */
+    private static <T extends LandingImpact> List<T> withPayoutLandingImpacts(
+            List<T> created) {
+        ArrayList<T> landingOrder = new ArrayList<>(created);
+        landingOrder.sort((left, right) -> Float.compare(
+                left.landingSeconds(), right.landingSeconds()));
+        ArrayList<T> waveRepresentatives = new ArrayList<>();
+        float previousLanding = Float.NaN;
+        for (T chip : landingOrder) {
+            float landing = chip.landingSeconds();
+            if (waveRepresentatives.isEmpty()
+                    || Math.abs(landing - previousLanding) > 0.000_5f) {
+                waveRepresentatives.add(chip);
+                previousLanding = landing;
+            }
+        }
+        for (int rank = 0; rank < waveRepresentatives.size(); rank++) {
+            if (landingImpactAtRank(rank, waveRepresentatives.size())) {
+                waveRepresentatives.get(rank).markImpactSound();
+            }
+        }
+        return List.copyOf(created);
+    }
+
     static double displayedIncomingStack(double canonicalStackAfter,
             double totalIncoming, double landedIncoming) {
         double incoming = Math.max(0d, totalIncoming);
@@ -18921,7 +18952,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static int chipFlightLaneCount(int chipCount) {
         if (chipCount < 8) return 1;
-        return chipCount < 14 ? 2 : 3;
+        if (chipCount < 14) return 2;
+        if (chipCount < 28) return 3;
+        if (chipCount < 42) return 4;
+        if (chipCount < 60) return 5;
+        return 6;
     }
 
     static int chipFlightSequenceIndex(int chipIndex, int chipCount) {
@@ -18941,6 +18976,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float bounded = MathUtils.clamp(progress, 0f, 1f);
         return laneSlot * liveFlyingChipSize(bounded)
                 * CHIP_FLIGHT_STREAM_PITCH_RATIO;
+    }
+
+    static int payoutChipBurstSize(int chipCount) {
+        if (chipCount < 25) return 1;
+        if (chipCount < 50) return 2;
+        if (chipCount < 90) return 3;
+        return 4;
+    }
+
+    static int payoutChipSequenceIndex(int chipIndex, int chipCount) {
+        return Math.max(0, chipIndex)
+                / payoutChipBurstSize(Math.max(0, chipCount));
+    }
+
+    static float payoutChipStartSeconds(int chipIndex, int chipCount) {
+        return PAYOUT_FLIGHT_DELAY + payoutChipSequenceIndex(chipIndex,
+                chipCount) * PAYOUT_FLIGHT_WAVE_DELAY;
+    }
+
+    static float payoutFlowDurationSeconds(int chipCount) {
+        return chipCount <= 0 ? 0f
+                : payoutChipStartSeconds(chipCount - 1, chipCount)
+                        + PAYOUT_FLIGHT_SECONDS;
+    }
+
+    static int payoutLandingImpactCount(int chipCount) {
+        if (chipCount <= 0) return 0;
+        int burst = payoutChipBurstSize(chipCount);
+        int waves = (chipCount + burst - 1) / burst;
+        return landingImpactCount(waves);
     }
 
     private void drawChipTrails() {
@@ -29041,11 +29106,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 for (int index = 0; index < chipCount; index++) {
                     VisualChipSpec visualChip = visualChips.get(index);
                     created.add(new LivePayoutChip(assignment.nickname(), index,
-                            0.18f + index * 0.035f, 1.05f,
+                            payoutChipStartSeconds(index, chipCount),
+                            PAYOUT_FLIGHT_SECONDS,
                             visualChip.color(), visualChip.amount()));
                 }
             }
-            chips = withLandingImpacts(created);
+            chips = withPayoutLandingImpacts(created);
         }
 
         float elapsedSeconds() {

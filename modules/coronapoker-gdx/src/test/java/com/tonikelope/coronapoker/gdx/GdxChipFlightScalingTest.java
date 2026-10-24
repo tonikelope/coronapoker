@@ -176,18 +176,58 @@ class GdxChipFlightScalingTest {
     }
 
     @Test
-    void largePaymentsUseTwoThenThreeParallelLanes() {
+    void largePaymentsAddParallelLanesGraduallyUpToSix() {
         assertEquals(1, CoronaPokerGdxTable.chipFlightLaneCount(7));
         assertEquals(2, CoronaPokerGdxTable.chipFlightLaneCount(8));
         assertEquals(2, CoronaPokerGdxTable.chipFlightLaneCount(13));
         assertEquals(3, CoronaPokerGdxTable.chipFlightLaneCount(14));
-        assertEquals(3, CoronaPokerGdxTable.chipFlightLaneCount(30));
+        assertEquals(3, CoronaPokerGdxTable.chipFlightLaneCount(27));
+        assertEquals(4, CoronaPokerGdxTable.chipFlightLaneCount(28));
+        assertEquals(5, CoronaPokerGdxTable.chipFlightLaneCount(42));
+        assertEquals(6, CoronaPokerGdxTable.chipFlightLaneCount(60));
+        assertEquals(6, CoronaPokerGdxTable.chipFlightLaneCount(200));
 
         assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(0, 8));
         assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(1, 8));
         assertEquals(1, CoronaPokerGdxTable.chipFlightSequenceIndex(2, 8));
         assertEquals(0, CoronaPokerGdxTable.chipFlightSequenceIndex(2, 14));
         assertEquals(1, CoronaPokerGdxTable.chipFlightSequenceIndex(3, 14));
+    }
+
+    @Test
+    void payoutKeepsOneStreamButIncreasesItsChipThroughput() {
+        assertEquals(1, CoronaPokerGdxTable.payoutChipBurstSize(24));
+        assertEquals(2, CoronaPokerGdxTable.payoutChipBurstSize(25));
+        assertEquals(2, CoronaPokerGdxTable.payoutChipBurstSize(49));
+        assertEquals(3, CoronaPokerGdxTable.payoutChipBurstSize(50));
+        assertEquals(3, CoronaPokerGdxTable.payoutChipBurstSize(89));
+        assertEquals(4, CoronaPokerGdxTable.payoutChipBurstSize(90));
+        assertEquals(4, CoronaPokerGdxTable.payoutChipBurstSize(200));
+
+        assertEquals(0, CoronaPokerGdxTable.payoutChipSequenceIndex(0, 25));
+        assertEquals(0, CoronaPokerGdxTable.payoutChipSequenceIndex(1, 25));
+        assertEquals(1, CoronaPokerGdxTable.payoutChipSequenceIndex(2, 25));
+        assertEquals(0, CoronaPokerGdxTable.payoutChipSequenceIndex(3, 90));
+        assertEquals(1, CoronaPokerGdxTable.payoutChipSequenceIndex(4, 90));
+    }
+
+    @Test
+    void densePayoutsRemainShortAndUseOneImpactCadencePerWave() {
+        assertEquals(1.23f,
+                CoronaPokerGdxTable.payoutFlowDurationSeconds(1), 0.000_01f);
+        assertEquals(1.72f,
+                CoronaPokerGdxTable.payoutFlowDurationSeconds(30), 0.000_01f);
+        assertEquals(1.895f,
+                CoronaPokerGdxTable.payoutFlowDurationSeconds(60), 0.000_01f);
+        assertEquals(2.07f,
+                CoronaPokerGdxTable.payoutFlowDurationSeconds(100), 0.000_01f);
+        assertEquals(2.945f,
+                CoronaPokerGdxTable.payoutFlowDurationSeconds(200), 0.000_01f);
+
+        assertEquals(5, CoronaPokerGdxTable.payoutLandingImpactCount(30));
+        assertEquals(7, CoronaPokerGdxTable.payoutLandingImpactCount(60));
+        assertEquals(8, CoronaPokerGdxTable.payoutLandingImpactCount(100));
+        assertEquals(17, CoronaPokerGdxTable.payoutLandingImpactCount(200));
     }
 
     @Test

@@ -83,7 +83,7 @@ final class CardRenderLabApp extends ApplicationAdapter {
     public void render() {
         GdxPixelText.beginFrame();
         viewport.apply();
-        ScreenUtils.clear(BACKGROUND, true);
+        ScreenUtils.clear(BACKGROUND, false);
         drawBackground();
 
         CardRenderLabModel.RenderMode mode = model.mode();

@@ -121,14 +121,14 @@ final class GdxModalBackdropBlur implements Disposable {
         backdrop.end();
 
         scratch.begin();
-        ScreenUtils.clear(clearColor, true);
+        ScreenUtils.clear(clearColor, false);
         Gdx.gl.glViewport(0, 0, scratch.getWidth(), scratch.getHeight());
         batch.setProjectionMatrix(projection);
         drawPass(batch, backdrop.getColorBufferTexture(),
                 viewport.getWorldWidth(), viewport.getWorldHeight(), 1f, 0f);
         scratch.end();
 
-        ScreenUtils.clear(clearColor, true);
+        ScreenUtils.clear(clearColor, false);
         viewport.apply();
         batch.setProjectionMatrix(projection);
         drawPass(batch, scratch.getColorBufferTexture(),
@@ -145,7 +145,7 @@ final class GdxModalBackdropBlur implements Disposable {
         backdrop.end();
 
         scratch.begin();
-        ScreenUtils.clear(clearColor, true);
+        ScreenUtils.clear(clearColor, false);
         Gdx.gl.glViewport(0, 0, scratch.getWidth(), scratch.getHeight());
         batch.setProjectionMatrix(projection);
         drawPass(batch, backdrop.getColorBufferTexture(),
@@ -153,7 +153,7 @@ final class GdxModalBackdropBlur implements Disposable {
         scratch.end();
 
         backdrop.begin();
-        ScreenUtils.clear(clearColor, true);
+        ScreenUtils.clear(clearColor, false);
         Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
         batch.setProjectionMatrix(projection);
         drawPass(batch, scratch.getColorBufferTexture(),
@@ -176,7 +176,7 @@ final class GdxModalBackdropBlur implements Disposable {
         if (!cachedReady || backdrop == null) {
             throw new IllegalStateException("Modal backdrop cache is empty");
         }
-        ScreenUtils.clear(clearColor, true);
+        ScreenUtils.clear(clearColor, false);
         viewport.apply();
         batch.setProjectionMatrix(projection);
         batch.setShader(null);

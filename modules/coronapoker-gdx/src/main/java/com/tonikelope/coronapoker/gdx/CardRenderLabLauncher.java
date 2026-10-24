@@ -21,7 +21,7 @@ public final class CardRenderLabLauncher {
         config.setForegroundFPS(60);
         config.setIdleFPS(20);
         config.setHdpiMode(HdpiMode.Pixels);
-        config.setBackBufferConfig(8, 8, 8, 8, 24, 8, 0);
+        config.setBackBufferConfig(8, 8, 8, 8, 0, 0, 0);
         config.disableAudio(true);
         config.setWindowIcon("images/corona_poker_16.png");
         new Lwjgl3Application(new CardRenderLabApp(), config);

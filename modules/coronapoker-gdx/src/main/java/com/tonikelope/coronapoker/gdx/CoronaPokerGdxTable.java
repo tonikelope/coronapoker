@@ -6060,7 +6060,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Gdx.graphics.getBackBufferHeight());
             modalBackdropCaptureActive = true;
         }
-        ScreenUtils.clear(BACKGROUND_BOTTOM, true);
+        ScreenUtils.clear(BACKGROUND_BOTTOM, false);
         viewport.apply();
         if (blurModalBackdrop) {
             // Viewport.apply() targets the real backbuffer. Restore the
@@ -6221,7 +6221,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         updateStars(delta);
 
-        ScreenUtils.clear(BACKGROUND_BOTTOM, true);
+        ScreenUtils.clear(BACKGROUND_BOTTOM, false);
         viewport.apply();
         camera.update();
         shapes.setProjectionMatrix(camera.combined);

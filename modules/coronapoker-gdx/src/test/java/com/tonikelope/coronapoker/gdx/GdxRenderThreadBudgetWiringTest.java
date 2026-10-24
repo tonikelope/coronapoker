@@ -93,6 +93,20 @@ final class GdxRenderThreadBudgetWiringTest {
                 "Gdx.gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);"));
     }
 
+    @Test
+    void twoDimensionalSurfacesDoNotAllocateOrClearDepthAndStencil()
+            throws Exception {
+        String launcher = source("GdxLauncher.java");
+        String table = source("CoronaPokerGdxTable.java");
+        String blur = source("GdxModalBackdropBlur.java");
+
+        assertTrue(launcher.contains(
+                "config.setBackBufferConfig(8, 8, 8, 8, 0, 0,"));
+        assertFalse(table.contains(
+                "ScreenUtils.clear(BACKGROUND_BOTTOM, true)"));
+        assertFalse(blur.contains("ScreenUtils.clear(clearColor, true)"));
+    }
+
     private static String source(String file) throws Exception {
         return Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/" + file), StandardCharsets.UTF_8)

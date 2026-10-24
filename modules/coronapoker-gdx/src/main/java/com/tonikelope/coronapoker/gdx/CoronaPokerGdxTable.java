@@ -8802,15 +8802,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private int activeDealtPlayerCount() {
-        long count = liveState.snapshot().players().stream()
-                .filter(player -> player.active() && !player.spectator()
-                && !player.exited())
-                .count();
-        if (count <= 0L) {
+        int count = 0;
+        for (TableSnapshot.PlayerSnapshot player
+                : liveState.snapshot().players()) {
+            if (player.active() && !player.spectator() && !player.exited()) {
+                count++;
+            }
+        }
+        if (count <= 0) {
             throw new IllegalStateException(
                     "A canonical deal event has no active seated players");
         }
-        return Math.toIntExact(count);
+        return count;
     }
 
     static float liveDealCadenceSeconds(int activePlayers,
@@ -9030,10 +9033,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         TableSnapshot snapshot = liveState == null ? null
                 : liveState.snapshot();
         TableSnapshot.PlayerSnapshot local = snapshot == null ? null
-                : snapshot.players().stream()
-                        .filter(player -> player.nickname().equals(
-                                snapshot.localNickname()))
-                        .findFirst().orElse(null);
+                : livePlayer(snapshot.localNickname());
         return immediateRebuyControlEnabled(tableRebuyAllowed, local);
     }
 
@@ -9881,12 +9881,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || !nickname.equals(snapshot.currentTurnNickname())) {
             return false;
         }
-        return snapshot.players().stream()
-                .filter(player -> nickname.equals(player.nickname()))
-                .anyMatch(player -> player.active()
-                && !player.spectator()
-                && !player.exited()
-                && !player.timedOut());
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (nickname.equals(player.nickname())) {
+                return player.active() && !player.spectator()
+                        && !player.exited() && !player.timedOut();
+            }
+        }
+        return false;
     }
 
     static boolean isActionableTurn(TableSnapshot snapshot, String nickname,
@@ -14275,8 +14276,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static boolean foldedCardsRemainVisible(
             List<TableSnapshot.CardSnapshot> cards) {
-        return cards != null && cards.stream()
-                .anyMatch(card -> card.visible() && card.faceUp());
+        if (cards == null) return false;
+        for (TableSnapshot.CardSnapshot card : cards) {
+            if (card.visible() && card.faceUp()) return true;
+        }
+        return false;
     }
 
     static float foldCardAlpha(float progress, boolean remainsVisible) {
@@ -14816,8 +14820,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? null : livePlayer(aggressor);
         if (aggressor == null || aggressor.index == 0 || player == null
                 || !player.active() || player.holeCards().size() < 2
-                || player.holeCards().stream().limit(2)
-                        .anyMatch(card -> !card.visible() || card.faceUp())) {
+                || !firstTwoHoleCardsRemainCovered(player.holeCards())) {
             return;
         }
         LiveCardPlacement left = liveHolePlacement(aggressor, 0);
@@ -14834,6 +14837,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // PlayerPod name row. The positional puck may sit behind this overlay;
         // preserving a clean nickname is the stronger visual contract.
         drawCallCostText(minX, minY + 22f, maxX - minX, maxY - minY);
+    }
+
+    private static boolean firstTwoHoleCardsRemainCovered(
+            List<TableSnapshot.CardSnapshot> cards) {
+        for (int index = 0; index < 2; index++) {
+            TableSnapshot.CardSnapshot card = cards.get(index);
+            if (!card.visible() || card.faceUp()) return false;
+        }
+        return true;
     }
 
     private void drawCallCostText(float x, float y, float width, float height) {
@@ -17553,10 +17565,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (player != null && player.exited()) {
             return false;
         }
-        return tableChat.snapshot().participants().stream()
-                .anyMatch(participant -> participant.nickname().equals(nickname)
-                        && !participant.local() && !participant.bot()
-                        && !participant.connected());
+        for (LobbyParticipant participant
+                : tableChat.snapshot().participants()) {
+            if (participant.nickname().equals(nickname)
+                    && !participant.local() && !participant.bot()
+                    && !participant.connected()) return true;
+        }
+        return false;
     }
 
     private Texture tableAvatar(String nickname) {
@@ -20185,9 +20200,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasRemoteHumanPeers() {
-        return tableChat != null && tableChat.snapshot().participants().stream()
-                .anyMatch(participant -> !participant.local()
-                        && !participant.bot() && participant.connected());
+        if (tableChat == null) return false;
+        for (LobbyParticipant participant
+                : tableChat.snapshot().participants()) {
+            if (!participant.local() && !participant.bot()
+                    && participant.connected()) return true;
+        }
+        return false;
     }
 
     private void openSettings() {

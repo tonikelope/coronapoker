@@ -20,6 +20,12 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("Set<String> completedRacks = null;"));
         assertTrue(table.contains(
                 "if (completedRacks == null) completedRacks = new HashSet<>();"));
+        assertFalse(method(table, "static boolean isActionableTurn(",
+                "static boolean isActionableTurn(TableSnapshot snapshot, "
+                        + "String nickname,\n").contains(".stream()"));
+        assertFalse(method(table,
+                "boolean isLiveReconnectingPlayer(String nickname)",
+                "private Texture tableAvatar(").contains(".stream()"));
     }
 
     @Test
@@ -114,5 +120,13 @@ final class GdxRenderThreadBudgetWiringTest {
         return Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/" + file), StandardCharsets.UTF_8)
                 .replace("\r\n", "\n");
+    }
+
+    private static String method(String source, String startMarker,
+            String endMarker) {
+        int start = source.indexOf(startMarker);
+        int end = source.indexOf(endMarker, start + startMarker.length());
+        assertTrue(start >= 0 && end > start, startMarker);
+        return source.substring(start, end);
     }
 }

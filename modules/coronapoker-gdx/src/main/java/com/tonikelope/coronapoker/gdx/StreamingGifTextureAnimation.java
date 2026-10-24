@@ -61,6 +61,8 @@ final class StreamingGifTextureAnimation implements Disposable {
     private volatile long durationMs;
     private volatile boolean decodingFinished;
     private Texture texture;
+    /** Render-thread staging surface reused for every frame of this GIF. */
+    private Pixmap uploadPixmap;
     private int textureWidth;
     private int textureHeight;
 
@@ -283,31 +285,31 @@ final class StreamingGifTextureAnimation implements Disposable {
     }
 
     private void upload(CpuFrame frame) {
-        Pixmap pixmap = new Pixmap(frame.width(), frame.height(),
-                Pixmap.Format.RGBA8888);
-        try {
-            ByteBuffer pixels = pixmap.getPixels();
-            pixels.clear();
-            // ARGB conversion happens on the decoder thread. Keep the render
-            // thread to one contiguous native-buffer copy plus one texture
-            // upload so a cinematic cannot disturb table pacing.
-            pixels.put(frame.rgba());
-            pixels.flip();
-            if (texture == null || textureWidth != frame.width()
-                    || textureHeight != frame.height()) {
-                if (texture != null) texture.dispose();
-                // Long cinematics stay close to their native size. A single
-                // linear texture is sharper and dramatically smaller than a
-                // full mipmapped texture for every GIF frame.
-                texture = new Texture(pixmap, false);
-                texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                textureWidth = frame.width();
-                textureHeight = frame.height();
-            } else {
-                texture.draw(pixmap, 0, 0);
-            }
-        } finally {
-            pixmap.dispose();
+        if (uploadPixmap == null || uploadPixmap.getWidth() != frame.width()
+                || uploadPixmap.getHeight() != frame.height()) {
+            if (uploadPixmap != null) uploadPixmap.dispose();
+            uploadPixmap = new Pixmap(frame.width(), frame.height(),
+                    Pixmap.Format.RGBA8888);
+        }
+        ByteBuffer pixels = uploadPixmap.getPixels();
+        pixels.clear();
+        // ARGB conversion happens on the decoder thread. Keep the render
+        // thread to one contiguous native-buffer copy plus one texture upload
+        // and retain the native staging surface between frames.
+        pixels.put(frame.rgba());
+        pixels.flip();
+        if (texture == null || textureWidth != frame.width()
+                || textureHeight != frame.height()) {
+            if (texture != null) texture.dispose();
+            // Long cinematics stay close to their native size. A single
+            // linear texture is sharper and dramatically smaller than a
+            // full mipmapped texture for every GIF frame.
+            texture = new Texture(uploadPixmap, false);
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            textureWidth = frame.width();
+            textureHeight = frame.height();
+        } else {
+            texture.draw(uploadPixmap, 0, 0);
         }
     }
 
@@ -320,6 +322,10 @@ final class StreamingGifTextureAnimation implements Disposable {
         if (texture != null) {
             texture.dispose();
             texture = null;
+        }
+        if (uploadPixmap != null) {
+            uploadPixmap.dispose();
+            uploadPixmap = null;
         }
     }
 

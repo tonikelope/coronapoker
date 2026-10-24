@@ -71,6 +71,28 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(shell.contains("if (!pending.creationComplete)"));
     }
 
+    @Test
+    void chatMediaDecodesOffThreadAndKeepsOneStreamingGifTexture()
+            throws Exception {
+        String gallery = source("GdxChatGalleryMedia.java");
+        String frontend = source("GdxFrontendScreen.java");
+        String prepared = source("GdxPreparedChatMedia.java");
+        String streaming = source("StreamingGifTextureAnimation.java");
+
+        assertTrue(gallery.contains("GdxPreparedChatMedia.prepareAsync("));
+        assertTrue(frontend.contains("GdxPreparedChatMedia.prepareAsync("));
+        assertFalse(gallery.contains("GifTextureAnimation.load("));
+        assertFalse(frontend.contains("GifTextureAnimation.load("));
+        assertTrue(prepared.contains(
+                "StreamingGifTextureAnimation.prepareLooping("));
+        assertTrue(prepared.contains("new Pixmap(data, 0, data.length)"));
+        assertTrue(prepared.contains("}, PREPARATION_EXECUTOR);"));
+        assertTrue(streaming.contains(
+                "texture = new Texture(uploadPixmap, mipMaps);"));
+        assertTrue(streaming.contains(
+                "Gdx.gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);"));
+    }
+
     private static String source(String file) throws Exception {
         return Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/" + file), StandardCharsets.UTF_8)

@@ -2,16 +2,12 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.Texture.TextureFilter;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * GPU thumbnail cache shared by the lobby and in-table image galleries.
@@ -57,33 +53,36 @@ final class GdxChatGalleryMedia {
         if (entries.containsKey(url)) return;
         Entry entry = new Entry();
         entries.put(url, entry);
-        CompletableFuture.supplyAsync(() -> GdxChatImageLoader.download(url))
-                .whenComplete((data, failure) -> Gdx.app.postRunnable(() -> {
-                    if (disposed || entries.get(url) != entry) return;
-                    entry.loading = false;
-                    if (failure != null || data == null || data.length == 0) {
-                        entry.failed = true;
+        GdxPreparedChatMedia.prepareAsync(url,
+                debugPrefix + ":" + url.hashCode(), 320)
+                .whenComplete((prepared, failure) -> {
+                    if (Gdx.app == null) {
+                        if (prepared != null) prepared.dispose();
                         return;
                     }
-                    try {
-                        if (GdxChatImageLoader.isGif(data)) {
-                            entry.gif = GifTextureAnimation.load(data,
-                                    debugPrefix + ":" + url.hashCode(), 320);
-                        } else {
-                            Pixmap pixmap = new Pixmap(data, 0, data.length);
-                            try {
-                                entry.image = new Texture(pixmap, true);
-                                entry.image.setFilter(
-                                        TextureFilter.MipMapLinearLinear,
-                                        TextureFilter.Linear);
-                            } finally {
-                                pixmap.dispose();
-                            }
+                    Gdx.app.postRunnable(() -> {
+                        if (disposed || entries.get(url) != entry) {
+                            if (prepared != null) prepared.dispose();
+                            return;
                         }
-                    } catch (RuntimeException | IOException invalid) {
-                        entry.failed = true;
-                    }
-                }));
+                        entry.loading = false;
+                        if (failure != null || prepared == null) {
+                            entry.failed = true;
+                            return;
+                        }
+                        try {
+                            if (prepared.animated()) {
+                                entry.gif = prepared.startGif();
+                            } else {
+                                entry.image = prepared.uploadImage();
+                            }
+                        } catch (RuntimeException invalid) {
+                            entry.failed = true;
+                        } finally {
+                            prepared.dispose();
+                        }
+                    });
+                });
     }
 
     static final class Entry {
@@ -91,10 +90,17 @@ final class GdxChatGalleryMedia {
         private boolean loading = true;
         private boolean failed;
         private Texture image;
-        private GifTextureAnimation gif;
+        private StreamingGifTextureAnimation gif;
+        private float gifStartedAt = Float.NaN;
 
         Texture frameAt(float elapsed) {
-            return gif == null ? image : gif.frameAt(elapsed, true);
+            if (gif == null) return image;
+            if (gif.failed()) {
+                failed = true;
+                return null;
+            }
+            if (Float.isNaN(gifStartedAt)) gifStartedAt = elapsed;
+            return gif.frameAt(Math.max(0f, elapsed - gifStartedAt));
         }
 
         boolean loading() {
@@ -110,6 +116,7 @@ final class GdxChatGalleryMedia {
             if (gif != null) gif.dispose();
             image = null;
             gif = null;
+            gifStartedAt = Float.NaN;
         }
     }
 }

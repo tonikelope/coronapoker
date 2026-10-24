@@ -104,9 +104,12 @@ class StreamingGifTextureAnimationTest {
             data = input.readAllBytes();
         }
 
-        StreamingGifTextureAnimation animation =
-                StreamingGifTextureAnimation.loadLooping(
+        StreamingGifTextureAnimation.PreparedLooping prepared =
+                StreamingGifTextureAnimation.prepareLooping(
                         data, "chat-fixture.gif", 360);
+        assertEquals(360, prepared.timing().width());
+        StreamingGifTextureAnimation animation =
+                StreamingGifTextureAnimation.loadLooping(prepared);
         try {
             assertEquals(360, animation.width());
             assertTrue(animation.height() > 0);

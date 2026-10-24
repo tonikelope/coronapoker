@@ -9,6 +9,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
@@ -57,6 +58,7 @@ final class StreamingGifTextureAnimation implements Disposable {
     private volatile int decodedWidth;
     private volatile int decodedHeight;
     private final boolean looping;
+    private final boolean mipMaps;
     private final long[] frameEndMs;
     private volatile long durationMs;
     private volatile boolean decodingFinished;
@@ -68,12 +70,14 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     private StreamingGifTextureAnimation(DataSource source, String label,
             int maxWidth) {
-        this(source, label, maxWidth, false, null);
+        this(source, label, maxWidth, false, null, false);
     }
 
     private StreamingGifTextureAnimation(DataSource source, String label,
-            int maxWidth, boolean looping, GifTiming timing) {
+            int maxWidth, boolean looping, GifTiming timing,
+            boolean mipMaps) {
         this.looping = looping;
+        this.mipMaps = mipMaps;
         frameEndMs = timing == null ? null : timing.frameEndMs();
         durationMs = timing == null ? 0L : timing.durationMs();
         if (timing != null) {
@@ -188,12 +192,16 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     static StreamingGifTextureAnimation loadLooping(byte[] data, String label,
             int maxWidth) throws IOException {
+        return loadLooping(prepareLooping(data, label, maxWidth));
+    }
+
+    static PreparedLooping prepareLooping(byte[] data, String label,
+            int maxWidth) throws IOException {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(label, "label");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
         GifTiming timing = inspect(data, label, maxWidth);
-        return new StreamingGifTextureAnimation(() -> data, label, maxWidth,
-                true, timing);
+        return new PreparedLooping(data, label, maxWidth, timing);
     }
 
     static StreamingGifTextureAnimation loadLooping(Path path, int maxWidth)
@@ -217,7 +225,20 @@ final class StreamingGifTextureAnimation implements Disposable {
             PreparedLooping prepared) {
         Objects.requireNonNull(prepared, "prepared");
         return new StreamingGifTextureAnimation(() -> prepared.data,
-                prepared.label, prepared.maxWidth, true, prepared.timing);
+                prepared.label, prepared.maxWidth, true, prepared.timing,
+                false);
+    }
+
+    /**
+     * Gallery variant: keeps the previous trilinear minification quality while
+     * retaining only one GPU texture instead of one texture per GIF frame.
+     */
+    static StreamingGifTextureAnimation loadLoopingMipmapped(
+            PreparedLooping prepared) {
+        Objects.requireNonNull(prepared, "prepared");
+        return new StreamingGifTextureAnimation(() -> prepared.data,
+                prepared.label, prepared.maxWidth, true, prepared.timing,
+                true);
     }
 
     /** Returns the current frame, or {@code null} while the first one decodes. */
@@ -304,12 +325,17 @@ final class StreamingGifTextureAnimation implements Disposable {
             // Long cinematics stay close to their native size. A single
             // linear texture is sharper and dramatically smaller than a
             // full mipmapped texture for every GIF frame.
-            texture = new Texture(uploadPixmap, false);
-            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            texture = new Texture(uploadPixmap, mipMaps);
+            texture.setFilter(mipMaps ? TextureFilter.MipMapLinearLinear
+                    : TextureFilter.Linear, TextureFilter.Linear);
             textureWidth = frame.width();
             textureHeight = frame.height();
         } else {
             texture.draw(uploadPixmap, 0, 0);
+            if (mipMaps) {
+                texture.bind();
+                Gdx.gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+            }
         }
     }
 

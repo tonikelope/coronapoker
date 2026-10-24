@@ -5877,8 +5877,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawLobbyImageMessage(LobbyChatMessage message, float x,
             float y, float width, float height, Color color) {
         LobbyMedia media = lobbyMedia.get(message.sequence());
-        Texture thumbnail = media == null ? null
-                : media.gif != null ? media.gif.frameAt(elapsed, true) : media.image;
+        Texture thumbnail = media == null ? null : media.frameAt(elapsed);
         if (thumbnail != null) {
             float scale = Math.min(width / Math.max(1f, thumbnail.getWidth()),
                     height / Math.max(1f, thumbnail.getHeight()));
@@ -7406,36 +7405,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (lobbyMedia.containsKey(message.sequence())) return;
         LobbyMedia media = new LobbyMedia();
         lobbyMedia.put(message.sequence(), media);
-        CompletableFuture.supplyAsync(() ->
-                GdxChatImageLoader.download(message.content()))
-                .whenComplete((data, failure) -> Gdx.app.postRunnable(() -> {
-                    if (disposed || lobbyMedia.get(message.sequence()) != media) {
+        GdxPreparedChatMedia.prepareAsync(message.content(),
+                "lobby-chat:" + message.sequence(), 240)
+                .whenComplete((prepared, failure) -> {
+                    if (Gdx.app == null) {
+                        if (prepared != null) prepared.dispose();
                         return;
                     }
-                    media.loading = false;
-                    if (failure != null || data == null || data.length == 0) {
-                        media.failed = true;
-                        return;
-                    }
-                    try {
-                        if (GdxChatImageLoader.isGif(data)) {
-                            media.gif = GifTextureAnimation.load(data,
-                                    "lobby-chat:" + message.sequence(), 240);
-                        } else {
-                            Pixmap pixmap = new Pixmap(data, 0, data.length);
-                            try {
-                                media.image = new Texture(pixmap, true);
-                                media.image.setFilter(
-                                        TextureFilter.MipMapLinearLinear,
-                                        TextureFilter.Linear);
-                            } finally {
-                                pixmap.dispose();
-                            }
+                    Gdx.app.postRunnable(() -> {
+                        if (disposed || lobbyMedia.get(message.sequence())
+                                != media) {
+                            if (prepared != null) prepared.dispose();
+                            return;
                         }
-                    } catch (RuntimeException | java.io.IOException invalid) {
-                        media.failed = true;
-                    }
-                }));
+                        media.loading = false;
+                        if (failure != null || prepared == null) {
+                            media.failed = true;
+                            return;
+                        }
+                        try {
+                            if (prepared.animated()) {
+                                media.gif = prepared.startGif();
+                            } else {
+                                media.image = prepared.uploadImage();
+                            }
+                        } catch (RuntimeException invalid) {
+                            media.failed = true;
+                        } finally {
+                            prepared.dispose();
+                        }
+                    });
+                });
     }
 
     private void playLobbyVoice(LobbyChatMessage message) {
@@ -14271,13 +14271,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         private boolean loading = true;
         private boolean failed;
         private Texture image;
-        private GifTextureAnimation gif;
+        private StreamingGifTextureAnimation gif;
+        private float gifStartedAt = Float.NaN;
+
+        private Texture frameAt(float elapsed) {
+            if (gif == null) return image;
+            if (gif.failed()) {
+                failed = true;
+                return null;
+            }
+            if (Float.isNaN(gifStartedAt)) gifStartedAt = elapsed;
+            return gif.frameAt(Math.max(0f, elapsed - gifStartedAt));
+        }
 
         private void dispose() {
             if (image != null) image.dispose();
             if (gif != null) gif.dispose();
             image = null;
             gif = null;
+            gifStartedAt = Float.NaN;
         }
     }
 

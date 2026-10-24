@@ -44,34 +44,38 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void winnerPresentationUsesFeatheredGreenLightWithoutRings()
+    void winnerPresentationUsesTheSameFilledGlowAsTheActiveTurn()
             throws IOException {
         String table = Files.readString(source());
         String effects = method(table,
                 "private void drawLiveWinnerEffects()",
                 "private void updateLiveChipBatch()");
-        String glows = method(table,
-                "private void drawLiveWinnerGlows()",
-                "private void drawLiveWinnerParticles()");
+        String winnerGlow = method(table,
+                "private void drawWinnerSeatGlows()",
+                "private void drawActiveSeatGlows()");
+        String activeGlow = method(table,
+                "private void drawActiveSeatGlows()",
+                "private void drawAllInSeatFlames()");
         String particles = method(table,
                 "private void drawLiveWinnerParticles()",
                 "private float liveWinnerEffectProgress(");
 
-        assertTrue(effects.contains("drawLiveWinnerGlows()"));
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertFalse(table.contains("drawLiveWinnerStreaks()"));
-        assertTrue(glows.contains("drawSoftRoundedOutlineGlow("));
-        assertTrue(glows.contains("winner.index == 0"));
-        assertTrue(glows.contains("WINNER_NEON_GREEN"));
-        assertTrue(glows.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
-        assertFalse(glows.contains("drawWinnerFrameGlint("));
-        assertFalse(glows.contains("GdxAntialiasedRoundedRect.outline"));
-        assertFalse(glows.contains("shapes.circle("));
+        assertTrue(winnerGlow.contains("drawSoftRoundedGlow("));
+        assertTrue(winnerGlow.contains("winner.index == 0"));
+        assertTrue(winnerGlow.contains("winner.podX - 6f"));
+        assertTrue(winnerGlow.contains("PLAYER_POD_WIDTH + 12f"));
+        assertTrue(winnerGlow.contains("WINNER_NEON_GREEN"));
+        assertTrue(winnerGlow.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
+        assertFalse(winnerGlow.contains("drawSoftRoundedOutlineGlow("));
+        assertTrue(activeGlow.contains("seat.podX - 6f"));
+        assertTrue(activeGlow.contains("PLAYER_POD_WIDTH + 12f"));
         assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertTrue(particles.contains("POT_GOLD"));
         assertTrue(particles.contains("CYAN"));
         assertFalse(particles.contains("shapes.triangle("));
-        assertFalse(glows.contains("shapes.circle(avatarX"));
+        assertFalse(winnerGlow.contains("shapes.circle(avatarX"));
         assertTrue(table.contains(
                 "&& !Boolean.TRUE.equals(settledWinner)"));
         assertFalse(table.contains("winnerAuraShader"));
@@ -102,6 +106,9 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(localHud.contains("winnerGlow || danger || localTurn"));
         assertTrue(localHud.contains("WINNER_NEON_GREEN"));
         assertTrue(localHud.contains("ACTIVE_TURN_GOLD"));
+        assertTrue(localHud.contains("hudWidth + 12f, hudHeight + 21f"));
+        assertTrue(localHud.contains(
+                "glowColor, glowStrength * localSeatOpacity"));
         assertFalse(localHud.contains("hudX - 22f"));
         assertFalse(localHud.contains("hudX - 14f"));
         assertTrue(callCost.contains("isActionableTurn(snapshot"));

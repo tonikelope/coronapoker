@@ -10642,7 +10642,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
-        // The active-turn backlight belongs to the table plane, beneath cards.
+        // Active-turn and winner backlights belong to the table plane, beneath
+        // cards and seat surfaces. Both states therefore share one glow shape.
         drawSeatBackEffects();
         drawChipTrails();
         // Hidden cards and completed showdown hands live behind their PlayerPod.
@@ -10657,9 +10658,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTimedOutKickOverlays();
         drawCallCostOverlay(tableCx, tableCy, tableW);
         drawHandOverlay();
-        // Winner accents deliberately celebrate in the foreground. Their
-        // feathered outline confines additive light to the seat edge, keeping
-        // card faces free from a broad gamma-changing wash.
+        // Winner particles deliberately celebrate in the foreground while
+        // the broad green light remains safely behind cards and seat surfaces.
         drawLiveWinnerEffects();
         drawLocalHud(width, height);
         if (liveAllInCinematicVisible()) {
@@ -12597,6 +12597,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSeatBackEffects() {
         drawActiveSeatGlows();
+        drawWinnerSeatGlows();
+    }
+
+    private void drawWinnerSeatGlows() {
+        if (!collectLiveWinnerEffectSeats()) {
+            return;
+        }
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (Seat winner : liveWinnerEffectSeats) {
+            if (winner.index == 0) {
+                // drawLocalHud() applies the same geometry to the full HUD.
+                continue;
+            }
+            float presence = seatPresenceAlpha(winner.index);
+            float progress = liveWinnerEffectProgress(winner);
+            float pulse = liveAnimationsEnabled()
+                    ? 0.5f + 0.5f * MathUtils.sin(totalTime * 2.35f
+                            + winner.index * 0.73f)
+                    : 0.5f;
+            drawSoftRoundedGlow(winner.podX - 6f, winner.podY - 6f,
+                    PLAYER_POD_WIDTH + 12f,
+                    PLAYER_POD_HEIGHT + 12f, 17f, 24f,
+                    WINNER_NEON_GREEN,
+                    (1.05f + pulse * 0.75f) * presence * progress);
+        }
+        shapes.end();
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     /**
@@ -17934,7 +17964,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!collectLiveWinnerEffectSeats()) {
             return;
         }
-        drawLiveWinnerGlows();
         drawLiveWinnerParticles();
     }
 
@@ -17956,33 +17985,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         return !liveWinnerEffectSeats.isEmpty();
-    }
-
-    private void drawLiveWinnerGlows() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        for (Seat winner : liveWinnerEffectSeats) {
-            if (winner.index == 0) {
-                // The local winner uses the exact HUD glow geometry in
-                // drawLocalHud(), so its light follows the full local panel.
-                continue;
-            }
-            float progress = liveWinnerEffectProgress(winner);
-            float pulse = liveAnimationsEnabled()
-                    ? 0.5f + 0.5f * MathUtils.sin(totalTime * 2.35f
-                            + winner.index * 0.73f)
-                    : 0.5f;
-            drawSoftRoundedOutlineGlow(winner.podX - 4f,
-                    winner.podY - 4f,
-                    PLAYER_POD_WIDTH + 8f, PLAYER_POD_HEIGHT + 8f,
-                    17f, 24f,
-                    WINNER_NEON_GREEN,
-                    (1.40f + pulse * 0.90f) * progress);
-        }
-        shapes.end();
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     private void drawLiveWinnerParticles() {
@@ -18968,24 +18970,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawSoftRoundedOutlineGlow(float x, float y, float width,
-            float height, float radius, float spread, Color color,
-            float strength) {
-        float thickness = Math.max(1.6f,
-                spread / SOFT_GLOW_LAYER_COUNT * 2.2f);
-        for (int layer = 0; layer < SOFT_GLOW_LAYER_COUNT; layer++) {
-            float progress = (layer + 1f) / (SOFT_GLOW_LAYER_COUNT + 1f);
-            float expansion = spread * (1f - progress);
-            shapes.setColor(color.r, color.g, color.b,
-                    softOutlineGlowLayerAlpha(layer, SOFT_GLOW_LAYER_COUNT,
-                            strength));
-            GdxAntialiasedRoundedRect.outline(shapes,
-                    x - expansion, y - expansion,
-                    width + expansion * 2f, height + expansion * 2f,
-                    radius + expansion, thickness);
-        }
-    }
-
     static float softGlowLayerAlpha(int layer, int layers, float strength) {
         if (layers <= 0 || layer < 0 || layer >= layers
                 || strength <= 0f) {
@@ -18994,17 +18978,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float progress = (layer + 1f) / layers;
         float smooth = progress * progress * (3f - 2f * progress);
         return strength * (0.006f + 0.028f * smooth);
-    }
-
-    static float softOutlineGlowLayerAlpha(int layer, int layers,
-            float strength) {
-        if (layers <= 0 || layer < 0 || layer >= layers
-                || strength <= 0f) {
-            return 0f;
-        }
-        float progress = (layer + 1f) / (layers + 1f);
-        float feather = MathUtils.sin(MathUtils.PI * progress);
-        return strength * 0.042f * feather * feather;
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,

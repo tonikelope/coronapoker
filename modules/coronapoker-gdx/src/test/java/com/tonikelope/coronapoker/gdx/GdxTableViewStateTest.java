@@ -3337,22 +3337,6 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void outlineGlowFadesAtBothEdgesInsteadOfDrawingABrightRing() {
-        float outer = CoronaPokerGdxTable.softOutlineGlowLayerAlpha(
-                0, 24, 1f);
-        float middle = CoronaPokerGdxTable.softOutlineGlowLayerAlpha(
-                11, 24, 1f);
-        float inner = CoronaPokerGdxTable.softOutlineGlowLayerAlpha(
-                23, 24, 1f);
-
-        assertTrue(outer > 0f);
-        assertTrue(middle > outer);
-        assertEquals(outer, inner, 0.000_001f);
-        assertEquals(0f, CoronaPokerGdxTable.softOutlineGlowLayerAlpha(
-                24, 24, 1f));
-    }
-
-    @Test
     void gameLogWrappingNeverCutsAVisualCardToken() {
         List<String> wrapped = new java.util.ArrayList<>();
         GdxGameLogFormatter.wrapLine(wrapped,

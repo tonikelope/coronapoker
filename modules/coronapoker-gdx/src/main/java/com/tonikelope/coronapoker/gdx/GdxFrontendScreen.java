@@ -311,11 +311,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float HAND_GENERATOR_CARD_REGION_BOTTOM =
             HAND_GENERATOR_PANEL_Y + 114f;
     static final float HAND_GENERATOR_CARD_REGION_TOP =
-            HAND_GENERATOR_PANEL_Y + HAND_GENERATOR_PANEL_HEIGHT - 198f;
+            HAND_GENERATOR_PANEL_Y + HAND_GENERATOR_PANEL_HEIGHT - 266f;
     static final float HAND_GENERATOR_CARD_Y =
             (HAND_GENERATOR_CARD_REGION_BOTTOM
                     + HAND_GENERATOR_CARD_REGION_TOP
                     - HAND_GENERATOR_CARD_HEIGHT) / 2f;
+    static final float HAND_GENERATOR_TITLE_BASELINE =
+            HAND_GENERATOR_PANEL_Y + HAND_GENERATOR_PANEL_HEIGHT - 50f;
+    static final float HAND_GENERATOR_NAME_Y =
+            HAND_GENERATOR_PANEL_Y + HAND_GENERATOR_PANEL_HEIGHT - 218f;
+    static final float HAND_GENERATOR_NAME_HEIGHT = 64f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
@@ -4660,11 +4665,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         textFit(titleFont,
                 uppercase(gameText.translate("gdx.hand_generator.title")),
-                WIDTH / 2f, y + h - 50f, GOLD, true, w - 160f);
+                WIDTH / 2f, HAND_GENERATOR_TITLE_BASELINE, GOLD, true,
+                w - 160f);
         float nameWidth = 680f;
         float nameX = WIDTH / 2f - nameWidth / 2f;
-        float nameY = y + h - 148f;
-        outerBox(nameX, nameY, nameWidth, 64f, CYAN_DARK, PANEL_LIGHT);
+        float nameY = HAND_GENERATOR_NAME_Y;
+        outerBox(nameX, nameY, nameWidth, HAND_GENERATOR_NAME_HEIGHT,
+                CYAN_DARK, PANEL_LIGHT);
         textFit(settingsStepperSignFont,
                 gameText.translate(example.translationKey()),
                 WIDTH / 2f, nameY + 45f, Color.WHITE, true,
@@ -4673,7 +4680,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.hand_generator.probability",
                         example.probability())),
                 WIDTH / 2f, nameY - 23f, CYAN, true, 520f);
-        hit(WIDTH / 2f - 260f, nameY - 54f, 520f, 44f,
+        hit(WIDTH / 2f - 260f, nameY - 45f, 520f, 36f,
                 () -> openExternalUri(
                         URI.create(GdxHandGeneratorModel.POKER_ODDS_URL),
                         "gdx.about.open_failed"));

@@ -128,6 +128,15 @@ final class GdxHandGeneratorModelTest {
         }
     }
 
+    @Test
+    void titleAndHandNameHaveAStableNonOverlappingVerticalBand() {
+        float nameTop = GdxFrontendScreen.HAND_GENERATOR_NAME_Y
+                + GdxFrontendScreen.HAND_GENERATOR_NAME_HEIGHT;
+
+        assertTrue(GdxFrontendScreen.HAND_GENERATOR_TITLE_BASELINE
+                - nameTop >= 80f);
+    }
+
     private static int evaluatedValue(Set<CardCode> codes) {
         ArrayList<GameCardController> cards = new ArrayList<>();
         for (CardCode code : codes) {

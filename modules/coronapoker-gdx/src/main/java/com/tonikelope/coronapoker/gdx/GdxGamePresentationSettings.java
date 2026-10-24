@@ -60,6 +60,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         }
         normalizedDecks = Map.copyOf(decks);
         availableDecks = List.copyOf(new ArrayList<>(decks.values()));
+        autoRebuyOnBroke = bool(GdxSettingsContract.AUTO_REBUY_KEY, false);
     }
 
     static ModMediaCatalog discoverInstalledMod() {
@@ -308,7 +309,11 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean autoActionPersist() { return bool("auto_action_persist", true); }
     @Override public boolean autoRebuyOnBroke() { return autoRebuyOnBroke; }
-    void setAutoRebuyOnBroke(boolean enabled) { autoRebuyOnBroke = enabled; }
+    void setAutoRebuyOnBroke(boolean enabled) {
+        autoRebuyOnBroke = enabled;
+        properties.setProperty(GdxSettingsContract.AUTO_REBUY_KEY,
+                Boolean.toString(enabled));
+    }
     int actualMsaaSamples() { return actualMsaaSamples; }
     void setActualMsaaSamples(int samples) {
         actualMsaaSamples = Math.max(0, samples);

@@ -119,6 +119,7 @@ final class GdxSettingsSessionTest {
         properties.setProperty("auto_action_persist", "true");
         properties.setProperty("modo_auto_confirm", "true");
         properties.setProperty("confirmar_todo", "false");
+        properties.setProperty(GdxSettingsContract.AUTO_REBUY_KEY, "false");
         properties.setProperty("auto_call_enabled", "false");
         properties.setProperty("auto_call_max", "0");
         GdxSettingsSession session = new GdxSettingsSession();
@@ -130,6 +131,7 @@ final class GdxSettingsSessionTest {
         properties.setProperty("auto_action_persist", "false");
         properties.setProperty("modo_auto_confirm", "false");
         properties.setProperty("confirmar_todo", "true");
+        properties.setProperty(GdxSettingsContract.AUTO_REBUY_KEY, "true");
         properties.setProperty("auto_call_enabled", "true");
         properties.setProperty("auto_call_max", "4.5");
         assertTrue(session.propertiesChanged(properties));
@@ -141,6 +143,8 @@ final class GdxSettingsSessionTest {
         assertEquals("true", properties.getProperty("auto_action_persist"));
         assertEquals("true", properties.getProperty("modo_auto_confirm"));
         assertEquals("false", properties.getProperty("confirmar_todo"));
+        assertEquals("false", properties.getProperty(
+                GdxSettingsContract.AUTO_REBUY_KEY));
         assertEquals("false", properties.getProperty("auto_call_enabled"));
         assertEquals("0", properties.getProperty("auto_call_max"));
 

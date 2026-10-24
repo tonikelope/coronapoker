@@ -22,6 +22,7 @@ final class GdxSettingsContract {
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
     static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
+    static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
@@ -31,7 +32,7 @@ final class GdxSettingsContract {
     private static final List<String> CONTROL_SETTING_KEYS = List.of(
             "auto_action_buttons", "auto_call_enabled",
             "auto_action_persist", "modo_auto_confirm", "confirmar_todo",
-            "auto_rebuy");
+            AUTO_REBUY_KEY);
     static final String CHAT_GAME_NOTIFICATIONS_KEY =
             "chat_game_notifications";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -453,7 +454,8 @@ final class GdxSettingsContract {
             "gdx_msaa_samples", CARD_RENDERING_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
-            "modo_auto_confirm", "auto_call_enabled", "auto_call_max");
+            "modo_auto_confirm", "auto_call_enabled", "auto_call_max",
+            AUTO_REBUY_KEY);
 
     private GdxSettingsContract() {
     }

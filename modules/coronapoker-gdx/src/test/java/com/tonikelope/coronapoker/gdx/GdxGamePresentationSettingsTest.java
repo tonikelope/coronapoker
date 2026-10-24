@@ -144,16 +144,34 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void automaticRebuyIsMutableSessionStateAndStartsDisabled(
-            @TempDir Path temporary) {
-        GdxGamePresentationSettings settings = new GdxGamePresentationSettings(
-                new PreferencesService(temporary.resolve("coronapoker.properties")));
+    void automaticRebuyDefaultsOffAndPersistsAcrossSessions(
+            @TempDir Path temporary) throws Exception {
+        Path file = temporary.resolve("coronapoker.properties");
+        PreferencesService preferences = new PreferencesService(file);
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences);
+            assertFalse(settings.autoRebuyOnBroke());
 
-        assertFalse(settings.autoRebuyOnBroke());
-        settings.setAutoRebuyOnBroke(true);
-        assertTrue(settings.autoRebuyOnBroke());
-        settings.setAutoRebuyOnBroke(false);
-        assertFalse(settings.autoRebuyOnBroke());
+            settings.setAutoRebuyOnBroke(true);
+            assertTrue(settings.autoRebuyOnBroke());
+            assertEquals("true", preferences.properties().getProperty(
+                    GdxSettingsContract.AUTO_REBUY_KEY));
+            preferences.save();
+        } finally {
+            preferences.close();
+        }
+
+        PreferencesService reopened = new PreferencesService(file);
+        reopened.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(reopened);
+            assertTrue(settings.autoRebuyOnBroke());
+        } finally {
+            reopened.close();
+        }
     }
 
     @Test

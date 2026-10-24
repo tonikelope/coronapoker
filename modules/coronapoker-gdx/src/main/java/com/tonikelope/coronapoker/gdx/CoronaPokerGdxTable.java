@@ -11974,7 +11974,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         columnY - geometry.chipSize() / 2f
                                 + levelPosition * fittedVerticalGap - rise,
                         size, stackChipVisibleThickness(geometry, size,
-                                fittedVerticalGap),
+                                fittedVerticalGap, level),
                         alpha * easedVisibility);
         }
     }
@@ -12058,16 +12058,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 * STACK_CHIP_MINIMUM_THICKNESS_RATIO;
     }
 
+    /**
+     * Compresses only the internal seams of a tall column. The bottom chip
+     * owns the rack's outside silhouette, so its complete cylindrical edge is
+     * always retained even when the levels above it use a tighter pitch.
+     */
     static float stackChipVisibleThickness(StackChipRackGeometry geometry,
-            float diameter, float fittedVerticalGap) {
-        if (geometry == null || geometry.normalVerticalGap() <= 0f) {
-            return stackChipPhysicalThickness(diameter);
+            float diameter, float fittedVerticalGap, int level) {
+        float physicalThickness = stackChipPhysicalThickness(diameter);
+        if (level <= 0 || geometry == null
+                || geometry.normalVerticalGap() <= 0f) {
+            return physicalThickness;
         }
         float compression = MathUtils.clamp(fittedVerticalGap
                 / geometry.normalVerticalGap(),
                 geometry.minimumVerticalGap()
                         / geometry.normalVerticalGap(), 1f);
-        return stackChipPhysicalThickness(diameter) * compression;
+        return physicalThickness * compression;
     }
 
     static StackChipRackGeometry stackChipRackGeometry(boolean localSize) {

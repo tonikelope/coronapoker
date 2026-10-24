@@ -1115,12 +1115,12 @@ final class GdxTableViewStateTest {
         assertEquals(CoronaPokerGdxTable.stackChipPhysicalThickness(
                 local.chipSize()), CoronaPokerGdxTable
                         .stackChipVisibleThickness(local, local.chipSize(),
-                                local.normalVerticalGap()), 0.000_001f);
+                                local.normalVerticalGap(), 1), 0.000_001f);
         assertEquals(CoronaPokerGdxTable.stackChipMinimumThickness(
                 local.chipSize()), CoronaPokerGdxTable
                         .stackChipVisibleThickness(local, local.chipSize(),
-                                local.minimumVerticalGap()), 0.000_001f,
-                "edge height must compress proportionally to the rack gap");
+                                local.minimumVerticalGap(), 1), 0.000_001f,
+                "internal edge height must follow the compressed rack gap");
         assertEquals(306, CoronaPokerGdxTable.stackChipEdgeSourceHeight(
                 140f, CoronaPokerGdxTable.stackChipPhysicalThickness(140f)),
                 "a relaxed chip must use the complete cylindrical extrusion");
@@ -1143,6 +1143,36 @@ final class GdxTableViewStateTest {
                 -CoronaPokerGdxTable.stackChipEdgeInset(30f),
                 0.000_001f,
                 "local compact walls recover about one filtered pixel per side");
+    }
+
+    @Test
+    void compressionPreservesFullColumnBaseInEveryCompactRack() {
+        for (CoronaPokerGdxTable.StackChipRackGeometry geometry : List.of(
+                CoronaPokerGdxTable.stackChipRackGeometry(true),
+                CoronaPokerGdxTable.stackChipRackGeometry(false),
+                CoronaPokerGdxTable.potChipRackGeometry())) {
+            float physical = CoronaPokerGdxTable.stackChipPhysicalThickness(
+                    geometry.chipSize());
+            float base = CoronaPokerGdxTable.stackChipVisibleThickness(
+                    geometry, geometry.chipSize(),
+                    geometry.minimumVerticalGap(), 0);
+            float internal = CoronaPokerGdxTable.stackChipVisibleThickness(
+                    geometry, geometry.chipSize(),
+                    geometry.minimumVerticalGap(), 1);
+
+            assertEquals(physical, base, 0.000_001f,
+                    "compression must never flatten the column base");
+            assertEquals(CoronaPokerGdxTable.stackChipMinimumThickness(
+                    geometry.chipSize()), internal, 0.000_001f,
+                    "only internal seams may follow the compressed pitch");
+            assertTrue(base > internal,
+                    "the outside base must retain more curvature than a compressed seam");
+            assertEquals(CoronaPokerGdxTable.stackChipEdgeSourceHeight(
+                    geometry.chipSize(), physical),
+                    CoronaPokerGdxTable.stackChipEdgeSourceHeight(
+                            geometry.chipSize(), base),
+                    "the base must sample the complete cylindrical extrusion");
+        }
     }
 
     @Test

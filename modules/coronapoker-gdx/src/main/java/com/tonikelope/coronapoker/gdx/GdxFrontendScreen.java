@@ -275,6 +275,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float STATS_PICKER_SCROLL_SPEED = 3f
             * STATS_PICKER_ROW_STRIDE;
     static final int STATS_RESULT_VISIBLE_ROWS = 10;
+    static final float STATS_SYNC_ROW_Y = 965f;
+    static final float STATS_SYNC_RECEIVE_X = 560f;
+    static final float STATS_SYNC_RECEIVE_WIDTH = 375f;
+    static final float STATS_SYNC_SHARE_GROUP_X = 950f;
+    static final float STATS_SYNC_SHARE_GROUP_WIDTH = 630f;
     private static final URI GOOGLE_IMAGES_URI = URI.create(
             "https://images.google.com/");
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
@@ -298,10 +303,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float HAND_GENERATOR_PANEL_WIDTH = 1100f;
     static final float HAND_GENERATOR_PANEL_HEIGHT = 700f;
     static final float HAND_GENERATOR_CARD_AREA_INSET = 64f;
-    static final float HAND_GENERATOR_CARD_Y = 338f;
     static final float HAND_GENERATOR_CARD_GAP = 16f;
-    static final float HAND_GENERATOR_CARD_MAX_WIDTH = 190f;
+    static final float HAND_GENERATOR_CARD_WIDTH = 180f;
     static final float HAND_GENERATOR_CARD_ASPECT = 0.714f;
+    static final float HAND_GENERATOR_CARD_HEIGHT =
+            HAND_GENERATOR_CARD_WIDTH / HAND_GENERATOR_CARD_ASPECT;
+    static final float HAND_GENERATOR_CARD_REGION_BOTTOM =
+            HAND_GENERATOR_PANEL_Y + 114f;
+    static final float HAND_GENERATOR_CARD_REGION_TOP =
+            HAND_GENERATOR_PANEL_Y + HAND_GENERATOR_PANEL_HEIGHT - 198f;
+    static final float HAND_GENERATOR_CARD_Y =
+            (HAND_GENERATOR_CARD_REGION_BOTTOM
+                    + HAND_GENERATOR_CARD_REGION_TOP
+                    - HAND_GENERATOR_CARD_HEIGHT) / 2f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
     static final URI ABOUT_RULES_URI = URI.create(
@@ -2667,10 +2681,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawStatsScreen() {
         panel(20f, 20f, 1880f, 1040f, "");
         textFit(titleFont, gameText.translate("ui.estadisticas"), 62f,
-                1015f, GOLD, false, 1250f);
+                1015f, GOLD, false, 470f);
         themedButton(1610f, 975f, 245f, 58f,
                 gameText.translate("ui.volver"), ButtonTone.NEUTRAL,
                 this::closeStats, true);
+        drawStatsSyncControls();
 
         String gameLabel = statsGameIndex < 0
                 ? gameText.translate("gdx.stats.all_games")
@@ -2788,26 +2803,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     () -> statsConfirmation = StatsConfirmation.IMPORTED,
                     statsGames.stream().anyMatch(
                             StatsRepository.GameSummary::imported));
-        } else if (!statsLoading && statsGameIndex < 0
-                && statsHandIndex < 0 && statsPlayerFilter.isBlank()) {
-            compactToggle(86f, 222f, 348f,
-                    gameText.translate("stats.sync_receive"),
-                    preferenceBoolean("sync_stats_receive", true),
-                    () -> toggleStatsSyncPreference("sync_stats_receive"),
-                    true);
-            compactToggle(86f, 144f, 348f,
-                    gameText.translate("stats.sync_share"),
-                    preferenceBoolean("sync_stats_share", true),
-                    () -> toggleStatsSyncPreference("sync_stats_share"),
-                    true);
-            themedButton(86f, 86f, 348f, 46f,
-                    gameText.translate("stats.sync_exclude"),
-                    ButtonTone.NEUTRAL, this::openStatsSyncExclusions, true);
         }
     }
 
-    private void toggleStatsSyncPreference(String key) {
-        togglePreference(key, true);
+    private void drawStatsSyncControls() {
+        boolean receive = GdxStatsSyncSettings.receive(initialProperties);
+        boolean share = GdxStatsSyncSettings.share(initialProperties);
+        compactToggle(STATS_SYNC_RECEIVE_X, STATS_SYNC_ROW_Y,
+                STATS_SYNC_RECEIVE_WIDTH,
+                gameText.translate("stats.sync_receive"), receive,
+                () -> toggleStatsSyncPreference(
+                        GdxStatsSyncSettings.RECEIVE_KEY,
+                        GdxStatsSyncSettings.RECEIVE_DEFAULT), true);
+
+        outerBox(STATS_SYNC_SHARE_GROUP_X, STATS_SYNC_ROW_Y - 9f,
+                STATS_SYNC_SHARE_GROUP_WIDTH, 86f, CYAN_DARK, PANEL_LIGHT);
+        compactToggle(STATS_SYNC_SHARE_GROUP_X + 10f, STATS_SYNC_ROW_Y,
+                360f, gameText.translate("stats.sync_share"), share,
+                () -> toggleStatsSyncPreference(
+                        GdxStatsSyncSettings.SHARE_KEY,
+                        GdxStatsSyncSettings.SHARE_DEFAULT), true);
+        themedButton(STATS_SYNC_SHARE_GROUP_X + 382f,
+                STATS_SYNC_ROW_Y + 11f, 236f, 46f,
+                gameText.translate("stats.sync_exclude"),
+                ButtonTone.NEUTRAL, this::openStatsSyncExclusions, share);
+    }
+
+    private void toggleStatsSyncPreference(String key, boolean fallback) {
+        togglePreference(key, fallback);
         preferences.saveDeferred();
     }
 
@@ -4634,19 +4657,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxHandGeneratorModel.Example example = handGenerator.current();
 
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
-        GdxUiDialogStyle.drawInset(shapes, x + 40f, y + 126f,
-                w - 80f, 350f, 1f);
 
-        textFit(headingFont,
+        textFit(titleFont,
                 uppercase(gameText.translate("gdx.hand_generator.title")),
-                WIDTH / 2f, y + h - 58f, GOLD, true, w - 120f);
-        textFit(headingFont, gameText.translate(example.translationKey()),
-                WIDTH / 2f, y + h - 115f, Color.WHITE, true, w - 160f);
-        textFit(smallFont, uppercase(gameText.translate(
+                WIDTH / 2f, y + h - 50f, GOLD, true, w - 160f);
+        float nameWidth = 680f;
+        float nameX = WIDTH / 2f - nameWidth / 2f;
+        float nameY = y + h - 148f;
+        outerBox(nameX, nameY, nameWidth, 64f, CYAN_DARK, PANEL_LIGHT);
+        textFit(settingsStepperSignFont,
+                gameText.translate(example.translationKey()),
+                WIDTH / 2f, nameY + 45f, Color.WHITE, true,
+                nameWidth - 48f);
+        textFit(uiFont, uppercase(gameText.translate(
                         "gdx.hand_generator.probability",
                         example.probability())),
-                WIDTH / 2f, y + h - 162f, GOLD, true, 440f);
-        hit(WIDTH / 2f - 220f, y + h - 194f, 440f, 48f,
+                WIDTH / 2f, nameY - 23f, CYAN, true, 520f);
+        hit(WIDTH / 2f - 260f, nameY - 54f, 520f, 44f,
                 () -> openExternalUri(
                         URI.create(GdxHandGeneratorModel.POKER_ODDS_URL),
                         "gdx.about.open_failed"));
@@ -4656,9 +4683,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.hand_generator.previous")),
                 ButtonTone.NEUTRAL, handGenerator::previous,
                 handGenerator.canPrevious());
-        textFit(smallFont,
-                (handGenerator.index() + 1) + " / " + handGenerator.size(),
-                WIDTH / 2f, y + 122f, MUTED, true, 180f);
         themedButton(x + w - 292f, y + 34f, 250f, 62f,
                 uppercase(gameText.translate("gdx.hand_generator.next"))
                         + "  ›",
@@ -4690,19 +4714,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || cardIndex < 0 || cardIndex >= cardCount) {
             throw new IllegalArgumentException("Invalid hand card index");
         }
-        float areaWidth = HAND_GENERATOR_PANEL_WIDTH
-                - 2f * HAND_GENERATOR_CARD_AREA_INSET;
-        float cardWidth = Math.min(HAND_GENERATOR_CARD_MAX_WIDTH,
-                (areaWidth - HAND_GENERATOR_CARD_GAP * (cardCount - 1))
-                        / cardCount);
-        float cardHeight = cardWidth / HAND_GENERATOR_CARD_ASPECT;
-        float rowWidth = cardWidth * cardCount
+        float rowWidth = HAND_GENERATOR_CARD_WIDTH * cardCount
                 + HAND_GENERATOR_CARD_GAP * (cardCount - 1);
         float rowX = HAND_GENERATOR_PANEL_X
                 + (HAND_GENERATOR_PANEL_WIDTH - rowWidth) / 2f;
         return new Rectangle(
-                rowX + cardIndex * (cardWidth + HAND_GENERATOR_CARD_GAP),
-                HAND_GENERATOR_CARD_Y, cardWidth, cardHeight);
+                rowX + cardIndex * (HAND_GENERATOR_CARD_WIDTH
+                        + HAND_GENERATOR_CARD_GAP),
+                HAND_GENERATOR_CARD_Y, HAND_GENERATOR_CARD_WIDTH,
+                HAND_GENERATOR_CARD_HEIGHT);
     }
 
     private Texture handGeneratorCardTexture(String code) {

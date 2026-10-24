@@ -21,6 +21,23 @@ class GdxStatsLayoutTest {
     }
 
     @Test
+    void synchronizationControlsOwnTheGlobalHeaderWithoutOverlap() {
+        float titleRight = 62f + 470f;
+        float receiveRight = GdxFrontendScreen.STATS_SYNC_RECEIVE_X
+                + GdxFrontendScreen.STATS_SYNC_RECEIVE_WIDTH;
+        float shareRight = GdxFrontendScreen.STATS_SYNC_SHARE_GROUP_X
+                + GdxFrontendScreen.STATS_SYNC_SHARE_GROUP_WIDTH;
+
+        assertTrue(GdxFrontendScreen.STATS_SYNC_RECEIVE_X > titleRight);
+        assertTrue(receiveRight
+                < GdxFrontendScreen.STATS_SYNC_SHARE_GROUP_X);
+        assertTrue(shareRight < 1610f,
+                "the sharing group must not collide with Back");
+        assertTrue(GdxFrontendScreen.STATS_SYNC_ROW_Y >= 940f,
+                "sync controls belong to the persistent header");
+    }
+
+    @Test
     void pickerUsesPixelScrollingInsteadOfPages() {
         float maximum = GdxFrontendScreen.statsPickerMaximumScroll(207);
         assertTrue(maximum > 10_000f);

@@ -110,6 +110,24 @@ final class GdxHandGeneratorModelTest {
         }
     }
 
+    @Test
+    void everyHandUsesOneCardSizeAndCentersItInTheAvailableHeight() {
+        Rectangle reference = GdxFrontendScreen.handGeneratorCardBounds(2, 0);
+        float regionCenter = (GdxFrontendScreen.HAND_GENERATOR_CARD_REGION_BOTTOM
+                + GdxFrontendScreen.HAND_GENERATOR_CARD_REGION_TOP) / 2f;
+
+        for (int count = 2; count <= 5; count++) {
+            for (int index = 0; index < count; index++) {
+                Rectangle card = GdxFrontendScreen.handGeneratorCardBounds(
+                        count, index);
+                assertEquals(reference.width, card.width, 0.001f);
+                assertEquals(reference.height, card.height, 0.001f);
+                assertEquals(regionCenter, card.y + card.height / 2f,
+                        0.001f);
+            }
+        }
+    }
+
     private static int evaluatedValue(Set<CardCode> codes) {
         ArrayList<GameCardController> cards = new ArrayList<>();
         for (CardCode code : codes) {

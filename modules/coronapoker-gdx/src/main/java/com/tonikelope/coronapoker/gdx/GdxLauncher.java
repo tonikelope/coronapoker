@@ -168,10 +168,10 @@ public final class GdxLauncher {
         try (NetworkLobbyGateway lobbyGateway
                 = NetworkLobbyGateway.forCurrentUser(gameTables,
                         recoverableGames, identityTrust,
-                        () -> Boolean.parseBoolean(preferences.properties()
-                                .getProperty("sync_stats_receive", "true")),
-                        () -> Boolean.parseBoolean(preferences.properties()
-                                .getProperty("sync_stats_share", "true")),
+                        () -> GdxStatsSyncSettings.receive(
+                                preferences.properties()),
+                        () -> GdxStatsSyncSettings.share(
+                                preferences.properties()),
                         statsSync)) {
             NewGameSessionGateway sessions = lobbyGateway;
             GdxApplicationShell shell = new GdxApplicationShell(

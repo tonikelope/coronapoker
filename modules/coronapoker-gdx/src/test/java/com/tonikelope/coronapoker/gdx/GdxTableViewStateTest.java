@@ -3337,6 +3337,26 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void winnerAndTurnHalosShareCadenceAndStrength() {
+        float remotePeak = MathUtils.PI / (2f * 4.8f);
+        float localPeak = MathUtils.PI / (2f * 5.2f);
+
+        assertEquals(1f, CoronaPokerGdxTable.remoteSeatHaloPulse(
+                remotePeak, true), 0.000_001f);
+        assertEquals(0.5f, CoronaPokerGdxTable.remoteSeatHaloPulse(
+                remotePeak, false), 0.000_001f);
+        assertEquals(1f, CoronaPokerGdxTable.localHudHaloPulse(localPeak),
+                0.000_001f);
+        assertEquals(CoronaPokerGdxTable.localHudHaloPulse(localPeak),
+                CoronaPokerGdxTable.callCostBorderPulse(localPeak, true),
+                0.000_001f);
+        assertEquals(1.05f, CoronaPokerGdxTable.seatHaloStrength(0f),
+                0.000_001f);
+        assertEquals(1.8f, CoronaPokerGdxTable.seatHaloStrength(1f),
+                0.000_001f);
+    }
+
+    @Test
     void callCostBorderOnlyWarmsDuringTheLocalTurn() {
         assertEquals(0f, CoronaPokerGdxTable.callCostBorderPulse(1f, false),
                 0.000_001f);

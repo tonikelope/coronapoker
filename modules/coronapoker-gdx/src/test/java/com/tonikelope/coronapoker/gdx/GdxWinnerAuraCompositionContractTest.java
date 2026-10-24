@@ -55,22 +55,42 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawActiveSeatGlows()");
         String activeGlow = method(table,
                 "private void drawActiveSeatGlows()",
+                "private void drawRemoteSeatHalo(");
+        String remoteGlow = method(table,
+                "private void drawRemoteSeatHalo(",
                 "private void drawAllInSeatFlames()");
         String particles = method(table,
                 "private void drawLiveWinnerParticles()",
                 "private float liveWinnerEffectProgress(");
+        String localHud = method(table,
+                "private void drawLocalHud(float width, float height)",
+                "private void drawPendingRebuyTooltip(");
 
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertFalse(table.contains("drawLiveWinnerStreaks()"));
-        assertTrue(winnerGlow.contains("drawSoftRoundedGlow("));
+        assertTrue(winnerGlow.contains("drawRemoteSeatHalo("));
+        assertTrue(activeGlow.contains("drawRemoteSeatHalo("));
+        assertTrue(winnerGlow.contains(
+                "remoteSeatHaloPulse(totalTime,"));
+        assertTrue(activeGlow.contains(
+                "remoteSeatHaloPulse(totalTime,"));
+        assertTrue(winnerGlow.contains("seatHaloStrength(pulse)"));
+        assertTrue(activeGlow.contains("seatHaloStrength(pulse)"));
+        assertTrue(remoteGlow.contains("drawSoftRoundedGlow("));
         assertTrue(winnerGlow.contains("winner.index == 0"));
-        assertTrue(winnerGlow.contains("winner.podX - 6f"));
-        assertTrue(winnerGlow.contains("PLAYER_POD_WIDTH + 12f"));
+        assertTrue(remoteGlow.contains("seat.podX - 6f"));
+        assertTrue(remoteGlow.contains("PLAYER_POD_WIDTH + 12f"));
+        assertTrue(remoteGlow.contains("PLAYER_POD_HEIGHT + 12f"));
+        assertTrue(remoteGlow.contains("17f, 24f, color, strength"));
         assertTrue(winnerGlow.contains("WINNER_NEON_GREEN"));
         assertTrue(winnerGlow.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
         assertFalse(winnerGlow.contains("drawSoftRoundedOutlineGlow("));
-        assertTrue(activeGlow.contains("seat.podX - 6f"));
-        assertTrue(activeGlow.contains("PLAYER_POD_WIDTH + 12f"));
+        assertTrue(localHud.contains(
+                "float haloPulse = localHudHaloPulse(totalTime)"));
+        assertTrue(localHud.contains(
+                "float glowStrength = seatHaloStrength("));
+        assertTrue(localHud.contains(
+                "danger ? dangerPulse : haloPulse"));
         assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
         assertTrue(particles.contains("POT_GOLD"));
         assertTrue(particles.contains("CYAN"));

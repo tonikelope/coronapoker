@@ -15564,7 +15564,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateLiveActionChip() {
         boolean completedAny = false;
-        Set<String> completedRacks = new HashSet<>();
+        Set<String> completedRacks = null;
         for (int index = liveActionChips.size() - 1; index >= 0; index--) {
             LiveActionChip active = liveActionChips.get(index);
             float elapsed = active.elapsedSeconds();
@@ -15594,13 +15594,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!active.complete(elapsed)) continue;
             livePotContributions.merge(active.event.nickname(),
                     active.event.contributionDelta(), Double::sum);
+            if (completedRacks == null) completedRacks = new HashSet<>();
             completedRacks.add(active.event.nickname());
             liveActionChips.remove(index);
             completedAny = true;
         }
         if (completedAny) {
             syncSeatsFromLiveState();
-            completedRacks.forEach(this::rebalanceSeatRack);
+            if (completedRacks != null) {
+                completedRacks.forEach(this::rebalanceSeatRack);
+            }
         }
         if (completedAny && liveActionChips.isEmpty()) {
             rebalancePotChipInventory();

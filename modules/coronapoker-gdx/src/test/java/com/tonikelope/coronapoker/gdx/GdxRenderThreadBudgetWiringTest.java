@@ -17,6 +17,9 @@ final class GdxRenderThreadBudgetWiringTest {
         assertFalse(table.contains("frameSamples"));
         assertFalse(table.contains("getDisplayMode(monitor)"));
         assertTrue(table.contains("networkBlockCache.update(delta"));
+        assertTrue(table.contains("Set<String> completedRacks = null;"));
+        assertTrue(table.contains(
+                "if (completedRacks == null) completedRacks = new HashSet<>();"));
     }
 
     @Test

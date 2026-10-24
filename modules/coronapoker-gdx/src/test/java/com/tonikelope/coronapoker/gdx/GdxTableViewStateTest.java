@@ -3321,19 +3321,19 @@ final class GdxTableViewStateTest {
         assertEquals(1f, yellow.r, 0.000_001f);
         assertEquals(1f, yellow.g, 0.000_001f);
         assertEquals(1f, warmGold.r, 0.000_001f);
-        assertEquals(0.88f, warmGold.g, 0.000_001f);
+        assertEquals(0.68f, warmGold.g, 0.000_001f);
     }
 
     @Test
     void featheredGlowBuildsOpacityGraduallyWithoutHardShells() {
-        float outer = CoronaPokerGdxTable.softGlowLayerAlpha(0, 16, 1f);
-        float inner = CoronaPokerGdxTable.softGlowLayerAlpha(15, 16, 1f);
+        float outer = CoronaPokerGdxTable.softGlowLayerAlpha(0, 24, 1f);
+        float inner = CoronaPokerGdxTable.softGlowLayerAlpha(23, 24, 1f);
 
         assertTrue(outer > 0f);
         assertTrue(inner > outer);
-        assertEquals(0.02f, inner, 0.000_001f);
+        assertEquals(0.034f, inner, 0.000_001f);
         assertEquals(0f, CoronaPokerGdxTable.softGlowLayerAlpha(
-                -1, 16, 1f));
+                -1, 24, 1f));
     }
 
     @Test

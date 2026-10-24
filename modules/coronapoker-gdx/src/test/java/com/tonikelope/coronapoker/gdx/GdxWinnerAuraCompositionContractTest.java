@@ -101,6 +101,7 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(active.contains("drawSoftCircleGlow("));
         assertFalse(active.contains("shapes.circle(avatarX"));
         assertTrue(localHud.contains("drawSoftRoundedGlow("));
+        assertTrue(localHud.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
         assertFalse(localHud.contains("hudX - 22f"));
         assertFalse(localHud.contains("hudX - 14f"));
         assertTrue(callCost.contains("isActionableTurn(snapshot"));

@@ -278,7 +278,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
-    private static final int SOFT_GLOW_LAYER_COUNT = 16;
+    private static final int SOFT_GLOW_LAYER_COUNT = 24;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
     private static final WinnerGlowParticle[] WINNER_GLOW_PARTICLES =
             createWinnerGlowParticles();
@@ -17758,7 +17758,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static Color callCostBorderTint(float pulse, Color target) {
         float amount = MathUtils.clamp(pulse, 0f, 1f);
-        return target.set(1f, MathUtils.lerp(1f, 0.88f, amount), 1f, 1f);
+        return target.set(1f, MathUtils.lerp(1f, 0.68f, amount), 1f, 1f);
     }
 
     private void drawHandOverlay() {
@@ -19071,7 +19071,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float progress = (layer + 1f) / layers;
         float smooth = progress * progress * (3f - 2f * progress);
-        return strength * (0.004f + 0.016f * smooth);
+        return strength * (0.006f + 0.028f * smooth);
     }
 
     private void drawHudActionSurface(float x, float y, float width, float height,
@@ -19444,8 +19444,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float outcomePulse = settledLocalWinner == null ? 0f
                 : 0.5f + 0.5f * MathUtils.sin(totalTime * 2.8f);
 
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
+        if (danger) {
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            drawSoftRoundedGlow(hudX - 6f, hudY - 6f,
+                    hudWidth + 12f, hudHeight + 21f, 17f, 24f,
+                    FOLD_RED,
+                    (1.05f + dangerPulse * 0.75f) * localSeatOpacity);
+            shapes.end();
+        }
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
         float turnPulse = 0.5f + 0.5f * MathUtils.sin(totalTime * 5.2f);
         Color hudFrame = localShownHand
                 ? settledLocalWinner == null ? localHudSemanticColor
@@ -19458,12 +19469,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : timeoutAwareRim(liveLocalPlayer,
                         danger ? FOLD_RED : localTurn ? ACTIVE_TURN_GOLD
                                 : SEAT_RIM);
-        if (danger) {
-            drawSoftRoundedGlow(hudX - 6f, hudY - 6f,
-                    hudWidth + 12f, hudHeight + 21f, 17f, 22f,
-                    FOLD_RED,
-                    (0.92f + dangerPulse * 0.62f) * localSeatOpacity);
-        }
         float idleFrameLighten = subduedLocalHud ? 0.24f : 0f;
         float hudFrameAlpha = subduedLocalHud ? 0.40f
                 : localShownHand || localMonteCarlo ? 0.90f

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 final class GdxWinnerAuraCompositionContractTest {
 
     @Test
-    void winnerPresentationKeepsItsFeatheredLightInTheForeground()
+    void winnerPresentationKeepsItsFeatheredBacklightBelowSeatContent()
             throws IOException {
         String table = Files.readString(source());
         String scene = method(table, "private void drawTableScene()",
@@ -44,7 +44,7 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void winnerPresentationUsesTheSameFilledGlowAsTheActiveTurn()
+    void everyWinnerAndTurnUsesTheRemoteSeatGlowLanguage()
             throws IOException {
         String table = Files.readString(source());
         String effects = method(table,
@@ -58,7 +58,10 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawRemoteSeatHalo(");
         String remoteGlow = method(table,
                 "private void drawRemoteSeatHalo(",
-                "private void drawAllInSeatFlames()");
+                "private void drawSeatHalo(");
+        String sharedGlow = method(table,
+                "private void drawSeatHalo(",
+                "private boolean seatTurnDangerActive(");
         String particles = method(table,
                 "private void drawLiveWinnerParticles()",
                 "private float liveWinnerEffectProgress(");
@@ -68,36 +71,33 @@ final class GdxWinnerAuraCompositionContractTest {
 
         assertTrue(effects.contains("drawLiveWinnerParticles()"));
         assertFalse(table.contains("drawLiveWinnerStreaks()"));
-        assertTrue(winnerGlow.contains("drawRemoteSeatHalo("));
-        assertTrue(activeGlow.contains("drawRemoteSeatHalo("));
-        assertTrue(winnerGlow.contains(
-                "remoteSeatHaloPulse(totalTime,"));
-        assertTrue(activeGlow.contains(
-                "remoteSeatHaloPulse(totalTime,"));
+        assertTrue(winnerGlow.contains("drawSeatHalo("));
+        assertTrue(activeGlow.contains("drawSeatHalo("));
+        assertTrue(winnerGlow.contains("seatHaloPulse(totalTime,"));
+        assertTrue(activeGlow.contains("seatHaloPulse(totalTime,"));
         assertTrue(winnerGlow.contains("seatHaloStrength(pulse)"));
         assertTrue(activeGlow.contains("seatHaloStrength(pulse)"));
         assertTrue(remoteGlow.contains("drawSoftRoundedGlow("));
-        assertTrue(winnerGlow.contains("winner.index == 0"));
+        assertFalse(winnerGlow.contains("winner.index == 0"));
         assertTrue(remoteGlow.contains("seat.podX - 6f"));
         assertTrue(remoteGlow.contains("PLAYER_POD_WIDTH + 12f"));
         assertTrue(remoteGlow.contains("PLAYER_POD_HEIGHT + 12f"));
         assertTrue(remoteGlow.contains("17f, 24f, color, strength"));
+        assertTrue(sharedGlow.contains("drawRemoteSeatHalo("));
+        assertTrue(sharedGlow.contains("localHudLayout("));
+        assertTrue(sharedGlow.contains("hud.x() - 8f"));
+        assertTrue(sharedGlow.contains("hud.width() + 16f"));
+        assertTrue(sharedGlow.contains("19f, 24f, color, strength"));
         assertTrue(winnerGlow.contains("WINNER_NEON_GREEN"));
         assertTrue(winnerGlow.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
         assertFalse(winnerGlow.contains("drawSoftRoundedOutlineGlow("));
-        assertTrue(localHud.contains(
-                "float haloPulse = localHudHaloPulse(totalTime)"));
-        assertTrue(localHud.contains(
-                "float glowStrength = seatHaloStrength("));
-        assertTrue(localHud.contains(
-                "danger ? dangerPulse : haloPulse"));
-        assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE)"));
+        assertFalse(localHud.contains("drawSoftRoundedGlow("));
+        assertFalse(localHud.contains("seatHaloStrength("));
+        assertTrue(particles.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
         assertTrue(particles.contains("POT_GOLD"));
         assertTrue(particles.contains("CYAN"));
         assertFalse(particles.contains("shapes.triangle("));
         assertFalse(winnerGlow.contains("shapes.circle(avatarX"));
-        assertTrue(table.contains(
-                "&& !Boolean.TRUE.equals(settledWinner)"));
         assertFalse(table.contains("winnerAuraShader"));
         assertFalse(table.contains("winnerAuraTexture"));
         assertFalse(table.contains("winnerCrestTexture"));
@@ -105,12 +105,18 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void seatAndTimeoutLightUseFeatheredGlowInsteadOfVisibleRings()
+    void stateColorsShareOneFeatheredHaloWithoutWinnerOutline()
             throws IOException {
         String table = Files.readString(source());
+        String seats = method(table,
+                "private void drawSeats()",
+                "private void drawSidePotWinnerOverlays()");
         String active = method(table,
                 "private void drawActiveSeatGlows()",
                 "private void drawAllInSeatFlames()");
+        String sharedGlow = method(table,
+                "private void drawSeatHalo(",
+                "private boolean seatTurnDangerActive(");
         String localHud = method(table,
                 "private void drawLocalHud(float width, float height)",
                 "private void drawPendingRebuyTooltip(");
@@ -118,19 +124,17 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawCallCostText(",
                 "private void drawPreparationOverlay()");
 
-        assertTrue(active.contains("drawSoftRoundedGlow("));
+        assertTrue(active.contains("drawSeatHalo("));
+        assertTrue(active.contains("seatTurnDangerActive(seat)"));
+        assertTrue(active.contains("danger ? FOLD_RED : ACTIVE_TURN_GOLD"));
         assertFalse(active.contains("drawSoftCircleGlow("));
         assertFalse(active.contains("shapes.circle(avatarX"));
-        assertTrue(localHud.contains("drawSoftRoundedGlow("));
-        assertTrue(localHud.contains("GL20.GL_SRC_ALPHA, GL20.GL_ONE"));
-        assertTrue(localHud.contains("winnerGlow || danger || localTurn"));
-        assertTrue(localHud.contains("WINNER_NEON_GREEN"));
-        assertTrue(localHud.contains("ACTIVE_TURN_GOLD"));
-        assertTrue(localHud.contains("hudWidth + 12f, hudHeight + 21f"));
-        assertTrue(localHud.contains(
-                "glowColor, glowStrength * localSeatOpacity"));
-        assertFalse(localHud.contains("hudX - 22f"));
-        assertFalse(localHud.contains("hudX - 14f"));
+        assertTrue(sharedGlow.contains("drawSoftRoundedGlow("));
+        assertFalse(localHud.contains("drawSoftRoundedGlow("));
+        assertTrue(localHud.contains("settledShowdownFrameColor("));
+        assertTrue(seats.contains("settledShowdownFrameColor("));
+        assertFalse(localHud.contains("0.78f + haloPulse"));
+        assertFalse(localHud.contains("0.72f + haloPulse"));
         assertTrue(callCost.contains("isActionableTurn(snapshot"));
         assertTrue(callCost.contains("callCostBorderTint("));
         assertFalse(callCost.contains("liveAnimationsEnabled()"));

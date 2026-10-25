@@ -279,8 +279,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final int SOFT_GLOW_LAYER_COUNT = 24;
-    private static final float REMOTE_SEAT_HALO_ANGULAR_SPEED = 4.8f;
-    private static final float LOCAL_HUD_HALO_ANGULAR_SPEED = 5.2f;
+    private static final float SEAT_HALO_ANGULAR_SPEED = 4.8f;
+    private static final float CALL_COST_BORDER_ANGULAR_SPEED = 5.2f;
     private static final float SEAT_HALO_BASE_STRENGTH = 1.05f;
     private static final float SEAT_HALO_PULSE_STRENGTH = 0.75f;
     private static final AllInEmber[] ALL_IN_EMBERS = createAllInEmbers();
@@ -11201,6 +11201,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 continue;
             }
             boolean active = isSeatActive(seat);
+            boolean danger = active && seatTurnDangerActive(seat);
             Boolean settledWinner = liveState.resolvedHandWinner(seat.name);
             boolean settledShowdown = hasSettledPresentation(
                     liveState.hasHandResult(seat.name), settledWinner);
@@ -11218,9 +11219,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
                 Color rim = settledShowdown
-                        ? settledShowdownColor(Boolean.TRUE.equals(settledWinner))
+                        ? settledShowdownFrameColor(
+                                Boolean.TRUE.equals(settledWinner))
                         : timeoutAwareRim(livePlayer, folded ? BUTTON_LINE
-                                : (active ? ACTIVE_TURN_GOLD : SEAT_RIM));
+                                : (danger ? FOLD_RED
+                                        : active ? ACTIVE_TURN_GOLD
+                                                : SEAT_RIM));
                 String actionLabel = lastActionLabelForSeat(seat.index);
                 boolean showActionSurface = timedOut || !actionLabel.isEmpty();
                 Color actionColor = lastActionColorForSeat(seat.index);
@@ -11299,7 +11303,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && !Boolean.TRUE.equals(settledWinner)
                     ? settledShowdownColor(false)
                     : timeoutAwareRim(livePlayer, folded ? BUTTON_LINE
-                            : (active ? ACTIVE_TURN_GOLD : SEAT_RIM));
+                            : (danger ? FOLD_RED
+                                    : active ? ACTIVE_TURN_GOLD : SEAT_RIM));
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
             shapes.circle(avatarX, seat.y, AVATAR_RIM_RADIUS, 48);
@@ -12619,15 +12624,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat winner : liveWinnerEffectSeats) {
-            if (winner.index == 0) {
-                // drawLocalHud() applies the same geometry to the full HUD.
-                continue;
-            }
             float presence = seatPresenceAlpha(winner.index);
             float progress = liveWinnerEffectProgress(winner);
-            float pulse = remoteSeatHaloPulse(totalTime,
+            float pulse = seatHaloPulse(totalTime,
                     liveAnimationsEnabled());
-            drawRemoteSeatHalo(winner, WINNER_NEON_GREEN,
+            drawSeatHalo(winner, WINNER_NEON_GREEN,
                     seatHaloStrength(pulse) * presence * progress);
         }
         shapes.end();
@@ -12646,15 +12647,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Seat seat : seats) {
             float presence = seatPresenceAlpha(seat.index);
-            if (presence <= 0f || !isSeatActive(seat)) {
+            if (presence <= 0f || !isSeatHaloActive(seat)) {
                 continue;
             }
-            float pulse = remoteSeatHaloPulse(totalTime,
+            boolean danger = seatTurnDangerActive(seat);
+            float pulse = seatHaloPulse(totalTime,
                     liveAnimationsEnabled());
-            if (seat.index != 0) {
-                drawRemoteSeatHalo(seat, ACTIVE_TURN_GOLD,
-                        seatHaloStrength(pulse) * presence);
-            }
+            drawSeatHalo(seat, danger ? FOLD_RED : ACTIVE_TURN_GOLD,
+                    seatHaloStrength(pulse) * presence);
         }
         shapes.end();
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -12664,6 +12664,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSoftRoundedGlow(seat.podX - 6f, seat.podY - 6f,
                 PLAYER_POD_WIDTH + 12f, PLAYER_POD_HEIGHT + 12f,
                 17f, 24f, color, strength);
+    }
+
+    private void drawSeatHalo(Seat seat, Color color, float strength) {
+        if (seat.index != 0) {
+            drawRemoteSeatHalo(seat, color, strength);
+            return;
+        }
+        LocalHudLayout hud = localHudLayout(viewport.getWorldWidth());
+        // The local HUD uses the very same feathered light as a rival pod.
+        // Only its bounds differ: anchor the glow to the visible outer frame
+        // so no inner bright band can leak over the HUD surface.
+        drawSoftRoundedGlow(hud.x() - 8f, hud.y() - 8f,
+                hud.width() + 16f, hud.height() + 25f,
+                19f, 24f, color, strength);
+    }
+
+    private boolean seatTurnDangerActive(Seat seat) {
+        return localHudDangerActive(isSeatHaloActive(seat),
+                liveState.turnTimerVisible(), liveState.snapshot().paused(),
+                sharedTurnRemaining());
+    }
+
+    private boolean isSeatHaloActive(Seat seat) {
+        return seat.index == 0
+                ? hasActiveLocalTurn() && !hasPendingLocalActionSubmission()
+                : isSeatActive(seat);
     }
 
     /**
@@ -17703,6 +17729,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return winner ? LEGACY_WINNER : LEGACY_LOSER;
     }
 
+    static Color settledShowdownFrameColor(boolean winner) {
+        // Winner identity comes from the green seat light and the result
+        // surface. Keeping the structural frame neutral avoids the solid neon
+        // outline that made the remote winner look unlike an active seat.
+        return winner ? SEAT_RIM : LEGACY_LOSER;
+    }
+
     /**
      * A late reveal does not replace the player's state colour. Light blue is
      * reserved for the MOSTRAR button itself: a folded player stays grey and
@@ -17784,13 +17817,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return wave * wave;
     }
 
-    static float remoteSeatHaloPulse(float time, boolean animated) {
-        return animated ? haloPulse(time, REMOTE_SEAT_HALO_ANGULAR_SPEED)
+    static float seatHaloPulse(float time, boolean animated) {
+        return animated ? haloPulse(time, SEAT_HALO_ANGULAR_SPEED)
                 : 0.5f;
-    }
-
-    static float localHudHaloPulse(float time) {
-        return haloPulse(time, LOCAL_HUD_HALO_ANGULAR_SPEED);
     }
 
     static float seatHaloStrength(float pulse) {
@@ -17804,7 +17833,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static float callCostBorderPulse(float time, boolean activeLocalTurn) {
-        return activeLocalTurn ? localHudHaloPulse(time) : 0f;
+        return activeLocalTurn
+                ? haloPulse(time, CALL_COST_BORDER_ANGULAR_SPEED) : 0f;
     }
 
     static Color callCostBorderTint(float pulse, Color target) {
@@ -19373,43 +19403,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveState.turnTimerVisible(), liveState.snapshot().paused(),
                 sharedTurnRemaining());
         float dangerPulse = danger ? localHudDangerPulse(totalTime) : 0f;
-        float haloPulse = localHudHaloPulse(totalTime);
-        boolean winnerGlow = Boolean.TRUE.equals(settledLocalWinner)
-                && liveWinnerEffectEnabled();
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        if (winnerGlow || danger || localTurn) {
-            Color glowColor = winnerGlow ? WINNER_NEON_GREEN
-                    : danger ? FOLD_RED : ACTIVE_TURN_GOLD;
-            float glowStrength = seatHaloStrength(
-                    danger ? dangerPulse : haloPulse);
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
-            shapes.begin(ShapeRenderer.ShapeType.Filled);
-            drawSoftRoundedGlow(hudX - 6f, hudY - 6f,
-                    hudWidth + 12f, hudHeight + 21f, 17f, 24f,
-                    glowColor, glowStrength * localSeatOpacity);
-            shapes.end();
-        }
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Color hudFrame = localShownHand
                 ? settledLocalWinner == null ? localHudSemanticColor
-                        : settledShowdownColor(settledLocalWinner)
+                        : settledShowdownFrameColor(settledLocalWinner)
                 : localMonteCarlo || localActionMemory
                         ? localHudActionColor
                 : localFolded ? LEGACY_FOLD
                 : settledShowdown
-                ? settledShowdownColor(Boolean.TRUE.equals(settledLocalWinner))
+                ? settledShowdownFrameColor(
+                        Boolean.TRUE.equals(settledLocalWinner))
                 : timeoutAwareRim(liveLocalPlayer,
                         danger ? FOLD_RED : localTurn ? ACTIVE_TURN_GOLD
                                 : SEAT_RIM);
         float idleFrameLighten = subduedLocalHud ? 0.24f : 0f;
         float hudFrameAlpha = subduedLocalHud ? 0.40f
                 : localShownHand || localMonteCarlo ? 0.90f
-                : settledShowdown ? 0.78f + haloPulse * 0.18f
-                : danger ? 0.62f + dangerPulse * 0.38f
-                : localTurn ? 0.72f + haloPulse * 0.26f
+                : settledShowdown || danger || localTurn ? 1f
                         : localHudIdleFrameAlpha(localFolded);
         shapes.setColor(
                 MathUtils.lerp(hudFrame.r, 1f, idleFrameLighten),
@@ -19442,7 +19456,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
             shapes.setColor(outcomeColor.r, outcomeColor.g, outcomeColor.b,
-                    0.58f + haloPulse * 0.06f);
+                    0.58f);
             roundedRect(hudX - 3f, hudY - 3f,
                     hudWidth + 6f, hudHeight + 15f, 16f);
         } else if (localMonteCarlo) {

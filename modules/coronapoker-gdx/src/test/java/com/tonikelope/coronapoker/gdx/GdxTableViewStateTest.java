@@ -3338,18 +3338,12 @@ final class GdxTableViewStateTest {
 
     @Test
     void winnerAndTurnHalosShareCadenceAndStrength() {
-        float remotePeak = MathUtils.PI / (2f * 4.8f);
-        float localPeak = MathUtils.PI / (2f * 5.2f);
+        float seatPeak = MathUtils.PI / (2f * 4.8f);
 
-        assertEquals(1f, CoronaPokerGdxTable.remoteSeatHaloPulse(
-                remotePeak, true), 0.000_001f);
-        assertEquals(0.5f, CoronaPokerGdxTable.remoteSeatHaloPulse(
-                remotePeak, false), 0.000_001f);
-        assertEquals(1f, CoronaPokerGdxTable.localHudHaloPulse(localPeak),
-                0.000_001f);
-        assertEquals(CoronaPokerGdxTable.localHudHaloPulse(localPeak),
-                CoronaPokerGdxTable.callCostBorderPulse(localPeak, true),
-                0.000_001f);
+        assertEquals(1f, CoronaPokerGdxTable.seatHaloPulse(
+                seatPeak, true), 0.000_001f);
+        assertEquals(0.5f, CoronaPokerGdxTable.seatHaloPulse(
+                seatPeak, false), 0.000_001f);
         assertEquals(1.05f, CoronaPokerGdxTable.seatHaloStrength(0f),
                 0.000_001f);
         assertEquals(1.8f, CoronaPokerGdxTable.seatHaloStrength(1f),
@@ -3515,6 +3509,10 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.settledShowdownColor(true));
         assertColor(0xff, 0x00, 0x00, 0xff,
                 CoronaPokerGdxTable.settledShowdownColor(false));
+        assertColor(0x64, 0x75, 0x94, 0xff,
+                CoronaPokerGdxTable.settledShowdownFrameColor(true));
+        assertColor(0xff, 0x00, 0x00, 0xff,
+                CoronaPokerGdxTable.settledShowdownFrameColor(false));
     }
 
     @Test

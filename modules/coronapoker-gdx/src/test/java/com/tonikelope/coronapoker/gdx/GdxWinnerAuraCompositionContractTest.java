@@ -105,7 +105,7 @@ final class GdxWinnerAuraCompositionContractTest {
     }
 
     @Test
-    void stateColorsShareOneFeatheredHaloWithoutWinnerOutline()
+    void stateColorsShareOneFeatheredHaloWithoutVisibleRings()
             throws IOException {
         String table = Files.readString(source());
         String seats = method(table,
@@ -131,10 +131,11 @@ final class GdxWinnerAuraCompositionContractTest {
         assertFalse(active.contains("shapes.circle(avatarX"));
         assertTrue(sharedGlow.contains("drawSoftRoundedGlow("));
         assertFalse(localHud.contains("drawSoftRoundedGlow("));
-        assertTrue(localHud.contains("settledShowdownFrameColor("));
-        assertTrue(seats.contains("settledShowdownFrameColor("));
-        assertFalse(localHud.contains("0.78f + haloPulse"));
-        assertFalse(localHud.contains("0.72f + haloPulse"));
+        assertTrue(localHud.contains("settledShowdownColor("));
+        assertTrue(seats.contains("settledShowdownColor("));
+        assertTrue(localHud.contains("0.78f + haloPulse"));
+        assertTrue(localHud.contains("0.72f + haloPulse"));
+        assertTrue(localHud.contains("0.58f + haloPulse * 0.06f"));
         assertTrue(callCost.contains("isActionableTurn(snapshot"));
         assertTrue(callCost.contains("callCostBorderTint("));
         assertFalse(callCost.contains("liveAnimationsEnabled()"));

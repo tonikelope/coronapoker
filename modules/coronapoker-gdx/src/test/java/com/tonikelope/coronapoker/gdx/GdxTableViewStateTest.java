@@ -3509,10 +3509,6 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.settledShowdownColor(true));
         assertColor(0xff, 0x00, 0x00, 0xff,
                 CoronaPokerGdxTable.settledShowdownColor(false));
-        assertColor(0x64, 0x75, 0x94, 0xff,
-                CoronaPokerGdxTable.settledShowdownFrameColor(true));
-        assertColor(0xff, 0x00, 0x00, 0xff,
-                CoronaPokerGdxTable.settledShowdownFrameColor(false));
     }
 
     @Test

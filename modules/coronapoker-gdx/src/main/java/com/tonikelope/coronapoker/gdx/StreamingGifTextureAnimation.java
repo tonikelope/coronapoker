@@ -25,7 +25,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -48,7 +50,7 @@ import org.w3c.dom.Node;
  */
 final class StreamingGifTextureAnimation implements Disposable {
 
-    private static final int DECODED_FRAME_BUFFER = 6;
+    static final int DECODED_FRAME_BUFFER = 6;
 
     private final BlockingQueue<CpuFrame> decoded =
             new ArrayBlockingQueue<>(DECODED_FRAME_BUFFER);
@@ -70,12 +72,12 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     private StreamingGifTextureAnimation(DataSource source, String label,
             int maxWidth) {
-        this(source, label, maxWidth, false, null, false);
+        this(source, label, maxWidth, false, null, List.of(), false);
     }
 
     private StreamingGifTextureAnimation(DataSource source, String label,
             int maxWidth, boolean looping, GifTiming timing,
-            boolean mipMaps) {
+            List<CpuFrame> primedFrames, boolean mipMaps) {
         this.looping = looping;
         this.mipMaps = mipMaps;
         frameEndMs = timing == null ? null : timing.frameEndMs();
@@ -84,6 +86,7 @@ final class StreamingGifTextureAnimation implements Disposable {
             decodedWidth = timing.width();
             decodedHeight = timing.height();
         }
+        decoded.addAll(primedFrames);
         decoderThread = new Thread(() -> {
             try {
                 byte[] data = source.read();
@@ -92,7 +95,13 @@ final class StreamingGifTextureAnimation implements Disposable {
                         ? 0L : timing.durationMs();
                 do {
                     long currentOffset = cycleOffset;
-                    decode(data, label, maxWidth, frame -> {
+                    int primedFrameCount = currentOffset == 0L
+                            ? primedFrames.size() : 0;
+                    int[] decodedFrameIndex = {0};
+                    decode(data, label, maxWidth,
+                            timing == null ? -1 : timing.frameEndMs().length,
+                            frame -> {
+                        if (decodedFrameIndex[0]++ < primedFrameCount) return;
                         if (disposed) return;
                         decodedWidth = frame.width();
                         decodedHeight = frame.height();
@@ -181,13 +190,17 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     static PreparedLooping prepareLooping(String path, int maxWidth)
             throws IOException {
+        return prepareLoopingPrimed(path, maxWidth, 0);
+    }
+
+    static PreparedLooping prepareLoopingPrimed(String path, int maxWidth,
+            int primedFrameCount) throws IOException {
         Objects.requireNonNull(path, "path");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
         FileHandle handle = Gdx.files.internal(path);
         if (!handle.exists()) throw new IOException("Missing GIF " + path);
         byte[] data = handle.readBytes();
-        GifTiming timing = inspect(data, path, maxWidth);
-        return new PreparedLooping(data, path, maxWidth, timing);
+        return prepareLoopingPrimed(data, path, maxWidth, primedFrameCount);
     }
 
     static StreamingGifTextureAnimation loadLooping(byte[] data, String label,
@@ -197,11 +210,20 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     static PreparedLooping prepareLooping(byte[] data, String label,
             int maxWidth) throws IOException {
+        return prepareLoopingPrimed(data, label, maxWidth, 0);
+    }
+
+    static PreparedLooping prepareLoopingPrimed(byte[] data, String label,
+            int maxWidth, int primedFrameCount) throws IOException {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(label, "label");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
+        validatePrimedFrameCount(primedFrameCount);
         GifTiming timing = inspect(data, label, maxWidth);
-        return new PreparedLooping(data, label, maxWidth, timing);
+        List<CpuFrame> primedFrames = decodePrefix(data, label, maxWidth,
+                timing, primedFrameCount);
+        return new PreparedLooping(data, label, maxWidth, timing,
+                primedFrames);
     }
 
     static StreamingGifTextureAnimation loadLooping(Path path, int maxWidth)
@@ -211,14 +233,19 @@ final class StreamingGifTextureAnimation implements Disposable {
 
     static PreparedLooping prepareLooping(Path path, int maxWidth)
             throws IOException {
+        return prepareLoopingPrimed(path, maxWidth, 0);
+    }
+
+    static PreparedLooping prepareLoopingPrimed(Path path, int maxWidth,
+            int primedFrameCount) throws IOException {
         Objects.requireNonNull(path, "path");
         if (maxWidth <= 0) throw new IllegalArgumentException("maxWidth <= 0");
         if (!Files.isRegularFile(path)) {
             throw new IOException("Missing external GIF " + path);
         }
         byte[] data = Files.readAllBytes(path);
-        GifTiming timing = inspect(data, path.toString(), maxWidth);
-        return new PreparedLooping(data, path.toString(), maxWidth, timing);
+        return prepareLoopingPrimed(data, path.toString(), maxWidth,
+                primedFrameCount);
     }
 
     static StreamingGifTextureAnimation loadLooping(
@@ -226,7 +253,7 @@ final class StreamingGifTextureAnimation implements Disposable {
         Objects.requireNonNull(prepared, "prepared");
         return new StreamingGifTextureAnimation(() -> prepared.data,
                 prepared.label, prepared.maxWidth, true, prepared.timing,
-                false);
+                prepared.primedFrames, false);
     }
 
     /**
@@ -238,7 +265,7 @@ final class StreamingGifTextureAnimation implements Disposable {
         Objects.requireNonNull(prepared, "prepared");
         return new StreamingGifTextureAnimation(() -> prepared.data,
                 prepared.label, prepared.maxWidth, true, prepared.timing,
-                true);
+                prepared.primedFrames, true);
     }
 
     /** Returns the current frame, or {@code null} while the first one decodes. */
@@ -358,6 +385,12 @@ final class StreamingGifTextureAnimation implements Disposable {
     static void decode(byte[] data, String label, int maxWidth,
             Consumer<CpuFrame> consumer, BooleanSupplier cancelled)
             throws IOException {
+        decode(data, label, maxWidth, -1, consumer, cancelled);
+    }
+
+    private static void decode(byte[] data, String label, int maxWidth,
+            int knownFrameCount, Consumer<CpuFrame> consumer,
+            BooleanSupplier cancelled) throws IOException {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(consumer, "consumer");
         Objects.requireNonNull(cancelled, "cancelled");
@@ -370,7 +403,8 @@ final class StreamingGifTextureAnimation implements Disposable {
             ImageReader reader = readers.next();
             try {
                 reader.setInput(imageInput, false, false);
-                int count = reader.getNumImages(true);
+                int count = knownFrameCount > 0 ? knownFrameCount
+                        : reader.getNumImages(true);
                 if (count <= 0) throw new IOException("GIF without frames: " + label);
 
                 int logicalWidth = 0;
@@ -450,6 +484,30 @@ final class StreamingGifTextureAnimation implements Disposable {
             } finally {
                 reader.dispose();
             }
+        }
+    }
+
+    private static List<CpuFrame> decodePrefix(byte[] data, String label,
+            int maxWidth, GifTiming timing, int requestedFrames)
+            throws IOException {
+        if (requestedFrames == 0) return List.of();
+        int target = Math.min(requestedFrames, timing.frameEndMs().length);
+        ArrayList<CpuFrame> frames = new ArrayList<>(target);
+        decode(data, label, maxWidth, timing.frameEndMs().length, frame -> {
+            if (frames.size() < target) frames.add(frame);
+        }, () -> frames.size() >= target);
+        if (frames.size() != target) {
+            throw new IOException("Could not prime " + target
+                    + " GIF frames: " + label);
+        }
+        return List.copyOf(frames);
+    }
+
+    private static void validatePrimedFrameCount(int primedFrameCount) {
+        if (primedFrameCount < 0
+                || primedFrameCount > DECODED_FRAME_BUFFER) {
+            throw new IllegalArgumentException("primedFrameCount must be 0.."
+                    + DECODED_FRAME_BUFFER);
         }
     }
 
@@ -618,21 +676,24 @@ final class StreamingGifTextureAnimation implements Disposable {
     }
 
     /**
-     * Immutable CPU-side source and timing cache. Pixel decoding/resampling
-     * still runs on the animation worker and the renderer keeps a single GPU
-     * texture, avoiding the very large memory cost of caching every GIF frame.
+     * Immutable CPU-side source and timing cache. Selected latency-sensitive
+     * animations may also retain a bounded prefix of decoded CPU frames; the
+     * renderer still owns one GPU texture and the remainder streams normally.
      */
     record PreparedLooping(byte[] data, String label, int maxWidth,
-            GifTiming timing) {
+            GifTiming timing, List<CpuFrame> primedFrames) {
 
         PreparedLooping {
             Objects.requireNonNull(data, "data");
             Objects.requireNonNull(label, "label");
             Objects.requireNonNull(timing, "timing");
+            Objects.requireNonNull(primedFrames, "primedFrames");
             if (data.length == 0 || maxWidth <= 0) {
                 throw new IllegalArgumentException(
                         "Invalid prepared looping GIF");
             }
+            validatePrimedFrameCount(primedFrames.size());
+            primedFrames = List.copyOf(primedFrames);
         }
     }
 

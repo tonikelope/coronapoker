@@ -292,6 +292,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     private static final float SHUFFLE_AUDIO_FALLBACK_SECONDS = 2.720f;
     private static final float SHUFFLE_TEXT_CYCLE_SECONDS = 0.300f;
+    private static final int SHUFFLE_PRIMED_FRAME_COUNT =
+            StreamingGifTextureAnimation.DECODED_FRAME_BUFFER;
+    /** Never introduce an already-late WAV after a missed visual loop edge. */
+    private static final float SHUFFLE_AUDIO_CYCLE_SYNC_GRACE_SECONDS = 0.050f;
     private static final int SHUFFLE_NATIVE_MAX_WIDTH = 960;
     private static final int SHUFFLE_REFERENCE_HEIGHT = 1080;
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
@@ -2685,6 +2689,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 refreshDealerLoopVolumes();
                 if (!next) {
                     stopShuffleSound();
+                    markLiveShuffleSoundStopped();
                     shuffleSound.stop();
                     dealSound.stop();
                     uncoverSound.stop();
@@ -2695,6 +2700,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     foldSound.stop();
                     allInSound.stop();
                     for (Sound cue : liveAudioCueSounds.values()) cue.stop();
+                } else {
+                    deferLiveShuffleSoundUntilNextCycle();
                 }
             }
         });
@@ -9470,6 +9477,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         voiceLive = false;
         setVoiceStatus("gdx.lobby.voice_opening");
         stopShuffleSound();
+        markLiveShuffleSoundStopped();
         backgroundMusic.pause();
         shuffleSound.stop();
         dealSound.stop();
@@ -16309,17 +16317,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveDangerAlertSoundId = -1L;
     }
 
-    private void startShuffleSound() {
-        if (audioOutputAvailable() && audioControl.enabled()
+    private boolean startShuffleSound() {
+        if (!voiceOpening && !voiceLive && !voiceStopping
+                && audioOutputAvailable() && audioControl.enabled()
                 && !chatTextToSpeechDucking
                 && liveShuffleSoundEnabled()) {
             try {
                 shuffleSoundId = shuffleSound.play(
                         0.62f * effectsVolume, 1f, 0f);
+                return shuffleSoundId >= 0L;
             } catch (RuntimeException unavailable) {
                 shuffleSoundId = -1L;
             }
         }
+        return false;
     }
 
     private boolean liveShuffleSoundEnabled() {
@@ -16535,6 +16546,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             backgroundMusic.play();
         } else {
             stopShuffleSound();
+            markLiveShuffleSoundStopped();
             shuffleSound.stop();
             dealSound.stop();
             uncoverSound.stop();
@@ -16548,6 +16560,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             stopDangerAudioLoop();
             backgroundMusic.pause();
         }
+        if (enabled) deferLiveShuffleSoundUntilNextCycle();
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
         GdxVoicePlayback.refreshVolume(effectsVolume);
@@ -16587,6 +16600,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shuffleSound.stop();
     }
 
+    private void markLiveShuffleSoundStopped() {
+        LiveShuffle active = liveShuffle;
+        if (active != null) active.soundStopped = true;
+    }
+
+    /**
+     * Re-enabling audio never backfills a time-coded WAV in the middle of its
+     * visual cycle. The current cycle remains silent and the next natural loop
+     * edge is the first point at which picture and sound may start together.
+     */
+    private void deferLiveShuffleSoundUntilNextCycle() {
+        LiveShuffle active = liveShuffle;
+        if (active == null || !active.soundEnabled) return;
+        stopShuffleSound();
+        active.soundStopped = true;
+        int currentCycle = active.presentationStarted
+                ? active.cycleAt(active.elapsedSeconds()) : 0;
+        active.minimumSoundCycle = Math.max(active.minimumSoundCycle,
+                currentCycle + 1);
+    }
+
     private void acceptLiveShuffle(TableVisualEvent.Shuffle event,
             CompletableFuture<Void> barrier) {
         if (event.phase() == TableVisualEvent.Shuffle.Phase.START) {
@@ -16597,10 +16631,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? liveDeck : availableDeck(event.deck());
             liveDeck = availableDeck(shuffleDeck);
             liveState.apply(event);
-            liveShuffle = new LiveShuffle(liveDeck, System.nanoTime(),
+            liveShuffle = new LiveShuffle(liveDeck,
                     liveShuffleAnimationEnabled(),
                     liveShuffleSoundEnabled());
-            startLiveShuffleSound(liveShuffle);
             barrier.complete(null);
             return;
         }
@@ -16613,16 +16646,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // FINISH is presentation-only. Consume it immediately while retaining
         // the real GIF/audio boundary below.
         liveState.apply(event);
-        float elapsed = active.elapsedSeconds();
-        float duration = active.cycleSeconds;
-        active.stopAtSeconds = Math.max(duration,
-                ((float) Math.floor(elapsed / duration) + 1f) * duration);
+        active.scheduleStopAtCycleBoundary();
     }
 
     private void updateLiveShuffle() {
         LiveShuffle active = liveShuffle;
         if (active == null) {
             return;
+        }
+        if (!active.presentationStarted) {
+            boolean firstFrameReady = !active.animationEnabled
+                    || active.animation.frameAt(0f) != null;
+            if (!firstFrameReady && !active.animation.failed()) return;
+            active.startPresentation(System.nanoTime());
+            if (active.finishBarrier != null) {
+                active.scheduleStopAtCycleBoundary();
+            }
+            startLiveShuffleSound(active, 0);
         }
         float elapsed = active.elapsedSeconds();
         float duration = active.cycleSeconds;
@@ -16632,8 +16672,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && (active.finishBarrier == null || elapsed < active.stopAtSeconds)) {
             stopShuffleSound();
             active.soundCycle = cycle;
-            active.soundStopped = false;
-            startLiveShuffleSound(active);
+            active.soundStopped = true;
+            if (shuffleAudioCycleStartInSync(cycleElapsed)) {
+                startLiveShuffleSound(active, cycle);
+            }
         }
         if (!active.soundStopped
                 && active.soundEnabled
@@ -16655,11 +16697,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void startLiveShuffleSound(LiveShuffle active) {
-        if (active.soundEnabled) {
-            startShuffleSound();
+    private void startLiveShuffleSound(LiveShuffle active, int cycle) {
+        if (!active.soundEnabled || cycle < active.minimumSoundCycle) {
+            active.soundStopped = true;
+            return;
         }
-        active.soundStopped = false;
+        active.soundStopped = !startShuffleSound();
+    }
+
+    static boolean shuffleAudioCycleStartInSync(float cycleElapsedSeconds) {
+        return cycleElapsedSeconds >= 0f
+                && cycleElapsedSeconds
+                        <= SHUFFLE_AUDIO_CYCLE_SYNC_GRACE_SECONDS;
     }
 
     private static float wavDurationSeconds(FileHandle file, float fallback) {
@@ -16742,10 +16791,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shufflePreparation = CompletableFuture.supplyAsync(() -> {
             try {
                 return external == null
-                        ? StreamingGifTextureAnimation.prepareLooping(
-                                bundled, maxWidth)
-                        : StreamingGifTextureAnimation.prepareLooping(
-                                external, maxWidth);
+                        ? StreamingGifTextureAnimation.prepareLoopingPrimed(
+                                bundled, maxWidth,
+                                SHUFFLE_PRIMED_FRAME_COUNT)
+                        : StreamingGifTextureAnimation.prepareLoopingPrimed(
+                                external, maxWidth,
+                                SHUFFLE_PRIMED_FRAME_COUNT);
             } catch (IOException failure) {
                 throw new CompletionException(failure);
             }
@@ -28927,20 +28978,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final class LiveShuffle {
 
         final StreamingGifTextureAnimation animation;
-        final long startedAtNanos;
         final boolean animationEnabled;
         final boolean soundEnabled;
         final float cycleSeconds;
         final float soundStopSeconds;
+        long startedAtNanos;
+        boolean presentationStarted;
         int soundCycle;
-        boolean soundStopped;
+        int minimumSoundCycle;
+        boolean soundStopped = true;
         float stopAtSeconds = Float.POSITIVE_INFINITY;
         TableVisualEvent.Shuffle finishEvent;
         CompletableFuture<Void> finishBarrier;
 
-        LiveShuffle(String deck, long startedAtNanos,
-                boolean animationEnabled, boolean soundEnabled) {
-            this.startedAtNanos = startedAtNanos;
+        LiveShuffle(String deck, boolean animationEnabled,
+                boolean soundEnabled) {
             this.animationEnabled = animationEnabled;
             this.soundEnabled = soundEnabled;
             animation = animationEnabled ? liveShuffleAnimation(deck) : null;
@@ -28959,9 +29011,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
 
+        void startPresentation(long nowNanos) {
+            startedAtNanos = nowNanos;
+            presentationStarted = true;
+            soundCycle = 0;
+        }
+
         float elapsedSeconds() {
+            if (!presentationStarted) return 0f;
             return Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
+        }
+
+        int cycleAt(float elapsedSeconds) {
+            return Math.max(0, (int) (elapsedSeconds / cycleSeconds));
+        }
+
+        void scheduleStopAtCycleBoundary() {
+            if (!presentationStarted) return;
+            float elapsed = elapsedSeconds();
+            stopAtSeconds = Math.max(cycleSeconds,
+                    ((float) Math.floor(elapsed / cycleSeconds) + 1f)
+                            * cycleSeconds);
         }
 
     }

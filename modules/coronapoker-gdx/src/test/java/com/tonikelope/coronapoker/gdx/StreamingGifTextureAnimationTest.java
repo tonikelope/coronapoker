@@ -108,12 +108,49 @@ class StreamingGifTextureAnimationTest {
                 StreamingGifTextureAnimation.prepareLooping(
                         data, "chat-fixture.gif", 360);
         assertEquals(360, prepared.timing().width());
+        assertTrue(prepared.primedFrames().isEmpty(),
+                "ordinary streaming GIFs must retain no decoded frame cache");
         StreamingGifTextureAnimation animation =
                 StreamingGifTextureAnimation.loadLooping(prepared);
         try {
             assertEquals(360, animation.width());
             assertTrue(animation.height() > 0);
             assertTrue(animation.durationSeconds() > 0f);
+        } finally {
+            animation.dispose();
+        }
+    }
+
+    @Test
+    void shuffleCanPrimeExactlyOneBoundedStreamingWindow()
+            throws Exception {
+        byte[] data;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/images/decks/goliat/gif/shuffle.gif")) {
+            assertNotNull(input, "packaged Goliat shuffle GIF");
+            data = input.readAllBytes();
+        }
+
+        StreamingGifTextureAnimation.PreparedLooping prepared =
+                StreamingGifTextureAnimation.prepareLoopingPrimed(data,
+                        "shuffle.gif", 360,
+                        StreamingGifTextureAnimation.DECODED_FRAME_BUFFER);
+
+        assertEquals(StreamingGifTextureAnimation.DECODED_FRAME_BUFFER,
+                prepared.primedFrames().size());
+        assertEquals(0L, prepared.primedFrames().get(0).startMs());
+        assertEquals(prepared.timing().frameEndMs()[5],
+                prepared.primedFrames().get(5).endMs());
+        assertThrows(IllegalArgumentException.class,
+                () -> StreamingGifTextureAnimation.prepareLoopingPrimed(data,
+                        "shuffle.gif", 360,
+                        StreamingGifTextureAnimation.DECODED_FRAME_BUFFER + 1));
+
+        StreamingGifTextureAnimation animation =
+                StreamingGifTextureAnimation.loadLooping(prepared);
+        try {
+            assertNotNull(animation.decodedFrameAt(0f),
+                    "frame zero must be ready before live playback starts");
         } finally {
             animation.dispose();
         }

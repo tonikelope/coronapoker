@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core;
 
+import com.tonikelope.coronapoker.BuyinRules;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -42,7 +43,7 @@ public final class NewGameTableDraft {
     private boolean blindCap;
     private int blindCapRaises = 5;
     private boolean fixedBuyin = true;
-    private int buyin = 10;
+    private int buyin;
     private int minBuyinBb = 10;
     private int maxBuyinBb = 100;
     private boolean rebuy = true;
@@ -126,12 +127,14 @@ public final class NewGameTableDraft {
         structureName = name == null || name.isBlank() ? null : name.trim();
         blindLevels = List.copyOf(levels);
         blindLevelIndex = clamp(selectedIndex, 0, blindLevels.size() - 1);
+        resetBuyinToRangeDefault();
         clampDependentValues();
     }
 
     public void setBlindLevelIndex(int value) {
         requireEconomyEditable();
         blindLevelIndex = clamp(value, 0, blindLevels.size() - 1);
+        resetBuyinToRangeDefault();
         clampDependentValues();
     }
 
@@ -158,12 +161,14 @@ public final class NewGameTableDraft {
     public void setMinBuyinBb(int value) {
         requireEconomyEditable();
         minBuyinBb = clamp(value, MIN_BUYIN_BB, maxBuyinBb);
+        resetBuyinToRangeDefault();
         clampDependentValues();
     }
     public int maxBuyinBb() { return maxBuyinBb; }
     public void setMaxBuyinBb(int value) {
         requireEconomyEditable();
         maxBuyinBb = clamp(value, minBuyinBb, MAX_BUYIN_BB);
+        resetBuyinToRangeDefault();
         clampDependentValues();
     }
     public int minimumBuyin() { return wholeUnitsCeiling(blindLevel().bigBlind(), minBuyinBb); }
@@ -227,6 +232,11 @@ public final class NewGameTableDraft {
     private void clampDependentValues() {
         blindCapRaises = clamp(blindCapRaises, 1, maxBlindCapRaises());
         buyin = clamp(buyin, minimumBuyin(), maximumBuyin());
+    }
+
+    private void resetBuyinToRangeDefault() {
+        buyin = BuyinRules.defaultBuyin(blindLevel().bigBlind(), minBuyinBb,
+                maxBuyinBb);
     }
 
     private void requireEconomyEditable() {

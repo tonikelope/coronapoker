@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,9 @@ class VariableBuyinBoundaryPropertyTest {
                     long exactMaxCents = MoneyCents.fromDouble(bb).cents() * maxBb;
                     assertTrue(range.minEffectiveCents() >= exactMinCents);
                     assertTrue(range.maxEffectiveCents() <= exactMaxCents);
+                    int expectedDefault = Math.max(range.min(), Math.min(
+                            Math.toIntExact(exactMaxCents / 200L), range.max()));
+                    assertEquals(expectedDefault, range.suggested());
                     assertTrue(range.min() <= range.suggested());
                     assertTrue(range.suggested() <= range.max());
                 }

@@ -92,6 +92,51 @@ final class NewGameTableDraftTest {
     }
 
     @Test
+    void defaultBuyinTracksHalfTheUpperRangeAndRespectsTheLowerRange() {
+        NewGameTableDraft draft = new NewGameTableDraft();
+
+        // Default blinds are 0.10 / 0.20: 100 BB / 2 = 50 BB = 10 chips.
+        assertEquals(10, draft.buyin());
+
+        draft.setMaxBuyinBb(200);
+        assertEquals(20, draft.buyin());
+
+        draft.setMinBuyinBb(150);
+        assertEquals(30, draft.buyin());
+
+        draft.setMinBuyinBb(50);
+        assertEquals(20, draft.buyin());
+
+        draft.setMaxBuyinBb(60);
+        assertEquals(10, draft.buyin());
+    }
+
+    @Test
+    void defaultBuyinRecomputesWhenTheSelectedBlindChanges() {
+        NewGameTableDraft draft = new NewGameTableDraft();
+        draft.setBlindStructure("Custom", List.of(
+                new NewGameTableDraft.BlindLevel(0.25, 0.5),
+                new NewGameTableDraft.BlindLevel(0.5, 1.0)), 0);
+
+        assertEquals(25, draft.buyin());
+
+        draft.setBlindLevelIndex(1);
+        assertEquals(50, draft.buyin());
+    }
+
+    @Test
+    void rehydratingSettingsPreservesAnExplicitBuyin() {
+        NewGameTableDraft original = new NewGameTableDraft();
+        original.setMaxBuyinBb(200);
+        original.setBuyin(30);
+
+        NewGameTableDraft restored = NewGameTableDraft.from(original.snapshot());
+
+        assertEquals(30, restored.buyin());
+        assertEquals(original.snapshot(), restored.snapshot());
+    }
+
+    @Test
     void serializesTheClassicLobbyConfigWithoutFrontendTypes() {
         NewGameTableDraft.Settings settings = new NewGameTableDraft().snapshot();
 

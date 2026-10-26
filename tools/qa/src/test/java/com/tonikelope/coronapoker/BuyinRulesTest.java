@@ -36,17 +36,19 @@ public class BuyinRulesTest {
         assertEquals(100, BuyinRules.max(bb, 100));
         // Deep-stack 100-300 range scales the same way.
         assertEquals(100, BuyinRules.min(bb, 100));
+        assertEquals(150, BuyinRules.defaultBuyin(bb, 100, 300));
         assertEquals(300, BuyinRules.max(bb, 300));
     }
 
     @Test
     void defaultBuyinClampsIntoTheRange() {
-        // 50BB suggestion is in range -> 50.
+        // Half of 100BB is 50BB.
         assertEquals(50, BuyinRules.defaultBuyin(1.0f, 10, 100));
-        // Deep range whose minimum is above 50BB -> clamped up to the minimum.
-        assertEquals(100, BuyinRules.defaultBuyin(1.0f, 100, 300));
-        // Narrow range whose maximum is below 50BB -> clamped down to the maximum.
-        assertEquals(40, BuyinRules.defaultBuyin(1.0f, 10, 40));
+        // The default scales with the upper limit.
+        assertEquals(150, BuyinRules.defaultBuyin(1.0f, 100, 300));
+        assertEquals(20, BuyinRules.defaultBuyin(1.0f, 10, 40));
+        // A lower bound above half the maximum wins.
+        assertEquals(80, BuyinRules.defaultBuyin(1.0f, 80, 100));
     }
 
     @Test

@@ -36,7 +36,6 @@ public final class BuyinRules {
     public static final int DEFAULT_MAX_BB = 100;  // upper limit, default value
     public static final int FLOOR_MIN_BB = 10;     // the lower-limit spinner cannot go below this
     public static final int CEIL_MAX_BB = 500;     // the upper-limit spinner cannot go above this
-    public static final int SUGGESTED_BB = 50;     // suggested buy-in within the range
 
     // The buy-in (chip count) is int across the whole model (Player, wire protocol,
     // SQLite). No clamp is needed here because BlindStructure.MAX_BLIND caps any
@@ -67,9 +66,9 @@ public final class BuyinRules {
     }
 
     /**
-     * Suggested buy-in, in chips: {@link #SUGGESTED_BB} big blinds, clamped
-     * into {@code [min,max]} (so a deep range such as 100-300 BB suggests its
-     * minimum rather than the bare 50 BB).
+     * Suggested buy-in, in chips: half of the configured upper limit, clamped
+     * into {@code [min,max]}. This keeps the default at 50 BB for the standard
+     * 10-100 BB range while scaling naturally for shallower or deeper tables.
      *
      * @param big_blind current big blind size
      * @param minBB minimum buy-in, in big blinds
@@ -86,11 +85,12 @@ public final class BuyinRules {
             throw new IllegalArgumentException("invalid buy-in range in big blinds");
         }
         int effectiveMin = wholeUnitsCeiling(exactCents(bigBlind, minBB));
-        int effectiveMax = wholeUnitsFloor(exactCents(bigBlind, maxBB));
+        long maximumCents = exactCents(bigBlind, maxBB);
+        int effectiveMax = wholeUnitsFloor(maximumCents);
         if (effectiveMin > effectiveMax) {
             throw new IllegalArgumentException("buy-in range contains no whole-unit amount");
         }
-        int suggested = wholeUnitsFloor(exactCents(bigBlind, SUGGESTED_BB));
+        int suggested = wholeUnitsFloor(maximumCents / 2L);
         return new Range(effectiveMin, effectiveMax,
                 Math.max(effectiveMin, Math.min(suggested, effectiveMax)));
     }

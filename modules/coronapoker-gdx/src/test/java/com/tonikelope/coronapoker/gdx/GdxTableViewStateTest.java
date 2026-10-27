@@ -3966,6 +3966,77 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void raiseClearsOnlyEarlierPlayersWhoMustRespondAgain() {
+        GdxTableViewState state = new GdxTableViewState(snapshotWithPlayers(
+                false, "", player("ana", TableSnapshot.Position.NONE),
+                player("early", TableSnapshot.Position.NONE),
+                player("raiser", TableSnapshot.Position.NONE),
+                player("later", TableSnapshot.Position.NONE),
+                player("folded", TableSnapshot.Position.NONE),
+                player("allin", TableSnapshot.Position.NONE)));
+
+        state.apply(new TableVisualEvent.PlayerAction(1, "early",
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "VA", 20d, 20d, 980d, 20d, 20d));
+        state.apply(new TableVisualEvent.PlayerAction(2, "folded",
+                TableVisualEvent.PlayerAction.ActionKind.FOLD,
+                "NO VA", 0d, 0d, 1_000d, 0d, 0d));
+        state.apply(new TableVisualEvent.PlayerAction(3, "allin",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 20d, 20d, 0d, 20d, 20d));
+
+        state.apply(new TableVisualEvent.PlayerAction(4, "raiser",
+                TableVisualEvent.PlayerAction.ActionKind.RAISE,
+                "SUBE (+0.6)", 80d, 80d, 920d, 80d, 80d));
+
+        assertEquals("", state.actionLabel("early"));
+        assertNull(state.actionKind("early"));
+        assertEquals(TableSnapshot.Decision.NONE,
+                player(state, "early").decision());
+        assertEquals(TableSnapshot.ActionKind.NONE,
+                player(state, "early").actionKind());
+        assertEquals("", player(state, "early").lastAction());
+        assertEquals("SUBE (+0.6)", state.actionLabel("raiser"));
+        assertEquals("NO VA", state.actionLabel("folded"));
+        assertEquals("ALL IN", state.actionLabel("allin"));
+
+        state.apply(new TableVisualEvent.PlayerAction(5, "later",
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "VA", 80d, 80d, 920d, 80d, 80d));
+
+        assertEquals("", state.actionLabel("early"));
+        assertEquals("VA", state.actionLabel("later"));
+        assertEquals("NO VA", state.actionLabel("folded"));
+        assertEquals("ALL IN", state.actionLabel("allin"));
+    }
+
+    @Test
+    void onlyAnAllInThatRaisesThePriceInvalidatesEarlierActions() {
+        GdxTableViewState state = new GdxTableViewState(snapshotWithPlayers(
+                false, "", player("ana", TableSnapshot.Position.NONE),
+                player("shorty", TableSnapshot.Position.NONE),
+                player("shover", TableSnapshot.Position.NONE)));
+
+        state.apply(new TableVisualEvent.PlayerAction(1, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.RAISE,
+                "SUBE", 80d, 80d, 920d, 80d, 80d));
+        state.apply(new TableVisualEvent.PlayerAction(2, "shorty",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 50d, 50d, 0d, 50d, 50d));
+
+        assertEquals("SUBE", state.actionLabel("ana"),
+                "a short all-in must not reopen or invalidate the raise");
+
+        state.apply(new TableVisualEvent.PlayerAction(3, "shover",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN,
+                "ALL IN", 120d, 120d, 0d, 120d, 120d));
+
+        assertEquals("", state.actionLabel("ana"));
+        assertEquals("ALL IN", state.actionLabel("shorty"));
+        assertEquals("ALL IN", state.actionLabel("shover"));
+    }
+
+    @Test
     void lateHotJoinSnapshotCannotRewindAcceptedCardOrChipEvents() {
         TableSnapshot.CardSnapshot hidden = new TableSnapshot.CardSnapshot(
                 "", false, false, true);

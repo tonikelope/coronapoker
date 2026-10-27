@@ -596,6 +596,7 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PreActionControls controls) {
             preActionControlsActive = controls.active();
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
+            clearActionsInvalidatedByPriceIncrease(action);
             actionKinds.put(action.nickname(), action.kind());
             actionLabels.put(action.nickname(), action.label());
             replacePlayer(action.nickname(), player -> copyPlayerAction(player,
@@ -1244,6 +1245,77 @@ final class GdxTableViewState {
                 snapshot.communityCards());
         callCostText = "";
         callCostAggressorNickname = "";
+    }
+
+    /**
+     * A new betting price makes every earlier non-terminal response obsolete.
+     * The dealer performs the same decision reset immediately after publishing
+     * the accepted action, so the event projection must mirror it here instead
+     * of leaving a stale CALL/CHECK/RAISE caption visible until the next street.
+     * Fold and all-in remain hand-long states, and the new aggressor receives
+     * its fresh caption just after this method returns.
+     */
+    private void clearActionsInvalidatedByPriceIncrease(
+            TableVisualEvent.PlayerAction action) {
+        if (!increasesBettingPrice(action)) return;
+
+        java.util.Set<String> awaitingResponse = snapshot.players().stream()
+                .filter(player -> actionInvalidatedByPriceIncrease(
+                        player, action.nickname()))
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .collect(java.util.stream.Collectors.toSet());
+        if (awaitingResponse.isEmpty()) return;
+
+        actionKinds.keySet().removeAll(awaitingResponse);
+        actionLabels.keySet().removeAll(awaitingResponse);
+        List<TableSnapshot.PlayerSnapshot> players = snapshot.players().stream()
+                .map(player -> awaitingResponse.contains(player.nickname())
+                        ? copyPlayerAction(player, player.stack(),
+                                player.streetBet(), player.potContribution(),
+                                player.active(), player.winner(),
+                                player.position(), "", player.handName(),
+                                player.holeCards(),
+                                TableSnapshot.Decision.NONE,
+                                TableSnapshot.ActionKind.NONE)
+                        : player)
+                .toList();
+        snapshot = copySnapshot(snapshot, snapshot.pot(),
+                snapshot.currentTurnNickname(), players,
+                snapshot.communityCards());
+    }
+
+    private boolean increasesBettingPrice(
+            TableVisualEvent.PlayerAction action) {
+        if (action.kind() == TableVisualEvent.PlayerAction.ActionKind.BET
+                || action.kind()
+                        == TableVisualEvent.PlayerAction.ActionKind.RAISE
+                || action.kind()
+                        == TableVisualEvent.PlayerAction.ActionKind.RERAISE) {
+            return true;
+        }
+        if (action.kind()
+                != TableVisualEvent.PlayerAction.ActionKind.ALL_IN) {
+            return false;
+        }
+        double currentPrice = snapshot.players().stream()
+                .mapToDouble(TableSnapshot.PlayerSnapshot::streetBet)
+                .max().orElse(0d);
+        return MoneyMath.compare(action.streetBetAfter(), currentPrice) > 0;
+    }
+
+    private boolean actionInvalidatedByPriceIncrease(
+            TableSnapshot.PlayerSnapshot player, String aggressorNickname) {
+        if (player.nickname().equals(aggressorNickname)
+                || !player.active() || player.spectator() || player.exited()
+                || player.warming()
+                || MoneyMath.compare(player.stack(), 0d) <= 0) {
+            return false;
+        }
+        TableVisualEvent.PlayerAction.ActionKind kind
+                = actionKinds.get(player.nickname());
+        if (kind == null) kind = snapshotActionKind(player);
+        return !foldedThisHand.contains(player.nickname())
+                && !persistentAcrossStreets(kind);
     }
 
     private static boolean persistentAcrossStreets(

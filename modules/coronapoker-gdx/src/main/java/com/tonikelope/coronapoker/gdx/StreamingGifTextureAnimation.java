@@ -97,11 +97,10 @@ final class StreamingGifTextureAnimation implements Disposable {
                     long currentOffset = cycleOffset;
                     int primedFrameCount = currentOffset == 0L
                             ? primedFrames.size() : 0;
-                    int[] decodedFrameIndex = {0};
                     decode(data, label, maxWidth,
                             timing == null ? -1 : timing.frameEndMs().length,
+                            primedFrameCount,
                             frame -> {
-                        if (decodedFrameIndex[0]++ < primedFrameCount) return;
                         if (disposed) return;
                         decodedWidth = frame.width();
                         decodedHeight = frame.height();
@@ -385,15 +384,19 @@ final class StreamingGifTextureAnimation implements Disposable {
     static void decode(byte[] data, String label, int maxWidth,
             Consumer<CpuFrame> consumer, BooleanSupplier cancelled)
             throws IOException {
-        decode(data, label, maxWidth, -1, consumer, cancelled);
+        decode(data, label, maxWidth, -1, 0, consumer, cancelled);
     }
 
-    private static void decode(byte[] data, String label, int maxWidth,
-            int knownFrameCount, Consumer<CpuFrame> consumer,
-            BooleanSupplier cancelled) throws IOException {
+    static void decode(byte[] data, String label, int maxWidth,
+            int knownFrameCount, int skippedOutputFrames,
+            Consumer<CpuFrame> consumer, BooleanSupplier cancelled)
+            throws IOException {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(consumer, "consumer");
         Objects.requireNonNull(cancelled, "cancelled");
+        if (skippedOutputFrames < 0) {
+            throw new IllegalArgumentException("skippedOutputFrames < 0");
+        }
         try (ByteArrayInputStream input = new ByteArrayInputStream(data);
                 ImageInputStream imageInput =
                         ImageIO.createImageInputStream(input)) {
@@ -441,6 +444,7 @@ final class StreamingGifTextureAnimation implements Disposable {
                         logicalHeight, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D graphics = canvas.createGraphics();
                 BufferedImage restore = null;
+                int[] argbScratch = null;
                 long elapsed = 0L;
                 try {
                     graphics.setRenderingHint(RenderingHints.KEY_RENDERING,
@@ -458,14 +462,24 @@ final class StreamingGifTextureAnimation implements Disposable {
                         }
                         graphics.drawImage(raw, metadata.left(),
                                 metadata.top(), null);
-                        BufferedImage output = scale(canvas, outputWidth,
-                                outputHeight);
-                        int[] argb = output.getRGB(0, 0, outputWidth,
-                                outputHeight, null, 0, outputWidth);
                         long frameStart = elapsed;
                         elapsed += metadata.delayMs();
-                        consumer.accept(new CpuFrame(outputWidth, outputHeight,
-                                frameStart, elapsed, toRgba(argb)));
+                        // Primed frames are already retained by the prepared
+                        // animation. They must still be composited here so GIF
+                        // disposal state reaches the first streaming frame,
+                        // but materialising a second ARGB/RGBA copy only to
+                        // discard it creates a large, avoidable GC burst at
+                        // the start of every shuffle.
+                        if (i >= skippedOutputFrames) {
+                            BufferedImage output = scale(canvas, outputWidth,
+                                    outputHeight);
+                            argbScratch = output.getRGB(0, 0, outputWidth,
+                                    outputHeight, argbScratch, 0,
+                                    outputWidth);
+                            consumer.accept(new CpuFrame(outputWidth,
+                                    outputHeight, frameStart, elapsed,
+                                    toRgba(argbScratch)));
+                        }
 
                         if ("restoreToBackgroundColor".equals(
                                 metadata.disposal())) {
@@ -493,7 +507,7 @@ final class StreamingGifTextureAnimation implements Disposable {
         if (requestedFrames == 0) return List.of();
         int target = Math.min(requestedFrames, timing.frameEndMs().length);
         ArrayList<CpuFrame> frames = new ArrayList<>(target);
-        decode(data, label, maxWidth, timing.frameEndMs().length, frame -> {
+        decode(data, label, maxWidth, timing.frameEndMs().length, 0, frame -> {
             if (frames.size() < target) frames.add(frame);
         }, () -> frames.size() >= target);
         if (frames.size() != target) {

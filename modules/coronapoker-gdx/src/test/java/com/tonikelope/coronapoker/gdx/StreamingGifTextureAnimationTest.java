@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -154,6 +155,50 @@ class StreamingGifTextureAnimationTest {
         } finally {
             animation.dispose();
         }
+    }
+
+    @Test
+    void streamingAfterPrimedPrefixPreservesPixelsAndTiming()
+            throws Exception {
+        byte[] data;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/images/decks/goliat/gif/shuffle.gif")) {
+            assertNotNull(input, "packaged Goliat shuffle GIF");
+            data = input.readAllBytes();
+        }
+
+        int primed = StreamingGifTextureAnimation.DECODED_FRAME_BUFFER;
+        int compared = 4;
+        List<StreamingGifTextureAnimation.CpuFrame> canonical
+                = new ArrayList<>();
+        StreamingGifTextureAnimation.decode(data, "shuffle.gif", 360,
+                86, 0, frame -> canonical.add(frame),
+                () -> canonical.size() >= primed + compared);
+
+        List<StreamingGifTextureAnimation.CpuFrame> afterPrefix
+                = new ArrayList<>();
+        StreamingGifTextureAnimation.decode(data, "shuffle.gif", 360,
+                86, primed, frame -> afterPrefix.add(frame),
+                () -> afterPrefix.size() >= compared);
+
+        assertEquals(compared, afterPrefix.size());
+        for (int index = 0; index < compared; index++) {
+            StreamingGifTextureAnimation.CpuFrame expected
+                    = canonical.get(primed + index);
+            StreamingGifTextureAnimation.CpuFrame actual
+                    = afterPrefix.get(index);
+            assertEquals(expected.width(), actual.width());
+            assertEquals(expected.height(), actual.height());
+            assertEquals(expected.startMs(), actual.startMs());
+            assertEquals(expected.endMs(), actual.endMs());
+            assertArrayEquals(expected.rgba(), actual.rgba(),
+                    "primed prefix must preserve GIF composition");
+        }
+
+        assertThrows(IllegalArgumentException.class,
+                () -> StreamingGifTextureAnimation.decode(data,
+                        "shuffle.gif", 360, 86, -1,
+                        frame -> { }, () -> false));
     }
 
     @Test

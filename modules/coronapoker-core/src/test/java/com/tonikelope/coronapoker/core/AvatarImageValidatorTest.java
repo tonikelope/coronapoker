@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,11 +31,23 @@ final class AvatarImageValidatorTest {
     }
 
     @Test
+    void acceptsAValidAvatarUpToTheOneMebibyteBoundary() throws Exception {
+        assertEquals(1024 * 1024, AvatarImageValidator.MAX_FILE_BYTES);
+        byte[] paddedPng = Arrays.copyOf(image("png", 8, 8),
+                AvatarImageValidator.MAX_FILE_BYTES);
+
+        assertDoesNotThrow(() -> AvatarImageValidator.validate(paddedPng));
+        Path avatar = temporaryDirectory.resolve("one-megabyte-avatar.png");
+        Files.write(avatar, paddedPng);
+        assertDoesNotThrow(() -> AvatarImageValidator.validate(avatar));
+    }
+
+    @Test
     void rejectsMissingEmptyOversizedAndMalformedInput() throws Exception {
         assertThrows(IOException.class, () -> AvatarImageValidator.validate((byte[]) null));
         assertThrows(IOException.class, () -> AvatarImageValidator.validate(new byte[0]));
         assertThrows(IOException.class, () -> AvatarImageValidator.validate(
-                new byte[AvatarImageValidator.MAX_DECODED_BYTES + 1]));
+                new byte[AvatarImageValidator.MAX_FILE_BYTES + 1]));
         assertThrows(IOException.class, () -> AvatarImageValidator.validate(
                 "not an image".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         assertThrows(IOException.class, () -> AvatarImageValidator.validate(

@@ -102,7 +102,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final int MAX_PUBLIC_KEY_BYTES = 256;
     static final int MAX_SESSION_ID_BYTES = 64;
     static final int MAX_COMMAND_BYTES = 16 * 1024 * 1024;
-    static final int MAX_HANDSHAKE_FRAME_BYTES = 1024 * 1024;
+    /*
+     * The join frame contains the avatar encoded once as Base64 and the
+     * complete command is then authenticated, encrypted and encoded again.
+     * Keep this narrow handshake-only allowance aligned with the shared avatar
+     * contract without relaxing the normal client command limit below.
+     */
+    static final int MAX_HANDSHAKE_FRAME_BYTES
+            = 2 * AvatarImageValidator.MAX_FILE_BYTES;
     static final int MAX_CLIENT_TEXT_FRAME_BYTES = 256 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
     static final int MAX_CHAT_TEXT_CHARS = 4_096;

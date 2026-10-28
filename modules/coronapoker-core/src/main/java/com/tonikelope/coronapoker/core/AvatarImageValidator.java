@@ -19,7 +19,8 @@ import org.w3c.dom.Node;
  */
 public final class AvatarImageValidator {
 
-    public static final int MAX_DECODED_BYTES = 256 * 1024;
+    /** Maximum encoded avatar file size accepted by every game entry point. */
+    public static final int MAX_FILE_BYTES = 1024 * 1024;
     public static final int MAX_DIMENSION = 4096;
     public static final long MAX_FRAME_PIXELS = 4_194_304L;
     public static final int MAX_FRAMES = 32;
@@ -35,14 +36,14 @@ public final class AvatarImageValidator {
             throw new IOException("Avatar file is unavailable");
         }
         long size = Files.size(path);
-        if (size <= 0L || size > MAX_DECODED_BYTES) {
+        if (size <= 0L || size > MAX_FILE_BYTES) {
             throw new IOException("Avatar exceeds size limit");
         }
         validate(Files.readAllBytes(path));
     }
 
     public static void validate(byte[] bytes) throws IOException {
-        if (bytes == null || bytes.length == 0 || bytes.length > MAX_DECODED_BYTES) {
+        if (bytes == null || bytes.length == 0 || bytes.length > MAX_FILE_BYTES) {
             throw new IOException("Avatar exceeds size limit");
         }
         try (ImageInputStream input = ImageIO.createImageInputStream(

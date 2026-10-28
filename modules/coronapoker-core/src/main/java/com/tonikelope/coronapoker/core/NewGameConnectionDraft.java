@@ -19,7 +19,7 @@ public final class NewGameConnectionDraft {
     public static final int MAX_NICK_LENGTH = 15;
     public static final int MAX_PASSWORD_LENGTH = 30;
     public static final int MAX_PORT_LENGTH = 5;
-    public static final long MAX_AVATAR_BYTES = 256L * 1024L;
+    public static final long MAX_AVATAR_BYTES = AvatarImageValidator.MAX_FILE_BYTES;
 
     public enum Mode {
         CREATE, JOIN, RECOVER

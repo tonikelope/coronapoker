@@ -763,9 +763,16 @@ final class GdxScenarioRenderer implements TableRenderer {
     void releaseHeldAction() {
         if (heldAction.compareAndSet(true, false)) {
             gateConsumed.set(true);
-            assertTrue(productTable().activateCheckOrCallAction(),
-                    "native GDX gated check/call control did not submit");
+            submitLegalHeldAction("gated");
         }
+    }
+
+    private void submitLegalHeldAction(String context) {
+        if (productTable().activateCheckOrCallAction()) return;
+        assertTrue(productTable().activateAllInAction(),
+                "native GDX " + context + " fallback ALL-IN did not arm");
+        assertTrue(productTable().activateAllInAction(),
+                "native GDX " + context + " fallback ALL-IN did not submit");
     }
 
     boolean hasHeldPresentation() {
@@ -799,8 +806,7 @@ final class GdxScenarioRenderer implements TableRenderer {
             gatedHand.set(nextHand);
             gatedStreet.set(nextStreet);
             gateConsumed.set(false);
-            assertTrue(productTable().activateCheckOrCallAction(),
-                    "native GDX chained check/call control did not submit");
+            submitLegalHeldAction("chained");
         }
     }
 

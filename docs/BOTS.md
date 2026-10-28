@@ -407,9 +407,9 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 The host can enable **Use custom bots** on the Bots page of the New Game
 screen and open **Manage bots**. Each ordered profile contains:
 
-- a display nickname;
-- the official bot avatar or a validated custom image;
-- an individual Easy, Normal or Hard difficulty;
+- a display nickname
+- the official bot avatar or a validated custom image
+- an individual Easy, Normal or Hard difficulty
 - a real engine personality: Random, NIT, STATION, TAG or LAG.
 
 Random preserves the normal weighted personality roll. A fixed personality
@@ -424,8 +424,8 @@ first eligible profile again.
 
 The manager accepts the visible name without a dollar sign and appends the
 reserved `$` bot marker automatically. The marker remains part of the protocol
-identity because existing engine and recovery paths use it to distinguish bots;
-it is never trusted as a network-security credential. Human nicknames continue
+identity because existing engine and recovery paths use it to distinguish bots.
+It is never trusted as a network-security credential. Human nicknames continue
 to reject `$`.
 
 Selected avatars pass the same bounded image validation used for player

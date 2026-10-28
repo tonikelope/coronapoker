@@ -11181,8 +11181,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String customBotPersonalityLabel(
             CustomBotProfile.Personality personality) {
-        return gameText.translate("gdx.custom_bots.personality."
-                + personality.name().toLowerCase(Locale.ROOT));
+        return gameText.translate(switch (personality) {
+            case RANDOM -> "gdx.custom_bots.personality.random";
+            case NIT -> "gdx.custom_bots.personality.nit";
+            case STATION -> "gdx.custom_bots.personality.station";
+            case TAG -> "gdx.custom_bots.personality.tag";
+            case LAG -> "gdx.custom_bots.personality.lag";
+        });
     }
 
     private void moveCustomBot(int direction) {

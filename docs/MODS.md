@@ -77,8 +77,8 @@ Every immediate directory under `mod/decks` becomes a selectable deck. Card
 faces use `<rank>_<suit>.jpg`, with ranks `2` through `10`, `J`, `Q`, `K`, `A`
 and CoronaPoker suit codes `C`, `D`, `P`, `T`. Put the high-quality set and
 `trasera.jpg` in `hq/`. The renderer also accepts card images directly in the
-deck directory as a fallback. `gif/shuffle.gif` supplies its shuffle animation;
-if absent, the official Goliat shuffle is used.
+deck directory as a fallback. `gif/shuffle.gif` supplies its shuffle animation.
+If absent, the official Goliat shuffle is used.
 
 The hand generator uses the same selected deck and the same `hq` assets as the
 table.
@@ -118,7 +118,7 @@ The bundled all-in filenames are `casinoroyale.gif`, `hulk.gif`, `joker.gif`,
 
 Custom bot names, avatars, difficulty and AI personality are configured by the
 host in **New game → Bots → Use custom bots → Manage bots**. They are stored in
-the user's CoronaPoker preferences rather than in a MOD pack; see
+the user's CoronaPoker preferences rather than in a MOD pack. See
 [`BOTS.md`](BOTS.md#13-custom-bot-profiles).
 
 </div>

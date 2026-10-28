@@ -485,7 +485,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean customBotAvatarSelectionPending;
     private boolean customBotDeleteConfirmation;
     private int customBotSelected = -1;
-    private int customBotPage;
+    private int customBotScrollFirstRow;
+    private int customBotScrollMaximum;
+    private final Rectangle customBotScrollTrack = new Rectangle();
+    private float customBotScrollThumbHeight;
     private String customBotNameDraft = "";
     private Path customBotAvatarDraft;
     private NewGameTableDraft.BotDifficulty customBotDifficultyDraft
@@ -715,6 +718,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         initialProperties = this.preferences.properties();
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
+        table = defaultTableDraft();
         if (forgetPersistedUpnp(initialProperties)) {
             // UPnP is explicit authority for one lobby, not a preference.
             this.preferences.saveDeferred();
@@ -9751,7 +9755,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hostAddressOptions = List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
         }
         refreshSelectedAvatarTexture();
-        table = new NewGameTableDraft();
+        table = defaultTableDraft();
         refreshGamePresets(null);
         closePresetDialog();
         page = 0;
@@ -10134,7 +10138,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         selectedGamePreset = adjacentPresetIndex(selectedGamePreset,
                 gamePresets.size(), direction);
         if (selectedGamePreset < 0) {
-            table = new NewGameTableDraft();
+            table = defaultTableDraft();
             showToast(gameText.translate(
                     "gdx.newgame.profile_default_loaded"));
             return;
@@ -10156,7 +10160,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         selectedGamePreset = option - 1;
         dropdown = Dropdown.NONE;
         if (option <= 0) {
-            table = new NewGameTableDraft();
+            table = defaultTableDraft();
             showToast(gameText.translate(
                     "gdx.newgame.profile_default_loaded"));
             return;
@@ -11078,7 +11082,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         toggle(580f, 485f, 675f,
                 gameText.translate("gdx.custom_bots.use"),
                 table.customBots(),
-                () -> table.setCustomBots(!table.customBots()), true);
+                this::toggleCustomBots, true);
         tooltip(580f, 485f, 675f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots");
         button(1280f, 485f, 410f, GdxSettingsLayout.ROW_HEIGHT,
@@ -11106,6 +11110,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void previousBotDifficulty() {
         selectBotDifficulty(-1);
+    }
+
+    private NewGameTableDraft defaultTableDraft() {
+        NewGameTableDraft draft = new NewGameTableDraft();
+        draft.setCustomBots(CustomBotProfileCatalog.enabled(
+                initialProperties));
+        return draft;
+    }
+
+    private void toggleCustomBots() {
+        boolean enabled = !table.customBots();
+        table.setCustomBots(enabled);
+        CustomBotProfileCatalog.writeEnabled(initialProperties, enabled);
+        if (preferences != null) preferences.saveDeferred();
     }
 
     private void selectBotDifficulty(int direction) {
@@ -11145,6 +11163,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void selectCustomBot(int index) {
         if (index < 0 || index >= customBotProfiles.size()) return;
         customBotSelected = index;
+        ensureCustomBotVisible(index);
         CustomBotProfile profile = customBotProfiles.get(index);
         customBotNameDraft = profile.displayName();
         customBotAvatarDraft = profile.avatar();
@@ -11191,7 +11210,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || target >= customBotProfiles.size()) return;
         Collections.swap(customBotProfiles, customBotSelected, target);
         customBotSelected = target;
-        customBotPage = target / CUSTOM_BOT_VISIBLE_ROWS;
+        ensureCustomBotVisible(target);
         persistCustomBotProfiles();
     }
 
@@ -11225,7 +11244,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 customBotProfiles.set(customBotSelected, candidate);
             }
             customBotAvatarDraft = avatar;
-            customBotPage = customBotSelected / CUSTOM_BOT_VISIBLE_ROWS;
+            ensureCustomBotVisible(customBotSelected);
             customBotValidationError = "";
             disposeCustomBotAvatarTextures();
             persistCustomBotProfiles();
@@ -11253,9 +11272,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (customBotProfiles.isEmpty()) newCustomBot();
         else selectCustomBot(Math.min(customBotSelected,
                 customBotProfiles.size() - 1));
-        customBotPage = Math.min(customBotPage,
-                Math.max(0, (customBotProfiles.size() - 1)
-                        / CUSTOM_BOT_VISIBLE_ROWS));
+        customBotScrollFirstRow = Math.min(customBotScrollFirstRow,
+                customBotMaximumFirstRow());
+    }
+
+    private int customBotMaximumFirstRow() {
+        return Math.max(0,
+                customBotProfiles.size() - CUSTOM_BOT_VISIBLE_ROWS);
+    }
+
+    private void ensureCustomBotVisible(int index) {
+        if (index < 0) return;
+        if (index < customBotScrollFirstRow) {
+            customBotScrollFirstRow = index;
+        } else if (index >= customBotScrollFirstRow
+                + CUSTOM_BOT_VISIBLE_ROWS) {
+            customBotScrollFirstRow = index - CUSTOM_BOT_VISIBLE_ROWS + 1;
+        }
+        customBotScrollFirstRow = MathUtils.clamp(customBotScrollFirstRow,
+                0, customBotMaximumFirstRow());
     }
 
     private void persistCustomBotProfiles() {
@@ -11335,24 +11370,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(tinyFont, gameText.translate("gdx.custom_bots.order_help"),
                 listX + 24f, 816f, MUTED, false, listW - 48f);
 
-        int first = customBotPage * CUSTOM_BOT_VISIBLE_ROWS;
-        int maximumPage = customBotProfiles.isEmpty() ? 0
-                : (customBotProfiles.size() - 1) / CUSTOM_BOT_VISIBLE_ROWS;
-        customBotPage = MathUtils.clamp(customBotPage, 0, maximumPage);
-        first = customBotPage * CUSTOM_BOT_VISIBLE_ROWS;
+        customBotScrollMaximum = customBotMaximumFirstRow();
+        customBotScrollFirstRow = MathUtils.clamp(customBotScrollFirstRow,
+                0, customBotScrollMaximum);
+        int first = customBotScrollFirstRow;
+        float rowX = listX + 22f;
+        float rowW = listW - 88f;
         for (int row = 0; row < CUSTOM_BOT_VISIBLE_ROWS; row++) {
             int index = first + row;
             float rowY = 698f - row * 105f;
             if (index >= customBotProfiles.size()) {
                 shapes.setColor(new Color(0x17253a70));
-                roundedRect(listX + 22f, rowY, listW - 44f, 94f, 10f);
+                roundedRect(rowX, rowY, rowW, 94f, 10f);
                 continue;
             }
             CustomBotProfile profile = customBotProfiles.get(index);
             boolean selected = index == customBotSelected;
-            boolean over = hovered(listX + 22f, rowY,
-                    listW - 44f, 94f);
-            outerBox(listX + 22f, rowY, listW - 44f, 94f,
+            boolean over = hovered(rowX, rowY, rowW, 94f);
+            outerBox(rowX, rowY, rowW, 94f,
                     selected ? GOLD : over ? CYAN : LINE,
                     selected ? new Color(0x17314af4) : PANEL_LIGHT);
             Texture avatar = customBotAvatarTexture(profile.avatar());
@@ -11373,31 +11408,40 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(smallFont,
                     customBotPersonalityLabel(profile.personality()),
                     listX + 600f, rowY + 28f, CYAN, true, 245f);
-            outerBox(listX + listW - 96f, rowY + 22f, 52f, 52f,
+            float orderX = rowX + rowW - 64f;
+            outerBox(orderX, rowY + 22f, 52f, 52f,
                     selected ? GOLD : LINE,
                     selected ? new Color(0x2b3e5cff) : PANEL);
             textFit(smallFont, "#" + (index + 1),
-                    listX + listW - 70f, rowY + 54f,
+                    orderX + 26f, rowY + 54f,
                     selected ? GOLD : MUTED, true, 42f);
-            hit(listX + 22f, rowY, listW - 44f, 94f,
+            hit(rowX, rowY, rowW, 94f,
                     () -> selectCustomBot(index));
-            tooltip(listX + 22f, rowY, listW - 44f, 94f,
+            tooltip(rowX, rowY, rowW, 94f,
                     "tooltip.cfg.custom_bots.row");
         }
 
-        compactButton(listX + 24f, 164f, 150f, 54f,
-                gameText.translate("gdx.custom_bots.previous"), false,
-                () -> customBotPage--, customBotPage > 0);
-        compactButton(listX + 186f, 164f, 150f, 54f,
-                gameText.translate("gdx.custom_bots.next"), false,
-                () -> customBotPage++, customBotPage < maximumPage);
-        textFit(tinyFont, (customBotPage + 1) + " / "
-                + (maximumPage + 1), listX + 390f, 197f, MUTED, true,
-                120f);
-        compactButton(listX + 535f, 164f, 130f, 54f,
+        customBotScrollTrack.set(listX + listW - 30f, 278f,
+                GdxSettingsLayout.SCROLLBAR_WIDTH, 514f);
+        customBotScrollThumbHeight = GdxSettingsLayout
+                .scrollbarThumbHeight(customBotScrollTrack.height,
+                        customBotProfiles.size(), CUSTOM_BOT_VISIBLE_ROWS);
+        if (customBotScrollMaximum > 0) {
+            float ratio = customBotScrollFirstRow
+                    / (float) customBotScrollMaximum;
+            float thumbY = customBotScrollTrack.y
+                    + (customBotScrollTrack.height
+                            - customBotScrollThumbHeight) * (1f - ratio);
+            GdxSettingsStyle.drawRowScrollbar(shapes,
+                    customBotScrollTrack.x, customBotScrollTrack.y,
+                    customBotScrollTrack.height, thumbY,
+                    customBotScrollThumbHeight, 1f);
+        }
+
+        compactButton(listX + 245f, 164f, 170f, 54f,
                 gameText.translate("gdx.custom_bots.up"), false,
                 () -> moveCustomBot(-1), customBotSelected > 0);
-        compactButton(listX + 680f, 164f, 150f, 54f,
+        compactButton(listX + 460f, 164f, 170f, 54f,
                 gameText.translate("gdx.custom_bots.down"), false,
                 () -> moveCustomBot(1), customBotSelected >= 0
                         && customBotSelected < customBotProfiles.size() - 1);
@@ -11444,7 +11488,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : customBotValidationError,
                 editX + 42f, 500f,
                 customBotValidationError.isBlank() ? MUTED : ORANGE,
-                false, editW - 84f);
+                false, editW - 112f);
         tooltip(editX + 42f, 530f, editW - 84f, 70f,
                 "tooltip.cfg.custom_bots.name");
 
@@ -13328,7 +13372,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if ((!blockingModal || rootSurfaceOwnsPointer
-                || statsPicker != StatsPicker.NONE || networkBlocksOpen)
+                || statsPicker != StatsPicker.NONE || networkBlocksOpen
+                || customBotManagerOpen)
                 && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y,
                         pointerIndex, button)) {
@@ -13454,6 +13499,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean beginScrollDrag(float x, float y, int pointerIndex,
             int button) {
+        if (surface == Surface.NEW_GAME && customBotManagerOpen) {
+            if (customBotDeleteConfirmation) return false;
+            int maximum = customBotMaximumFirstRow();
+            if (maximum > 0 && containsExpandedHorizontally(
+                    customBotScrollTrack, x, y,
+                    (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
+                            - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f)) {
+                float thumb = GdxSettingsLayout.scrollbarThumbHeight(
+                        customBotScrollTrack.height,
+                        customBotProfiles.size(), CUSTOM_BOT_VISIBLE_ROWS);
+                return captureScrollDrag(ScrollDrag.CUSTOM_BOTS,
+                        pointerIndex, button, y, customBotScrollTrack.y,
+                        customBotScrollTrack.height, thumb,
+                        customBotScrollFirstRow / (float) maximum, true);
+            }
+            return false;
+        }
         if (networkBlocksOpen) {
             if (networkBlockUnblockConfirmation != null) return false;
             GdxNetworkBlockDialogLayout.Layout layout
@@ -13614,6 +13676,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsRowScrollTrack.height,
                     settingsRowScrollThumbHeight,
                     scrollDragGrabOffset, true);
+        } else if (scrollDrag == ScrollDrag.CUSTOM_BOTS) {
+            progress = GdxScrollbarDrag.ratio(y,
+                    customBotScrollTrack.y,
+                    customBotScrollTrack.height,
+                    customBotScrollThumbHeight,
+                    scrollDragGrabOffset, true);
         } else if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) {
             GdxNetworkBlockDialogLayout.Layout layout
                     = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
@@ -13659,6 +13727,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     == GdxSettingsContract.Section.SHORTCUTS) {
                 settingsShortcutScroll = offset;
             }
+        } else if (scrollDrag == ScrollDrag.CUSTOM_BOTS) {
+            customBotScrollMaximum = customBotMaximumFirstRow();
+            customBotScrollFirstRow = MathUtils.clamp(Math.round(
+                    progress * customBotScrollMaximum), 0,
+                    customBotScrollMaximum);
         } else if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) {
             GdxNetworkBlockDialogLayout.Layout layout
                     = GdxNetworkBlockDialogLayout.layout(WIDTH, HEIGHT);
@@ -14624,13 +14697,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !customBotDeleteConfirmation && amountY != 0f) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
-            if (pointer.x >= 257f && pointer.x <= 1088f
+            if (pointer.x >= 257f && pointer.x <= 1101f
                     && pointer.y >= 278f && pointer.y <= 792f) {
-                int maximumPage = customBotProfiles.isEmpty() ? 0
-                        : (customBotProfiles.size() - 1)
-                                / CUSTOM_BOT_VISIBLE_ROWS;
-                customBotPage = MathUtils.clamp(customBotPage
-                        + (amountY > 0f ? 1 : -1), 0, maximumPage);
+                int step = Math.max(1, Math.round(Math.abs(amountY)));
+                customBotScrollMaximum = customBotMaximumFirstRow();
+                customBotScrollFirstRow = MathUtils.clamp(
+                        customBotScrollFirstRow
+                                + (amountY > 0f ? step : -step),
+                        0, customBotScrollMaximum);
             }
             return true;
         }
@@ -14835,7 +14909,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private enum ScrollDrag {
         NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
         STATS_RESULTS, STATS_SUMMARY_PLAYERS, STATS_CHART_HORIZONTAL,
-        STATS_CHART_VERTICAL, NETWORK_BLOCKS
+        STATS_CHART_VERTICAL, NETWORK_BLOCKS, CUSTOM_BOTS
     }
 
     private enum StatsMode {

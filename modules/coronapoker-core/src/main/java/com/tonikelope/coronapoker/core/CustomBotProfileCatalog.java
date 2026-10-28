@@ -21,6 +21,7 @@ import java.util.Set;
 /** Persistent, ordered catalogue used by the custom-bot manager. */
 public final class CustomBotProfileCatalog {
 
+    public static final String PROP_ENABLED = "custom_bots.enabled";
     public static final String PROP_COUNT = "custom_bots.count";
     public static final String PROP_PREFIX = "custom_bot.";
     public static final int MAX_PROFILES = 50;
@@ -28,6 +29,19 @@ public final class CustomBotProfileCatalog {
             ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp");
 
     private CustomBotProfileCatalog() {
+    }
+
+    /** Returns the host preference for using the ordered custom catalogue. */
+    public static boolean enabled(Properties properties) {
+        return properties != null && Boolean.parseBoolean(
+                properties.getProperty(PROP_ENABLED, "false"));
+    }
+
+    /** Persists only the catalogue switch, leaving every profile untouched. */
+    public static void writeEnabled(Properties properties, boolean enabled) {
+        if (properties != null) {
+            properties.setProperty(PROP_ENABLED, Boolean.toString(enabled));
+        }
     }
 
     public static List<CustomBotProfile> readFrom(Properties properties) {

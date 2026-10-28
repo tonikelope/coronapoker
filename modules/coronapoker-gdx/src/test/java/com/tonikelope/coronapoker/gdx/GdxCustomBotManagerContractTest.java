@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,5 +35,14 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "surface == Surface.NEW_GAME && customBotManagerOpen\n"
                 + "                && !customBotDeleteConfirmation && amountY != 0f"));
+        assertTrue(source.contains("ScrollDrag.CUSTOM_BOTS"));
+        assertTrue(source.contains("GdxSettingsStyle.drawRowScrollbar"));
+        assertTrue(source.contains(
+                "CustomBotProfileCatalog.writeEnabled(initialProperties"));
+        assertTrue(source.contains(
+                "draft.setCustomBots(CustomBotProfileCatalog.enabled"));
+        assertFalse(source.contains("customBotPage"));
+        assertFalse(source.contains(
+                "gameText.translate(\"gdx.custom_bots.previous\")"));
     }
 }

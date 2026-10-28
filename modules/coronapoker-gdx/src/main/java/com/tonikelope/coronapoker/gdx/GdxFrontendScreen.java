@@ -1286,7 +1286,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!rootSurfaceModal) {
             if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
                 drawTooltipTopLayer();
-            } else {
+            } else if (!customBotManagerOpen
+                    || customBotDeleteConfirmation) {
                 tooltipDelay.clear();
             }
         }
@@ -11425,6 +11426,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.custom_bots.down"), false,
                 () -> moveCustomBot(1), customBotSelected >= 0
                         && customBotSelected < customBotProfiles.size() - 1);
+        tooltip(listX + 245f, 164f, 170f, 54f,
+                "tooltip.cfg.custom_bots.order_up");
+        tooltip(listX + 460f, 164f, 170f, 54f,
+                "tooltip.cfg.custom_bots.order_down");
 
         float editX = 1140f;
         float editW = 545f;
@@ -11502,10 +11507,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.custom_bots.delete"), false,
                 () -> customBotDeleteConfirmation = true,
                 customBotSelected >= 0);
+        tooltip(editX + 42f, 158f, 140f, 54f,
+                "tooltip.cfg.custom_bots.new");
+        tooltip(editX + 194f, 158f, 150f, 54f,
+                "tooltip.cfg.custom_bots.save");
+        tooltip(editX + 356f, 158f, 147f, 54f,
+                "tooltip.cfg.custom_bots.delete");
 
         button(785f, 72f, 350f, 60f,
                 gameText.translate("gdx.custom_bots.close"), true,
                 this::closeCustomBotManager);
+        tooltip(785f, 72f, 350f, 60f,
+                "tooltip.cfg.custom_bots.close");
 
         if (customBotDeleteConfirmation) {
             hits.clear();

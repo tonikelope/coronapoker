@@ -10000,16 +10000,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawAvatarIcon(520f, 660f);
         hit(445f, 580f, 150f, 155f, this::selectAvatar);
         tooltip(445f, 580f, 150f, 155f, "tooltip.change_avatar");
-        textFit(tinyFont, avatarSelectionPending
-                ? uppercase(gameText.translate("gdx.opening"))
-                : uppercase(gameText.translate("gdx.change")),
-                520f, 570f, avatarSelectionPending ? DISABLED : CYAN,
-                true, 145f);
-        if (connection.avatar() != null) {
-            button(455f, 515f, 130f, 42f,
-                    uppercase(gameText.translate("gdx.remove")), false,
-                    this::resetAvatar, !avatarSelectionPending);
-        }
 
         field(610f, 630f, 450f,
                 gameText.translate("gdx.newgame.nick_required"),
@@ -10048,16 +10038,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawAvatarIcon(380f, 630f, 104f);
         hit(315f, 565f, 130f, 135f, this::selectAvatar);
         tooltip(315f, 565f, 130f, 135f, "tooltip.change_avatar");
-        textFit(tinyFont, avatarSelectionPending
-                ? uppercase(gameText.translate("gdx.opening"))
-                : uppercase(gameText.translate("gdx.change")),
-                380f, 552f, avatarSelectionPending ? DISABLED : CYAN,
-                true, 125f);
-        if (connection.avatar() != null) {
-            compactButton(320f, 500f, 120f, 42f,
-                    uppercase(gameText.translate("gdx.remove")), false,
-                    this::resetAvatar, !avatarSelectionPending);
-        }
 
         field(470f, 595f, 400f,
                 gameText.translate("gdx.newgame.nick_required"),
@@ -12989,13 +12969,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         connection.persistLocalIdentity(preferences);
         refreshSelectedAvatarTexture();
-    }
-
-    private void resetAvatar() {
-        if (connection == null || avatarSelectionPending) return;
-        connection.resetAvatar();
-        connection.persistLocalIdentity(preferences);
-        disposeSelectedAvatarTexture();
     }
 
     private void refreshSelectedAvatarTexture() {

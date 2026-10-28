@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class GdxNewGameImmediatePreferenceContractTest {
@@ -25,9 +26,6 @@ final class GdxNewGameImmediatePreferenceContractTest {
                 "connection.persistLocalIdentity(preferences);\n"
                 + "        refreshSelectedAvatarTexture();"));
         assertTrue(source.contains(
-                "connection.resetAvatar();\n"
-                + "        connection.persistLocalIdentity(preferences);"));
-        assertTrue(source.contains(
                 "connection.setServer(options.get(selectedOption));\n"
                 + "                        connection.persistLocalHostEndpoint(preferences);"));
         assertTrue(source.contains(
@@ -36,5 +34,12 @@ final class GdxNewGameImmediatePreferenceContractTest {
         assertTrue(source.contains("String preferred = target.server();"));
         assertTrue(source.contains(
                 "!hostAddressOptions.contains(preferred)"));
+        assertTrue(source.contains(
+                "hit(445f, 580f, 150f, 155f, this::selectAvatar);"));
+        assertTrue(source.contains(
+                "hit(315f, 565f, 130f, 135f, this::selectAvatar);"));
+        assertFalse(source.contains("gameText.translate(\"gdx.change\")"));
+        assertFalse(source.contains("gameText.translate(\"gdx.remove\")"));
+        assertFalse(source.contains("this::resetAvatar"));
     }
 }

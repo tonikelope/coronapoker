@@ -3,6 +3,9 @@ package com.tonikelope.coronapoker.core.game;
 
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.bot.context.DealerView;
+import com.tonikelope.coronapoker.core.BotNickname;
+import com.tonikelope.coronapoker.core.CustomBotProfile;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -73,6 +76,56 @@ public final class CorePlayerController implements GamePlayerController {
 
     public boolean isBot() {
         return bot != null;
+    }
+
+    /** Applies the host-authoritative per-seat difficulty to this bot. */
+    public synchronized void setBotDifficulty(
+            NewGameTableDraft.BotDifficulty difficulty) {
+        if (bot == null) {
+            if (difficulty != null) {
+                throw new IllegalStateException(
+                        "Only bot players can carry a bot difficulty");
+            }
+            return;
+        }
+        bot.setDifficulty(difficulty == null ? null
+                : Bot.Difficulty.valueOf(difficulty.name()));
+    }
+
+    /** Applies an optional host-authoritative behavioural style. */
+    public synchronized void setBotPersonality(
+            CustomBotProfile.Personality personality) {
+        if (bot == null) {
+            if (personality != null
+                    && personality != CustomBotProfile.Personality.RANDOM) {
+                throw new IllegalStateException(
+                        "Only bot players can carry a bot personality");
+            }
+            return;
+        }
+        bot.setProfile(personality == null
+                || personality == CustomBotProfile.Personality.RANDOM
+                        ? null : Bot.Profile.valueOf(personality.name()));
+    }
+
+    /** Applies the complete custom-bot AI preset with one deterministic roll. */
+    public synchronized void configureBot(
+            NewGameTableDraft.BotDifficulty difficulty,
+            CustomBotProfile.Personality personality) {
+        if (bot == null) {
+            if (difficulty != null || (personality != null
+                    && personality != CustomBotProfile.Personality.RANDOM)) {
+                throw new IllegalStateException(
+                        "Only bot players can carry a bot AI preset");
+            }
+            return;
+        }
+        Bot.Difficulty mappedDifficulty = difficulty == null ? null
+                : Bot.Difficulty.valueOf(difficulty.name());
+        Bot.Profile mappedProfile = personality == null
+                || personality == CustomBotProfile.Personality.RANDOM
+                        ? null : Bot.Profile.valueOf(personality.name());
+        bot.configure(mappedDifficulty, mappedProfile);
     }
 
     /** Binds the dealer wait that must be released after a renderer decision. */
@@ -235,7 +288,7 @@ public final class CorePlayerController implements GamePlayerController {
     public synchronized void setNickname(String name) {
         state.setNickname(name);
         if (!local && state instanceof RemotePlayerState remote) {
-            boolean automated = name.contains("$");
+            boolean automated = BotNickname.isBot(name);
             remote.setBot(automated);
             if (automated && bot == null) {
                 bot = new Bot(this);

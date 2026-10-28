@@ -42,6 +42,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
+import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -17730,7 +17731,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        return nickname != null && nickname.startsWith("CoronaBot$")
+        return BotNickname.isBot(nickname)
                 ? avatarBot : avatarDefault;
     }
 

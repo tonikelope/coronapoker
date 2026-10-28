@@ -1499,6 +1499,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             : CorePlayerController.bot(participant.nickname(),
                                     botRandom)
                     : CorePlayerController.remote(participant.nickname());
+            if (participant.bot() && (participant.botDifficulty() != null
+                    || participant.botPersonality() != null)) {
+                player.configureBot(participant.botDifficulty(),
+                        participant.botPersonality());
+            }
             initializePlayer(player, buyin);
             players.add(player);
         }

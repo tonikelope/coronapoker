@@ -229,6 +229,7 @@ public class Bot {
     private volatile BotEvaluator evaluator = EVALUATOR;
     private volatile java.util.Random rng = null;
     private volatile Difficulty perBotDifficulty = null; // null = fall back to static DIFFICULTY
+    private volatile Profile forcedProfile = null;
     private volatile Profile baseProfile;
     private volatile Profile currentProfile;
     private volatile Skill skillLevel;
@@ -313,6 +314,25 @@ public class Bot {
      */
     public void setDifficulty(Difficulty d) {
         this.perBotDifficulty = d;
+        assignPersonality();
+    }
+
+    /** Pins this bot to one behavioural style; null restores random style. */
+    public void setProfile(Profile profile) {
+        forcedProfile = profile;
+        assignPersonality();
+    }
+
+    /**
+     * Applies both per-seat AI overrides with a single personality roll.
+     *
+     * <p>This is the normal lobby path. Keeping the two assignments atomic
+     * avoids consuming an otherwise invisible extra RNG roll when a custom
+     * bot defines both its difficulty and its behavioural profile.</p>
+     */
+    public void configure(Difficulty difficulty, Profile profile) {
+        perBotDifficulty = difficulty;
+        forcedProfile = profile;
         assignPersonality();
     }
 
@@ -465,6 +485,7 @@ public class Bot {
                 baseProfile = Profile.LAG;
             }
         }
+        if (forcedProfile != null) baseProfile = forcedProfile;
         currentProfile = baseProfile;
         logVerbose("Personality assigned. Base: " + baseProfile.name());
     }

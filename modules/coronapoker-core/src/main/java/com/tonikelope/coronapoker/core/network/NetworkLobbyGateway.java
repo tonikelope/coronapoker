@@ -1,6 +1,8 @@
 package com.tonikelope.coronapoker.core.network;
 
 import com.tonikelope.coronapoker.core.AvatarImageValidator;
+import com.tonikelope.coronapoker.core.BotNickname;
+import com.tonikelope.coronapoker.core.CustomBotProfile;
 
 import com.tonikelope.coronapoker.StatsSync;
 import com.tonikelope.coronapoker.StatsSyncProtocol;
@@ -313,6 +315,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final int recoveryGameId;
         private final byte[] sessionId;
         private final PlayerIdentity identity;
+        private final List<CustomBotProfile> customBotProfiles;
         private volatile GameConfigCodecV1.Configuration launchConfiguration;
         private volatile boolean allowHotJoinAfterStart = true;
         private final Map<String, Peer> peers = new LinkedHashMap<>();
@@ -379,6 +382,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     ? -1 : request.connection().recoveredGameId();
             this.sessionId = sessionId;
             this.identity = identity;
+            this.customBotProfiles = request.customBotProfiles();
             this.serverNickname = host ? localNickname : "";
             this.gameChannel = new NativeGameChannel(this, executor);
         }
@@ -454,9 +458,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             throw new IllegalStateException(
                                     "Recovered bot roster exceeds table capacity");
                         }
+                        CustomBotProfile profile
+                                = transport.customBotProfile(nickname);
                         if (transport.peers.putIfAbsent(nickname,
-                                new Peer(nickname, null, false, false, true,
-                                        true, null, null, null)) != null) {
+                                new Peer(nickname,
+                                        profile == null ? null
+                                                : profile.avatar(),
+                                        false, false, true, true, null, null,
+                                        null, profile == null ? null
+                                                : profile.difficulty(),
+                                        profile == null ? null
+                                                : profile.personality())) != null) {
                             throw new IllegalStateException(
                                     "Recovered bot duplicates a lobby participant");
                         }
@@ -519,7 +531,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     new Peer(connection.remoteNickname, connection.remoteAvatar, false, true,
                             false, connection.secure, connection,
                             connection.remoteIdentityPublicKey,
-                            connection.remoteIdentitySignature));
+                            connection.remoteIdentitySignature, null, null));
             if (connection.remoteIdentityPublicKey != null) {
                 identityTrust.observe(connection.remoteNickname,
                         connection.remoteIdentityPublicKey);
@@ -760,7 +772,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     return;
                 }
                 String nickname = text64(parts[0]);
-                if (nickname.contains("$")) {
+                if (BotNickname.isBot(nickname)) {
                     connection.writeEncrypted("NICKUNAUTHORIZED");
                     return;
                 }
@@ -844,8 +856,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             + "#" + Base64.getEncoder().encodeToString(identity.signJoin(sessionId)));
                     connection.writeEncrypted("*");
                     sendUsersList(connection);
-                    Peer peer = new Peer(nickname, avatar, false, false, false, true, connection,
-                            publicKey, signature);
+                    Peer peer = new Peer(nickname, avatar, false, false, false,
+                            true, connection, publicKey, signature, null,
+                            null);
                     peers.put(nickname, peer);
                     admittedNickname = nickname;
                     admittedConnection = connection;
@@ -1079,14 +1092,44 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void addBot() throws Exception {
             if (!host) throw new IllegalStateException("Only the host can add bots");
+            CustomBotProfile profile = tableSettings.customBots()
+                    ? customBotProfiles.stream()
+                            .filter(candidate -> findNormalized(
+                                    candidate.nickname()) == null)
+                            .findFirst().orElse(null)
+                    : null;
             int number = 1;
             String nickname;
-            do nickname = "CoronaBot$" + number++; while (peers.containsKey(nickname));
-            peers.put(nickname, new Peer(nickname, null, false, false, true, true, null,
-                    null, null));
+            Path avatar;
+            NewGameTableDraft.BotDifficulty difficulty;
+            CustomBotProfile.Personality personality;
+            if (profile == null) {
+                do nickname = BotNickname.standard(number++);
+                while (findNormalized(nickname) != null);
+                avatar = null;
+                difficulty = null;
+                personality = null;
+            } else {
+                nickname = profile.nickname();
+                avatar = profile.avatar();
+                difficulty = profile.difficulty();
+                personality = profile.personality();
+            }
+            peers.put(nickname, new Peer(nickname, avatar, false, false, true,
+                    true, null, null, null, difficulty, personality));
             addPresence(nickname, LobbyChatMessage.Type.PLAYER_JOINED);
-            broadcastGame("NEWUSER#" + b64(nickname) + "#0", null);
+            byte[] avatarBytes = readAvatar(avatar);
+            broadcastGame("NEWUSER#" + b64(nickname) + "#0#"
+                    + (avatarBytes == null ? "*"
+                            : Base64.getEncoder().encodeToString(avatarBytes)),
+                    null);
             publishCurrent();
+        }
+
+        private CustomBotProfile customBotProfile(String nickname) {
+            return customBotProfiles.stream()
+                    .filter(profile -> profile.nickname().equals(nickname))
+                    .findFirst().orElse(null);
         }
 
         private synchronized void kick(String nickname) throws Exception {
@@ -1574,7 +1617,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 case "NEWUSER" -> {
                     String nickname = text64(parts[3]);
                     if (findNormalized(nickname) == null) {
-                        boolean bot = nickname.startsWith("CoronaBot$");
+                        boolean bot = BotNickname.isBot(nickname);
                         Path avatar = parts.length > 5 ? saveAvatar(parts[5], nickname, coronaDirectory) : null;
                         Peer peer = remotePeer(nickname, avatar, false, bot,
                                 parts.length > 4 && "1".equals(parts[4]),
@@ -1591,7 +1634,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         String[] user = encoded.split("\\|", -1);
                         String nickname = text64(user[0]);
                         if (findNormalized(nickname) == null) {
-                            boolean bot = nickname.startsWith("CoronaBot$");
+                            boolean bot = BotNickname.isBot(nickname);
                             Path avatar = user.length > 2 ? saveAvatar(user[2], nickname, coronaDirectory) : null;
                             Peer peer = remotePeer(nickname, avatar, false, bot,
                                     user.length > 1 && "1".equals(user[1]),
@@ -1841,7 +1884,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
             }
             return new Peer(nickname, avatar, false, peerHost, bot,
-                    !unsecure && identityValid, null, key, signature);
+                    !unsecure && identityValid, null, key, signature, null,
+                    null);
         }
 
         private void broadcastGame(String body, Connection except) throws Exception {
@@ -2107,7 +2151,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             peer.identityPublicKey,
                             peer.connection == null ? null
                                     : peer.connection.sessionFingerprint(),
-                            warmingPeers.contains(peer.nickname))).toList();
+                            warmingPeers.contains(peer.nickname),
+                            peer.botDifficulty,
+                            peer.botPersonality)).toList();
             return new LobbySnapshot(localNickname, serverNickname, endpoint,
                     host, phase, effectiveDetail == null ? "" : effectiveDetail,
                     participants, List.copyOf(chat), tableSettings, recovering, chatNotifications);
@@ -3162,7 +3208,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
     private record Peer(String nickname, Path avatar, boolean local, boolean host,
             boolean bot, boolean secure, Connection connection,
-            byte[] identityPublicKey, byte[] identitySignature) {
+            byte[] identityPublicKey, byte[] identitySignature,
+            NewGameTableDraft.BotDifficulty botDifficulty,
+            CustomBotProfile.Personality botPersonality) {
         private Peer {
             identityPublicKey = identityPublicKey == null ? null : identityPublicKey.clone();
             identitySignature = identitySignature == null ? null : identitySignature.clone();
@@ -3178,7 +3226,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         static Peer local(String nickname, Path avatar, boolean host,
                 byte[] identityPublicKey, byte[] identitySignature) {
             return new Peer(nickname, avatar, true, host, false, true, null,
-                    identityPublicKey, identitySignature);
+                    identityPublicKey, identitySignature, null, null);
         }
     }
 

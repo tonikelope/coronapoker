@@ -36,6 +36,10 @@ Three properties follow from that:
   before you touch*. Bot "improvements" judged by eye have repeatedly turned out
   to be regressions.
 
+Custom bot profiles do not create a second AI engine. They configure this same
+engine per seat: the host can choose an avatar, nickname, difficulty and one of
+the real behavioural profiles described below.
+
 ---
 
 ## 2. Architecture
@@ -395,3 +399,36 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 | Table/player contracts | `bot/context/DealerView.java`, `BotPlayerView.java` |
 | Combinatorial core | `org.alberta.poker.*` (`HandPotential`, `HandEvaluator`, `Deck`, `Hand`, `Card`) |
 | QA harness | [`tools/qa`](../tools/qa) |
+
+---
+
+## 13. Custom bot profiles
+
+The host can enable **Use custom bots** on the Bots page of the New Game
+screen and open **Manage bots**. Each ordered profile contains:
+
+- a display nickname;
+- the official bot avatar or a validated custom image;
+- an individual Easy, Normal or Hard difficulty;
+- a real engine personality: Random, NIT, STATION, TAG or LAG.
+
+Random preserves the normal weighted personality roll. A fixed personality
+pins the bot's base profile while retaining the engine's legitimate in-hand
+adaptations to stack pressure, tilt and table dynamics. Difficulty and profile
+are applied together with one deterministic personality roll.
+
+When custom bots are enabled, profiles enter the lobby in manager order. If the
+host adds more bots than there are custom profiles, the remaining seats use the
+standard sequential `CoronaBot` identities. A removed custom bot becomes the
+first eligible profile again.
+
+The manager accepts the visible name without a dollar sign and appends the
+reserved `$` bot marker automatically. The marker remains part of the protocol
+identity because existing engine and recovery paths use it to distinguish bots;
+it is never trusted as a network-security credential. Human nicknames continue
+to reject `$`.
+
+Selected avatars pass the same bounded image validation used for player
+avatars, are copied into CoronaPoker-owned durable storage, and travel through
+the existing lobby avatar channel. The catalogue is host-local and lives in the
+normal preferences, not in a MOD pack or in authoritative game state.

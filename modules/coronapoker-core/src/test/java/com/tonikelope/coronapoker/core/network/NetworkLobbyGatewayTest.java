@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.core.network;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
@@ -13,6 +14,7 @@ import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.CustomBotProfile;
 import com.tonikelope.coronapoker.core.StatsSyncService;
 import com.tonikelope.coronapoker.core.game.CoreGameDatabase;
 import com.tonikelope.coronapoker.core.game.GameLaunchContext;
@@ -25,10 +27,12 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Duration;
@@ -48,11 +52,88 @@ import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class NetworkLobbyGatewayTest {
     @TempDir Path temporary;
+
+    @Test
+    void customBotsJoinInCatalogueOrderBeforeStandardBots() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setCustomBots(true);
+        Path adaAvatar = temporary.resolve("ada.png");
+        BufferedImage pixels = new BufferedImage(3, 3,
+                BufferedImage.TYPE_INT_RGB);
+        pixels.setRGB(1, 1, 0x22cc88);
+        assertTrue(ImageIO.write(pixels, "png", adaAvatar.toFile()));
+        List<CustomBotProfile> profiles = List.of(
+                CustomBotProfile.create("Ada", adaAvatar,
+                        NewGameTableDraft.BotDifficulty.MEDIUM,
+                        CustomBotProfile.Personality.TAG),
+                CustomBotProfile.create("Turing", null,
+                        NewGameTableDraft.BotDifficulty.HARD,
+                        CustomBotProfile.Personality.NIT));
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Host", "",
+                        "127.0.0.1", Integer.toString(port), null,
+                        false, false, null);
+        NewGameRequest request = new NewGameRequest(connection,
+                table.snapshot(), null, profiles);
+
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                    temporary.resolve("custom-bot-order-host"));
+                NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                    temporary.resolve("custom-bot-order-client"))) {
+            LobbySession host = hostGateway.open(request).get(5,
+                    TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(
+                    request(true, "Guest", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 2);
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+
+                assertEquals(List.of("Ada$", "Turing$", "CoronaBot$1"),
+                        host.snapshot().participants().stream()
+                                .filter(participant -> participant.bot())
+                                .map(participant -> participant.nickname())
+                                .toList());
+                assertEquals(NewGameTableDraft.BotDifficulty.HARD,
+                        host.snapshot().participants().stream()
+                                .filter(participant -> participant.nickname()
+                                        .equals("Turing$"))
+                                .findFirst().orElseThrow().botDifficulty());
+                assertEquals(CustomBotProfile.Personality.NIT,
+                        host.snapshot().participants().stream()
+                                .filter(participant -> participant.nickname()
+                                        .equals("Turing$"))
+                                .findFirst().orElseThrow().botPersonality());
+                await(() -> client.snapshot().participants().stream()
+                        .filter(participant -> participant.bot()).count() == 3);
+                Path receivedAvatar = client.snapshot().participants().stream()
+                        .filter(participant -> participant.nickname()
+                                .equals("Ada$"))
+                        .findFirst().orElseThrow().avatar();
+                assertNotNull(receivedAvatar);
+                assertArrayEquals(Files.readAllBytes(adaAvatar),
+                        Files.readAllBytes(receivedAvatar));
+            } finally {
+                client.close();
+                host.close();
+            }
+        }
+    }
 
     @Test
     void lobbyAdoptsTheAlreadyOpenUpnpPortAndClosesItOnExit()

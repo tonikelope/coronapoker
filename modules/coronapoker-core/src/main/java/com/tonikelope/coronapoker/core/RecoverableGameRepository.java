@@ -104,20 +104,21 @@ public final class RecoverableGameRepository {
     }
 
     private static boolean isBotNickname(String nickname) {
-        if (nickname == null || !nickname.startsWith("CoronaBot$")) {
-            return false;
-        }
-        try {
-            return Integer.parseInt(nickname.substring("CoronaBot$".length())) > 0;
-        } catch (NumberFormatException invalid) {
-            return false;
-        }
+        return BotNickname.isBot(nickname);
     }
 
     private static int compareBotNicknames(String left, String right) {
-        int leftNumber = Integer.parseInt(left.substring("CoronaBot$".length()));
-        int rightNumber = Integer.parseInt(right.substring("CoronaBot$".length()));
-        return Integer.compare(leftNumber, rightNumber);
+        boolean leftStandard = BotNickname.isStandard(left);
+        boolean rightStandard = BotNickname.isStandard(right);
+        if (leftStandard && rightStandard) {
+            int leftNumber = Integer.parseInt(left.substring(
+                    BotNickname.STANDARD_PREFIX.length()));
+            int rightNumber = Integer.parseInt(right.substring(
+                    BotNickname.STANDARD_PREFIX.length()));
+            return Integer.compare(leftNumber, rightNumber);
+        }
+        if (leftStandard != rightStandard) return leftStandard ? 1 : -1;
+        return left.compareTo(right);
     }
 
     static NewGameTableDraft.Settings decodeSettings(String serialized,

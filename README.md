@@ -133,6 +133,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
   - 📡 **STATION**: calls everything, impossible to read
   - 🎯 **TAG**: tight-aggressive, the textbook grinder
   - 💥 **LAG**: loose-aggressive, unpredictable and relentless
+- **Host-managed custom bot profiles**: choose each bot's nickname, validated avatar, individual difficulty and real AI personality; profiles enter in your chosen order before standard bots fill the remaining seats.
 - **Real poker engine** built on the Alberta hand evaluator + hand-potential (true equity, not lookup tables)
 - Multi-street planning: **c-bets, polarised river & turn bluffs, semi-bluffs, slow-played traps, float plays, scare-card reads, MDF bluff-catching** and range-aware aggression, so they don't play their hand face-up
 - **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads): they remember your tendencies and *stop bluffing the player who never folds*
@@ -179,14 +180,17 @@ Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdo
 
 ## 🎨 Customization & MOD packs
 
-Every visual and audio asset is replaceable through redistributable MOD packs:
+CoronaPoker discovers an external `mod` directory beside the installation and
+can safely overlay the supported presentation assets:
 
 - **Card decks**: 4 themes bundled (`coronapoker`, `interstate60`, `goliat`, `goliat4`), each in both animated GIF and static HQ variants.
-- **All-in cinematics**: 9 bundled movie clips that play on every all-in. MOD packs can replace the whole set.
-- **Sound packs**: full per-language sound trees (English / Spanish) for actions, showdowns, voices and ambient music.
-- **Fonts**: custom display fonts (e.g. McLaren bundled by default).
-- **Background music**: context-aware tracks for waiting room, gameplay and stats screen.
-- **One-file distribution**: drop a single MOD pack in the right folder and it is picked up on next launch.
+- **All-in cinematics**: 9 bundled GIF sequences; a MOD can replace or combine the set and supply companion audio.
+- **Sound packs**: action sounds, table music and per-language comedy categories for English and Spanish.
+- **Safe fallback**: missing optional assets retain the official presentation, while unsafe paths and malformed descriptors are rejected.
+
+> The complete authoring reference — descriptor flags, exact directory tree,
+> card naming, sounds, cinematics and distribution checklist — lives in
+> **[`docs/MODS.md`](docs/MODS.md)**.
 
 ---
 

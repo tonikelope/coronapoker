@@ -7,7 +7,9 @@ import java.util.Objects;
 public record LobbyParticipant(String nickname, Path avatar, boolean local,
         boolean host, boolean bot, boolean connected, boolean asyncWaiting,
         boolean secure, int latency, int previousLatency,
-        byte[] identityPublicKey, byte[] sessionFingerprint, boolean warming) {
+        byte[] identityPublicKey, byte[] sessionFingerprint, boolean warming,
+        NewGameTableDraft.BotDifficulty botDifficulty,
+        CustomBotProfile.Personality botPersonality) {
 
     public static final int NO_LATENCY = -2;
 
@@ -17,11 +19,15 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             throw new IllegalArgumentException("Participant nickname is required");
         }
         avatar = avatar == null ? null : avatar.toAbsolutePath().normalize();
-        if (bot && !nickname.contains("$")) {
+        if (bot && !BotNickname.isBot(nickname)) {
             throw new IllegalArgumentException("Bot nicknames use the reserved dollar marker");
         }
-        if (!bot && nickname.contains("$")) {
+        if (!bot && BotNickname.isBot(nickname)) {
             throw new IllegalArgumentException("Human nicknames cannot use the bot marker");
+        }
+        if (!bot && (botDifficulty != null || botPersonality != null)) {
+            throw new IllegalArgumentException(
+                    "Only bots can carry an individual difficulty");
         }
         if (latency < NO_LATENCY || previousLatency < NO_LATENCY) {
             throw new IllegalArgumentException("Invalid latency sentinel");
@@ -41,7 +47,8 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean host, boolean bot, boolean connected, boolean asyncWaiting,
             boolean secure, int latency, int previousLatency) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
-                secure, latency, previousLatency, null, null, false);
+                secure, latency, previousLatency, null, null, false, null,
+                null);
     }
 
     /** Backwards-compatible constructor for identity-aware participants. */
@@ -51,7 +58,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             byte[] identityPublicKey) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey, null,
-                false);
+                false, null, null);
     }
 
     /** Backwards-compatible constructor for session-fingerprint callers. */
@@ -61,7 +68,28 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             byte[] identityPublicKey, byte[] sessionFingerprint) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey,
-                sessionFingerprint, false);
+                sessionFingerprint, false, null, null);
+    }
+
+    /** Backwards-compatible constructor for pre-profile lobby snapshots. */
+    public LobbyParticipant(String nickname, Path avatar, boolean local,
+            boolean host, boolean bot, boolean connected, boolean asyncWaiting,
+            boolean secure, int latency, int previousLatency,
+            byte[] identityPublicKey, byte[] sessionFingerprint,
+            boolean warming) {
+        this(nickname, avatar, local, host, bot, connected, asyncWaiting,
+                secure, latency, previousLatency, identityPublicKey,
+                sessionFingerprint, warming, null, null);
+    }
+
+    public LobbyParticipant(String nickname, Path avatar, boolean local,
+            boolean host, boolean bot, boolean connected, boolean asyncWaiting,
+            boolean secure, int latency, int previousLatency,
+            byte[] identityPublicKey, byte[] sessionFingerprint,
+            boolean warming, NewGameTableDraft.BotDifficulty botDifficulty) {
+        this(nickname, avatar, local, host, bot, connected, asyncWaiting,
+                secure, latency, previousLatency, identityPublicKey,
+                sessionFingerprint, warming, botDifficulty, null);
     }
 
     @Override

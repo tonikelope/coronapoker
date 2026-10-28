@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
@@ -8986,9 +8987,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     //
     // Does NOT touch the live auditor — operates on the copy passed in, so the official game result
     // (balance screen, stats, history) stays intact with real values; this split only feeds a second log
-    // table (real-money settlement effects among humans, after the fact). A bot is any nick with the
-    // canonical "CoronaBot$" prefix, matching the rest of the network protocol so host and clients
-    // classify identically.
+    // table (real-money settlement effects among humans, after the fact). A bot is any nick carrying
+    // the reserved dollar marker, matching the lobby, recovery and game protocol classification.
     //
     // @param auditor mutable copy of the auditor ({stack, buyin} per nick) the split is applied to.
     // @return true if applied (at least one non-flat bot and at least one human).
@@ -8997,7 +8997,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.ArrayList<String> bots = new java.util.ArrayList<>();
 
         for (String nick : auditor.keySet()) {
-            if (nick.startsWith("CoronaBot$")) {
+            if (BotNickname.isBot(nick)) {
                 bots.add(nick);
             } else {
                 humans.add(nick);
@@ -10828,7 +10828,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         for (GamePlayerController j : players()) {
-            if (j.getNickname().startsWith("CoronaBot$") && !peers().containsKey(j.getNickname())) {
+            if (BotNickname.isBot(j.getNickname())
+                    && !peers().containsKey(j.getNickname())) {
                 GamePeerController dummy = GamePeerController.recoveryBot(j.getNickname());
                 peers().put(j.getNickname(), dummy);
             }

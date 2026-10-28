@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.core;
 
 import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -34,6 +35,13 @@ public final class NewGameSubmissionCoordinator {
     public CompletableFuture<OpenedSession> submit(
             NewGameConnectionDraft connection, NewGameTableDraft table,
             UpnpPortReservation upnpReservation) {
+        return submit(connection, table, upnpReservation, List.of());
+    }
+
+    public CompletableFuture<OpenedSession> submit(
+            NewGameConnectionDraft connection, NewGameTableDraft table,
+            UpnpPortReservation upnpReservation,
+            List<CustomBotProfile> customBotProfiles) {
         Objects.requireNonNull(connection, "connection");
         final Attempt attempt;
         synchronized (this) {
@@ -44,7 +52,7 @@ public final class NewGameSubmissionCoordinator {
             NewGameRequest request;
             try {
                 request = NewGameRequest.begin(connection, table,
-                        upnpReservation);
+                        upnpReservation, customBotProfiles);
             } catch (RuntimeException | Error failure) {
                 if (upnpReservation != null) upnpReservation.close();
                 throw failure;

@@ -11,7 +11,9 @@ import java.util.Properties;
 
 /**
  * Renderer-neutral staged state shared by the create, join and recover flows.
- * No persistent value changes until a successful session handoff commits it.
+ * Game-session fields remain transactional until a successful handoff. The
+ * frontend may explicitly persist the shared local identity and, only while
+ * hosting, the local endpoint as soon as the user edits them.
  */
 public final class NewGameConnectionDraft {
 
@@ -127,6 +129,32 @@ public final class NewGameConnectionDraft {
 
     public void resetAvatar() {
         avatar = null;
+    }
+
+    /** Persists the local identity shared by the create and join forms. */
+    public void persistLocalIdentity(PreferencesService preferences) {
+        Objects.requireNonNull(preferences, "preferences");
+        Properties properties = preferences.properties();
+        boolean changed = setIfDifferent(properties, "nick", submittedNickname());
+        changed |= setIfDifferent(properties, "avatar", avatar == null
+                ? "" : avatar.toString());
+        if (changed) preferences.saveDeferred();
+    }
+
+    /**
+     * Persists only a valid endpoint from the create-table form. Join and
+     * recovery endpoints remain transactional until their handoff succeeds.
+     */
+    public void persistLocalHostEndpoint(PreferencesService preferences) {
+        Objects.requireNonNull(preferences, "preferences");
+        if (mode != Mode.CREATE) return;
+        Properties properties = preferences.properties();
+        boolean changed = !server.trim().isEmpty()
+                && setIfDifferent(properties, "local_ip", server.trim());
+        if (portValid()) {
+            changed |= setIfDifferent(properties, "local_port", port);
+        }
+        if (changed) preferences.saveDeferred();
     }
 
     public boolean upnp() {
@@ -271,6 +299,13 @@ public final class NewGameConnectionDraft {
             }
         }
         return result;
+    }
+
+    private static boolean setIfDifferent(Properties properties, String key,
+            String value) {
+        if (Objects.equals(properties.getProperty(key), value)) return false;
+        properties.setProperty(key, value);
+        return true;
     }
 
     private static String truncate(String value, int limit) {

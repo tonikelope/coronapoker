@@ -169,6 +169,48 @@ final class NewGameConnectionDraftTest {
         assertEquals("two:2@one:1", saved.getProperty("server_history"));
     }
 
+    @Test
+    void localIdentityIsSharedButOnlyCreatePersistsTheLocalEndpoint()
+            throws Exception {
+        Path file = temporaryDirectory.resolve("immediate-profile.properties");
+        Path avatar = temporaryDirectory.resolve("avatar.png");
+        Files.writeString(avatar, "avatar");
+        PreferencesService preferences = new PreferencesService(file);
+        preferences.start();
+
+        NewGameConnectionDraft create = NewGameConnectionDraft.from(
+                preferences.properties(), NewGameConnectionDraft.Mode.CREATE);
+        create.setNickname("Anfitrion$");
+        assertTrue(create.setAvatar(avatar));
+        create.persistLocalIdentity(preferences);
+        create.setServer("192.168.1.25");
+        create.setPort("8123");
+        create.persistLocalHostEndpoint(preferences);
+        create.setPort("");
+        create.setServer("192.168.1.26");
+        create.persistLocalHostEndpoint(preferences);
+
+        NewGameConnectionDraft join = NewGameConnectionDraft.from(
+                preferences.properties(), NewGameConnectionDraft.Mode.JOIN);
+        assertEquals("Anfitrion", join.nickname());
+        assertEquals(avatar.toAbsolutePath().normalize(), join.avatar());
+        join.setNickname("Invitado");
+        join.resetAvatar();
+        join.persistLocalIdentity(preferences);
+        join.setServer("example.invalid");
+        join.setPort("9000");
+        join.persistLocalHostEndpoint(preferences);
+        preferences.close();
+
+        Properties saved = load(file);
+        assertEquals("Invitado", saved.getProperty("nick"));
+        assertEquals("", saved.getProperty("avatar"));
+        assertEquals("192.168.1.26", saved.getProperty("local_ip"));
+        assertEquals("8123", saved.getProperty("local_port"));
+        assertFalse(saved.containsKey("server_ip"));
+        assertFalse(saved.containsKey("server_port"));
+    }
+
     private static Properties load(Path file) throws Exception {
         Properties properties = new Properties();
         try (var input = Files.newInputStream(file)) {

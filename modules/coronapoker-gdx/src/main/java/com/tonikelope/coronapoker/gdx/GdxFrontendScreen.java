@@ -12450,8 +12450,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void refreshHostAddressOptions() {
         int generation = ++hostAddressLoadGeneration;
         NewGameConnectionDraft target = connection;
+        String preferred = target.server();
         hostAddressOptions = List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
-        target.setServer(GdxLocalServerAddresses.LOOPBACK_NAME);
         CompletableFuture.supplyAsync(GdxLocalServerAddresses::discover,
                 networkInfoExecutor).whenComplete((addresses, failure) -> {
                     if (failure != null) {
@@ -12468,6 +12468,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 && addresses != null && !addresses.isEmpty()
                                 ? addresses
                                 : List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
+                        if (Objects.equals(target.server(), preferred)
+                                && !hostAddressOptions.contains(preferred)) {
+                            target.setServer(GdxLocalServerAddresses.LOOPBACK_NAME);
+                        }
                     });
                 });
     }
@@ -12540,6 +12544,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     case PROFILE -> selectGamePresetOption(selectedOption);
                     case HOST_ADDRESS -> {
                         connection.setServer(options.get(selectedOption));
+                        connection.persistLocalHostEndpoint(preferences);
                         dropdown = Dropdown.NONE;
                     }
                     default -> selectBlindStructureOption(selectedOption);
@@ -12982,12 +12987,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             showToast(gameText.translate("gdx.avatar.invalid"));
             return;
         }
+        connection.persistLocalIdentity(preferences);
         refreshSelectedAvatarTexture();
     }
 
     private void resetAvatar() {
         if (connection == null || avatarSelectionPending) return;
         connection.resetAvatar();
+        connection.persistLocalIdentity(preferences);
         disposeSelectedAvatarTexture();
     }
 
@@ -14440,9 +14447,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void setActiveValue(String value) {
         switch (activeField) {
-            case "nick" -> connection.setNickname(value);
+            case "nick" -> {
+                connection.setNickname(value);
+                connection.persistLocalIdentity(preferences);
+            }
             case "password" -> connection.setPassword(value);
-            case "server" -> connection.setServer(value);
+            case "server" -> {
+                connection.setServer(value);
+                connection.persistLocalHostEndpoint(preferences);
+            }
             case "port" -> {
                 if (!Objects.equals(connection.port(), value)
                         && (upnpOpenInFlight || connection.upnp()
@@ -14450,6 +14463,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     cancelAndReleaseUpnp();
                 }
                 connection.setPort(value);
+                connection.persistLocalHostEndpoint(preferences);
                 verifiedUpnpPort = -1;
             }
             case "lobbyChat" -> lobbyChatDraft = value;

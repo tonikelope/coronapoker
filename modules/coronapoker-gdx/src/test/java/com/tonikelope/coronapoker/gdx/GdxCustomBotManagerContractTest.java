@@ -38,6 +38,9 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains("ScrollDrag.CUSTOM_BOTS"));
         assertTrue(source.contains("GdxSettingsStyle.drawRowScrollbar"));
         assertTrue(source.contains(
+                "compactRepeatButton(listX + 245f"));
+        assertTrue(source.contains("ensureCustomBotVisible(target);"));
+        assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));
         assertTrue(source.contains(
                 "draft.setCustomBots(CustomBotProfileCatalog.enabled"));

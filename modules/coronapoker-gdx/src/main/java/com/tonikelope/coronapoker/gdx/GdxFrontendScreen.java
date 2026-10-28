@@ -11438,10 +11438,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     customBotScrollThumbHeight, 1f);
         }
 
-        compactButton(listX + 245f, 164f, 170f, 54f,
+        compactRepeatButton(listX + 245f, 164f, 170f, 54f,
                 gameText.translate("gdx.custom_bots.up"), false,
                 () -> moveCustomBot(-1), customBotSelected > 0);
-        compactButton(listX + 460f, 164f, 170f, 54f,
+        compactRepeatButton(listX + 460f, 164f, 170f, 54f,
                 gameText.translate("gdx.custom_bots.down"), false,
                 () -> moveCustomBot(1), customBotSelected >= 0
                         && customBotSelected < customBotProfiles.size() - 1);
@@ -12635,6 +12635,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 action, enabled, smallFont);
     }
 
+    private void compactRepeatButton(float x, float y, float w, float h,
+            String label, boolean primary, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, label,
+                primary ? ButtonTone.FEATURED : ButtonTone.NEUTRAL,
+                action, enabled, smallFont, true);
+    }
+
     private void compactIconButton(Rectangle bounds, Texture icon,
             String tooltipKey, Runnable action, boolean enabled,
             float iconSize) {
@@ -12699,6 +12706,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void themedButton(float x, float y, float w, float h,
             String label, ButtonTone tone, Runnable action, boolean enabled,
             BitmapFont labelFont) {
+        themedButton(x, y, w, h, label, tone, action, enabled, labelFont,
+                false);
+    }
+
+    private void themedButton(float x, float y, float w, float h,
+            String label, ButtonTone tone, Runnable action, boolean enabled,
+            BitmapFont labelFont, boolean repeatable) {
         boolean hover = enabled && hovered(x, y, w, h);
         float hoverTarget = hover ? 1f : 0f;
         String hoverKey = buttonHoverKey(label, x, y, w, h);
@@ -12724,7 +12738,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     labelColor);
         }
         if (enabled) {
-            if ("-".equals(label) || "+".equals(label)) {
+            if (repeatable || "-".equals(label) || "+".equals(label)) {
                 repeatHit(x, y, w, h, action);
             } else {
                 hit(x, y, w, h, action);

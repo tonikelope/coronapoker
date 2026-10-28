@@ -11061,7 +11061,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawBotsPage() {
         panel(520f, 185f, 1230f, 625f, settingsGameText("bots"));
-        bidirectionalChoice(580f, 650f, 1110f,
+        // Keep the first control entirely below the panel heading and divider.
+        // The generic choice label is drawn 99 px above its origin, so using
+        // the same origin as a title-less panel makes it invade the heading.
+        bidirectionalChoice(580f, 600f, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_difficulty"),
                 table.botDifficulty() == NewGameTableDraft.BotDifficulty.EASY
                         ? gameText.translate("gdx.settings.game.value.easy")
@@ -11071,29 +11074,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 : gameText.translate(
                                         "gdx.settings.game.value.medium"),
                 this::previousBotDifficulty, this::nextBotDifficulty, true);
-        tooltip(580f, 650f, 1110f, 102f, "tooltip.cfg.bots");
-        toggle(580f, 505f, 675f,
+        tooltip(580f, 600f, 1110f, 102f, "tooltip.cfg.bots");
+        toggle(580f, 485f, 675f,
                 gameText.translate("gdx.custom_bots.use"),
                 table.customBots(),
                 () -> table.setCustomBots(!table.customBots()), true);
-        tooltip(580f, 505f, 675f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, 485f, 675f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots");
-        button(1280f, 505f, 410f, GdxSettingsLayout.ROW_HEIGHT,
+        button(1280f, 485f, 410f, GdxSettingsLayout.ROW_HEIGHT,
                 uppercase(gameText.translate("gdx.custom_bots.manage")),
                 false, this::openCustomBotManager, table.customBots());
-        tooltip(1280f, 505f, 410f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(1280f, 485f, 410f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots.manage");
-        toggle(580f, 365f, 1110f,
+        toggle(580f, 345f, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_rebuy"),
                 table.botRebuy(),
                 () -> table.setBotRebuy(!table.botRebuy()), table.botRebuyEnabled());
-        tooltip(580f, 365f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, 345f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.bot_rebuy");
-        toggle(580f, 235f, 1110f,
+        toggle(580f, 215f, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_balance"),
                 table.botBalanceToHumans(),
                 () -> table.setBotBalanceToHumans(!table.botBalanceToHumans()), true);
-        tooltip(580f, 235f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, 215f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.bot_balance");
     }
 
@@ -11339,43 +11342,46 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         first = customBotPage * CUSTOM_BOT_VISIBLE_ROWS;
         for (int row = 0; row < CUSTOM_BOT_VISIBLE_ROWS; row++) {
             int index = first + row;
-            float rowY = 705f - row * 105f;
+            float rowY = 698f - row * 105f;
             if (index >= customBotProfiles.size()) {
                 shapes.setColor(new Color(0x17253a70));
-                roundedRect(listX + 22f, rowY, listW - 44f, 86f, 10f);
+                roundedRect(listX + 22f, rowY, listW - 44f, 94f, 10f);
                 continue;
             }
             CustomBotProfile profile = customBotProfiles.get(index);
             boolean selected = index == customBotSelected;
             boolean over = hovered(listX + 22f, rowY,
-                    listW - 44f, 86f);
-            outerBox(listX + 22f, rowY, listW - 44f, 86f,
+                    listW - 44f, 94f);
+            outerBox(listX + 22f, rowY, listW - 44f, 94f,
                     selected ? GOLD : over ? CYAN : LINE,
                     selected ? new Color(0x17314af4) : PANEL_LIGHT);
             Texture avatar = customBotAvatarTexture(profile.avatar());
             customBotManagerImages.add(new UiImageItem(avatar,
-                    listX + 36f, rowY + 9f, 68f, 68f));
-            textFit(uiFont, profile.displayName(), listX + 126f,
-                    rowY + 56f, Color.WHITE, false, 310f);
-            textFit(tinyFont, profile.nickname(), listX + 126f,
-                    rowY + 27f, MUTED, false, 310f);
-            textFit(smallFont, switch (profile.difficulty()) {
+                    listX + 34f, rowY + 9f, 76f, 76f));
+            textFit(headingFont, profile.displayName(), listX + 130f,
+                    rowY + 64f, Color.WHITE, false, 340f);
+            textFit(smallFont, profile.nickname(), listX + 130f,
+                    rowY + 29f, MUTED, false, 340f);
+            textFit(uiFont, switch (profile.difficulty()) {
                 case EASY -> gameText.translate(
                         "gdx.settings.game.value.easy");
                 case MEDIUM -> gameText.translate(
                         "gdx.custom_bots.difficulty.normal");
                 case HARD -> gameText.translate(
                         "gdx.settings.game.value.hard");
-            }, listX + 505f, rowY + 54f, GOLD, true, 155f);
-            textFit(tinyFont,
+            }, listX + 600f, rowY + 61f, GOLD, true, 220f);
+            textFit(smallFont,
                     customBotPersonalityLabel(profile.personality()),
-                    listX + 505f, rowY + 25f, CYAN, true, 190f);
-            textFit(tinyFont, Integer.toString(index + 1),
-                    listX + listW - 65f, rowY + 48f,
-                    selected ? GOLD : MUTED, true, 40f);
-            hit(listX + 22f, rowY, listW - 44f, 86f,
+                    listX + 600f, rowY + 28f, CYAN, true, 245f);
+            outerBox(listX + listW - 96f, rowY + 22f, 52f, 52f,
+                    selected ? GOLD : LINE,
+                    selected ? new Color(0x2b3e5cff) : PANEL);
+            textFit(smallFont, "#" + (index + 1),
+                    listX + listW - 70f, rowY + 54f,
+                    selected ? GOLD : MUTED, true, 42f);
+            hit(listX + 22f, rowY, listW - 44f, 94f,
                     () -> selectCustomBot(index));
-            tooltip(listX + 22f, rowY, listW - 44f, 86f,
+            tooltip(listX + 22f, rowY, listW - 44f, 94f,
                     "tooltip.cfg.custom_bots.row");
         }
 
@@ -11405,54 +11411,58 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : gameText.translate("gdx.custom_bots.edit"),
                 editX + 24f, 852f, GOLD, false, editW - 48f);
         Texture editorAvatar = customBotAvatarTexture(customBotAvatarDraft);
+        float editorAvatarSize = 100f;
         customBotManagerImages.add(new UiImageItem(editorAvatar,
-                editX + 202f, 704f, 140f, 140f));
+                editX + (editW - editorAvatarSize) / 2f, 747f,
+                editorAvatarSize, editorAvatarSize));
         textFit(tinyFont, customBotAvatarDraft == null
                         ? gameText.translate("gdx.custom_bots.avatar.default")
                         : gameText.translate("gdx.custom_bots.avatar.custom"),
-                editX + editW / 2f, 689f, MUTED, true, 360f);
-        compactButton(editX + 42f, 628f, 255f, 54f,
+                editX + editW / 2f, 730f, MUTED, true, 360f);
+        compactButton(editX + 42f, 652f, 220f, 54f,
                 customBotAvatarSelectionPending
                         ? gameText.translate("gdx.opening")
                         : gameText.translate("gdx.custom_bots.avatar.choose"),
                 false, this::selectCustomBotAvatar,
                 !customBotAvatarSelectionPending);
-        compactButton(editX + 310f, 628f, 193f, 54f,
+        compactButton(editX + 275f, 652f, 228f, 54f,
                 gameText.translate("gdx.custom_bots.avatar.default_button"),
                 false, () -> customBotAvatarDraft = null,
                 !customBotAvatarSelectionPending
                         && customBotAvatarDraft != null);
-        tooltip(editX + 42f, 628f, 255f, 54f,
+        tooltip(editX + 42f, 652f, 220f, 54f,
+                "tooltip.cfg.custom_bots.avatar");
+        tooltip(editX + 275f, 652f, 228f, 54f,
                 "tooltip.cfg.custom_bots.avatar");
 
-        field(editX + 42f, 506f, editW - 84f,
+        field(editX + 42f, 530f, editW - 84f,
                 gameText.translate("gdx.custom_bots.name"),
                 customBotNameDraft, "customBotName", false,
                 customBotValidationError.isBlank());
-        textFit(tinyFont, gameText.translate("gdx.custom_bots.marker_help"),
-                editX + 42f, 484f, MUTED, false, editW - 84f);
-        tooltip(editX + 42f, 506f, editW - 84f, 70f,
+        textFit(tinyFont, customBotValidationError.isBlank()
+                        ? gameText.translate("gdx.custom_bots.marker_help")
+                        : customBotValidationError,
+                editX + 42f, 500f,
+                customBotValidationError.isBlank() ? MUTED : ORANGE,
+                false, editW - 84f);
+        tooltip(editX + 42f, 530f, editW - 84f, 70f,
                 "tooltip.cfg.custom_bots.name");
 
-        bidirectionalChoice(editX + 42f, 365f, editW - 84f,
+        bidirectionalChoice(editX + 42f, 360f, editW - 84f,
                 gameText.translate("gdx.custom_bots.difficulty"),
                 customBotDifficultyLabel(),
                 () -> adjustCustomBotDifficulty(-1),
                 () -> adjustCustomBotDifficulty(1), true);
-        tooltip(editX + 42f, 365f, editW - 84f, 102f,
+        tooltip(editX + 42f, 360f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.difficulty");
-        bidirectionalChoice(editX + 42f, 224f, editW - 84f,
+        bidirectionalChoice(editX + 42f, 225f, editW - 84f,
                 gameText.translate("gdx.custom_bots.personality"),
                 customBotPersonalityLabel(customBotPersonalityDraft),
                 () -> adjustCustomBotPersonality(-1),
                 () -> adjustCustomBotPersonality(1), true);
-        tooltip(editX + 42f, 224f, editW - 84f, 102f,
+        tooltip(editX + 42f, 225f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.personality");
 
-        if (!customBotValidationError.isBlank()) {
-            textFit(tinyFont, customBotValidationError,
-                    editX + 42f, 197f, ORANGE, false, editW - 84f);
-        }
         compactButton(editX + 42f, 158f, 140f, 54f,
                 gameText.translate("gdx.custom_bots.new_button"), false,
                 this::newCustomBot,
@@ -11721,7 +11731,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawToastTopLayer() {
         float w = 820f;
         float x = WIDTH / 2f - w / 2f;
-        float y = 145f;
+        // Feedback from the bot manager belongs to the manager itself. Its
+        // regular bottom placement covered the pagination and edit actions.
+        float y = customBotManagerOpen ? 502f : 145f;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -14606,6 +14618,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (surface == Surface.SETTINGS && amountY != 0f
                 && !settingsScrollBlockedByChildDialog()) {
             scrollActiveSettingsSection(amountY);
+            return true;
+        }
+        if (surface == Surface.NEW_GAME && customBotManagerOpen
+                && !customBotDeleteConfirmation && amountY != 0f) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (pointer.x >= 257f && pointer.x <= 1088f
+                    && pointer.y >= 278f && pointer.y <= 792f) {
+                int maximumPage = customBotProfiles.isEmpty() ? 0
+                        : (customBotProfiles.size() - 1)
+                                / CUSTOM_BOT_VISIBLE_ROWS;
+                customBotPage = MathUtils.clamp(customBotPage
+                        + (amountY > 0f ? 1 : -1), 0, maximumPage);
+            }
             return true;
         }
         if (childModalOwnsInput() && dropdown == Dropdown.NONE) {

@@ -29,5 +29,10 @@ final class GdxCustomBotManagerContractTest {
                 "CustomBotProfileCatalog.writeTo(initialProperties"));
         assertTrue(source.contains(
                 "customBotPersonalityDraft = CustomBotProfile.Personality.RANDOM"));
+        assertTrue(source.contains(
+                "float y = customBotManagerOpen ? 502f : 145f;"));
+        assertTrue(source.contains(
+                "surface == Surface.NEW_GAME && customBotManagerOpen\n"
+                + "                && !customBotDeleteConfirmation && amountY != 0f"));
     }
 }

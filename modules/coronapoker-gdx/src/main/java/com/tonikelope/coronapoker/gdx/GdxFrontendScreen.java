@@ -11594,12 +11594,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.custom_bots.name"),
                 customBotNameDraft, "customBotName", false,
                 customBotValidationError.isBlank());
-        textFit(tinyFont, customBotValidationError.isBlank()
-                        ? gameText.translate("gdx.custom_bots.marker_help")
-                        : customBotValidationError,
-                editX + 42f, 560f,
-                customBotValidationError.isBlank() ? MUTED : ORANGE,
-                false, editW - 112f);
+        if (!customBotValidationError.isBlank()) {
+            textFit(tinyFont, customBotValidationError,
+                    editX + 42f, 560f, ORANGE, false, editW - 112f);
+        }
         tooltip(editX + 42f, 590f, editW - 84f, 70f,
                 "tooltip.cfg.custom_bots.name");
 

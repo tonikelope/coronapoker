@@ -92,6 +92,8 @@ final class GdxCustomBotManagerContractTest {
                 "gdx.custom_bots.avatar.choose"));
         assertFalse(source.contains(
                 "gdx.custom_bots.avatar.default_button"));
+        assertFalse(source.contains(
+                "gameText.translate(\"gdx.custom_bots.marker_help\")"));
         assertTrue(source.contains(
                 "field(editX + 42f, 590f, editW - 84f"));
         assertTrue(source.contains(

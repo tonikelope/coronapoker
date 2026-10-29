@@ -1,10 +1,12 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.CustomBotProfile;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,7 +118,9 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "bidirectionalChoice(editX + 42f, 285f, editW - 84f"));
         assertTrue(source.contains(
-                "compactButton(editX + 42f, 158f, 140f, 54f"));
+                "compactButton(newButtonX, 824f, 140f, 54f"));
+        assertTrue(source.contains(
+                "this::saveCustomBot, customBotSaveEnabled());"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));
@@ -157,5 +161,32 @@ final class GdxCustomBotManagerContractTest {
                 GdxFrontendScreen.customBotSelectionPulse(1.35f), 0.0001f);
         assertEquals(0f,
                 GdxFrontendScreen.customBotSelectionPulse(1.80f), 0.0001f);
+    }
+
+    @Test
+    void saveChangesOnlyEnablesForARealDraftDifference() {
+        Path avatar = Path.of("avatar.png").toAbsolutePath().normalize();
+        CustomBotProfile selected = CustomBotProfile.create("T-800", avatar,
+                NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.NIT);
+
+        assertFalse(GdxFrontendScreen.customBotDraftHasChanges(selected,
+                "  T-800  ", avatar,
+                NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.NIT));
+        assertTrue(GdxFrontendScreen.customBotDraftHasChanges(selected,
+                "T-1000", avatar,
+                NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.NIT));
+        assertTrue(GdxFrontendScreen.customBotDraftHasChanges(selected,
+                "T-800", null,
+                NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.NIT));
+        assertFalse(GdxFrontendScreen.customBotDraftHasChanges(null, "",
+                null, NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.RANDOM));
+        assertTrue(GdxFrontendScreen.customBotDraftHasChanges(null, "New bot",
+                null, NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.RANDOM));
     }
 }

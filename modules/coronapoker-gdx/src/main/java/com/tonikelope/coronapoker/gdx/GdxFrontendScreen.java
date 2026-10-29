@@ -74,6 +74,7 @@ import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayDeque;
@@ -11342,6 +11343,45 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
+    private boolean customBotSaveEnabled() {
+        CustomBotProfile selected = customBotSelected >= 0
+                && customBotSelected < customBotProfiles.size()
+                ? customBotProfiles.get(customBotSelected) : null;
+        return !customBotAvatarSelectionPending
+                && !customBotNameDraft.isBlank()
+                && customBotDraftHasChanges(selected, customBotNameDraft,
+                        customBotAvatarDraft, customBotDifficultyDraft,
+                        customBotPersonalityDraft);
+    }
+
+    static boolean customBotDraftHasChanges(CustomBotProfile selected,
+            String name, Path avatar,
+            NewGameTableDraft.BotDifficulty difficulty,
+            CustomBotProfile.Personality personality) {
+        String normalizedName = Normalizer.normalize(
+                Objects.requireNonNullElse(name, "").trim(),
+                Normalizer.Form.NFC);
+        Path normalizedAvatar = avatar == null ? null
+                : avatar.toAbsolutePath().normalize();
+        NewGameTableDraft.BotDifficulty normalizedDifficulty
+                = Objects.requireNonNullElse(difficulty,
+                        NewGameTableDraft.BotDifficulty.MEDIUM);
+        CustomBotProfile.Personality normalizedPersonality
+                = Objects.requireNonNullElse(personality,
+                        CustomBotProfile.Personality.RANDOM);
+        if (selected == null) {
+            return !normalizedName.isEmpty() || normalizedAvatar != null
+                    || normalizedDifficulty
+                            != NewGameTableDraft.BotDifficulty.MEDIUM
+                    || normalizedPersonality
+                            != CustomBotProfile.Personality.RANDOM;
+        }
+        return !selected.displayName().equals(normalizedName)
+                || !Objects.equals(selected.avatar(), normalizedAvatar)
+                || selected.difficulty() != normalizedDifficulty
+                || selected.personality() != normalizedPersonality;
+    }
+
     private void deleteCustomBot() {
         if (customBotSelected < 0
                 || customBotSelected >= customBotProfiles.size()) return;
@@ -11639,7 +11679,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, customBotSelected < 0
                         ? gameText.translate("gdx.custom_bots.new")
                         : gameText.translate("gdx.custom_bots.edit"),
-                editX + 24f, 852f, GOLD, false, editW - 48f);
+                editX + 24f, 852f, GOLD, false, 300f);
+        float newButtonX = editX + editW - 182f;
+        compactButton(newButtonX, 824f, 140f, 54f,
+                gameText.translate("gdx.custom_bots.new_button"), false,
+                this::newCustomBot,
+                customBotProfiles.size()
+                        < CustomBotProfileCatalog.MAX_PROFILES);
+        tooltip(newButtonX, 824f, 140f, 54f,
+                "tooltip.cfg.custom_bots.new");
         Texture editorAvatar = customBotAvatarTexture(customBotAvatarDraft);
         float editorAvatarCenterX = editX + editW / 2f;
         float editorAvatarCenterY = 790f;
@@ -11688,26 +11736,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(editX + 42f, 285f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.personality");
 
-        compactButton(editX + 42f, 158f, 140f, 54f,
-                gameText.translate("gdx.custom_bots.new_button"), false,
-                this::newCustomBot,
-                customBotProfiles.size()
-                        < CustomBotProfileCatalog.MAX_PROFILES);
-        compactButton(editX + 194f, 158f, 150f, 54f,
-                customBotSelected < 0
-                        ? gameText.translate("gdx.custom_bots.add")
-                        : gameText.translate("gdx.custom_bots.save"), true,
-                this::saveCustomBot, !customBotNameDraft.isBlank()
-                        && !customBotAvatarSelectionPending);
-        compactButton(editX + 356f, 158f, 147f, 54f,
+        float saveButtonX = editX + 97f;
+        compactButton(saveButtonX, 158f, 190f, 54f,
+                gameText.translate("gdx.custom_bots.save"), true,
+                this::saveCustomBot, customBotSaveEnabled());
+        float deleteButtonX = saveButtonX + 206f;
+        compactButton(deleteButtonX, 158f, 145f, 54f,
                 gameText.translate("gdx.custom_bots.delete"), false,
                 this::openCustomBotDeleteConfirmation,
                 customBotSelected >= 0);
-        tooltip(editX + 42f, 158f, 140f, 54f,
-                "tooltip.cfg.custom_bots.new");
-        tooltip(editX + 194f, 158f, 150f, 54f,
+        tooltip(saveButtonX, 158f, 190f, 54f,
                 "tooltip.cfg.custom_bots.save");
-        tooltip(editX + 356f, 158f, 147f, 54f,
+        tooltip(deleteButtonX, 158f, 145f, 54f,
                 "tooltip.cfg.custom_bots.delete");
 
         button(785f, 72f, 350f, 60f,
@@ -14825,8 +14865,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.NEW_GAME && customBotManagerOpen) {
             if (customBotDeleteConfirmation) deleteCustomBot();
-            else if (!customBotNameDraft.isBlank()
-                    && !customBotAvatarSelectionPending) saveCustomBot();
+            else if (customBotSaveEnabled()) saveCustomBot();
             return true;
         }
         if (surface == Surface.NEW_GAME

@@ -65,6 +65,10 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "WIDTH / 2f, 912f, MUTED, true, 1320f);"));
         assertTrue(source.contains(
+                "gameText.translate(\"gdx.custom_bots.subtitle\")"));
+        assertFalse(source.contains("gdx.custom_bots.subtitle.random"));
+        assertFalse(source.contains("gdx.custom_bots.order_help"));
+        assertTrue(source.contains(
                 "textFit(uiFont, gameText.translate(\"gdx.custom_bots.catalog\")"));
         assertTrue(source.contains(
                 "textFit(uiFont, customBotSelected < 0"));

@@ -11427,9 +11427,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, h, CYAN, PANEL);
         textFit(titleFont, gameText.translate("gdx.custom_bots.title"),
                 WIDTH / 2f, 974f, GOLD, true, 1260f);
-        textFit(smallFont, gameText.translate(customBotRandomSelection
-                        ? "gdx.custom_bots.subtitle.random"
-                        : "gdx.custom_bots.subtitle"),
+        textFit(smallFont, gameText.translate("gdx.custom_bots.subtitle"),
                 WIDTH / 2f, 912f, MUTED, true, 1320f);
 
         float listX = 235f;
@@ -11440,10 +11438,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(0x081525f2));
         textFit(uiFont, gameText.translate("gdx.custom_bots.catalog"),
                 listX + 24f, 852f, GOLD, false, listW - 48f);
-        textFit(tinyFont, gameText.translate(customBotRandomSelection
-                        ? "gdx.custom_bots.order_help.random"
-                        : "gdx.custom_bots.order_help"),
-                listX + 24f, 816f, MUTED, false, listW - 48f);
 
         customBotScrollMaximum = customBotMaximumPixelScroll(
                 customBotProfiles.size());

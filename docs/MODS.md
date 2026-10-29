@@ -92,9 +92,10 @@ be found in the bundled `src/main/resources/sounds/misc` directory.
 
 Music uses the same rule as ordinary effects. In particular,
 `background_music.mp3`, `waiting_room.mp3`, `about_music.mp3` and
-`stats_music.mp3` can all be replaced under `mod/sounds/misc`. CoronaPoker
-resolves these files from the active MOD before opening its music streams, so
-restart the game after adding or changing a track.
+`stats_music.mp3` can all be replaced under `mod/sounds/misc`. The bot manager
+uses the same mechanism through `bots_manager.mp3`. CoronaPoker resolves these
+files from the active MOD before opening its music streams, so restart the game
+after adding or changing a track.
 
 Comedy categories are language-specific WAV directories under
 `sounds/joke/<language>/`: `allin`, `fold`, `showdown`, `loser`, and `winner`.

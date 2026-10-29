@@ -24,6 +24,14 @@ final class GdxCustomBotManagerContractTest {
                 + "                && (customBotManagerOpen"));
         assertTrue(source.contains("drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerImages();"));
+        assertTrue(source.contains(
+                "customBotManagerMusic = music(\n"
+                + "                \"sounds/misc/bots_manager.mp3\", 0.65f);"));
+        assertTrue(source.contains(
+                "customBotDialogMusic = surface == Surface.NEW_GAME"));
+        assertTrue(source.contains(
+                "syncTrack(customBotManagerMusic, playCustomBotManager);"));
+        assertTrue(source.contains("customBotManagerMusic.dispose();"));
         assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
                 + "                drawCustomBotDeleteConfirmationTopLayer();"));
         assertTrue(source.contains("batch.setShader(avatarShader);"));
@@ -51,7 +59,25 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "\"tooltip.cfg.custom_bots.save\""));
         assertTrue(source.contains(
-                "compactRepeatButton(listX + 410f"));
+                "compactRepeatButton(listX + 479f"));
+        assertTrue(source.contains(
+                "compactRepeatButton(listX + 654f"));
+        assertTrue(source.contains(
+                "WIDTH / 2f, 912f, MUTED, true, 1320f);"));
+        assertTrue(source.contains(
+                "textFit(uiFont, gameText.translate(\"gdx.custom_bots.catalog\")"));
+        assertTrue(source.contains(
+                "textFit(uiFont, customBotSelected < 0"));
+        assertTrue(source.contains(
+                "rowY + 56f, Color.WHITE, false, 340f);"));
+        assertTrue(source.contains(
+                "listX + 600f, rowY + 62f, GOLD, true, 220f);"));
+        assertTrue(source.contains(
+                "listX + 600f, rowY + 34f, CYAN, true, 245f);"));
+        assertFalse(source.contains(
+                "textFit(smallFont, profile.nickname()"));
+        assertFalse(source.contains(
+                "gdx.custom_bots.avatar.default\")"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));

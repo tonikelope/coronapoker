@@ -433,6 +433,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music waitingRoomMusic;
     private Music aboutMusic;
     private Music statsMusic;
+    private Music customBotManagerMusic;
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
     private GdxModalBackdropBlur modalBackdropBlur;
@@ -828,6 +829,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         waitingRoomMusic = music("sounds/misc/waiting_room.mp3", 0.90f);
         aboutMusic = music("sounds/misc/about_music.mp3", 0.90f);
         statsMusic = music("sounds/misc/stats_music.mp3", 0.30f);
+        customBotManagerMusic = music(
+                "sounds/misc/bots_manager.mp3", 0.65f);
         avatarShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
                 AVATAR_FRAGMENT_SHADER);
         if (!avatarShader.isCompiled()) {
@@ -9680,13 +9683,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void syncMusicForSurface() {
         if (backgroundMusic == null || waitingRoomMusic == null
-                || aboutMusic == null || statsMusic == null) return;
+                || aboutMusic == null || statsMusic == null
+                || customBotManagerMusic == null) return;
         float volume = masterVolume();
         GdxVoicePlayback.refreshVolume(volume);
         setMusicVolume(backgroundMusic, 0.40f * volume);
         setMusicVolume(waitingRoomMusic, 0.90f * volume);
         setMusicVolume(aboutMusic, 0.90f * volume);
         setMusicVolume(statsMusic, 0.30f * volume);
+        setMusicVolume(customBotManagerMusic, 0.65f * volume);
         boolean lobbyMusic = surface == Surface.LOBBY
                 || (surface == Surface.SCREENSHOTS
                         && screenshotReturnSurface == Surface.LOBBY)
@@ -9696,10 +9701,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && settingsReturnSurface == Surface.LOBBY);
         boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
         boolean statsDialogMusic = surface == Surface.STATS;
+        boolean customBotDialogMusic = surface == Surface.NEW_GAME
+                && customBotManagerOpen;
         boolean playBackground = frontendTrackAllowed(tableAudioSuspended,
                 !startupAudioHeld
                 && musicMasterEnabled() && !lobbyMusic && !aboutDialogMusic
-                && !statsDialogMusic
+                && !statsDialogMusic && !customBotDialogMusic
                 && preferenceBoolean("sonido_ascensor", true));
         boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && lobbyMusic
@@ -9710,10 +9717,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean playStats = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && statsDialogMusic
                 && preferenceBoolean("musica_stats", true));
+        boolean playCustomBotManager = frontendTrackAllowed(
+                tableAudioSuspended,
+                musicMasterEnabled() && customBotDialogMusic
+                && preferenceBoolean("sonido_ascensor", true));
         syncTrack(backgroundMusic, playBackground);
         syncTrack(waitingRoomMusic, playWaitingRoom);
         syncTrack(aboutMusic, playAbout);
         syncTrack(statsMusic, playStats);
+        syncTrack(customBotManagerMusic, playCustomBotManager);
     }
 
     private static void setMusicVolume(Music music, float volume) {
@@ -9761,6 +9773,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (waitingRoomMusic != null) waitingRoomMusic.pause();
         if (aboutMusic != null) aboutMusic.pause();
         if (statsMusic != null) statsMusic.pause();
+        if (customBotManagerMusic != null) customBotManagerMusic.pause();
     }
 
     private void stopLobbyTransientAudio() {
@@ -11155,6 +11168,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         else selectCustomBot(Math.min(Math.max(customBotSelected, 0),
                 customBotProfiles.size() - 1));
         captureFrontendModalInput();
+        syncMusicForSurface();
     }
 
     private void closeCustomBotManager() {
@@ -11163,6 +11177,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         customBotAvatarSelectionPending = false;
         customBotValidationError = "";
         clearActiveField();
+        syncMusicForSurface();
     }
 
     private void newCustomBot() {
@@ -11409,7 +11424,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, gameText.translate(customBotRandomSelection
                         ? "gdx.custom_bots.subtitle.random"
                         : "gdx.custom_bots.subtitle"),
-                WIDTH / 2f, 922f, MUTED, true, 1320f);
+                WIDTH / 2f, 912f, MUTED, true, 1320f);
 
         float listX = 235f;
         float listY = 145f;
@@ -11417,7 +11432,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float listH = 745f;
         outerBox(listX, listY, listW, listH, LINE,
                 new Color(0x081525f2));
-        textFit(smallFont, gameText.translate("gdx.custom_bots.catalog"),
+        textFit(uiFont, gameText.translate("gdx.custom_bots.catalog"),
                 listX + 24f, 852f, GOLD, false, listW - 48f);
         textFit(tinyFont, gameText.translate(customBotRandomSelection
                         ? "gdx.custom_bots.order_help.random"
@@ -11471,9 +11486,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             customBotManagerListImages.add(new UiImageItem(avatar,
                     listX + 34f, rowY + 9f, 76f, 76f));
             textFit(headingFont, profile.displayName(), listX + 130f,
-                    rowY + 64f, Color.WHITE, false, 340f);
-            textFit(smallFont, profile.nickname(), listX + 130f,
-                    rowY + 29f, MUTED, false, 340f);
+                    rowY + 56f, Color.WHITE, false, 340f);
             textFit(uiFont, switch (profile.difficulty()) {
                 case EASY -> gameText.translate(
                         "gdx.settings.game.value.easy");
@@ -11481,10 +11494,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.custom_bots.difficulty.normal");
                 case HARD -> gameText.translate(
                         "gdx.settings.game.value.hard");
-            }, listX + 600f, rowY + 61f, GOLD, true, 220f);
+            }, listX + 600f, rowY + 62f, GOLD, true, 220f);
             textFit(smallFont,
                     customBotPersonalityLabel(profile.personality()),
-                    listX + 600f, rowY + 28f, CYAN, true, 245f);
+                    listX + 600f, rowY + 34f, CYAN, true, 245f);
             float orderX = rowX + rowW - 64f;
             outerBox(orderX, rowY + 22f, 52f, 52f,
                     selected ? GOLD : LINE,
@@ -11529,23 +11542,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(listX + 22f, 157f, 360f,
                 GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots.random_selection");
-        compactRepeatButton(listX + 410f, 164f, 155f, 54f,
+        compactRepeatButton(listX + 479f, 164f, 155f, 54f,
                 gameText.translate("gdx.custom_bots.up"), false,
                 () -> moveCustomBot(-1), customBotSelected > 0);
-        compactRepeatButton(listX + 585f, 164f, 155f, 54f,
+        compactRepeatButton(listX + 654f, 164f, 155f, 54f,
                 gameText.translate("gdx.custom_bots.down"), false,
                 () -> moveCustomBot(1), customBotSelected >= 0
                         && customBotSelected < customBotProfiles.size() - 1);
-        tooltip(listX + 410f, 164f, 155f, 54f,
+        tooltip(listX + 479f, 164f, 155f, 54f,
                 "tooltip.cfg.custom_bots.order_up");
-        tooltip(listX + 585f, 164f, 155f, 54f,
+        tooltip(listX + 654f, 164f, 155f, 54f,
                 "tooltip.cfg.custom_bots.order_down");
 
         float editX = 1140f;
         float editW = 545f;
         outerBox(editX, listY, editW, listH, LINE,
                 new Color(0x081525f2));
-        textFit(smallFont, customBotSelected < 0
+        textFit(uiFont, customBotSelected < 0
                         ? gameText.translate("gdx.custom_bots.new")
                         : gameText.translate("gdx.custom_bots.edit"),
                 editX + 24f, 852f, GOLD, false, editW - 48f);
@@ -11554,10 +11567,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         customBotManagerImages.add(new UiImageItem(editorAvatar,
                 editX + (editW - editorAvatarSize) / 2f, 747f,
                 editorAvatarSize, editorAvatarSize));
-        textFit(tinyFont, customBotAvatarDraft == null
-                        ? gameText.translate("gdx.custom_bots.avatar.default")
-                        : gameText.translate("gdx.custom_bots.avatar.custom"),
-                editX + editW / 2f, 730f, MUTED, true, 360f);
         compactButton(editX + 42f, 652f, 220f, 54f,
                 customBotAvatarSelectionPending
                         ? gameText.translate("gdx.opening")
@@ -14788,6 +14797,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         aboutMusic.dispose();
         statsMusic.stop();
         statsMusic.dispose();
+        customBotManagerMusic.stop();
+        customBotManagerMusic.dispose();
         for (Texture texture : lobbyAvatarTextures.values()) {
             texture.dispose();
         }

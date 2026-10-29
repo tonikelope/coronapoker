@@ -352,11 +352,11 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void foldedActionLabelRemainsAttenuatedEvenAfterShowdownSettles() {
-        assertEquals(0.34f,
+    void foldedSeatUsesOneExactOpacityLayerAndHoverRestoresIt() {
+        assertEquals(1f,
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(true, true),
                 0.000_001f);
-        assertEquals(0.56f,
+        assertEquals(1f,
                 CoronaPokerGdxTable.seatActionTextAlpha(true), 0.000_001f);
         assertEquals(1f,
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(false, true),
@@ -364,12 +364,23 @@ final class GdxTableViewStateTest {
         assertEquals(0.92f,
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(false, false),
                 0.000_001f);
+        assertEquals(0.92f,
+                CoronaPokerGdxTable.seatActionSurfaceAlpha(true, false),
+                0.000_001f,
+                "folding must not apply a second component-level fade");
         assertEquals(1f,
                 CoronaPokerGdxTable.seatActionTextAlpha(false), 0.000_001f);
-        assertEquals(0.50f, CoronaPokerGdxTable.foldedSeatOpacity(true),
+        assertEquals(0.75f, CoronaPokerGdxTable.foldedSeatOpacity(true),
                 0.000_001f);
         assertEquals(1f, CoronaPokerGdxTable.foldedSeatOpacity(false),
                 0.000_001f);
+        assertEquals(0.75f,
+                CoronaPokerGdxTable.foldedSeatOpacity(true, false),
+                0.000_001f);
+        assertEquals(1f,
+                CoronaPokerGdxTable.foldedSeatOpacity(true, true),
+                0.000_001f,
+                "hover lifts the folded seat-level opacity");
         assertTrue(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
                 true, 0.50f),
                 "a folded rack must receive opacity only after composition");
@@ -392,13 +403,36 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void avatarRimUsesTheCanonicalTurnAndShowdownColours() {
+        assertEquals(CoronaPokerGdxTable.settledShowdownColor(true),
+                CoronaPokerGdxTable.avatarRimColor(
+                        null, true, true, false, false));
+        assertEquals(CoronaPokerGdxTable.settledShowdownColor(false),
+                CoronaPokerGdxTable.avatarRimColor(
+                        null, false, true, false, false));
+        assertNotEquals(CoronaPokerGdxTable.avatarRimColor(
+                        null, null, false, false, false),
+                CoronaPokerGdxTable.avatarRimColor(
+                        null, null, false, false, true),
+                "the avatar must follow the active-turn action colour");
+    }
+
+    @Test
+    void occupiedSeatKeepsItsStackViewerAtZero() {
+        assertTrue(CoronaPokerGdxTable.playerStackViewerAvailable(1f, 0d));
+        assertFalse(CoronaPokerGdxTable.playerStackViewerAvailable(0f, 25d),
+                "an absent seat must not leave an invisible click target");
+    }
+
+    @Test
     void localHudKeepsAnActiveFrameWhileWaitingForAnotherPlayer() {
         assertEquals(0.88f,
                 CoronaPokerGdxTable.localHudIdleFrameAlpha(false),
                 0.000_001f);
-        assertEquals(0.55f,
+        assertEquals(0.88f,
                 CoronaPokerGdxTable.localHudIdleFrameAlpha(true),
-                0.000_001f);
+                0.000_001f,
+                "the shared folded-seat opacity is the only attenuation");
     }
 
     @Test

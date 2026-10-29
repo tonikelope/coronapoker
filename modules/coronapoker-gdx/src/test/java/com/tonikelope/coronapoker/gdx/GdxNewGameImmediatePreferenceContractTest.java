@@ -24,7 +24,11 @@ final class GdxNewGameImmediatePreferenceContractTest {
                 + "                connection.persistLocalIdentity(preferences);"));
         assertTrue(source.contains(
                 "connection.persistLocalIdentity(preferences);\n"
-                + "        refreshSelectedAvatarTexture();"));
+                + "                refreshSelectedAvatarTexture();"));
+        assertTrue(source.contains(
+                "Path cropped = writeAvatarCrop(session);"));
+        assertTrue(source.contains(
+                "\".coronapoker\", \"avatars\""));
         assertTrue(source.contains(
                 "connection.setServer(options.get(selectedOption));\n"
                 + "                        connection.persistLocalHostEndpoint(preferences);"));

@@ -10,6 +10,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.Texture.TextureWrap;
@@ -57,6 +58,7 @@ import org.dosse.upnp.UPnP;
 import java.awt.FileDialog;
 import java.awt.Frame;
 import java.awt.Desktop;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.BindException;
@@ -70,6 +72,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,6 +85,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -102,10 +109,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.nio.ByteBuffer;
 import java.time.ZoneId;
 import java.time.Instant;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import javax.imageio.ImageIO;
 
 /** Native menu and staged NewGameDialog replacement. */
 final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
@@ -116,6 +126,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    private static final int AVATAR_CROP_OUTPUT_SIZE = 384;
+    private static final float AVATAR_CROP_VIEW_SIZE = 650f;
     static final List<String> NEW_GAME_PAGE_LABEL_KEYS = List.of(
             "gdx.settings.page.general",
             "newgame.grupo_ciegas",
@@ -492,6 +504,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean frontendNoticeError;
     private boolean modAdultWarning;
     private boolean avatarSelectionPending;
+    private AvatarCropSession avatarCropSession;
+    private final Rectangle avatarCropViewport = new Rectangle();
+    private final Rectangle avatarCropImageBounds = new Rectangle();
+    private final Rectangle avatarCropSelectionBounds = new Rectangle();
+    private AvatarCropDrag avatarCropDrag = AvatarCropDrag.NONE;
+    private int avatarCropPointer = -1;
+    private float avatarCropLastX;
+    private float avatarCropLastY;
     private boolean customBotManagerOpen;
     private boolean customBotAvatarSelectionPending;
     private boolean customBotDeleteConfirmation;
@@ -1355,7 +1375,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (modAdultWarning) {
+            if (avatarCropSession != null) {
+                drawAvatarCropDialog();
+            } else if (modAdultWarning) {
                 drawModAdultWarning();
             } else if (!frontendNoticeMessage.isBlank()) {
                 drawFrontendNotice();
@@ -1424,7 +1446,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             shapes.end();
             batch.begin();
-            if (customBotManagerOpen) {
+            if (avatarCropSession != null) {
+                drawAvatarCropPreview();
+            } else if (customBotManagerOpen) {
                 drawCustomBotManagerImages();
             } else if (rootSurfaceModal) {
                 drawLobbyAvatarsInCurrentBatch();
@@ -1487,7 +1511,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawTextItem(item);
             }
             batch.end();
-            if (customBotManagerOpen) {
+            if (customBotManagerOpen && avatarCropSession == null) {
                 drawCustomBotManagerListLayer();
                 drawCustomBotDeleteConfirmationTopLayer();
             }
@@ -1504,7 +1528,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (rootSurfaceModal && dropdown == Dropdown.NONE) {
                 drawTooltipTopLayer();
             }
-            if (customBotManagerOpen && !customBotDeleteConfirmation) {
+            if (customBotManagerOpen && avatarCropSession == null
+                    && !customBotDeleteConfirmation) {
                 drawTooltipTopLayer();
             }
         }
@@ -1595,7 +1620,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasVisibleFrontendModal() {
-        return modAdultWarning
+        return avatarCropSession != null
+                || modAdultWarning
                 || !frontendNoticeMessage.isBlank()
                 || settingsRestartNotice
                 || (surface == Surface.MENU
@@ -11416,9 +11442,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         LOGGER.log(Level.WARNING,
                                 "Custom bot avatar selector failed", cause);
                     } else if (selected != null) {
-                        if (isSupportedAvatar(selected)) {
-                            customBotAvatarDraft = selected.toAbsolutePath()
-                                    .normalize();
+                        if (openAvatarCrop(selected,
+                                AvatarCropTarget.CUSTOM_BOT, null)) {
                             customBotValidationError = "";
                         } else {
                             customBotValidationError = gameText.translate(
@@ -13175,6 +13200,190 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 cx - size / 2f, cy - size / 2f, size));
     }
 
+    private void drawAvatarCropDialog() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        float dialogX = 285f;
+        float dialogY = 42f;
+        float dialogW = 1350f;
+        float dialogH = 996f;
+        float viewX = WIDTH / 2f - AVATAR_CROP_VIEW_SIZE / 2f;
+        float viewY = 236f;
+        avatarCropViewport.set(viewX, viewY, AVATAR_CROP_VIEW_SIZE,
+                AVATAR_CROP_VIEW_SIZE);
+
+        outerBox(dialogX, dialogY, dialogW, dialogH, CYAN, PANEL);
+        text(titleFont, uppercase(gameText.translate(
+                        "gdx.avatar.crop.title")),
+                WIDTH / 2f, 957f, GOLD, true);
+        textFit(uiFont, gameText.translate("gdx.avatar.crop.hint"),
+                WIDTH / 2f, 903f, MUTED, true, 1140f);
+        shapes.setColor(new Color(0x07111fff));
+        roundedRect(viewX - 12f, viewY - 12f,
+                AVATAR_CROP_VIEW_SIZE + 24f,
+                AVATAR_CROP_VIEW_SIZE + 24f, 18f);
+        shapes.setColor(GOLD);
+        roundedRectOutline(viewX - 3f, viewY - 3f,
+                AVATAR_CROP_VIEW_SIZE + 6f,
+                AVATAR_CROP_VIEW_SIZE + 6f, 10f, 3f);
+
+        float controlX = viewX + AVATAR_CROP_VIEW_SIZE + 34f;
+        themedButton(controlX, viewY + 350f, 76f, 76f, "+",
+                ButtonTone.NEUTRAL, () -> resizeAvatarCrop(1.18f), true);
+        themedButton(controlX, viewY + 258f, 76f, 76f, "-",
+                ButtonTone.NEUTRAL, () -> resizeAvatarCrop(1f / 1.18f), true);
+        themedButton(controlX - 42f, viewY + 166f, 160f, 64f,
+                uppercase(gameText.translate("gdx.avatar.crop.center")),
+                ButtonTone.NEUTRAL, this::centerAvatarCrop, true,
+                smallFont);
+
+        float cancelX = WIDTH / 2f - 330f;
+        float useX = WIDTH / 2f + 30f;
+        themedButton(cancelX, 92f, 300f, 86f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL, this::closeAvatarCrop, true);
+        themedButton(useX, 92f, 300f, 86f,
+                uppercase(gameText.translate("gdx.avatar.crop.use")),
+                ButtonTone.FEATURED, this::applyAvatarCrop, true);
+        float maximumCrop = Math.min(session.pixmap.getWidth(),
+                session.pixmap.getHeight());
+        textFit(smallFont, gameText.translate("gdx.avatar.crop.size",
+                        Math.round(session.crop.size() / maximumCrop * 100f)),
+                controlX + 38f, viewY + 474f, Color.WHITE, true, 190f);
+    }
+
+    private void drawAvatarCropPreview() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        updateAvatarCropScreenGeometry(session);
+        batch.setColor(Color.WHITE);
+        batch.draw(session.texture, avatarCropImageBounds.x,
+                avatarCropImageBounds.y, avatarCropImageBounds.width,
+                avatarCropImageBounds.height);
+        batch.end();
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        float left = avatarCropSelectionBounds.x;
+        float right = left + avatarCropSelectionBounds.width;
+        float bottom = avatarCropSelectionBounds.y;
+        float top = bottom + avatarCropSelectionBounds.height;
+        shapes.setColor(new Color(0x020710b8));
+        shapes.rect(avatarCropImageBounds.x, avatarCropImageBounds.y,
+                Math.max(0f, left - avatarCropImageBounds.x),
+                avatarCropImageBounds.height);
+        shapes.rect(right, avatarCropImageBounds.y,
+                Math.max(0f, avatarCropImageBounds.x
+                        + avatarCropImageBounds.width - right),
+                avatarCropImageBounds.height);
+        shapes.rect(left, avatarCropImageBounds.y,
+                avatarCropSelectionBounds.width,
+                Math.max(0f, bottom - avatarCropImageBounds.y));
+        shapes.rect(left, top, avatarCropSelectionBounds.width,
+                Math.max(0f, avatarCropImageBounds.y
+                        + avatarCropImageBounds.height - top));
+        shapes.setColor(GOLD);
+        float line = 4f;
+        shapes.rect(left - line / 2f, bottom - line / 2f,
+                avatarCropSelectionBounds.width + line, line);
+        shapes.rect(left - line / 2f, top - line / 2f,
+                avatarCropSelectionBounds.width + line, line);
+        shapes.rect(left - line / 2f, bottom - line / 2f,
+                line, avatarCropSelectionBounds.height + line);
+        shapes.rect(right - line / 2f, bottom - line / 2f,
+                line, avatarCropSelectionBounds.height + line);
+        float handle = Math.min(14f, Math.max(7f,
+                avatarCropSelectionBounds.width * 0.08f));
+        shapes.setColor(Color.WHITE);
+        shapes.circle(left, bottom, handle, 24);
+        shapes.circle(right, bottom, handle, 24);
+        shapes.circle(left, top, handle, 24);
+        shapes.circle(right, top, handle, 24);
+        shapes.end();
+        batch.begin();
+    }
+
+    private void updateAvatarCropScreenGeometry(AvatarCropSession session) {
+        float scale = Math.min(avatarCropViewport.width
+                        / session.pixmap.getWidth(),
+                avatarCropViewport.height / session.pixmap.getHeight());
+        float imageWidth = session.pixmap.getWidth() * scale;
+        float imageHeight = session.pixmap.getHeight() * scale;
+        avatarCropImageBounds.set(
+                avatarCropViewport.x
+                        + (avatarCropViewport.width - imageWidth) / 2f,
+                avatarCropViewport.y
+                        + (avatarCropViewport.height - imageHeight) / 2f,
+                imageWidth, imageHeight);
+        GdxAvatarCropModel.Crop crop = session.crop;
+        avatarCropSelectionBounds.set(
+                avatarCropImageBounds.x + crop.x() * scale,
+                avatarCropImageBounds.y
+                        + (session.pixmap.getHeight() - crop.y()
+                                - crop.size()) * scale,
+                crop.size() * scale, crop.size() * scale);
+    }
+
+    private void resizeAvatarCrop(float factor) {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        session.crop = GdxAvatarCropModel.resizeCentered(session.crop,
+                session.pixmap.getWidth(), session.pixmap.getHeight(),
+                factor);
+    }
+
+    private void centerAvatarCrop() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        session.crop = GdxAvatarCropModel.centered(
+                session.pixmap.getWidth(), session.pixmap.getHeight());
+    }
+
+    private AvatarCropDrag avatarCropDragAt(float worldX, float worldY) {
+        float left = avatarCropSelectionBounds.x;
+        float right = left + avatarCropSelectionBounds.width;
+        float bottom = avatarCropSelectionBounds.y;
+        float top = bottom + avatarCropSelectionBounds.height;
+        float radius = Math.min(30f, Math.max(18f,
+                avatarCropSelectionBounds.width * 0.12f));
+        float squared = radius * radius;
+        if (distanceSquared(worldX, worldY, left, top) <= squared) {
+            return AvatarCropDrag.TOP_LEFT;
+        }
+        if (distanceSquared(worldX, worldY, right, top) <= squared) {
+            return AvatarCropDrag.TOP_RIGHT;
+        }
+        if (distanceSquared(worldX, worldY, left, bottom) <= squared) {
+            return AvatarCropDrag.BOTTOM_LEFT;
+        }
+        if (distanceSquared(worldX, worldY, right, bottom) <= squared) {
+            return AvatarCropDrag.BOTTOM_RIGHT;
+        }
+        return avatarCropSelectionBounds.contains(worldX, worldY)
+                ? AvatarCropDrag.MOVE : AvatarCropDrag.NONE;
+    }
+
+    private Vector2 avatarCropSourceAt(AvatarCropSession session,
+            float worldX, float worldY) {
+        float scale = avatarCropImageBounds.width
+                / session.pixmap.getWidth();
+        float sourceX = (worldX - avatarCropImageBounds.x) / scale;
+        float sourceY = session.pixmap.getHeight()
+                - (worldY - avatarCropImageBounds.y) / scale;
+        return new Vector2(
+                MathUtils.clamp(sourceX, 0f, session.pixmap.getWidth()),
+                MathUtils.clamp(sourceY, 0f, session.pixmap.getHeight()));
+    }
+
+    private static float distanceSquared(float x1, float y1,
+            float x2, float y2) {
+        float dx = x1 - x2;
+        float dy = y1 - y2;
+        return dx * dx + dy * dy;
+    }
+
     private void selectAvatar() {
         if (avatarSelectionPending || connection == null) return;
         avatarSelectionPending = true;
@@ -13197,12 +13406,167 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         if (selected == null) return;
-        if (!isSupportedAvatar(selected) || !connection.setAvatar(selected)) {
+        if (!openAvatarCrop(selected, AvatarCropTarget.LOCAL, target)) {
             showToast(gameText.translate("gdx.avatar.invalid"));
-            return;
         }
-        connection.persistLocalIdentity(preferences);
-        refreshSelectedAvatarTexture();
+    }
+
+    private boolean openAvatarCrop(Path selected, AvatarCropTarget target,
+            NewGameConnectionDraft connectionTarget) {
+        if (!isSupportedAvatar(selected)) return false;
+        Pixmap pixmap = null;
+        Texture texture = null;
+        try {
+            pixmap = decodeAvatarCropPixmap(selected);
+            if (pixmap.getWidth() <= 0 || pixmap.getHeight() <= 0) {
+                pixmap.dispose();
+                return false;
+            }
+            texture = new Texture(pixmap);
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            GdxAvatarCropModel.Crop crop = GdxAvatarCropModel.centered(
+                    pixmap.getWidth(), pixmap.getHeight());
+            closeAvatarCrop();
+            avatarCropSession = new AvatarCropSession(target,
+                    connectionTarget, pixmap, texture, crop);
+            captureFrontendModalInput();
+            return true;
+        } catch (IOException | RuntimeException invalid) {
+            if (texture != null) texture.dispose();
+            if (pixmap != null) pixmap.dispose();
+            LOGGER.log(Level.FINE, "Avatar crop source rejected", invalid);
+            return false;
+        }
+    }
+
+    private static Pixmap decodeAvatarCropPixmap(Path selected)
+            throws IOException {
+        Path source = selected.toAbsolutePath().normalize();
+        try {
+            return new Pixmap(Gdx.files.absolute(source.toString()));
+        } catch (RuntimeException unsupportedByStb) {
+            BufferedImage image = ImageIO.read(source.toFile());
+            if (image == null) throw new IOException(
+                    "Unsupported avatar image", unsupportedByStb);
+            Pixmap pixmap = new Pixmap(image.getWidth(), image.getHeight(),
+                    Pixmap.Format.RGBA8888);
+            ByteBuffer pixels = pixmap.getPixels();
+            pixels.clear();
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    int argb = image.getRGB(x, y);
+                    pixels.put((byte) (argb >>> 16));
+                    pixels.put((byte) (argb >>> 8));
+                    pixels.put((byte) argb);
+                    pixels.put((byte) (argb >>> 24));
+                }
+            }
+            pixels.position(0);
+            return pixmap;
+        }
+    }
+
+    private void applyAvatarCrop() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        try {
+            Path cropped = writeAvatarCrop(session);
+            if (session.target == AvatarCropTarget.LOCAL) {
+                if (connection != session.connectionTarget
+                        || !connection.setAvatar(cropped)) {
+                    showToast(gameText.translate("gdx.avatar.invalid"));
+                    return;
+                }
+                connection.persistLocalIdentity(preferences);
+                refreshSelectedAvatarTexture();
+            } else {
+                customBotAvatarDraft = cropped;
+                customBotValidationError = "";
+            }
+            closeAvatarCrop();
+        } catch (IOException | RuntimeException failure) {
+            showToast(gameText.translate("gdx.avatar.select_failed"));
+            LOGGER.log(Level.WARNING, "Could not save cropped avatar", failure);
+        }
+    }
+
+    private Path writeAvatarCrop(AvatarCropSession session)
+            throws IOException {
+        GdxAvatarCropModel.Crop crop = session.crop;
+        int sourceSize = Math.max(1, Math.min(
+                Math.round(crop.size()),
+                Math.min(session.pixmap.getWidth(),
+                        session.pixmap.getHeight())));
+        int sourceX = MathUtils.clamp(Math.round(crop.centerX()
+                - sourceSize / 2f), 0,
+                session.pixmap.getWidth() - sourceSize);
+        int sourceY = MathUtils.clamp(Math.round(crop.centerY()
+                - sourceSize / 2f), 0,
+                session.pixmap.getHeight() - sourceSize);
+        Pixmap output = new Pixmap(AVATAR_CROP_OUTPUT_SIZE,
+                AVATAR_CROP_OUTPUT_SIZE, Pixmap.Format.RGBA8888);
+        Path temporary = null;
+        try {
+            output.setFilter(Pixmap.Filter.BiLinear);
+            output.drawPixmap(session.pixmap, sourceX, sourceY,
+                    sourceSize, sourceSize, 0, 0,
+                    AVATAR_CROP_OUTPUT_SIZE, AVATAR_CROP_OUTPUT_SIZE);
+            Path directory = Path.of(System.getProperty("user.home"),
+                    ".coronapoker", "avatars");
+            Files.createDirectories(directory);
+            temporary = Files.createTempFile(directory,
+                    "avatar-crop-", ".png");
+            PixmapIO.writePNG(new FileHandle(temporary.toFile()), output);
+            AvatarImageValidator.validate(temporary);
+            byte[] bytes = Files.readAllBytes(temporary);
+            Path durable = directory.resolve(avatarDigest(bytes) + ".png");
+            if (Files.isRegularFile(durable)) {
+                Files.deleteIfExists(temporary);
+            } else {
+                moveAvatarCrop(temporary, durable);
+            }
+            return durable;
+        } finally {
+            output.dispose();
+            if (temporary != null) Files.deleteIfExists(temporary);
+        }
+    }
+
+    private static void moveAvatarCrop(Path temporary, Path durable)
+            throws IOException {
+        try {
+            Files.move(temporary, durable, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            try {
+                Files.move(temporary, durable);
+            } catch (FileAlreadyExistsException alreadyCreated) {
+                Files.deleteIfExists(temporary);
+            }
+        } catch (FileAlreadyExistsException alreadyCreated) {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    private static String avatarDigest(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable",
+                    impossible);
+        }
+    }
+
+    private void closeAvatarCrop() {
+        AvatarCropSession session = avatarCropSession;
+        avatarCropSession = null;
+        avatarCropDrag = AvatarCropDrag.NONE;
+        avatarCropPointer = -1;
+        if (session != null) {
+            session.texture.dispose();
+            session.pixmap.dispose();
+        }
+        captureFrontendModalInput();
     }
 
     private void refreshSelectedAvatarTexture() {
@@ -13586,6 +13950,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         viewport.unproject(pointer);
         pressedHit = null;
         boolean blockingModal = hasBlockingFrontendModal();
+        if (avatarCropSession != null && button == Input.Buttons.LEFT) {
+            AvatarCropSession session = avatarCropSession;
+            updateAvatarCropScreenGeometry(session);
+            if (avatarCropImageBounds.contains(pointer)) {
+                avatarCropDrag = avatarCropDragAt(pointer.x, pointer.y);
+                if (avatarCropDrag == AvatarCropDrag.NONE) {
+                    Vector2 source = avatarCropSourceAt(session,
+                            pointer.x, pointer.y);
+                    session.crop = GdxAvatarCropModel.crop(
+                            session.pixmap.getWidth(),
+                            session.pixmap.getHeight(), source.x, source.y,
+                            session.crop.size());
+                    updateAvatarCropScreenGeometry(session);
+                    avatarCropDrag = AvatarCropDrag.MOVE;
+                }
+                avatarCropPointer = pointerIndex;
+                avatarCropLastX = pointer.x;
+                avatarCropLastY = pointer.y;
+                return true;
+            }
+        }
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
@@ -13604,7 +13989,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
-        if ((!blockingModal || rootSurfaceOwnsPointer
+        if (avatarCropSession == null
+                && (!blockingModal || rootSurfaceOwnsPointer
                 || statsPicker != StatsPicker.NONE || networkBlocksOpen
                 || customBotManagerOpen)
                 && button == Input.Buttons.LEFT
@@ -13677,6 +14063,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (avatarCropSession != null
+                && avatarCropDrag != AvatarCropDrag.NONE
+                && avatarCropPointer == pointerIndex) {
+            AvatarCropSession session = avatarCropSession;
+            updateAvatarCropScreenGeometry(session);
+            if (avatarCropDrag == AvatarCropDrag.MOVE) {
+                float sourcePerWorld = session.pixmap.getWidth()
+                        / avatarCropImageBounds.width;
+                session.crop = GdxAvatarCropModel.move(session.crop,
+                        session.pixmap.getWidth(), session.pixmap.getHeight(),
+                        (pointer.x - avatarCropLastX) * sourcePerWorld,
+                        -(pointer.y - avatarCropLastY) * sourcePerWorld);
+            } else {
+                Vector2 source = avatarCropSourceAt(session,
+                        pointer.x, pointer.y);
+                session.crop = GdxAvatarCropModel.resizeFromCorner(
+                        session.crop, session.pixmap.getWidth(),
+                        session.pixmap.getHeight(), avatarCropDrag.corner,
+                        source.x, source.y);
+            }
+            avatarCropLastX = pointer.x;
+            avatarCropLastY = pointer.y;
+            return true;
+        }
         if (lobbyVoicePointer.owns(pointerIndex, Input.Buttons.LEFT)) {
             return true;
         }
@@ -13700,6 +14110,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (avatarCropSession != null
+                && avatarCropDrag != AvatarCropDrag.NONE
+                && avatarCropPointer == pointerIndex
+                && button == Input.Buttons.LEFT) {
+            avatarCropDrag = AvatarCropDrag.NONE;
+            avatarCropPointer = -1;
+            return true;
+        }
         if (lobbyVoicePointer.release(pointerIndex, button)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -14054,6 +14472,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // lobby field/action may be triggered through the loading overlay.
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
+            return true;
+        }
+        if (avatarCropSession != null) {
+            if (GdxDialogKeyboard.isCancel(keycode)) {
+                closeAvatarCrop();
+            } else if (GdxDialogKeyboard.isConfirm(keycode)) {
+                applyAvatarCrop();
+            }
             return true;
         }
         if (aboutOpen && handGeneratorOpen) {
@@ -14813,6 +15239,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyHistoryMedia.dispose();
         submissions.cancel();
         closeLobbySubscription();
+        closeAvatarCrop();
         if (lobbySession != null) {
             lobbySession.close();
             lobbySession = null;
@@ -14892,6 +15319,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (avatarCropDrag != AvatarCropDrag.NONE && avatarCropPointer == p) {
+            avatarCropDrag = AvatarCropDrag.NONE;
+            avatarCropPointer = -1;
+            pressedHit = null;
+            return true;
+        }
         if (lobbyVoicePointer.release(p, b)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -14916,6 +15349,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (avatarCropSession != null) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (amountY != 0f && avatarCropViewport.contains(pointer)) {
+                resizeAvatarCrop((float) Math.pow(1.12d, amountY));
+            }
+            return true;
+        }
         if (networkBlocksOpen && amountY != 0f) {
             if (networkBlockUnblockConfirmation != null) return true;
             GdxNetworkBlockDialogLayout.Layout layout
@@ -15225,6 +15666,43 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum ButtonTone {
         NEUTRAL, FEATURED, POSITIVE, DANGER
+    }
+
+    private enum AvatarCropTarget {
+        LOCAL, CUSTOM_BOT
+    }
+
+    private enum AvatarCropDrag {
+        NONE(null),
+        MOVE(null),
+        TOP_LEFT(GdxAvatarCropModel.Corner.TOP_LEFT),
+        TOP_RIGHT(GdxAvatarCropModel.Corner.TOP_RIGHT),
+        BOTTOM_LEFT(GdxAvatarCropModel.Corner.BOTTOM_LEFT),
+        BOTTOM_RIGHT(GdxAvatarCropModel.Corner.BOTTOM_RIGHT);
+
+        private final GdxAvatarCropModel.Corner corner;
+
+        AvatarCropDrag(GdxAvatarCropModel.Corner corner) {
+            this.corner = corner;
+        }
+    }
+
+    private static final class AvatarCropSession {
+        private final AvatarCropTarget target;
+        private final NewGameConnectionDraft connectionTarget;
+        private final Pixmap pixmap;
+        private final Texture texture;
+        private GdxAvatarCropModel.Crop crop;
+
+        private AvatarCropSession(AvatarCropTarget target,
+                NewGameConnectionDraft connectionTarget, Pixmap pixmap,
+                Texture texture, GdxAvatarCropModel.Crop crop) {
+            this.target = Objects.requireNonNull(target, "target");
+            this.connectionTarget = connectionTarget;
+            this.pixmap = Objects.requireNonNull(pixmap, "pixmap");
+            this.texture = Objects.requireNonNull(texture, "texture");
+            this.crop = Objects.requireNonNull(crop, "crop");
+        }
     }
 
     private record Hit(Rectangle bounds, Runnable action, boolean repeatable) {

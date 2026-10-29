@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(647, spanishKeys.size(),
+        assertEquals(653, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -161,6 +161,8 @@ final class GdxGameTextTest {
                         "Pepe").toUpperCase(java.util.Locale.ROOT));
         assertEquals("STACK",
                 text.translate("gdx.table.stack_viewer.total"));
+        assertEquals("Click to view the chip breakdown",
+                text.translate("gdx.table.stack_viewer.tooltip"));
         assertEquals("RESUME", text.translate("gdx.table.resume"));
         assertEquals("Probability: 46",
                 text.translate("gdx.hand_generator.probability", 46));

@@ -498,6 +498,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean customBotRandomSelection;
     private boolean customBotRowsActive;
     private int customBotSelected = -1;
+    private int customBotNewSlotSelected = -1;
     private float customBotScroll;
     private float customBotScrollTarget;
     private float customBotScrollMaximum;
@@ -11182,18 +11183,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void newCustomBot() {
+        newCustomBot(customBotProfiles.size());
+    }
+
+    private void newCustomBot(int emptyRow) {
+        if (emptyRow < customBotProfiles.size()
+                || emptyRow >= CustomBotProfileCatalog.MAX_PROFILES) return;
         customBotSelected = -1;
+        customBotNewSlotSelected = emptyRow;
         customBotNameDraft = "";
         customBotAvatarDraft = null;
         customBotDifficultyDraft = NewGameTableDraft.BotDifficulty.MEDIUM;
         customBotPersonalityDraft = CustomBotProfile.Personality.RANDOM;
         customBotValidationError = "";
+        ensureCustomBotVisible(emptyRow);
         activateField("customBotName");
     }
 
     private void selectCustomBot(int index) {
         if (index < 0 || index >= customBotProfiles.size()) return;
         customBotSelected = index;
+        customBotNewSlotSelected = -1;
         ensureCustomBotVisible(index);
         CustomBotProfile profile = customBotProfiles.get(index);
         customBotNameDraft = profile.displayName();
@@ -11283,6 +11293,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
                 customBotProfiles.add(candidate);
                 customBotSelected = customBotProfiles.size() - 1;
+                customBotNewSlotSelected = -1;
             } else {
                 customBotProfiles.set(customBotSelected, candidate);
             }
@@ -11316,7 +11327,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         else selectCustomBot(Math.min(customBotSelected,
                 customBotProfiles.size() - 1));
         customBotScrollMaximum = customBotMaximumPixelScroll(
-                customBotProfiles.size());
+                customBotDisplayRowCount());
         customBotScrollTarget = MathUtils.clamp(customBotScrollTarget,
                 0f, customBotScrollMaximum);
         customBotScroll = MathUtils.clamp(customBotScroll,
@@ -11354,15 +11365,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static float customBotSelectionPulse(float elapsedSeconds) {
         float cycle = elapsedSeconds * MathUtils.PI2 / 1.8f
                 - MathUtils.PI / 2f;
-        return 0.14f + 0.06f * MathUtils.sin(cycle);
+        return 0.5f + 0.5f * MathUtils.sin(cycle);
+    }
+
+    private int customBotDisplayRowCount() {
+        return Math.max(customBotProfiles.size(),
+                customBotNewSlotSelected + 1);
     }
 
     private void ensureCustomBotVisible(int index) {
         if (index < 0) return;
         customBotScrollMaximum = customBotMaximumPixelScroll(
-                customBotProfiles.size());
+                customBotDisplayRowCount());
         customBotScrollTarget = customBotScrollForSelection(index,
                 customBotScrollTarget, customBotScrollMaximum);
+    }
+
+    private void drawCustomBotRowBox(float x, float y, float w, float h,
+            boolean selected, boolean hovered, Color fill) {
+        if (!selected) {
+            outerBox(x, y, w, h, hovered ? CYAN : LINE, fill);
+            return;
+        }
+        float pulse = customBotSelectionPulse(elapsed);
+        customBotSelectionBorder.set(GOLD).lerp(Color.WHITE,
+                0.12f + 0.18f * pulse);
+        outerBox(x, y, w, h, customBotSelectionBorder, fill);
+        shapes.setColor(customBotSelectionBorder);
+        roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f,
+                13f, 2.4f + 1.6f * pulse);
     }
 
     private void persistCustomBotProfiles() {
@@ -11447,7 +11478,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 listX + 24f, 852f, GOLD, false, listW - 48f);
 
         customBotScrollMaximum = customBotMaximumPixelScroll(
-                customBotProfiles.size());
+                customBotDisplayRowCount());
         customBotScrollTarget = MathUtils.clamp(customBotScrollTarget,
                 0f, customBotScrollMaximum);
         customBotScroll = MathUtils.clamp(customBotScroll,
@@ -11464,7 +11495,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.flush();
         enableWorldScissor(customBotRowsViewport);
         customBotRowsActive = true;
-        int paintedRows = Math.max(customBotProfiles.size(),
+        int paintedRows = Math.max(customBotDisplayRowCount(),
                 CUSTOM_BOT_VISIBLE_ROWS);
         for (int index = first; index < paintedRows; index++) {
             float rowY = 698f - index * CUSTOM_BOT_ROW_STRIDE
@@ -11476,12 +11507,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float hitTop = Math.min(rowY + CUSTOM_BOT_ROW_HEIGHT,
                     CUSTOM_BOT_ROWS_TOP);
             if (index >= customBotProfiles.size()) {
-                shapes.setColor(new Color(0x17253a70));
-                roundedRect(rowX, rowY, rowW,
-                        CUSTOM_BOT_ROW_HEIGHT, 10f);
+                boolean selected = index == customBotNewSlotSelected;
+                boolean over = hitTop > hitBottom
+                        && hovered(rowX, hitBottom, rowW,
+                                hitTop - hitBottom);
+                if (selected || over) {
+                    drawCustomBotRowBox(rowX, rowY, rowW,
+                            CUSTOM_BOT_ROW_HEIGHT, selected, over,
+                            new Color(0x17253a70));
+                } else {
+                    shapes.setColor(new Color(0x17253a70));
+                    roundedRect(rowX, rowY, rowW,
+                            CUSTOM_BOT_ROW_HEIGHT, 10f);
+                }
                 if (hitTop > hitBottom) {
+                    int emptyRow = index;
                     hit(rowX, hitBottom, rowW, hitTop - hitBottom,
-                            this::newCustomBot);
+                            () -> newCustomBot(emptyRow));
                     tooltip(rowX, hitBottom, rowW, hitTop - hitBottom,
                             "tooltip.cfg.custom_bots.new");
                 }
@@ -11492,12 +11534,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean selected = index == customBotSelected;
             boolean over = hitTop > hitBottom
                     && hovered(rowX, hitBottom, rowW, hitTop - hitBottom);
-            Color rowBorder = selected
-                    ? customBotSelectionBorder.set(GOLD).lerp(Color.WHITE,
-                            customBotSelectionPulse(elapsed))
-                    : over ? CYAN : LINE;
-            outerBox(rowX, rowY, rowW, CUSTOM_BOT_ROW_HEIGHT,
-                    rowBorder,
+            drawCustomBotRowBox(rowX, rowY, rowW, CUSTOM_BOT_ROW_HEIGHT,
+                    selected, over,
                     selected ? new Color(0x17314af4) : PANEL_LIGHT);
             Texture avatar = customBotAvatarTexture(profile.avatar());
             customBotManagerListImages.add(new UiImageItem(avatar,
@@ -11540,7 +11578,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         customBotScrollThumbHeight = GdxSettingsLayout
                 .pixelScrollbarThumbHeight(customBotScrollTrack.height,
                         customBotRowsViewport.height,
-                        customBotContentHeight(customBotProfiles.size()));
+                        customBotContentHeight(customBotDisplayRowCount()));
         if (customBotScrollMaximum > 0f) {
             float ratio = customBotScroll / customBotScrollMaximum;
             float thumbY = customBotScrollTrack.y
@@ -13699,7 +13737,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (surface == Surface.NEW_GAME && customBotManagerOpen) {
             if (customBotDeleteConfirmation) return false;
             float maximum = customBotMaximumPixelScroll(
-                    customBotProfiles.size());
+                    customBotDisplayRowCount());
             if (maximum > 0f && containsExpandedHorizontally(
                     customBotScrollTrack, x, y,
                     (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
@@ -13707,7 +13745,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
                         customBotScrollTrack.height,
                         customBotRowsViewport.height,
-                        customBotContentHeight(customBotProfiles.size()));
+                        customBotContentHeight(customBotDisplayRowCount()));
                 return captureScrollDrag(ScrollDrag.CUSTOM_BOTS,
                         pointerIndex, button, y, customBotScrollTrack.y,
                         customBotScrollTrack.height, thumb,
@@ -13928,7 +13966,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         } else if (scrollDrag == ScrollDrag.CUSTOM_BOTS) {
             customBotScrollMaximum = customBotMaximumPixelScroll(
-                    customBotProfiles.size());
+                    customBotDisplayRowCount());
             customBotScroll = customBotScrollTarget = MathUtils.clamp(
                     progress * customBotScrollMaximum, 0f,
                     customBotScrollMaximum);
@@ -14908,7 +14946,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             viewport.unproject(pointer);
             if (customBotRowsViewport.contains(pointer)) {
                 customBotScrollMaximum = customBotMaximumPixelScroll(
-                        customBotProfiles.size());
+                        customBotDisplayRowCount());
                 customBotScrollTarget = customBotScrollAfterWheel(
                         customBotScrollTarget, customBotScrollMaximum,
                         amountY);

@@ -63,10 +63,14 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "compactRepeatButton(listX + 654f"));
         assertTrue(source.contains(
-                "this::newCustomBot);\n"
+                "() -> newCustomBot(emptyRow));\n"
                 + "                    tooltip(rowX, hitBottom"));
         assertTrue(source.contains(
                 "customBotSelectionPulse(elapsed)"));
+        assertTrue(source.contains(
+                "index == customBotNewSlotSelected"));
+        assertTrue(source.contains(
+                "2.4f + 1.6f * pulse"));
         assertTrue(source.contains(
                 "WIDTH / 2f, 912f, MUTED, true, 1320f);"));
         assertTrue(source.contains(
@@ -141,15 +145,15 @@ final class GdxCustomBotManagerContractTest {
 
     @Test
     void selectedCustomBotBorderUsesASubtleHeartbeat() {
-        assertEquals(0.08f,
+        assertEquals(0f,
                 GdxFrontendScreen.customBotSelectionPulse(0f), 0.0001f);
-        assertEquals(0.14f,
+        assertEquals(0.5f,
                 GdxFrontendScreen.customBotSelectionPulse(0.45f), 0.0001f);
-        assertEquals(0.20f,
+        assertEquals(1f,
                 GdxFrontendScreen.customBotSelectionPulse(0.90f), 0.0001f);
-        assertEquals(0.14f,
+        assertEquals(0.5f,
                 GdxFrontendScreen.customBotSelectionPulse(1.35f), 0.0001f);
-        assertEquals(0.08f,
+        assertEquals(0f,
                 GdxFrontendScreen.customBotSelectionPulse(1.80f), 0.0001f);
     }
 }

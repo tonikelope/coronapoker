@@ -11226,8 +11226,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? localActionBadgeVisible()
                     : timedOut || !actionLabel.isEmpty();
             Color actionColor = lastActionColorForSeat(seat.index);
-            Color visibleAvatarActionColor = displayedActionColor(
-                    seat.index == 0, active, actionColor);
             updateLiveSeatAmounts(seat);
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
@@ -11302,8 +11300,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float avatarX = seatAvatarX(seat);
             shapes.circle(avatarX, seat.y, AVATAR_OUTER_RADIUS, 48);
             Color avatarRim = avatarRimColor(settledWinner,
-                    settledShowdown, showActionSurface,
-                    visibleAvatarActionColor);
+                    settledShowdown, active, showActionSurface, actionColor);
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
             shapes.circle(avatarX, seat.y, AVATAR_RIM_RADIUS, 48);
@@ -17807,20 +17804,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static Color avatarRimColor(Boolean settledWinner, boolean settledShowdown,
-            boolean actionVisible, Color actionColor) {
+            boolean activeTurn, boolean actionVisible, Color actionColor) {
         if (settledShowdown) {
             return settledShowdownColor(Boolean.TRUE.equals(settledWinner));
+        }
+        // Turn ownership is stronger than a previous action and must not rely
+        // on the transient PENSANDO label being visible in the same frame.
+        // This keeps local and remote avatar rings locked to the seat/halo
+        // accent even across projection or language-update boundaries.
+        if (activeTurn) {
+            return turnAwareActionColor(true, actionColor);
         }
         return actionVisible && actionColor != null ? actionColor : SEAT_RIM;
     }
 
-    static Color displayedActionColor(boolean localSeat, boolean activeTurn,
+    static Color turnAwareActionColor(boolean activeTurn,
             Color semanticColor) {
-        // The local active caption is HABLAS TÚ and is painted gold. Remote
-        // active seats render PENSANDO with their canonical thinking colour.
-        // Every caller, including the avatar rim, must consume that exact
-        // visible surface colour instead of reconstructing it independently.
-        return localSeat && activeTurn ? ACTIVE_TURN_GOLD : semanticColor;
+        // A live turn has one accent source for both local and remote seats:
+        // the HUD badge, avatar rim, seat frame and halo all use the exact
+        // same gold/orange. Once the turn moves on, the canonical action
+        // colour becomes visible again (check, call, raise, fold, and so on).
+        return activeTurn ? ACTIVE_TURN_GOLD : semanticColor;
     }
 
     static Color liveActionTextColor(
@@ -19369,7 +19373,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 lastLocalActionLabel, gameText);
         Color localHudSemanticColor = lastActionSemanticColorForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
-        Color localActionBadgeColor = displayedActionColor(true, localTurn,
+        Color localActionBadgeColor = turnAwareActionColor(localTurn,
                 lastLocalActionColor);
         Color localActionBadgeTextColor = localTurn
                 ? Color.BLACK : lastActionTextColorForSeat(0);

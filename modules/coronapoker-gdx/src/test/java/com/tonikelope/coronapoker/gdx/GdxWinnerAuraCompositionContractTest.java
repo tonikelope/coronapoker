@@ -141,6 +141,38 @@ final class GdxWinnerAuraCompositionContractTest {
         assertFalse(callCost.contains("liveAnimationsEnabled()"));
     }
 
+    @Test
+    void activeRemoteAvatarUsesTheExactSeatAndHaloTurnAccent()
+            throws IOException {
+        String table = Files.readString(source());
+        String seats = method(table,
+                "private void drawSeats()",
+                "private void drawSidePotWinnerOverlays()");
+        String avatarRim = method(table,
+                "static Color avatarRimColor(",
+                "static Color turnAwareActionColor(");
+        String turnAccent = method(table,
+                "static Color turnAwareActionColor(",
+                "static Color liveActionTextColor(");
+        String activeGlow = method(table,
+                "private void drawActiveSeatGlows()",
+                "private void drawRemoteSeatHalo(");
+
+        assertTrue(seats.contains("boolean active = isSeatActive(seat)"));
+        assertTrue(seats.contains("settledShowdown, active, "
+                + "showActionSurface, actionColor"),
+                "the renderer must feed authoritative turn ownership into "
+                + "the avatar-ring resolver");
+        assertTrue(seats.contains("active ? ACTIVE_TURN_GOLD : SEAT_RIM"));
+        assertTrue(avatarRim.contains("if (activeTurn)"));
+        assertTrue(avatarRim.contains(
+                "turnAwareActionColor(true, actionColor)"));
+        assertTrue(turnAccent.contains(
+                "return activeTurn ? ACTIVE_TURN_GOLD : semanticColor"));
+        assertTrue(activeGlow.contains(
+                "danger ? FOLD_RED : ACTIVE_TURN_GOLD"));
+    }
+
     private static String method(String source, String startText,
             String endText) {
         int start = source.indexOf(startText);

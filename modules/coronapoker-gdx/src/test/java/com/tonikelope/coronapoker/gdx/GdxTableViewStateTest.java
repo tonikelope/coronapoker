@@ -372,30 +372,37 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void avatarRimUsesTheVisibleActionColourForLocalAndRemoteSeats() {
+    void avatarRimUsesTurnAccentBeforeAnInactiveVisibleActionColour() {
         Color check = CoronaPokerGdxTable.liveActionColor(
                 TableVisualEvent.PlayerAction.ActionKind.CHECK);
         Color fold = CoronaPokerGdxTable.liveActionColor(
                 TableVisualEvent.PlayerAction.ActionKind.FOLD);
 
         assertEquals(check, CoronaPokerGdxTable.avatarRimColor(
-                null, false, true, check),
+                null, false, false, true, check),
                 "a visible PASA label and its avatar ring share one colour");
         assertEquals(fold, CoronaPokerGdxTable.avatarRimColor(
-                null, false, true, fold),
+                null, false, false, true, fold),
                 "the same canonical path covers remote action labels");
         assertNotEquals(check, CoronaPokerGdxTable.avatarRimColor(
-                null, false, false, check),
+                null, false, false, false, check),
                 "a hidden stale action cannot recolour the avatar ring");
-        assertEquals(check, CoronaPokerGdxTable.displayedActionColor(
-                false, true, check),
-                "a remote PENSANDO/action surface remains the ring source");
-        assertEquals(check, CoronaPokerGdxTable.displayedActionColor(
-                true, false, check),
+        Color remoteTurn = CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, true, check);
+        assertColor(0xff, 0xad, 0x20, 0xff, remoteTurn);
+        assertNotEquals(check, remoteTurn,
+                "an active remote avatar must use the same gold/orange "
+                + "accent as its turn halo and seat frame");
+        assertEquals(remoteTurn, CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, false, fold),
+                "turn ownership must not depend on PENSANDO visibility or "
+                + "a stale previous action");
+        assertEquals(check, CoronaPokerGdxTable.turnAwareActionColor(
+                false, check),
                 "an inactive local action keeps its semantic colour");
-        assertNotEquals(check, CoronaPokerGdxTable.displayedActionColor(
-                true, true, check),
-                "HABLAS TÚ replaces the previous local action with gold");
+        assertEquals(remoteTurn, CoronaPokerGdxTable.turnAwareActionColor(
+                true, check),
+                "local and remote active turns must share one accent source");
     }
 
     @Test
@@ -404,10 +411,10 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.CHECK);
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(true),
                 CoronaPokerGdxTable.avatarRimColor(
-                        true, true, true, check));
+                        true, true, true, true, check));
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(false),
                 CoronaPokerGdxTable.avatarRimColor(
-                        false, true, true, check));
+                        false, true, true, true, check));
     }
 
     @Test

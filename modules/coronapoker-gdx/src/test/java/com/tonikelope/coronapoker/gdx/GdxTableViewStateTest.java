@@ -352,45 +352,14 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void foldedSeatUsesOneExactOpacityLayerAndHoverRestoresIt() {
+    void actionSurfaceOpacityDependsOnlyOnPresentationPhase() {
         assertEquals(1f,
-                CoronaPokerGdxTable.seatActionSurfaceAlpha(true, true),
-                0.000_001f);
-        assertEquals(1f,
-                CoronaPokerGdxTable.seatActionTextAlpha(true), 0.000_001f);
-        assertEquals(1f,
-                CoronaPokerGdxTable.seatActionSurfaceAlpha(false, true),
+                CoronaPokerGdxTable.seatActionSurfaceAlpha(true),
                 0.000_001f);
         assertEquals(0.92f,
-                CoronaPokerGdxTable.seatActionSurfaceAlpha(false, false),
-                0.000_001f);
-        assertEquals(0.92f,
-                CoronaPokerGdxTable.seatActionSurfaceAlpha(true, false),
+                CoronaPokerGdxTable.seatActionSurfaceAlpha(false),
                 0.000_001f,
-                "folding must not apply a second component-level fade");
-        assertEquals(1f,
-                CoronaPokerGdxTable.seatActionTextAlpha(false), 0.000_001f);
-        assertEquals(0.75f, CoronaPokerGdxTable.foldedSeatOpacity(true),
-                0.000_001f);
-        assertEquals(1f, CoronaPokerGdxTable.foldedSeatOpacity(false),
-                0.000_001f);
-        assertEquals(0.75f,
-                CoronaPokerGdxTable.foldedSeatOpacity(true, false),
-                0.000_001f);
-        assertEquals(1f,
-                CoronaPokerGdxTable.foldedSeatOpacity(true, true),
-                0.000_001f,
-                "hover lifts the folded seat-level opacity");
-        assertTrue(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
-                true, 0.50f),
-                "a folded rack must receive opacity only after composition");
-        assertFalse(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
-                false, 0.50f),
-                "ordinary seat fades keep the established direct path");
-        assertFalse(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
-                true, 0f), "an invisible rack needs no off-screen pass");
-        assertFalse(CoronaPokerGdxTable.shouldCompositeFoldedChipRack(
-                true, 1f), "an opaque rack needs no off-screen pass");
+                "folding is not an opacity input for the action surface");
         assertTrue(CoronaPokerGdxTable.shouldCompositePotChipRack(0.50f),
                 "the half-opacity all-in pot must fade after composition");
         assertFalse(CoronaPokerGdxTable.shouldCompositePotChipRack(0f),
@@ -403,18 +372,42 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void avatarRimUsesTheCanonicalTurnAndShowdownColours() {
+    void avatarRimUsesTheVisibleActionColourForLocalAndRemoteSeats() {
+        Color check = CoronaPokerGdxTable.liveActionColor(
+                TableVisualEvent.PlayerAction.ActionKind.CHECK);
+        Color fold = CoronaPokerGdxTable.liveActionColor(
+                TableVisualEvent.PlayerAction.ActionKind.FOLD);
+
+        assertEquals(check, CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, check),
+                "a visible PASA label and its avatar ring share one colour");
+        assertEquals(fold, CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, fold),
+                "the same canonical path covers remote action labels");
+        assertNotEquals(check, CoronaPokerGdxTable.avatarRimColor(
+                null, false, false, check),
+                "a hidden stale action cannot recolour the avatar ring");
+        assertEquals(check, CoronaPokerGdxTable.displayedActionColor(
+                false, true, check),
+                "a remote PENSANDO/action surface remains the ring source");
+        assertEquals(check, CoronaPokerGdxTable.displayedActionColor(
+                true, false, check),
+                "an inactive local action keeps its semantic colour");
+        assertNotEquals(check, CoronaPokerGdxTable.displayedActionColor(
+                true, true, check),
+                "HABLAS TÚ replaces the previous local action with gold");
+    }
+
+    @Test
+    void avatarRimGivesSettledShowdownExplicitPrecedence() {
+        Color check = CoronaPokerGdxTable.liveActionColor(
+                TableVisualEvent.PlayerAction.ActionKind.CHECK);
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(true),
                 CoronaPokerGdxTable.avatarRimColor(
-                        null, true, true, false, false));
+                        true, true, true, check));
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(false),
                 CoronaPokerGdxTable.avatarRimColor(
-                        null, false, true, false, false));
-        assertNotEquals(CoronaPokerGdxTable.avatarRimColor(
-                        null, null, false, false, false),
-                CoronaPokerGdxTable.avatarRimColor(
-                        null, null, false, false, true),
-                "the avatar must follow the active-turn action colour");
+                        false, true, true, check));
     }
 
     @Test
@@ -427,12 +420,9 @@ final class GdxTableViewStateTest {
     @Test
     void localHudKeepsAnActiveFrameWhileWaitingForAnotherPlayer() {
         assertEquals(0.88f,
-                CoronaPokerGdxTable.localHudIdleFrameAlpha(false),
-                0.000_001f);
-        assertEquals(0.88f,
-                CoronaPokerGdxTable.localHudIdleFrameAlpha(true),
+                CoronaPokerGdxTable.localHudIdleFrameAlpha(),
                 0.000_001f,
-                "the shared folded-seat opacity is the only attenuation");
+                "folding is not an opacity input for the idle frame");
     }
 
     @Test
@@ -2756,9 +2746,6 @@ final class GdxTableViewStateTest {
         assertEquals(Color.BLACK,
                 CoronaPokerGdxTable.lateShownHandTextColor(
                         false, Boolean.TRUE));
-        assertTrue(CoronaPokerGdxTable.dimLocalActionBadge(true, false));
-        assertFalse(CoronaPokerGdxTable.dimLocalActionBadge(true, true),
-                "a late shown hand must remain legible without hover");
     }
 
     @Test

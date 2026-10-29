@@ -315,9 +315,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * It deliberately has enough transparent padding for the larger local and
      * pot racks, so every compact stack can reuse the same allocation.
      */
-    private static final float FOLDED_CHIP_RACK_LAYER_WIDTH = 128f;
-    private static final float FOLDED_CHIP_RACK_LAYER_HEIGHT = 96f;
-    private static final float FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET = 28f;
+    private static final float CHIP_RACK_COMPOSITE_WIDTH = 128f;
+    private static final float CHIP_RACK_COMPOSITE_HEIGHT = 96f;
+    private static final float CHIP_RACK_COMPOSITE_BOTTOM_OFFSET = 28f;
     /** Shared table-plane projection for every stationary physical chip. */
     private static final float STACK_CHIP_PERSPECTIVE_Y_RATIO = 0.62f;
     private static final int STACK_CHIP_TEXTURE_SIZE = 256;
@@ -977,8 +977,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color FOLD_RED = new Color(0xd9343fff);
     private static final Color PAUSE_RED = new Color(0xd71920ff);
     private static final Color CONTEXT_EXIT = new Color(0xff7d86ff);
-    /** Final opacity applied to the non-card UI of every folded player. */
-    private static final float FOLDED_SEAT_OPACITY = 0.75f;
     private static final float ACTIVE_ACTION_SURFACE_ALPHA = 0.92f;
     // Exact semantic palette from Swing LocalPlayer/RemotePlayer. These are
     // learned gameplay signals, not decorative colors for the new renderer.
@@ -1304,9 +1302,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxCardSmaaRenderer cardSmaaRenderer
             = new GdxCardSmaaRenderer();
     private FrameBuffer disabledHoleCardsLayer;
-    private FrameBuffer foldedChipRackLayer;
-    private final Matrix4 foldedChipRackLayerProjection = new Matrix4();
-    private boolean foldedChipRackLayerUnavailable;
+    private FrameBuffer chipRackCompositeLayer;
+    private final Matrix4 chipRackCompositeProjection = new Matrix4();
+    private boolean chipRackCompositeUnavailable;
 
     private BitmapFont uiFont;
     private BitmapFont potFont;
@@ -11001,45 +10999,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : seat.x;
     }
 
-    /**
-     * Fold dimming is lifted while the pointer is over any visible part of
-     * that player. This mirrors the existing folded-card hover without
-     * changing poker state, animation timing or hit ownership.
-     */
-    private boolean seatVisualHovered(Seat seat) {
-        float dx = pointer.x - seatAvatarX(seat);
-        float dy = pointer.y - seat.y;
-        if (dx * dx + dy * dy
-                <= AVATAR_OUTER_RADIUS * AVATAR_OUTER_RADIUS) {
-            return true;
-        }
-        if (seat.index == 0) {
-            LocalHudLayout hud = localHudLayout(viewport.getWorldWidth());
-            if (contains(pointer.x, pointer.y, hud.x(), hud.y(),
-                    hud.width(), hud.height())
-                    || localNamePlateBounds(seat, viewport.getWorldWidth())
-                            .contains(pointer)
-                    || localActionBadgeVisible()
-                    && localActionBadgeBounds(seat, viewport.getWorldWidth())
-                            .contains(pointer)) {
-                return true;
-            }
-        } else if (contains(pointer.x, pointer.y, seat.podX, seat.podY,
-                PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT)) {
-            return true;
-        }
-        TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-        int cards = player == null ? 0 : Math.min(2,
-                liveState.presentedHoleCards(player.nickname()).size());
-        for (int slot = 0; slot < cards; slot++) {
-            if (placementContains(liveHolePlacement(seat, slot),
-                    pointer.x, pointer.y)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static Rectangle localActionBadgeBounds(Seat local,
             float worldWidth) {
         Rectangle name = localNamePlateBounds(local, worldWidth);
@@ -11260,9 +11219,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean folded = shouldDimSeat(livePlayer == null
                     || livePlayer.active(), settledShowdown,
                     liveState.foldedThisHand(seat.name));
-            float visualPresence = presence * foldedSeatOpacity(folded,
-                    seatVisualHovered(seat));
+            float visualPresence = presence;
             boolean timedOut = livePlayer != null && livePlayer.timedOut();
+            String actionLabel = lastActionLabelForSeat(seat.index);
+            boolean showActionSurface = seat.index == 0
+                    ? localActionBadgeVisible()
+                    : timedOut || !actionLabel.isEmpty();
+            Color actionColor = lastActionColorForSeat(seat.index);
+            Color visibleAvatarActionColor = displayedActionColor(
+                    seat.index == 0, active, actionColor);
             updateLiveSeatAmounts(seat);
             if (seat.index != 0) {
                 // One component owns name, chips and amount for every rival.
@@ -11270,9 +11235,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? settledShowdownColor(Boolean.TRUE.equals(settledWinner))
                         : timeoutAwareRim(livePlayer, folded ? BUTTON_LINE
                                 : (active ? ACTIVE_TURN_GOLD : SEAT_RIM));
-                String actionLabel = lastActionLabelForSeat(seat.index);
-                boolean showActionSurface = timedOut || !actionLabel.isEmpty();
-                Color actionColor = lastActionColorForSeat(seat.index);
                 shapes.setColor(rim.r, rim.g, rim.b,
                         (settledShowdown || active ? 1f : 0.88f)
                                 * visualPresence);
@@ -11310,8 +11272,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (showActionSurface) {
                     shapes.setColor(actionColor.r, actionColor.g, actionColor.b,
                             composedAlpha(actionColor,
-                                    seatActionSurfaceAlpha(folded,
-                                            settledShowdown),
+                                    seatActionSurfaceAlpha(settledShowdown),
                                     visualPresence));
                     roundedRect(seat.podX + 7f, seat.podY + 7f,
                             PLAYER_POD_WIDTH - 14f, 44f, 8f);
@@ -11340,8 +11301,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     PANEL.a * visualPresence);
             float avatarX = seatAvatarX(seat);
             shapes.circle(avatarX, seat.y, AVATAR_OUTER_RADIUS, 48);
-            Color avatarRim = avatarRimColor(livePlayer, settledWinner,
-                    settledShowdown, folded, active);
+            Color avatarRim = avatarRimColor(settledWinner,
+                    settledShowdown, showActionSurface,
+                    visibleAvatarActionColor);
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
             shapes.circle(avatarX, seat.y, AVATAR_RIM_RADIUS, 48);
@@ -11359,12 +11321,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             Texture avatar = tableAvatar(seat.name);
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            boolean folded = shouldDimSeat(player == null || player.active(),
-                    hasSettledPresentation(liveState.hasHandResult(seat.name),
-                            liveState.resolvedHandWinner(seat.name)),
-                    liveState.foldedThisHand(seat.name));
-            float visualPresence = presence * foldedSeatOpacity(folded,
-                    seatVisualHovered(seat));
+            float visualPresence = presence;
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.flush();
             batch.setShader(avatarShader);
@@ -11375,7 +11332,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
-                drawSeatChipStack(seat, visualPresence, folded);
+                drawSeatChipStack(seat, visualPresence);
             }
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
@@ -11417,8 +11374,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     actionContentWidth -= iconSize + 5f;
                 }
                 if (!actionLabel.isEmpty()) {
-                    // Folding is an opacity treatment. Keep the foreground
-                    // selected for the semantic surface underneath it.
                     drawFittedCenteredInBox(seatActionFont, actionLabel,
                             actionContentX,
                             seat.podY + 13f,
@@ -11483,24 +11438,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /** Drawn inside an active SpriteBatch. */
-    private void drawSeatChipStack(Seat seat, float alpha, boolean folded) {
+    private void drawSeatChipStack(Seat seat, float alpha) {
         GdxStackChipLayout.Layout layout = stackChipLayout(seat);
         float[] physicalCounts = animatedStackChipCounts(seat, layout);
         StackChipRackGeometry geometry = stackChipRackGeometry(
                 seat.index == 0);
         int rackSeed = seat.name.hashCode();
-        boolean composite = hasVisibleStackChips(physicalCounts)
-                && shouldCompositeFoldedChipRack(folded, alpha)
-                && beginFoldedChipRackLayer(seat.stackX, seat.stackY);
         drawChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
-                composite ? 1f : alpha, geometry, rackSeed);
-        if (composite) {
-            finishFoldedChipRackLayer(seat.stackX, seat.stackY, alpha);
-        }
-    }
-
-    static boolean shouldCompositeFoldedChipRack(boolean folded, float alpha) {
-        return folded && shouldCompositeChipRack(alpha);
+                alpha, geometry, rackSeed);
     }
 
     static boolean shouldCompositePotChipRack(float alpha) {
@@ -11524,17 +11469,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * the felt and neighbouring chips from bleeding through each overlapping
      * primitive when the complete rack receives reduced opacity.
      */
-    private boolean beginFoldedChipRackLayer(float centerX, float centerY) {
+    private boolean beginChipRackComposite(float centerX, float centerY) {
         batch.end();
         int parentWidth = activeParentFramebufferWidth();
         int parentHeight = activeParentFramebufferHeight();
         int layerWidth = Math.max(1, MathUtils.ceil(
-                FOLDED_CHIP_RACK_LAYER_WIDTH * parentWidth
+                CHIP_RACK_COMPOSITE_WIDTH * parentWidth
                         / Math.max(1f, viewport.getWorldWidth())));
         int layerHeight = Math.max(1, MathUtils.ceil(
-                FOLDED_CHIP_RACK_LAYER_HEIGHT * parentHeight
+                CHIP_RACK_COMPOSITE_HEIGHT * parentHeight
                         / Math.max(1f, viewport.getWorldHeight())));
-        if (!ensureFoldedChipRackLayer(layerWidth, layerHeight)) {
+        if (!ensureChipRackComposite(layerWidth, layerHeight)) {
             restoreParentFramebufferAfterNestedPass();
             batch.setProjectionMatrix(camera.combined);
             restoreSpriteBatchBlendAfterNestedLayer();
@@ -11542,17 +11487,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
 
-        float layerX = centerX - FOLDED_CHIP_RACK_LAYER_WIDTH / 2f;
-        float layerY = centerY - FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET;
-        foldedChipRackLayer.begin();
-        Gdx.gl.glViewport(0, 0, foldedChipRackLayer.getWidth(),
-                foldedChipRackLayer.getHeight());
+        float layerX = centerX - CHIP_RACK_COMPOSITE_WIDTH / 2f;
+        float layerY = centerY - CHIP_RACK_COMPOSITE_BOTTOM_OFFSET;
+        chipRackCompositeLayer.begin();
+        Gdx.gl.glViewport(0, 0, chipRackCompositeLayer.getWidth(),
+                chipRackCompositeLayer.getHeight());
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        foldedChipRackLayerProjection.setToOrtho2D(layerX, layerY,
-                FOLDED_CHIP_RACK_LAYER_WIDTH,
-                FOLDED_CHIP_RACK_LAYER_HEIGHT);
-        batch.setProjectionMatrix(foldedChipRackLayerProjection);
+        chipRackCompositeProjection.setToOrtho2D(layerX, layerY,
+                CHIP_RACK_COMPOSITE_WIDTH,
+                CHIP_RACK_COMPOSITE_HEIGHT);
+        batch.setProjectionMatrix(chipRackCompositeProjection);
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         GdxCardSmaaRenderer.useStraightAlphaCapture(batch);
@@ -11561,24 +11506,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /** Restores the parent table target and fades the complete crisp rack. */
-    private void finishFoldedChipRackLayer(float centerX, float centerY,
+    private void finishChipRackComposite(float centerX, float centerY,
             float alpha) {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
-        foldedChipRackLayer.end();
+        chipRackCompositeLayer.end();
         restoreParentFramebufferAfterNestedPass();
         camera.update();
         batch.setProjectionMatrix(camera.combined);
-        Texture layer = foldedChipRackLayer.getColorBufferTexture();
+        Texture layer = chipRackCompositeLayer.getColorBufferTexture();
         GdxCardSmaaRenderer.usePremultipliedComposite(batch);
         batch.begin();
         batch.setColor(alpha, alpha, alpha, alpha);
         batch.draw(layer,
-                centerX - FOLDED_CHIP_RACK_LAYER_WIDTH / 2f,
-                centerY - FOLDED_CHIP_RACK_LAYER_BOTTOM_OFFSET,
-                FOLDED_CHIP_RACK_LAYER_WIDTH,
-                FOLDED_CHIP_RACK_LAYER_HEIGHT,
+                centerX - CHIP_RACK_COMPOSITE_WIDTH / 2f,
+                centerY - CHIP_RACK_COMPOSITE_BOTTOM_OFFSET,
+                CHIP_RACK_COMPOSITE_WIDTH,
+                CHIP_RACK_COMPOSITE_HEIGHT,
                 0, 0, layer.getWidth(), layer.getHeight(), false, true);
         batch.setColor(Color.WHITE);
         batch.end();
@@ -11606,30 +11551,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.max(1, Gdx.graphics.getBackBufferHeight());
     }
 
-    private boolean ensureFoldedChipRackLayer(int width, int height) {
-        if (foldedChipRackLayer != null
-                && foldedChipRackLayer.getWidth() == width
-                && foldedChipRackLayer.getHeight() == height) {
+    private boolean ensureChipRackComposite(int width, int height) {
+        if (chipRackCompositeLayer != null
+                && chipRackCompositeLayer.getWidth() == width
+                && chipRackCompositeLayer.getHeight() == height) {
             return true;
         }
-        if (foldedChipRackLayerUnavailable) {
-            return foldedChipRackLayer != null;
+        if (chipRackCompositeUnavailable) {
+            return chipRackCompositeLayer != null;
         }
         try {
             FrameBuffer replacement = new FrameBuffer(Pixmap.Format.RGBA8888,
                     width, height, false);
             replacement.getColorBufferTexture().setFilter(
                     TextureFilter.Linear, TextureFilter.Linear);
-            if (foldedChipRackLayer != null) foldedChipRackLayer.dispose();
-            foldedChipRackLayer = replacement;
+            if (chipRackCompositeLayer != null) {
+                chipRackCompositeLayer.dispose();
+            }
+            chipRackCompositeLayer = replacement;
             return true;
         } catch (RuntimeException failure) {
-            foldedChipRackLayerUnavailable = true;
+            chipRackCompositeUnavailable = true;
             LOGGER.log(Level.WARNING,
-                    "Unable to create folded chip-rack composite layer; "
+                    "Unable to create chip-rack composite layer; "
                             + "falling back to direct rendering",
                     failure);
-            return foldedChipRackLayer != null;
+            return chipRackCompositeLayer != null;
         }
     }
 
@@ -14810,12 +14757,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float[] physicalCounts = displayedPotChipCounts(potLayout);
             boolean composite = hasVisibleStackChips(physicalCounts)
                     && shouldCompositePotChipRack(opacity)
-                    && beginFoldedChipRackLayer(iconCenterX, iconBaseY);
+                    && beginChipRackComposite(iconCenterX, iconBaseY);
             drawChipRack(iconCenterX, iconBaseY, potLayout,
                     physicalCounts, composite ? 1f : opacity, potGeometry,
                     0x504f54);
             if (composite) {
-                finishFoldedChipRackLayer(iconCenterX, iconBaseY,
+                finishChipRackComposite(iconCenterX, iconBaseY,
                         opacity);
             }
         }
@@ -17313,30 +17260,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return foldedThisHand || !playerActive && !hasSettledPresentation;
     }
 
-    static float seatActionSurfaceAlpha(boolean folded,
-            boolean settledShowdown) {
+    static float seatActionSurfaceAlpha(boolean settledShowdown) {
         return settledShowdown ? 1f : ACTIVE_ACTION_SURFACE_ALPHA;
-    }
-
-    static float seatActionTextAlpha(boolean folded) {
-        return 1f;
-    }
-
-    static float foldedSeatOpacity(boolean folded) {
-        return folded ? FOLDED_SEAT_OPACITY : 1f;
-    }
-
-    static float foldedSeatOpacity(boolean folded, boolean hovered) {
-        return folded && !hovered ? FOLDED_SEAT_OPACITY : 1f;
-    }
-
-    static boolean dimLocalActionBadge(boolean folded,
-            boolean lateShownHand) {
-        // A voluntarily revealed folded hand is a fresh showdown caption,
-        // not the stale folded action underneath it. Keep the neutral folded
-        // colour, but restore normal badge-relative opacity so the evaluated
-        // hand remains legible inside the shared folded-seat fade.
-        return folded && !lateShownHand;
     }
 
     static boolean localActionBadgeVisible(boolean localMonteCarlo,
@@ -17881,14 +17806,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? LEGACY_TIMEOUT : normalRim;
     }
 
-    static Color avatarRimColor(TableSnapshot.PlayerSnapshot livePlayer,
-            Boolean settledWinner, boolean settledShowdown, boolean folded,
-            boolean active) {
+    static Color avatarRimColor(Boolean settledWinner, boolean settledShowdown,
+            boolean actionVisible, Color actionColor) {
         if (settledShowdown) {
             return settledShowdownColor(Boolean.TRUE.equals(settledWinner));
         }
-        return timeoutAwareRim(livePlayer, folded ? BUTTON_LINE
-                : active ? ACTIVE_TURN_GOLD : SEAT_RIM);
+        return actionVisible && actionColor != null ? actionColor : SEAT_RIM;
+    }
+
+    static Color displayedActionColor(boolean localSeat, boolean activeTurn,
+            Color semanticColor) {
+        // The local active caption is HABLAS TÚ and is painted gold. Remote
+        // active seats render PENSANDO with their canonical thinking colour.
+        // Every caller, including the avatar rim, must consume that exact
+        // visible surface colour instead of reconstructing it independently.
+        return localSeat && activeTurn ? ACTIVE_TURN_GOLD : semanticColor;
     }
 
     static Color liveActionTextColor(
@@ -19419,14 +19351,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveLocalPlayer == null || liveLocalPlayer.active(),
                 settledShowdown,
                 liveState.foldedThisHand(seats[0].name));
-        // This factor intentionally affects only the local identity/HUD.
-        // Hole cards keep their independent fold animation and final alpha.
-        float localSeatOpacity = foldedSeatOpacity(localFolded,
-                seatVisualHovered(localSeat));
+        // Folding changes the semantic state, never the opacity of the local
+        // identity or HUD. Entry/exit presence remains owned by drawSeats().
+        float localSeatOpacity = 1f;
         boolean localTimedOut = liveLocalPlayer != null
                 && liveLocalPlayer.timedOut();
-        boolean dimLocalActionBadge = dimLocalActionBadge(localFolded,
-                localShownHand);
         boolean waitingForTurn = showsWaitingTurnMessage(localTurn,
                 preActions, showdownPresentation, localFolded, localAllIn,
                 liveLocalPlayer);
@@ -19434,14 +19363,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !localMonteCarlo && !autoActionVeto
                 && (neutralShowdownHand || localActionMemory
                         || localSpectator
-                        || waitingForTurn || localFolded);
+                        || waitingForTurn);
         String lastLocalActionLabel = lastActionLabelForSeat(0);
         String localActionBadgeLabel = localActionBadgeLabel(localTurn,
                 lastLocalActionLabel, gameText);
         Color localHudSemanticColor = lastActionSemanticColorForSeat(0);
         Color lastLocalActionColor = lastActionColorForSeat(0);
-        Color localActionBadgeColor = localTurn
-                ? ACTIVE_TURN_GOLD : lastLocalActionColor;
+        Color localActionBadgeColor = displayedActionColor(true, localTurn,
+                lastLocalActionColor);
         Color localActionBadgeTextColor = localTurn
                 ? Color.BLACK : lastActionTextColorForSeat(0);
         // Accounting follows only the canonical action palette. Showdown
@@ -19549,8 +19478,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : localShownHand || localMonteCarlo ? 0.90f
                 : settledShowdown ? 0.78f + haloPulse * 0.18f
                 : danger ? 0.62f + dangerPulse * 0.38f
-                : localTurn ? 0.72f + haloPulse * 0.26f
-                        : localHudIdleFrameAlpha(localFolded);
+                        : localTurn ? 0.72f + haloPulse * 0.26f
+                        : localHudIdleFrameAlpha();
         shapes.setColor(
                 MathUtils.lerp(hudFrame.r, 1f, idleFrameLighten),
                 MathUtils.lerp(hudFrame.g, 1f, idleFrameLighten),
@@ -19652,7 +19581,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 localActionBadgeLabel)) {
             shapes.setColor(localActionBadgeColor.r, localActionBadgeColor.g,
                     localActionBadgeColor.b, localActionBadgeColor.a
-                    * seatActionSurfaceAlpha(dimLocalActionBadge,
+                    * seatActionSurfaceAlpha(
                             settledShowdown || localShownHand)
                     * localSeatOpacity);
             roundedRect(actionBadge.x, actionBadge.y,
@@ -19758,7 +19687,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         Seat local = localSeat;
-        drawSeatChipStack(local, localSeatOpacity, localFolded);
+        drawSeatChipStack(local, localSeatOpacity);
         batch.setColor(Color.WHITE);
         boolean localUnderTheGun = liveLocalPlayer != null
                 && liveLocalPlayer.underTheGun();
@@ -19813,9 +19742,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFittedCenteredInBox(actionFont, localActionBadgeLabel,
                     actionTextX, actionBadge.y,
                     actionTextWidth, actionBadge.height,
-                    localActionBadgeTextColor,
-                    seatActionTextAlpha(dimLocalActionBadge)
-                    * localSeatOpacity);
+                    localActionBadgeTextColor, localSeatOpacity);
         }
         batch.setColor(Color.WHITE);
         Rectangle stackCaption = layout.stackCaptionBounds();
@@ -20259,7 +20186,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return player == null || !player.spectator();
     }
 
-    static float localHudIdleFrameAlpha(boolean folded) {
+    static float localHudIdleFrameAlpha() {
         return 0.88f;
     }
 
@@ -28347,7 +28274,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
         cardSmaaRenderer.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
-        if (foldedChipRackLayer != null) foldedChipRackLayer.dispose();
+        if (chipRackCompositeLayer != null) {
+            chipRackCompositeLayer.dispose();
+        }
         uiFont.dispose();
         potFont.dispose();
         smallFont.dispose();

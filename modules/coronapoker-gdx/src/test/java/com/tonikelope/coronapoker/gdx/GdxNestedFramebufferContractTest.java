@@ -67,12 +67,12 @@ final class GdxNestedFramebufferContractTest {
         int method = table.indexOf(
                 "private void drawPotPanelSurface(float alpha)");
         int begin = table.indexOf(
-                "beginFoldedChipRackLayer(iconCenterX, iconBaseY)",
+                "beginChipRackComposite(iconCenterX, iconBaseY)",
                 method);
         int opaqueRack = table.indexOf(
                 "physicalCounts, composite ? 1f : opacity", begin);
         int finish = table.indexOf(
-                "finishFoldedChipRackLayer(iconCenterX, iconBaseY,",
+                "finishChipRackComposite(iconCenterX, iconBaseY,",
                 opaqueRack);
 
         assertTrue(method >= 0 && begin > method,

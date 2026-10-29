@@ -8,6 +8,6 @@ final class ApplicationMetadataTest {
 
     @Test
     void modularProductUsesItsPackagedRuntimeVersion() {
-        assertEquals("26.73", ApplicationMetadata.VERSION);
+        assertEquals("26.74", ApplicationMetadata.VERSION);
     }
 }

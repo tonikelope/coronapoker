@@ -47,4 +47,21 @@ final class GdxAvatarCropModelTest {
         assertTrue(resized.x() + resized.size() <= 1200.001f);
         assertTrue(resized.y() + resized.size() <= 800.001f);
     }
+
+    @Test
+    void partialCenteringOnlyChangesTheRequestedAxis() {
+        GdxAvatarCropModel.Crop initial = GdxAvatarCropModel.crop(
+                1200, 800, 250f, 600f, 200f);
+        GdxAvatarCropModel.Crop horizontal
+                = GdxAvatarCropModel.centerHorizontally(initial, 1200, 800);
+        GdxAvatarCropModel.Crop vertical
+                = GdxAvatarCropModel.centerVertically(initial, 1200, 800);
+
+        assertEquals(600f, horizontal.centerX(), 0.001f);
+        assertEquals(initial.centerY(), horizontal.centerY(), 0.001f);
+        assertEquals(initial.centerX(), vertical.centerX(), 0.001f);
+        assertEquals(400f, vertical.centerY(), 0.001f);
+        assertEquals(initial.size(), horizontal.size(), 0.001f);
+        assertEquals(initial.size(), vertical.size(), 0.001f);
+    }
 }

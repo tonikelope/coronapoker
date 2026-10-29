@@ -43,6 +43,18 @@ final class GdxAvatarCropModel {
                 current.centerY(), current.size() * factor);
     }
 
+    static Crop centerHorizontally(Crop current, int imageWidth,
+            int imageHeight) {
+        return crop(imageWidth, imageHeight, imageWidth / 2f,
+                current.centerY(), current.size());
+    }
+
+    static Crop centerVertically(Crop current, int imageWidth,
+            int imageHeight) {
+        return crop(imageWidth, imageHeight, current.centerX(),
+                imageHeight / 2f, current.size());
+    }
+
     static Crop resizeFromCorner(Crop current, int imageWidth,
             int imageHeight, Corner corner, float pointerX,
             float pointerY) {

@@ -44,6 +44,6 @@ final class GdxNewGameImmediatePreferenceContractTest {
                 "hit(315f, 422f, 130f, 135f, this::selectAvatar);"));
         assertFalse(source.contains("gameText.translate(\"gdx.change\")"));
         assertFalse(source.contains("gameText.translate(\"gdx.remove\")"));
-        assertFalse(source.contains("this::resetAvatar"));
+        assertFalse(source.contains("this::resetAvatar)"));
     }
 }

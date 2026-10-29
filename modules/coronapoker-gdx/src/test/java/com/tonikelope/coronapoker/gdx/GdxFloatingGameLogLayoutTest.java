@@ -69,7 +69,97 @@ final class GdxFloatingGameLogLayoutTest {
         assertTrue(panel.contains(layout.headerDrag()));
         assertTrue(panel.contains(layout.logFrame()));
         assertTrue(layout.logFrame().contains(layout.content()));
-        assertTrue(panel.contains(layout.resizeGrip()));
+    }
+
+    @Test
+    void everyEdgeAndCornerCanResizeWithoutMovingItsOppositeEdge() {
+        Rectangle start = new Rectangle(380f, 180f, 900f, 600f);
+
+        Rectangle left = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.LEFT, -100f, 0f);
+        Rectangle right = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.RIGHT, 100f, 0f);
+        Rectangle top = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.TOP, 0f, 100f);
+        Rectangle bottom = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.BOTTOM, 0f, -100f);
+        Rectangle topLeft = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.TOP_LEFT,
+                -100f, 100f);
+        Rectangle topRight = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.TOP_RIGHT,
+                100f, 100f);
+        Rectangle bottomLeft = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.BOTTOM_LEFT,
+                -100f, -100f);
+        Rectangle bottomRight = resize(start,
+                GdxFloatingGameLogLayout.ResizeHandle.BOTTOM_RIGHT,
+                100f, -100f);
+
+        assertEquals(start.x + start.width, left.x + left.width, EPSILON);
+        assertEquals(start.x, right.x, EPSILON);
+        assertEquals(start.y, top.y, EPSILON);
+        assertEquals(start.y + start.height,
+                bottom.y + bottom.height, EPSILON);
+        assertEquals(start.x + start.width,
+                topLeft.x + topLeft.width, EPSILON);
+        assertEquals(start.y, topLeft.y, EPSILON);
+        assertEquals(start.x, topRight.x, EPSILON);
+        assertEquals(start.y, topRight.y, EPSILON);
+        assertEquals(start.x + start.width,
+                bottomLeft.x + bottomLeft.width, EPSILON);
+        assertEquals(start.y + start.height,
+                bottomLeft.y + bottomLeft.height, EPSILON);
+        assertEquals(start.x, bottomRight.x, EPSILON);
+        assertEquals(start.y + start.height,
+                bottomRight.y + bottomRight.height, EPSILON);
+
+        for (GdxFloatingGameLogLayout.ResizeHandle handle
+                : GdxFloatingGameLogLayout.ResizeHandle.values()) {
+            if (handle == GdxFloatingGameLogLayout.ResizeHandle.NONE) {
+                continue;
+            }
+            assertInsideScreen(resize(start, handle, 5000f, 5000f),
+                    1920f, 1080f);
+            assertInsideScreen(resize(start, handle, -5000f, -5000f),
+                    1920f, 1080f);
+        }
+    }
+
+    @Test
+    void pointerHitTestingDistinguishesCornersSidesAndInterior() {
+        Rectangle panel = new Rectangle(100f, 80f, 760f, 430f);
+
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.TOP_LEFT,
+                handle(panel, 101f, 509f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.TOP_RIGHT,
+                handle(panel, 859f, 509f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.BOTTOM_LEFT,
+                handle(panel, 101f, 81f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.BOTTOM_RIGHT,
+                handle(panel, 859f, 81f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.LEFT,
+                handle(panel, 101f, 280f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.RIGHT,
+                handle(panel, 859f, 280f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.TOP,
+                handle(panel, 480f, 509f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.BOTTOM,
+                handle(panel, 480f, 81f));
+        assertEquals(GdxFloatingGameLogLayout.ResizeHandle.NONE,
+                handle(panel, 480f, 280f));
+    }
+
+    private static Rectangle resize(Rectangle start,
+            GdxFloatingGameLogLayout.ResizeHandle handle,
+            float deltaX, float deltaY) {
+        return GdxFloatingGameLogLayout.resized(start, handle,
+                deltaX, deltaY, 1920f, 1080f);
+    }
+
+    private static GdxFloatingGameLogLayout.ResizeHandle handle(
+            Rectangle panel, float x, float y) {
+        return GdxFloatingGameLogLayout.resizeHandleAt(panel, x, y);
     }
 
     private static void assertInsideScreen(Rectangle panel,

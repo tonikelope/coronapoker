@@ -118,7 +118,7 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "bidirectionalChoice(editX + 42f, 285f, editW - 84f"));
         assertTrue(source.contains(
-                "compactButton(newButtonX, 824f, 140f, 54f"));
+                "compactButton(newButtonX, 944f, 140f, 54f"));
         assertTrue(source.contains(
                 "this::saveCustomBot, customBotSaveEnabled());"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));

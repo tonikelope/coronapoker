@@ -10,6 +10,8 @@ final class GdxFloatingGameLogLayout {
     static final float SCREEN_MARGIN = 16f;
     static final float MIN_WIDTH = 640f;
     static final float MIN_HEIGHT = 360f;
+    static final float RESIZE_EDGE = 14f;
+    static final float RESIZE_CORNER = 20f;
     private static final float DEFAULT_WIDTH = 1160f;
     private static final float DEFAULT_HEIGHT = 720f;
 
@@ -62,17 +64,59 @@ final class GdxFloatingGameLogLayout {
      */
     static Rectangle resizedFromLowerRight(Rectangle start, float deltaX,
             float deltaY, float worldWidth, float worldHeight) {
-        float availableWidth = Math.max(1f,
-                worldWidth - SCREEN_MARGIN - start.x);
-        float availableHeight = Math.max(1f,
-                start.y + start.height - SCREEN_MARGIN);
-        float width = MathUtils.clamp(start.width + deltaX,
-                Math.min(MIN_WIDTH, availableWidth), availableWidth);
-        float height = MathUtils.clamp(start.height - deltaY,
-                Math.min(MIN_HEIGHT, availableHeight), availableHeight);
+        return resized(start, ResizeHandle.BOTTOM_RIGHT, deltaX, deltaY,
+                worldWidth, worldHeight);
+    }
+
+    static Rectangle resized(Rectangle start, ResizeHandle handle,
+            float deltaX, float deltaY, float worldWidth,
+            float worldHeight) {
+        if (handle == null || handle == ResizeHandle.NONE) {
+            return normalize(new Rectangle(start), worldWidth, worldHeight);
+        }
+        float minimumWidth = Math.min(MIN_WIDTH,
+                Math.max(1f, worldWidth - 2f * SCREEN_MARGIN));
+        float minimumHeight = Math.min(MIN_HEIGHT,
+                Math.max(1f, worldHeight - 2f * SCREEN_MARGIN));
+        float left = start.x;
+        float right = start.x + start.width;
+        float bottom = start.y;
         float top = start.y + start.height;
-        return normalize(new Rectangle(start.x, top - height,
-                width, height), worldWidth, worldHeight);
+        if (handle.left) {
+            left = MathUtils.clamp(left + deltaX, SCREEN_MARGIN,
+                    right - minimumWidth);
+        } else if (handle.right) {
+            right = MathUtils.clamp(right + deltaX,
+                    left + minimumWidth, worldWidth - SCREEN_MARGIN);
+        }
+        if (handle.bottom) {
+            bottom = MathUtils.clamp(bottom + deltaY, SCREEN_MARGIN,
+                    top - minimumHeight);
+        } else if (handle.top) {
+            top = MathUtils.clamp(top + deltaY,
+                    bottom + minimumHeight, worldHeight - SCREEN_MARGIN);
+        }
+        return normalize(new Rectangle(left, bottom,
+                right - left, top - bottom), worldWidth, worldHeight);
+    }
+
+    static ResizeHandle resizeHandleAt(Rectangle panel, float x, float y) {
+        if (!panel.contains(x, y)) return ResizeHandle.NONE;
+        float right = panel.x + panel.width;
+        float top = panel.y + panel.height;
+        boolean leftCorner = x <= panel.x + RESIZE_CORNER;
+        boolean rightCorner = x >= right - RESIZE_CORNER;
+        boolean bottomCorner = y <= panel.y + RESIZE_CORNER;
+        boolean topCorner = y >= top - RESIZE_CORNER;
+        if (leftCorner && topCorner) return ResizeHandle.TOP_LEFT;
+        if (rightCorner && topCorner) return ResizeHandle.TOP_RIGHT;
+        if (leftCorner && bottomCorner) return ResizeHandle.BOTTOM_LEFT;
+        if (rightCorner && bottomCorner) return ResizeHandle.BOTTOM_RIGHT;
+        if (x <= panel.x + RESIZE_EDGE) return ResizeHandle.LEFT;
+        if (x >= right - RESIZE_EDGE) return ResizeHandle.RIGHT;
+        if (y <= panel.y + RESIZE_EDGE) return ResizeHandle.BOTTOM;
+        if (y >= top - RESIZE_EDGE) return ResizeHandle.TOP;
+        return ResizeHandle.NONE;
     }
 
     static Layout layout(Rectangle panel) {
@@ -93,14 +137,37 @@ final class GdxFloatingGameLogLayout {
                 logFrame.x + logFrame.width - 24f,
                 logFrame.y + 14f, 14f,
                 Math.max(1f, logFrame.height - 28f));
-        Rectangle resize = new Rectangle(panel.x + panel.width - 30f,
-                panel.y + 2f, 26f, 26f);
         return new Layout(copy, header, close, logFrame, content,
-                scrollbar, resize);
+                scrollbar);
     }
 
     record Layout(Rectangle panel, Rectangle headerDrag,
             Rectangle closeButton, Rectangle logFrame, Rectangle content,
-            Rectangle scrollbarTrack, Rectangle resizeGrip) {
+            Rectangle scrollbarTrack) {
+    }
+
+    enum ResizeHandle {
+        NONE(false, false, false, false),
+        LEFT(true, false, false, false),
+        RIGHT(false, true, false, false),
+        TOP(false, false, true, false),
+        BOTTOM(false, false, false, true),
+        TOP_LEFT(true, false, true, false),
+        TOP_RIGHT(false, true, true, false),
+        BOTTOM_LEFT(true, false, false, true),
+        BOTTOM_RIGHT(false, true, false, true);
+
+        private final boolean left;
+        private final boolean right;
+        private final boolean top;
+        private final boolean bottom;
+
+        ResizeHandle(boolean left, boolean right, boolean top,
+                boolean bottom) {
+            this.left = left;
+            this.right = right;
+            this.top = top;
+            this.bottom = bottom;
+        }
     }
 }

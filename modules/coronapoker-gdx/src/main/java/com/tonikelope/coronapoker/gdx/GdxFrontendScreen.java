@@ -8,6 +8,7 @@ import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
@@ -510,6 +511,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle avatarCropImageBounds = new Rectangle();
     private final Rectangle avatarCropSelectionBounds = new Rectangle();
     private AvatarCropDrag avatarCropDrag = AvatarCropDrag.NONE;
+    private Cursor.SystemCursor appliedSystemCursor;
     private int avatarCropPointer = -1;
     private float avatarCropLastX;
     private float avatarCropLastY;
@@ -1141,6 +1143,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         captureFrontendModalInput();
         hoverAnimations.clear();
         refreshPointerFromDevice();
+        appliedSystemCursor = null;
         prepareFrontendGraphicsState();
     }
 
@@ -1150,6 +1153,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         refreshFontQualityIfDue();
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         refreshPointerFromDevice();
+        updateAvatarCropSystemCursor();
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
         if (networkBlockCache != null) {
@@ -11530,6 +11534,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 WIDTH / 2f, 974f, GOLD, true, 1260f);
         textFit(smallFont, gameText.translate("gdx.custom_bots.subtitle"),
                 WIDTH / 2f, 912f, MUTED, true, 1320f);
+        float newButtonX = x + w - 182f;
+        compactButton(newButtonX, 944f, 140f, 54f,
+                gameText.translate("gdx.custom_bots.new_button"), false,
+                this::newCustomBot,
+                customBotProfiles.size()
+                        < CustomBotProfileCatalog.MAX_PROFILES);
+        tooltip(newButtonX, 944f, 140f, 54f,
+                "tooltip.cfg.custom_bots.new");
 
         float listX = 235f;
         float listY = 145f;
@@ -11679,15 +11691,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(uiFont, customBotSelected < 0
                         ? gameText.translate("gdx.custom_bots.new")
                         : gameText.translate("gdx.custom_bots.edit"),
-                editX + 24f, 852f, GOLD, false, 300f);
-        float newButtonX = editX + editW - 182f;
-        compactButton(newButtonX, 824f, 140f, 54f,
-                gameText.translate("gdx.custom_bots.new_button"), false,
-                this::newCustomBot,
-                customBotProfiles.size()
-                        < CustomBotProfileCatalog.MAX_PROFILES);
-        tooltip(newButtonX, 824f, 140f, 54f,
-                "tooltip.cfg.custom_bots.new");
+                editX + 24f, 852f, GOLD, false, editW - 48f);
         Texture editorAvatar = customBotAvatarTexture(customBotAvatarDraft);
         float editorAvatarCenterX = editX + editW / 2f;
         float editorAvatarCenterY = 790f;
@@ -13267,13 +13271,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 AVATAR_CROP_VIEW_SIZE + 6f,
                 AVATAR_CROP_VIEW_SIZE + 6f, 10f, 3f);
 
-        float controlX = viewX + AVATAR_CROP_VIEW_SIZE + 34f;
-        themedButton(controlX - 10f,
-                viewY + (AVATAR_CROP_VIEW_SIZE - 64f) / 2f,
-                180f, 64f,
-                uppercase(gameText.translate("gdx.avatar.crop.center")),
-                ButtonTone.NEUTRAL, this::centerAvatarCrop, true,
+        float controlX = viewX + AVATAR_CROP_VIEW_SIZE + 24f;
+        float controlWidth = 260f;
+        float controlHeight = 64f;
+        float controlGap = 18f;
+        float controlsY = viewY + (AVATAR_CROP_VIEW_SIZE
+                - controlHeight * 3f - controlGap * 2f) / 2f;
+        themedButton(controlX,
+                controlsY + (controlHeight + controlGap) * 2f,
+                controlWidth, controlHeight,
+                uppercase(gameText.translate("gdx.avatar.crop.reset")),
+                ButtonTone.NEUTRAL, this::resetAvatarCrop, true,
                 smallFont);
+        themedButton(controlX, controlsY + controlHeight + controlGap,
+                controlWidth, controlHeight,
+                uppercase(gameText.translate(
+                        "gdx.avatar.crop.center_horizontal")),
+                ButtonTone.NEUTRAL,
+                this::centerAvatarCropHorizontally, true, smallFont);
+        themedButton(controlX, controlsY, controlWidth, controlHeight,
+                uppercase(gameText.translate(
+                        "gdx.avatar.crop.center_vertical")),
+                ButtonTone.NEUTRAL,
+                this::centerAvatarCropVertically, true, smallFont);
 
         float cancelX = WIDTH / 2f - 330f;
         float useX = WIDTH / 2f + 30f;
@@ -13367,10 +13387,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 factor);
     }
 
-    private void centerAvatarCrop() {
+    private void resetAvatarCrop() {
         AvatarCropSession session = avatarCropSession;
         if (session == null) return;
         session.crop = GdxAvatarCropModel.centered(
+                session.pixmap.getWidth(), session.pixmap.getHeight());
+    }
+
+    private void centerAvatarCropHorizontally() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        session.crop = GdxAvatarCropModel.centerHorizontally(session.crop,
+                session.pixmap.getWidth(), session.pixmap.getHeight());
+    }
+
+    private void centerAvatarCropVertically() {
+        AvatarCropSession session = avatarCropSession;
+        if (session == null) return;
+        session.crop = GdxAvatarCropModel.centerVertically(session.crop,
                 session.pixmap.getWidth(), session.pixmap.getHeight());
     }
 
@@ -13396,6 +13430,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         return avatarCropSelectionBounds.contains(worldX, worldY)
                 ? AvatarCropDrag.MOVE : AvatarCropDrag.NONE;
+    }
+
+    private void updateAvatarCropSystemCursor() {
+        Cursor.SystemCursor desired = Cursor.SystemCursor.Arrow;
+        AvatarCropSession session = avatarCropSession;
+        if (session != null) {
+            updateAvatarCropScreenGeometry(session);
+            AvatarCropDrag target = avatarCropDrag != AvatarCropDrag.NONE
+                    ? avatarCropDrag
+                    : avatarCropDragAt(pointer.x, pointer.y);
+            desired = switch (target) {
+                case TOP_LEFT, BOTTOM_RIGHT ->
+                    Cursor.SystemCursor.NWSEResize;
+                case TOP_RIGHT, BOTTOM_LEFT ->
+                    Cursor.SystemCursor.NESWResize;
+                default -> Cursor.SystemCursor.Arrow;
+            };
+        }
+        if (desired != appliedSystemCursor) {
+            Gdx.graphics.setSystemCursor(desired);
+            appliedSystemCursor = desired;
+        }
     }
 
     private Vector2 avatarCropSourceAt(AvatarCropSession session,

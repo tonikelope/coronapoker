@@ -379,22 +379,22 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.FOLD);
 
         assertEquals(check, CoronaPokerGdxTable.avatarRimColor(
-                null, false, false, true, check),
+                null, false, null, false, true, check),
                 "a visible PASA label and its avatar ring share one colour");
         assertEquals(fold, CoronaPokerGdxTable.avatarRimColor(
-                null, false, false, true, fold),
+                null, false, null, false, true, fold),
                 "the same canonical path covers remote action labels");
         assertNotEquals(check, CoronaPokerGdxTable.avatarRimColor(
-                null, false, false, false, check),
+                null, false, null, false, false, check),
                 "a hidden stale action cannot recolour the avatar ring");
         Color remoteTurn = CoronaPokerGdxTable.avatarRimColor(
-                null, false, true, true, check);
+                null, false, null, true, true, check);
         assertColor(0xff, 0xad, 0x20, 0xff, remoteTurn);
         assertNotEquals(check, remoteTurn,
                 "an active remote avatar must use the same gold/orange "
                 + "accent as its turn halo and seat frame");
         assertEquals(remoteTurn, CoronaPokerGdxTable.avatarRimColor(
-                null, false, true, false, fold),
+                null, false, null, true, false, fold),
                 "turn ownership must not depend on PENSANDO visibility or "
                 + "a stale previous action");
         assertEquals(check, CoronaPokerGdxTable.turnAwareActionColor(
@@ -411,10 +411,33 @@ final class GdxTableViewStateTest {
                 TableVisualEvent.PlayerAction.ActionKind.CHECK);
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(true),
                 CoronaPokerGdxTable.avatarRimColor(
-                        true, true, true, true, check));
+                        true, true, false, true, true, check));
         assertEquals(CoronaPokerGdxTable.settledShowdownColor(false),
                 CoronaPokerGdxTable.avatarRimColor(
-                        false, true, true, true, check));
+                        false, true, true, true, true, check));
+    }
+
+    @Test
+    void monteCarloAvatarRimOwnsLocalRemoteAndStaleTurnStates() {
+        Color partialWinner = CoronaPokerGdxTable.partialHandColor(true);
+        Color partialLoser = CoronaPokerGdxTable.partialHandColor(false);
+
+        assertColor(0x72, 0xdf, 0x00, 0xff, partialWinner);
+        assertEquals(partialWinner, CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, false, false, Color.GRAY),
+                "local Monte Carlo must colour the ring even though it hides "
+                + "the ordinary action badge and its stale action is grey");
+        assertEquals(partialLoser, CoronaPokerGdxTable.avatarRimColor(
+                null, false, false, false, false, Color.GOLD),
+                "remote Monte Carlo uses the same presentation path");
+        assertEquals(partialWinner, CoronaPokerGdxTable.avatarRimColor(
+                null, false, true, true, false, Color.GOLD),
+                "a partial result must outrank stale turn ownership during "
+                + "an all-in or RIT run-out");
+        assertEquals(CoronaPokerGdxTable.settledShowdownColor(false),
+                CoronaPokerGdxTable.avatarRimColor(
+                        false, true, true, true, true, partialWinner),
+                "the definitive showdown verdict still owns final colour");
     }
 
     @Test
@@ -2007,6 +2030,17 @@ final class GdxTableViewStateTest {
         assertFalse(presentation.showdownHighlightEnabled());
         assertEquals("", presentation.publicHandName());
         assertEquals(List.of(), presentation.wonPotIndexes());
+
+        state.apply(new TableVisualEvent.PartialHand(6, "ana", "PAREJA",
+                false, 37.5f));
+        assertEquals(37.5f, state.partialHandPercentage("ana"));
+        assertFalse(player(state, "ana").winner());
+        Color sideBPartial = CoronaPokerGdxTable.partialHandColor(
+                player(state, "ana").winner());
+        assertEquals(sideBPartial, CoronaPokerGdxTable.avatarRimColor(
+                null, false, false, false, false, Color.GRAY),
+                "SIDE B must acquire its own partial-result ring without "
+                + "reviving SIDE A or the stale ALL IN action");
     }
 
     @Test

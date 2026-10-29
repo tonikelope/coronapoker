@@ -11211,7 +11211,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Boolean settledWinner = liveState.resolvedHandWinner(seat.name);
             boolean settledShowdown = hasSettledPresentation(
                     liveState.hasHandResult(seat.name), settledWinner);
+            boolean partialPresentation = !settledShowdown
+                    && liveState.partialHandPercentage(seat.name) != null;
             TableSnapshot.PlayerSnapshot livePlayer = livePlayer(seat);
+            Boolean partialWinner = partialPresentation && livePlayer != null
+                    ? livePlayer.winner() : null;
             // END snapshots may already mark every player inactive.  A player
             // with an ordered HandResult is nevertheless in the settled
             // showdown presentation and must keep the full winner/loser
@@ -11300,7 +11304,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float avatarX = seatAvatarX(seat);
             shapes.circle(avatarX, seat.y, AVATAR_OUTER_RADIUS, 48);
             Color avatarRim = avatarRimColor(settledWinner,
-                    settledShowdown, active, showActionSurface, actionColor);
+                    settledShowdown, partialWinner, active,
+                    showActionSurface, actionColor);
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
             shapes.circle(avatarX, seat.y, AVATAR_RIM_RADIUS, 48);
@@ -17568,10 +17573,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (resolvedWinner != null) {
             return resolvedWinner ? LEGACY_WINNER : LEGACY_LOSER;
         }
+        if (liveState.partialHandPercentage(player.nickname()) != null) {
+            return partialHandColor(player.winner());
+        }
         if (liveHandLabelVisible(player)) {
-            if (liveState.partialHandPercentage(player.nickname()) != null) {
-                return player.winner() ? PARTIAL_HAND_WINNER : PARTIAL_HAND_LOSER;
-            }
             if (!liveState.hasHandResult(player.nickname())) return SEAT_RIM;
             return player.winner() ? LEGACY_WINNER : LEGACY_LOSER;
         }
@@ -17626,10 +17631,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (resolvedWinner != null) {
             return resolvedWinner ? Color.BLACK : Color.WHITE;
         }
+        if (liveState.partialHandPercentage(player.nickname()) != null) {
+            return player.winner() ? Color.BLACK : Color.WHITE;
+        }
         if (liveHandLabelVisible(player)) {
-            if (liveState.partialHandPercentage(player.nickname()) != null) {
-                return player.winner() ? Color.BLACK : Color.WHITE;
-            }
             return liveState.hasHandResult(player.nickname()) && player.winner()
                     ? Color.BLACK : Color.WHITE;
         }
@@ -17768,6 +17773,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return winner ? LEGACY_WINNER : LEGACY_LOSER;
     }
 
+    static Color partialHandColor(boolean winner) {
+        return winner ? PARTIAL_HAND_WINNER : PARTIAL_HAND_LOSER;
+    }
+
     /**
      * A late reveal does not replace the player's state colour. Light blue is
      * reserved for the MOSTRAR button itself: a folded player stays grey and
@@ -17804,18 +17813,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static Color avatarRimColor(Boolean settledWinner, boolean settledShowdown,
-            boolean activeTurn, boolean actionVisible, Color actionColor) {
+            Boolean partialWinner, boolean activeTurn,
+            boolean actionVisible, Color semanticColor) {
         if (settledShowdown) {
             return settledShowdownColor(Boolean.TRUE.equals(settledWinner));
+        }
+        // Monte Carlo owns the seat even though its ordinary action badge is
+        // deliberately hidden. It also outranks any stale turn left in a
+        // snapshot while an all-in board or either RIT side is resolving.
+        if (partialWinner != null) {
+            return partialHandColor(partialWinner);
         }
         // Turn ownership is stronger than a previous action and must not rely
         // on the transient PENSANDO label being visible in the same frame.
         // This keeps local and remote avatar rings locked to the seat/halo
         // accent even across projection or language-update boundaries.
         if (activeTurn) {
-            return turnAwareActionColor(true, actionColor);
+            return turnAwareActionColor(true, semanticColor);
         }
-        return actionVisible && actionColor != null ? actionColor : SEAT_RIM;
+        return actionVisible && semanticColor != null
+                ? semanticColor : SEAT_RIM;
     }
 
     static Color turnAwareActionColor(boolean activeTurn,
@@ -19383,6 +19400,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Color localInvestmentSurface = investedCounterSurface(localActionKind);
         Color localInvestmentText = investedCounterText(localActionKind);
         Color localHudActionColor = localActionSubmissionPending
+                && !localMonteCarlo
                 ? liveActionColor(localActionKind) : localHudSemanticColor;
         Color foldButtonColor = preActions ? FOLD_RED
                 : controls.callAction() == ActionControlState.CallAction.CHECK

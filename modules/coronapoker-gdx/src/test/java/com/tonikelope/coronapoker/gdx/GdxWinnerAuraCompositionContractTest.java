@@ -159,14 +159,22 @@ final class GdxWinnerAuraCompositionContractTest {
                 "private void drawRemoteSeatHalo(");
 
         assertTrue(seats.contains("boolean active = isSeatActive(seat)"));
-        assertTrue(seats.contains("settledShowdown, active, "
-                + "showActionSurface, actionColor"),
-                "the renderer must feed authoritative turn ownership into "
-                + "the avatar-ring resolver");
+        assertTrue(seats.contains("boolean partialPresentation = "
+                + "!settledShowdown"));
+        assertTrue(seats.contains("Boolean partialWinner = partialPresentation"));
+        assertTrue(seats.contains("settledShowdown, partialWinner, "
+                + "active,"),
+                "the renderer must feed authoritative partial-result and turn "
+                + "ownership into the avatar-ring resolver");
         assertTrue(seats.contains("active ? ACTIVE_TURN_GOLD : SEAT_RIM"));
+        assertTrue(avatarRim.contains("if (partialWinner != null)"));
+        assertTrue(avatarRim.contains("return partialHandColor(partialWinner)"));
         assertTrue(avatarRim.contains("if (activeTurn)"));
+        assertTrue(avatarRim.indexOf("if (partialWinner != null)")
+                < avatarRim.indexOf("if (activeTurn)"),
+                "a Monte Carlo result must outrank stale turn ownership");
         assertTrue(avatarRim.contains(
-                "turnAwareActionColor(true, actionColor)"));
+                "turnAwareActionColor(true, semanticColor)"));
         assertTrue(turnAccent.contains(
                 "return activeTurn ? ACTIVE_TURN_GOLD : semanticColor"));
         assertTrue(activeGlow.contains(

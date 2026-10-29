@@ -11522,11 +11522,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     customBotScrollThumbHeight, 1f);
         }
 
-        compactToggle(listX + 22f, 147f, 360f,
+        compactToggle(listX + 22f, 157f, 360f,
                 gameText.translate("gdx.custom_bots.random_selection"),
                 customBotRandomSelection,
                 this::toggleCustomBotRandomSelection, true);
-        tooltip(listX + 22f, 147f, 360f,
+        tooltip(listX + 22f, 157f, 360f,
                 GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots.random_selection");
         compactRepeatButton(listX + 410f, 164f, 155f, 54f,

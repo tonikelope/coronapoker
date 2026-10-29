@@ -510,11 +510,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle avatarCropViewport = new Rectangle();
     private final Rectangle avatarCropImageBounds = new Rectangle();
     private final Rectangle avatarCropSelectionBounds = new Rectangle();
-    private AvatarCropDrag avatarCropDrag = AvatarCropDrag.NONE;
+    private final Vector2 avatarCropSource = new Vector2();
+    private GdxAvatarCropModel.DragTarget avatarCropDrag
+            = GdxAvatarCropModel.DragTarget.NONE;
     private Cursor.SystemCursor appliedSystemCursor;
     private int avatarCropPointer = -1;
     private float avatarCropLastX;
     private float avatarCropLastY;
+    private GdxAvatarCropModel.Crop avatarCropResizeStart;
+    private float avatarCropResizeStartSourceX;
+    private float avatarCropResizeStartSourceY;
     private boolean customBotManagerOpen;
     private boolean customBotAvatarSelectionPending;
     private boolean customBotDeleteConfirmation;
@@ -13408,28 +13413,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 session.pixmap.getWidth(), session.pixmap.getHeight());
     }
 
-    private AvatarCropDrag avatarCropDragAt(float worldX, float worldY) {
-        float left = avatarCropSelectionBounds.x;
-        float right = left + avatarCropSelectionBounds.width;
-        float bottom = avatarCropSelectionBounds.y;
-        float top = bottom + avatarCropSelectionBounds.height;
+    private GdxAvatarCropModel.DragTarget avatarCropDragAt(
+            float worldX, float worldY) {
         float radius = Math.min(30f, Math.max(18f,
                 avatarCropSelectionBounds.width * 0.12f));
-        float squared = radius * radius;
-        if (distanceSquared(worldX, worldY, left, top) <= squared) {
-            return AvatarCropDrag.TOP_LEFT;
-        }
-        if (distanceSquared(worldX, worldY, right, top) <= squared) {
-            return AvatarCropDrag.TOP_RIGHT;
-        }
-        if (distanceSquared(worldX, worldY, left, bottom) <= squared) {
-            return AvatarCropDrag.BOTTOM_LEFT;
-        }
-        if (distanceSquared(worldX, worldY, right, bottom) <= squared) {
-            return AvatarCropDrag.BOTTOM_RIGHT;
-        }
-        return avatarCropSelectionBounds.contains(worldX, worldY)
-                ? AvatarCropDrag.MOVE : AvatarCropDrag.NONE;
+        return GdxAvatarCropModel.dragTargetAt(
+                avatarCropSelectionBounds.x,
+                avatarCropSelectionBounds.y,
+                avatarCropSelectionBounds.width,
+                worldX, worldY, radius);
     }
 
     private void updateAvatarCropSystemCursor() {
@@ -13437,7 +13429,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         AvatarCropSession session = avatarCropSession;
         if (session != null) {
             updateAvatarCropScreenGeometry(session);
-            AvatarCropDrag target = avatarCropDrag != AvatarCropDrag.NONE
+            GdxAvatarCropModel.DragTarget target = avatarCropDrag
+                    != GdxAvatarCropModel.DragTarget.NONE
                     ? avatarCropDrag
                     : avatarCropDragAt(pointer.x, pointer.y);
             desired = switch (target) {
@@ -13456,21 +13449,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private Vector2 avatarCropSourceAt(AvatarCropSession session,
             float worldX, float worldY) {
+        return avatarCropSourceAt(session, worldX, worldY, true);
+    }
+
+    private Vector2 avatarCropUnclampedSourceAt(AvatarCropSession session,
+            float worldX, float worldY) {
+        return avatarCropSourceAt(session, worldX, worldY, false);
+    }
+
+    private Vector2 avatarCropSourceAt(AvatarCropSession session,
+            float worldX, float worldY, boolean clampToImage) {
         float scale = avatarCropImageBounds.width
                 / session.pixmap.getWidth();
         float sourceX = (worldX - avatarCropImageBounds.x) / scale;
         float sourceY = session.pixmap.getHeight()
                 - (worldY - avatarCropImageBounds.y) / scale;
-        return new Vector2(
-                MathUtils.clamp(sourceX, 0f, session.pixmap.getWidth()),
-                MathUtils.clamp(sourceY, 0f, session.pixmap.getHeight()));
-    }
-
-    private static float distanceSquared(float x1, float y1,
-            float x2, float y2) {
-        float dx = x1 - x2;
-        float dy = y1 - y2;
-        return dx * dx + dy * dy;
+        if (clampToImage) {
+            sourceX = MathUtils.clamp(sourceX, 0f,
+                    session.pixmap.getWidth());
+            sourceY = MathUtils.clamp(sourceY, 0f,
+                    session.pixmap.getHeight());
+        }
+        return avatarCropSource.set(sourceX, sourceY);
     }
 
     private void selectAvatar() {
@@ -13649,8 +13649,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void closeAvatarCrop() {
         AvatarCropSession session = avatarCropSession;
         avatarCropSession = null;
-        avatarCropDrag = AvatarCropDrag.NONE;
+        avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
         avatarCropPointer = -1;
+        avatarCropResizeStart = null;
         if (session != null) {
             session.texture.dispose();
             session.pixmap.dispose();
@@ -14042,9 +14043,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (avatarCropSession != null && button == Input.Buttons.LEFT) {
             AvatarCropSession session = avatarCropSession;
             updateAvatarCropScreenGeometry(session);
-            if (avatarCropImageBounds.contains(pointer)) {
-                avatarCropDrag = avatarCropDragAt(pointer.x, pointer.y);
-                if (avatarCropDrag == AvatarCropDrag.NONE) {
+            GdxAvatarCropModel.DragTarget target = avatarCropDragAt(
+                    pointer.x, pointer.y);
+            boolean insideImage = avatarCropImageBounds.contains(pointer);
+            if (target != GdxAvatarCropModel.DragTarget.NONE || insideImage) {
+                if (target == GdxAvatarCropModel.DragTarget.NONE) {
                     Vector2 source = avatarCropSourceAt(session,
                             pointer.x, pointer.y);
                     session.crop = GdxAvatarCropModel.crop(
@@ -14052,7 +14055,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             session.pixmap.getHeight(), source.x, source.y,
                             session.crop.size());
                     updateAvatarCropScreenGeometry(session);
-                    avatarCropDrag = AvatarCropDrag.MOVE;
+                    target = GdxAvatarCropModel.DragTarget.MOVE;
+                }
+                avatarCropDrag = target;
+                if (target == GdxAvatarCropModel.DragTarget.MOVE) {
+                    avatarCropResizeStart = null;
+                } else {
+                    avatarCropResizeStart = session.crop;
+                    Vector2 source = avatarCropUnclampedSourceAt(session,
+                            pointer.x, pointer.y);
+                    avatarCropResizeStartSourceX = source.x;
+                    avatarCropResizeStartSourceY = source.y;
                 }
                 avatarCropPointer = pointerIndex;
                 avatarCropLastX = pointer.x;
@@ -14153,11 +14166,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (avatarCropSession != null
-                && avatarCropDrag != AvatarCropDrag.NONE
+                && avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == pointerIndex) {
             AvatarCropSession session = avatarCropSession;
             updateAvatarCropScreenGeometry(session);
-            if (avatarCropDrag == AvatarCropDrag.MOVE) {
+            if (avatarCropDrag == GdxAvatarCropModel.DragTarget.MOVE) {
                 float sourcePerWorld = session.pixmap.getWidth()
                         / avatarCropImageBounds.width;
                 session.crop = GdxAvatarCropModel.move(session.crop,
@@ -14165,12 +14178,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         (pointer.x - avatarCropLastX) * sourcePerWorld,
                         -(pointer.y - avatarCropLastY) * sourcePerWorld);
             } else {
-                Vector2 source = avatarCropSourceAt(session,
+                Vector2 source = avatarCropUnclampedSourceAt(session,
                         pointer.x, pointer.y);
-                session.crop = GdxAvatarCropModel.resizeFromCorner(
-                        session.crop, session.pixmap.getWidth(),
-                        session.pixmap.getHeight(), avatarCropDrag.corner,
-                        source.x, source.y);
+                session.crop = GdxAvatarCropModel.resizeFromCornerDelta(
+                        Objects.requireNonNull(avatarCropResizeStart,
+                                "Missing crop resize origin"),
+                        session.pixmap.getWidth(),
+                        session.pixmap.getHeight(), avatarCropDrag.corner(),
+                        source.x - avatarCropResizeStartSourceX,
+                        source.y - avatarCropResizeStartSourceY);
             }
             avatarCropLastX = pointer.x;
             avatarCropLastY = pointer.y;
@@ -14200,11 +14216,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (avatarCropSession != null
-                && avatarCropDrag != AvatarCropDrag.NONE
+                && avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == pointerIndex
                 && button == Input.Buttons.LEFT) {
-            avatarCropDrag = AvatarCropDrag.NONE;
+            avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
             avatarCropPointer = -1;
+            avatarCropResizeStart = null;
             return true;
         }
         if (lobbyVoicePointer.release(pointerIndex, button)) {
@@ -15407,9 +15424,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
-        if (avatarCropDrag != AvatarCropDrag.NONE && avatarCropPointer == p) {
-            avatarCropDrag = AvatarCropDrag.NONE;
+        if (avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
+                && avatarCropPointer == p) {
+            avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
             avatarCropPointer = -1;
+            avatarCropResizeStart = null;
             pressedHit = null;
             return true;
         }
@@ -15758,21 +15777,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum AvatarCropTarget {
         LOCAL, CUSTOM_BOT
-    }
-
-    private enum AvatarCropDrag {
-        NONE(null),
-        MOVE(null),
-        TOP_LEFT(GdxAvatarCropModel.Corner.TOP_LEFT),
-        TOP_RIGHT(GdxAvatarCropModel.Corner.TOP_RIGHT),
-        BOTTOM_LEFT(GdxAvatarCropModel.Corner.BOTTOM_LEFT),
-        BOTTOM_RIGHT(GdxAvatarCropModel.Corner.BOTTOM_RIGHT);
-
-        private final GdxAvatarCropModel.Corner corner;
-
-        AvatarCropDrag(GdxAvatarCropModel.Corner corner) {
-            this.corner = corner;
-        }
     }
 
     private static final class AvatarCropSession {

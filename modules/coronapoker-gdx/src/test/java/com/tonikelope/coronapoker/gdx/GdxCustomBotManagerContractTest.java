@@ -70,6 +70,8 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "index == customBotNewSlotSelected"));
         assertTrue(source.contains(
+                "customBotSelectionBorder.set(GOLD).lerp(CYAN, pulse);"));
+        assertFalse(source.contains(
                 "2.4f + 1.6f * pulse"));
         assertTrue(source.contains(
                 "WIDTH / 2f, 912f, MUTED, true, 1320f);"));

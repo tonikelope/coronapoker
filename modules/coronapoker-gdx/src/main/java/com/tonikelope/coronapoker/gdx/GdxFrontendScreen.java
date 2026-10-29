@@ -11388,12 +11388,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         float pulse = customBotSelectionPulse(elapsed);
-        customBotSelectionBorder.set(GOLD).lerp(Color.WHITE,
-                0.12f + 0.18f * pulse);
+        customBotSelectionBorder.set(GOLD).lerp(CYAN, pulse);
+        // Keep the canonical two-pixel rounded outline. Only its colour
+        // breathes, so the corners never change radius or apparent weight.
         outerBox(x, y, w, h, customBotSelectionBorder, fill);
-        shapes.setColor(customBotSelectionBorder);
-        roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f,
-                13f, 2.4f + 1.6f * pulse);
     }
 
     private void persistCustomBotProfiles() {

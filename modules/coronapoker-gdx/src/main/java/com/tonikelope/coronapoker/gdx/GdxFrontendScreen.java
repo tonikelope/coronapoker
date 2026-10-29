@@ -10026,35 +10026,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("gdx.connection")));
 
         boolean avatarHover = !avatarSelectionPending
-                && hovered(445f, 580f, 150f, 155f);
+                && hovered(445f, 385f, 150f, 155f);
         shapes.setColor(avatarSelectionPending ? DISABLED
                 : avatarHover ? CYAN : CYAN_DARK);
-        shapes.circle(520f, 660f, 70f, 64);
+        shapes.circle(520f, 465f, 70f, 64);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(520f, 660f, 61f, 64);
-        drawAvatarIcon(520f, 660f);
-        hit(445f, 580f, 150f, 155f, this::selectAvatar);
-        tooltip(445f, 580f, 150f, 155f, "tooltip.change_avatar");
+        shapes.circle(520f, 465f, 61f, 64);
+        drawAvatarIcon(520f, 465f);
+        hit(445f, 385f, 150f, 155f, this::selectAvatar);
+        tooltip(445f, 385f, 150f, 155f, "tooltip.change_avatar");
 
-        field(610f, 630f, 450f,
+        field(610f, 435f, 450f,
                 gameText.translate("gdx.newgame.nick_required"),
                 connection.nickname(), "nick", false);
-        field(610f, 475f, 450f,
-                gameText.translate("gdx.newgame.password_optional"),
-                connection.password(), "password", true);
-        dropdownChoice(1170f, 630f, 430f,
+        dropdownChoice(1170f, 560f, 430f,
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), () -> openDropdown(
                         Dropdown.HOST_ADDRESS), true);
-        field(1630f, 630f, 175f, gameText.translate("gdx.port"),
+        field(1630f, 560f, 175f, gameText.translate("gdx.port"),
                 connection.port(), "port", false, connection.portValid());
-        tooltip(1170f, 630f, 430f, 72f, "tooltip.cfg.server_ip");
-        tooltip(1630f, 630f, 175f, 72f, "tooltip.cfg.server_port");
-        toggle(1170f, 475f, 635f, "UPnP", connection.upnp(),
+        tooltip(1170f, 560f, 430f, 72f, "tooltip.cfg.server_ip");
+        tooltip(1630f, 560f, 175f, 72f, "tooltip.cfg.server_port");
+        toggle(1170f, 432f, 635f, "UPnP", connection.upnp(),
                 this::toggleUpnp,
                 upnpToggleEnabled(connection, upnpOpenInFlight));
-        tooltip(1170f, 475f, 635f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(1170f, 432f, 635f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.upnp");
+        field(1170f, 275f, 635f,
+                gameText.translate("gdx.newgame.password_optional"),
+                connection.password(), "password", true);
     }
 
     private void drawJoinIdentityPage() {
@@ -10064,38 +10064,38 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("gdx.connection")));
 
         boolean avatarHover = !avatarSelectionPending
-                && hovered(315f, 565f, 130f, 135f);
+                && hovered(315f, 422f, 130f, 135f);
         shapes.setColor(avatarSelectionPending ? DISABLED
                 : avatarHover ? CYAN : CYAN_DARK);
-        shapes.circle(380f, 630f, 60f, 64);
+        shapes.circle(380f, 487f, 60f, 64);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(380f, 630f, 52f, 64);
-        drawAvatarIcon(380f, 630f, 104f);
-        hit(315f, 565f, 130f, 135f, this::selectAvatar);
-        tooltip(315f, 565f, 130f, 135f, "tooltip.change_avatar");
+        shapes.circle(380f, 487f, 52f, 64);
+        drawAvatarIcon(380f, 487f, 104f);
+        hit(315f, 422f, 130f, 135f, this::selectAvatar);
+        tooltip(315f, 422f, 130f, 135f, "tooltip.change_avatar");
 
-        field(470f, 595f, 400f,
+        field(470f, 452f, 400f,
                 gameText.translate("gdx.newgame.nick_required"),
                 connection.nickname(), "nick", false);
-        field(470f, 435f, 400f,
-                gameText.translate("gdx.newgame.password_optional"),
-                connection.password(), "password", true);
 
-        field(985f, 595f, 385f,
+        field(985f, 575f, 385f,
                 gameText.translate("gdx.newgame.server_required"),
                 connection.server(), "server", false);
-        field(1395f, 595f, 185f, gameText.translate("gdx.port"),
+        field(1395f, 575f, 185f, gameText.translate("gdx.port"),
                 connection.port(), "port", false, connection.portValid());
-        tooltip(985f, 595f, 385f, 72f, "tooltip.cfg.server_ip");
-        tooltip(1395f, 595f, 185f, 72f, "tooltip.cfg.server_port");
+        tooltip(985f, 575f, 385f, 72f, "tooltip.cfg.server_ip");
+        tooltip(1395f, 575f, 185f, 72f, "tooltip.cfg.server_port");
         String history = connection.serverHistory().isEmpty()
                 ? gameText.translate("gdx.newgame.no_previous_servers")
                 : connection.serverHistory().get(historyIndex < 0
                         ? connection.serverHistory().size() - 1 : historyIndex);
-        bidirectionalChoice(985f, 435f, 595f,
+        bidirectionalChoice(985f, 445f, 595f,
                 gameText.translate("gdx.newgame.previous_servers"), history,
                 this::previousServerHistory, this::nextServerHistory,
                 !connection.serverHistory().isEmpty());
+        field(985f, 315f, 595f,
+                gameText.translate("gdx.newgame.password_optional"),
+                connection.password(), "password", true);
     }
 
     /** Global presets cover the complete table setup, never just networking. */

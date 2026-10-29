@@ -370,6 +370,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new ArrayList<>();
     private final List<CustomBotProfile> customBotProfiles =
             new ArrayList<>();
+    private final Color customBotSelectionBorder = new Color();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
     private final GdxChatGalleryMedia lobbyHistoryMedia =
@@ -11350,6 +11351,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return MathUtils.clamp(current, 0f, maximum);
     }
 
+    static float customBotSelectionPulse(float elapsedSeconds) {
+        float cycle = elapsedSeconds * MathUtils.PI2 / 1.8f
+                - MathUtils.PI / 2f;
+        return 0.14f + 0.06f * MathUtils.sin(cycle);
+    }
+
     private void ensureCustomBotVisible(int index) {
         if (index < 0) return;
         customBotScrollMaximum = customBotMaximumPixelScroll(
@@ -11465,22 +11472,32 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (rowY >= CUSTOM_BOT_ROWS_TOP
                     || rowY + CUSTOM_BOT_ROW_HEIGHT
                             <= CUSTOM_BOT_ROWS_BOTTOM) continue;
+            float hitBottom = Math.max(rowY, CUSTOM_BOT_ROWS_BOTTOM);
+            float hitTop = Math.min(rowY + CUSTOM_BOT_ROW_HEIGHT,
+                    CUSTOM_BOT_ROWS_TOP);
             if (index >= customBotProfiles.size()) {
                 shapes.setColor(new Color(0x17253a70));
                 roundedRect(rowX, rowY, rowW,
                         CUSTOM_BOT_ROW_HEIGHT, 10f);
+                if (hitTop > hitBottom) {
+                    hit(rowX, hitBottom, rowW, hitTop - hitBottom,
+                            this::newCustomBot);
+                    tooltip(rowX, hitBottom, rowW, hitTop - hitBottom,
+                            "tooltip.cfg.custom_bots.new");
+                }
                 continue;
             }
             if (index >= last) break;
             CustomBotProfile profile = customBotProfiles.get(index);
             boolean selected = index == customBotSelected;
-            float hitBottom = Math.max(rowY, CUSTOM_BOT_ROWS_BOTTOM);
-            float hitTop = Math.min(rowY + CUSTOM_BOT_ROW_HEIGHT,
-                    CUSTOM_BOT_ROWS_TOP);
             boolean over = hitTop > hitBottom
                     && hovered(rowX, hitBottom, rowW, hitTop - hitBottom);
+            Color rowBorder = selected
+                    ? customBotSelectionBorder.set(GOLD).lerp(Color.WHITE,
+                            customBotSelectionPulse(elapsed))
+                    : over ? CYAN : LINE;
             outerBox(rowX, rowY, rowW, CUSTOM_BOT_ROW_HEIGHT,
-                    selected ? GOLD : over ? CYAN : LINE,
+                    rowBorder,
                     selected ? new Color(0x17314af4) : PANEL_LIGHT);
             Texture avatar = customBotAvatarTexture(profile.avatar());
             customBotManagerListImages.add(new UiImageItem(avatar,

@@ -93,6 +93,19 @@ final class GdxAvatarCropModelTest {
     }
 
     @Test
+    void unavailableFirstFrameGeometryIsNotInteractiveAndNeverThrows() {
+        assertEquals(GdxAvatarCropModel.DragTarget.NONE,
+                GdxAvatarCropModel.dragTargetAt(0f, 0f, 0f,
+                        0f, 0f, 18f));
+        assertEquals(GdxAvatarCropModel.DragTarget.NONE,
+                GdxAvatarCropModel.dragTargetAt(0f, 0f, Float.NaN,
+                        0f, 0f, 18f));
+        assertEquals(GdxAvatarCropModel.DragTarget.NONE,
+                GdxAvatarCropModel.dragTargetAt(0f, 0f, 100f,
+                        0f, 0f, -1f));
+    }
+
+    @Test
     void cornerResizeUsesDragDeltaWithoutJumpingFromHandleOffset() {
         GdxAvatarCropModel.Crop initial = GdxAvatarCropModel.crop(
                 1200, 800, 600f, 400f, 400f);

@@ -136,9 +136,12 @@ final class GdxAvatarCropModel {
 
     static DragTarget dragTargetAt(float left, float bottom, float size,
             float pointerX, float pointerY, float handleRadius) {
-        if (size <= 0f || handleRadius < 0f) {
-            throw new IllegalArgumentException(
-                    "Selection size must be positive and radius non-negative");
+        if (!Float.isFinite(left) || !Float.isFinite(bottom)
+                || !Float.isFinite(size) || !Float.isFinite(pointerX)
+                || !Float.isFinite(pointerY)
+                || !Float.isFinite(handleRadius)
+                || size <= 0f || handleRadius < 0f) {
+            return DragTarget.NONE;
         }
         float right = left + size;
         float top = bottom + size;

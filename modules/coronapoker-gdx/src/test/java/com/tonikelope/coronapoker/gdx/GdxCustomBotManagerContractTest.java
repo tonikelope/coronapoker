@@ -71,13 +71,35 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "rowY + 56f, Color.WHITE, false, 340f);"));
         assertTrue(source.contains(
-                "listX + 600f, rowY + 62f, GOLD, true, 220f);"));
+                "listX + 600f, rowY + 72f, GOLD, true, 220f);"));
         assertTrue(source.contains(
-                "listX + 600f, rowY + 34f, CYAN, true, 245f);"));
+                "listX + 600f, rowY + 44f, CYAN, true, 245f);"));
         assertFalse(source.contains(
                 "textFit(smallFont, profile.nickname()"));
         assertFalse(source.contains(
                 "gdx.custom_bots.avatar.default\")"));
+        assertTrue(source.contains(
+                "shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 70f, 64);"));
+        assertTrue(source.contains(
+                "shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 61f, 64);"));
+        assertTrue(source.contains(
+                "this::selectCustomBotAvatar);"));
+        assertTrue(source.contains(
+                "this::resetCustomBotAvatar);"));
+        assertTrue(source.contains(
+                "\"tooltip.change_avatar\""));
+        assertFalse(source.contains(
+                "gdx.custom_bots.avatar.choose"));
+        assertFalse(source.contains(
+                "gdx.custom_bots.avatar.default_button"));
+        assertTrue(source.contains(
+                "field(editX + 42f, 590f, editW - 84f"));
+        assertTrue(source.contains(
+                "bidirectionalChoice(editX + 42f, 420f, editW - 84f"));
+        assertTrue(source.contains(
+                "bidirectionalChoice(editX + 42f, 285f, editW - 84f"));
+        assertTrue(source.contains(
+                "compactButton(editX + 42f, 158f, 140f, 54f"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));

@@ -11392,6 +11392,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }));
     }
 
+    private void resetCustomBotAvatar() {
+        if (customBotAvatarSelectionPending) return;
+        customBotAvatarDraft = null;
+        customBotValidationError = "";
+    }
+
     private Texture customBotAvatarTexture(Path path) {
         if (path == null) return avatarBot;
         String key = path.toAbsolutePath().normalize().toString();
@@ -11494,10 +11500,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "gdx.custom_bots.difficulty.normal");
                 case HARD -> gameText.translate(
                         "gdx.settings.game.value.hard");
-            }, listX + 600f, rowY + 62f, GOLD, true, 220f);
+            }, listX + 600f, rowY + 72f, GOLD, true, 220f);
             textFit(smallFont,
                     customBotPersonalityLabel(profile.personality()),
-                    listX + 600f, rowY + 34f, CYAN, true, 245f);
+                    listX + 600f, rowY + 44f, CYAN, true, 245f);
             float orderX = rowX + rowW - 64f;
             outerBox(orderX, rowY + 22f, 52f, 52f,
                     selected ? GOLD : LINE,
@@ -11563,52 +11569,53 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : gameText.translate("gdx.custom_bots.edit"),
                 editX + 24f, 852f, GOLD, false, editW - 48f);
         Texture editorAvatar = customBotAvatarTexture(customBotAvatarDraft);
-        float editorAvatarSize = 100f;
+        float editorAvatarCenterX = editX + editW / 2f;
+        float editorAvatarCenterY = 790f;
+        float editorAvatarHitX = editorAvatarCenterX - 75f;
+        float editorAvatarHitY = editorAvatarCenterY - 77.5f;
+        boolean editorAvatarHover = !customBotAvatarSelectionPending
+                && hovered(editorAvatarHitX, editorAvatarHitY, 150f, 155f);
+        shapes.setColor(customBotAvatarSelectionPending ? DISABLED
+                : editorAvatarHover ? CYAN : CYAN_DARK);
+        shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 70f, 64);
+        shapes.setColor(PANEL_LIGHT);
+        shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 61f, 64);
         customBotManagerImages.add(new UiImageItem(editorAvatar,
-                editX + (editW - editorAvatarSize) / 2f, 747f,
-                editorAvatarSize, editorAvatarSize));
-        compactButton(editX + 42f, 652f, 220f, 54f,
-                customBotAvatarSelectionPending
-                        ? gameText.translate("gdx.opening")
-                        : gameText.translate("gdx.custom_bots.avatar.choose"),
-                false, this::selectCustomBotAvatar,
-                !customBotAvatarSelectionPending);
-        compactButton(editX + 275f, 652f, 228f, 54f,
-                gameText.translate("gdx.custom_bots.avatar.default_button"),
-                false, () -> customBotAvatarDraft = null,
-                !customBotAvatarSelectionPending
-                        && customBotAvatarDraft != null);
-        tooltip(editX + 42f, 652f, 220f, 54f,
-                "tooltip.cfg.custom_bots.avatar");
-        tooltip(editX + 275f, 652f, 228f, 54f,
-                "tooltip.cfg.custom_bots.avatar");
+                editorAvatarCenterX - 61f, editorAvatarCenterY - 61f,
+                122f, 122f));
+        hit(editorAvatarHitX, editorAvatarHitY, 150f, 155f,
+                this::selectCustomBotAvatar);
+        secondaryHit(editorAvatarHitX, editorAvatarHitY, 150f, 155f,
+                this::resetCustomBotAvatar);
+        tooltip(editorAvatarHitX, editorAvatarHitY, 150f, 155f,
+                "tooltip.change_avatar");
 
-        field(editX + 42f, 530f, editW - 84f,
+        field(editX + 42f, 590f, editW - 84f,
                 gameText.translate("gdx.custom_bots.name"),
                 customBotNameDraft, "customBotName", false,
                 customBotValidationError.isBlank());
         textFit(tinyFont, customBotValidationError.isBlank()
                         ? gameText.translate("gdx.custom_bots.marker_help")
                         : customBotValidationError,
-                editX + 42f, 500f,
+                editX + 42f, 560f,
                 customBotValidationError.isBlank() ? MUTED : ORANGE,
                 false, editW - 112f);
-        tooltip(editX + 42f, 530f, editW - 84f, 70f,
+        tooltip(editX + 42f, 590f, editW - 84f, 70f,
                 "tooltip.cfg.custom_bots.name");
 
-        bidirectionalChoice(editX + 42f, 360f, editW - 84f,
+        bidirectionalChoice(editX + 42f, 420f, editW - 84f,
                 gameText.translate("gdx.custom_bots.difficulty"),
                 customBotDifficultyLabel(),
                 () -> adjustCustomBotDifficulty(-1),
                 () -> adjustCustomBotDifficulty(1), true);
-        tooltip(editX + 42f, 360f, editW - 84f, 102f,
+        tooltip(editX + 42f, 420f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.difficulty");
-        bidirectionalChoice(editX + 42f, 225f, editW - 84f,
+        bidirectionalChoice(editX + 42f, 285f, editW - 84f,
                 gameText.translate("gdx.custom_bots.personality"),
                 customBotPersonalityLabel(customBotPersonalityDraft),
                 () -> adjustCustomBotPersonality(-1),
                 () -> adjustCustomBotPersonality(1), true);
-        tooltip(editX + 42f, 225f, editW - 84f, 102f,
+        tooltip(editX + 42f, 285f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.personality");
 
         compactButton(editX + 42f, 158f, 140f, 54f,

@@ -13215,9 +13215,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(dialogX, dialogY, dialogW, dialogH, CYAN, PANEL);
         text(titleFont, uppercase(gameText.translate(
                         "gdx.avatar.crop.title")),
-                WIDTH / 2f, 957f, GOLD, true);
+                WIDTH / 2f, 985f, GOLD, true);
         textFit(uiFont, gameText.translate("gdx.avatar.crop.hint"),
-                WIDTH / 2f, 903f, MUTED, true, 1140f);
+                WIDTH / 2f, 924f, MUTED, true, 1140f);
         shapes.setColor(new Color(0x07111fff));
         roundedRect(viewX - 12f, viewY - 12f,
                 AVATAR_CROP_VIEW_SIZE + 24f,
@@ -13228,11 +13228,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 AVATAR_CROP_VIEW_SIZE + 6f, 10f, 3f);
 
         float controlX = viewX + AVATAR_CROP_VIEW_SIZE + 34f;
-        themedButton(controlX, viewY + 350f, 76f, 76f, "+",
-                ButtonTone.NEUTRAL, () -> resizeAvatarCrop(1.18f), true);
-        themedButton(controlX, viewY + 258f, 76f, 76f, "-",
-                ButtonTone.NEUTRAL, () -> resizeAvatarCrop(1f / 1.18f), true);
-        themedButton(controlX - 42f, viewY + 166f, 160f, 64f,
+        themedButton(controlX - 10f,
+                viewY + (AVATAR_CROP_VIEW_SIZE - 64f) / 2f,
+                180f, 64f,
                 uppercase(gameText.translate("gdx.avatar.crop.center")),
                 ButtonTone.NEUTRAL, this::centerAvatarCrop, true,
                 smallFont);
@@ -13245,11 +13243,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(useX, 92f, 300f, 86f,
                 uppercase(gameText.translate("gdx.avatar.crop.use")),
                 ButtonTone.FEATURED, this::applyAvatarCrop, true);
-        float maximumCrop = Math.min(session.pixmap.getWidth(),
-                session.pixmap.getHeight());
-        textFit(smallFont, gameText.translate("gdx.avatar.crop.size",
-                        Math.round(session.crop.size() / maximumCrop * 100f)),
-                controlX + 38f, viewY + 474f, Color.WHITE, true, 190f);
     }
 
     private void drawAvatarCropPreview() {

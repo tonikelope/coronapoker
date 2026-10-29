@@ -16,12 +16,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.random.RandomGenerator;
 import java.util.Set;
 
 /** Persistent, ordered catalogue used by the custom-bot manager. */
 public final class CustomBotProfileCatalog {
 
     public static final String PROP_ENABLED = "custom_bots.enabled";
+    public static final String PROP_RANDOM_SELECTION =
+            "custom_bots.random_selection";
     public static final String PROP_COUNT = "custom_bots.count";
     public static final String PROP_PREFIX = "custom_bot.";
     public static final int MAX_PROFILES = 50;
@@ -42,6 +45,43 @@ public final class CustomBotProfileCatalog {
         if (properties != null) {
             properties.setProperty(PROP_ENABLED, Boolean.toString(enabled));
         }
+    }
+
+    /** Returns whether a new table shuffles the catalogue before admission. */
+    public static boolean randomSelection(Properties properties) {
+        return properties != null && Boolean.parseBoolean(
+                properties.getProperty(PROP_RANDOM_SELECTION, "false"));
+    }
+
+    /** Persists the host's admission policy without rewriting the catalogue. */
+    public static void writeRandomSelection(Properties properties,
+            boolean enabled) {
+        if (properties != null) {
+            properties.setProperty(PROP_RANDOM_SELECTION,
+                    Boolean.toString(enabled));
+        }
+    }
+
+    /** Creates the stable, duplicate-free admission order for one new lobby. */
+    public static List<CustomBotProfile> profilesForSession(
+            Collection<CustomBotProfile> profiles, boolean randomSelection,
+            RandomGenerator random) {
+        ArrayList<CustomBotProfile> result = new ArrayList<>();
+        if (profiles != null) {
+            for (CustomBotProfile profile : profiles) {
+                if (profile != null) result.add(profile);
+            }
+        }
+        if (randomSelection && result.size() > 1) {
+            Objects.requireNonNull(random, "random");
+            for (int index = result.size() - 1; index > 0; index--) {
+                int target = random.nextInt(index + 1);
+                CustomBotProfile swap = result.get(index);
+                result.set(index, result.get(target));
+                result.set(target, swap);
+            }
+        }
+        return List.copyOf(result);
     }
 
     public static List<CustomBotProfile> readFrom(Properties properties) {

@@ -3744,28 +3744,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private FileHandle gameAudioResource(String resource) {
-        String normalized = resource == null ? ""
-                : resource.replace('\\', '/');
-        if (normalized.startsWith("sounds/")) {
-            normalized = normalized.substring("sounds/".length());
-        }
-        if (normalized.isBlank() || normalized.startsWith("/")
-                || normalized.contains("../")) return null;
-        if (presentationSettings != null) {
-            Path modSound = presentationSettings.modAsset(
-                    "sounds/" + normalized).orElse(null);
-            if (modSound != null) return Gdx.files.absolute(modSound.toString());
-            Path modCinematic = presentationSettings.modAsset(
-                    "cinematics/" + normalized).orElse(null);
-            if (modCinematic != null) {
-                return Gdx.files.absolute(modCinematic.toString());
-            }
-        }
-        FileHandle bundledSound = Gdx.files.internal("sounds/" + normalized);
-        if (bundledSound.exists()) return bundledSound;
-        FileHandle bundledCinematic = Gdx.files.internal(
-                "cinematics/" + normalized);
-        return bundledCinematic.exists() ? bundledCinematic : null;
+        return GdxGameAudioResources.resolve(presentationSettings, resource);
     }
 
     private static Texture createSolidTexture(Color color) {

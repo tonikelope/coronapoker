@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,6 +24,8 @@ final class GdxCustomBotManagerContractTest {
                 + "                && (customBotManagerOpen"));
         assertTrue(source.contains("drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerImages();"));
+        assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
+                + "                drawCustomBotDeleteConfirmationTopLayer();"));
         assertTrue(source.contains("batch.setShader(avatarShader);"));
         assertTrue(source.contains(
                 "table.customBots() ? List.copyOf(customBotProfiles)"));
@@ -37,6 +40,9 @@ final class GdxCustomBotManagerContractTest {
                 + "                && !customBotDeleteConfirmation && amountY != 0f"));
         assertTrue(source.contains("ScrollDrag.CUSTOM_BOTS"));
         assertTrue(source.contains("GdxSettingsStyle.drawRowScrollbar"));
+        assertTrue(source.contains("pixelScrollbarThumbHeight"));
+        assertTrue(source.contains("customBotScrollTarget"));
+        assertTrue(source.contains("customBotRowsActive = true;"));
         assertTrue(source.contains(
                 "else if (!customBotManagerOpen\n"
                 + "                    || customBotDeleteConfirmation)"));
@@ -45,14 +51,32 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "\"tooltip.cfg.custom_bots.save\""));
         assertTrue(source.contains(
-                "compactRepeatButton(listX + 245f"));
+                "compactRepeatButton(listX + 410f"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));
         assertTrue(source.contains(
                 "draft.setCustomBots(CustomBotProfileCatalog.enabled"));
+        assertTrue(source.contains(
+                "CustomBotProfileCatalog.writeRandomSelection"));
+        assertTrue(source.contains(
+                "CustomBotProfileCatalog.profilesForSession"));
         assertFalse(source.contains("customBotPage"));
+        assertFalse(source.contains("customBotScrollFirstRow"));
         assertFalse(source.contains(
                 "gameText.translate(\"gdx.custom_bots.previous\")"));
+    }
+
+    @Test
+    void customBotListUsesContinuousPixelScrolling() {
+        assertEquals(0f, GdxFrontendScreen.customBotMaximumPixelScroll(5));
+        assertEquals(105f,
+                GdxFrontendScreen.customBotMaximumPixelScroll(6));
+        assertEquals(48f, GdxFrontendScreen.customBotScrollAfterWheel(
+                0f, 315f, 1f));
+        assertEquals(315f, GdxFrontendScreen.customBotScrollAfterWheel(
+                300f, 315f, 1f));
+        assertEquals(105f, GdxFrontendScreen.customBotScrollForSelection(
+                5, 0f, 105f));
     }
 }

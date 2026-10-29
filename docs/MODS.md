@@ -90,6 +90,12 @@ For example, `mod/sounds/misc/call.wav` replaces the call sound and
 `mod/sounds/misc/background_music.mp3` replaces table music. Common names can
 be found in the bundled `src/main/resources/sounds/misc` directory.
 
+Music uses the same rule as ordinary effects. In particular,
+`background_music.mp3`, `waiting_room.mp3`, `about_music.mp3` and
+`stats_music.mp3` can all be replaced under `mod/sounds/misc`. CoronaPoker
+resolves these files from the active MOD before opening its music streams, so
+restart the game after adding or changing a track.
+
 Comedy categories are language-specific WAV directories under
 `sounds/joke/<language>/`: `allin`, `fold`, `showdown`, `loser`, and `winner`.
 An empty external category leaves the bundled category untouched.
@@ -118,7 +124,9 @@ The bundled all-in filenames are `casinoroyale.gif`, `hulk.gif`, `joker.gif`,
 
 Custom bot names, avatars, difficulty and AI personality are configured by the
 host in **New game → Bots → Use custom bots → Manage bots**. They are stored in
-the user's CoronaPoker preferences rather than in a MOD pack. See
+the user's CoronaPoker preferences rather than in a MOD pack. The manager can
+use the saved catalogue in its fixed order or shuffle it once for each new
+lobby without repeating profiles. See
 [`BOTS.md`](BOTS.md#13-custom-bot-profiles).
 
 </div>

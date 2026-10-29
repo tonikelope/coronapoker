@@ -417,10 +417,13 @@ pins the bot's base profile while retaining the engine's legitimate in-hand
 adaptations to stack pressure, tilt and table dynamics. Difficulty and profile
 are applied together with one deterministic personality roll.
 
-When custom bots are enabled, profiles enter the lobby in manager order. If the
-host adds more bots than there are custom profiles, the remaining seats use the
-standard sequential `CoronaBot` identities. A removed custom bot becomes the
-first eligible profile again.
+When custom bots are enabled, profiles enter the lobby in manager order by
+default. The persistent **Random selection** switch shuffles the catalogue once
+when a new lobby is created. Each configured profile can still enter at most
+once, the chosen order stays stable for that lobby, and recovery keeps the
+identities already stored by the game. If the host adds more bots than there
+are custom profiles, the remaining seats use the standard sequential
+`CoronaBot` identities. A removed custom bot becomes eligible again.
 
 The manager accepts the visible name without a dollar sign and appends the
 reserved `$` bot marker automatically. The marker remains part of the protocol

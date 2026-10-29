@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
@@ -261,6 +262,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float VOICE_SENT_STATUS_SECONDS = 1.15f;
     private static final float INPUT_CARET_HALF_PERIOD_SECONDS = 0.50f;
     private static final int CUSTOM_BOT_VISIBLE_ROWS = 5;
+    private static final float CUSTOM_BOT_ROW_HEIGHT = 94f;
+    private static final float CUSTOM_BOT_ROW_STRIDE = 105f;
+    private static final float CUSTOM_BOT_ROWS_BOTTOM = 278f;
+    private static final float CUSTOM_BOT_ROWS_TOP = 792f;
     private static final float COMPOSER_EMOJI_SIZE = 32f;
     private static final float COMPOSER_EMOJI_ADVANCE = 36f;
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
@@ -358,6 +363,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Texture> customBotAvatarTextures =
             new HashMap<>();
     private final List<UiImageItem> customBotManagerImages =
+            new ArrayList<>();
+    private final List<UiImageItem> customBotManagerListImages =
+            new ArrayList<>();
+    private final List<TextItem> customBotManagerListTexts =
             new ArrayList<>();
     private final List<CustomBotProfile> customBotProfiles =
             new ArrayList<>();
@@ -484,10 +493,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean customBotManagerOpen;
     private boolean customBotAvatarSelectionPending;
     private boolean customBotDeleteConfirmation;
+    private boolean customBotRandomSelection;
+    private boolean customBotRowsActive;
     private int customBotSelected = -1;
-    private int customBotScrollFirstRow;
-    private int customBotScrollMaximum;
+    private float customBotScroll;
+    private float customBotScrollTarget;
+    private float customBotScrollMaximum;
     private final Rectangle customBotScrollTrack = new Rectangle();
+    private final Rectangle customBotRowsViewport = new Rectangle();
     private float customBotScrollThumbHeight;
     private String customBotNameDraft = "";
     private Path customBotAvatarDraft;
@@ -718,6 +731,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         initialProperties = this.preferences.properties();
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
+        customBotRandomSelection = CustomBotProfileCatalog
+                .randomSelection(initialProperties);
         table = defaultTableDraft();
         if (forgetPersistedUpnp(initialProperties)) {
             // UPnP is explicit authority for one lobby, not a preference.
@@ -1132,6 +1147,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 - statsSummaryPlayersScroll) < 0.1f) {
             statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget;
         }
+        customBotScroll += (customBotScrollTarget - customBotScroll)
+                * Math.min(1f, frameDelta * 14f);
+        if (Math.abs(customBotScrollTarget - customBotScroll) < 0.1f) {
+            customBotScroll = customBotScrollTarget;
+        }
         statsChartPanX += (statsChartPanTargetX - statsChartPanX)
                 * Math.min(1f, frameDelta * 14f);
         statsChartPanY += (statsChartPanTargetY - statsChartPanY)
@@ -1195,6 +1215,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyVoiceControls.clear();
         settingsDebugTexts.clear();
         settingsRowTexts.clear();
+        customBotManagerListTexts.clear();
+        customBotManagerListImages.clear();
         statsChartTexts.clear();
         statsChartViewport.set(0f, 0f, 0f, 0f);
         statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
@@ -1460,6 +1482,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawTextItem(item);
             }
             batch.end();
+            if (customBotManagerOpen) {
+                drawCustomBotManagerListLayer();
+                drawCustomBotDeleteConfirmationTopLayer();
+            }
             if (rootSurfaceModal && surface == Surface.SETTINGS) {
                 drawSettingsRowsTextLayer();
                 drawSettingsDebugLayer();
@@ -1503,6 +1529,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyVoiceControls.clear();
         settingsDebugTexts.clear();
         settingsRowTexts.clear();
+        customBotManagerListTexts.clear();
+        customBotManagerListImages.clear();
         statsChartTexts.clear();
         statsChartViewport.set(0f, 0f, 0f, 0f);
         statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
@@ -9622,8 +9650,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
-    private static Music music(String path, float volume) {
-        Music music = Gdx.audio.newMusic(Gdx.files.internal(path));
+    private Music music(String path, float volume) {
+        FileHandle resource = GdxGameAudioResources.resolve(
+                presentationSettings, path);
+        if (resource == null) {
+            throw new IllegalStateException("Missing CoronaPoker music "
+                    + path);
+        }
+        Music music = Gdx.audio.newMusic(resource);
         music.setLooping(true);
         music.setVolume(volume);
         return music;
@@ -11200,6 +11234,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         persistCustomBotProfiles();
     }
 
+    private void toggleCustomBotRandomSelection() {
+        customBotRandomSelection = !customBotRandomSelection;
+        CustomBotProfileCatalog.writeRandomSelection(initialProperties,
+                customBotRandomSelection);
+        if (preferences != null) preferences.saveDeferred();
+    }
+
     private void saveCustomBot() {
         try {
             Path avatar = customBotAvatarDraft == null ? null
@@ -11258,25 +11299,48 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (customBotProfiles.isEmpty()) newCustomBot();
         else selectCustomBot(Math.min(customBotSelected,
                 customBotProfiles.size() - 1));
-        customBotScrollFirstRow = Math.min(customBotScrollFirstRow,
-                customBotMaximumFirstRow());
+        customBotScrollMaximum = customBotMaximumPixelScroll(
+                customBotProfiles.size());
+        customBotScrollTarget = MathUtils.clamp(customBotScrollTarget,
+                0f, customBotScrollMaximum);
+        customBotScroll = MathUtils.clamp(customBotScroll,
+                0f, customBotScrollMaximum);
     }
 
-    private int customBotMaximumFirstRow() {
-        return Math.max(0,
-                customBotProfiles.size() - CUSTOM_BOT_VISIBLE_ROWS);
+    static float customBotContentHeight(int profileCount) {
+        int count = Math.max(0, profileCount);
+        return count == 0 ? 0f : CUSTOM_BOT_ROW_HEIGHT
+                + Math.max(0, count - 1) * CUSTOM_BOT_ROW_STRIDE;
+    }
+
+    static float customBotMaximumPixelScroll(int profileCount) {
+        return Math.max(0f, customBotContentHeight(profileCount)
+                - (CUSTOM_BOT_ROWS_TOP - CUSTOM_BOT_ROWS_BOTTOM));
+    }
+
+    static float customBotScrollAfterWheel(float current, float maximum,
+            float amountY) {
+        return GdxSettingsLayout.pixelScrollAfterWheel(current, maximum,
+                amountY);
+    }
+
+    static float customBotScrollForSelection(int index, float current,
+            float maximum) {
+        if (index < 0) return MathUtils.clamp(current, 0f, maximum);
+        float top = index * CUSTOM_BOT_ROW_STRIDE;
+        float bottom = top + CUSTOM_BOT_ROW_HEIGHT;
+        float viewport = CUSTOM_BOT_ROWS_TOP - CUSTOM_BOT_ROWS_BOTTOM;
+        if (top < current) current = top;
+        else if (bottom > current + viewport) current = bottom - viewport;
+        return MathUtils.clamp(current, 0f, maximum);
     }
 
     private void ensureCustomBotVisible(int index) {
         if (index < 0) return;
-        if (index < customBotScrollFirstRow) {
-            customBotScrollFirstRow = index;
-        } else if (index >= customBotScrollFirstRow
-                + CUSTOM_BOT_VISIBLE_ROWS) {
-            customBotScrollFirstRow = index - CUSTOM_BOT_VISIBLE_ROWS + 1;
-        }
-        customBotScrollFirstRow = MathUtils.clamp(customBotScrollFirstRow,
-                0, customBotMaximumFirstRow());
+        customBotScrollMaximum = customBotMaximumPixelScroll(
+                customBotProfiles.size());
+        customBotScrollTarget = customBotScrollForSelection(index,
+                customBotScrollTarget, customBotScrollMaximum);
     }
 
     private void persistCustomBotProfiles() {
@@ -11342,7 +11406,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, h, CYAN, PANEL);
         textFit(titleFont, gameText.translate("gdx.custom_bots.title"),
                 WIDTH / 2f, 974f, GOLD, true, 1260f);
-        textFit(smallFont, gameText.translate("gdx.custom_bots.subtitle"),
+        textFit(smallFont, gameText.translate(customBotRandomSelection
+                        ? "gdx.custom_bots.subtitle.random"
+                        : "gdx.custom_bots.subtitle"),
                 WIDTH / 2f, 922f, MUTED, true, 1320f);
 
         float listX = 235f;
@@ -11351,33 +11417,58 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float listH = 745f;
         outerBox(listX, listY, listW, listH, LINE,
                 new Color(0x081525f2));
-        textFit(smallFont, gameText.translate("gdx.custom_bots.order"),
+        textFit(smallFont, gameText.translate("gdx.custom_bots.catalog"),
                 listX + 24f, 852f, GOLD, false, listW - 48f);
-        textFit(tinyFont, gameText.translate("gdx.custom_bots.order_help"),
+        textFit(tinyFont, gameText.translate(customBotRandomSelection
+                        ? "gdx.custom_bots.order_help.random"
+                        : "gdx.custom_bots.order_help"),
                 listX + 24f, 816f, MUTED, false, listW - 48f);
 
-        customBotScrollMaximum = customBotMaximumFirstRow();
-        customBotScrollFirstRow = MathUtils.clamp(customBotScrollFirstRow,
-                0, customBotScrollMaximum);
-        int first = customBotScrollFirstRow;
+        customBotScrollMaximum = customBotMaximumPixelScroll(
+                customBotProfiles.size());
+        customBotScrollTarget = MathUtils.clamp(customBotScrollTarget,
+                0f, customBotScrollMaximum);
+        customBotScroll = MathUtils.clamp(customBotScroll,
+                0f, customBotScrollMaximum);
         float rowX = listX + 22f;
         float rowW = listW - 88f;
-        for (int row = 0; row < CUSTOM_BOT_VISIBLE_ROWS; row++) {
-            int index = first + row;
-            float rowY = 698f - row * 105f;
+        customBotRowsViewport.set(rowX, CUSTOM_BOT_ROWS_BOTTOM, rowW,
+                CUSTOM_BOT_ROWS_TOP - CUSTOM_BOT_ROWS_BOTTOM);
+        int first = Math.max(0, (int) Math.floor(customBotScroll
+                / CUSTOM_BOT_ROW_STRIDE));
+        int last = Math.min(customBotProfiles.size(), (int) Math.ceil(
+                (customBotScroll + customBotRowsViewport.height)
+                        / CUSTOM_BOT_ROW_STRIDE) + 1);
+        shapes.flush();
+        enableWorldScissor(customBotRowsViewport);
+        customBotRowsActive = true;
+        int paintedRows = Math.max(customBotProfiles.size(),
+                CUSTOM_BOT_VISIBLE_ROWS);
+        for (int index = first; index < paintedRows; index++) {
+            float rowY = 698f - index * CUSTOM_BOT_ROW_STRIDE
+                    + customBotScroll;
+            if (rowY >= CUSTOM_BOT_ROWS_TOP
+                    || rowY + CUSTOM_BOT_ROW_HEIGHT
+                            <= CUSTOM_BOT_ROWS_BOTTOM) continue;
             if (index >= customBotProfiles.size()) {
                 shapes.setColor(new Color(0x17253a70));
-                roundedRect(rowX, rowY, rowW, 94f, 10f);
+                roundedRect(rowX, rowY, rowW,
+                        CUSTOM_BOT_ROW_HEIGHT, 10f);
                 continue;
             }
+            if (index >= last) break;
             CustomBotProfile profile = customBotProfiles.get(index);
             boolean selected = index == customBotSelected;
-            boolean over = hovered(rowX, rowY, rowW, 94f);
-            outerBox(rowX, rowY, rowW, 94f,
+            float hitBottom = Math.max(rowY, CUSTOM_BOT_ROWS_BOTTOM);
+            float hitTop = Math.min(rowY + CUSTOM_BOT_ROW_HEIGHT,
+                    CUSTOM_BOT_ROWS_TOP);
+            boolean over = hitTop > hitBottom
+                    && hovered(rowX, hitBottom, rowW, hitTop - hitBottom);
+            outerBox(rowX, rowY, rowW, CUSTOM_BOT_ROW_HEIGHT,
                     selected ? GOLD : over ? CYAN : LINE,
                     selected ? new Color(0x17314af4) : PANEL_LIGHT);
             Texture avatar = customBotAvatarTexture(profile.avatar());
-            customBotManagerImages.add(new UiImageItem(avatar,
+            customBotManagerListImages.add(new UiImageItem(avatar,
                     listX + 34f, rowY + 9f, 76f, 76f));
             textFit(headingFont, profile.displayName(), listX + 130f,
                     rowY + 64f, Color.WHITE, false, 340f);
@@ -11401,20 +11492,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(smallFont, "#" + (index + 1),
                     orderX + 26f, rowY + 54f,
                     selected ? GOLD : MUTED, true, 42f);
-            hit(rowX, rowY, rowW, 94f,
-                    () -> selectCustomBot(index));
-            tooltip(rowX, rowY, rowW, 94f,
-                    "tooltip.cfg.custom_bots.row");
+            if (hitTop > hitBottom) {
+                int selectedIndex = index;
+                hit(rowX, hitBottom, rowW, hitTop - hitBottom,
+                        () -> selectCustomBot(selectedIndex));
+                tooltip(rowX, hitBottom, rowW, hitTop - hitBottom,
+                        "tooltip.cfg.custom_bots.row");
+            }
         }
+        customBotRowsActive = false;
+        shapes.flush();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
 
-        customBotScrollTrack.set(listX + listW - 30f, 278f,
-                GdxSettingsLayout.SCROLLBAR_WIDTH, 514f);
+        customBotScrollTrack.set(listX + listW - 30f,
+                CUSTOM_BOT_ROWS_BOTTOM, GdxSettingsLayout.SCROLLBAR_WIDTH,
+                customBotRowsViewport.height);
         customBotScrollThumbHeight = GdxSettingsLayout
-                .scrollbarThumbHeight(customBotScrollTrack.height,
-                        customBotProfiles.size(), CUSTOM_BOT_VISIBLE_ROWS);
-        if (customBotScrollMaximum > 0) {
-            float ratio = customBotScrollFirstRow
-                    / (float) customBotScrollMaximum;
+                .pixelScrollbarThumbHeight(customBotScrollTrack.height,
+                        customBotRowsViewport.height,
+                        customBotContentHeight(customBotProfiles.size()));
+        if (customBotScrollMaximum > 0f) {
+            float ratio = customBotScroll / customBotScrollMaximum;
             float thumbY = customBotScrollTrack.y
                     + (customBotScrollTrack.height
                             - customBotScrollThumbHeight) * (1f - ratio);
@@ -11424,16 +11522,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     customBotScrollThumbHeight, 1f);
         }
 
-        compactRepeatButton(listX + 245f, 164f, 170f, 54f,
+        compactToggle(listX + 22f, 147f, 360f,
+                gameText.translate("gdx.custom_bots.random_selection"),
+                customBotRandomSelection,
+                this::toggleCustomBotRandomSelection, true);
+        tooltip(listX + 22f, 147f, 360f,
+                GdxSettingsLayout.ROW_HEIGHT,
+                "tooltip.cfg.custom_bots.random_selection");
+        compactRepeatButton(listX + 410f, 164f, 155f, 54f,
                 gameText.translate("gdx.custom_bots.up"), false,
                 () -> moveCustomBot(-1), customBotSelected > 0);
-        compactRepeatButton(listX + 460f, 164f, 170f, 54f,
+        compactRepeatButton(listX + 585f, 164f, 155f, 54f,
                 gameText.translate("gdx.custom_bots.down"), false,
                 () -> moveCustomBot(1), customBotSelected >= 0
                         && customBotSelected < customBotProfiles.size() - 1);
-        tooltip(listX + 245f, 164f, 170f, 54f,
+        tooltip(listX + 410f, 164f, 155f, 54f,
                 "tooltip.cfg.custom_bots.order_up");
-        tooltip(listX + 460f, 164f, 170f, 54f,
+        tooltip(listX + 585f, 164f, 155f, 54f,
                 "tooltip.cfg.custom_bots.order_down");
 
         float editX = 1140f;
@@ -11510,7 +11615,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && !customBotAvatarSelectionPending);
         compactButton(editX + 356f, 158f, 147f, 54f,
                 gameText.translate("gdx.custom_bots.delete"), false,
-                () -> customBotDeleteConfirmation = true,
+                this::openCustomBotDeleteConfirmation,
                 customBotSelected >= 0);
         tooltip(editX + 42f, 158f, 140f, 54f,
                 "tooltip.cfg.custom_bots.new");
@@ -11524,37 +11629,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::closeCustomBotManager);
         tooltip(785f, 72f, 350f, 60f,
                 "tooltip.cfg.custom_bots.close");
+    }
 
-        if (customBotDeleteConfirmation) {
-            hits.clear();
-            secondaryHits.clear();
-            textFieldHits.clear();
-            tooltipHits.clear();
-            shapes.setColor(new Color(0x02060dcc));
-            shapes.rect(0f, 0f, WIDTH, HEIGHT);
-            float confirmX = 590f;
-            float confirmY = 365f;
-            float confirmW = 740f;
-            float confirmH = 320f;
-            outerBox(confirmX, confirmY, confirmW, confirmH, ORANGE,
-                    PANEL_LIGHT);
-            textFit(headingFont,
-                    gameText.translate("gdx.custom_bots.delete_title"),
-                    WIDTH / 2f, confirmY + 250f, GOLD, true,
-                    confirmW - 80f);
-            textFit(uiFont,
-                    gameText.translate("gdx.custom_bots.delete_confirm",
-                            customBotProfiles.get(customBotSelected)
-                                    .displayName()),
-                    WIDTH / 2f, confirmY + 170f, Color.WHITE, true,
-                    confirmW - 90f);
-            button(confirmX + 60f, confirmY + 48f, 270f, 70f,
-                    gameText.translate("ui.cancelar"), false,
-                    () -> customBotDeleteConfirmation = false);
-            themedButton(confirmX + 410f, confirmY + 48f, 270f, 70f,
-                    gameText.translate("gdx.custom_bots.delete"),
-                    ButtonTone.DANGER, this::deleteCustomBot, true);
-        }
+    private void openCustomBotDeleteConfirmation() {
+        if (customBotSelected < 0
+                || customBotSelected >= customBotProfiles.size()) return;
+        customBotDeleteConfirmation = true;
+        clearActiveField();
+        clearScrollDrag();
     }
 
     private void drawCustomBotManagerImages() {
@@ -11568,6 +11650,75 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.flush();
         batch.setShader(null);
         batch.setColor(Color.WHITE);
+    }
+
+    private void drawCustomBotManagerListLayer() {
+        if (customBotManagerListImages.isEmpty()
+                && customBotManagerListTexts.isEmpty()) return;
+        enableWorldScissor(customBotRowsViewport);
+        batch.begin();
+        if (!customBotManagerListImages.isEmpty()) {
+            batch.setShader(avatarShader);
+            for (UiImageItem item : customBotManagerListImages) {
+                batch.setColor(item.tint);
+                batch.draw(item.texture, item.x, item.y,
+                        item.width, item.height);
+            }
+            batch.flush();
+            batch.setShader(null);
+        }
+        batch.setColor(Color.WHITE);
+        for (TextItem item : customBotManagerListTexts) drawTextItem(item);
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private void drawCustomBotDeleteConfirmationTopLayer() {
+        if (!customBotDeleteConfirmation) return;
+        if (customBotSelected < 0
+                || customBotSelected >= customBotProfiles.size()) {
+            customBotDeleteConfirmation = false;
+            return;
+        }
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        passwordRevealHits.clear();
+        editMenuHits.clear();
+        tooltipHits.clear();
+        texts.clear();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(new Color(0x02060de8));
+        shapes.rect(0f, 0f, WIDTH, HEIGHT);
+        float confirmX = 590f;
+        float confirmY = 365f;
+        float confirmW = 740f;
+        float confirmH = 320f;
+        outerBox(confirmX, confirmY, confirmW, confirmH, ORANGE,
+                PANEL_LIGHT);
+        textFit(headingFont,
+                gameText.translate("gdx.custom_bots.delete_title"),
+                WIDTH / 2f, confirmY + 250f, GOLD, true,
+                confirmW - 80f);
+        textFit(uiFont,
+                gameText.translate("gdx.custom_bots.delete_confirm",
+                        customBotProfiles.get(customBotSelected)
+                                .displayName()),
+                WIDTH / 2f, confirmY + 170f, Color.WHITE, true,
+                confirmW - 90f);
+        button(confirmX + 60f, confirmY + 48f, 270f, 70f,
+                gameText.translate("ui.cancelar"), false,
+                () -> customBotDeleteConfirmation = false);
+        themedButton(confirmX + 410f, confirmY + 48f, 270f, 70f,
+                gameText.translate("gdx.custom_bots.delete"),
+                ButtonTone.DANGER, this::deleteCustomBot, true);
+        shapes.end();
+        batch.begin();
+        for (TextItem item : texts) drawTextItem(item);
+        batch.end();
     }
 
     private void drawFooter() {
@@ -11635,6 +11786,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             List<CustomBotProfile> profiles = connection.recoverRequested()
                     || table.customBots() ? List.copyOf(customBotProfiles)
                             : List.of();
+            if (!connection.recoverRequested() && table.customBots()) {
+                profiles = CustomBotProfileCatalog.profilesForSession(
+                        profiles, customBotRandomSelection, secureRandom);
+            }
             CompletableFuture<NewGameSubmissionCoordinator.OpenedSession> opening
                     = submissions.submit(connection, table, reservation,
                             profiles);
@@ -12814,7 +12969,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         glyph.setText(font, value);
         float drawX = x + (width - glyph.width) / 2f;
         float baselineY = y + (height + glyph.height) / 2f;
-        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
+        activeTextItems().add(new TextItem(font,
                 value, drawX, baselineY, new Color(color), false));
     }
 
@@ -13069,13 +13224,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void text(BitmapFont font, String value, float x, float y,
             Color color, boolean centered) {
-        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(font,
+        activeTextItems().add(new TextItem(font,
                 value, x, y, new Color(color), centered));
     }
 
     private void textFit(BitmapFont preferred, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
-        (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
+        activeTextItems().add(fittedTextItem(
                 preferred, value, x, y, color, centered, maxWidth));
     }
 
@@ -13084,7 +13239,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         TextItem fitted = fittedTextItem(preferred, value, 0f, y, color,
                 false, maxWidth);
         float renderedWidth = textWidth(fitted.font(), fitted.text());
-        (settingsRowsActive ? settingsRowTexts : texts).add(new TextItem(
+        activeTextItems().add(new TextItem(
                 fitted.font(), fitted.text(), rightX - renderedWidth, y,
                 fitted.color(), false));
     }
@@ -13092,8 +13247,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     /** Fits table headers by selecting a smaller native atlas. */
     private void textExactFit(BitmapFont font, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
-        (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
+        activeTextItems().add(fittedTextItem(
                 font, value, x, y, color, centered, maxWidth));
+    }
+
+    private List<TextItem> activeTextItems() {
+        if (customBotRowsActive) return customBotManagerListTexts;
+        return settingsRowsActive ? settingsRowTexts : texts;
     }
 
     private void beginStatsChartCanvas(float x, float y, float width,
@@ -13200,7 +13360,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float y, Color color, boolean centered, float maxWidth) {
         // Synthetic shear distorts raster glyphs. Quotes keep the native face
         // until a genuine italic font asset is available.
-        (settingsRowsActive ? settingsRowTexts : texts).add(fittedTextItem(
+        activeTextItems().add(fittedTextItem(
                 preferred, value, x, y, color, centered, maxWidth));
     }
 
@@ -13513,18 +13673,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int button) {
         if (surface == Surface.NEW_GAME && customBotManagerOpen) {
             if (customBotDeleteConfirmation) return false;
-            int maximum = customBotMaximumFirstRow();
-            if (maximum > 0 && containsExpandedHorizontally(
+            float maximum = customBotMaximumPixelScroll(
+                    customBotProfiles.size());
+            if (maximum > 0f && containsExpandedHorizontally(
                     customBotScrollTrack, x, y,
                     (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
                             - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f)) {
-                float thumb = GdxSettingsLayout.scrollbarThumbHeight(
+                float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
                         customBotScrollTrack.height,
-                        customBotProfiles.size(), CUSTOM_BOT_VISIBLE_ROWS);
+                        customBotRowsViewport.height,
+                        customBotContentHeight(customBotProfiles.size()));
                 return captureScrollDrag(ScrollDrag.CUSTOM_BOTS,
                         pointerIndex, button, y, customBotScrollTrack.y,
                         customBotScrollTrack.height, thumb,
-                        customBotScrollFirstRow / (float) maximum, true);
+                        customBotScroll / maximum, true);
             }
             return false;
         }
@@ -13740,9 +13902,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsShortcutScroll = offset;
             }
         } else if (scrollDrag == ScrollDrag.CUSTOM_BOTS) {
-            customBotScrollMaximum = customBotMaximumFirstRow();
-            customBotScrollFirstRow = MathUtils.clamp(Math.round(
-                    progress * customBotScrollMaximum), 0,
+            customBotScrollMaximum = customBotMaximumPixelScroll(
+                    customBotProfiles.size());
+            customBotScroll = customBotScrollTarget = MathUtils.clamp(
+                    progress * customBotScrollMaximum, 0f,
                     customBotScrollMaximum);
         } else if (scrollDrag == ScrollDrag.NETWORK_BLOCKS) {
             GdxNetworkBlockDialogLayout.Layout layout
@@ -14716,14 +14879,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !customBotDeleteConfirmation && amountY != 0f) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
-            if (pointer.x >= 257f && pointer.x <= 1101f
-                    && pointer.y >= 278f && pointer.y <= 792f) {
-                int step = Math.max(1, Math.round(Math.abs(amountY)));
-                customBotScrollMaximum = customBotMaximumFirstRow();
-                customBotScrollFirstRow = MathUtils.clamp(
-                        customBotScrollFirstRow
-                                + (amountY > 0f ? step : -step),
-                        0, customBotScrollMaximum);
+            if (customBotRowsViewport.contains(pointer)) {
+                customBotScrollMaximum = customBotMaximumPixelScroll(
+                        customBotProfiles.size());
+                customBotScrollTarget = customBotScrollAfterWheel(
+                        customBotScrollTarget, customBotScrollMaximum,
+                        amountY);
             }
             return true;
         }

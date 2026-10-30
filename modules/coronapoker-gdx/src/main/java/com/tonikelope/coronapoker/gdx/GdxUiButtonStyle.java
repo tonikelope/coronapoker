@@ -71,8 +71,7 @@ final class GdxUiButtonStyle {
                 ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE;
         Color fill = fill(tone, enabled, pressed);
         drawMaterial(shapes, x, y, width, height, border, fill, enabled,
-                hover, pressed, alpha,
-                tone == Tone.FEATURED ? 0.52f : 0.42f, true);
+                hover, pressed, alpha, true);
     }
 
     /** Compact icon material used inside an already framed toolbar. */
@@ -83,7 +82,7 @@ final class GdxUiButtonStyle {
         drawMaterial(shapes, x, y, width, height,
                 enabled ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE,
                 fill(tone, enabled, pressed), enabled, hover, pressed, alpha,
-                tone == Tone.FEATURED ? 0.52f : 0.42f, false);
+                false);
     }
 
     /**
@@ -104,22 +103,13 @@ final class GdxUiButtonStyle {
                 : LINE;
         drawMaterial(shapes, x, y, width, height,
                 border, CUSTOM_SURFACE, enabled, hover,
-                pressed, alpha, 0.42f, true);
+                pressed, alpha, true);
     }
 
     private static void drawMaterial(ShapeRenderer shapes, float x, float y,
             float width, float height, Color border, Color fill,
             boolean enabled, float hover, boolean pressed, float alpha,
-            float glowStrength, boolean borderVisible) {
-        // Hover is deliberately outline-only: it cannot produce patches or
-        // alter the perceived shape of the button.
-        if (borderVisible && enabled && hover > 0.01f) {
-            shapes.setColor(border.r, border.g, border.b,
-                    glowStrength * hover * alpha);
-            roundedRectOutline(shapes, x - 2f, y - 2f,
-                    width + 4f, height + 4f, 16f, 2f);
-        }
-
+            boolean borderVisible) {
         // All depth stays inside the exact control silhouette. External drop
         // shadows create doubled or protruding corners when HUD buttons sit
         // edge-to-edge, especially on the light call/check material.
@@ -128,22 +118,18 @@ final class GdxUiButtonStyle {
         GdxGlassBevel.draw(shapes, x, y, width, height, 14f,
                 (pressed ? 0.07f : 0.16f) + 0.04f * hover,
                 alpha);
-        if (borderVisible) {
+        if (borderVisible || enabled && hover > 0.01f) {
+            float thickness = 2f + hover;
+            float inset = thickness * 0.5f;
+            float borderAlpha = borderVisible
+                    ? (enabled ? 1f : 0.55f) : hover;
             shapes.setColor(border.r, border.g, border.b,
-                    (enabled ? 1f : 0.55f) * alpha);
-            roundedRectOutline(shapes, x + 1f, y + 1f, width - 2f,
-                    height - 2f, 13f, 2f);
-        } else if (enabled && hover > 0.01f) {
-            shapes.setColor(border.r, border.g, border.b,
-                    0.16f * hover * alpha);
-            roundedRect(shapes, x + 2f, y + 2f, width - 4f,
-                    height - 4f, 12f);
-            // Toolbar buttons remain borderless while idle, but hover must
-            // expose the same semantic rim as every regular button.
-            shapes.setColor(border.r, border.g, border.b,
-                    0.88f * hover * alpha);
-            roundedRectOutline(shapes, x + 1f, y + 1f,
-                    width - 2f, height - 2f, 13f, 2f);
+                    borderAlpha * alpha);
+            // One contour only. Hover brightens and thickens the semantic rim
+            // inside the original silhouette without adding a second halo.
+            roundedRectOutline(shapes, x + inset, y + inset,
+                    width - 2f * inset, height - 2f * inset,
+                    14f - inset, thickness);
         }
     }
 

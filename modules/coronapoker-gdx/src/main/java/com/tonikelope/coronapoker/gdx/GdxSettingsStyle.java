@@ -207,10 +207,11 @@ final class GdxSettingsStyle {
                 TOGGLE_WIDTH, TOGGLE_HEIGHT, TOGGLE_HEIGHT / 2f);
         Color knob = toggleKnob(animation);
         shapes.setColor(knob.r, knob.g, knob.b, alpha);
-        shapes.circle(trackX + TOGGLE_KNOB_START
-                + TOGGLE_KNOB_TRAVEL * animation,
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                trackX + TOGGLE_KNOB_START
+                        + TOGGLE_KNOB_TRAVEL * animation,
                 y + TOGGLE_BOTTOM_INSET + TOGGLE_HEIGHT / 2f,
-                TOGGLE_KNOB_RADIUS, 32);
+                TOGGLE_KNOB_RADIUS);
     }
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,

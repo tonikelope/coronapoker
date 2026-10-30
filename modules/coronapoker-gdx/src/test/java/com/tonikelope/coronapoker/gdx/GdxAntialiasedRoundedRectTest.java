@@ -32,4 +32,17 @@ final class GdxAntialiasedRoundedRectTest {
                         300));
         assertTrue(GdxAntialiasedRoundedRect.CORNER_SEGMENTS >= 16);
     }
+
+    @Test
+    void coverageUsesTheLimitingViewportAxis() {
+        assertEquals(1.25f,
+                GdxAntialiasedRoundedRect.coverageWidthForBackBuffer(
+                        2560, 1080));
+        assertEquals(1.875f,
+                GdxAntialiasedRoundedRect.coverageWidthForBackBuffer(
+                        1280, 1080));
+        assertEquals(1.25f,
+                GdxAntialiasedRoundedRect.coverageWidthForBackBuffer(
+                        1920, 2160));
+    }
 }

@@ -5312,7 +5312,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyAvatars.add(new LobbyAvatarItem(lobbyAvatar(participant),
                 x + 8f, y + 6f, 42f));
         shapes.setColor(lobbyLatencyColor(participant));
-        shapes.circle(x + 55f, y + h / 2f, 4f, 20);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                x + 55f, y + h / 2f, 4f);
         int effectiveLatency = lobbyEffectiveLatencyMillis(participant);
         tooltip(x + 43f, y + h / 2f - 12f, 24f, 24f,
                 "gdx.table.latency_tooltip",
@@ -5488,8 +5489,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return cached;
         }
         try {
-            Texture loaded = new Texture(Gdx.files.absolute(key));
-            loaded.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            Texture loaded = GdxTextureQuality.loadUi(
+                    Gdx.files.absolute(key));
             lobbyAvatarTextures.put(key, loaded);
             return loaded;
         } catch (RuntimeException failure) {
@@ -10080,9 +10081,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && hovered(445f, 385f, 150f, 155f);
         shapes.setColor(avatarSelectionPending ? DISABLED
                 : avatarHover ? CYAN : CYAN_DARK);
-        shapes.circle(520f, 465f, 70f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes, 520f, 465f, 70f);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(520f, 465f, 61f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes, 520f, 465f, 61f);
         drawAvatarIcon(520f, 465f);
         hit(445f, 385f, 150f, 155f, this::selectAvatar);
         tooltip(445f, 385f, 150f, 155f, "tooltip.change_avatar");
@@ -10118,9 +10119,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && hovered(315f, 422f, 130f, 135f);
         shapes.setColor(avatarSelectionPending ? DISABLED
                 : avatarHover ? CYAN : CYAN_DARK);
-        shapes.circle(380f, 487f, 60f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes, 380f, 487f, 60f);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(380f, 487f, 52f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes, 380f, 487f, 52f);
         drawAvatarIcon(380f, 487f, 104f);
         hit(315f, 422f, 130f, 135f, this::selectAvatar);
         tooltip(315f, 422f, 130f, 135f, "tooltip.change_avatar");
@@ -11514,8 +11515,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Texture cached = customBotAvatarTextures.get(key);
         if (cached != null) return cached;
         try {
-            Texture texture = new Texture(Gdx.files.absolute(key));
-            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            Texture texture = GdxTextureQuality.loadUi(
+                    Gdx.files.absolute(key));
             customBotAvatarTextures.put(key, texture);
             return texture;
         } catch (RuntimeException invalid) {
@@ -11706,9 +11707,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && hovered(editorAvatarHitX, editorAvatarHitY, 150f, 155f);
         shapes.setColor(customBotAvatarSelectionPending ? DISABLED
                 : editorAvatarHover ? CYAN : CYAN_DARK);
-        shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 70f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                editorAvatarCenterX, editorAvatarCenterY, 70f);
         shapes.setColor(PANEL_LIGHT);
-        shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 61f, 64);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                editorAvatarCenterX, editorAvatarCenterY, 61f);
         customBotManagerImages.add(new UiImageItem(editorAvatar,
                 editorAvatarCenterX - 61f, editorAvatarCenterY - 61f,
                 122f, 122f));
@@ -13355,10 +13358,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float handle = Math.min(14f, Math.max(7f,
                 avatarCropSelectionBounds.width * 0.08f));
         shapes.setColor(Color.WHITE);
-        shapes.circle(left, bottom, handle, 24);
-        shapes.circle(right, bottom, handle, 24);
-        shapes.circle(left, top, handle, 24);
-        shapes.circle(right, top, handle, 24);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                left, bottom, handle);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                right, bottom, handle);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                left, top, handle);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                right, top, handle);
         shapes.end();
         batch.begin();
     }
@@ -13664,8 +13671,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (connection == null || connection.avatar() == null) return;
         Path path = connection.avatar().toAbsolutePath().normalize();
         try {
-            Texture texture = new Texture(Gdx.files.absolute(path.toString()));
-            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            Texture texture = GdxTextureQuality.loadUi(
+                    Gdx.files.absolute(path.toString()));
             selectedAvatarTexture = texture;
         } catch (RuntimeException failure) {
             connection.resetAvatar();

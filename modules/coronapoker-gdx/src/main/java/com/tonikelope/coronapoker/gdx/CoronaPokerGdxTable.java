@@ -13480,14 +13480,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float x = seatAvatarX(seat) - 42f;
             float y = seat.y + 41f;
             shapes.setColor(0f, 0f, 0f, 0.62f * presence);
-            shapes.circle(x, y, 10f, 28);
+            GdxAntialiasedRoundedRect.fillCircle(shapes, x, y, 10f);
             Color quality = latencyColor(player);
             shapes.setColor(quality.r, quality.g, quality.b,
                     quality.a * presence);
-            shapes.circle(x, y, 8f, 28);
+            GdxAntialiasedRoundedRect.fillCircle(shapes, x, y, 8f);
             if (player.reconnectionCount() > 0) {
                 shapes.setColor(1f, 1f, 1f, presence);
-                shapes.circle(x + 8f, y - 8f, 7f, 24);
+                GdxAntialiasedRoundedRect.fillCircle(shapes,
+                        x + 8f, y - 8f, 7f);
             }
         }
         shapes.end();
@@ -26554,8 +26555,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(switchX, switchY, 38f, 20f, 10f);
         shapes.setColor(quickChatAutoClose
                 ? QUICK_CHAT_TOGGLE_KNOB : Color.LIGHT_GRAY);
-        shapes.circle(quickChatAutoClose ? switchX + 28f : switchX + 10f,
-                switchY + 10f, 7f, 24);
+        GdxAntialiasedRoundedRect.fillCircle(shapes,
+                quickChatAutoClose ? switchX + 28f : switchX + 10f,
+                switchY + 10f, 7f);
         if (quickChatScrollMaximum > 0f) {
             float trackY = historyY + 8f;
             float trackH = historyH - 16f;

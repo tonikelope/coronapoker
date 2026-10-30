@@ -87,6 +87,14 @@ final class GdxUiButtonStyleTest {
         assertFalse(settings.contains("y - 1f, width, height"));
         assertFalse(buttons.contains(
                 "roundedRectOutline(shapes, x + 5f, y + 5f"));
+        assertFalse(buttons.contains(
+                "roundedRectOutline(shapes, x - 2f, y - 2f"),
+                "hover must not add a second external contour");
+        assertFalse(buttons.contains("0.16f * hover * alpha"),
+                "borderless hover must not add an inner pseudo-border");
+        assertTrue(buttons.contains("float thickness = 2f + hover;"));
+        assertTrue(buttons.contains(
+                "roundedRectOutline(shapes, x + inset, y + inset,"));
         assertFalse(bevel.contains("bottomThickness"));
         assertFalse(bevel.contains("bottomAlpha"));
         assertFalse(bevel.contains("rectLine("));

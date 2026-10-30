@@ -96,9 +96,11 @@ final class GdxCustomBotManagerContractTest {
         assertFalse(source.contains(
                 "gdx.custom_bots.avatar.default\")"));
         assertTrue(source.contains(
-                "shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 70f, 64);"));
+                "GdxAntialiasedRoundedRect.fillCircle(shapes,\n"
+                + "                editorAvatarCenterX, editorAvatarCenterY, 70f);"));
         assertTrue(source.contains(
-                "shapes.circle(editorAvatarCenterX, editorAvatarCenterY, 61f, 64);"));
+                "GdxAntialiasedRoundedRect.fillCircle(shapes,\n"
+                + "                editorAvatarCenterX, editorAvatarCenterY, 61f);"));
         assertTrue(source.contains(
                 "this::selectCustomBotAvatar);"));
         assertTrue(source.contains(

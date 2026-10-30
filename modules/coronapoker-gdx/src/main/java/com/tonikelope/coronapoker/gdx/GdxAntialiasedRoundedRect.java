@@ -18,7 +18,9 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 final class GdxAntialiasedRoundedRect {
 
     static final int CORNER_SEGMENTS = 18;
+    private static final int CIRCLE_SEGMENTS = CORNER_SEGMENTS * 4;
     static final float TARGET_PHYSICAL_FEATHER_PIXELS = 1.25f;
+    private static final float REFERENCE_WORLD_WIDTH = 1920f;
     private static final float REFERENCE_WORLD_HEIGHT = 1080f;
     private static final Color FULL = new Color();
     private static final Color CLEAR = new Color();
@@ -26,6 +28,10 @@ final class GdxAntialiasedRoundedRect {
             new float[4][CORNER_SEGMENTS + 1];
     private static final float[][] CORNER_Y =
             new float[4][CORNER_SEGMENTS + 1];
+    private static final float[] CIRCLE_X =
+            new float[CIRCLE_SEGMENTS + 1];
+    private static final float[] CIRCLE_Y =
+            new float[CIRCLE_SEGMENTS + 1];
 
     static {
         for (int corner = 0; corner < 4; corner++) {
@@ -37,9 +43,34 @@ final class GdxAntialiasedRoundedRect {
                 CORNER_Y[corner][step] = (float) Math.sin(radians);
             }
         }
+        for (int step = 0; step <= CIRCLE_SEGMENTS; step++) {
+            float radians = (float) (Math.PI * 2d * step
+                    / CIRCLE_SEGMENTS);
+            CIRCLE_X[step] = (float) Math.cos(radians);
+            CIRCLE_Y[step] = (float) Math.sin(radians);
+        }
     }
 
     private GdxAntialiasedRoundedRect() {
+    }
+
+    /**
+     * Draws a coverage-antialiased filled circle using the same physical-pixel
+     * fringe as the rounded UI chrome. A dedicated continuous contour avoids
+     * the internal quadrant seams that a maximally rounded rectangle can show
+     * at small indicator radii.
+     */
+    static void fillCircle(ShapeRenderer shapes, float centerX, float centerY,
+            float radius) {
+        if (!Float.isFinite(centerX) || !Float.isFinite(centerY)
+                || !Float.isFinite(radius) || radius <= 0f) return;
+        rememberColor(shapes);
+        float feather = Math.min(coverageWidth(), radius * 1.5f);
+        float half = feather * 0.5f;
+        circleBand(shapes, centerX, centerY,
+                radius + half, radius - half, CLEAR, FULL);
+        hardCircle(shapes, centerX, centerY, radius - half, FULL);
+        shapes.setColor(FULL);
     }
 
     static void fill(ShapeRenderer shapes, float x, float y, float width,
@@ -94,17 +125,34 @@ final class GdxAntialiasedRoundedRect {
     }
 
     static float coverageWidthForBackBufferHeight(int backBufferHeight) {
-        if (backBufferHeight <= 0) return TARGET_PHYSICAL_FEATHER_PIXELS;
-        float worldWidth = TARGET_PHYSICAL_FEATHER_PIXELS
-                * REFERENCE_WORLD_HEIGHT / backBufferHeight;
+        int referenceWidth = backBufferHeight <= 0 ? 0
+                : Math.round(backBufferHeight * REFERENCE_WORLD_WIDTH
+                        / REFERENCE_WORLD_HEIGHT);
+        return coverageWidthForBackBuffer(referenceWidth, backBufferHeight);
+    }
+
+    static float coverageWidthForBackBuffer(int backBufferWidth,
+            int backBufferHeight) {
+        if (backBufferWidth <= 0 || backBufferHeight <= 0) {
+            return TARGET_PHYSICAL_FEATHER_PIXELS;
+        }
+        float scale = Math.min(backBufferWidth / REFERENCE_WORLD_WIDTH,
+                backBufferHeight / REFERENCE_WORLD_HEIGHT);
+        if (!Float.isFinite(scale) || scale <= 0f) {
+            return TARGET_PHYSICAL_FEATHER_PIXELS;
+        }
+        float worldWidth = TARGET_PHYSICAL_FEATHER_PIXELS / scale;
         return Math.max(0.5f, Math.min(2.5f, worldWidth));
     }
 
     private static float coverageWidth() {
+        int width = Gdx.graphics == null
+                ? Math.round(REFERENCE_WORLD_WIDTH)
+                : Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics == null
                 ? Math.round(REFERENCE_WORLD_HEIGHT)
                 : Gdx.graphics.getBackBufferHeight();
-        return coverageWidthForBackBufferHeight(height);
+        return coverageWidthForBackBuffer(width, height);
     }
 
     private static void rememberColor(ShapeRenderer shapes) {
@@ -182,6 +230,42 @@ final class GdxAntialiasedRoundedRect {
                     outerCurrentX, outerCurrentY, outer,
                     innerCurrentX, innerCurrentY, inner,
                     innerPreviousX, innerPreviousY, inner);
+        }
+    }
+
+    private static void circleBand(ShapeRenderer shapes, float centerX,
+            float centerY, float outerRadius, float innerRadius,
+            Color outer, Color inner) {
+        for (int step = 1; step <= CIRCLE_SEGMENTS; step++) {
+            float outerPreviousX = centerX
+                    + CIRCLE_X[step - 1] * outerRadius;
+            float outerPreviousY = centerY
+                    + CIRCLE_Y[step - 1] * outerRadius;
+            float outerCurrentX = centerX + CIRCLE_X[step] * outerRadius;
+            float outerCurrentY = centerY + CIRCLE_Y[step] * outerRadius;
+            float innerPreviousX = centerX
+                    + CIRCLE_X[step - 1] * innerRadius;
+            float innerPreviousY = centerY
+                    + CIRCLE_Y[step - 1] * innerRadius;
+            float innerCurrentX = centerX + CIRCLE_X[step] * innerRadius;
+            float innerCurrentY = centerY + CIRCLE_Y[step] * innerRadius;
+            quad(shapes,
+                    outerPreviousX, outerPreviousY, outer,
+                    outerCurrentX, outerCurrentY, outer,
+                    innerCurrentX, innerCurrentY, inner,
+                    innerPreviousX, innerPreviousY, inner);
+        }
+    }
+
+    private static void hardCircle(ShapeRenderer shapes, float centerX,
+            float centerY, float radius, Color color) {
+        for (int step = 1; step <= CIRCLE_SEGMENTS; step++) {
+            shapes.triangle(centerX, centerY,
+                    centerX + CIRCLE_X[step - 1] * radius,
+                    centerY + CIRCLE_Y[step - 1] * radius,
+                    centerX + CIRCLE_X[step] * radius,
+                    centerY + CIRCLE_Y[step] * radius,
+                    color, color, color);
         }
     }
 

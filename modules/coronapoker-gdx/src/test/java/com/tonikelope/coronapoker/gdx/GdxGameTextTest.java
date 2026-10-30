@@ -227,6 +227,29 @@ final class GdxGameTextTest {
     }
 
     @Test
+    void botSettingsDistinguishStandardAndCustomBotsInBothLanguages() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("Dificultad de bots estándar", spanish.translate(
+                "gdx.settings.game.row.bot_difficulty"));
+        assertEquals("GESTIONAR BOTS PERSONALIZADOS", spanish.translate(
+                "gdx.custom_bots.manage"));
+        assertEquals("Define la dificultad de los bots estándar. "
+                + "Los bots personalizados conservan la dificultad "
+                + "configurada individualmente en el Gestor de bots.",
+                spanish.translate("tooltip.cfg.bots"));
+
+        assertEquals("Standard bot difficulty", english.translate(
+                "gdx.settings.game.row.bot_difficulty"));
+        assertEquals("MANAGE CUSTOM BOTS", english.translate(
+                "gdx.custom_bots.manage"));
+        assertEquals("Sets the difficulty of standard bots. Custom bots "
+                + "keep the difficulty configured individually in the Bot "
+                + "Manager.", english.translate("tooltip.cfg.bots"));
+    }
+
+    @Test
     void finalSummaryUsesShortNavigationCopyInBothLanguages() {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");

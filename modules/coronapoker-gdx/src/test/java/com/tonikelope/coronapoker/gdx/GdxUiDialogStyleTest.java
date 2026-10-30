@@ -49,6 +49,10 @@ final class GdxUiDialogStyleTest {
         assertFalse(table.contains("width - 10f, 6f, 3f"));
         assertFalse(table.contains("stackBounds.width - 24f, 2f"));
         assertFalse(table.contains("investedBounds.width - 24f, 2f"));
+        assertFalse(table.contains("tipW - 16f, 2f"),
+                "compact labels must not restore a detached top rail");
+        assertFalse(table.contains("PLAYER_POD_WIDTH - 30f, 2f"),
+                "seat action labels must use one uninterrupted surface");
     }
 
     @Test

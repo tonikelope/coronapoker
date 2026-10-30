@@ -226,7 +226,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float REMOTE_SEAT_ENTRY_DISTANCE = 56f;
     static final float SEAT_RELAYOUT_SECONDS = 0.52f;
     static final float PARTIAL_HAND_ROLL_SECONDS = 0.150f;
-    static final float REMOTE_FOLDED_SEAT_ALPHA = 0.70f;
     // Disabled cards remain fully coloured. Only their opacity changes, so a
     // folded/losing hand is still readable instead of turning into a muddy
     // near-invisible silhouette.
@@ -10767,10 +10766,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.setColor(0.005f, 0.020f, 0.032f, 0.96f * alpha);
             roundedRect(tipX, FAST_BAR_Y + panelH + 8f,
                     tipW, 36f, 7f);
-            shapes.setColor(fastButtonEnabled(hovered)
-                    ? CYAN : Color.GRAY);
-            shapes.rect(tipX + 8f, FAST_BAR_Y + panelH + 41f,
-                    tipW - 16f, 2f);
         }
         shapes.end();
 
@@ -11223,12 +11218,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // with an ordered HandResult is nevertheless in the settled
             // showdown presentation and must keep the full winner/loser
             // treatment instead of being mistaken for a folded seat.
-            boolean foldedThisHand = liveState.foldedThisHand(seat.name);
             boolean folded = shouldDimSeat(livePlayer == null
                     || livePlayer.active(), settledShowdown,
-                    foldedThisHand);
-            float visualPresence = remoteSeatVisualPresence(seat.index,
-                    foldedThisHand, presence);
+                    liveState.foldedThisHand(seat.name));
+            float visualPresence = presence;
             boolean timedOut = livePlayer != null && livePlayer.timedOut();
             String actionLabel = lastActionLabelForSeat(seat.index);
             boolean showActionSurface = seat.index == 0
@@ -11283,10 +11276,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     visualPresence));
                     roundedRect(seat.podX + 7f, seat.podY + 7f,
                             PLAYER_POD_WIDTH - 14f, 44f, 8f);
-                    shapes.setColor(1f, 1f, 1f,
-                            0.48f * visualPresence);
-                    shapes.rect(seat.podX + 15f, seat.podY + 47f,
-                            PLAYER_POD_WIDTH - 30f, 2f);
                 }
                 shapes.setColor(rim.r, rim.g, rim.b,
                         (active ? 0.88f : 0.42f) * visualPresence);
@@ -11340,9 +11329,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             Texture avatar = tableAvatar(seat.name);
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            boolean foldedThisHand = liveState.foldedThisHand(seat.name);
-            float visualPresence = remoteSeatVisualPresence(seat.index,
-                    foldedThisHand, presence);
+            float visualPresence = presence;
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.flush();
             batch.setShader(avatarShader);
@@ -11353,7 +11340,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
-                drawSeatChipStack(seat, visualPresence, foldedThisHand);
+                drawSeatChipStack(seat, visualPresence);
             }
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
@@ -11460,40 +11447,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Drawn inside an active SpriteBatch. */
     private void drawSeatChipStack(Seat seat, float alpha) {
-        drawSeatChipStack(seat, alpha, false);
-    }
-
-    /** Drawn inside an active SpriteBatch. */
-    private void drawSeatChipStack(Seat seat, float alpha,
-            boolean compositeWholeRack) {
         GdxStackChipLayout.Layout layout = stackChipLayout(seat);
         float[] physicalCounts = animatedStackChipCounts(seat, layout);
         StackChipRackGeometry geometry = stackChipRackGeometry(
                 seat.index == 0);
         int rackSeed = seat.name.hashCode();
-        // Apply the folded-seat alpha once to the completed rack. Fading each
-        // overlapping chip independently would make intersections darker and
-        // reveal the felt through a physical stack.
-        boolean composite = hasVisibleStackChips(physicalCounts)
-                && shouldCompositeRemoteFoldedChipRack(compositeWholeRack,
-                        alpha)
-                && beginChipRackComposite(seat.stackX, seat.stackY);
         drawChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
-                composite ? 1f : alpha, geometry, rackSeed);
-        if (composite) {
-            finishChipRackComposite(seat.stackX, seat.stackY, alpha);
-        }
-    }
-
-    static boolean shouldCompositeRemoteFoldedChipRack(
-            boolean foldedThisHand, float alpha) {
-        return foldedThisHand && shouldCompositeChipRack(alpha);
-    }
-
-    static float remoteSeatVisualPresence(int seatIndex,
-            boolean foldedThisHand, float presence) {
-        return seatIndex > 0 && foldedThisHand
-                ? presence * REMOTE_FOLDED_SEAT_ALPHA : presence;
+                alpha, geometry, rackSeed);
     }
 
     static boolean shouldCompositePotChipRack(float alpha) {

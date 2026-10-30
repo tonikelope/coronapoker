@@ -53,6 +53,35 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void liveHandLimitUsesTheSameInlineSwitchAndCounterAsTheLobby()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+
+        assertTrue(source.contains("toggleDraftHandLimit();"));
+        assertTrue(source.contains(
+                "adjustDraftHandLimit(settingsStepperDirection"));
+        assertFalse(source.contains("openDraftHandLimitDialog("),
+                "the live hand limit must not fall back to a legacy modal");
+    }
+
+    @Test
+    void liveAuthorityStatesHaveDistinctPaletteAndTooltipContracts()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+
+        assertTrue(source.contains("SERVER_ONLY"));
+        assertTrue(source.contains("LIVE_LOCKED"));
+        assertTrue(source.contains("gdx.settings.game.server_only"));
+        assertTrue(source.contains("gdx.settings.game.locked_during_game"));
+        assertTrue(source.contains("GdxSettingsStyle.serverOnlyText()"));
+        assertTrue(source.contains("GdxSettingsStyle.lockedText()"));
+    }
+
+    @Test
     void mergedGameTabsRouteToTheirCombinedContentPages() {
         assertEquals(3, CoronaPokerGdxTable.settingsGameContentPage(0));
         assertEquals(4, CoronaPokerGdxTable.settingsGameContentPage(1));
@@ -60,6 +89,52 @@ final class GdxSettingsNavigationContractTest {
         assertEquals(7, CoronaPokerGdxTable.settingsGameContentPage(3));
         assertEquals(3, CoronaPokerGdxTable.settingsGameContentPage(-1));
         assertEquals(7, CoronaPokerGdxTable.settingsGameContentPage(99));
+    }
+
+    @Test
+    void liveSettingsFooterOwnsInputBeforeEverySubpageContentHandler()
+            throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        int start = source.indexOf("private void handleSettingsClick(");
+        int end = source.indexOf("private static int settingsStepperDirection(",
+                start);
+        assertTrue(start >= 0 && end > start);
+        String handler = source.substring(start, end);
+
+        int footer = handler.indexOf("handleSettingsFooterClick(frame, x, y)");
+        int content = handler.indexOf("int contentPage = settingsContentPage()");
+        assertTrue(footer >= 0 && content > footer,
+                "Save, Cancel and Restore must be routed before any clipped "
+                + "or scrollable subsection can consume the click");
+        assertTrue(source.contains(
+                "private boolean handleSettingsFooterClick("));
+        assertTrue(source.contains("requestCancelTableSettings(null)"));
+        assertTrue(source.contains("restoreCurrentSettingsSectionDefaults()"));
+        assertTrue(source.contains("closeTableSettings(true)"));
+    }
+
+    @Test
+    void liveAndLobbyDiscardPromptsShareGeometryAndDangerSemantics()
+            throws IOException {
+        String table = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        String frontend = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "GdxFrontendScreen.java"));
+
+        assertTrue(table.contains(
+                "GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight)"));
+        assertTrue(table.contains(
+                "positive.width, positive.height, FOLD_RED"));
+        assertTrue(table.contains(
+                "handleSettingsDiscardDialogInput(dialog, pointer.x, pointer.y)"));
+        assertTrue(frontend.contains(
+                "GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome("));
+        assertTrue(frontend.contains(
+                "ButtonTone.DANGER, () -> finishClosingSettings(false)"));
     }
 
     @Test

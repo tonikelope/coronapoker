@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -105,6 +106,74 @@ final class GdxUiDialogStyleTest {
                 > layout.message().y + layout.message().height);
         assertTrue(layout.message().y
                 > layout.button().y + layout.button().height);
+    }
+
+    @Test
+    void simpleTablePromptsUseTheSameCanonicalDialogFamilies() {
+        GdxTableDialog confirmation = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "¿CONTINUAR?",
+                GameDialogSink.Icon.NONE, 760, 0);
+        GdxTableDialog error = new GdxTableDialog(
+                GdxTableDialog.Kind.ERROR, "NO SE PUDO COMPLETAR",
+                GameDialogSink.Icon.NONE, 760, 0);
+        GdxTableDialog info = new GdxTableDialog(
+                GdxTableDialog.Kind.INFO, "OPERACIÓN COMPLETADA",
+                GameDialogSink.Icon.NONE, 760, 0);
+        GdxTableDialog timed = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "DECIDE AHORA",
+                GameDialogSink.Icon.NONE, 760, 5);
+        GdxTableDialog form = GdxTableDialog.autoCall(true, 1d);
+
+        assertTrue(confirmation.usesCanonicalConfirmationLayout());
+        assertTrue(error.usesCanonicalNoticeLayout());
+        assertTrue(info.usesCanonicalNoticeLayout());
+        assertFalse(timed.usesCanonicalConfirmationLayout(),
+                "timed decisions retain their countdown layout");
+        assertFalse(form.usesCanonicalConfirmationLayout(),
+                "forms retain their purpose-built controls");
+        assertFalse(error.showsNegative(),
+                "notices expose one unambiguous close action");
+        assertTrue(error.showsPositive());
+    }
+
+    @Test
+    void remainingSimpleConfirmationUsesTheSharedChrome() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/"
+                + "tonikelope/coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf(
+                "private void drawBlindStructureDeleteConfirmation()");
+        int end = frontend.indexOf("private void drawPurchasePage()", start);
+
+        assertTrue(start >= 0 && end > start);
+        assertTrue(frontend.substring(start, end).contains(
+                "drawConfirmationChrome("));
+        assertFalse(frontend.substring(start, end).contains(
+                "GdxUiDialogStyle.drawPanel("));
+    }
+
+    @Test
+    void standaloneFrontendNoticesUseTheSharedNoticeChrome() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/"
+                + "tonikelope/coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+
+        assertMethodUses(frontend, "drawFrontendNotice()",
+                "drawNoticeChrome(");
+        assertMethodUses(frontend, "drawIdentityChangeNotice()",
+                "drawNoticeChrome(");
+        assertMethodUses(frontend, "drawSettingsRestartNotice()",
+                "drawNoticeChrome(");
+    }
+
+    private static void assertMethodUses(String source, String signature,
+            String expected) {
+        int start = source.indexOf("private void " + signature);
+        int end = source.indexOf("private ", start + 1);
+        assertTrue(start >= 0 && end > start,
+                "method boundary not found for " + signature);
+        assertTrue(source.substring(start, end).contains(expected),
+                signature + " must use " + expected);
     }
 
     @Test

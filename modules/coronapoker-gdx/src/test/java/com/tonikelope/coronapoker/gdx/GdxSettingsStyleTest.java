@@ -28,6 +28,8 @@ final class GdxSettingsStyleTest {
         assertEquals(0x111a2add, GdxSettingsStyle.PANEL_LIGHT_RGBA);
         assertEquals(0x36d9ffff, GdxSettingsStyle.CYAN_RGBA);
         assertEquals(0xffe07aff, GdxSettingsStyle.GOLD_RGBA);
+        assertEquals(0xffdf72ff, GdxSettingsStyle.SERVER_ONLY_RGBA);
+        assertEquals(0xff6874ff, GdxSettingsStyle.LOCKED_RGBA);
         assertEquals(66f, GdxSettingsStyle.TOGGLE_WIDTH);
         assertEquals(38f, GdxSettingsStyle.TOGGLE_HEIGHT);
         assertEquals(28f, GdxSettingsStyle.TOGGLE_KNOB_TRAVEL);
@@ -51,5 +53,13 @@ final class GdxSettingsStyleTest {
                 GdxSettingsStyle.shortcutKeyText(false));
         assertEquals(new Color(GdxSettingsStyle.GOLD_RGBA),
                 GdxSettingsStyle.shortcutKeyText(true));
+        assertSame(GdxSettingsStyle.serverOnlyText(),
+                GdxSettingsStyle.serverOnlyText());
+        assertSame(GdxSettingsStyle.lockedText(),
+                GdxSettingsStyle.lockedText());
+        assertEquals(new Color(GdxSettingsStyle.SERVER_ONLY_RGBA),
+                GdxSettingsStyle.serverOnlyText());
+        assertEquals(new Color(GdxSettingsStyle.LOCKED_RGBA),
+                GdxSettingsStyle.lockedText());
     }
 }

@@ -10,6 +10,8 @@ import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
  */
 final class GdxLiveSettingsPolicy {
 
+    static final int MAXIMUM_HAND_LIMIT = Integer.MAX_VALUE;
+
     private GdxLiveSettingsPolicy() {
     }
 
@@ -32,5 +34,27 @@ final class GdxLiveSettingsPolicy {
             GameConfigCodecV1.Configuration configuration) {
         return canEditGameRules(host, configuration)
                 && configuration.rebuy();
+    }
+
+    static int minimumHandLimit(int currentHand) {
+        return (int) Math.min(MAXIMUM_HAND_LIMIT,
+                Math.max(1L, (long) currentHand + 1L));
+    }
+
+    /**
+     * Preserves the visible counter used by the waiting-room switch/stepper
+     * pair. An unlimited live configuration has no stored count, so its first
+     * safe value is the next hand.
+     */
+    static int handLimitValue(int currentHand, int configuredMaximum) {
+        return Math.max(minimumHandLimit(currentHand), configuredMaximum);
+    }
+
+    static int adjustedHandLimit(int currentHand, int currentValue,
+            int direction) {
+        long requested = (long) handLimitValue(currentHand, currentValue)
+                + Integer.signum(direction);
+        return (int) Math.max(minimumHandLimit(currentHand),
+                Math.min(MAXIMUM_HAND_LIMIT, requested));
     }
 }

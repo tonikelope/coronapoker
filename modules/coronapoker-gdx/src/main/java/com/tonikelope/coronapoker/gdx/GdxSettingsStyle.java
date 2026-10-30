@@ -41,6 +41,14 @@ final class GdxSettingsStyle {
     static final int DISABLED_RGBA = 0x526078ff;
     static final int DISABLED_LINE_RGBA = 0x253044ff;
     static final int DISABLED_FILL_RGBA = 0x0b111ddd;
+    /** A live-table rule that is visible but cannot change mid-game. */
+    static final int LOCKED_RGBA = 0xff6874ff;
+    static final int LOCKED_LINE_RGBA = 0xd94b58ff;
+    static final int LOCKED_FILL_RGBA = 0x2a1018dd;
+    /** A host-authoritative row shown read-only to a connected client. */
+    static final int SERVER_ONLY_RGBA = 0xffdf72ff;
+    static final int SERVER_ONLY_LINE_RGBA = 0xd5a838ff;
+    static final int SERVER_ONLY_FILL_RGBA = 0x2a2410dd;
     static final int PRESSED_FILL_RGBA = 0x0b1424ff;
     static final int TOGGLE_OFF_RGBA = 0x253248ff;
     static final int TOGGLE_ON_RGBA = 0x20c765ff;
@@ -53,6 +61,15 @@ final class GdxSettingsStyle {
     private static final Color ROW_BORDER = new Color(LINE_RGBA);
     private static final Color ROW_DISABLED_FILL = new Color(
             DISABLED_FILL_RGBA);
+    private static final Color ROW_LOCKED_BORDER = new Color(
+            LOCKED_LINE_RGBA);
+    private static final Color ROW_LOCKED_FILL = new Color(LOCKED_FILL_RGBA);
+    private static final Color LOCKED_TEXT = new Color(LOCKED_RGBA);
+    private static final Color ROW_SERVER_ONLY_BORDER = new Color(
+            SERVER_ONLY_LINE_RGBA);
+    private static final Color ROW_SERVER_ONLY_FILL = new Color(
+            SERVER_ONLY_FILL_RGBA);
+    private static final Color SERVER_ONLY_TEXT = new Color(SERVER_ONLY_RGBA);
     private static final Color ROW_PRESSED_FILL = new Color(
             PRESSED_FILL_RGBA);
     private static final Color ROW_FILL = new Color(PANEL_LIGHT_RGBA);
@@ -106,6 +123,14 @@ final class GdxSettingsStyle {
         return SHORTCUT_DESCRIPTION;
     }
 
+    static Color lockedText() {
+        return LOCKED_TEXT;
+    }
+
+    static Color serverOnlyText() {
+        return SERVER_ONLY_TEXT;
+    }
+
     static Color toggleTrack(float animation) {
         return TOGGLE_TRACK_SCRATCH.set(TOGGLE_OFF).lerp(
                 TOGGLE_ON, animation);
@@ -122,6 +147,18 @@ final class GdxSettingsStyle {
         Color fill = rowFill(enabled, pressed);
         Color border = rowBorder(enabled, hovered);
         drawRow(shapes, x, y, width, height, border, fill, alpha);
+    }
+
+    static void drawLockedRow(ShapeRenderer shapes, float x, float y,
+            float width, float height, float alpha) {
+        drawRow(shapes, x, y, width, height, ROW_LOCKED_BORDER,
+                ROW_LOCKED_FILL, alpha);
+    }
+
+    static void drawServerOnlyRow(ShapeRenderer shapes, float x, float y,
+            float width, float height, float alpha) {
+        drawRow(shapes, x, y, width, height, ROW_SERVER_ONLY_BORDER,
+                ROW_SERVER_ONLY_FILL, alpha);
     }
 
     static void drawShortcutRow(ShapeRenderer shapes,

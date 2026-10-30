@@ -56,6 +56,7 @@ final class GdxTableDialog {
     private boolean deferCloseAfterDecision;
     private boolean externalCloseReleased;
     private boolean exitChoice;
+    private boolean dangerousChoice;
     private boolean gameOverChoice;
     private boolean gameOverCinematics;
     private boolean gameOverFinalFrame;
@@ -68,7 +69,9 @@ final class GdxTableDialog {
     GdxTableDialog(Kind kind, String message, GameDialogSink.Icon icon,
             int preferredWidth, int seconds) {
         this(kind, defaultTitle(kind), message, icon, preferredWidth, seconds,
-                kind == Kind.TIMED_WARNING, "CANCELAR",
+                kind == Kind.TIMED_WARNING,
+                kind == Kind.CONFIRM || kind == Kind.TIMED_WARNING
+                        ? "CANCELAR" : "",
                 kind == Kind.CONFIRM ? "ACEPTAR" : "CERRAR",
                 0, 0, 0);
     }
@@ -268,6 +271,14 @@ final class GdxTableDialog {
     boolean gameOverFinalFrame() { return gameOverFinalFrame; }
     boolean isNotice() { return kind == Kind.ERROR
             || kind == Kind.ZERO_TRUST || kind == Kind.INFO; }
+    boolean usesCanonicalConfirmationLayout() {
+        return kind == Kind.CONFIRM && seconds == 0
+                && !hasStandaloneOption() && !deferCloseAfterDecision;
+    }
+    boolean usesCanonicalNoticeLayout() {
+        return isNotice() && !isZeroTrust() && !recovery
+                && !externallyControlled && !deferCloseAfterDecision;
+    }
     boolean isZeroTrust() { return kind == Kind.ZERO_TRUST; }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
@@ -279,6 +290,7 @@ final class GdxTableDialog {
     int runItTwiceVotes() { return runItTwiceVotes; }
     int runItTwiceTotalVoters() { return runItTwiceTotalVoters; }
     boolean isExitChoice() { return exitChoice; }
+    boolean isDangerousChoice() { return dangerousChoice; }
     boolean isExternallyControlled() { return externallyControlled; }
     boolean waitingForExternalClose() {
         return deferCloseAfterDecision && result.isDone()
@@ -302,6 +314,12 @@ final class GdxTableDialog {
 
     GdxTableDialog exitChoice() {
         exitChoice = true;
+        dangerousChoice = true;
+        return this;
+    }
+
+    GdxTableDialog dangerousChoice() {
+        dangerousChoice = true;
         return this;
     }
 

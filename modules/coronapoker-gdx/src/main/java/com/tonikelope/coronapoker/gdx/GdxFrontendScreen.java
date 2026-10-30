@@ -317,8 +317,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float ABOUT_MEMORIAL_CENTER_Y = 542f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
     static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
-    static final float ABOUT_MUSIC_LINE_GAP = 29f;
-    static final float ABOUT_COPYRIGHT_Y = 326f;
+    static final float ABOUT_MUSIC_LINE_GAP = 25f;
+    static final int ABOUT_MUSIC_CREDIT_COUNT = 5;
+    static final float ABOUT_COPYRIGHT_Y = 312f;
     static final float ABOUT_COPYRIGHT_LINE_HEIGHT = 22f;
     static final int ABOUT_COPYRIGHT_MAX_LINES = 2;
     static final float ABOUT_CONTENT_WIDTH = 1060f;
@@ -2477,6 +2478,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return layout;
     }
 
+    private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(String title,
+            String message, boolean error) {
+        GdxUiDialogStyle.NoticeLayout layout =
+                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT);
+        Rectangle panel = layout.panel();
+        Rectangle titleBounds = layout.title();
+        Rectangle messageBounds = layout.message();
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        textFit(headingFont, uppercase(title),
+                titleBounds.x + titleBounds.width / 2f,
+                titleBounds.y + titleBounds.height * 0.76f,
+                error ? ORANGE : GOLD, true, titleBounds.width);
+
+        List<String> lines = wrapText(smallFont,
+                GdxUiDialogStyle.formatNoticeMessage(message),
+                messageBounds.width, 5);
+        float lineHeight = 34f;
+        float firstBaseline = messageBounds.y + messageBounds.height / 2f
+                + 12f + Math.max(0, lines.size() - 1) * lineHeight / 2f;
+        for (int index = 0; index < lines.size(); index++) {
+            textFit(smallFont, lines.get(index),
+                    messageBounds.x + messageBounds.width / 2f,
+                    firstBaseline - index * lineHeight,
+                    Color.WHITE, true, messageBounds.width);
+        }
+        return layout;
+    }
+
     private void drawScreenshotDeleteConfirmation() {
         GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
                 uppercase(gameText.translate("ui.borrar_captura")),
@@ -4583,31 +4613,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawFrontendNotice() {
         hits.clear();
-        GdxUiDialogStyle.NoticeLayout layout =
-                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT);
-        Rectangle panel = layout.panel();
-        Rectangle title = layout.title();
-        Rectangle message = layout.message();
+        GdxUiDialogStyle.NoticeLayout layout = drawNoticeChrome(
+                frontendNoticeTitle, frontendNoticeMessage,
+                frontendNoticeError);
         Rectangle button = layout.button();
-        Color border = frontendNoticeError ? ORANGE : CYAN_DARK;
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y, panel.width,
-                panel.height, border, 1f);
-        textFit(headingFont, uppercase(frontendNoticeTitle),
-                title.x + title.width / 2f,
-                title.y + title.height * 0.76f,
-                frontendNoticeError ? ORANGE : GOLD, true, title.width);
-        List<String> lines = wrapText(smallFont,
-                GdxUiDialogStyle.formatNoticeMessage(frontendNoticeMessage),
-                message.width, 5);
-        float lineHeight = 34f;
-        float firstBaseline = message.y + message.height / 2f + 12f
-                + Math.max(0, lines.size() - 1) * lineHeight / 2f;
-        for (int index = 0; index < lines.size(); index++) {
-            textFit(smallFont, lines.get(index),
-                    message.x + message.width / 2f,
-                    firstBaseline - index * lineHeight,
-                    Color.WHITE, true, message.width);
-        }
         themedButton(button.x, button.y, button.width, button.height,
                 uppercase(gameText.translate("ui.aceptar")),
                 frontendNoticeError ? ButtonTone.DANGER : ButtonTone.POSITIVE,
@@ -4723,7 +4732,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float musicY = ABOUT_MUSIC_FIRST_LINE_Y;
         String[] musicKeys = {
             "about.musica_juego", "about.musica_espera",
-            "about.musica_stats", "about.musica_about"
+            "about.musica_stats", "about.musica_gestor_bots",
+            "about.musica_about"
         };
         for (String key : musicKeys) {
             centeredWrappedText(smallFont, gameText.translate(key),
@@ -6433,13 +6443,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawIdentityChangeNotice() {
         hits.clear();
-        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+        GdxUiDialogStyle.NoticeLayout layout = drawNoticeChrome(
                 uppercase(gameText.translate("gdx.identity_change.title")),
-                identityChangeNotices.element());
-        Rectangle positive = layout.positiveButton();
-        float width = Math.min(320f, positive.width * 1.25f);
-        themedButton(WIDTH / 2f - width / 2f, positive.y, width,
-                positive.height, uppercase(gameText.translate("ui.cerrar")),
+                identityChangeNotices.element(), false);
+        Rectangle button = layout.button();
+        themedButton(button.x, button.y, button.width, button.height,
+                uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeIdentityChangeNotice, true);
     }
 
@@ -7824,6 +7833,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openSettings() {
+        clearSettingsToggleAnimations(toggleAnimations);
         settingsReturnSurface = surface == Surface.LOBBY
                 ? Surface.LOBBY : Surface.MENU;
         settingsSession.begin(settingsReturnSurface == Surface.LOBBY
@@ -7955,14 +7965,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFieldHits.clear();
         passwordRevealHits.clear();
         editMenuHits.clear();
-        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+        GdxUiDialogStyle.NoticeLayout layout = drawNoticeChrome(
                 uppercase(gameText.translate(
                         "gdx.settings.msaa_restart.title")),
-                gameText.translate("gdx.settings.msaa_restart.message"));
-        Rectangle accept = layout.positiveButton();
-        float buttonWidth = 350f;
-        themedButton(WIDTH / 2f - buttonWidth / 2f,
-                accept.y, buttonWidth, accept.height,
+                gameText.translate("gdx.settings.msaa_restart.message"),
+                false);
+        Rectangle accept = layout.button();
+        themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate("ui.aceptar")),
                 ButtonTone.FEATURED,
                 () -> settingsRestartNotice = false, true);
@@ -10070,6 +10079,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 .removeIf(key -> key.startsWith(Surface.NEW_GAME.name() + ':'));
     }
 
+    static void clearSettingsToggleAnimations(Map<String, Float> animations) {
+        Objects.requireNonNull(animations, "animations").keySet()
+                .removeIf(key -> key.startsWith(Surface.SETTINGS.name() + ':'));
+    }
+
     private void showFrontendNotice(String title, String message,
             boolean error) {
         frontendNoticeTitle = Objects.requireNonNullElse(title, "");
@@ -11062,23 +11076,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawBlindStructureDeleteConfirmation() {
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 350f, 800f, 360f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, uppercase(gameText.translate(
-                "gdx.newgame.blind_editor.delete_structure")), 960f, 625f,
-                GOLD, true, 700f);
         String name = blindStructureEditor.selected() == null ? ""
                 : blindStructureEditor.selected().name();
-        textFit(actionFont, uppercase(gameText.translate(
-                "blinds.confirmar_borrar", name)), 960f, 535f,
-                Color.WHITE, true, 700f);
-        themedButton(660f, 405f, 270f, 64f,
-                gameText.translate("ui.volver"),
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate(
+                        "gdx.newgame.blind_editor.delete_structure")),
+                gameText.translate("blinds.confirmar_borrar", name));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle accept = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
+                uppercase(gameText.translate("ui.volver")),
                 ButtonTone.NEUTRAL,
                 () -> blindStructureDialog = BlindStructureDialog.EDITOR,
                 true);
-        themedButton(990f, 405f, 270f, 64f,
-                gameText.translate("blinds.borrar"),
+        themedButton(accept.x, accept.y, accept.width, accept.height,
+                uppercase(gameText.translate("blinds.borrar")),
                 ButtonTone.DANGER, () -> {
                     blindStructureEditor.deleteSelected();
                     blindStructureDialog = BlindStructureDialog.EDITOR;

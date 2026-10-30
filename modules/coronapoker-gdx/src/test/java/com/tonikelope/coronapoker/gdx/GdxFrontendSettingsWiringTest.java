@@ -184,6 +184,28 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void menuAndLobbySettingsFooterHitsAreOutsideTheScrollableClip()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf("private void drawSettingsScreen()");
+        int end = frontend.indexOf("private void drawAudioSettings(", start);
+        assertTrue(start >= 0 && end > start);
+        String method = frontend.substring(start, end);
+
+        int rowsEnd = method.indexOf("settingsRowsActive = false;");
+        int cancel = method.indexOf("Rectangle cancel = frame.cancelButton()");
+        int save = method.indexOf("Rectangle save = frame.saveButton()");
+        assertTrue(rowsEnd >= 0 && cancel > rowsEnd && save > cancel,
+                "waiting-room footer hits must be registered after clipped "
+                + "row input has ended");
+        assertTrue(method.indexOf("this::requestCancelSettings", cancel)
+                > cancel);
+        assertTrue(method.indexOf("() -> closeSettings(true)", save) > save);
+    }
+
+    @Test
     void menuLobbyAndLiveControlsShareTheSameSixActionRows()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"

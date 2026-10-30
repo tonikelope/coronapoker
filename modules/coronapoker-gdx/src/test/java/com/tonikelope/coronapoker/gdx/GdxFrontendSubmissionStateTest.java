@@ -132,4 +132,54 @@ final class GdxFrontendSubmissionStateTest {
         assertTrue(animations.keySet().iterator().next()
                 .startsWith("SETTINGS:"));
     }
+
+    @Test
+    void reopeningSettingsStartsEverySwitchAtItsPersistedState() {
+        Map<String, Float> animations = new HashMap<>();
+        animations.put(GdxToggleMotion.stableKey(
+                "SETTINGS:LOBBY:GAME:3", "RUN IT TWICE",
+                100f, 100f, 500f, false), 0f);
+        animations.put(GdxToggleMotion.stableKey(
+                "SETTINGS:MENU:AUDIO:0", "SOUND",
+                100f, 200f, 500f, false), 1f);
+        animations.put(GdxToggleMotion.stableKey(
+                "NEW_GAME:0", "UPnP",
+                1170f, 475f, 635f, false), 1f);
+
+        GdxFrontendScreen.clearSettingsToggleAnimations(animations);
+
+        assertEquals(1, animations.size());
+        assertTrue(animations.keySet().iterator().next()
+                .startsWith("NEW_GAME:"));
+    }
+
+    @Test
+    void reopeningLiveSettingsCannotReuseAnyPreviousSwitchPosition() {
+        Map<String, Float> animations = new HashMap<>();
+        animations.put("GAME:3:rit", 0f);
+        animations.put("AUDIO:0:sound", 1f);
+        animations.put("dialog:AUTO_CALL:enabled", 1f);
+
+        CoronaPokerGdxTable.clearTableSettingsToggleAnimations(animations);
+
+        assertTrue(animations.isEmpty());
+    }
+
+    @Test
+    void immediateReopenUsesTheAcceptedSubmissionUntilAuthorityCatchesUp() {
+        assertEquals("pending", CoronaPokerGdxTable.settingsValueAtOpen(
+                "authoritative", "pending"));
+        assertEquals("authoritative",
+                CoronaPokerGdxTable.settingsValueAtOpen(
+                        "authoritative", null));
+
+        assertFalse(CoronaPokerGdxTable.acknowledgesSettingsSubmission(
+                40L, 40L));
+        assertFalse(CoronaPokerGdxTable.acknowledgesSettingsSubmission(
+                39L, 40L));
+        assertFalse(CoronaPokerGdxTable.acknowledgesSettingsSubmission(
+                41L, -1L));
+        assertTrue(CoronaPokerGdxTable.acknowledgesSettingsSubmission(
+                41L, 40L));
+    }
 }

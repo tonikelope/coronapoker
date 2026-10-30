@@ -959,6 +959,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color FELT_SHADE_TOP = new Color(0x07111f1f);
     private static final Color FELT_SHADE_BOTTOM = new Color(0x02050c52);
     private static final Color CYAN = new Color(0x36d9ffff);
+    private static final Color CYAN_DARK = new Color(
+            GdxSettingsStyle.CYAN_DARK_RGBA);
     private static final Color ORANGE = new Color(0xff6b27ff);
     private static final Color PANEL = new Color(0x101a2ee6);
     private static final Color SEAT_RIM = new Color(0x647594ff);
@@ -1271,6 +1273,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int settingsOpenedMsaaSamples;
     private GameConfigCodecV1.Configuration liveSettingsOpened;
     private GameConfigCodecV1.Configuration liveSettingsDraft;
+    private int settingsHandLimitDraftValue = 1;
+    private GameConfigCodecV1.Configuration pendingSavedGameConfiguration;
+    private long pendingSavedGameConfigurationAfterSequence = -1L;
+    private Boolean pendingSavedTextToSpeech;
+    private Boolean pendingSavedVoiceMessages;
+    private long pendingSavedCommunicationRulesAfterSequence = -1L;
     private NewGameTableDraft.BotDifficulty tableBotDifficulty;
     private NewGameTableDraft.BotDifficulty settingsBotDifficultySnapshot;
     private NewGameTableDraft.BotDifficulty liveBotDifficultyDraft;
@@ -2732,6 +2740,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void beginTableSettings() {
         settingsPerformanceTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
+        clearTableSettingsToggleAnimations(settingsToggleAnimations);
+        reconcileAcknowledgedSettingsSubmissions();
         settingsSession.begin(GdxSettingsSession.Context.LIVE_TABLE,
                 preferences == null ? null : tableProperties);
         settingsAppearancePage = settingsSession.subpageIndex(
@@ -2753,13 +2763,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shortcutBindings.beginEdit();
         GdxAudioDevices.refreshCaptureDevicesAsync();
         settingsAutoRebuySnapshot = autoRebuy;
-        settingsTextToSpeechDraft = globalTextToSpeechEnabled();
-        settingsVoiceMessagesDraft = globalVoiceMessagesEnabled();
+        settingsTextToSpeechDraft = settingsValueAtOpen(
+                globalTextToSpeechEnabled(), pendingSavedTextToSpeech);
+        settingsVoiceMessagesDraft = settingsValueAtOpen(
+                globalVoiceMessagesEnabled(), pendingSavedVoiceMessages);
         settingsTextToSpeechSnapshot = settingsTextToSpeechDraft;
         settingsVoiceMessagesSnapshot = settingsVoiceMessagesDraft;
-        liveSettingsOpened = liveState == null
-                ? null : liveState.gameConfiguration();
+        liveSettingsOpened = settingsValueAtOpen(
+                liveState == null ? null : liveState.gameConfiguration(),
+                pendingSavedGameConfiguration);
         liveSettingsDraft = liveSettingsOpened;
+        settingsHandLimitDraftValue = GdxLiveSettingsPolicy.handLimitValue(
+                liveState == null ? 0 : liveState.handNumber(),
+                liveSettingsDraft == null ? -1 : liveSettingsDraft.hands());
         settingsBotDifficultySnapshot = tableBotDifficulty;
         liveBotDifficultyDraft = tableBotDifficulty;
         NewGameTableDraft.Settings currentTableSettings = lobby == null
@@ -2767,6 +2783,58 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsHotJoinSnapshot = currentTableSettings != null
                 && currentTableSettings.allowHotJoin();
         settingsHotJoinDraft = settingsHotJoinSnapshot;
+    }
+
+    static void clearTableSettingsToggleAnimations(
+            Map<String, Float> animations) {
+        Objects.requireNonNull(animations, "animations").clear();
+    }
+
+    static <T> T settingsValueAtOpen(T authoritative, T pendingSubmission) {
+        return pendingSubmission == null ? authoritative : pendingSubmission;
+    }
+
+    static boolean acknowledgesSettingsSubmission(long statusSequence,
+            long submittedAfterSequence) {
+        return submittedAfterSequence >= 0L
+                && statusSequence > submittedAfterSequence;
+    }
+
+    private void reconcileAcknowledgedSettingsSubmissions() {
+        if (liveState == null) return;
+        if (pendingSavedGameConfiguration != null
+                && pendingSavedGameConfiguration.equals(
+                        liveState.gameConfiguration())) {
+            pendingSavedGameConfiguration = null;
+            pendingSavedGameConfigurationAfterSequence = -1L;
+        }
+        if (pendingSavedTextToSpeech != null
+                && pendingSavedVoiceMessages != null
+                && pendingSavedTextToSpeech
+                        == liveState.textToSpeechEnabled()
+                && pendingSavedVoiceMessages
+                        == liveState.voiceMessagesEnabled()) {
+            pendingSavedTextToSpeech = null;
+            pendingSavedVoiceMessages = null;
+            pendingSavedCommunicationRulesAfterSequence = -1L;
+        }
+    }
+
+    private void acceptAuthoritativeSettingsStatus(TableVisualEvent event) {
+        if (event instanceof TableVisualEvent.GameConfigurationStatus status
+                && pendingSavedGameConfiguration != null
+                && acknowledgesSettingsSubmission(status.sequence(),
+                        pendingSavedGameConfigurationAfterSequence)) {
+            pendingSavedGameConfiguration = null;
+            pendingSavedGameConfigurationAfterSequence = -1L;
+        } else if (event instanceof TableVisualEvent.CommunicationRulesStatus status
+                && pendingSavedTextToSpeech != null
+                && acknowledgesSettingsSubmission(status.sequence(),
+                        pendingSavedCommunicationRulesAfterSequence)) {
+            pendingSavedTextToSpeech = null;
+            pendingSavedVoiceMessages = null;
+            pendingSavedCommunicationRulesAfterSequence = -1L;
+        }
     }
 
     private void closeTableSettings(boolean save) {
@@ -2840,8 +2908,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GameConfigCodecV1.Configuration merged =
                     GdxLiveSettingsMerge.merge(liveSettingsOpened,
                             liveSettingsDraft, current);
-            if (!merged.equals(current)) {
-                submit(new TableCommand.ApplyGameConfiguration(merged));
+            if (!merged.equals(current)
+                    && !merged.equals(pendingSavedGameConfiguration)) {
+                pendingSavedGameConfiguration = merged;
+                pendingSavedGameConfigurationAfterSequence =
+                        liveState.lastSequence();
+                if (!submit(new TableCommand.ApplyGameConfiguration(merged))) {
+                    pendingSavedGameConfiguration = null;
+                    pendingSavedGameConfigurationAfterSequence = -1L;
+                }
             }
             if (liveBotDifficultyDraft != null
                     && liveBotDifficultyDraft != tableBotDifficulty) {
@@ -2854,14 +2929,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsTextToSpeechDraft);
             persistBooleanPreference("voice_messages",
                     settingsVoiceMessagesDraft);
-            if (liveState == null
+            boolean communicationAlreadyPending =
+                    pendingSavedTextToSpeech != null
+                    && pendingSavedVoiceMessages != null
+                    && pendingSavedTextToSpeech
+                            == settingsTextToSpeechDraft
+                    && pendingSavedVoiceMessages
+                            == settingsVoiceMessagesDraft;
+            if (!communicationAlreadyPending && (liveState == null
                     || liveState.textToSpeechEnabled()
                     != settingsTextToSpeechDraft
                     || liveState.voiceMessagesEnabled()
-                    != settingsVoiceMessagesDraft) {
-                submit(new TableCommand.SetCommunicationRules(
+                    != settingsVoiceMessagesDraft)) {
+                pendingSavedTextToSpeech = settingsTextToSpeechDraft;
+                pendingSavedVoiceMessages = settingsVoiceMessagesDraft;
+                pendingSavedCommunicationRulesAfterSequence = liveState == null
+                        ? -1L : liveState.lastSequence();
+                if (!submit(new TableCommand.SetCommunicationRules(
                         settingsTextToSpeechDraft,
-                        settingsVoiceMessagesDraft));
+                        settingsVoiceMessagesDraft))) {
+                    pendingSavedTextToSpeech = null;
+                    pendingSavedVoiceMessages = null;
+                    pendingSavedCommunicationRulesAfterSequence = -1L;
+                }
             }
             if (lobby != null
                     && settingsHotJoinDraft != settingsHotJoinSnapshot) {
@@ -2871,6 +2961,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (save && preferences != null) preferences.saveDeferred();
         liveSettingsOpened = null;
         liveSettingsDraft = null;
+        settingsHandLimitDraftValue = 1;
         liveBotDifficultyDraft = null;
         settingsOpenedWindowMode = null;
         settingsSession.close();
@@ -2892,7 +2983,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         if (failure == null || Gdx.app == null) return;
                         Gdx.app.postRunnable(() -> showDialog(
                                 new GdxTableDialog(
-                                        GdxTableDialog.Kind.INFO,
+                                        GdxTableDialog.Kind.ERROR,
                                         gameText.translate("gdx.dialog.error"),
                                         gameText.translate(
                                                 "gdx.settings.hot_join_update_failed"),
@@ -2902,7 +2993,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 "ui.aceptar")))));
                     });
         } catch (RuntimeException failure) {
-            showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
+            showDialog(new GdxTableDialog(GdxTableDialog.Kind.ERROR,
                     gameText.translate("gdx.dialog.error"),
                     gameText.translate(
                             "gdx.settings.hot_join_update_failed"),
@@ -5213,6 +5304,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean wasLastHand = liveState.lastHand();
             liveState.apply(event);
+            acceptAuthoritativeSettingsStatus(event);
             if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
                 acceptRunItTwicePotBoard(board);
             }
@@ -7321,7 +7413,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.MAINTENANCE,
                 900, 0, false,
                 uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("ui.expulsar_jugador")));
+                uppercase(gameText.translate("ui.expulsar_jugador")))
+                .dangerousChoice();
         confirmation.result().thenAccept(accepted -> {
             if (accepted && canKickTimedOutPlayer(nickname)) {
                 submit(new TableCommand.KickTimedOutPlayer(nickname));
@@ -7331,18 +7424,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return confirmation;
     }
 
-    private void openDraftHandLimitDialog() {
-        if (!tableHost || liveSettingsDraft == null) return;
-        GdxTableDialog dialog = GdxTableDialog.handLimit(
-                liveState == null ? 0 : liveState.handNumber(),
-                liveSettingsDraft.hands(), gameText);
-        dialog.result().thenAccept(accepted -> {
-            if (accepted && liveSettingsDraft != null) {
+    private void toggleDraftHandLimit() {
+        if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                liveSettingsDraft)) return;
+        boolean limited = liveSettingsDraft.hands() != -1;
+        runSwitchAction(limited, () -> {
+            if (limited) {
+                settingsHandLimitDraftValue =
+                        GdxLiveSettingsPolicy.handLimitValue(
+                                liveState == null ? 0
+                                        : liveState.handNumber(),
+                                liveSettingsDraft.hands());
+                liveSettingsDraft = liveSettingsDraft.withHands(-1);
+            } else {
+                settingsHandLimitDraftValue =
+                        GdxLiveSettingsPolicy.handLimitValue(
+                                liveState == null ? 0
+                                        : liveState.handNumber(),
+                                settingsHandLimitDraftValue);
                 liveSettingsDraft = liveSettingsDraft.withHands(
-                        dialog.noLimit() ? -1 : dialog.amount());
+                        settingsHandLimitDraftValue);
             }
         });
-        showDialog(dialog);
+    }
+
+    private void adjustDraftHandLimit(int direction) {
+        if (direction == 0
+                || !GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                        liveSettingsDraft)
+                || liveSettingsDraft.hands() == -1) return;
+        settingsHandLimitDraftValue = GdxLiveSettingsPolicy.adjustedHandLimit(
+                liveState == null ? 0 : liveState.handNumber(),
+                settingsHandLimitDraftValue, direction);
+        liveSettingsDraft = liveSettingsDraft.withHands(
+                settingsHandLimitDraftValue);
     }
 
     private void updateDialog() {
@@ -7465,6 +7580,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
+        if (dialog == settingsDiscardConfirmation) {
+            handleSettingsDiscardDialogInput(dialog, pointer.x, pointer.y);
+            return;
+        }
+        if (dialog.usesCanonicalConfirmationLayout()) {
+            handleCanonicalConfirmationDialogInput(dialog,
+                    pointer.x, pointer.y);
+            return;
+        }
+        if (dialog.usesCanonicalNoticeLayout()) {
+            handleCanonicalNoticeDialogInput(dialog, pointer.x, pointer.y);
+            return;
+        }
         float panelW = dialogWidth(dialog);
         float panelH = dialogHeight(dialog);
         float panelX = dialogX(dialog, panelW);
@@ -7526,6 +7654,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 dialogPositiveX(dialog, panelX, panelW), panelY + 34f,
                 230f, 64f)) {
             resolveActiveDialogChoice(true);
+        }
+    }
+
+    private void handleSettingsDiscardDialogInput(GdxTableDialog dialog,
+            float x, float y) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (layout.negativeButton().contains(x, y)) {
+            resolveActiveDialogChoice(false);
+        } else if (layout.positiveButton().contains(x, y)) {
+            resolveActiveDialogChoice(true);
+        }
+    }
+
+    private void handleCanonicalConfirmationDialogInput(
+            GdxTableDialog dialog, float x, float y) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (dialog.showsNegative()
+                && layout.negativeButton().contains(x, y)) {
+            resolveActiveDialogChoice(false);
+        } else if (dialog.showsPositive()
+                && layout.positiveButton().contains(x, y)) {
+            resolveActiveDialogChoice(true);
+        }
+    }
+
+    private void handleCanonicalNoticeDialogInput(GdxTableDialog dialog,
+            float x, float y) {
+        GdxUiDialogStyle.NoticeLayout layout =
+                GdxUiDialogStyle.noticeLayout(
+                        viewport.getWorldWidth(), viewport.getWorldHeight());
+        if (!layout.button().contains(x, y)) return;
+        if (dialog.showsPositive()) {
+            resolveActiveDialogChoice(true);
+        } else if (dialog.showsNegative()) {
+            resolveActiveDialogChoice(false);
         }
     }
 
@@ -9262,7 +9429,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.STOP,
                 920, 0, false,
                 uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("gdx.network_blocks.remove")));
+                uppercase(gameText.translate("gdx.network_blocks.remove")))
+                .dangerousChoice();
         confirmation.result().thenAccept(accepted -> {
             if (accepted) unblockNetworkAddress(block.address());
         });
@@ -9841,7 +10009,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     760, 0, false,
                     uppercase(gameText.translate("ui.cancelar")),
                     uppercase(gameText.translate(
-                            "gdx.dialog.fold.confirm")));
+                            "gdx.dialog.fold.confirm")))
+                    .dangerousChoice();
             confirmation.result().thenAccept(accepted -> {
                 if (!accepted || hasPendingLocalActionSubmission()
                         || !hasActiveLocalTurn()) return;
@@ -10172,7 +10341,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && autoActionHudLayout(worldWidth).bounds().contains(x, y);
     }
 
-    private void submit(TableCommand command) {
+    private boolean submit(TableCommand command) {
         TableVisualEvent.PlayerAction.ActionKind submittedKind
                 = submittedLocalActionKind(command,
                         liveState == null ? null
@@ -10183,10 +10352,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .actionControlsSequence();
         }
         try {
-            if (!commands.trySubmit(command)
-                    && pendingLocalActionKind == submittedKind) {
+            boolean accepted = commands.trySubmit(command);
+            if (!accepted && pendingLocalActionKind == submittedKind) {
                 clearPendingLocalAction();
             }
+            return accepted;
         } catch (RuntimeException failure) {
             if (pendingLocalActionKind == submittedKind) {
                 clearPendingLocalAction();
@@ -20496,6 +20666,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
         }
+        // The footer is outside the scrollable content viewport and must own
+        // its input before a subsection gets a chance to reject that point.
+        // In particular, Rules uses a clipped scrolling viewport; routing the
+        // footer afterwards allowed its out-of-viewport guard to swallow Save
+        // and Cancel clicks.
+        if (handleSettingsFooterClick(frame, x, y)) return;
         float contentX = content.x
                 + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
         float rowW = content.width
@@ -20963,11 +21139,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             if (GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                    liveSettingsDraft) && clickedRow == 0) {
+                toggleDraftHandLimit();
+                return;
+            }
+            if (GdxLiveSettingsPolicy.canEditGameRules(tableHost,
                     liveSettingsDraft)
-                    && (clickedRow == 0
-                    || liveSettingsDraft.hands() != -1
-                    && clickedRow == 1)) {
-                openDraftHandLimitDialog();
+                    && liveSettingsDraft.hands() != -1
+                    && clickedRow == 1) {
+                Rectangle handCount = new Rectangle(contentX,
+                        rows.rowY(clickedRow), rowW,
+                        GdxSettingsLayout.ROW_HEIGHT);
+                adjustDraftHandLimit(settingsStepperDirection(x,
+                        handCount.x, handCount.width));
                 return;
             }
             if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
@@ -21000,21 +21184,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             copySettingsDebugLog();
             return;
         }
+        // Clicking outside a modal dialog deliberately does nothing.
+    }
+
+    private boolean handleSettingsFooterClick(GdxSettingsLayout.Frame frame,
+            float x, float y) {
         if (frame.cancelButton().contains(x, y)) {
             requestCancelTableSettings(null);
-            return;
+            return true;
         }
         if (settingsSectionHasRestoreDefaults()
                 && !currentSettingsSubsectionAtDefaults()
                 && frame.restoreButton().contains(x, y)) {
             restoreCurrentSettingsSectionDefaults();
-            return;
+            return true;
         }
         if (frame.saveButton().contains(x, y)) {
             closeTableSettings(true);
-            return;
+            return true;
         }
-        // Clicking outside a modal dialog deliberately does nothing.
+        return false;
     }
 
     private static int settingsStepperDirection(float pointerX, float rowX,
@@ -21595,26 +21784,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN, 1f);
+                panel.width, panel.height, CYAN_DARK, 1f);
         drawDialogButton(cancel.x, cancel.y, cancel.width, cancel.height,
-                BUTTON_LINE, cancel.contains(pointer), 1f);
+                CYAN, cancel.contains(pointer), 1f);
         drawDialogButton(accept.x, accept.y, accept.width, accept.height,
                 FOLD_RED, accept.contains(pointer), 1f);
         shapes.end();
         batch.begin();
-        drawFittedCenteredInBox(uiFont,
+        drawLeftInBox(settingsHeadingFont,
                 uppercase(gameText.translate("ui.seguro")),
                 title.x, title.y, title.width, title.height,
                 POT_GOLD, 1f);
-        drawFittedCenteredInBox(uiFont, gameText.translate(
-                "gdx.lobby.clear_images_confirm"),
-                message.x, message.y, message.width, message.height,
-                Color.WHITE, 1f);
-        drawDialogButtonLabel(actionFont,
+        drawCanonicalDialogMessage(gameText.translate(
+                "gdx.lobby.clear_images_confirm"), message,
+                settingsActionFont);
+        drawDialogButtonLabel(settingsActionFont,
                 uppercase(gameText.translate("ui.cancelar")),
                 cancel.x, cancel.y, cancel.width, cancel.height,
                 Color.WHITE, 1f);
-        drawDialogButtonLabel(actionFont,
+        drawDialogButtonLabel(settingsActionFont,
                 uppercase(gameText.translate("gdx.lobby.clear")),
                 accept.x, accept.y, accept.width, accept.height,
                 Color.WHITE, 1f);
@@ -22418,7 +22606,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
                 720, 0, false,
                 uppercase(gameText.translate("ui.cancelar")),
-                uppercase(gameText.translate("ui.aceptar")));
+                uppercase(gameText.translate("ui.aceptar")))
+                .dangerousChoice();
         confirmation.result().thenAccept(accepted -> {
             if (!accepted || screenshotOperationPending) return;
             screenshotOperationPending = true;
@@ -22686,6 +22875,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
+        if (dialog == settingsDiscardConfirmation) {
+            drawSettingsDiscardDialog(dialog, width, height);
+            return;
+        }
+        if (dialog.usesCanonicalConfirmationLayout()) {
+            drawCanonicalConfirmationDialog(dialog, width, height);
+            return;
+        }
+        if (dialog.usesCanonicalNoticeLayout()) {
+            drawCanonicalNoticeDialog(dialog, width, height);
+            return;
+        }
         float panelW = dialogWidth(dialog);
         float panelH = dialogHeight(dialog);
         float panelX = dialogX(dialog, panelW);
@@ -23014,6 +23215,153 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     acceptX, panelY + 34f, 230f, 64f,
                     Color.WHITE, 1f);
         }
+        batch.end();
+    }
+
+    private void drawCanonicalConfirmationDialog(GdxTableDialog dialog,
+            float worldWidth, float worldHeight) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight);
+        Rectangle panel = layout.panel();
+        Rectangle title = layout.title();
+        Rectangle message = layout.message();
+        Rectangle negative = layout.negativeButton();
+        Rectangle positive = layout.positiveButton();
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
+        if (dialog.showsNegative()) {
+            drawDialogButton(negative.x, negative.y,
+                    negative.width, negative.height,
+                    dialog.isExitChoice() ? LATENCY_GREEN : CYAN,
+                    negative.contains(pointer), 1f);
+        }
+        if (dialog.showsPositive()) {
+            drawDialogButton(positive.x, positive.y,
+                    positive.width, positive.height,
+                    dialog.isDangerousChoice() ? FOLD_RED : POT_GOLD,
+                    positive.contains(pointer), 1f);
+        }
+        shapes.end();
+
+        batch.begin();
+        drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
+                title.x, title.y, title.width, title.height, POT_GOLD, 1f);
+        drawCanonicalDialogMessage(dialog.message(), message,
+                settingsActionFont);
+        if (dialog.showsNegative()) {
+            drawDialogButtonLabel(settingsActionFont,
+                    uppercase(dialog.negativeLabel()),
+                    negative.x, negative.y, negative.width, negative.height,
+                    Color.WHITE, 1f);
+        }
+        if (dialog.showsPositive()) {
+            drawDialogButtonLabel(settingsActionFont,
+                    uppercase(dialog.positiveLabel()),
+                    positive.x, positive.y, positive.width, positive.height,
+                    Color.WHITE, 1f);
+        }
+        batch.end();
+    }
+
+    private void drawCanonicalNoticeDialog(GdxTableDialog dialog,
+            float worldWidth, float worldHeight) {
+        GdxUiDialogStyle.NoticeLayout layout =
+                GdxUiDialogStyle.noticeLayout(worldWidth, worldHeight);
+        Rectangle panel = layout.panel();
+        Rectangle title = layout.title();
+        Rectangle message = layout.message();
+        Rectangle button = layout.button();
+        boolean error = dialog.kind() == GdxTableDialog.Kind.ERROR;
+        boolean hasAction = dialog.showsPositive() || dialog.showsNegative();
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        if (hasAction) {
+            drawDialogButton(button.x, button.y, button.width, button.height,
+                    error ? FOLD_RED : POT_GOLD,
+                    button.contains(pointer), 1f);
+        }
+        shapes.end();
+
+        batch.begin();
+        drawFittedCenteredInBox(settingsHeadingFont,
+                uppercase(dialog.title()), title.x, title.y,
+                title.width, title.height, error ? ORANGE : POT_GOLD, 1f);
+        drawCanonicalDialogMessage(dialog.message(), message,
+                settingsBodyFont);
+        if (hasAction) {
+            String label = dialog.showsPositive()
+                    ? dialog.positiveLabel() : dialog.negativeLabel();
+            drawDialogButtonLabel(settingsActionFont, uppercase(label),
+                    button.x, button.y, button.width, button.height,
+                    Color.WHITE, 1f);
+        }
+        batch.end();
+    }
+
+    private void drawCanonicalDialogMessage(String text, Rectangle bounds,
+            BitmapFont preferredFont) {
+        String formatted = GdxUiDialogStyle.formatNoticeMessage(text);
+        GdxCrispButtonText.resolveWrapped(glyph, formatted, Color.WHITE,
+                bounds.width, bounds.height, Align.center,
+                nativeTextTiers(preferredFont), crispButtonText);
+        BitmapFont selected = crispButtonText.font();
+        selected.setColor(Color.WHITE);
+        glyph.setText(selected, crispButtonText.text(), Color.WHITE,
+                bounds.width, Align.center, true);
+        GdxPixelText.draw(selected, batch, glyph, bounds.x,
+                bounds.y + (bounds.height + glyph.height) / 2f, viewport);
+        selected.setColor(Color.WHITE);
+    }
+
+    private void drawSettingsDiscardDialog(GdxTableDialog dialog,
+            float worldWidth, float worldHeight) {
+        GdxUiDialogStyle.ConfirmationLayout layout =
+                GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight);
+        Rectangle panel = layout.panel();
+        Rectangle title = layout.title();
+        Rectangle message = layout.message();
+        Rectangle negative = layout.negativeButton();
+        Rectangle positive = layout.positiveButton();
+
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
+        drawDialogButton(negative.x, negative.y,
+                negative.width, negative.height, CYAN,
+                negative.contains(pointer), 1f);
+        drawDialogButton(positive.x, positive.y,
+                positive.width, positive.height, FOLD_RED,
+                positive.contains(pointer), 1f);
+        shapes.end();
+
+        batch.begin();
+        drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
+                title.x, title.y, title.width, title.height, POT_GOLD, 1f);
+        String text = GdxUiDialogStyle.formatNoticeMessage(
+                uppercase(dialog.message()));
+        GdxCrispButtonText.resolveWrapped(glyph, text, Color.WHITE,
+                message.width, message.height, Align.center,
+                nativeTextTiers(settingsActionFont), crispButtonText);
+        BitmapFont selected = crispButtonText.font();
+        selected.setColor(Color.WHITE);
+        glyph.setText(selected, crispButtonText.text(), Color.WHITE,
+                message.width, Align.center, true);
+        GdxPixelText.draw(selected, batch, glyph, message.x,
+                message.y + (message.height + glyph.height) / 2f, viewport);
+        selected.setColor(Color.WHITE);
+        drawDialogButtonLabel(settingsActionFont,
+                uppercase(dialog.negativeLabel()), negative.x, negative.y,
+                negative.width, negative.height, Color.WHITE, 1f);
+        drawDialogButtonLabel(settingsActionFont,
+                uppercase(dialog.positiveLabel()), positive.x, positive.y,
+                positive.width, positive.height, Color.WHITE, 1f);
         batch.end();
     }
 
@@ -23613,11 +23961,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             SettingsLockHover manage = hoveredLock(columns.left(firstY, 4),
                     "gdx.settings.game.locked_during_game", "blind-manage");
             if (manage != null) return manage;
-            if (!tableHost || liveSettingsDraft == null) {
-                String key = !tableHost
-                        ? "gdx.settings.game.server_only"
-                        : "gdx.settings.game.locked_during_game";
-                return firstHoveredLock(key, "blinds-server",
+            SettingsRowAccess access = liveGameRuleAccess();
+            if (access != SettingsRowAccess.EDITABLE) {
+                return firstHoveredLock(settingsAccessTooltipKey(access),
+                        "blinds-server",
                         columns.left(firstY, 0),
                         columns.left(firstY, 1), columns.left(firstY, 2),
                         columns.left(firstY, 3), columns.right(firstY, 0),
@@ -23636,13 +23983,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     columns.right(firstY, 0), columns.right(firstY, 1),
                     columns.right(firstY, 2), columns.right(firstY, 3));
         }
-        if (page == 6 && (!tableHost || liveSettingsDraft == null)) {
-            String key = !tableHost ? "gdx.settings.game.server_only"
-                    : "gdx.settings.game.locked_during_game";
-            return firstHoveredLock(key, "bots-server",
-                    settingsGameRow(x, firstY, width, 0),
-                    settingsGameRow(x, firstY, width, 1),
-                    settingsGameRow(x, firstY, width, 2));
+        if (page == 6) {
+            SettingsLockHover manage = hoveredLock(
+                    settingsGameRow(x, firstY, width, 3),
+                    "gdx.settings.game.locked_during_game", "bots-manage");
+            if (manage != null) return manage;
+            SettingsRowAccess access = liveGameRuleAccess();
+            if (access != SettingsRowAccess.EDITABLE) {
+                return firstHoveredLock(settingsAccessTooltipKey(access),
+                        "bots-server",
+                        settingsGameRow(x, firstY, width, 0),
+                        settingsGameRow(x, firstY, width, 1),
+                        settingsGameRow(x, firstY, width, 2));
+            }
+            return null;
         }
         if (page == 7) {
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(
@@ -23656,11 +24010,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     new Rectangle(x, rows.rowY(4), width,
                             GdxSettingsLayout.ROW_HEIGHT));
             if (fixed != null) return fixed;
-            if (!tableHost || liveSettingsDraft == null) {
-                String key = !tableHost
-                        ? "gdx.settings.game.server_only"
-                        : "gdx.settings.game.locked_during_game";
-                SettingsLockHover host = firstHoveredLock(key,
+            SettingsRowAccess runItTwiceAccess = liveRunItTwiceAccess();
+            if (runItTwiceAccess != SettingsRowAccess.EDITABLE) {
+                SettingsLockHover runItTwice = hoveredLock(new Rectangle(x,
+                                rows.rowY(7), width,
+                                GdxSettingsLayout.ROW_HEIGHT),
+                        settingsAccessTooltipKey(runItTwiceAccess),
+                        "rit-locked");
+                if (runItTwice != null) return runItTwice;
+            }
+            SettingsRowAccess rulesAccess = liveGameRuleAccess();
+            if (rulesAccess != SettingsRowAccess.EDITABLE) {
+                SettingsLockHover host = firstHoveredLock(
+                        settingsAccessTooltipKey(rulesAccess),
                         "round-server",
                         new Rectangle(x, rows.rowY(0), width,
                                 GdxSettingsLayout.ROW_HEIGHT),
@@ -23668,25 +24030,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxSettingsLayout.ROW_HEIGHT),
                         new Rectangle(x, rows.rowY(6), width,
                                 GdxSettingsLayout.ROW_HEIGHT),
-                        new Rectangle(x, rows.rowY(7), width,
-                                GdxSettingsLayout.ROW_HEIGHT),
                         new Rectangle(x, rows.rowY(8), width,
                                 GdxSettingsLayout.ROW_HEIGHT));
                 if (host != null) return host;
             }
-            if (!GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                    lobby != null)) {
+            SettingsRowAccess hotJoinAccess = liveHotJoinAccess();
+            if (hotJoinAccess != SettingsRowAccess.EDITABLE) {
                 return hoveredLock(new Rectangle(x, rows.rowY(5), width,
                                 GdxSettingsLayout.ROW_HEIGHT),
-                        tableHost
-                                ? "gdx.settings.game.locked_during_game"
-                                : "gdx.settings.game.server_only",
+                        settingsAccessTooltipKey(hotJoinAccess),
                         "hot-join-policy");
-            }
-            if (liveState != null && liveState.runItTwiceLocked()) {
-                return hoveredLock(new Rectangle(x, rows.rowY(7), width,
-                                GdxSettingsLayout.ROW_HEIGHT),
-                        "gdx.settings.game.locked_during_game", "rit-locked");
             }
             return null;
         }
@@ -23710,6 +24063,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private record SettingsLockHover(String key, String identity) {
+    }
+
+    private enum SettingsRowAccess {
+        EDITABLE,
+        DEPENDENCY_DISABLED,
+        SERVER_ONLY,
+        LIVE_LOCKED
+    }
+
+    private SettingsRowAccess liveGameRuleAccess() {
+        if (!tableHost) return SettingsRowAccess.SERVER_ONLY;
+        return liveSettingsDraft == null ? SettingsRowAccess.LIVE_LOCKED
+                : SettingsRowAccess.EDITABLE;
+    }
+
+    private SettingsRowAccess liveHotJoinAccess() {
+        if (!tableHost) return SettingsRowAccess.SERVER_ONLY;
+        return lobby == null ? SettingsRowAccess.LIVE_LOCKED
+                : SettingsRowAccess.EDITABLE;
+    }
+
+    private SettingsRowAccess liveRunItTwiceAccess() {
+        if (liveState != null && liveState.runItTwiceLocked()) {
+            return SettingsRowAccess.LIVE_LOCKED;
+        }
+        return liveGameRuleAccess();
+    }
+
+    private static SettingsRowAccess dependentAccess(
+            SettingsRowAccess parent, boolean dependencyEnabled) {
+        if (parent != SettingsRowAccess.EDITABLE) return parent;
+        return dependencyEnabled ? SettingsRowAccess.EDITABLE
+                : SettingsRowAccess.DEPENDENCY_DISABLED;
+    }
+
+    private static String settingsAccessTooltipKey(SettingsRowAccess access) {
+        return access == SettingsRowAccess.SERVER_ONLY
+                ? "gdx.settings.game.server_only"
+                : "gdx.settings.game.locked_during_game";
     }
 
     private void drawSettingsTooltip(float x, float firstY,
@@ -24593,8 +24985,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawSettingsRowScrollbarShape(GdxSettingsLayout.rowScrollbarX(
                     currentSettingsContent()), rows, alpha);
         } else if (contentPage == 3) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
+            SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
             Rectangle structure = columns.left(firstY, 0);
@@ -24607,32 +24998,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle interval = columns.right(firstY, 2);
             Rectangle capToggle = columns.right(firstY, 3);
             Rectangle cap = columns.right(firstY, 4);
-            drawSettingsStepperShape(structure.x, structure.y,
-                    structure.width, enabled, alpha);
-            drawSettingsStepperShape(level.x, level.y, level.width,
-                    enabled, alpha);
-            drawSettingsToggleShape(ante.x, ante.y, ante.width,
+            drawLiveSettingsStepperShape(structure.x, structure.y,
+                    structure.width, access, alpha);
+            drawLiveSettingsStepperShape(level.x, level.y, level.width,
+                    access, alpha);
+            drawLiveSettingsToggleShape(ante.x, ante.y, ante.width,
                     liveSettingsDraft != null && liveSettingsDraft.ante(),
-                    enabled, alpha);
-            drawSettingsToggleShape(straddle.x, straddle.y, straddle.width,
+                    access, alpha);
+            drawLiveSettingsToggleShape(straddle.x, straddle.y,
+                    straddle.width,
                     liveSettingsDraft != null && liveSettingsDraft.straddle(),
-                    enabled, alpha);
-            drawCanonicalSettingsRow(manage.x, manage.y, manage.width,
-                    manage.height, false, alpha);
+                    access, alpha);
+            drawLiveSettingsRowShape(manage.x, manage.y, manage.width,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean increasing = liveSettingsDraft != null
                     && liveSettingsDraft.blindsDouble() > 0;
-            drawSettingsToggleShape(increase.x, increase.y, increase.width,
-                    increasing, enabled, alpha);
-            drawSettingsStepperShape(unit.x, unit.y, unit.width,
-                    enabled && increasing, alpha);
-            drawSettingsStepperShape(interval.x, interval.y, interval.width,
-                    enabled && increasing, alpha);
+            drawLiveSettingsToggleShape(increase.x, increase.y,
+                    increase.width, increasing, access, alpha);
+            drawLiveSettingsStepperShape(unit.x, unit.y, unit.width,
+                    dependentAccess(access, increasing), alpha);
+            drawLiveSettingsStepperShape(interval.x, interval.y,
+                    interval.width, dependentAccess(access, increasing),
+                    alpha);
             boolean capped = increasing && liveSettingsDraft != null
                     && liveSettingsDraft.blindCap() > 0d;
-            drawSettingsToggleShape(capToggle.x, capToggle.y,
-                    capToggle.width, capped, enabled && increasing, alpha);
-            drawSettingsStepperShape(cap.x, cap.y, cap.width,
-                    enabled && capped, alpha);
+            drawLiveSettingsToggleShape(capToggle.x, capToggle.y,
+                    capToggle.width, capped,
+                    dependentAccess(access, increasing), alpha);
+            drawLiveSettingsStepperShape(cap.x, cap.y, cap.width,
+                    dependentAccess(access, capped), alpha);
         } else if (contentPage == 4) {
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
@@ -24644,80 +25038,78 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle playerLimit = columns.right(firstY, 1);
             Rectangle maximumRebuys = columns.right(firstY, 2);
             Rectangle rebuyCap = columns.right(firstY, 3);
-            drawSettingsToggleShape(fixedBuyin.x, fixedBuyin.y,
+            drawLiveSettingsToggleShape(fixedBuyin.x, fixedBuyin.y,
                     fixedBuyin.width, liveSettingsDraft != null
-                            && liveSettingsDraft.fixedBuyin(), false, alpha);
-            drawSettingsStepperShape(initialBuyin.x, initialBuyin.y,
-                    initialBuyin.width, false, alpha);
-            drawSettingsStepperShape(minimumBuyin.x, minimumBuyin.y,
-                    minimumBuyin.width, false, alpha);
-            drawSettingsStepperShape(maximumBuyin.x, maximumBuyin.y,
-                    maximumBuyin.width, false, alpha);
-            drawSettingsStepperShape(rebuyCap.x, rebuyCap.y,
-                    rebuyCap.width, false, alpha);
-            drawSettingsToggleShape(rebuy.x, rebuy.y, rebuy.width,
+                            && liveSettingsDraft.fixedBuyin(),
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperShape(initialBuyin.x, initialBuyin.y,
+                    initialBuyin.width, SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperShape(minimumBuyin.x, minimumBuyin.y,
+                    minimumBuyin.width, SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperShape(maximumBuyin.x, maximumBuyin.y,
+                    maximumBuyin.width, SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperShape(rebuyCap.x, rebuyCap.y,
+                    rebuyCap.width, SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleShape(rebuy.x, rebuy.y, rebuy.width,
                     liveSettingsDraft != null && liveSettingsDraft.rebuy(),
-                    false, alpha);
-            drawSettingsToggleShape(playerLimit.x, playerLimit.y,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleShape(playerLimit.x, playerLimit.y,
                     playerLimit.width, liveSettingsDraft != null
-                            && liveSettingsDraft.rebuyLimit() > 0, false,
+                            && liveSettingsDraft.rebuyLimit() > 0,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperShape(maximumRebuys.x, maximumRebuys.y,
+                    maximumRebuys.width, SettingsRowAccess.LIVE_LOCKED,
                     alpha);
-            drawSettingsStepperShape(maximumRebuys.x, maximumRebuys.y,
-                    maximumRebuys.width, false, alpha);
         } else if (contentPage == 6) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
-            boolean botRebuyEnabled = GdxLiveSettingsPolicy.canEditBotRebuy(
-                    tableHost, liveSettingsDraft);
-            drawSettingsStepperShape(x, firstY, width, enabled, alpha);
-            drawSettingsToggleShape(x,
+            SettingsRowAccess access = liveGameRuleAccess();
+            SettingsRowAccess botRebuyAccess = dependentAccess(access,
+                    liveSettingsDraft != null && liveSettingsDraft.rebuy());
+            drawLiveSettingsStepperShape(x, firstY, width, access, alpha);
+            drawLiveSettingsToggleShape(x,
                     firstY - GdxSettingsLayout.ROW_STRIDE, width,
                     liveSettingsDraft != null && liveSettingsDraft.botRebuy(),
-                    botRebuyEnabled, alpha);
-            drawSettingsToggleShape(x,
+                    botRebuyAccess, alpha);
+            drawLiveSettingsToggleShape(x,
                     firstY - 2f * GdxSettingsLayout.ROW_STRIDE, width,
                     liveSettingsDraft != null
-                    && liveSettingsDraft.botBalanceToHumans(), enabled,
+                    && liveSettingsDraft.botBalanceToHumans(), access,
                     alpha);
+            drawLiveSettingsRowShape(x,
+                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
         } else if (contentPage == 7) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
+            SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(
                     currentSettingsContent(), firstY, 9, settingsGameScroll);
             settingsGameScroll = rows.offset();
             boolean limited = liveSettingsDraft != null
                     && liveSettingsDraft.hands() != -1;
-            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
-                    tableHost, liveSettingsDraft,
-                    liveState != null && liveState.runItTwiceLocked());
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
                 float rowY = rows.rowY(row);
                 switch (row) {
-                    case 0 -> drawSettingsToggleShape(x, rowY, width, limited,
-                            enabled, alpha);
-                    case 1 -> drawSettingsStepperShape(x, rowY, width,
-                            enabled && limited, alpha);
-                    case 2 -> drawSettingsToggleShape(x, rowY, width,
+                    case 0 -> drawLiveSettingsToggleShape(x, rowY, width,
+                            limited, access, alpha);
+                    case 1 -> drawLiveSettingsStepperShape(x, rowY, width,
+                            dependentAccess(access, limited), alpha);
+                    case 2 -> drawLiveSettingsToggleShape(x, rowY, width,
                             liveSettingsDraft != null
                                     && liveSettingsDraft.thinkTimeEnabled(),
-                            false, alpha);
-                    case 3, 4 -> drawSettingsStepperShape(x, rowY, width,
-                            false, alpha);
-                    case 5 -> drawSettingsToggleShape(x, rowY, width,
-                            settingsHotJoinDraft,
-                            GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                                    lobby != null), alpha);
-                    case 6 -> drawSettingsToggleShape(x, rowY, width,
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    case 3, 4 -> drawLiveSettingsStepperShape(x, rowY, width,
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    case 5 -> drawLiveSettingsToggleShape(x, rowY, width,
+                            settingsHotJoinDraft, liveHotJoinAccess(), alpha);
+                    case 6 -> drawLiveSettingsToggleShape(x, rowY, width,
                             liveSettingsDraft != null
                                     && liveSettingsDraft.iwtsth(),
-                            enabled, alpha);
-                    case 7 -> drawSettingsToggleShape(x, rowY, width,
+                            access, alpha);
+                    case 7 -> drawLiveSettingsToggleShape(x, rowY, width,
                             liveSettingsDraft != null
                                     && liveSettingsDraft.runItTwice(),
-                            runItTwiceEnabled, alpha);
-                    case 8 -> drawSettingsStepperShape(x, rowY, width,
-                            enabled, alpha);
+                            liveRunItTwiceAccess(), alpha);
+                    case 8 -> drawLiveSettingsStepperShape(x, rowY, width,
+                            access, alpha);
                     default -> { }
                 }
             }
@@ -24783,6 +25175,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxSettingsStyle.drawToggle(shapes, x, y, width, animation, alpha);
     }
 
+    private void drawLiveSettingsToggleShape(float x, float y, float width,
+            boolean on, SettingsRowAccess access, float alpha) {
+        drawLiveSettingsRowShape(x, y, width, access, alpha);
+        float animation = settingsToggleAnimation(x, y, width, on, false);
+        GdxSettingsStyle.drawToggle(shapes, x, y, width, animation, alpha);
+    }
+
+    private void drawLiveSettingsRowShape(float x, float y, float width,
+            SettingsRowAccess access, float alpha) {
+        switch (access) {
+            case EDITABLE -> drawCanonicalSettingsRow(x, y, width,
+                    GdxSettingsLayout.ROW_HEIGHT, true, alpha);
+            case DEPENDENCY_DISABLED -> drawCanonicalSettingsRow(x, y, width,
+                    GdxSettingsLayout.ROW_HEIGHT, false, alpha);
+            case SERVER_ONLY -> GdxSettingsStyle.drawServerOnlyRow(shapes,
+                    x, y, width, GdxSettingsLayout.ROW_HEIGHT, alpha);
+            case LIVE_LOCKED -> GdxSettingsStyle.drawLockedRow(shapes,
+                    x, y, width, GdxSettingsLayout.ROW_HEIGHT, alpha);
+        }
+    }
+
     private void drawCanonicalSettingsRow(float x, float y, float width,
             float height, boolean enabled, float alpha) {
         Rectangle bounds = new Rectangle(x, y, width, height);
@@ -24844,6 +25257,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxSettingsStyle.drawRow(shapes, x, y, width,
                 GdxSettingsLayout.ROW_HEIGHT, enabled, hovered, false,
                 alpha);
+        drawCanonicalSettingsEmbeddedButton(row.minusButton(), enabled,
+                alpha);
+        drawCanonicalSettingsEmbeddedButton(row.plusButton(), enabled,
+                alpha);
+    }
+
+    private void drawLiveSettingsStepperShape(float x, float y, float width,
+            SettingsRowAccess access, float alpha) {
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        drawLiveSettingsRowShape(x, y, width, access, alpha);
+        boolean enabled = access == SettingsRowAccess.EDITABLE;
         drawCanonicalSettingsEmbeddedButton(row.minusButton(), enabled,
                 alpha);
         drawCanonicalSettingsEmbeddedButton(row.plusButton(), enabled,
@@ -25312,7 +25737,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         warning ? FOLD_RED : CYAN, alpha);
             }
         } else if (contentPage == 3) {
-            boolean enabled = tableHost && liveSettingsDraft != null;
+            SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
             Rectangle structure = columns.left(firstY, 0);
@@ -25325,63 +25750,68 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle interval = columns.right(firstY, 2);
             Rectangle capToggle = columns.right(firstY, 3);
             Rectangle cap = columns.right(firstY, 4);
-            drawSettingsStepperText(structure.x, structure.y,
+            drawLiveSettingsStepperText(structure.x, structure.y,
                     structure.width,
                     settingsGameText("row.structure"),
-                    draftBlindStructureLabel(), enabled, alpha);
-            drawSettingsStepperText(level.x, level.y, level.width,
+                    draftBlindStructureLabel(), access, alpha);
+            drawLiveSettingsStepperText(level.x, level.y, level.width,
                     settingsGameText("row.initial_blinds"),
                     liveSettingsDraft == null ? "—"
                             : formatAmount(liveSettingsDraft.smallBlind())
                             + " / " + formatAmount(
                                     liveSettingsDraft.bigBlind()),
-                    enabled, alpha);
+                    access, alpha);
             boolean anteValue = liveSettingsDraft != null
                     && liveSettingsDraft.ante();
             boolean straddleValue = liveSettingsDraft != null
                     && liveSettingsDraft.straddle();
-            drawSettingsToggleText(ante.x, ante.y, ante.width,
+            drawLiveSettingsToggleText(ante.x, ante.y, ante.width,
                     settingsGameText("row.ante"),
                     GdxSettingsContract.booleanStatusLabel(anteValue, false,
-                            gameText), enabled, alpha);
-            drawSettingsToggleText(straddle.x, straddle.y, straddle.width,
+                            gameText), access, alpha);
+            drawLiveSettingsToggleText(straddle.x, straddle.y,
+                    straddle.width,
                     settingsGameText("row.straddle"),
                     GdxSettingsContract.booleanStatusLabel(straddleValue,
-                            false, gameText), enabled, alpha);
-            drawSettingsRowText(manage.x, manage.y, manage.width,
-                    settingsGameText("row.manage_structures"), false, alpha);
+                            false, gameText), access, alpha);
+            drawLiveSettingsRowText(manage.x, manage.y, manage.width,
+                    settingsGameText("row.manage_structures"),
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean increasing = liveSettingsDraft != null
                     && liveSettingsDraft.blindsDouble() > 0;
-            drawSettingsToggleText(increase.x, increase.y, increase.width,
+            drawLiveSettingsToggleText(increase.x, increase.y,
+                    increase.width,
                     settingsGameText("row.increase_blinds"),
                     GdxSettingsContract.booleanStatusLabel(increasing, false,
-                            gameText), enabled, alpha);
-            drawSettingsStepperText(unit.x, unit.y, unit.width,
+                            gameText), access, alpha);
+            drawLiveSettingsStepperText(unit.x, unit.y, unit.width,
                     settingsGameText("row.unit"),
                     liveSettingsDraft != null
                             && liveSettingsDraft.blindsDoubleType() == 2
                                     ? settingsGameText("value.hands")
                                     : settingsGameText("value.minutes"),
-                    enabled && increasing, alpha);
-            drawSettingsStepperText(interval.x, interval.y, interval.width,
+                    dependentAccess(access, increasing), alpha);
+            drawLiveSettingsStepperText(interval.x, interval.y,
+                    interval.width,
                     settingsGameText("row.interval"),
                     liveSettingsDraft == null ? "—"
                             : Integer.toString(Math.max(1,
                                     liveSettingsDraft.blindsDouble())),
-                    enabled && increasing, alpha);
+                    dependentAccess(access, increasing), alpha);
             boolean capped = increasing && liveSettingsDraft != null
                     && liveSettingsDraft.blindCap() > 0d;
-            drawSettingsToggleText(capToggle.x, capToggle.y,
+            drawLiveSettingsToggleText(capToggle.x, capToggle.y,
                     capToggle.width, settingsGameText("row.blind_cap"),
                     GdxSettingsContract.booleanStatusLabel(capped, false,
-                            gameText), enabled && increasing, alpha);
-            drawSettingsStepperText(cap.x, cap.y, cap.width,
+                            gameText), dependentAccess(access, increasing),
+                    alpha);
+            drawLiveSettingsStepperText(cap.x, cap.y, cap.width,
                     settingsGameText("row.cap"),
                     liveSettingsDraft == null
                             || liveSettingsDraft.blindCap() <= 0d ? "—"
                                     : formatAmount(
                                             liveSettingsDraft.blindCap()),
-                    enabled && capped, alpha);
+                    dependentAccess(access, capped), alpha);
         } else if (contentPage == 4) {
             GdxSettingsLayout.GameColumns columns =
                     GdxSettingsLayout.gameColumns(x, width);
@@ -25395,47 +25825,49 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle rebuyCap = columns.right(firstY, 3);
             boolean fixedBuyinValue = liveSettingsDraft != null
                     && liveSettingsDraft.fixedBuyin();
-            drawSettingsToggleText(fixedBuyin.x, fixedBuyin.y,
+            drawLiveSettingsToggleText(fixedBuyin.x, fixedBuyin.y,
                     fixedBuyin.width, settingsGameText("row.fixed_buyin"),
                     GdxSettingsContract.booleanStatusLabel(fixedBuyinValue,
-                            true, gameText), false, alpha);
-            drawSettingsStepperText(initialBuyin.x, initialBuyin.y,
+                            true, gameText), SettingsRowAccess.LIVE_LOCKED,
+                    alpha);
+            drawLiveSettingsStepperText(initialBuyin.x, initialBuyin.y,
                     initialBuyin.width, settingsGameText("row.initial_buyin"),
                     liveSettingsDraft == null ? "—"
                             : Integer.toString(liveSettingsDraft.buyin()),
-                    false, alpha);
-            drawSettingsStepperText(minimumBuyin.x, minimumBuyin.y,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperText(minimumBuyin.x, minimumBuyin.y,
                     minimumBuyin.width,
                     settingsGameText("row.minimum_range_bb"),
                     liveSettingsDraft == null ? "—"
                             : liveSettingsDraft.buyinMinBb() + " BB",
-                    false, alpha);
-            drawSettingsStepperText(maximumBuyin.x, maximumBuyin.y,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperText(maximumBuyin.x, maximumBuyin.y,
                     maximumBuyin.width,
                     settingsGameText("row.maximum_range_bb"),
                     liveSettingsDraft == null ? "—"
                             : liveSettingsDraft.buyinMaxBb() + " BB",
-                    false, alpha);
-            drawSettingsStepperText(rebuyCap.x, rebuyCap.y,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsStepperText(rebuyCap.x, rebuyCap.y,
                     rebuyCap.width, settingsGameText("row.rebuy_cap"),
                     liveSettingsDraft == null ? "—"
                             : liveSettingsDraft.rebuyCapPolicy() == 0
                                     ? "BUY-IN"
                                     : settingsGameText("value.highest_stack"),
-                    false, alpha);
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean rebuyValue = liveSettingsDraft != null
                     && liveSettingsDraft.rebuy();
             boolean rebuyLimitValue = liveSettingsDraft != null
                     && liveSettingsDraft.rebuyLimit() > 0;
-            drawSettingsToggleText(rebuy.x, rebuy.y, rebuy.width,
+            drawLiveSettingsToggleText(rebuy.x, rebuy.y, rebuy.width,
                     settingsGameText("row.rebuy"),
                     GdxSettingsContract.booleanStatusLabel(rebuyValue, true,
-                            gameText), false, alpha);
-            drawSettingsToggleText(playerLimit.x, playerLimit.y,
+                            gameText), SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleText(playerLimit.x, playerLimit.y,
                     playerLimit.width, settingsGameText("row.player_limit"),
                     GdxSettingsContract.booleanStatusLabel(rebuyLimitValue,
-                            false, gameText), false, alpha);
-            drawSettingsStepperText(maximumRebuys.x, maximumRebuys.y,
+                            false, gameText), SettingsRowAccess.LIVE_LOCKED,
+                    alpha);
+            drawLiveSettingsStepperText(maximumRebuys.x, maximumRebuys.y,
                     maximumRebuys.width,
                     settingsGameText("row.maximum_rebuys"),
                     liveSettingsDraft == null ? "—"
@@ -25443,32 +25875,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     ? settingsGameText("value.no_limit")
                                     : Integer.toString(
                                             liveSettingsDraft.rebuyLimit()),
-                    false, alpha);
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
         } else if (contentPage == 6) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
-            boolean botRebuyEnabled = GdxLiveSettingsPolicy.canEditBotRebuy(
-                    tableHost, liveSettingsDraft);
-            drawSettingsStepperText(x, firstY, width,
+            SettingsRowAccess access = liveGameRuleAccess();
+            SettingsRowAccess botRebuyAccess = dependentAccess(access,
+                    liveSettingsDraft != null && liveSettingsDraft.rebuy());
+            drawLiveSettingsStepperText(x, firstY, width,
                     settingsGameText("row.bot_difficulty"),
-                    botDifficultyText(), enabled, alpha);
+                    botDifficultyText(), access, alpha);
             boolean botRebuyValue = liveSettingsDraft != null
                     && liveSettingsDraft.botRebuy();
             boolean botBalanceValue = liveSettingsDraft != null
                     && liveSettingsDraft.botBalanceToHumans();
-            drawSettingsToggleText(x,
+            drawLiveSettingsToggleText(x,
                     firstY - GdxSettingsLayout.ROW_STRIDE, width,
                     settingsGameText("row.bot_rebuy"),
                     GdxSettingsContract.booleanStatusLabel(botRebuyValue,
-                            true, gameText), botRebuyEnabled, alpha);
-            drawSettingsToggleText(x,
+                            true, gameText), botRebuyAccess, alpha);
+            drawLiveSettingsToggleText(x,
                     firstY - 2f * GdxSettingsLayout.ROW_STRIDE, width,
                     settingsGameText("row.bot_balance"),
                     GdxSettingsContract.booleanStatusLabel(botBalanceValue,
-                            false, gameText), enabled, alpha);
+                            false, gameText), access, alpha);
+            drawLiveSettingsRowText(x,
+                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    uppercase(gameText.translate("gdx.custom_bots.manage")),
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
         } else if (contentPage == 7) {
-            boolean enabled = GdxLiveSettingsPolicy.canEditGameRules(
-                    tableHost, liveSettingsDraft);
+            SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(
                     currentSettingsContent(), firstY, 9, settingsGameScroll);
             settingsGameScroll = rows.offset();
@@ -25476,9 +25910,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && liveSettingsDraft.hands() != -1;
             boolean thinkTimeValue = liveSettingsDraft != null
                     && liveSettingsDraft.thinkTimeEnabled();
-            boolean runItTwiceEnabled = GdxLiveSettingsPolicy.canEditRunItTwice(
-                    tableHost, liveSettingsDraft,
-                    liveState != null && liveState.runItTwiceLocked());
             boolean iwtsthValue = liveSettingsDraft != null
                     && liveSettingsDraft.iwtsth();
             boolean runItTwiceValue = liveSettingsDraft != null
@@ -25487,46 +25918,46 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     row < rows.lastExclusive(); row++) {
                 float rowY = rows.rowY(row);
                 switch (row) {
-                    case 0 -> drawSettingsToggleText(x, rowY, width,
+                    case 0 -> drawLiveSettingsToggleText(x, rowY, width,
                             settingsGameText("row.hand_limit"),
                             GdxSettingsContract.booleanStatusLabel(limited,
-                                    false, gameText), enabled, alpha);
-                    case 1 -> drawSettingsStepperText(x, rowY, width,
+                                    false, gameText), access, alpha);
+                    case 1 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.hand_count"),
-                            handLimitSettingLabel(), enabled && limited, alpha);
-                    case 2 -> drawSettingsToggleText(x, rowY, width,
+                            handLimitSettingLabel(),
+                            dependentAccess(access, limited), alpha);
+                    case 2 -> drawLiveSettingsToggleText(x, rowY, width,
                             settingsGameText("row.think_time"),
                             GdxSettingsContract.booleanStatusLabel(
-                                    thinkTimeValue, true, gameText), false,
-                            alpha);
-                    case 3 -> drawSettingsStepperText(x, rowY, width,
+                                    thinkTimeValue, true, gameText),
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    case 3 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.think_seconds"),
                             liveSettingsDraft == null ? "—"
                                     : liveSettingsDraft.thinkTime() + " S",
-                            false, alpha);
-                    case 4 -> drawSettingsStepperText(x, rowY, width,
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    case 4 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.showdown_seconds"),
                             liveSettingsDraft == null ? "—"
                                     : liveSettingsDraft.showdownTime() + " S",
-                            false, alpha);
-                    case 5 -> drawSettingsToggleText(x, rowY, width,
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    case 5 -> drawLiveSettingsToggleText(x, rowY, width,
                             settingsGameText("row.allow_hot_join"),
                             GdxSettingsContract.booleanStatusLabel(
                                     settingsHotJoinDraft, true, gameText),
-                            GdxLiveSettingsPolicy.canEditHotJoin(tableHost,
-                                    lobby != null), alpha);
-                    case 6 -> drawSettingsToggleText(x, rowY, width,
+                            liveHotJoinAccess(), alpha);
+                    case 6 -> drawLiveSettingsToggleText(x, rowY, width,
                             settingsGameText("row.iwtsth"),
                             GdxSettingsContract.booleanStatusLabel(iwtsthValue,
-                                    false, gameText), enabled, alpha);
-                    case 7 -> drawSettingsToggleText(x, rowY, width,
+                                    false, gameText), access, alpha);
+                    case 7 -> drawLiveSettingsToggleText(x, rowY, width,
                             settingsGameText("row.run_it_twice"),
                             GdxSettingsContract.booleanStatusLabel(
                                     runItTwiceValue, false, gameText),
-                            runItTwiceEnabled, alpha);
-                    case 8 -> drawSettingsStepperText(x, rowY, width,
+                            liveRunItTwiceAccess(), alpha);
+                    case 8 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.rabbit_hunting"),
-                            rabbitRuleLabel(), enabled, alpha);
+                            rabbitRuleLabel(), access, alpha);
                     default -> { }
                 }
             }
@@ -25681,6 +26112,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 enabled ? color : SETTINGS_DISABLED, alpha);
     }
 
+    private void drawLiveSettingsRowText(float x, float y, float width,
+            String label, SettingsRowAccess access, float alpha) {
+        Rectangle bounds = GdxSettingsLayout.rowLabel(x, y, width);
+        drawFittedLeft(settingsSmallFont, label, bounds.x,
+                GdxSettingsLayout.rowTextBaseline(y), bounds.width,
+                settingsAccessLabelColor(access), alpha);
+    }
+
     private void drawSettingsChoiceText(float x, float y, float width,
             String label, String value, boolean enabled, float alpha) {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(x, y,
@@ -25717,6 +26156,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 layout.value().width - 12f,
                 enabled ? POT_GOLD : SETTINGS_DISABLED,
                 alpha);
+    }
+
+    private void drawLiveSettingsToggleText(float x, float y, float width,
+            String label, String value, SettingsRowAccess access,
+            float alpha) {
+        GdxSettingsLayout.ToggleRow layout = GdxSettingsLayout.toggleRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT, 0f);
+        Color labelColor = settingsAccessLabelColor(access);
+        Color valueColor = settingsAccessValueColor(access);
+        drawFittedLeft(settingsSmallFont, label, layout.label().x,
+                GdxSettingsLayout.rowTextBaseline(y), layout.label().width,
+                labelColor, alpha);
+        drawFittedCentered(settingsBodyFont, value,
+                layout.value().x + layout.value().width / 2f,
+                GdxSettingsLayout.rowTextBaseline(y),
+                layout.value().width - 12f, valueColor, alpha);
     }
 
     private void drawSettingsInfoText(float x, float y, float width,
@@ -25790,6 +26245,62 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void drawLiveSettingsStepperText(float x, float y, float width,
+            String label, String value, SettingsRowAccess access,
+            float alpha) {
+        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        Color labelColor = settingsAccessLabelColor(access);
+        Color valueColor = settingsAccessValueColor(access);
+        drawFittedLeft(settingsSmallFont, label, row.label().x,
+                GdxSettingsLayout.stepperLabelBaseline(y), row.label().width,
+                labelColor, alpha);
+        drawFittedCentered(settingsStepperSignFont, "-",
+                row.minusButton().x + row.minusButton().width / 2f,
+                GdxSettingsLayout.stepperSignBaseline(y),
+                row.minusButton().width, labelColor, alpha);
+        drawFittedCentered(settingsBodyFont, value,
+                row.value().x + row.value().width / 2f,
+                GdxSettingsLayout.stepperValueBaseline(y),
+                row.value().width - 12f, valueColor, alpha);
+        drawFittedCentered(settingsStepperSignFont, "+",
+                row.plusButton().x + row.plusButton().width / 2f,
+                GdxSettingsLayout.stepperSignBaseline(y),
+                row.plusButton().width, labelColor, alpha);
+        if (access == SettingsRowAccess.EDITABLE) {
+            registerPointerRepeatHit(row.minusButton().x, row.value().y,
+                    row.minusButton().width, row.value().height,
+                    RepeatOwner.SETTINGS, null,
+                    () -> handleSettingsClick(row.minusButton().x
+                            + row.minusButton().width / 2f,
+                            row.value().y + row.value().height / 2f));
+            registerPointerRepeatHit(row.plusButton().x, row.value().y,
+                    row.plusButton().width, row.value().height,
+                    RepeatOwner.SETTINGS, null,
+                    () -> handleSettingsClick(row.plusButton().x
+                            + row.plusButton().width / 2f,
+                            row.value().y + row.value().height / 2f));
+        }
+    }
+
+    private static Color settingsAccessLabelColor(SettingsRowAccess access) {
+        return switch (access) {
+            case EDITABLE -> Color.WHITE;
+            case DEPENDENCY_DISABLED -> SETTINGS_DISABLED;
+            case SERVER_ONLY -> GdxSettingsStyle.serverOnlyText();
+            case LIVE_LOCKED -> GdxSettingsStyle.lockedText();
+        };
+    }
+
+    private static Color settingsAccessValueColor(SettingsRowAccess access) {
+        return switch (access) {
+            case EDITABLE -> POT_GOLD;
+            case DEPENDENCY_DISABLED -> SETTINGS_DISABLED;
+            case SERVER_ONLY -> GdxSettingsStyle.serverOnlyText();
+            case LIVE_LOCKED -> GdxSettingsStyle.lockedText();
+        };
+    }
+
     private String rabbitRuleLabel() {
         if (liveSettingsDraft == null) {
             return GdxLiveSettingsSummary.rabbitHuntingLabel(-1, gameText);
@@ -25813,9 +26324,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveSettingsDraft == null) {
             return settingsGameText("value.unavailable");
         }
-        return liveSettingsDraft.hands() == -1
-                ? settingsGameText("value.no_limit")
-                : Integer.toString(liveSettingsDraft.hands());
+        return Integer.toString(settingsHandLimitDraftValue);
     }
 
     private String autoCallSettingsValue() {

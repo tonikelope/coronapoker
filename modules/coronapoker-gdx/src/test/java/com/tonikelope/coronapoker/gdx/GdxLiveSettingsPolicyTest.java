@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,6 +49,24 @@ final class GdxLiveSettingsPolicyTest {
                 configuration(false)));
         assertFalse(GdxLiveSettingsPolicy.canEditBotRebuy(false,
                 configuration(true)));
+    }
+
+    @Test
+    void liveHandLimitNeverTargetsAnAlreadyPlayedHand() {
+        assertEquals(8, GdxLiveSettingsPolicy.minimumHandLimit(7));
+        assertEquals(8, GdxLiveSettingsPolicy.handLimitValue(7, -1));
+        assertEquals(20, GdxLiveSettingsPolicy.handLimitValue(7, 20));
+        assertEquals(8, GdxLiveSettingsPolicy.adjustedHandLimit(7, 8, -1));
+        assertEquals(9, GdxLiveSettingsPolicy.adjustedHandLimit(7, 8, 1));
+    }
+
+    @Test
+    void liveHandLimitIsBoundedAtTheSameSafeMaximumAsTheUi() {
+        assertEquals(GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT,
+                GdxLiveSettingsPolicy.minimumHandLimit(Integer.MAX_VALUE));
+        assertEquals(GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT,
+                GdxLiveSettingsPolicy.adjustedHandLimit(0,
+                        GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT, 1));
     }
 
     private static GameConfigCodecV1.Configuration configuration(

@@ -36,7 +36,8 @@ final class GdxAboutEasterEggTest {
                 > GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y + 20f,
                 "the memorial must remain visually separate from music copy");
         float lastMusicLine = GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y
-                - 3f * GdxFrontendScreen.ABOUT_MUSIC_LINE_GAP;
+                - (GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT - 1)
+                * GdxFrontendScreen.ABOUT_MUSIC_LINE_GAP;
         assertTrue(lastMusicLine
                 - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
                 "the copyright note must not overlap the last music credit");
@@ -47,6 +48,8 @@ final class GdxAboutEasterEggTest {
                 * GdxFrontendScreen.ABOUT_COPYRIGHT_LINE_HEIGHT;
         assertTrue(copyrightBottom - 226f >= 58f,
                 "copyright and handmade credits need breathing room");
+        assertEquals(5, GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT,
+                "all five music surfaces need an explicit credit");
     }
 
     @Test
@@ -98,6 +101,19 @@ final class GdxAboutEasterEggTest {
                 GdxFrontendScreen.ABOUT_PROJECT_URI.toString());
         assertEquals("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf",
                 GdxFrontendScreen.ABOUT_RULES_URI.toString());
+    }
+
+    @Test
+    void creditsTheBotManagerTerminatorSoundtrackInBothLanguages() {
+        String spanish = new GdxGameText("es").translate(
+                "about.musica_gestor_bots");
+        String english = new GdxGameText("en").translate(
+                "about.musica_gestor_bots");
+
+        assertTrue(spanish.contains("The Terminator"));
+        assertTrue(spanish.contains("Brad Fiedel"));
+        assertTrue(english.contains("The Terminator"));
+        assertTrue(english.contains("Brad Fiedel"));
     }
 
     private static void assertImage(String path, int width, int height)

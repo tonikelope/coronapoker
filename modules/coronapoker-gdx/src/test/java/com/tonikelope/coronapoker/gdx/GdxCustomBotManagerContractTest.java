@@ -22,17 +22,23 @@ final class GdxCustomBotManagerContractTest {
                 StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         assertTrue(source.contains(
-                "surface == Surface.NEW_GAME\n"
-                + "                && (customBotManagerOpen"));
+                "} else if (customBotManagerOpen) {\n"
+                + "                drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerImages();"));
         assertTrue(source.contains(
                 "customBotManagerMusic = music(\n"
                 + "                \"sounds/misc/bots_manager.mp3\", 0.65f);"));
         assertTrue(source.contains(
-                "customBotDialogMusic = surface == Surface.NEW_GAME"));
+                "customBotDialogMusic = customBotManagerOpen"));
         assertTrue(source.contains(
                 "syncTrack(customBotManagerMusic, playCustomBotManager);"));
+        assertTrue(source.contains(
+                "musicMasterEnabled() && customBotDialogMusic\n"
+                + "                && preferenceBoolean(\"musica_gestor_bots\", true)"));
+        assertFalse(source.contains(
+                "musicMasterEnabled() && customBotDialogMusic\n"
+                + "                && preferenceBoolean(\"sonido_ascensor\", true)"));
         assertTrue(source.contains("customBotManagerMusic.dispose();"));
         assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
                 + "                drawCustomBotDeleteConfirmationTopLayer();"));
@@ -46,7 +52,7 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "float y = customBotManagerOpen ? 502f : 145f;"));
         assertTrue(source.contains(
-                "surface == Surface.NEW_GAME && customBotManagerOpen\n"
+                "if (customBotManagerOpen\n"
                 + "                && !customBotDeleteConfirmation && amountY != 0f"));
         assertTrue(source.contains("ScrollDrag.CUSTOM_BOTS"));
         assertTrue(source.contains("GdxSettingsStyle.drawRowScrollbar"));

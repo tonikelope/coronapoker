@@ -177,40 +177,32 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void everySwitchDependencyIsIndented() {
-        GdxSettingsContract.TogglePage cinematics =
+    void everySwitchDependencyKeepsItsMasterGate() {
+        GdxSettingsContract.TogglePage animations =
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
-        assertFalse(GdxSettingsContract.isChildOption(cinematics,
-                cinematics.options().get(0)));
-        assertTrue(GdxSettingsContract.isChildOption(cinematics,
-                cinematics.options().get(1)));
-        assertTrue(GdxSettingsContract.isChildOption(cinematics,
-                cinematics.options().get(2)));
+        assertFalse(GdxSettingsContract.isChildOption(animations,
+                animations.options().get(0)));
+        assertTrue(animations.options().stream().skip(1).allMatch(option ->
+                GdxSettingsContract.isChildOption(animations, option)));
 
         GdxSettingsContract.TogglePage music =
                 GdxSettingsContract.AUDIO_PAGES.get(1);
         assertTrue(GdxSettingsContract.isChildOption(music,
                 music.options().get(0)));
 
-        GdxSettingsContract.TogglePage animations =
-                GdxSettingsContract.APPEARANCE_PAGES.get(1);
-        assertFalse(GdxSettingsContract.isChildOption(animations,
-                animations.options().get(0)));
-        assertTrue(animations.options().stream().skip(1).allMatch(option ->
-                GdxSettingsContract.isChildOption(animations, option)));
     }
 
     @Test
     void bothSettingsEntryPointsUseTheSameSubpageCatalogueBuilder() {
-        assertEquals(java.util.List.of("MESA", "GRÁFICOS", "CINEMÁTICAS",
-                "ANIMACIONES", "INFORMACIÓN", "CHAT"),
+        assertEquals(java.util.List.of("MESA", "GRÁFICOS", "ANIMACIONES"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5));
-        assertEquals(java.util.List.of("CIEGAS", "COMPRA"),
+        assertEquals(java.util.List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.GAME,
-                        java.util.List.of("CIEGAS", "COMPRA"), 0, 5));
+                        java.util.List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
+                        0, 5));
         assertEquals(java.util.List.of(),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.SHORTCUTS,
@@ -224,15 +216,14 @@ final class GdxSettingsContractTest {
     @Test
     void settingsContentAndSubpagesFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
-        assertEquals(java.util.List.of("TABLE", "GRAPHICS", "CINEMATICS",
-                "ANIMATIONS", "INFORMATION", "CHAT"),
+        assertEquals(java.util.List.of("TABLE", "GRAPHICS", "ANIMATIONS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5, text));
-        assertEquals(java.util.List.of("BLINDS", "BUY-IN", "REBUY"),
+        assertEquals(java.util.List.of("BLINDS", "BUY-IN", "BOTS", "RULES"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.GAME,
-                        java.util.List.of("CIEGAS", "COMPRA", "RECOMPRA"),
+                        java.util.List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
                         0, 5, text));
         assertEquals("SOUND EFFECTS",
                 GdxSettingsContract.AUDIO_PAGES.get(0).options().get(2)
@@ -311,7 +302,7 @@ final class GdxSettingsContractTest {
                 "sonido_entra", "sonido_entrar_sala", "sonido_sale",
                 "sonido_tapete", "sonido_visor", "sonido_zoom",
                 "sonido_arranque",
-                "musica_about",
+                "musica_about", "musica_gestor_bots",
                 "tts_server",
                 "voice_messages", "audio_mic_enabled",
                  GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
@@ -355,6 +346,14 @@ final class GdxSettingsContractTest {
         assertEquals(2, GdxSettingsContract.audioOptionRow(devices, 0));
         assertEquals(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
                 devices.options().get(0).key());
+
+        GdxSettingsContract.TogglePage general =
+                GdxSettingsContract.AUDIO_PAGES.get(0);
+        assertTrue(GdxSettingsContract.hasMasterVolume(general));
+        assertEquals(5, GdxSettingsContract.audioRowCount(general));
+        assertEquals(0, GdxSettingsContract.audioOptionRow(general, 0));
+        assertEquals(1, GdxSettingsContract.masterVolumeRow(general));
+        assertEquals(2, GdxSettingsContract.audioOptionRow(general, 1));
     }
 
     @Test
@@ -371,6 +370,8 @@ final class GdxSettingsContractTest {
 
     @Test
     void audioPreviewCatalogKeepsSwingResourcesAndTimeLimits() {
+        Properties mutedProperties = new Properties();
+        mutedProperties.setProperty("sonido_efectos", "true");
         GdxSettingsContract.ToggleOption bet =
                 GdxSettingsContract.AUDIO_PAGES.stream()
                 .flatMap(page -> page.options().stream())
@@ -386,6 +387,19 @@ final class GdxSettingsContractTest {
         assertEquals(new GdxSettingsContract.AudioPreview(
                 "misc/bet.wav", 1f, 10f),
                 GdxSettingsContract.audioPreview(bet, "es"));
+        assertTrue(GdxSettingsContract.enabled(bet, mutedProperties, false),
+                "La prueba de sonido debe seguir disponible con SONIDO apagado");
+        GdxSettingsContract.ToggleOption botManager =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .filter(option -> option.key().equals("musica_gestor_bots"))
+                .findFirst().orElseThrow();
+        assertEquals(new GdxSettingsContract.AudioPreview(
+                "misc/bots_manager.mp3", 0.65f, 10f),
+                GdxSettingsContract.audioPreview(botManager, "es"));
+        assertTrue(GdxSettingsContract.enabled(botManager, mutedProperties,
+                false),
+                "La prueba del gestor debe funcionar con SONIDO apagado");
         assertEquals(1f,
                 GdxSettingsContract.audioPreview(stacks, "es")
                         .limitSeconds());
@@ -440,13 +454,22 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void childAudioControlsRespectTheirSwingMasterGates() {
+    void audioFamiliesRemainEditableWhileMasterSoundIsMuted() {
         Properties properties = new Properties();
+        GdxSettingsContract.ToggleOption musicMaster =
+                GdxSettingsContract.AUDIO_PAGES.get(0).options().get(1);
+        GdxSettingsContract.ToggleOption effectsMaster =
+                GdxSettingsContract.AUDIO_PAGES.get(0).options().get(2);
         GdxSettingsContract.ToggleOption music =
                 GdxSettingsContract.AUDIO_PAGES.get(1).options().get(0);
         GdxSettingsContract.ToggleOption effect =
                 GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0);
 
+        assertTrue(GdxSettingsContract.enabled(musicMaster, properties, false));
+        assertTrue(GdxSettingsContract.enabled(effectsMaster, properties,
+                false));
+        assertTrue(GdxSettingsContract.enabled(music, properties, false));
+        assertTrue(GdxSettingsContract.enabled(effect, properties, false));
         assertTrue(GdxSettingsContract.enabled(music, properties, true));
         assertTrue(GdxSettingsContract.enabled(effect, properties, true));
         properties.setProperty("musica", "false");
@@ -458,16 +481,17 @@ final class GdxSettingsContractTest {
 
     @Test
     void appearanceCatalogHasNoDuplicateKeysAndKeepsRowsInsideTheDialog() {
-        java.util.List<String> keys = GdxSettingsContract.APPEARANCE_PAGES
-                .stream()
+        java.util.List<String> keys = java.util.stream.Stream.concat(
+                java.util.stream.Stream.of(
+                        GdxSettingsContract.appearanceTablePage()),
+                GdxSettingsContract.APPEARANCE_PAGES.stream())
                 .flatMap(page -> page.options().stream())
                 .map(GdxSettingsContract.ToggleOption::key)
                 .toList();
 
         assertEquals(keys.size(), new java.util.HashSet<>(keys).size());
         assertTrue(keys.containsAll(java.util.List.of(
-                "cinematicas", "cinematicas_allin",
-                "cinematicas_gameover",
+                "cinematicas_allin", "cinematicas_gameover",
                 "animacion_barajado", "animacion_reparto",
                 "animacion_destape", "animacion_ciegas_dealer",
                 "animacion_apuestas", "animacion_contadores",
@@ -481,10 +505,10 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("auto_fullscreen"));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 "auto_fullscreen"));
+        assertFalse(keys.contains("cinematicas"));
         assertEquals(8,
                 GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-        assertEquals(java.util.List.of("CINEMÁTICAS", "ANIMACIONES",
-                "INFORMACIÓN", "CHAT"),
+        assertEquals(java.util.List.of("ANIMACIONES"),
                 GdxSettingsContract.APPEARANCE_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("auto_zoom"));
@@ -501,12 +525,12 @@ final class GdxSettingsContractTest {
     @Test
     void animationsCombinesSwitchesAndChoicesInOneScrollablePage() {
         GdxSettingsContract.TogglePage page =
-                GdxSettingsContract.APPEARANCE_PAGES.get(1);
+                GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(12, page.options().size());
+        assertEquals(14, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(18, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(20, GdxSettingsContract.appearanceRowCount(page));
         assertEquals("animacion_apuestas",
                 page.options().get(page.options().size() - 1).key());
         assertEquals("reparto_velocidad",
@@ -540,17 +564,18 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void childAppearanceControlsRespectAnimationAndCinematicMasters() {
+    void cinematicsAndAnimationsShareTheAnimationMaster() {
         Properties properties = new Properties();
         GdxSettingsContract.ToggleOption cinematic =
                 GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(2);
         GdxSettingsContract.ToggleOption deal =
-                GdxSettingsContract.APPEARANCE_PAGES.get(1).options().get(2);
+                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(4);
 
         assertTrue(GdxSettingsContract.enabled(cinematic, properties, true));
         assertTrue(GdxSettingsContract.enabled(deal, properties, true));
         properties.setProperty("cinematicas", "false");
-        assertFalse(GdxSettingsContract.enabled(cinematic, properties, true));
+        assertTrue(GdxSettingsContract.enabled(cinematic, properties, true),
+                "the retired cinematics master must not gate visible rows");
         assertTrue(GdxSettingsContract.enabled(deal, properties, true));
         properties.setProperty("animaciones", "false");
         assertFalse(GdxSettingsContract.enabled(cinematic, properties, true));
@@ -601,6 +626,7 @@ final class GdxSettingsContractTest {
         Properties properties = new Properties();
         properties.setProperty("master_volume", "0.25");
         properties.setProperty("musica_about", "false");
+        properties.setProperty("musica_gestor_bots", "false");
         properties.setProperty("sonido_apostar", "false");
 
         GdxSettingsContract.restoreAudioPageDefaults(properties, 1,
@@ -608,6 +634,7 @@ final class GdxSettingsContractTest {
 
         assertEquals("0.25", properties.getProperty("master_volume"));
         assertEquals("true", properties.getProperty("musica_about"));
+        assertEquals("true", properties.getProperty("musica_gestor_bots"));
         assertEquals("false", properties.getProperty("sonido_apostar"));
         assertTrue(GdxSettingsContract.audioPageAtDefaults(properties, 1,
                 true, true, true));
@@ -704,7 +731,7 @@ final class GdxSettingsContractTest {
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
                 0, true));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
-                3, true));
+                2, true));
     }
 
     @Test

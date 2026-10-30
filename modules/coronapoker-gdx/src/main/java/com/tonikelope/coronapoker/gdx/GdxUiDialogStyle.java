@@ -21,26 +21,11 @@ final class GdxUiDialogStyle {
     private GdxUiDialogStyle() {
     }
 
-    /**
-     * Preserves authored line breaks and gives a labelled explanation a
-     * stable semantic break. This avoids the renderer placing the first word
-     * of a conclusion at the end of the preceding line merely because one
-     * translated glyph happened to be narrower on a particular display.
-     */
+    /** Preserves only line breaks deliberately authored by the translation. */
     static String formatNoticeMessage(String message) {
         if (message == null) return "";
-        String value = message.replace("\r\n", "\n")
+        return message.replace("\r\n", "\n")
                 .replace('\r', '\n').strip();
-        if (value.indexOf('\n') >= 0) return value;
-        int colon = value.indexOf(':');
-        if (colon > 0 && colon + 1 < value.length()) {
-            String detail = value.substring(colon + 1).stripLeading();
-            if (!detail.isEmpty()) {
-                return value.substring(0, colon + 1).stripTrailing()
-                        + "\n" + detail;
-            }
-        }
-        return value;
     }
 
     static ConfirmationLayout confirmationLayout(float worldWidth,
@@ -64,6 +49,26 @@ final class GdxUiDialogStyle {
     record ConfirmationLayout(Rectangle panel, Rectangle title,
             Rectangle message, Rectangle negativeButton,
             Rectangle positiveButton) {
+    }
+
+    static NoticeLayout noticeLayout(float worldWidth, float worldHeight) {
+        float panelWidth = 900f;
+        float panelHeight = 390f;
+        float panelX = (worldWidth - panelWidth) / 2f;
+        float panelY = (worldHeight - panelHeight) / 2f;
+        Rectangle panel = new Rectangle(panelX, panelY,
+                panelWidth, panelHeight);
+        return new NoticeLayout(panel,
+                new Rectangle(panelX + 50f, panelY + 292f,
+                        panelWidth - 100f, 48f),
+                new Rectangle(panelX + 65f, panelY + 128f,
+                        panelWidth - 130f, 142f),
+                new Rectangle(panelX + panelWidth / 2f - 190f,
+                        panelY + 40f, 380f, 72f));
+    }
+
+    record NoticeLayout(Rectangle panel, Rectangle title,
+            Rectangle message, Rectangle button) {
     }
 
     /**

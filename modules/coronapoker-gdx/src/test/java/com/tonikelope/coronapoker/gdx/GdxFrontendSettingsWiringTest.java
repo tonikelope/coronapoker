@@ -159,9 +159,9 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains(
                 "GdxSettingsLayout.contentClip(content)"));
         assertTrue(frontend.contains(
-                "GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET"));
+                "GdxSettingsContract.masterVolumeRow(page)"));
         assertTrue(table.contains(
-                "GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET"));
+                "GdxSettingsContract.masterVolumeRow(page)"));
         assertTrue(frontend.contains("GdxSettingsLayout.splitActionRow("));
         assertTrue(table.contains("GdxSettingsLayout.splitActionRow("));
         assertTrue(frontend.contains("GdxSettingsStyle.drawShortcutRow("));

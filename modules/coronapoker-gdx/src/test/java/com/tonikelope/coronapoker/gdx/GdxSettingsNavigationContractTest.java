@@ -40,8 +40,7 @@ final class GdxSettingsNavigationContractTest {
 
     @Test
     void gamePagesHaveOneSharedContextAwareContract() {
-        assertEquals(List.of("CIEGAS", "COMPRA", "RECOMPRA", "BOTS",
-                "PARTIDA", "REGLAS"),
+        assertEquals(List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
                 GdxSettingsContract.WAITING_ROOM_GAME_PAGES);
         assertEquals(GdxSettingsContract.WAITING_ROOM_GAME_PAGES,
                 GdxSettingsContract.LIVE_TABLE_GAME_PAGES);
@@ -49,9 +48,18 @@ final class GdxSettingsNavigationContractTest {
 
     @Test
     void liveTableSettingsExcludeFastAccessSessionOperations() {
-        assertEquals(List.of("CIEGAS", "COMPRA", "RECOMPRA", "BOTS",
-                "PARTIDA", "REGLAS"),
+        assertEquals(List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
                 CoronaPokerGdxTable.settingsGamePageLabels());
+    }
+
+    @Test
+    void mergedGameTabsRouteToTheirCombinedContentPages() {
+        assertEquals(3, CoronaPokerGdxTable.settingsGameContentPage(0));
+        assertEquals(4, CoronaPokerGdxTable.settingsGameContentPage(1));
+        assertEquals(6, CoronaPokerGdxTable.settingsGameContentPage(2));
+        assertEquals(7, CoronaPokerGdxTable.settingsGameContentPage(3));
+        assertEquals(3, CoronaPokerGdxTable.settingsGameContentPage(-1));
+        assertEquals(7, CoronaPokerGdxTable.settingsGameContentPage(99));
     }
 
     @Test

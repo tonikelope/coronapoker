@@ -56,8 +56,8 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
-    void noticeMessagesPreferTheSemanticBreakAfterAColon() {
-        assertEquals("Ya estás en el máximo de fichas de la mesa:\n"
+    void noticeMessagesPreserveOnlyAuthoredLineBreaks() {
+        assertEquals("Ya estás en el máximo de fichas de la mesa: "
                         + "no puedes recomprar.",
                 GdxUiDialogStyle.formatNoticeMessage(
                         "Ya estás en el máximo de fichas de la mesa: "
@@ -86,6 +86,25 @@ final class GdxUiDialogStyleTest {
                         + layout.negativeButton().height);
         assertTrue(layout.title().y
                 > layout.message().y + layout.message().height);
+    }
+
+    @Test
+    void frontendNoticesShareCenteredTitleMessageAndActionGeometry() {
+        GdxUiDialogStyle.NoticeLayout layout =
+                GdxUiDialogStyle.noticeLayout(1920f, 1080f);
+
+        assertEquals(1920f / 2f,
+                layout.panel().x + layout.panel().width / 2f);
+        assertEquals(1920f / 2f,
+                layout.title().x + layout.title().width / 2f);
+        assertEquals(1920f / 2f,
+                layout.message().x + layout.message().width / 2f);
+        assertEquals(1920f / 2f,
+                layout.button().x + layout.button().width / 2f);
+        assertTrue(layout.title().y
+                > layout.message().y + layout.message().height);
+        assertTrue(layout.message().y
+                > layout.button().y + layout.button().height);
     }
 
     @Test

@@ -428,7 +428,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 && bool("auto_fullscreen", true);
     }
     @Override public boolean cinematics() {
-        return animations() && bool("cinematicas", true);
+        return animations();
     }
     @Override public boolean allInCinematics() {
         return cinematics() && bool("cinematicas_allin", true);

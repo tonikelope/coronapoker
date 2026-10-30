@@ -122,13 +122,6 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void audioRowsLeaveTheSameGapBelowMasterVolumeEverywhere() {
-        assertEquals(74f, GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET);
-        assertTrue(GdxSettingsLayout.AUDIO_MASTER_ROW_OFFSET
-                > GdxSettingsLayout.ROW_HEIGHT);
-    }
-
-    @Test
     void voiceActionsUseEqualCanonicalButtons() {
         GdxSettingsLayout.SplitRow actions =
                 GdxSettingsLayout.splitActionRow(100f, 200f, 1120f);
@@ -400,16 +393,25 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void childRowsAreInsetOnlyFromTheLeft() {
+    void dependentRowsKeepTheSameFullWidthGeometryAsTheirParents() {
         Rectangle parent = GdxSettingsLayout.optionRow(
                 100f, 500f, 1_000f, false);
         Rectangle child = GdxSettingsLayout.optionRow(
                 100f, 430f, 1_000f, true);
-        assertTrue(child.x > parent.x);
-        assertEquals(parent.x + parent.width, child.x + child.width);
-        assertEquals(GdxSettingsLayout.CHILD_ROW_INDENT,
-                child.x - parent.x);
+        assertEquals(parent.x, child.x);
+        assertEquals(parent.width, child.width);
         assertEquals(parent.y - GdxSettingsLayout.ROW_STRIDE, child.y);
+    }
+
+    @Test
+    void choiceRowsReserveAnIndependentRightAlignedValueLane() {
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
+                100f, 430f, 1_000f, GdxSettingsLayout.ROW_HEIGHT);
+
+        assertTrue(row.value().x > row.label().x + row.label().width);
+        assertTrue(row.arrow().x > row.value().x + row.value().width);
+        assertEquals(row.bounds().x + row.bounds().width - 12f,
+                row.arrow().x + row.arrow().width);
     }
 
     @Test

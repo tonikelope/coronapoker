@@ -9,8 +9,6 @@ final class GdxSettingsLayout {
     static final float HORIZONTAL_INSET = 44f;
     /** Breathing room between the content well and every settings row. */
     static final float CONTENT_HORIZONTAL_INSET = 34f;
-    /** Left-only inset used by every control governed by another switch. */
-    static final float CHILD_ROW_INDENT = 38f;
     static final float TITLE_BASELINE_TOP_INSET = 48f;
     // There is one heading band only.  Settings used to reserve another band
     // for the redundant "Configuracion de CoronaPoker" subtitle, leaving a
@@ -37,8 +35,6 @@ final class GdxSettingsLayout {
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
-    /** Main-volume row plus the same eight-pixel breathing room as the menu. */
-    static final float AUDIO_MASTER_ROW_OFFSET = 74f;
     static final float SHORTCUT_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_GAP = 14f;
@@ -161,14 +157,27 @@ final class GdxSettingsLayout {
     }
 
     /**
-     * Applies the same content padding and optional hierarchy indentation in
-     * the menu and live-table renderers.
+     * Applies one full-width geometry to every setting. Parent-child
+     * relationships affect availability, never alignment or usable width.
      */
     static Rectangle optionRow(float x, float y, float width,
             boolean child) {
-        float indent = child ? CHILD_ROW_INDENT : 0f;
-        return new Rectangle(x + indent, y,
-                width - indent, ROW_HEIGHT);
+        return new Rectangle(x, y, width, ROW_HEIGHT);
+    }
+
+    /** Right-aligned value lane shared by compact choice rows. */
+    static ChoiceRow choiceRow(float x, float y, float width, float height) {
+        Rectangle bounds = new Rectangle(x, y, width, height);
+        float arrowWidth = 54f;
+        Rectangle arrow = new Rectangle(x + width - arrowWidth - 12f,
+                y + 6f, arrowWidth, Math.max(0f, height - 12f));
+        float valueWidth = Math.min(360f, Math.max(190f, width * 0.28f));
+        Rectangle value = new Rectangle(arrow.x - valueWidth - 12f,
+                y + 5f, valueWidth, Math.max(0f, height - 10f));
+        Rectangle label = new Rectangle(x + 22f, y + 5f,
+                Math.max(0f, value.x - x - 44f),
+                Math.max(0f, height - 10f));
+        return new ChoiceRow(bounds, label, value, arrow);
     }
 
     /**
@@ -512,6 +521,10 @@ final class GdxSettingsLayout {
 
     record ToggleRow(Rectangle bounds, Rectangle label, Rectangle value,
             Rectangle toggle) {
+    }
+
+    record ChoiceRow(Rectangle bounds, Rectangle label, Rectangle value,
+            Rectangle arrow) {
     }
 
     record GameColumns(float leftX, float rightX, float width) {

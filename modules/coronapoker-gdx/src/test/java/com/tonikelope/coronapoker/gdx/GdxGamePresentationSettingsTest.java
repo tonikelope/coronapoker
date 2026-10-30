@@ -106,6 +106,9 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.winnerEffectAnimation());
 
         preferences.properties().setProperty("animaciones", "true");
+        preferences.properties().setProperty("cinematicas", "false");
+        preferences.properties().setProperty("cinematicas_allin", "true");
+        preferences.properties().setProperty("cinematicas_gameover", "true");
         preferences.properties().setProperty("animacion_reparto", "true");
         preferences.properties().setProperty("animacion_fuego_allin", "true");
         preferences.properties().setProperty("animacion_efecto_ganador", "true");
@@ -113,12 +116,18 @@ final class GdxGamePresentationSettingsTest {
         assertTrue(settings.allInFireAnimation());
         assertTrue(settings.winnerEffectAnimation());
         assertFalse(settings.flipAnimation());
+        assertTrue(settings.cinematics(),
+                "the retired cinematics master must no longer affect playback");
+        assertTrue(settings.allInCinematics());
+        assertTrue(settings.gameOverCinematics());
 
         preferences.properties().setProperty("animaciones", "false");
         assertFalse(settings.dealAnimation());
         assertFalse(settings.allInFireAnimation());
         assertFalse(settings.winnerEffectAnimation());
         assertFalse(settings.cinematics());
+        assertFalse(settings.allInCinematics());
+        assertFalse(settings.gameOverCinematics());
     }
 
     @Test

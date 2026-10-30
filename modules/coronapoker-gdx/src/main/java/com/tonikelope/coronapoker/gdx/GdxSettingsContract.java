@@ -41,7 +41,7 @@ final class GdxSettingsContract {
             "chat_notifications_ingame";
 
     enum Gate {
-        NONE, SOUND, MUSIC, EFFECTS, ANIMATIONS, CINEMATICS
+        NONE, MUSIC, EFFECTS, ANIMATIONS
     }
 
     enum PerformanceImpact {
@@ -80,6 +80,7 @@ final class GdxSettingsContract {
             case "sonido_ascensor" -> "misc/background_music.mp3";
             case "musica_sala_espera" -> "misc/waiting_room.mp3";
             case "musica_about" -> "misc/about_music.mp3";
+            case "musica_gestor_bots" -> "misc/bots_manager.mp3";
             case "sonido_apostar" -> "misc/bet.wav";
             case "sonido_igualar" -> "misc/call.wav";
             case "sonido_pasar" -> "misc/check.wav";
@@ -122,6 +123,7 @@ final class GdxSettingsContract {
         float volume = switch (option.key()) {
             case "sonido_ascensor" -> 0.4f;
             case "musica_sala_espera", "musica_about" -> 0.9f;
+            case "musica_gestor_bots" -> 0.65f;
             default -> 1f;
         };
         float limit = "sonido_carga_stacks".equals(option.key())
@@ -169,7 +171,7 @@ final class GdxSettingsContract {
      * session operations belong exclusively to the table's fast-access bar.
      */
     static final List<String> WAITING_ROOM_GAME_PAGES = List.of(
-            "CIEGAS", "COMPRA", "RECOMPRA", "BOTS", "PARTIDA", "REGLAS");
+            "CIEGAS", "COMPRA", "BOTS", "REGLAS");
     /**
      * The live table exposes the same semantic pages, order and hierarchy as
      * the waiting room. Controls which cannot safely change mid-hand are
@@ -235,24 +237,47 @@ final class GdxSettingsContract {
     private static final TogglePage AUDIO_VOICE_CHAT_PAGE = page(
             "NOTAS Y CHAT DE VOZ",
             option("voice_messages", "NOTAS DE VOZ", true,
-                    Gate.SOUND),
-            option("tts_server", "VOZ (TTS)", true, Gate.SOUND),
-            option("audio_mic_enabled", "MICRÓFONO", true, Gate.SOUND),
+                    Gate.NONE),
+            option("tts_server", "VOZ (TTS)", true, Gate.NONE),
+            option("audio_mic_enabled", "MICRÓFONO", true, Gate.NONE),
             invertedOption("audio_block_voice_messages",
-                    "NOTAS DE VOZ (LOCAL)", false, Gate.SOUND),
+                    "NOTAS DE VOZ (LOCAL)", false, Gate.NONE),
             option("audio_play_own_voice", "REPRODUCIR MIS NOTAS", true,
-                    Gate.SOUND),
+                    Gate.NONE),
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
-                    Gate.SOUND));
+                    Gate.NONE));
 
     private static final TogglePage AUDIO_DEVICE_PAGE = page(
             "DISPOSITIVOS",
             option(AUDIO_MIC_AUTO_GAIN_KEY,
-                    "GANANCIA AUTOMÁTICA DEL MICRÓFONO", true, Gate.SOUND));
+                    "GANANCIA AUTOMÁTICA DEL MICRÓFONO", true, Gate.NONE));
+    private static final TogglePage APPEARANCE_TABLE_PAGE = page(
+            "MESA",
+            option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
+                    false, Gate.NONE),
+            option("mostrar_coste_igualar", "COSTE DE IGUALAR", true,
+                    Gate.NONE),
+            option("resaltar_jugada_showdown",
+                    "RESALTAR JUGADA EN SHOWDOWN", true, Gate.NONE),
+            option("resaltar_avatares", "RESALTAR AVATARES", false,
+                    Gate.NONE),
+            option("screenshot_fin_timba",
+                    "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
+            option(ANTI_DOS_WARNINGS_KEY,
+                    "MOSTRAR AVISOS ANTIDOS", true, Gate.NONE),
+            option(CHAT_GAME_NOTIFICATIONS_KEY,
+                    "NOTIFICACIONES DE CHAT DURANTE LA PARTIDA", true,
+                    Gate.NONE),
+            option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
+                    Gate.NONE));
     private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
             "ANIMACIONES",
             option("animaciones", "USAR ANIMACIONES", true,
                     Gate.NONE),
+            option("cinematicas_allin", "CINEMÁTICA ALL-IN", true,
+                    Gate.ANIMATIONS),
+            option("cinematicas_gameover", "CINEMÁTICA GAME OVER", true,
+                    Gate.ANIMATIONS),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
             option("animacion_reparto", "REPARTO", true,
@@ -281,16 +306,18 @@ final class GdxSettingsContract {
     private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
                     option("sonidos", "SONIDO", true, Gate.NONE),
-                    option("musica", "MÚSICA", true, Gate.SOUND),
+                    option("musica", "MÚSICA", true, Gate.NONE),
                     option("sonido_efectos", "EFECTOS DE SONIDO", true,
-                            Gate.SOUND),
+                            Gate.NONE),
                     option("sonidos_chorra", "SONIDOS DE COÑA", false,
-                            Gate.SOUND)),
+                            Gate.NONE)),
             page("MÚSICA",
                     option("sonido_ascensor", "AMBIENTE", true, Gate.MUSIC),
                     option("musica_sala_espera", "SALA DE ESPERA", true,
                             Gate.MUSIC),
-                    option("musica_about", "ACERCA DE", true, Gate.MUSIC)),
+                    option("musica_about", "ACERCA DE", true, Gate.MUSIC),
+                    option("musica_gestor_bots", "GESTOR DE BOTS", true,
+                            Gate.MUSIC)),
             page("ACCIONES",
                     option("sonido_apostar", "APOSTAR", true, Gate.EFFECTS),
                     option("sonido_igualar", "IGUALAR", true, Gate.EFFECTS),
@@ -372,33 +399,7 @@ final class GdxSettingsContract {
 
     /** Appearance switches shared with Swing; choice controls are separate. */
     static final List<TogglePage> APPEARANCE_PAGES = List.of(
-            page("CINEMÁTICAS",
-                    option("cinematicas", "USAR CINEMÁTICAS", true,
-                            Gate.NONE),
-                    option("cinematicas_allin", "ALL-IN", true,
-                            Gate.CINEMATICS),
-                    option("cinematicas_gameover", "GAME OVER", true,
-                            Gate.CINEMATICS)),
-            APPEARANCE_ANIMATIONS_PAGE,
-            page("INFORMACIÓN",
-                    option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
-                            false, Gate.NONE),
-                    option("mostrar_coste_igualar", "COSTE DE IGUALAR", true,
-                            Gate.NONE),
-                    option("resaltar_jugada_showdown",
-                            "RESALTAR JUGADA EN SHOWDOWN", true, Gate.NONE),
-                    option("resaltar_avatares", "RESALTAR AVATARES", false,
-                            Gate.NONE),
-                    option("screenshot_fin_timba",
-                            "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
-                    option(ANTI_DOS_WARNINGS_KEY,
-                            "MOSTRAR AVISOS ANTIDOS", true, Gate.NONE)),
-            page("CHAT",
-                    option(CHAT_GAME_NOTIFICATIONS_KEY,
-                            "NOTIFICACIONES DURANTE LA PARTIDA", true,
-                            Gate.NONE),
-                    option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
-                            Gate.NONE)));
+            APPEARANCE_ANIMATIONS_PAGE);
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -409,7 +410,8 @@ final class GdxSettingsContract {
     static final List<String> PREFERENCE_KEYS = List.of(
             "sonidos", "master_volume", "musica",
             "sonido_ascensor", "musica_sala_espera", "musica_about",
-            "musica_stats", "sonido_efectos", "sonidos_chorra",
+            "musica_stats", "musica_gestor_bots", "sonido_efectos",
+            "sonidos_chorra",
             "sonido_barajado", "sonido_reparto", "sonido_destape",
             "sonido_destape_mis_cartas", "sonido_apostar", "sonido_fold",
             "sonido_conteo", "sonido_carga_stacks", "sonido_entra",
@@ -565,17 +567,33 @@ final class GdxSettingsContract {
     }
 
     static int audioOptionRow(TogglePage page, int optionIndex) {
-        return audioLeadingRows(page) + optionIndex;
+        int row = audioLeadingRows(page) + optionIndex;
+        return hasMasterVolume(page) && optionIndex > 0 ? row + 1 : row;
     }
 
     /** Every painted audio row participates in the same scroll model. */
     static int audioRowCount(TogglePage page) {
         return audioLeadingRows(page) + page.options().size()
-                + (hasVoiceRetention(page) ? 2 : 0);
+                + (hasVoiceRetention(page) ? 2 : 0)
+                + (hasMasterVolume(page) ? 1 : 0);
+    }
+
+    /** General audio keeps the master switch immediately above its volume. */
+    static boolean hasMasterVolume(TogglePage page) {
+        return page == AUDIO_SOURCE_PAGES.get(0);
+    }
+
+    static int masterVolumeRow(TogglePage page) {
+        if (!hasMasterVolume(page)) {
+            throw new IllegalArgumentException(
+                    "The audio page does not contain master volume");
+        }
+        return 1;
     }
 
     static int voiceRetentionRow(TogglePage page) {
-        return audioLeadingRows(page) + page.options().size();
+        return audioLeadingRows(page) + page.options().size()
+                + (hasMasterVolume(page) ? 1 : 0);
     }
 
     static int voiceActionsRow(TogglePage page) {
@@ -648,6 +666,15 @@ final class GdxSettingsContract {
         return page.options().size()
                 + (hasAppearanceAnimationOptions(page)
                         ? GdxAppearanceOptions.ANIMATION_CHOICES.size() : 0);
+    }
+
+    static TogglePage appearanceTablePage() {
+        return APPEARANCE_TABLE_PAGE;
+    }
+
+    static int appearanceTableRowCount() {
+        return APPEARANCE_PRIMARY_ROW_COUNT
+                + APPEARANCE_TABLE_PAGE.options().size();
     }
 
     static String markDefault(String value, boolean factoryDefault) {
@@ -797,6 +824,10 @@ final class GdxSettingsContract {
             properties.setProperty("color_tapete", "verde");
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
+            for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
+                properties.setProperty(option.key(),
+                        Boolean.toString(option.fallback()));
+            }
             return;
         }
         if (index == 1) {
@@ -832,12 +863,19 @@ final class GdxSettingsContract {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
-            return stringAtDefault(properties, "baraja", "goliat")
+            boolean visualDefaults = stringAtDefault(properties, "baraja",
+                    "goliat")
                     && stringAtDefault(properties, "trasera", "default")
                     && stringAtDefault(properties, "color_tapete", "verde")
                     && stringAtDefault(properties, "nivel_luz",
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
+            if (!visualDefaults) return false;
+            for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
+                if (!booleanAtDefault(properties, option.key(),
+                        option.fallback())) return false;
+            }
+            return true;
         }
         if (index == 1) {
             boolean runtime = booleanAtDefault(properties, "gdx_vsync",
@@ -959,15 +997,11 @@ final class GdxSettingsContract {
                 "sonido_efectos", "true"));
         boolean animations = Boolean.parseBoolean(properties.getProperty(
                 "animaciones", "true"));
-        boolean cinematics = Boolean.parseBoolean(properties.getProperty(
-                "cinematicas", "true"));
         return switch (option.gate()) {
             case NONE -> true;
-            case SOUND -> soundEnabled;
-            case MUSIC -> soundEnabled && music;
-            case EFFECTS -> soundEnabled && effects;
+            case MUSIC -> music;
+            case EFFECTS -> effects;
             case ANIMATIONS -> animations;
-            case CINEMATICS -> animations && cinematics;
         };
     }
 

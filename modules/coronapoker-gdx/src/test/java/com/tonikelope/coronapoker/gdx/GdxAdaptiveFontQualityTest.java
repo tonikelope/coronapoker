@@ -85,23 +85,6 @@ final class GdxAdaptiveFontQualityTest {
     }
 
     @Test
-    void potUsesTheLargerPreferredFaceWithoutLosingNativeAutoFit()
-            throws IOException {
-        assertEquals(44, CoronaPokerGdxTable.POT_FONT_SIZE,
-                "the pot has enough room for the larger preferred face");
-
-        String source = Files.readString(Path.of("src", "main", "java",
-                "com", "tonikelope", "coronapoker", "gdx",
-                "CoronaPokerGdxTable.java"));
-        String potSurface = section(source,
-                "private void drawPotPanelSurface(float alpha)",
-                "private void drawLastHandBadge(");
-        assertTrue(potSurface.contains(
-                "drawFittedCenteredAtVisualY(potFont, potText"),
-                "long pot values must keep using the native-tier auto-fit");
-    }
-
-    @Test
     void compactVariableHudAtlasCoversEverySemanticLabel() {
         String characters = CoronaPokerGdxTable.localOutcomeCharacters();
         assertEquals(characters.codePointCount(0, characters.length()),

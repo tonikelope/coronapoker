@@ -136,6 +136,14 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(localHud.contains("0.78f + haloPulse"));
         assertTrue(localHud.contains("0.72f + haloPulse"));
         assertTrue(localHud.contains("0.58f + haloPulse * 0.06f"));
+        assertFalse(seats.contains("shapes.circle(avatarX"),
+                "avatar discs must not fall back to hard polygon edges");
+        assertTrue(seats.contains("avatarX - AVATAR_OUTER_RADIUS"));
+        assertTrue(seats.contains("avatarX - AVATAR_RIM_RADIUS"));
+        assertTrue(seats.contains("avatarX - AVATAR_INNER_RADIUS"));
+        assertTrue(seats.contains("GdxAntialiasedRoundedRect.fill(shapes"),
+                "all avatar layers use the narrow coverage fringe shared by "
+                + "the rest of the premium UI chrome");
         assertTrue(callCost.contains("isActionableTurn(snapshot"));
         assertTrue(callCost.contains("callCostBorderTint("));
         assertFalse(callCost.contains("liveAnimationsEnabled()"));

@@ -372,6 +372,27 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void onlyRemoteFoldedSeatsReceiveOneCompleteOpacityLayer() {
+        assertEquals(0.70f, CoronaPokerGdxTable.remoteSeatVisualPresence(
+                3, true, 1f), 0.000_001f);
+        assertEquals(0.35f, CoronaPokerGdxTable.remoteSeatVisualPresence(
+                3, true, 0.5f), 0.000_001f,
+                "entry presence and folded opacity compose exactly once");
+        assertEquals(1f, CoronaPokerGdxTable.remoteSeatVisualPresence(
+                0, true, 1f), 0.000_001f,
+                "the local player must remain untouched");
+        assertEquals(1f, CoronaPokerGdxTable.remoteSeatVisualPresence(
+                3, false, 1f), 0.000_001f);
+        assertTrue(CoronaPokerGdxTable.shouldCompositeRemoteFoldedChipRack(
+                true, 0.70f),
+                "overlapping chips must fade only after rack composition");
+        assertFalse(CoronaPokerGdxTable.shouldCompositeRemoteFoldedChipRack(
+                false, 0.70f));
+        assertFalse(CoronaPokerGdxTable.shouldCompositeRemoteFoldedChipRack(
+                true, 1f));
+    }
+
+    @Test
     void avatarRimUsesTurnAccentBeforeAnInactiveVisibleActionColour() {
         Color check = CoronaPokerGdxTable.liveActionColor(
                 TableVisualEvent.PlayerAction.ActionKind.CHECK);
@@ -3428,6 +3449,16 @@ final class GdxTableViewStateTest {
         assertEquals(1f, yellow.g, 0.000_001f);
         assertEquals(1f, warmGold.r, 0.000_001f);
         assertEquals(0.68f, warmGold.g, 0.000_001f);
+    }
+
+    @Test
+    void remoteCallCostNeverEntersTheNicknamePod() {
+        assertEquals(104f, CoronaPokerGdxTable.remoteCallCostBottomY(
+                20f, 100f), 0.000_001f,
+                "the PlayerPod top plus its clearance owns the lower bound");
+        assertEquals(142f, CoronaPokerGdxTable.remoteCallCostBottomY(
+                120f, 100f), 0.000_001f,
+                "a card already clear of the pod keeps its original inset");
     }
 
     @Test

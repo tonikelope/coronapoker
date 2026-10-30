@@ -226,6 +226,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float REMOTE_SEAT_ENTRY_DISTANCE = 56f;
     static final float SEAT_RELAYOUT_SECONDS = 0.52f;
     static final float PARTIAL_HAND_ROLL_SECONDS = 0.150f;
+    static final float REMOTE_FOLDED_SEAT_ALPHA = 0.70f;
     // Disabled cards remain fully coloured. Only their opacity changes, so a
     // folded/losing hand is still readable instead of turning into a muddy
     // near-invisible silhouette.
@@ -506,6 +507,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
+    private static final float REMOTE_CALL_COST_CARD_INSET = 22f;
+    private static final float REMOTE_CALL_COST_POD_CLEARANCE = 4f;
     private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
     private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
     static final int UI_NONE = 0;
@@ -11220,10 +11223,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // with an ordered HandResult is nevertheless in the settled
             // showdown presentation and must keep the full winner/loser
             // treatment instead of being mistaken for a folded seat.
+            boolean foldedThisHand = liveState.foldedThisHand(seat.name);
             boolean folded = shouldDimSeat(livePlayer == null
                     || livePlayer.active(), settledShowdown,
-                    liveState.foldedThisHand(seat.name));
-            float visualPresence = presence;
+                    foldedThisHand);
+            float visualPresence = remoteSeatVisualPresence(seat.index,
+                    foldedThisHand, presence);
             boolean timedOut = livePlayer != null && livePlayer.timedOut();
             String actionLabel = lastActionLabelForSeat(seat.index);
             boolean showActionSurface = seat.index == 0
@@ -11302,16 +11307,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.setColor(PANEL.r, PANEL.g, PANEL.b,
                     PANEL.a * visualPresence);
             float avatarX = seatAvatarX(seat);
-            shapes.circle(avatarX, seat.y, AVATAR_OUTER_RADIUS, 48);
+            GdxAntialiasedRoundedRect.fill(shapes,
+                    avatarX - AVATAR_OUTER_RADIUS,
+                    seat.y - AVATAR_OUTER_RADIUS,
+                    AVATAR_OUTER_RADIUS * 2f, AVATAR_OUTER_RADIUS * 2f,
+                    AVATAR_OUTER_RADIUS);
             Color avatarRim = avatarRimColor(settledWinner,
                     settledShowdown, partialWinner, active,
                     showActionSurface, actionColor);
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
-            shapes.circle(avatarX, seat.y, AVATAR_RIM_RADIUS, 48);
+            GdxAntialiasedRoundedRect.fill(shapes,
+                    avatarX - AVATAR_RIM_RADIUS,
+                    seat.y - AVATAR_RIM_RADIUS,
+                    AVATAR_RIM_RADIUS * 2f, AVATAR_RIM_RADIUS * 2f,
+                    AVATAR_RIM_RADIUS);
             shapes.setColor(SEAT_INNER.r, SEAT_INNER.g, SEAT_INNER.b,
                     SEAT_INNER.a * visualPresence);
-            shapes.circle(avatarX, seat.y, AVATAR_INNER_RADIUS, 48);
+            GdxAntialiasedRoundedRect.fill(shapes,
+                    avatarX - AVATAR_INNER_RADIUS,
+                    seat.y - AVATAR_INNER_RADIUS,
+                    AVATAR_INNER_RADIUS * 2f, AVATAR_INNER_RADIUS * 2f,
+                    AVATAR_INNER_RADIUS);
         }
         shapes.end();
 
@@ -11323,7 +11340,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             Texture avatar = tableAvatar(seat.name);
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            float visualPresence = presence;
+            boolean foldedThisHand = liveState.foldedThisHand(seat.name);
+            float visualPresence = remoteSeatVisualPresence(seat.index,
+                    foldedThisHand, presence);
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.flush();
             batch.setShader(avatarShader);
@@ -11334,7 +11353,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
-                drawSeatChipStack(seat, visualPresence);
+                drawSeatChipStack(seat, visualPresence, foldedThisHand);
             }
             batch.setColor(1f, 1f, 1f, visualPresence);
             if (seat.index != 0) {
@@ -11441,13 +11460,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Drawn inside an active SpriteBatch. */
     private void drawSeatChipStack(Seat seat, float alpha) {
+        drawSeatChipStack(seat, alpha, false);
+    }
+
+    /** Drawn inside an active SpriteBatch. */
+    private void drawSeatChipStack(Seat seat, float alpha,
+            boolean compositeWholeRack) {
         GdxStackChipLayout.Layout layout = stackChipLayout(seat);
         float[] physicalCounts = animatedStackChipCounts(seat, layout);
         StackChipRackGeometry geometry = stackChipRackGeometry(
                 seat.index == 0);
         int rackSeed = seat.name.hashCode();
+        // Apply the folded-seat alpha once to the completed rack. Fading each
+        // overlapping chip independently would make intersections darker and
+        // reveal the felt through a physical stack.
+        boolean composite = hasVisibleStackChips(physicalCounts)
+                && shouldCompositeRemoteFoldedChipRack(compositeWholeRack,
+                        alpha)
+                && beginChipRackComposite(seat.stackX, seat.stackY);
         drawChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
-                alpha, geometry, rackSeed);
+                composite ? 1f : alpha, geometry, rackSeed);
+        if (composite) {
+            finishChipRackComposite(seat.stackX, seat.stackY, alpha);
+        }
+    }
+
+    static boolean shouldCompositeRemoteFoldedChipRack(
+            boolean foldedThisHand, float alpha) {
+        return foldedThisHand && shouldCompositeChipRack(alpha);
+    }
+
+    static float remoteSeatVisualPresence(int seatIndex,
+            boolean foldedThisHand, float presence) {
+        return seatIndex > 0 && foldedThisHand
+                ? presence * REMOTE_FOLDED_SEAT_ALPHA : presence;
     }
 
     static boolean shouldCompositePotChipRack(float alpha) {
@@ -14937,10 +14983,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 right.y - right.height / 2f);
         float maxY = Math.max(left.y + left.height / 2f,
                 right.y + right.height / 2f);
-        // Keep the river aggressor's call amount visibly detached from the
-        // PlayerPod name row. The positional puck may sit behind this overlay;
-        // preserving a clean nickname is the stronger visual contract.
-        drawCallCostText(minX, minY + 22f, maxX - minX, maxY - minY);
+        // The cards emerge from behind the PlayerPod. Keep the complete call
+        // amount above its top edge so not one glyph can enter the nickname
+        // row; the positional puck may still sit behind this overlay.
+        float callY = remoteCallCostBottomY(minY,
+                aggressor.podY + PLAYER_POD_HEIGHT);
+        drawCallCostText(minX, callY, maxX - minX, maxY - minY);
+    }
+
+    static float remoteCallCostBottomY(float cardBottomY, float podTopY) {
+        return Math.max(cardBottomY + REMOTE_CALL_COST_CARD_INSET,
+                podTopY + REMOTE_CALL_COST_POD_CLEARANCE);
     }
 
     private static boolean firstTwoHoleCardsRemainCovered(

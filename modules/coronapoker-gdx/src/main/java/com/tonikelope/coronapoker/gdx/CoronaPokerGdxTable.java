@@ -404,6 +404,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float POT_STACK_CHIP_DEPTH_RISE_RATIO = 0.60f;
     private static final int STACK_CHIP_MAX_COMPRESSED_LEVELS = 24;
     private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
+    static final int POT_FONT_SIZE = 44;
     private static final float POT_PANEL_WIDTH = 390f;
     private static final float POT_CHIP_RACK_CENTER_OFFSET = 52f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
@@ -3430,7 +3431,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
             case 18 -> settingsTinyFont = font(creationFontGenerator,
                     GdxSettingsStyle.TINY_FONT_SIZE, 0f);
-            case 19 -> potFont = font(creationFontGenerator, 38, 0f);
+            case 19 -> potFont = font(creationFontGenerator,
+                    POT_FONT_SIZE, 0f);
             case 20 -> dialogAmountFont = font(creationFontGenerator, 50, 0f);
             case 21 -> localOutcomeMediumFont = cacheLocalOutcomeFont(53,
                     localOutcomeFont(creationFontGenerator, 53));
@@ -4052,7 +4054,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxVolumeOverlayStyle.FONT_SIZE,
                     GdxVolumeOverlayStyle.FONT_BORDER, profile));
             potFont = replaceFont(potFont,
-                    font(generator, 38, 0f, profile));
+                    font(generator, POT_FONT_SIZE, 0f, profile));
             smallFont = replaceFont(smallFont,
                     font(generator, 21, 0.8f, profile));
             versionFont = replaceFont(versionFont, font(generator,

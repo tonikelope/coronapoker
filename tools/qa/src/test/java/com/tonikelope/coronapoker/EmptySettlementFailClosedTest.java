@@ -15,7 +15,7 @@ class EmptySettlementFailClosedTest {
         String source = Files.readString(locateRoot().resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
-        assertTrue(source.contains("Empty settlement table; refusing receipt and SQL close"));
+        assertTrue(source.contains("failSettlementConsensus(\"EMPTY_SETTLEMENT_TABLE\""));
         assertFalse(source.contains("if (entries.isEmpty()) {\n                    return true;"));
     }
 

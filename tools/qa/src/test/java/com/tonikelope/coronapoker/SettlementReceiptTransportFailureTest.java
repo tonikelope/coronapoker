@@ -16,8 +16,9 @@ public class SettlementReceiptTransportFailureTest {
 
         assertTrue(source.contains("private boolean emitOwnReceipt(byte[] localReceipt)"));
         assertTrue(source.contains("if (localReceipt == null || !emitOwnReceipt(localReceipt))"));
-        assertTrue(source.contains("HANDVERIFY receipt relay failed; refusing SQL close"));
-        assertTrue(source.contains("return false; // receipt relay is a settlement barrier"));
+        assertTrue(source.contains("\"LOCAL_HANDVERIFY_RECEIPT_NOT_DELIVERED\""));
+        assertTrue(source.contains("broadcastGAMECommandFromServer(subcommand, r[2], true)"));
+        assertTrue(source.contains("\"HANDVERIFY_RECEIPT_RELAY_FAILED\""));
     }
 
     private static Path locateRoot() {

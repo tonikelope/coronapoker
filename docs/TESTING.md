@@ -103,7 +103,7 @@ The process-loss matrix is deliberately bidirectional. `abrupt-exit` proves
 that the authoritative host can recover from definitive client loss, while
 `host-abrupt-exit` kills the host JVM during both active play and a warming hot
 join. Every surviving client must receive one terminal table failure, agree on
-the last conserved ledger and close as `FAILURE`; a dead authority can never
+the last conserved ledger and close as `FAILURE`. A dead authority can never
 leave a renderer or dealer waiting indefinitely.
 
 ### Versioned local builds

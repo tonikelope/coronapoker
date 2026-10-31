@@ -124,8 +124,9 @@ final class GdxTableShortcutTest {
         assertFalse(source.substring(liveInput, liveInputEnd)
                         .contains("maybeExecuteQueuedPreAction("),
                 "AUTO must not depend on live-table pointer routing");
-        assertTrue(source.contains("autoActionUsesForegroundDialog()"),
-                "AUTO needs a visible top layer while a utility is open");
+        assertTrue(source.contains(
+                "if (dialog == null || dialog.isAutoAction()) return;"),
+                "AUTO must remain underneath foreground utilities");
     }
 
     @Test

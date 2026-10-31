@@ -11,6 +11,9 @@ public interface GameDatabase {
 
     Connection connection() throws SQLException;
 
+    /** Human-readable persistent database location for forensic notices. */
+    String databaseLocation();
+
     int recoveryGameId();
 
     void persistRecoverySettings(int gameId);
@@ -27,6 +30,7 @@ public interface GameDatabase {
         @Override public Connection connection() {
             throw new IllegalStateException("Game database is not installed");
         }
+        @Override public String databaseLocation() { return ""; }
         @Override public int recoveryGameId() { return -1; }
         @Override public void persistRecoverySettings(int gameId) { }
     }

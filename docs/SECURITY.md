@@ -300,7 +300,32 @@ The host gathers receipts from the currently expected human signers and relays t
 
 `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN` are gating failures. Consensus returns false, transmission ends, and neither `sqlUpdateHandEnd` nor the post-hand reset/advance runs. The already-computed payout objects remain intact in memory and the SQL hand stays open for recovery. This stage deliberately does not refund or settle a second time. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes that allow close because the separate proof gate already failed closed before any unsafe community unlock/reveal. A clean OK still requires every signature to verify, every `H_final` to match and every flag to be clear.
 
-Every consensus anomaly is logged into `disputed_hands` (`DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_NO_PROOF`, `DECK_UNVERIFIED`). A local conservation failure occurs earlier and emits no receipt. In all gating cases, the hand is preserved open rather than unwound, providing recoverable state without risking a double settlement.
+Every consensus anomaly is logged into `disputed_hands` (`DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_NO_PROOF`, `DECK_UNVERIFIED`). A local conservation failure occurs earlier and emits no receipt. In all settlement-consensus gating cases, the hand is preserved open rather than unwound, providing recoverable state without risking a double settlement.
+
+### 6.1 Fatal Zero Trust incident contract
+
+Fatal security exits share one product contract even though their financial
+rollback depends on the phase in which the anomaly is detected. Before the
+table can navigate away, CoronaPoker records a complete English evidence report
+in `disputed_hands`, mirrors the exact report to
+`logs/zero_trust_evidence_<timestamp>.log`, prints it between explicit evidence
+delimiters in the persistent game log and debug output, classifies the session
+as `FAILURE`, and waits for the player to acknowledge the Zero Trust alert.
+
+| Detection family | Example | Hand state after rejection | Multiprocess certification |
+|---|---|---|---|
+| Pre-settlement cryptographic abort | verified-deal gate rejects before betting | Refund and close as MISDEAL | `preSettlementCryptoAbortAlertsPersistsEvidenceAndClosesTheHand` |
+| Local security lockdown | invalid SRA cascade, rotation or unlock proof | Preserve the open hand for recovery | `localSecurityLockdownAlertsPersistsEvidenceAndPreservesTheHand` |
+| Settlement receipt consensus | divergent, missing or invalid signed receipt | Preserve the open hand for recovery | `divergentReceiptStopsAsRecoverableFailureWithCompleteEvidence` and its receipt variants |
+| Authenticated between-hand boundary | malformed or inconsistent next-hand balance snapshot | Reject the already-closed boundary and do not start another hand | `authenticatedHandBoundaryRejectionAlertsBeforeTransportClose` |
+
+The tests do not accept process termination as proof. They assert that the alert
+appears before shutdown, that the process remains alive until an explicit ACK,
+that SQLite, evidence file and persistent debug log contain the report, that the
+session ends as `FAILURE`, and that the SQL hand is open or closed exactly as
+required by the phase. Existing hot-join consensus scenarios additionally prove
+that a newly admitted signer participates in the next active hand while a
+warming observer neither signs nor fabricates local evidence.
 
 ---
 

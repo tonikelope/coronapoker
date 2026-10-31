@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -138,12 +139,16 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(localHud.contains("0.58f + haloPulse * 0.06f"));
         assertFalse(seats.contains("shapes.circle(avatarX"),
                 "avatar discs must not fall back to hard polygon edges");
-        assertTrue(seats.contains("avatarX - AVATAR_OUTER_RADIUS"));
-        assertTrue(seats.contains("avatarX - AVATAR_RIM_RADIUS"));
-        assertTrue(seats.contains("avatarX - AVATAR_INNER_RADIUS"));
-        assertTrue(seats.contains("GdxAntialiasedRoundedRect.fill(shapes"),
-                "all avatar layers use the narrow coverage fringe shared by "
-                + "the rest of the premium UI chrome");
+        assertEquals(1, count(seats,
+                "GdxAntialiasedRoundedRect.fillCircle(shapes, avatarX"),
+                "every avatar must have exactly one continuous state ring");
+        assertFalse(seats.contains("AVATAR_RIM_RADIUS"));
+        assertFalse(seats.contains("AVATAR_INNER_RADIUS"));
+        assertTrue(table.contains("private static final float AVATAR_SIZE = 94f;"),
+                "the single ring must leave most of its footprint to the avatar");
+        assertTrue(table.contains(
+                "private static final float AVATAR_OUTER_RADIUS = 52f;"),
+                "thinning the ring must not move or shrink the seat footprint");
         assertTrue(callCost.contains("isActionableTurn(snapshot"));
         assertTrue(callCost.contains("callCostBorderTint("));
         assertFalse(callCost.contains("liveAnimationsEnabled()"));
@@ -195,6 +200,16 @@ final class GdxWinnerAuraCompositionContractTest {
         int end = source.indexOf(endText, start);
         assertTrue(start >= 0 && end > start);
         return source.substring(start, end);
+    }
+
+    private static int count(String source, String needle) {
+        int matches = 0;
+        int offset = 0;
+        while ((offset = source.indexOf(needle, offset)) >= 0) {
+            matches++;
+            offset += needle.length();
+        }
+        return matches;
     }
 
     private static Path source() {

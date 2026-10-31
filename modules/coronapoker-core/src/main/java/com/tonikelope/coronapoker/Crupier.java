@@ -2696,7 +2696,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         ShuffleProofGateDecision proof = awaitShuffleProofGate(
                 UNLOCK_PHASE_POCKET, SHUFFLE_PROOF_GATE_TIMEOUT_MS);
-        if (shuffleProofStartDecision(proof) == ShuffleProofStartDecision.START_BETTING) {
+        if (shuffleProofStartDecision(proof)
+                == ShuffleProofStartDecision.START_BETTING) {
+            if (takeZeroTrustQaFault("misdeal")) {
+                cancelarManoYDevolverApuestas(
+                        "zero_trust.qa_pre_settlement_fault");
+                return false;
+            }
+            if (takeZeroTrustQaFault("lockdown")) {
+                triggerSecurityLockdown(game_text.translate(
+                        "zero_trust.qa_lockdown_fault"));
+                return false;
+            }
             return true;
         }
         // A voluntary/authoritative table shutdown may interrupt the proof
@@ -2710,6 +2721,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 "ZERO-TRUST: refusing to start betting without a verified honest-shuffle proof");
         cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
         return false;
+    }
+
+    /**
+     * Explicit multiprocess fault seam. Both a mode and an exact local
+     * nickname are required, and each dealer may consume it only once.
+     */
+    private synchronized boolean takeZeroTrustQaFault(String mode) {
+        if (zero_trust_qa_fault_injected) return false;
+        String selectedNick = System.getProperty(
+                "coronapoker.qa.zeroTrustFaultNick", "").trim();
+        if (!selectedNick.equals(gameSession().localNickname())) return false;
+        String selectedMode = System.getProperty(
+                "coronapoker.qa.zeroTrustFault", "").trim()
+                .toLowerCase(java.util.Locale.ROOT);
+        if (!mode.equals(selectedMode)) return false;
+        zero_trust_qa_fault_injected = true;
+        LOGGER.log(Level.INFO,
+                "QA Zero Trust fault armed: mode={0}, nick={1}",
+                new Object[]{mode, selectedNick});
+        return true;
     }
 
     private boolean localParticipatesInCurrentCryptoHand() {
@@ -2930,6 +2961,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "ZERO-TRUST security lockdown: {0}", fullReason);
             game_log.print(game_text.translate("zero_trust.security_alert") + " " + fullReason);
             game_log.print(game_text.translate("zero_trust.lockdown_activated"));
+            final String evidenceLocation = recordFatalZeroTrustIncident(
+                    ZeroTrustIncidentContract.SECURITY_LOCKDOWN,
+                    "SECURITY_LOCKDOWN " + forensicToken(reason), Map.of(),
+                    currentHandFinalHash());
+
+            // Fence the dealer before the transport is closed. The alert runs
+            // asynchronously so the UI stays responsive, but no game-loop path
+            // may start another hand or reach a secondary transport exception
+            // while the mandatory Zero Trust acknowledgement is pending.
+            synchronized (protocol_state_lock) {
+                this.termination_pending = true;
+                protocol_state_lock.notifyAll();
+            }
 
             // If we're the client, close the socket to the host immediately. In lockdown
             // the client refuses any further REQ_SRA_UNLOCK_CHAIN, and the SRA cascade has
@@ -2947,7 +2991,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_async.execute(() -> {
                 awaitDialog(game_dialogs.showZeroTrustAlert(
                         fullReason + "\n\n"
-                        + game_text.translate("zero_trust.critical_alert_body"),
+                        + game_text.translate("zero_trust.critical_alert_body")
+                        + "\n\n" + MessageFormat.format(
+                                game_text.translate(
+                                        "zero_trust.evidence_location"),
+                                evidenceLocation),
                         zeroTrustPopupWidth()));
                 // After the lockdown popup, the game is over for this peer. The HOST finds
                 // out via the dropped socket + failed cascade -> broadcasts SERVEREXIT to
@@ -4396,6 +4444,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // readyForNextHand.
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
+    private volatile byte[] last_closed_hand_final_hash = null;
     // Bounded, local-only forensic trail. Unlike DEBUG_HANDCHAIN this emits no
     // network traffic (and no per-action I/O), so it cannot alter table timing.
     // It is dumped only when consensus detects a real divergence.
@@ -4403,6 +4452,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final boolean HAND_CHAIN_TRACE_ENABLED
             = Boolean.getBoolean("coronapoker.qa.handchainTrace");
     private final ArrayList<String> hand_chain_trace = new ArrayList<>();
+    private boolean zero_trust_qa_fault_injected = false;
     // Card-bound Ed25519 proofs already verified during this hand (for example,
     // an all-in human who leaves voluntarily before the board finishes). Both
     // halves are hand state, not connection state: the peer controller may be
@@ -11928,7 +11978,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // cut when the popup closes (finally). Other aborts (peer/protocol, straddle, RIT) are
         // routine — a single warning sound is enough. Each gated by its own settings checkbox.
         boolean peligro_grave = motivo != null && motivo.startsWith("zero_trust.");
+        String zeroTrustEvidenceLocation = null;
         if (peligro_grave) {
+            zeroTrustEvidenceLocation = recordFatalZeroTrustIncident(
+                    ZeroTrustIncidentContract.PRE_SETTLEMENT_ABORT,
+                    motivo, Map.of(), currentHandFinalHash());
             if (presentation_settings.errorSound()) {
                 game_audio.startDangerAlertLoop("misc/danger_alert.wav");
             }
@@ -11955,6 +12009,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String message = game_text.translate("game.mano_anulada")
                     + " " + game_text.translate(motivo) + "\n\n<b>"
                     + game_text.translate("game.mano_anulada_footer") + "</b>";
+            if (peligro_grave) {
+                message += "\n\n" + MessageFormat.format(
+                        game_text.translate("zero_trust.evidence_location"),
+                        zeroTrustEvidenceLocation);
+            }
             awaitDialog(peligro_grave
                     ? game_dialogs.showZeroTrustAlert(message,
                             zeroTrustPopupWidth())
@@ -12467,9 +12526,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean passiveObserver) {
         if ("*".equals(wire)) {
             if (passiveObserver) {
-                LOGGER.log(Level.SEVERE,
-                        "RECOVER: passive observer received no mandatory next-hand balance snapshot");
-                return false;
+                return failZeroTrustHandBoundary(
+                        "PASSIVE_OBSERVER_MISSING_NEXT_HAND_BALANCE", null);
             }
             this.next_hand_balance_wire = null;
             return true;
@@ -12479,16 +12537,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 = RecoveryBalanceReconciler.parseObserver(wire,
                         java.util.Set.of());
         if (!decoded.isOk()) {
-            LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: malformed next-hand balance barrier: {0}",
-                    decoded.error());
-            return false;
+            return failZeroTrustHandBoundary(
+                    "MALFORMED_NEXT_HAND_BALANCE error="
+                    + forensicToken(decoded.error()), null);
         }
         String canonical = RecoveryBalanceReconciler.encode(decoded);
         if (!canonical.equals(wire)) {
-            LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: non-canonical next-hand balance snapshot");
-            return false;
+            return failZeroTrustHandBoundary(
+                    "NON_CANONICAL_NEXT_HAND_BALANCE", null);
         }
 
         /*
@@ -12503,8 +12559,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             localRows = collectNextHandBalanceRows();
         } catch (IllegalArgumentException ex) {
-            LOGGER.log(Level.SEVERE,
-                    "Cannot validate next-hand balance snapshot", ex);
+            containTableFailure(ex);
             return false;
         }
         String localNickname = gameSession().localNickname();
@@ -12528,10 +12583,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         "QA NEXT_HAND_BALANCE_REJECT hand={0} passive={1} local={2} wire={3}",
                         new Object[]{this.getMano(), passiveObserver, localRows, wire});
             }
-            LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: next-hand balance barrier rejected: {0}",
-                    verified.isOk() ? "ROSTER_MISMATCH" : verified.error());
-            return false;
+            return failZeroTrustHandBoundary(
+                    "NEXT_HAND_BALANCE_REJECTED reason="
+                    + forensicToken(verified.isOk() ? "ROSTER_MISMATCH"
+                            : verified.error()), null);
+        }
+
+        final long canonicalRemainderCents;
+        try {
+            canonicalRemainderCents
+                    = RecoveryBalanceReconciler.unallocatedCents(verified);
+        } catch (IllegalArgumentException ex) {
+            return failZeroTrustHandBoundary(
+                    "NEXT_HAND_BALANCE_MONEY_CONSERVATION", ex);
+        }
+
+        if (!passiveObserver) {
+            final long localRemainderCents;
+            synchronized (lock_contabilidad) {
+                localRemainderCents
+                        = settlementAmountToCents(this.bote_sobrante);
+            }
+            if (localRemainderCents != canonicalRemainderCents) {
+                return failZeroTrustHandBoundary(
+                        "NEXT_HAND_REMAINDER_MISMATCH local="
+                        + localRemainderCents + " canonical="
+                        + canonicalRemainderCents, null);
+            }
         }
 
         if (passiveObserver) {
@@ -12592,8 +12670,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.rebuy_committed, verified.balances().keySet());
             this.auditor.clear();
             this.auditor.putAll(replacementAuditor);
+            synchronized (lock_contabilidad) {
+                this.bote_sobrante = MoneyMath.clean(
+                        canonicalRemainderCents / 100d);
+            }
             LOGGER.log(Level.INFO,
-                    "RECOVER: applied verified closing balances before observer admission");
+                    "RECOVER: applied verified closing balances and remainder ({0} cents) before observer admission",
+                    canonicalRemainderCents);
         }
         this.next_hand_balance_wire = canonical;
         return true;
@@ -12805,6 +12888,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.current_hand_id = null;
         }
 
+        // Preserve the authenticated closing hash across the between-hand
+        // boundary. The live chain is intentionally cleared below, but a
+        // rejected NEXT_HAND_BALANCE still belongs to the just-closed SQL hand
+        // and its forensic row must retain that hand's final hash.
+        byte[] closingHandHash = currentHandFinalHash();
+        if (closingHandHash != null) {
+            this.last_closed_hand_final_hash = closingHandHash;
+        }
+
         // Identity: the per-hand chain belongs to the hand that just ended. The
         // new hand seeds a fresh chain after its MEGAPACKET arrives.
         this.hand_state_chain = null;
@@ -12912,6 +13004,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
+            /*
+             * Snapshot the already-settled odd-chip remainder before taking
+             * lock_game_broadcast.  The broadcast lock is deliberately never
+             * nested under lock_contabilidad elsewhere in the table, so doing
+             * this first preserves the established lock order.  The value is
+             * immutable throughout this next-hand barrier.
+             */
+            final long hostRemainderCents;
+            synchronized (lock_contabilidad) {
+                hostRemainderCents = settlementAmountToCents(
+                        this.bote_sobrante);
+            }
+
             // Host tells everyone they can start processing the SRA cascade. Once a
             // completed/recovered hand exists, the same ordered barrier also carries
             // the exact effective stacks for the next hand. Existing clients verify;
@@ -12950,7 +13055,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 }
+                if (!"*".equals(boundaryWire)) {
+                    RecoveryBalanceReconciler.Result hostBoundary
+                            = RecoveryBalanceReconciler.parseObserver(
+                                    boundaryWire, java.util.Set.of());
+                    long encodedRemainderCents;
+                    try {
+                        encodedRemainderCents
+                                = RecoveryBalanceReconciler.unallocatedCents(
+                                        hostBoundary);
+                    } catch (IllegalArgumentException invalidBoundary) {
+                        failZeroTrustHandBoundary(
+                                "HOST_NEXT_HAND_BALANCE_MONEY_CONSERVATION",
+                                invalidBoundary);
+                        setFin_de_la_transmision(true);
+                        return;
+                    }
+                    if (encodedRemainderCents != hostRemainderCents) {
+                        String reason = "HOST_NEXT_HAND_REMAINDER_MISMATCH local="
+                                + hostRemainderCents + " encoded="
+                                + encodedRemainderCents;
+                        failZeroTrustHandBoundary(reason, null);
+                        setFin_de_la_transmision(true);
+                        return;
+                    }
+                }
                 int nextHand = this.conta_mano + 1;
+                if (this.conta_mano >= 1
+                        && takeZeroTrustQaFault("boundary")) {
+                    // Deliberately malformed authenticated payload used only
+                    // by the multiprocess Zero Trust contract scenario.
+                    boundaryWire = "QA_INVALID_NEXT_HAND_BALANCE";
+                }
                 String boundaryCommand = "START_SRA_CASCADE#" + nextHand
                         + "#" + boundaryWire;
                 broadcastGAMECommandFromServerLocked(
@@ -12999,9 +13135,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String[] partes = comando.split("#", -1);
                         if (partes.length >= 3 && partes[2].equals("START_SRA_CASCADE")) {
                             if (!startCascadeSignalHasCurrentShape(partes)) {
-                                LOGGER.log(Level.SEVERE,
-                                        "Malformed critical START_SRA_CASCADE; closing host channel");
                                 this.received_commands.reject(comando);
+                                failZeroTrustHandBoundary(
+                                        "MALFORMED_START_SRA_CASCADE command_b64="
+                                        + Base64.getEncoder().encodeToString(
+                                                comando.getBytes(
+                                                        java.nio.charset.StandardCharsets.UTF_8)),
+                                        null);
                                 setFin_de_la_transmision(true);
                                 game_transport.closeHostConnection();
                                 return;
@@ -13011,11 +13151,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             int locallyExpectedHand = this.conta_mano + 1;
                             if (!discardObservedHandCommands
                                     && nextHand != locallyExpectedHand) {
-                                LOGGER.log(Level.SEVERE,
-                                        "Regressive or skipped START_SRA_CASCADE hand: expected {0}, received {1}",
-                                        new Object[]{locallyExpectedHand,
-                                            nextHand});
                                 this.received_commands.reject(comando);
+                                failZeroTrustHandBoundary(
+                                        "START_SRA_CASCADE_ORDINAL_MISMATCH expected="
+                                        + locallyExpectedHand + " received="
+                                        + nextHand, null);
                                 setFin_de_la_transmision(true);
                                 game_transport.closeHostConnection();
                                 return;
@@ -16085,6 +16225,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // warns the table) from "slow peer still verifying" (benign, forensic evidence only). Also signed.
     private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
+    private record HostConsensusDecision(boolean allowsClose, String reason) {
+    }
+
     /**
      * Consensus barrier — runs BEFORE the payout, once per hand in each
      * showdown branch. The host fires the bare {@code HANDVERIFY} trigger and
@@ -16211,10 +16354,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && shuffleProofGateDecision(UNLOCK_PHASE_POCKET, local_mega_packet,
                 dual_lock_expect_bundle_for, dual_lock_verified_megapacket,
                 dual_lock_failed_megapacket) != ShuffleProofGateDecision.ALLOW) {
-            LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: refusing final receipt without this hand's verified shuffle proof");
-            setFin_de_la_transmision(true);
-            return false;
+            return failSettlementConsensus(
+                    "LOCAL_SHUFFLE_PROOF_NOT_VERIFIED", Map.of(),
+                    currentHandFinalHash(), null);
         }
         final java.util.List<SettlementRecord.Entry> entries;
         final long closingRemainderCents;
@@ -16222,24 +16364,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             entries = collectSettlementEntries();
             closingRemainderCents = settlementAmountToCents(this.bote_sobrante);
             if (entries.isEmpty()) {
-                LOGGER.log(Level.SEVERE,
-                        "Empty settlement table; refusing receipt and SQL close");
-                setFin_de_la_transmision(true);
-                return false;
+                return failSettlementConsensus("EMPTY_SETTLEMENT_TABLE",
+                        Map.of(), currentHandFinalHash(), null);
             }
             if (this.settlement_accounting_invalid || !SettlementRecord.amountsBalance(
                     entries, this.opening_remainder_cents, closingRemainderCents)) {
-                LOGGER.log(Level.SEVERE,
-                        "SETTLEMENT CONSERVATION FAILED: hand={0}, opening={1}, closing={2}; refusing receipt and SQL close",
-                        new Object[]{getMano(), this.opening_remainder_cents, closingRemainderCents});
-                setFin_de_la_transmision(true);
-                return false;
+                return failSettlementConsensus(
+                        "SETTLEMENT_CONSERVATION_FAILED opening="
+                        + this.opening_remainder_cents + " closing="
+                        + closingRemainderCents, Map.of(),
+                        currentHandFinalHash(), null);
             }
         } catch (RuntimeException ex) {
-            LOGGER.log(Level.SEVERE,
-                    "Unable to validate settlement conservation; refusing receipt and SQL close", ex);
-            setFin_de_la_transmision(true);
-            return false;
+            return failSettlementConsensus(
+                    "SETTLEMENT_CONSERVATION_VALIDATION_FAILED", Map.of(),
+                    currentHandFinalHash(), ex);
         }
 
         try {
@@ -16248,10 +16387,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // existed at hand-close. Every supported session must have one.
             final HandStateChain chainSnap = this.hand_state_chain;
             if (chainSnap == null) {
-                LOGGER.log(Level.SEVERE,
-                        "Missing hand-state chain at settlement; refusing SQL close");
-                setFin_de_la_transmision(true);
-                return false;
+                return failSettlementConsensus(
+                        "MISSING_HAND_STATE_CHAIN_AT_SETTLEMENT", Map.of(),
+                        null, null);
             }
 
             // Absorb this peer's settlement table as the chain's terminal record, fixing
@@ -16274,10 +16412,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // barrier. Without both, different peers could independently authorize SQL close.
             byte[] localReceipt = buildLocalReceipt(handIdSnap, hFinalSnap);
             if (localReceipt == null || !emitOwnReceipt(localReceipt)) {
-                LOGGER.log(Level.SEVERE,
-                        "Local HANDVERIFY receipt was not delivered; refusing SQL close");
-                setFin_de_la_transmision(true);
-                return false;
+                Map<String, byte[]> localEvidence = localReceipt == null
+                        ? Map.of() : Map.of(gameSession().localNickname(),
+                                localReceipt);
+                return failSettlementConsensus(
+                        "LOCAL_HANDVERIFY_RECEIPT_NOT_DELIVERED",
+                        localEvidence, hFinalSnap, null);
             }
 
             final Set<String> expected = computeExpectedConsensusSigners();
@@ -16289,6 +16429,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             long deadline = System.currentTimeMillis() + GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS;
             boolean isHost = gameSession().isHost();
+            HostConsensusDecision earlyHostDecision = null;
 
             // Identity: relays are collected inside the
             // synchronized block and dispatched OUTSIDE it. The relay broadcast
@@ -16303,6 +16444,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.ArrayList<String[]> pendingRelays = new java.util.ArrayList<>();
             while (System.currentTimeMillis() < deadline
                     && !receipts.keySet().containsAll(expected)
+                    && (earlyHostDecision == null
+                            || earlyHostDecision.allowsClose())
                     && !isFin_de_la_transmision()) {
                 if (receipts.keySet().containsAll(expected)) {
                     break;
@@ -16310,12 +16453,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 pendingRelays.clear();
                 boolean misdealAbort = false;
                 String misdealMotivo = "";
+                String criticalReceiptFailure = null;
                 synchronized (this.getReceived_commands()) {
                     ArrayList<String> rejected = new ArrayList<>();
                     int scanLimit = criticalHandverifySnapshotSize(this.getReceived_commands());
                     int drainedHandverify = 0;
                     while (!this.getReceived_commands().isEmpty()
                             && drainedHandverify < scanLimit
+                            && criticalReceiptFailure == null
                             && System.currentTimeMillis() < deadline) {
                         drainedHandverify++;
                         String comando = this.received_commands.poll();
@@ -16340,8 +16485,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             "Invalid, duplicate or unexpected critical HANDVERIFY receipt from {0}; closing source",
                                             senderNick);
                                     this.received_commands.reject(comando);
-                                    setFin_de_la_transmision(true);
-                                    return false;
+                                    receipts.putIfAbsent(
+                                            "UNTRUSTED:" + senderNick,
+                                            receipt);
+                                    criticalReceiptFailure
+                                            = "INVALID_DUPLICATE_OR_UNEXPECTED_HANDVERIFY sender="
+                                            + forensicToken(senderNick)
+                                            + " command_b64="
+                                            + Base64.getEncoder().encodeToString(
+                                                    comando.getBytes(
+                                                            java.nio.charset.StandardCharsets.UTF_8));
+                                    break;
                                 }
                                 receipts.put(senderNick, receipt);
                                 if (isHost) {
@@ -16351,15 +16505,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 LOGGER.log(Level.SEVERE,
                                         "Malformed critical HANDVERIFY receipt; closing source", ex);
                                 this.received_commands.reject(comando);
-                                setFin_de_la_transmision(true);
-                                return false;
+                                criticalReceiptFailure
+                                        = "MALFORMED_HANDVERIFY command_b64="
+                                        + Base64.getEncoder().encodeToString(
+                                                comando.getBytes(
+                                                        java.nio.charset.StandardCharsets.UTF_8))
+                                        + " exception="
+                                        + forensicToken(ex.getClass().getName())
+                                        + ":" + forensicToken(ex.getMessage());
+                                break;
                             }
                         } else if (partes.length >= 3 && "HANDVERIFY".equals(partes[2])) {
                             LOGGER.log(Level.SEVERE,
                                     "Malformed critical HANDVERIFY receipt; closing source");
                             this.received_commands.reject(comando);
-                            setFin_de_la_transmision(true);
-                            return false;
+                            criticalReceiptFailure
+                                    = "MALFORMED_HANDVERIFY command_b64="
+                                    + Base64.getEncoder().encodeToString(
+                                            comando.getBytes(
+                                                    java.nio.charset.StandardCharsets.UTF_8));
+                            break;
+                        } else if (partes.length == 6
+                                && "HANDVERIFY_RESULT".equals(partes[2])
+                                && !isHost) {
+                            HostConsensusDecision decision
+                                    = parseHostSettlementConsensusDecision(
+                                            partes, handIdSnap);
+                            if (decision != null) {
+                                earlyHostDecision = decision;
+                                if (!decision.allowsClose()) {
+                                    break;
+                                }
+                            }
                         } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
                             misdealAbort = true;
                             try {
@@ -16376,6 +16553,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
+                if (criticalReceiptFailure != null) {
+                    return failSettlementConsensus(criticalReceiptFailure,
+                            receipts, hFinalSnap, null);
+                }
+
+                if (earlyHostDecision != null
+                        && !earlyHostDecision.allowsClose()) {
+                    break;
+                }
+
                 if (misdealAbort) {
                     // Post-payout: this consensus runs AFTER the chips moved, so a MISDEAL
                     // here is anomalous — the barrier (awaitHandverifyBarrier) already
@@ -16383,11 +16570,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // at showdown. Refunding now would double-pay (bote returns to the stack
                     // without clawing back the pagar). We therefore do NOT cancel: log loudly
                     // and stop the attestation; the hand stays settled.
-                    LOGGER.log(Level.SEVERE,
-                            "Unexpected MISDEAL during post-payout settlement consensus (motivo={0}) — ignored, hand already settled",
-                            misdealMotivo);
-                    setFin_de_la_transmision(true);
-                    return false;
+                    return failSettlementConsensus(
+                            "UNEXPECTED_POST_PAYOUT_MISDEAL reason="
+                            + forensicToken(misdealMotivo), receipts,
+                            hFinalSnap, null);
                 }
 
                 if (isHost && !pendingRelays.isEmpty()) {
@@ -16396,10 +16582,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             broadcastGAMECommandFromServer(subcommand, r[2], true);
                         } catch (RuntimeException relayEx) {
-                            LOGGER.log(Level.SEVERE,
-                                    "HANDVERIFY receipt relay failed; refusing SQL close", relayEx);
-                            setFin_de_la_transmision(true);
-                            return false; // receipt relay is a settlement barrier
+                            return failSettlementConsensus(
+                                    "HANDVERIFY_RECEIPT_RELAY_FAILED",
+                                    receipts, hFinalSnap, relayEx);
                         }
                     }
                     pendingRelays.clear();
@@ -16413,25 +16598,227 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 this.received_commands.wait(WAIT_QUEUES);
                             } catch (InterruptedException ex) {
                                 Thread.currentThread().interrupt();
-                                setFin_de_la_transmision(true);
-                                return false;
+                                if (isFin_de_la_transmision()
+                                        || this.termination_pending) {
+                                    return false;
+                                }
+                                return failSettlementConsensus(
+                                        "HANDVERIFY_WAIT_INTERRUPTED",
+                                        receipts, hFinalSnap, ex);
                             }
                         }
                     }
                 }
             }
 
+            if (!isHost) {
+                HostConsensusDecision hostDecision
+                        = earlyHostDecision != null ? earlyHostDecision
+                                : awaitHostSettlementConsensusDecision(
+                                        handIdSnap);
+                if (hostDecision == null) {
+                    return failSettlementConsensus(
+                            "HOST_HANDVERIFY_RESULT_MISSING", receipts,
+                            hFinalSnap, null);
+                }
+                if (!hostDecision.allowsClose()) {
+                    return failSettlementConsensus(
+                            "HOST_REJECTED_SETTLEMENT_CONSENSUS reason="
+                            + forensicToken(hostDecision.reason()), receipts,
+                            hFinalSnap, null);
+                }
+            }
+
             boolean consensusAllowsClose = runConsensusCheck(
-                    receipts, expected, handIdSnap, hFinalSnap, handOrdinalSnap);
+                    receipts, expected, handIdSnap, hFinalSnap,
+                    handOrdinalSnap);
             if (!consensusAllowsClose) {
+                if (table_failure == null) {
+                    table_failure = TableFailure.securityIncident(
+                            "SETTLEMENT_CONSENSUS_REJECTED",
+                            conta_mano, true);
+                    LOGGER.log(Level.SEVERE,
+                            table_failure.diagnosticBundle());
+                }
                 setFin_de_la_transmision(true);
+            } else {
+                // Keep the authenticated terminal hash available after the
+                // live chain is cleared for the next hand. A subsequent
+                // boundary rejection is forensic evidence about this exact
+                // durable close.
+                this.last_closed_hand_final_hash = hFinalSnap.clone();
             }
             return consensusAllowsClose;
         } catch (RuntimeException ex) {
-            LOGGER.log(Level.SEVERE, "runSettlementConsensus failed", ex);
-            setFin_de_la_transmision(true);
-            return false;
+            return failSettlementConsensus(
+                    "SETTLEMENT_CONSENSUS_RUNTIME_FAILURE", Map.of(),
+                    currentHandFinalHash(), ex);
         }
+    }
+
+    /**
+     * One fail-closed exit for every fatal post-payout attestation failure.
+     * Evidence is persisted and printed before the acknowledgement dialog is
+     * shown; only after that dialog completes may table termination proceed.
+     */
+    private boolean failSettlementConsensus(String reason,
+            Map<String, byte[]> receipts, byte[] localFinalHash,
+            Throwable cause) {
+        String normalizedReason = forensicToken(reason);
+        if (normalizedReason.isBlank()) {
+            normalizedReason = "UNSPECIFIED_SETTLEMENT_CONSENSUS_FAILURE";
+        }
+        if (cause == null) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST settlement consensus failure: {0}",
+                    normalizedReason);
+        } else {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST settlement consensus failure: "
+                    + normalizedReason, cause);
+        }
+
+        publishHostSettlementConsensusDecision(false, currentHandId(),
+                normalizedReason);
+
+        Map<String, byte[]> evidenceReceipts = receipts == null
+                ? Map.of() : new HashMap<>(receipts);
+        String evidenceLocation = recordFatalZeroTrustIncident(
+                ZeroTrustIncidentContract.SETTLEMENT_CONSENSUS,
+                normalizedReason, evidenceReceipts, localFinalHash);
+        game_log.print(MessageFormat.format(
+                game_text.translate(
+                        "game.mano_verificacion_interrumpida"),
+                normalizedReason, evidenceLocation));
+        try {
+            showConsensusPopup(
+                    game_text.translate(
+                            "game.popup_verificacion_titulo_alerta"),
+                    MessageFormat.format(
+                            game_text.translate(
+                                    "game.popup_verificacion_interrumpida"),
+                            normalizedReason, evidenceLocation));
+        } catch (RuntimeException dialogFailure) {
+            LOGGER.log(Level.SEVERE,
+                    "Zero Trust acknowledgement dialog failed", dialogFailure);
+        } finally {
+            setFin_de_la_transmision(true);
+        }
+        return false;
+    }
+
+    /**
+     * The single forensic/classification gate shared by every fatal Zero Trust
+     * family. Callers still own their phase-specific financial rollback, but
+     * none may close the table without first creating the same evidence and
+     * FAILURE classification.
+     */
+    private String recordFatalZeroTrustIncident(
+            ZeroTrustIncidentContract contract, String reason,
+            Map<String, byte[]> receipts, byte[] localFinalHash) {
+        java.util.Objects.requireNonNull(contract, "contract");
+        if (!contract.requiresEvidence()
+                || !contract.requiresAcknowledgementBeforeClose()
+                || !contract.closesAsFailure()) {
+            throw new IllegalStateException(
+                    "Incomplete fatal Zero Trust contract: " + contract);
+        }
+        String normalizedReason = forensicToken(reason);
+        if (normalizedReason.isBlank()) {
+            normalizedReason = "UNSPECIFIED_ZERO_TRUST_INCIDENT";
+        }
+        Map<String, byte[]> evidenceReceipts = receipts == null
+                ? Map.of() : new HashMap<>(receipts);
+        String location = evidenceLocationOrFallback(
+                insertDisputedHandRow(evidenceReceipts, localFinalHash,
+                        normalizedReason));
+        table_failure = TableFailure.securityIncident(normalizedReason,
+                conta_mano, contract.preserveOpenHand());
+        LOGGER.log(Level.SEVERE, table_failure.diagnosticBundle());
+        try {
+            game_log.print(MessageFormat.format(
+                    game_text.translate("zero_trust.evidence_location"),
+                    location));
+        } catch (RuntimeException logFailure) {
+            LOGGER.log(Level.WARNING,
+                    "Could not print Zero Trust evidence location",
+                    logFailure);
+        }
+        return location;
+    }
+
+    /** Rejects an authenticated between-hand boundary before closing transport. */
+    private boolean failZeroTrustHandBoundary(String reason,
+            Throwable cause) {
+        String normalizedReason = forensicToken(reason);
+        if (cause == null) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST hand-boundary failure: {0}",
+                    normalizedReason);
+        } else {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST hand-boundary failure: "
+                    + normalizedReason, cause);
+        }
+        byte[] boundaryHash = currentHandFinalHash();
+        if (boundaryHash == null && this.last_closed_hand_final_hash != null) {
+            boundaryHash = this.last_closed_hand_final_hash.clone();
+        }
+        String evidenceLocation = recordFatalZeroTrustIncident(
+                ZeroTrustIncidentContract.HAND_BOUNDARY,
+                normalizedReason, Map.of(), boundaryHash);
+        try {
+            showConsensusPopup(
+                    game_text.translate("zero_trust.fatal_incident_title"),
+                    MessageFormat.format(game_text.translate(
+                            "zero_trust.fatal_incident_body"),
+                            evidenceLocation));
+        } catch (RuntimeException dialogFailure) {
+            LOGGER.log(Level.SEVERE,
+                    "Zero Trust boundary acknowledgement dialog failed",
+                    dialogFailure);
+        }
+        return false;
+    }
+
+    private byte[] currentHandFinalHash() {
+        HandStateChain chain = this.hand_state_chain;
+        if (chain == null) {
+            return null;
+        }
+        try {
+            byte[] hash = chain.getCurrentHash();
+            return hash == null ? null : hash.clone();
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING,
+                    "Could not snapshot the hand hash for Zero Trust evidence",
+                    failure);
+            return null;
+        }
+    }
+
+    private byte[] currentHandId() {
+        HandStateChain chain = this.hand_state_chain;
+        if (chain == null) {
+            return null;
+        }
+        try {
+            byte[] handId = chain.getHandId();
+            return handId == null ? null : handId.clone();
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING,
+                    "Could not snapshot the hand id for consensus result",
+                    failure);
+            return null;
+        }
+    }
+
+    private static String forensicToken(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        return String.valueOf(value).replace('\r', ' ')
+                .replace('\n', ' ').replace('\t', ' ').trim();
     }
 
     /**
@@ -16483,6 +16870,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         try {
+            String qaFault = consensusQaFault();
             byte flags = 0;
             if (this.saw_invalid_action_sig) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
@@ -16503,8 +16891,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     flags |= (byte) (1 << RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF);
                 }
             }
-            byte[] sig = im.signReceipt(handId, hFinal, flags);
-            return encodeReceiptBlob(handId, hFinal, flags, sig);
+            if ("invalid-flag".equals(qaFault)) {
+                flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
+            }
+            byte[] receiptHash = hFinal;
+            if ("divergent".equals(qaFault)) {
+                receiptHash = hFinal.clone();
+                receiptHash[0] ^= (byte) 0x80;
+            }
+            byte[] sig = im.signReceipt(handId, receiptHash, flags);
+            if ("invalid-signature".equals(qaFault)) {
+                sig = sig.clone();
+                sig[0] ^= (byte) 0x80;
+            }
+            return encodeReceiptBlob(handId, receiptHash, flags, sig);
         } catch (RuntimeException ex) {
             LOGGER.log(Level.SEVERE, "signReceipt failed", ex);
             return null;
@@ -16531,6 +16931,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private boolean emitOwnReceipt(byte[] localReceipt) {
         try {
+            if ("missing".equals(consensusQaFault())) {
+                LOGGER.log(Level.INFO,
+                        "QA consensus fault: suppressing local HANDVERIFY for {0}",
+                        gameSession().localNickname());
+                return true;
+            }
             String myNick = gameSession().localNickname();
             String myNickB64 = Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"));
             String receiptB64 = Base64.getEncoder().encodeToString(localReceipt);
@@ -16544,6 +16950,126 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Failed to emit own consensus receipt", ex);
             return false;
+        }
+    }
+
+    /**
+     * Multiprocess fault-injection seam. It is inert unless both explicit QA
+     * properties select this exact local nickname, so production tables never
+     * mutate or suppress receipts accidentally.
+     */
+    private String consensusQaFault() {
+        String selectedNick = System.getProperty(
+                "coronapoker.qa.consensusFaultNick", "").trim();
+        if (!selectedNick.equals(gameSession().localNickname())) return "";
+        int minimumHand = Integer.getInteger(
+                "coronapoker.qa.consensusFaultMinHand", 1);
+        if (getMano() < Math.max(1, minimumHand)) return "";
+        return System.getProperty("coronapoker.qa.consensusFault", "")
+                .trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Publishes the host's terminal hand-close decision. Receipt relaying is
+     * deliberately not enough: the signer whose own receipt is lost still has
+     * a complete local set and could otherwise close the hand while the host
+     * correctly rejects it as missing. Every client therefore waits for this
+     * final barrier before authorising its local SQL close.
+     */
+    private boolean publishHostSettlementConsensusDecision(
+            boolean allowsClose, byte[] handId, String reason) {
+        if (!gameSession().isHost()) {
+            return true;
+        }
+        if (handId == null || handId.length != RECEIPT_HANDID_LEN) {
+            LOGGER.log(Level.SEVERE,
+                    "Cannot publish HANDVERIFY_RESULT without a valid hand id");
+            return false;
+        }
+        try {
+            String handIdB64 = Base64.getEncoder().encodeToString(handId);
+            String status = allowsClose ? "OK" : "FAIL";
+            String reasonB64 = Base64.getEncoder().encodeToString(
+                    forensicToken(reason).getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8));
+            broadcastGAMECommandFromServer("HANDVERIFY_RESULT#" + handIdB64
+                    + "#" + status + "#" + reasonB64, null, true);
+            return !isFin_de_la_transmision();
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.SEVERE,
+                    "Could not publish terminal HANDVERIFY_RESULT", failure);
+            return false;
+        }
+    }
+
+    /** Waits for and validates the host's terminal decision for this hand. */
+    private HostConsensusDecision awaitHostSettlementConsensusDecision(
+            byte[] expectedHandId) {
+        long waitBudget = Math.max(5_000L,
+                GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS * 2L);
+        long deadline = System.currentTimeMillis() + waitBudget;
+        do {
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String command = this.received_commands.poll();
+                    String[] parts = command.split("#", -1);
+                    if (parts.length == 6
+                            && "HANDVERIFY_RESULT".equals(parts[2])) {
+                        HostConsensusDecision decision
+                                = parseHostSettlementConsensusDecision(
+                                        parts, expectedHandId);
+                        if (!rejected.isEmpty()) {
+                            restoreRejectedCommands(rejected);
+                        }
+                        if (decision != null) {
+                            return decision;
+                        }
+                        continue;
+                    }
+                    rejected.add(command);
+                }
+                if (!rejected.isEmpty()) {
+                    restoreRejectedCommands(rejected);
+                }
+                if (!isFin_de_la_transmision()
+                        && System.currentTimeMillis() < deadline) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return new HostConsensusDecision(false,
+                                "HOST_HANDVERIFY_RESULT_WAIT_INTERRUPTED");
+                    }
+                }
+            }
+        } while (!isFin_de_la_transmision()
+                && System.currentTimeMillis() < deadline);
+        return null;
+    }
+
+    private HostConsensusDecision parseHostSettlementConsensusDecision(
+            String[] parts, byte[] expectedHandId) {
+        try {
+            byte[] handId = Base64.getDecoder().decode(parts[3]);
+            if (!Arrays.equals(expectedHandId, handId)) {
+                LOGGER.log(Level.WARNING,
+                        "Ignoring stale HANDVERIFY_RESULT for another hand");
+                return null;
+            }
+            if (!"OK".equals(parts[4]) && !"FAIL".equals(parts[4])) {
+                return new HostConsensusDecision(false,
+                        "MALFORMED_HOST_HANDVERIFY_RESULT_STATUS");
+            }
+            String reason = new String(
+                    Base64.getDecoder().decode(parts[5]),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            return new HostConsensusDecision("OK".equals(parts[4]), reason);
+        } catch (IllegalArgumentException malformed) {
+            LOGGER.log(Level.SEVERE,
+                    "Malformed HANDVERIFY_RESULT from host", malformed);
+            return new HostConsensusDecision(false,
+                    "MALFORMED_HOST_HANDVERIFY_RESULT");
         }
     }
 
@@ -16700,50 +17226,66 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!divergent.isEmpty()) {
             String divergentList = String.join(", ", divergent);
+            publishHostSettlementConsensusDecision(false, handIdLocal,
+                    "DIVERGENT peers=" + divergentList);
             LOGGER.log(Level.SEVERE,
                     "Hand {0} signature divergence: divergent=[{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, divergentList, localHB64});
             if (HAND_CHAIN_TRACE_ENABLED) {
                 logHandChainTraceOnDivergence(handOrdinal);
             }
-            game_log.print(
-                    game_text.translate("game.mano_verificacion_divergente"));
-            insertDisputedHandRow(receipts, hFinalLocal, "DIVERGENT");
+            String evidenceLocation = evidenceLocationOrFallback(
+                    insertDisputedHandRow(receipts, hFinalLocal,
+                            "DIVERGENT peers=" + divergentList));
+            game_log.print(MessageFormat.format(
+                    game_text.translate("game.mano_verificacion_divergente"),
+                    evidenceLocation));
             showConsensusPopup(
                     game_text.translate("game.popup_verificacion_titulo_alerta"),
-                    game_text.translate("game.popup_verificacion_divergente"));
+                    MessageFormat.format(
+                            game_text.translate(
+                                    "game.popup_verificacion_divergente"),
+                            evidenceLocation));
             return false;
         } else if (!missing.isEmpty()) {
             String missingList = String.join(", ", missing);
+            publishHostSettlementConsensusDecision(false, handIdLocal,
+                    "MISSING peers=" + missingList);
             LOGGER.log(Level.WARNING,
                     "Hand {0} verification incomplete: missing=[{1}]",
                     new Object[]{sqlite_id_hand, missingList});
-            game_log.print(
-                    MessageFormat.format(
-                            game_text.translate("game.mano_verificacion_jugador_ausente"),
-                            missingList));
-            insertDisputedHandRow(receipts, hFinalLocal, "MISSING");
+            String evidenceLocation = evidenceLocationOrFallback(
+                    insertDisputedHandRow(receipts, hFinalLocal,
+                            "MISSING peers=" + missingList));
+            game_log.print(MessageFormat.format(
+                    game_text.translate(
+                            "game.mano_verificacion_jugador_ausente"),
+                    missingList, evidenceLocation));
             showConsensusPopup(
                     game_text.translate("game.popup_verificacion_titulo_aviso"),
                     MessageFormat.format(
                             game_text.translate("game.popup_verificacion_ausente"),
-                            missingList));
+                            missingList, evidenceLocation));
             return false;
         } else if (!invalidSigReporters.isEmpty()) {
             String reportersList = String.join(", ", invalidSigReporters);
+            publishHostSettlementConsensusDecision(false, handIdLocal,
+                    "INVALID_SIG_SEEN reporters=" + reportersList);
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified with invalid-sig flag from: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, reportersList, localHB64});
-            game_log.print(
-                    MessageFormat.format(
-                            game_text.translate("game.mano_verificacion_firma_invalida"),
-                            reportersList));
-            insertDisputedHandRow(receipts, hFinalLocal, "INVALID_SIG_SEEN");
+            String evidenceLocation = evidenceLocationOrFallback(
+                    insertDisputedHandRow(receipts, hFinalLocal,
+                            "INVALID_SIG_SEEN reporters=" + reportersList));
+            game_log.print(MessageFormat.format(
+                    game_text.translate(
+                            "game.mano_verificacion_firma_invalida"),
+                    reportersList, evidenceLocation));
             showConsensusPopup(
                     game_text.translate("game.popup_verificacion_titulo_aviso"),
                     MessageFormat.format(
                             game_text.translate("game.popup_verificacion_firma_invalida"),
-                            reportersList));
+                            reportersList, evidenceLocation));
             return false;
         } else if (!noShuffleProofReporters.isEmpty()) {
             // Consensus is otherwise clean, but one or more signers never received a shuffle
@@ -16751,19 +17293,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // if repeated, or peer-selective) is a real degradation worth warning the table
             // about — but not proof of cheating (could be a modified client or a bug).
             String noProofList = String.join(", ", noShuffleProofReporters);
+            if (!publishHostSettlementConsensusDecision(true, handIdLocal,
+                    "DECK_NO_PROOF reporters=" + noProofList)) {
+                return failSettlementConsensus(
+                        "HANDVERIFY_RESULT_DELIVERY_FAILED", receipts,
+                        hFinalLocal, null);
+            }
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified but NO shuffle proof reached: [{1}] (host withholding?), local_H={2}",
                     new Object[]{sqlite_id_hand, noProofList, localHB64});
-            game_log.print(
-                    MessageFormat.format(
-                            game_text.translate("game.mano_verificacion_host_sin_prueba"),
-                            noProofList));
-            insertDisputedHandRow(receipts, hFinalLocal, "DECK_NO_PROOF");
+            String evidenceLocation = evidenceLocationOrFallback(
+                    insertDisputedHandRow(receipts, hFinalLocal,
+                            "DECK_NO_PROOF reporters=" + noProofList));
+            game_log.print(MessageFormat.format(
+                    game_text.translate(
+                            "game.mano_verificacion_host_sin_prueba"),
+                    noProofList, evidenceLocation));
             showConsensusPopup(
                     game_text.translate("game.popup_verificacion_titulo_aviso"),
                     MessageFormat.format(
                             game_text.translate("game.popup_verificacion_host_sin_prueba"),
-                            noProofList));
+                            noProofList, evidenceLocation));
         } else if (!deckUnverifiedReporters.isEmpty()) {
             // Consensus is clean except that one or more signers have not yet FINISHED
             // verifying the shuffle (the bundle did arrive, their queue is just slow).
@@ -16772,13 +17322,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // registro notice plus forensic logging (JUL + disputed_hands), same policy as
             // the TOFU-NEW case below.
             String deckList = String.join(", ", deckUnverifiedReporters);
+            if (!publishHostSettlementConsensusDecision(true, handIdLocal,
+                    "DECK_UNVERIFIED reporters=" + deckList)) {
+                return failSettlementConsensus(
+                        "HANDVERIFY_RESULT_DELIVERY_FAILED", receipts,
+                        hFinalLocal, null);
+            }
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified; shuffle proof still pending (slow peer) for: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, deckList, localHB64});
             game_log.print(
                     MessageFormat.format(game_text.translate("game.barajado_pendiente"), String.valueOf(handOrdinal)));
-            insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
+            insertDisputedHandRow(receipts, hFinalLocal,
+                    "DECK_UNVERIFIED reporters=" + deckList);
         } else {
+            if (!publishHostSettlementConsensusDecision(true, handIdLocal,
+                    "OK")) {
+                return failSettlementConsensus(
+                        "HANDVERIFY_RESULT_DELIVERY_FAILED", receipts,
+                        hFinalLocal, null);
+            }
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
                     new Object[]{sqlite_id_hand, expected.size(), localHB64});
@@ -16845,17 +17408,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * to insert is logged but does not propagate — the popup and JUL log are
      * still served, the user is informed regardless.
      */
-    private void insertDisputedHandRow(java.util.Map<String, byte[]> receipts, byte[] localHFinal, String reason) {
-        if (this.sqlite_id_hand < 0) {
-            LOGGER.log(Level.WARNING,
-                    "No sqlite_id_hand available, skipping disputed_hands insert (reason={0})", reason);
-            return;
+    private String insertDisputedHandRow(
+            java.util.Map<String, byte[]> receipts, byte[] localHFinal,
+            String reason) {
+        final long timestampMillis = System.currentTimeMillis();
+        final int sqliteHandId = this.sqlite_id_hand;
+        final int handOrdinal = getMano();
+        final long openingRemainderCents = this.opening_remainder_cents;
+        final long closingRemainderCents;
+        synchronized (getLock_contabilidad()) {
+            closingRemainderCents = settlementAmountToCents(
+                    this.bote_sobrante);
         }
+        final String databaseLocation = game_database.databaseLocation();
+        final String localNickname = gameSession().localNickname();
+        final boolean host = gameSession().isHost();
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-        for (java.util.Map.Entry<String, byte[]> e : receipts.entrySet()) {
+        java.util.StringJoiner receiptNicks
+                = new java.util.StringJoiner("#");
+        for (java.util.Map.Entry<String, byte[]> e
+                : new java.util.TreeMap<>(receipts).entrySet()) {
             if (e.getValue() != null && e.getValue().length == RECEIPT_TOTAL_LEN) {
                 try {
                     out.write(e.getValue());
+                    receiptNicks.add(Base64.getEncoder().encodeToString(
+                            e.getKey().getBytes(
+                                    java.nio.charset.StandardCharsets.UTF_8)));
                 } catch (java.io.IOException ioex) {
                     LOGGER.log(Level.SEVERE, "Failed to concat receipt for " + e.getKey(), ioex);
                 }
@@ -16867,30 +17445,103 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // open transaction on it. Without SQL_LOCK this forensic INSERT could be swept into
         // that ambient transaction and lost on its rollback, or crash on native contention.
         synchronized (game_database.lock()) {
-            try (java.sql.PreparedStatement st = game_database.connection().prepareStatement(
-                    "INSERT INTO disputed_hands(id_hand, timestamp, receipts, local_h, reason) VALUES(?,?,?,?,?)")) {
-                st.setInt(1, this.sqlite_id_hand);
-                st.setLong(2, System.currentTimeMillis() / 1000L);
-                st.setBytes(3, receiptsBlob);
-                st.setBytes(4, localHFinal);
-                st.setString(5, reason);
-                st.executeUpdate();
-                LOGGER.log(Level.INFO,
-                        "disputed_hands row inserted: id_hand={0}, reason={1}, receipts_collected={2}",
-                        new Object[]{this.sqlite_id_hand, reason, receipts.size()});
+            java.sql.Connection connection = null;
+            long disputeId = -1L;
+            try {
+                connection = game_database.connection();
+                if (sqliteHandId >= 0) {
+                    try (java.sql.PreparedStatement st = connection.prepareStatement(
+                            "INSERT INTO disputed_hands(id_hand, timestamp, receipts, receipt_nicks, local_h, reason) VALUES(?,?,?,?,?,?)")) {
+                        st.setInt(1, sqliteHandId);
+                        st.setLong(2, timestampMillis / 1000L);
+                        st.setBytes(3, receiptsBlob);
+                        st.setString(4, receiptNicks.toString());
+                        st.setBytes(5, localHFinal);
+                        st.setString(6, reason);
+                        st.executeUpdate();
+                    }
+                    try (java.sql.Statement idStatement
+                            = connection.createStatement();
+                            java.sql.ResultSet idResult = idStatement.executeQuery(
+                                    "SELECT last_insert_rowid()")) {
+                        if (idResult.next()) {
+                            disputeId = idResult.getLong(1);
+                        }
+                    }
+                    LOGGER.log(Level.INFO,
+                            "disputed_hands row inserted: id_hand={0}, reason={1}, receipts_collected={2}",
+                            new Object[]{sqliteHandId, reason, receipts.size()});
+                } else {
+                    LOGGER.log(Level.WARNING,
+                            "No sqlite_id_hand available, skipping disputed_hands insert (reason={0})",
+                            reason);
+                }
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "Failed to insert disputed_hands row", ex);
+                LOGGER.log(Level.SEVERE,
+                        "Failed to insert disputed_hands row", ex);
             }
+
+            ZeroTrustEvidenceReport.Result evidence
+                    = ZeroTrustEvidenceReport.write(connection,
+                            databaseLocation, timestampMillis, handOrdinal,
+                            sqliteHandId, reason, localNickname, host,
+                            localHFinal, receipts, openingRemainderCents,
+                            closingRemainderCents);
+            LOGGER.log(Level.SEVERE,
+                    "ZERO TRUST EVIDENCE BEGIN\n{0}ZERO TRUST EVIDENCE END",
+                    evidence.report());
+            if (evidence.writeFailure() != null) {
+                LOGGER.log(Level.SEVERE,
+                        "Failed to write the Zero Trust evidence file",
+                        evidence.writeFailure());
+            }
+            if (connection != null && disputeId >= 0L) {
+                try {
+                    ZeroTrustEvidenceReport.persist(connection, disputeId,
+                            evidence);
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "Failed to persist the detailed Zero Trust evidence report",
+                            ex);
+                }
+            }
+            if (evidence.path() != null) {
+                return evidence.path().toString();
+            }
+            return evidenceDatabaseLocation();
+        }
+    }
+
+    private String evidenceLocationOrFallback(String location) {
+        return location == null || location.isBlank()
+                ? game_text.translate("game.evidencia_no_disponible")
+                : location;
+    }
+
+    private String evidenceDatabaseLocation() {
+        String location = game_database.databaseLocation();
+        if (location == null || location.isBlank()) {
+            return null;
+        }
+        try {
+            return java.nio.file.Path.of(location).toAbsolutePath()
+                    .normalize().toString();
+        } catch (RuntimeException invalidPath) {
+            LOGGER.log(Level.WARNING,
+                    "Cannot normalize evidence database location", invalidPath);
+            return location;
         }
     }
 
     /**
-     * Fires an informative popup on the EDT so the user sees the consensus
-     * outcome without blocking the game loop.
+     * Presents the consensus outcome and blocks the dealer until the user has
+     * acknowledged it. A fatal table close must never overtake and dismiss its
+     * own Zero Trust warning.
      */
     private void showConsensusPopup(String title, String body) {
         String composed = (title != null ? title + "\n\n" : "") + body;
-        game_dialogs.showZeroTrustAlert(composed, zeroTrustPopupWidth());
+        awaitDialog(game_dialogs.showZeroTrustAlert(
+                composed, zeroTrustPopupWidth()));
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
@@ -23486,6 +24137,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
+            // Warming late joiners are deliberately absent from the active
+            // peer roster until the authenticated hand boundary admits them.
+            // They still have a live channel and must receive real latency
+            // telemetry instead of remaining permanently red while the UI
+            // says CALENTANDO.
+            for (PendingHotJoin pending : hotJoinSnapshot()) {
+                GamePeerController peer = pending.peer();
+                if (peer != null) {
+                    perPeer.putIfAbsent(pending.player().getNickname(),
+                            new int[]{
+                        peer.getLatency(), peer.getLatency2(),
+                        peer.getReconnectionCount()
+                    });
+                }
+            }
             // The host includes itself with latency 0 (its own perspective — it
             // doesn't ping itself). recon=0 for the host too.
             String localNick = gameSession().localNickname();
@@ -23556,12 +24222,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (java.util.Map.Entry<String, int[]> en : frame.perPeer.entrySet()) {
             GamePlayerController p = n2p.get(en.getKey());
             int[] v = en.getValue();
-            if (p == null || v == null || v.length < 3) {
+            if (v == null || v.length < 3) {
                 continue;
             }
+            if (p == null) {
+                p = hotJoinSnapshot().stream()
+                        .filter(pending -> pending.player().getNickname()
+                                .equals(en.getKey()))
+                        .map(PendingHotJoin::player)
+                        .findFirst().orElse(null);
+            }
+            if (p == null) continue;
             p.applyTelemetry(v[0], v[1], v[2]);
         }
-        java.util.List<TableVisualEvent.PlayerTelemetry> telemetry = players().stream()
+        java.util.stream.Stream<GamePlayerController> active = players()
+                .stream();
+        java.util.stream.Stream<GamePlayerController> warming
+                = hotJoinSnapshot().stream().map(PendingHotJoin::player);
+        java.util.List<TableVisualEvent.PlayerTelemetry> telemetry
+                = java.util.stream.Stream.concat(active, warming)
+                .distinct()
                 .map(GamePlayerController::getState)
                 .map(com.tonikelope.coronapoker.core.game.PlayerState::snapshot)
                 .map(player -> new TableVisualEvent.PlayerTelemetry(
@@ -27551,6 +28231,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             continue;
                         }
                         if (!requireVerifiedShuffleBeforeBetting()) {
+                            if (this.termination_pending
+                                    && !isFin_de_la_transmision()) {
+                                awaitCommittedTermination();
+                            }
                             continue;
                         }
                         // Blinds/dealer assignments already show in the balance table

@@ -263,10 +263,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // oversized here; 54% preserves the perceived CoronaPoker proportion.
     private static final float POSITION_CHIP_SIZE = RIVAL_HOLE_CARD_WIDTH * 0.54f;
     private static final float POSITION_CHIP_HUD_GAP = 7f;
-    private static final float AVATAR_SIZE = 72f;
+    private static final float AVATAR_SIZE = 94f;
     private static final float AVATAR_OUTER_RADIUS = 52f;
-    private static final float AVATAR_RIM_RADIUS = 45f;
-    private static final float AVATAR_INNER_RADIUS = 40f;
+    private static final float AVATAR_HOVER_RADIUS = 49f;
     private static final float ALL_IN_FIRE_WIDTH = 154f;
     private static final float ALL_IN_FIRE_HEIGHT = 184f;
     private static final int ALL_IN_FIRE_LAYER_COUNT = 3;
@@ -965,7 +964,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color PANEL = new Color(0x101a2ee6);
     private static final Color SEAT_RIM = new Color(0x647594ff);
     private static final Color WAITING_TURN_TEXT = new Color(0x9aa0a8ff);
-    private static final Color SEAT_INNER = new Color(0x111a2aff);
     private static final Color STACK_GREEN = new Color(0x9fffd2ff);
     private static final Color SWING_STACK_GREEN = new Color(0x339900ff);
     private static final Color SWING_REBUY_CYAN = new Color(0x00ffffff);
@@ -11473,31 +11471,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 + RIVAL_MONEY_CELL_GAP / 2f - 1f,
                         seat.podY + 61f, 2f, 24f);
             }
-            shapes.setColor(PANEL.r, PANEL.g, PANEL.b,
-                    PANEL.a * visualPresence);
             float avatarX = seatAvatarX(seat);
-            GdxAntialiasedRoundedRect.fill(shapes,
-                    avatarX - AVATAR_OUTER_RADIUS,
-                    seat.y - AVATAR_OUTER_RADIUS,
-                    AVATAR_OUTER_RADIUS * 2f, AVATAR_OUTER_RADIUS * 2f,
-                    AVATAR_OUTER_RADIUS);
             Color avatarRim = avatarRimColor(settledWinner,
                     settledShowdown, partialWinner, active,
                     showActionSurface, actionColor);
             shapes.setColor(avatarRim.r, avatarRim.g, avatarRim.b,
                     avatarRim.a * visualPresence);
-            GdxAntialiasedRoundedRect.fill(shapes,
-                    avatarX - AVATAR_RIM_RADIUS,
-                    seat.y - AVATAR_RIM_RADIUS,
-                    AVATAR_RIM_RADIUS * 2f, AVATAR_RIM_RADIUS * 2f,
-                    AVATAR_RIM_RADIUS);
-            shapes.setColor(SEAT_INNER.r, SEAT_INNER.g, SEAT_INNER.b,
-                    SEAT_INNER.a * visualPresence);
-            GdxAntialiasedRoundedRect.fill(shapes,
-                    avatarX - AVATAR_INNER_RADIUS,
-                    seat.y - AVATAR_INNER_RADIUS,
-                    AVATAR_INNER_RADIUS * 2f, AVATAR_INNER_RADIUS * 2f,
-                    AVATAR_INNER_RADIUS);
+            // One continuous semantic ring surrounds the avatar. Keeping a
+            // single filled disc behind the circular texture eliminates the
+            // former outer/inner concentric bands without changing the seat
+            // footprint or the state-colour contract.
+            GdxAntialiasedRoundedRect.fillCircle(shapes, avatarX, seat.y,
+                    AVATAR_OUTER_RADIUS);
         }
         shapes.end();
 
@@ -13152,7 +13137,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (avatarZoomBounds.contains(pointer)
                     || zoomed != null && pointer.dst(
                             seatAvatarX(zoomed), zoomed.y)
-                    <= AVATAR_INNER_RADIUS) {
+                    <= AVATAR_HOVER_RADIUS) {
                 return;
             }
             clearAvatarZoom();
@@ -13162,7 +13147,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Seat seat : seats) {
             if (seatPresenceAlpha(seat.index) > 0f
                     && pointer.dst(seatAvatarX(seat), seat.y)
-                            <= AVATAR_INNER_RADIUS) {
+                            <= AVATAR_HOVER_RADIUS) {
                 hovered = seat;
                 break;
             }
@@ -13852,8 +13837,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static int effectiveLatencyMillis(TableSnapshot.PlayerSnapshot player) {
         int first = player.latency();
         int second = player.previousLatency();
-        return first < 0 ? second : second < 0 ? first
-                : Math.min(first, second);
+        if (first >= 0 && second >= 0) return Math.min(first, second);
+        if (first >= 0) return first;
+        if (second >= 0) return second;
+        // NO_LATENCY (-2) means that the transport has not produced a sample
+        // yet.  A failed heartbeat (-1) is different and remains an error once
+        // neither path has a usable measurement.
+        return first == -1 || second == -1
+                ? -1 : LobbyParticipant.NO_LATENCY;
     }
 
     static Color latencyColor(TableSnapshot.PlayerSnapshot player) {
@@ -13863,6 +13854,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return LATENCY_STALE;
         }
         int best = effectiveLatencyMillis(player);
+        if (best == LobbyParticipant.NO_LATENCY) return LATENCY_STALE;
         if (best < 0) return LATENCY_RED;
         if (best <= 100) return LATENCY_GREEN;
         if (best <= 250) return LATENCY_YELLOW;

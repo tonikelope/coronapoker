@@ -304,6 +304,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float STATS_SYNC_RECEIVE_WIDTH = 375f;
     static final float STATS_SYNC_SHARE_GROUP_X = 950f;
     static final float STATS_SYNC_SHARE_GROUP_WIDTH = 630f;
+    private static final float STATS_EVIDENCE_LINE_HEIGHT = 28f;
     private static final URI GOOGLE_IMAGES_URI = URI.create(
             "https://images.google.com/");
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
@@ -720,6 +721,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float statsSummaryPlayersScrollMaximum;
     private final Rectangle statsSummaryPlayersScrollTrack = new Rectangle();
     private float statsSummaryPlayersScrollThumbHeight;
+    private boolean statsEvidenceOpen;
+    private boolean statsEvidenceLoading;
+    private String statsEvidenceError = "";
+    private List<StatsRepository.ZeroTrustEvidence> statsEvidence = List.of();
+    private long statsEvidenceGeneration;
+    private final Rectangle statsEvidencePanelBounds = new Rectangle();
+    private final Rectangle statsEvidenceDragStartBounds = new Rectangle();
+    private final GdxPointerHold statsEvidenceWindowPointer =
+            new GdxPointerHold();
+    private StatsEvidenceWindowDrag statsEvidenceWindowDrag =
+            StatsEvidenceWindowDrag.NONE;
+    private GdxFloatingGameLogLayout.ResizeHandle statsEvidenceResizeHandle =
+            GdxFloatingGameLogLayout.ResizeHandle.NONE;
+    private float statsEvidenceDragStartX;
+    private float statsEvidenceDragStartY;
+    private float statsEvidenceScroll;
+    private float statsEvidenceScrollTarget;
+    private float statsEvidenceScrollMaximum;
+    private float statsEvidenceScrollThumbHeight;
+    private List<String> statsEvidenceLines = List.of();
+    private String statsEvidenceSourceCache = "";
+    private float statsEvidenceWrapWidth = -1f;
     private float statsChartZoom = 1f;
     private float statsChartPanX = 0.5f;
     private float statsChartPanY = 0.5f;
@@ -1184,6 +1207,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 - statsSummaryPlayersScroll) < 0.1f) {
             statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget;
         }
+        statsEvidenceScroll += (statsEvidenceScrollTarget
+                - statsEvidenceScroll) * Math.min(1f, frameDelta * 14f);
+        if (Math.abs(statsEvidenceScrollTarget
+                - statsEvidenceScroll) < 0.1f) {
+            statsEvidenceScroll = statsEvidenceScrollTarget;
+        }
         customBotScroll += (customBotScrollTarget - customBotScroll)
                 * Math.min(1f, frameDelta * 14f);
         if (Math.abs(customBotScrollTarget - customBotScroll) < 0.1f) {
@@ -1428,7 +1457,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     drawPresetDialog();
                 }
             } else if (surface == Surface.STATS) {
-                if (statsSyncExclusionsOpen) {
+                if (statsEvidenceOpen) {
+                    drawStatsEvidenceDialog();
+                } else if (statsSyncExclusionsOpen) {
                     drawStatsSyncExclusions();
                 } else if (statsConfirmation != StatsConfirmation.NONE) {
                     drawStatsConfirmation();
@@ -1523,6 +1554,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawTextItem(item);
             }
             batch.end();
+            if (statsEvidenceOpen) {
+                drawStatsEvidenceTextLayer();
+            }
             if (customBotManagerOpen && avatarCropSession == null) {
                 drawCustomBotManagerListLayer();
                 drawCustomBotDeleteConfirmationTopLayer();
@@ -1655,7 +1689,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || presetDialog != PresetDialog.NONE
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
-                && (statsConfirmation != StatsConfirmation.NONE
+                && (statsEvidenceOpen
+                        || statsConfirmation != StatsConfirmation.NONE
                         || statsPicker != StatsPicker.NONE
                         || statsSyncExclusionsOpen))
                 || (surface == Surface.SCREENSHOTS
@@ -1702,7 +1737,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     && blindStructureDialog == BlindStructureDialog.NONE;
         }
         if (surface == Surface.STATS && statsReturnAction == null) {
-            return statsConfirmation == StatsConfirmation.NONE
+            return !statsEvidenceOpen
+                    && statsConfirmation == StatsConfirmation.NONE
                     && statsPicker == StatsPicker.NONE
                     && !statsSyncExclusionsOpen;
         }
@@ -2209,6 +2245,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeStats() {
+        closeStatsEvidence();
         statsLoadGeneration++;
         statsLoading = false;
         statsError = "";
@@ -3077,6 +3114,310 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::confirmStatsDeletion, true);
     }
 
+    private void openStatsEvidence() {
+        if (statsLoading || statsGameIndex < 0
+                || !statsGames.get(statsGameIndex).hasZeroTrustIncident()) {
+            return;
+        }
+        StatsRepository.GameSummary game = statsGames.get(statsGameIndex);
+        long generation = ++statsEvidenceGeneration;
+        statsEvidenceOpen = true;
+        statsEvidenceLoading = true;
+        statsEvidenceError = "";
+        statsEvidence = List.of();
+        statsEvidenceSourceCache = "";
+        statsEvidenceLines = List.of();
+        statsEvidenceWrapWidth = -1f;
+        statsEvidenceScroll = 0f;
+        statsEvidenceScrollTarget = 0f;
+        ensureStatsEvidencePanelBounds();
+        captureFrontendModalInput();
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<StatsRepository.ZeroTrustEvidence> evidence =
+                        statsRepository.zeroTrustEvidence(game.id());
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsEvidenceGeneration
+                            || !statsEvidenceOpen) return;
+                    statsEvidence = evidence;
+                    statsEvidenceLoading = false;
+                    statsEvidenceSourceCache = "";
+                    statsEvidenceLines = List.of();
+                    statsEvidenceWrapWidth = -1f;
+                });
+            } catch (Exception failure) {
+                LOGGER.log(Level.WARNING,
+                        "Could not load Zero Trust evidence", failure);
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != statsEvidenceGeneration
+                            || !statsEvidenceOpen) return;
+                    statsEvidenceLoading = false;
+                    statsEvidenceError = failure.getMessage() == null
+                            ? failure.getClass().getSimpleName()
+                            : failure.getMessage();
+                });
+            }
+        }, statsExecutor);
+    }
+
+    private void closeStatsEvidence() {
+        statsEvidenceOpen = false;
+        statsEvidenceLoading = false;
+        statsEvidenceError = "";
+        statsEvidence = List.of();
+        statsEvidenceSourceCache = "";
+        statsEvidenceLines = List.of();
+        statsEvidenceWrapWidth = -1f;
+        statsEvidenceScroll = 0f;
+        statsEvidenceScrollTarget = 0f;
+        statsEvidenceGeneration++;
+        clearStatsEvidenceWindowDrag();
+        if (scrollDrag == ScrollDrag.STATS_EVIDENCE) clearScrollDrag();
+    }
+
+    private Rectangle ensureStatsEvidencePanelBounds() {
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        Rectangle normalized = statsEvidencePanelBounds.width <= 0f
+                || statsEvidencePanelBounds.height <= 0f
+                        ? GdxFloatingGameLogLayout.initial(worldWidth,
+                                worldHeight)
+                        : GdxFloatingGameLogLayout.normalize(
+                                statsEvidencePanelBounds, worldWidth,
+                                worldHeight);
+        statsEvidencePanelBounds.set(normalized);
+        return statsEvidencePanelBounds;
+    }
+
+    private GdxFloatingGameLogLayout.Layout statsEvidenceLayout() {
+        return GdxFloatingGameLogLayout.layout(
+                ensureStatsEvidencePanelBounds());
+    }
+
+    private Rectangle statsEvidenceHeaderDragBounds() {
+        GdxFloatingGameLogLayout.Layout layout = statsEvidenceLayout();
+        Rectangle header = layout.headerDrag();
+        return new Rectangle(header.x, header.y,
+                Math.max(1f, header.width - 190f), header.height);
+    }
+
+    private void drawStatsEvidenceDialog() {
+        GdxFloatingGameLogLayout.Layout layout = statsEvidenceLayout();
+        Rectangle panel = layout.panel();
+        Rectangle frame = layout.logFrame();
+        Rectangle content = layout.content();
+        Rectangle track = layout.scrollbarTrack();
+        Rectangle close = layout.closeButton();
+
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, GOLD, 1f);
+        GdxUiDialogStyle.drawInset(shapes, frame.x, frame.y,
+                frame.width, frame.height, 1f);
+        textFit(uiFont, uppercase(gameText.translate(
+                "gdx.stats.zero_trust_evidence_title")),
+                layout.headerDrag().x,
+                layout.headerDrag().y + 37f, Color.WHITE, false,
+                Math.max(1f, layout.headerDrag().width - 190f));
+
+        themedButton(close.x - 158f, close.y, 146f, close.height,
+                uppercase(gameText.translate("ui.copiar")),
+                ButtonTone.NEUTRAL, this::copyStatsEvidence,
+                !statsEvidenceLoading && !statsEvidence.isEmpty(),
+                tinyFont);
+        themedButton(close.x, close.y, close.width, close.height,
+                GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
+                this::closeStatsEvidence, true, tinyFont);
+
+        if (statsEvidenceLoading) {
+            textFit(uiFont, gameText.translate("gdx.lobby.media_loading"),
+                    content.x + content.width / 2f,
+                    content.y + content.height / 2f,
+                    CYAN, true, content.width - 60f);
+            statsEvidenceScrollMaximum = 0f;
+            statsEvidenceScrollThumbHeight = track.height;
+            return;
+        }
+        if (!statsEvidenceError.isBlank()) {
+            textFit(smallFont, statsEvidenceError,
+                    content.x + content.width / 2f,
+                    content.y + content.height / 2f,
+                    ORANGE, true, content.width - 60f);
+            statsEvidenceScrollMaximum = 0f;
+            statsEvidenceScrollThumbHeight = track.height;
+            return;
+        }
+
+        List<String> lines = statsEvidenceDisplayLines(content.width);
+        statsEvidenceScrollMaximum = Math.max(0f,
+                lines.size() * STATS_EVIDENCE_LINE_HEIGHT - content.height);
+        statsEvidenceScrollTarget = MathUtils.clamp(
+                statsEvidenceScrollTarget, 0f,
+                statsEvidenceScrollMaximum);
+        statsEvidenceScroll = MathUtils.clamp(statsEvidenceScroll, 0f,
+                statsEvidenceScrollMaximum);
+        float thumb = statsEvidenceScrollMaximum <= 0f
+                ? track.height
+                : Math.max(44f, track.height * content.height
+                        / Math.max(content.height,
+                                lines.size() * STATS_EVIDENCE_LINE_HEIGHT));
+        statsEvidenceScrollThumbHeight = thumb;
+        float travel = Math.max(0f, track.height - thumb);
+        float ratio = statsEvidenceScrollMaximum <= 0f ? 0f
+                : statsEvidenceScroll / statsEvidenceScrollMaximum;
+        shapes.setColor(new Color(0x18304cff));
+        roundedRect(track.x, track.y, track.width, track.height, 7f);
+        shapes.setColor(CYAN);
+        roundedRect(track.x, track.y + travel * (1f - ratio),
+                track.width, thumb, 7f);
+    }
+
+    private void drawStatsEvidenceTextLayer() {
+        if (!statsEvidenceOpen || statsEvidenceLoading
+                || !statsEvidenceError.isBlank()) return;
+        GdxFloatingGameLogLayout.Layout layout = statsEvidenceLayout();
+        Rectangle content = layout.content();
+        List<String> lines = statsEvidenceDisplayLines(content.width);
+        enableWorldScissor(content);
+        batch.begin();
+        for (int index = 0; index < lines.size(); index++) {
+            float baseline = content.y + content.height - 8f
+                    - index * STATS_EVIDENCE_LINE_HEIGHT
+                    + statsEvidenceScroll;
+            if (baseline < content.y - STATS_EVIDENCE_LINE_HEIGHT
+                    || baseline > content.y + content.height
+                            + STATS_EVIDENCE_LINE_HEIGHT) {
+                continue;
+            }
+            String line = lines.get(index);
+            Color color = line.startsWith("=====") ? GOLD
+                    : line.equals("ZERO_TRUST_EVIDENCE_V1")
+                            || line.equals("RECEIPTS")
+                            || line.equals("DATABASE_SNAPSHOT")
+                                    ? CYAN : Color.WHITE;
+            debugLogFont.setColor(color);
+            GdxPixelText.draw(debugLogFont, batch, line,
+                    content.x, baseline, viewport);
+        }
+        debugLogFont.setColor(Color.WHITE);
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private List<String> statsEvidenceDisplayLines(float contentWidth) {
+        String source = statsEvidenceSource();
+        float wrapWidth = Math.max(1f, contentWidth - 6f);
+        if (source.equals(statsEvidenceSourceCache)
+                && Math.abs(wrapWidth - statsEvidenceWrapWidth) <= 0.5f) {
+            return statsEvidenceLines;
+        }
+        glyph.setText(debugLogFont, "M");
+        int maximumCharacters = Math.max(1,
+                (int) Math.floor(wrapWidth / Math.max(1f, glyph.width)));
+        List<String> wrapped = new ArrayList<>();
+        for (String line : source.split("\\R", -1)) {
+            if (line.isEmpty()) {
+                wrapped.add("");
+                continue;
+            }
+            for (int start = 0; start < line.length();
+                    start += maximumCharacters) {
+                wrapped.add(line.substring(start,
+                        Math.min(line.length(), start + maximumCharacters)));
+            }
+        }
+        statsEvidenceSourceCache = source;
+        statsEvidenceWrapWidth = wrapWidth;
+        statsEvidenceLines = List.copyOf(wrapped);
+        return statsEvidenceLines;
+    }
+
+    private String statsEvidenceSource() {
+        if (statsEvidence.isEmpty()) {
+            return gameText.translate("gdx.stats.zero_trust_no_evidence");
+        }
+        StringBuilder value = new StringBuilder();
+        for (int index = 0; index < statsEvidence.size(); index++) {
+            StatsRepository.ZeroTrustEvidence evidence =
+                    statsEvidence.get(index);
+            if (index > 0) value.append("\n\n");
+            value.append("===== INCIDENT ").append(index + 1)
+                    .append(" | HAND ").append(evidence.handCounter())
+                    .append(" | ")
+                    .append(Instant.ofEpochSecond(
+                            evidence.timestampSeconds()))
+                    .append(" =====\n");
+            String report = Objects.requireNonNullElse(evidence.report(), "");
+            if (report.isBlank()) {
+                value.append("reason=")
+                        .append(Objects.requireNonNullElse(
+                                evidence.reason(), "unknown"))
+                        .append('\n')
+                        .append("evidence_file=")
+                        .append(Objects.requireNonNullElse(
+                                evidence.path(), ""))
+                        .append('\n')
+                        .append(gameText.translate(
+                                "gdx.stats.zero_trust_legacy_evidence"));
+            } else {
+                value.append(report.stripTrailing());
+            }
+        }
+        return value.toString();
+    }
+
+    private void copyStatsEvidence() {
+        Gdx.app.getClipboard().setContents(statsEvidenceSource());
+        showToast(gameText.translate("gdx.settings.debug.copied"));
+    }
+
+    private boolean beginStatsEvidenceWindowDrag(
+            StatsEvidenceWindowDrag drag,
+            GdxFloatingGameLogLayout.ResizeHandle resizeHandle,
+            float x, float y, int pointerIndex, int button) {
+        if (!statsEvidenceWindowPointer.capture(pointerIndex, button)) {
+            return false;
+        }
+        statsEvidenceWindowDrag = drag;
+        statsEvidenceResizeHandle = resizeHandle;
+        statsEvidenceDragStartX = x;
+        statsEvidenceDragStartY = y;
+        statsEvidenceDragStartBounds.set(ensureStatsEvidencePanelBounds());
+        return true;
+    }
+
+    private void updateStatsEvidenceWindowDrag(float x, float y) {
+        Rectangle updated = switch (statsEvidenceWindowDrag) {
+            case MOVE -> GdxFloatingGameLogLayout.moved(
+                    statsEvidenceDragStartBounds,
+                    x - statsEvidenceDragStartX,
+                    y - statsEvidenceDragStartY,
+                    viewport.getWorldWidth(), viewport.getWorldHeight());
+            case RESIZE -> GdxFloatingGameLogLayout.resized(
+                    statsEvidenceDragStartBounds,
+                    statsEvidenceResizeHandle,
+                    x - statsEvidenceDragStartX,
+                    y - statsEvidenceDragStartY,
+                    viewport.getWorldWidth(), viewport.getWorldHeight());
+            case NONE -> null;
+        };
+        if (updated != null) {
+            statsEvidencePanelBounds.set(updated);
+            statsEvidenceWrapWidth = -1f;
+            statsEvidenceScrollTarget = MathUtils.clamp(
+                    statsEvidenceScrollTarget, 0f,
+                    statsEvidenceScrollMaximum);
+            statsEvidenceScroll = MathUtils.clamp(statsEvidenceScroll, 0f,
+                    statsEvidenceScrollMaximum);
+        }
+    }
+
+    private void clearStatsEvidenceWindowDrag() {
+        statsEvidenceWindowPointer.clear();
+        statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
+        statsEvidenceResizeHandle =
+                GdxFloatingGameLogLayout.ResizeHandle.NONE;
+    }
+
     private void drawStatsPicker() {
         boolean games = statsPicker == StatsPicker.GAME;
         boolean modes = statsPicker == StatsPicker.MODE;
@@ -3720,6 +4061,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : gameText.translate("gdx.stats.local");
         statsSummaryLine(gameText.translate("gdx.stats.origin"),
                 origin, y);
+        if (game.hasZeroTrustIncident()) {
+            themedButton(86f, 112f, 348f, 56f,
+                    uppercase(gameText.translate(
+                            "gdx.stats.zero_trust_evidence"))
+                            + " (" + game.zeroTrustIncidents() + ")",
+                    ButtonTone.DANGER, this::openStatsEvidence,
+                    !statsLoading, smallFont);
+        }
     }
 
     private void drawStatsSummaryPlayers(List<String> players, float topY) {
@@ -13541,6 +13890,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NESWResize;
                 default -> Cursor.SystemCursor.Arrow;
             };
+        } else if (statsEvidenceOpen) {
+            GdxFloatingGameLogLayout.ResizeHandle handle =
+                    statsEvidenceWindowDrag == StatsEvidenceWindowDrag.RESIZE
+                            ? statsEvidenceResizeHandle
+                            : GdxFloatingGameLogLayout.resizeHandleAt(
+                                    statsEvidenceLayout().panel(),
+                                    pointer.x, pointer.y);
+            desired = switch (handle) {
+                case LEFT, RIGHT -> Cursor.SystemCursor.HorizontalResize;
+                case TOP, BOTTOM -> Cursor.SystemCursor.VerticalResize;
+                case TOP_LEFT, BOTTOM_RIGHT ->
+                    Cursor.SystemCursor.NWSEResize;
+                case TOP_RIGHT, BOTTOM_LEFT ->
+                    Cursor.SystemCursor.NESWResize;
+                case NONE -> Cursor.SystemCursor.Arrow;
+            };
         }
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);
@@ -14174,6 +14539,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
         }
+        if (statsEvidenceOpen && button == Input.Buttons.LEFT) {
+            GdxFloatingGameLogLayout.ResizeHandle resizeHandle =
+                    GdxFloatingGameLogLayout.resizeHandleAt(
+                            statsEvidenceLayout().panel(),
+                            pointer.x, pointer.y);
+            if (resizeHandle
+                    != GdxFloatingGameLogLayout.ResizeHandle.NONE) {
+                return beginStatsEvidenceWindowDrag(
+                        StatsEvidenceWindowDrag.RESIZE, resizeHandle,
+                        pointer.x, pointer.y, pointerIndex, button);
+            }
+            if (statsEvidenceHeaderDragBounds().contains(pointer)) {
+                return beginStatsEvidenceWindowDrag(
+                        StatsEvidenceWindowDrag.MOVE,
+                        GdxFloatingGameLogLayout.ResizeHandle.NONE,
+                        pointer.x, pointer.y, pointerIndex, button);
+            }
+        }
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
@@ -14195,7 +14578,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (avatarCropSession == null
                 && (!blockingModal || rootSurfaceOwnsPointer
                 || statsPicker != StatsPicker.NONE || networkBlocksOpen
-                || customBotManagerOpen)
+                || customBotManagerOpen || statsEvidenceOpen)
                 && button == Input.Buttons.LEFT
                 && beginScrollDrag(pointer.x, pointer.y,
                         pointerIndex, button)) {
@@ -14293,6 +14676,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             avatarCropLastY = pointer.y;
             return true;
         }
+        if (statsEvidenceWindowPointer.owns(pointerIndex,
+                Input.Buttons.LEFT)) {
+            updateStatsEvidenceWindowDrag(pointer.x, pointer.y);
+            return true;
+        }
         if (lobbyVoicePointer.owns(pointerIndex, Input.Buttons.LEFT)) {
             return true;
         }
@@ -14323,6 +14711,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
             avatarCropPointer = -1;
             avatarCropResizeStart = null;
+            return true;
+        }
+        if (statsEvidenceWindowPointer.release(pointerIndex, button)) {
+            statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
+            statsEvidenceResizeHandle =
+                    GdxFloatingGameLogLayout.ResizeHandle.NONE;
             return true;
         }
         if (lobbyVoicePointer.release(pointerIndex, button)) {
@@ -14357,6 +14751,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean beginScrollDrag(float x, float y, int pointerIndex,
             int button) {
+        if (statsEvidenceOpen) {
+            GdxFloatingGameLogLayout.Layout layout = statsEvidenceLayout();
+            Rectangle track = layout.scrollbarTrack();
+            if (statsEvidenceScrollMaximum > 0f
+                    && containsExpandedHorizontally(track, x, y, 8f)) {
+                return captureScrollDrag(ScrollDrag.STATS_EVIDENCE,
+                        pointerIndex, button, y, track.y, track.height,
+                        statsEvidenceScrollThumbHeight,
+                        statsEvidenceScroll / statsEvidenceScrollMaximum,
+                        true);
+            }
+            return false;
+        }
         if (customBotManagerOpen) {
             if (customBotDeleteConfirmation) return false;
             float maximum = customBotMaximumPixelScroll(
@@ -14492,7 +14899,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void updateScrollDrag(float x, float y) {
         float progress;
-        if (scrollDrag == ScrollDrag.STATS_PICKER) {
+        if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
+            Rectangle track = statsEvidenceLayout().scrollbarTrack();
+            progress = GdxScrollbarDrag.ratio(y, track.y, track.height,
+                    statsEvidenceScrollThumbHeight,
+                    scrollDragGrabOffset, true);
+        } else if (scrollDrag == ScrollDrag.STATS_PICKER) {
             progress = GdxScrollbarDrag.ratio(y,
                     statsPickerScrollTrack.y,
                     statsPickerScrollTrack.height,
@@ -14559,7 +14971,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void applyScrollRatio(float progress) {
-        if (scrollDrag == ScrollDrag.STATS_PICKER) {
+        if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
+            statsEvidenceScrollTarget = progress
+                    * statsEvidenceScrollMaximum;
+            statsEvidenceScroll = statsEvidenceScrollTarget;
+        } else if (scrollDrag == ScrollDrag.STATS_PICKER) {
             statsPickerScrollTarget = progress * statsPickerScrollMaximum;
             statsPickerScroll = statsPickerScrollTarget;
         } else if (scrollDrag == ScrollDrag.STATS_CHART_HORIZONTAL) {
@@ -14755,7 +15171,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (surface == Surface.STATS) {
-                if (statsSyncExclusionsOpen) {
+                if (statsEvidenceOpen) {
+                    closeStatsEvidence();
+                } else if (statsSyncExclusionsOpen) {
                     closeStatsSyncExclusions();
                 } else if (statsPicker != StatsPicker.NONE) {
                     statsPicker = StatsPicker.NONE;
@@ -15539,6 +15957,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             pressedHit = null;
             return true;
         }
+        if (statsEvidenceWindowPointer.release(p, b)) {
+            statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
+            statsEvidenceResizeHandle =
+                    GdxFloatingGameLogLayout.ResizeHandle.NONE;
+            pressedHit = null;
+            return true;
+        }
         if (lobbyVoicePointer.release(p, b)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -15568,6 +15993,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             viewport.unproject(pointer);
             if (amountY != 0f && avatarCropViewport.contains(pointer)) {
                 resizeAvatarCrop((float) Math.pow(1.12d, amountY));
+            }
+            return true;
+        }
+        if (statsEvidenceOpen && amountY != 0f) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+            if (statsEvidenceLayout().content().contains(pointer)) {
+                statsEvidenceScrollTarget = MathUtils.clamp(
+                        statsEvidenceScrollTarget
+                                + amountY * STATS_EVIDENCE_LINE_HEIGHT * 3f,
+                        0f, statsEvidenceScrollMaximum);
             }
             return true;
         }
@@ -15813,8 +16249,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum ScrollDrag {
         NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
-        STATS_RESULTS, STATS_SUMMARY_PLAYERS, STATS_CHART_HORIZONTAL,
+        STATS_EVIDENCE, STATS_RESULTS, STATS_SUMMARY_PLAYERS, STATS_CHART_HORIZONTAL,
         STATS_CHART_VERTICAL, NETWORK_BLOCKS, CUSTOM_BOTS
+    }
+
+    private enum StatsEvidenceWindowDrag {
+        NONE, MOVE, RESIZE
     }
 
     private enum StatsMode {

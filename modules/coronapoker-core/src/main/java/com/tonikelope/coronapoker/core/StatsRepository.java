@@ -32,6 +32,9 @@ public final class StatsRepository {
     public List<GameSummary> games() throws SQLException {
         String sql = "SELECT g.*, (SELECT COUNT(*) FROM hand h "
                 + "WHERE h.id_game=g.id AND h.end IS NOT NULL) AS tot_hands "
+                + ", (SELECT COUNT(*) FROM disputed_hands d "
+                + "JOIN hand hd ON hd.id=d.id_hand "
+                + "WHERE hd.id_game=g.id) AS zero_trust_incidents "
                 + "FROM game g ORDER BY g.start DESC";
         synchronized (database.lock()) {
             try (Statement statement = database.connection().createStatement()) {
@@ -50,7 +53,36 @@ public final class StatsRepository {
                                 rows.getInt("tot_hands"),
                                 rows.getBoolean("private"),
                                 rows.getBoolean("imported"),
-                                rows.getString("imported_from")));
+                                rows.getString("imported_from"),
+                                rows.getInt("zero_trust_incidents")));
+                    }
+                    return List.copyOf(result);
+                }
+            }
+        }
+    }
+
+    /** Complete forensic reports persisted for one game's Zero Trust incidents. */
+    public List<ZeroTrustEvidence> zeroTrustEvidence(int gameId)
+            throws SQLException {
+        String sql = "SELECT d.id,d.timestamp,d.reason,d.evidence_text,"
+                + "d.evidence_path,h.counter FROM disputed_hands d "
+                + "JOIN hand h ON h.id=d.id_hand WHERE h.id_game=? "
+                + "ORDER BY d.timestamp,d.id";
+        synchronized (database.lock()) {
+            try (PreparedStatement statement = database.connection()
+                    .prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, gameId);
+                try (ResultSet rows = statement.executeQuery()) {
+                    List<ZeroTrustEvidence> result = new ArrayList<>();
+                    while (rows.next()) {
+                        result.add(new ZeroTrustEvidence(rows.getLong("id"),
+                                rows.getLong("timestamp"),
+                                rows.getInt("counter"),
+                                rows.getString("reason"),
+                                rows.getString("evidence_text"),
+                                rows.getString("evidence_path")));
                     }
                     return List.copyOf(result);
                 }
@@ -451,7 +483,8 @@ public final class StatsRepository {
             Long endedAtMillis, long playTimeSeconds, String server,
             List<String> players, int buyin, double smallBlind,
             int blindsTime, int blindsTimeType, boolean rebuy, int hands,
-            boolean privateGame, boolean imported, String importedFrom) {
+            boolean privateGame, boolean imported, String importedFrom,
+            int zeroTrustIncidents) {
 
         public GameSummary {
             players = List.copyOf(players == null ? List.of() : players);
@@ -461,9 +494,16 @@ public final class StatsRepository {
             return new GameSummary(id, startedAtMillis, endedAtMillis,
                     playTimeSeconds, server, players, buyin, smallBlind,
                     blindsTime, blindsTimeType, rebuy, hands, value, imported,
-                    importedFrom);
+                    importedFrom, zeroTrustIncidents);
+        }
+
+        public boolean hasZeroTrustIncident() {
+            return zeroTrustIncidents > 0;
         }
     }
+
+    public record ZeroTrustEvidence(long id, long timestampSeconds,
+            int handCounter, String reason, String report, String path) { }
 
     public record HandSummary(int id, int gameId, int counter,
             double smallBlind, int blindsDouble, String dealer,

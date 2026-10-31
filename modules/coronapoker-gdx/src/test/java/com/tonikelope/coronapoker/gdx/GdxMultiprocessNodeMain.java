@@ -8,6 +8,7 @@ import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.core.identity.PlayerIdentity;
@@ -26,9 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -80,6 +85,26 @@ public final class GdxMultiprocessNodeMain {
             System.setProperty("coronapoker.qa.forceBotAllInNicks",
                     "CoronaBot$1,CoronaBot$2");
         }
+        if (consensusFaultScenario(config.scenario)) {
+            System.setProperty("coronapoker.qa.consensusFault",
+                    consensusFaultMode(config.scenario));
+            System.setProperty("coronapoker.qa.consensusFaultNick",
+                    "client1");
+            if (hotJoinConsensusFaultScenario(config.scenario)
+                    && !warmingHotJoinConsensusFaultScenario(
+                            config.scenario)) {
+                System.setProperty("coronapoker.qa.consensusFaultMinHand",
+                        "2");
+            }
+        }
+        if (zeroTrustFamilyFaultScenario(config.scenario)) {
+            String mode = config.scenario.substring(
+                    "zero-trust-fault-".length());
+            System.setProperty("coronapoker.qa.zeroTrustFault", mode);
+            System.setProperty("coronapoker.qa.zeroTrustFaultNick",
+                    "misdeal".equals(mode) || "boundary".equals(mode)
+                            ? "server" : "client1");
+        }
         Path home = Path.of(System.getProperty("user.home"))
                 .toAbsolutePath().normalize();
         Files.createDirectories(home);
@@ -129,6 +154,7 @@ public final class GdxMultiprocessNodeMain {
                 return;
             }
             if ("live-hot-join".equals(config.scenario)
+                    || "live-hot-join-remainder".equals(config.scenario)
                     || "live-hot-join-stop".equals(config.scenario)
                     || "live-hot-join-exit".equals(config.scenario)
                     || "live-hot-join-bootstrap-exit".equals(config.scenario)
@@ -148,6 +174,7 @@ public final class GdxMultiprocessNodeMain {
                     || "live-hot-join-paused-bootstrap".equals(config.scenario)
                     || "live-hot-join-last-hand-bootstrap".equals(
                             config.scenario)
+                    || hotJoinConsensusFaultScenario(config.scenario)
                     || "live-hot-join-two".equals(config.scenario)
                     || "live-hot-join-dual-churn".equals(config.scenario)
                     || config.scenario.startsWith(
@@ -176,10 +203,17 @@ public final class GdxMultiprocessNodeMain {
                     = new AtomicReference<>();
             AtomicReference<GdxScenarioRenderer> scenarioRenderer
                     = new AtomicReference<>();
+            GdxGameLogSink forensicGameLog = null;
+            if (fatalZeroTrustScenario(config.scenario)) {
+                forensicGameLog = new GdxGameLogSink(
+                        Path.of(database.databaseLocation()));
+                forensicGameLog.reset();
+            }
+            GdxGameLogSink activeForensicGameLog = forensicGameLog;
             try (NetworkLobbyGateway gateway
                     = gateway(config, home.resolve("network"), database,
                             productTable, runItTwiceVotes, runItTwiceDialog,
-                            scenarioRenderer);
+                            scenarioRenderer, activeForensicGameLog);
                  LobbySession lobby = gateway.open(request(config))
                          .get(15, TimeUnit.SECONDS)) {
                 marker("READY", "role=" + config.role + " nick="
@@ -278,6 +312,10 @@ public final class GdxMultiprocessNodeMain {
                         Duration.ofSeconds(Math.max(150L,
                                 config.hands * 30L)), "table completion");
                 assertOutcome(config, renderer);
+                if (localZeroTrustEvidenceExpected(config)) {
+                    assertZeroTrustArtifacts(config, home, database,
+                            activeForensicGameLog, renderer);
+                }
                 if (("controlled-exit".equals(config.scenario)
                         || "allin-controlled-exit".equals(config.scenario))
                         && !config.disruptedClient()) {
@@ -321,6 +359,8 @@ public final class GdxMultiprocessNodeMain {
             requireCommand("CONNECT_HOT_JOIN");
         }
         boolean stopWhileWarming = "live-hot-join-stop".equals(
+                config.scenario);
+        boolean remainderScenario = "live-hot-join-remainder".equals(
                 config.scenario);
         boolean concurrentExit = "live-hot-join-two-exit".equals(
                 config.scenario);
@@ -367,6 +407,8 @@ public final class GdxMultiprocessNodeMain {
                 "paused-bootstrap");
         boolean lastHandBootstrap
                 = "live-hot-join-last-hand-bootstrap".equals(config.scenario);
+        boolean warmingConsensusFault
+                = warmingHotJoinConsensusFaultScenario(config.scenario);
         boolean twoLate = "live-hot-join-two".equals(config.scenario)
                 || config.scenario.startsWith("live-hot-join-two-")
                 || dualChurn;
@@ -390,14 +432,20 @@ public final class GdxMultiprocessNodeMain {
                 && "late-exit".equals(config.phase);
         int visibleExpectedPlayers = config.clients + config.bots + 1;
         int finalExpectedPlayers = config.clients + config.bots
-                + (exitWhileWarming || lastHandBootstrap ? 0 : 1);
+                + (exitWhileWarming || lastHandBootstrap
+                        || warmingConsensusFault ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
         Set<String> churnNicknames = dualChurn
                 ? Set.of("client" + (config.clients - 1), newcomerNickname)
                 : Set.of(newcomerNickname);
         boolean thisWarmingIncarnationExits = exitWhileWarming
                 && (!twoLate || newcomerNickname.equals(config.nickname));
-        GdxGameLogSink gameLog = new GdxGameLogSink();
+        GdxGameLogSink gameLog = consensusFaultScenario(config.scenario)
+                ? new GdxGameLogSink(Path.of(database.databaseLocation()))
+                : new GdxGameLogSink();
+        if (consensusFaultScenario(config.scenario)) {
+            gameLog.reset();
+        }
         AtomicInteger bootstrapLogLines = new AtomicInteger();
         AtomicReference<CoronaPokerGdxTable> productTable
                 = new AtomicReference<>();
@@ -446,6 +494,10 @@ public final class GdxMultiprocessNodeMain {
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                     visibleExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
+            if (remainderScenario && config.host()) {
+                renderer.foldOnHand(1L);
+                renderer.requestTwoRabbitCardsOnHand(1L);
+            }
             if (allInBootstrap && !late) {
                 renderer.enableAllInEveryHand();
             }
@@ -579,6 +631,11 @@ public final class GdxMultiprocessNodeMain {
                         newcomerNickname);
                 marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
                         + newcomerNickname);
+                await(() -> renderer.hasUsableLatency(newcomerNickname),
+                        Duration.ofSeconds(30),
+                        "warming hot-join latency sample");
+                marker("HOT_JOIN_WARMING_LATENCY", "nick="
+                        + newcomerNickname + " state=measured");
                 if (!renderer.localHoleCardsRemainRevealed()) {
                     throw new AssertionError(
                             "hot join roster hid the host pocket cards");
@@ -881,6 +938,12 @@ public final class GdxMultiprocessNodeMain {
                 }
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
+                if (renderer.latencyIndicatorIsRed(config.nickname)) {
+                    throw new AssertionError("CALENTANDO latency without a "
+                            + "measurement was rendered as a connection error");
+                }
+                marker("HOT_JOIN_LOCAL_LATENCY", "nick=" + config.nickname
+                        + " state=pending-or-measured");
                 if (thisWarmingIncarnationExits || firstReentryIncarnation) {
                     requireCommand("EXIT_HOT_JOIN");
                     table.commands().submit(new TableCommand.ExitGame());
@@ -904,7 +967,8 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXITED", "nick=" + config.nickname);
                     return;
                 }
-                if (!stopWhileWarming && !thisWarmingIncarnationExits) {
+                if (!stopWhileWarming && !thisWarmingIncarnationExits
+                        && !warmingConsensusFault) {
                     if (!publicRunoutBootstrap && !churnReentry) {
                         await(renderer::sawHotJoinPlayerAction,
                                 Duration.ofSeconds(90),
@@ -1065,7 +1129,8 @@ public final class GdxMultiprocessNodeMain {
             // consensus check for every process.
             boolean remainsForAdmission = !stopWhileWarming
                     && (!exitWhileWarming || concurrentExit)
-                    && !exitAtAdmission && !lastHandBootstrap;
+                    && !exitAtAdmission && !lastHandBootstrap
+                    && !warmingConsensusFault;
             if (remainsForAdmission) {
                 String admittedNickname = concurrentExit
                         ? "client1" : newcomerNickname;
@@ -1089,6 +1154,13 @@ public final class GdxMultiprocessNodeMain {
                 }
             }
 
+            if (remainderScenario && config.host()) {
+                await(renderer::sawTenCentRabbitFee,
+                        Duration.ofSeconds(60),
+                        "ten-cent carry before hot-join admission");
+                marker("HOT_JOIN_REMAINDER_FEE", "cents=10");
+            }
+
             if (stopWhileWarming) {
                 await(renderer::isClosed, Duration.ofSeconds(90),
                         "hot-join recoverable stop");
@@ -1106,13 +1178,28 @@ public final class GdxMultiprocessNodeMain {
             await(renderer::isClosed,
                     Duration.ofSeconds(Math.max(180L,
                             config.hands * 45L)), "hot-join completion");
+            boolean warmingObserver = warmingConsensusFault && late;
+            if (consensusFaultScenario(config.scenario) && !warmingObserver) {
+                assertZeroTrustArtifacts(config, home, database, gameLog,
+                        renderer);
+            }
+            if (warmingObserver) {
+                if (renderer.summary() == null
+                        || renderer.summary().reason()
+                        != TableSessionSummary.CloseReason.FAILURE) {
+                    throw new AssertionError("warming hot join did not receive "
+                            + "the authenticated Zero Trust terminal failure");
+                }
+                marker("HOT_JOIN_WARMING_ZERO_TRUST_TERMINAL", "nick="
+                        + config.nickname + " reason=FAILURE");
+            }
             if (renderer.summary() == null
                     || renderer.summary().balances().size()
                     != finalExpectedPlayers) {
                 throw new AssertionError(
                         "hot-join settlement does not contain all players");
             }
-            if (late && !publicRunoutBootstrap
+            if (late && !publicRunoutBootstrap && !warmingConsensusFault
                     && gameLog.snapshot().lines().size()
                     <= bootstrapLogLines.get()) {
                 throw new AssertionError(
@@ -1126,6 +1213,25 @@ public final class GdxMultiprocessNodeMain {
                 marker("HOT_JOIN_LAST_HAND_COMPLETE", "nick="
                         + config.nickname + " admitted=false");
             }
+            marker("LEDGER", renderer.balancesByNickname().entrySet()
+                    .stream()
+                    .sorted(Comparator.comparing(
+                            java.util.Map.Entry::getKey))
+                    .map(entry -> entry.getKey() + "="
+                            + Math.round(entry.getValue() * 100.0d))
+                    .collect(java.util.stream.Collectors.joining(",")));
+            marker("CAPITAL", renderer.summary().balances().stream()
+                    .sorted(Comparator.comparing(
+                            TableSessionSummary.PlayerBalance::nickname))
+                    .map(balance -> balance.nickname() + "="
+                            + Math.round(balance.finalStack() * 100.0d)
+                            + "/" + Math.round(
+                                    balance.totalBuyin() * 100.0d)
+                            + "/" + balance.rebuyCount())
+                    .collect(java.util.stream.Collectors.joining(",")));
+            marker("HANDS_COMPLETE", "hands=" + renderer.completedHands()
+                    + " durableHands=" + renderer.summary().handCount()
+                    + " reason=" + renderer.summary().reason());
             marker("HOT_JOIN_COMPLETE", "role=" + config.role
                     + " nick=" + config.nickname + " hands="
                     + renderer.summary().handCount() + " logLines="
@@ -3233,6 +3339,11 @@ public final class GdxMultiprocessNodeMain {
             AtomicReference<GdxTableDialog> runItTwiceDialog,
             AtomicReference<GdxScenarioRenderer> scenarioRenderer,
             GdxGameLogSink gameLog) {
+        if (fatalZeroTrustScenario(config.scenario)) {
+            return GdxNetworkHumanProjectionIntegrationTest.gateway(data,
+                    database, java.util.Objects.requireNonNull(gameLog),
+                    zeroTrustDialogSink(config));
+        }
         if ("allin-rebuy".equals(config.scenario)) {
             return GdxNetworkHumanProjectionIntegrationTest
                     .automaticRebuyGateway(data, database);
@@ -3303,6 +3414,185 @@ public final class GdxMultiprocessNodeMain {
                         database)
                 : GdxNetworkHumanProjectionIntegrationTest.gateway(data,
                         database, gameLog);
+    }
+
+    private static GameDialogSink zeroTrustDialogSink(Config config) {
+        GameDialogSink fallback = GameDialogSink.noop();
+        return new GameDialogSink() {
+            @Override
+            public CompletionStage<Void> showError(String message,
+                    int preferredWidth) {
+                return fallback.showError(message, preferredWidth);
+            }
+
+            @Override
+            public CompletionStage<Void> showInfo(String message, Icon icon,
+                    int preferredWidth) {
+                return fallback.showInfo(message, icon, preferredWidth);
+            }
+
+            @Override
+            public CompletionStage<Boolean> confirm(String message,
+                    Icon icon) {
+                return fallback.confirm(message, icon);
+            }
+
+            @Override
+            public CompletionStage<Void> showTimedWarning(String message,
+                    int seconds) {
+                return fallback.showTimedWarning(message, seconds);
+            }
+
+            @Override
+            public CompletionStage<Void> showZeroTrustAlert(String message,
+                    int preferredWidth) {
+                String normalized = message.toLowerCase(Locale.ROOT);
+                if (normalized.contains("liquidado normalmente")
+                        || normalized.contains("settled normally")) {
+                    throw new AssertionError("Zero Trust alert contradicts "
+                            + "the recoverable open-hand state: " + message);
+                }
+                CompletableFuture<Void> acknowledged
+                        = new CompletableFuture<>();
+                boolean preserveOpenHand
+                        = preserveOpenHandExpected(config.scenario);
+                marker("ZERO_TRUST_DIALOG_SHOWN", "nick="
+                        + config.nickname + " recoverable=" + preserveOpenHand
+                        + " preserveOpenHand=" + preserveOpenHand
+                        + " messageB64="
+                        + Base64.getEncoder().encodeToString(message.getBytes(
+                                StandardCharsets.UTF_8)));
+                Thread waiter = new Thread(() -> {
+                    try {
+                        requireCommand("ACK_ZERO_TRUST");
+                        marker("ZERO_TRUST_DIALOG_ACKNOWLEDGED", "nick="
+                                + config.nickname);
+                        acknowledged.complete(null);
+                    } catch (Exception failure) {
+                        acknowledged.completeExceptionally(failure);
+                    }
+                }, "gdx-e2e-zero-trust-ack-" + config.nickname);
+                waiter.setDaemon(true);
+                waiter.start();
+                return acknowledged;
+            }
+        };
+    }
+
+    private static boolean consensusFaultScenario(String scenario) {
+        return scenario != null && (scenario.startsWith("consensus-fault-")
+                || hotJoinConsensusFaultScenario(scenario));
+    }
+
+    private static boolean zeroTrustFamilyFaultScenario(String scenario) {
+        return scenario != null
+                && scenario.startsWith("zero-trust-fault-");
+    }
+
+    private static boolean fatalZeroTrustScenario(String scenario) {
+        return consensusFaultScenario(scenario)
+                || zeroTrustFamilyFaultScenario(scenario);
+    }
+
+    private static boolean localZeroTrustEvidenceExpected(Config config) {
+        if (consensusFaultScenario(config.scenario)) return true;
+        if (!zeroTrustFamilyFaultScenario(config.scenario)) return false;
+        String mode = config.scenario.substring(
+                "zero-trust-fault-".length());
+        return "misdeal".equals(mode)
+                || "client1".equals(config.nickname);
+    }
+
+    private static boolean preserveOpenHandExpected(String scenario) {
+        if (consensusFaultScenario(scenario)) return true;
+        return scenario != null && scenario.endsWith("-lockdown");
+    }
+
+    private static boolean hotJoinConsensusFaultScenario(String scenario) {
+        return scenario != null && (scenario.startsWith(
+                "live-hot-join-consensus-fault-")
+                || warmingHotJoinConsensusFaultScenario(scenario));
+    }
+
+    private static boolean warmingHotJoinConsensusFaultScenario(
+            String scenario) {
+        return scenario != null && scenario.startsWith(
+                "live-hot-join-warming-consensus-fault-");
+    }
+
+    private static String consensusFaultMode(String scenario) {
+        String prefix = warmingHotJoinConsensusFaultScenario(scenario)
+                ? "live-hot-join-warming-consensus-fault-"
+                : hotJoinConsensusFaultScenario(scenario)
+                        ? "live-hot-join-consensus-fault-"
+                        : "consensus-fault-";
+        return scenario.substring(prefix.length());
+    }
+
+    private static void assertZeroTrustArtifacts(Config config, Path home,
+            DatabaseService database, GdxGameLogSink gameLog,
+            GdxScenarioRenderer renderer) throws Exception {
+        if (renderer.summary().reason()
+                != TableSessionSummary.CloseReason.FAILURE) {
+            throw new AssertionError("Zero Trust incident was not classified "
+                    + "as FAILURE: " + renderer.summary().reason());
+        }
+        String evidenceText;
+        String evidencePath;
+        Long handEnd;
+        synchronized (database.lock()) {
+            try (java.sql.Statement statement
+                    = database.connection().createStatement();
+                    java.sql.ResultSet row = statement.executeQuery(
+                            "SELECT d.evidence_text,d.evidence_path,h.end "
+                            + "FROM disputed_hands d JOIN hand h "
+                            + "ON h.id=d.id_hand ORDER BY d.id DESC LIMIT 1")) {
+                if (!row.next()) {
+                    throw new AssertionError(
+                            "Zero Trust incident has no disputed_hands row");
+                }
+                evidenceText = row.getString(1);
+                evidencePath = row.getString(2);
+                long value = row.getLong(3);
+                handEnd = row.wasNull() ? null : value;
+            }
+        }
+        boolean preserveOpenHand = preserveOpenHandExpected(config.scenario);
+        if (preserveOpenHand && handEnd != null) {
+            throw new AssertionError(
+                    "Disputed hand was closed instead of left recoverable");
+        }
+        if (!preserveOpenHand && handEnd == null) {
+            throw new AssertionError(
+                    "Pre-settlement or boundary incident left an unexpected "
+                    + "open hand");
+        }
+        if (evidenceText == null
+                || !evidenceText.startsWith("ZERO_TRUST_EVIDENCE_V1\n")
+                || !evidenceText.contains("RECEIPTS\n")
+                || !evidenceText.contains("DATABASE_SNAPSHOT\n")) {
+            throw new AssertionError("Detailed evidence is incomplete");
+        }
+        Path evidence = Path.of(evidencePath).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(evidence)
+                || !Files.readString(evidence, StandardCharsets.UTF_8)
+                        .equals(evidenceText)) {
+            throw new AssertionError(
+                    "Evidence file and SQLite report are not identical: "
+                    + evidence);
+        }
+        Path regularLog = gameLog.persistentLogPath();
+        if (regularLog == null || !Files.isRegularFile(regularLog)
+                || Files.readString(regularLog, StandardCharsets.UTF_8)
+                        .isBlank()) {
+            throw new AssertionError("Persistent GDX game log is missing");
+        }
+        marker("ZERO_TRUST_EVIDENCE_READY", "nick=" + config.nickname
+                + " pathB64=" + Base64.getEncoder().encodeToString(
+                        evidence.toString().getBytes(StandardCharsets.UTF_8))
+                + " gameLogB64=" + Base64.getEncoder().encodeToString(
+                        regularLog.toString().getBytes(
+                                StandardCharsets.UTF_8)));
     }
 
     private static NetworkLobbyGateway immediateRebuyGateway(Config config,
@@ -3861,6 +4151,10 @@ public final class GdxMultiprocessNodeMain {
                 || "straddle-network-cut".equals(config.scenario)) {
             table.setStraddle(true);
         }
+        if ("live-hot-join-remainder".equals(config.scenario)) {
+            table.setRabbitHunting(
+                    NewGameTableDraft.RabbitHunting.FREE_SMALL_BLIND);
+        }
         return new NewGameRequest(connection, table.snapshot());
     }
 
@@ -3909,6 +4203,23 @@ public final class GdxMultiprocessNodeMain {
 
     private static void assertOutcome(Config config,
             GdxScenarioRenderer renderer) {
+        if (localZeroTrustEvidenceExpected(config)) {
+            if (renderer.summary().reason()
+                    != TableSessionSummary.CloseReason.FAILURE) {
+                throw new AssertionError("fatal Zero Trust incident ended as "
+                        + renderer.summary().reason());
+            }
+            return;
+        }
+        if (zeroTrustFamilyFaultScenario(config.scenario)) {
+            TableSessionSummary.CloseReason reason = renderer.summary().reason();
+            if (reason != TableSessionSummary.CloseReason.RECOVERABLE_STOP
+                    && reason != TableSessionSummary.CloseReason.FAILURE) {
+                throw new AssertionError("peer Zero Trust shutdown ended as "
+                        + reason);
+            }
+            return;
+        }
         // An EXITED renderer is already leaving its own table while the other
         // JVMs independently tear down their sockets. Connectivity snapshots
         // observed by that departing process are not user-visible outcomes.

@@ -2508,6 +2508,18 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 acceleratedSettings(), gameLog);
     }
 
+    static NetworkLobbyGateway gateway(Path data, DatabaseService database,
+            GameLogSink gameLog, GameDialogSink dialogs) {
+        ScenarioRandomness randomness = scenarioRandomness(data);
+        CoreGameTableFactory tables = new CoreGameTableFactory(database,
+                new GdxGameText("es"), gameLog, dialogs,
+                GameDecisionSink.noop(), acceleratedSettings(),
+                GameCinematicAssets.none(), randomness.entropy());
+        return new NetworkLobbyGateway(data, tables,
+                new RecoverableGameRepository(database),
+                randomness.sessionIds());
+    }
+
     private static NetworkLobbyGateway gateway(Path data, DatabaseService database,
             GameDecisionSink decisions, GamePresentationSettings settings) {
         return gateway(data, database, decisions, settings,

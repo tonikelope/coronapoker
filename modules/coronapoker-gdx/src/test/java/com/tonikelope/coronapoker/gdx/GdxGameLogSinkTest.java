@@ -8,9 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class GdxGameLogSinkTest {
+
+    @TempDir
+    Path temporary;
 
     @Test
     void showdownRewritesOriginalRowsExactlyOnceLikeSwing() {
@@ -74,5 +81,40 @@ final class GdxGameLogSinkTest {
 
         assertFalse(sink.snapshot().lines().stream()
                 .anyMatch(line -> line.contains("LA TIMBA HA TERMINADO")));
+    }
+
+    @Test
+    void productionSinkPersistsCompleteSessionAndShowdownRewrite()
+            throws Exception {
+        GdxGameLogSink sink = new GdxGameLogSink(
+                temporary.resolve("profile.db"));
+        sink.reset();
+        sink.print("first");
+        sink.print("Bot$1   (---)   PAIR OF ACES");
+        sink.updateShowdownCards(List.of(new ShowdownEntry(
+                "Bot$1", true, "A♥ A♣", "THREE OF A KIND")));
+
+        Path file = sink.persistentLogPath();
+        assertTrue(file.startsWith(temporary.resolve("logs")));
+        assertTrue(Files.isRegularFile(file));
+        assertEquals(List.of("first",
+                "Bot$1   (A♥ A♣) PAIR OF ACES -> THREE OF A KIND"),
+                Files.readAllLines(file, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void authenticatedHistoryReplacementKeepsTheSameSessionFile()
+            throws Exception {
+        GdxGameLogSink sink = new GdxGameLogSink(
+                temporary.resolve("profile.db"));
+        sink.reset();
+        Path file = sink.persistentLogPath();
+        sink.print("stale");
+
+        sink.replaceHistory(List.of("authoritative 1", "authoritative 2"));
+
+        assertEquals(file, sink.persistentLogPath());
+        assertEquals(List.of("authoritative 1", "authoritative 2"),
+                Files.readAllLines(file, StandardCharsets.UTF_8));
     }
 }

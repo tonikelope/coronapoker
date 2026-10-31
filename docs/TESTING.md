@@ -91,6 +91,13 @@ Both actions default to `balanced` when no mode is supplied. The lower-level
 The central result is written to
 `target/qa/<timestamp>-<action>[-<mode>]/summary.txt` and `summary.json`.
 Detailed scenario evidence is stored separately below `target/certification/`.
+The `zero-trust-consensus` and `zero-trust-fatal-routes` categories form the
+fatal-security matrix: receipt divergence (including admitted and warming hot
+join), pre-settlement cryptographic abort, local security lockdown and
+authenticated next-hand boundary rejection. These scenarios validate alert
+ordering, explicit acknowledgement, process liveness before acknowledgement,
+evidence parity across SQLite/file/debug, final `FAILURE` classification and
+the phase-specific open/closed SQL hand state.
 
 ### Versioned local builds
 

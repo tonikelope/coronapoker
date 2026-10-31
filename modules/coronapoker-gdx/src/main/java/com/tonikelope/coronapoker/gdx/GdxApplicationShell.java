@@ -25,13 +25,19 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.text.MessageFormat;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Single-window host for every native GDX screen and overlay. */
 final class GdxApplicationShell extends ApplicationAdapter {
+
+    private static final Logger LOGGER = Logger.getLogger(
+            GdxApplicationShell.class.getName());
 
     private static final AtomicReference<GdxApplicationShell> ACTIVE =
             new AtomicReference<>();
@@ -395,6 +401,14 @@ final class GdxApplicationShell extends ApplicationAdapter {
             CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
+                String endpoint = lobby == null ? "unknown"
+                        : lobby.snapshot().serverAddress();
+                String endpointLine = MessageFormat.format(
+                        gameText.translate("gdx.table.connection_endpoint"),
+                        endpoint);
+                gameLog.print(endpointLine);
+                LOGGER.log(Level.INFO, "Game connection endpoint: {0}",
+                        endpoint);
                 flushPendingIdentityGameLogNotices();
                 candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,

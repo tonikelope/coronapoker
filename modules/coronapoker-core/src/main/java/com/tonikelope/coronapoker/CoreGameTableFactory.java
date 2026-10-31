@@ -429,6 +429,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
             CorePlayerController newcomer = CorePlayerController.remote(
                     nickname);
             initializePlayer(newcomer, initialConfiguration.buyin());
+            newcomer.applyTelemetry(participant.latency(),
+                    participant.previousLatency(), 0);
             GamePeerController newcomerPeer = new GameChannelPeerController(
                     nickname, context.channel(), transport.confirmations(),
                     participant.identityPublicKey(), participant.latency(),

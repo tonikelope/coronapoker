@@ -115,6 +115,45 @@ public final class RecoveryBalanceReconciler {
         return encode(result.balances);
     }
 
+    /**
+     * Derives the chips that are not represented by any player stack at an
+     * authenticated between-hands balance boundary. At that point there are no
+     * live bets: the difference between cumulative buy-ins and effective
+     * opening stacks is exactly the indivisible pot remainder carried into the
+     * next hand.
+     *
+     * <p>The value is deliberately derived from the already authenticated
+     * snapshot instead of being transported as an independent field. This
+     * makes a late observer bind its remainder to the same canonical bytes as
+     * every stack, buy-in and rebuy count, and prevents the two representations
+     * from disagreeing.</p>
+     */
+    public static long unallocatedCents(Result result) {
+        if (result == null || !result.isOk() || result.balances.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "validated non-empty balance snapshot required");
+        }
+        try {
+            long buyinCents = 0L;
+            long stackCents = 0L;
+            for (Balance balance : result.balances.values()) {
+                buyinCents = Math.addExact(buyinCents,
+                        Math.multiplyExact((long) balance.buyin, 100L));
+                stackCents = Math.addExact(stackCents,
+                        balance.stack.cents());
+            }
+            long remainder = Math.subtractExact(buyinCents, stackCents);
+            if (remainder < 0L || remainder > MoneyCents.MAX_CENTS) {
+                throw new IllegalArgumentException(
+                        "balance snapshot violates money conservation");
+            }
+            return remainder;
+        } catch (ArithmeticException overflow) {
+            throw new IllegalArgumentException(
+                    "balance snapshot totals overflow", overflow);
+        }
+    }
+
     private static String encode(Map<String, Balance> balances) {
         StringBuilder wire = new StringBuilder();
         for (Map.Entry<String, Balance> entry : new TreeMap<>(balances).entrySet()) {

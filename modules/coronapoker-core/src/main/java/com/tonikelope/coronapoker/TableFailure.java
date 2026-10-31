@@ -45,6 +45,20 @@ public final class TableFailure {
         return new TableFailure(handId, openHand, bundle);
     }
 
+    /** Records a fail-closed security incident without manufacturing a stack trace. */
+    public static TableFailure securityIncident(String reason, int handId,
+            boolean openHand) {
+        String normalized = Objects.requireNonNull(reason, "reason").trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("Security incident reason is required");
+        }
+        String bundle = "TABLE_SECURITY_INCIDENT_V1\n"
+                + "handId=" + handId + "\n"
+                + "openHand=" + openHand + "\n"
+                + "reason=" + normalized + "\n";
+        return new TableFailure(handId, openHand, bundle);
+    }
+
     public boolean exitJvm() {
         return false;
     }

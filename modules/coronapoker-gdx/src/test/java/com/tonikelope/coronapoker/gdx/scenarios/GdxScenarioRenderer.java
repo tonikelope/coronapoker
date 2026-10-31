@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.graphics.Color;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -66,6 +67,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicReference<CompletableFuture<Void>>
             heldPresentation = new AtomicReference<>();
     private final AtomicBoolean sawLocalControls = new AtomicBoolean();
+    private final AtomicReference<ActionControlState> currentControls
+            = new AtomicReference<>();
     private final AtomicBoolean sawRemoteAction = new AtomicBoolean();
     private final AtomicBoolean sawPaused = new AtomicBoolean();
     private final AtomicBoolean resumedAfterPause = new AtomicBoolean();
@@ -99,6 +102,12 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicLong immediateRebuyHand = new AtomicLong(-1L);
     private final AtomicBoolean immediateRebuyRequested = new AtomicBoolean();
     private final AtomicBoolean foldAutomatically = new AtomicBoolean();
+    private final AtomicLong foldHand = new AtomicLong(-1L);
+    private final AtomicLong doubleRabbitHand = new AtomicLong(-1L);
+    private final AtomicInteger doubleRabbitRequests = new AtomicInteger();
+    private final AtomicBoolean sawTenCentRabbitFee = new AtomicBoolean();
+    private final Set<String> rabbitHighlightNicknames
+            = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final AtomicBoolean allInEveryHand = new AtomicBoolean();
     private final AtomicBoolean raiseMix = new AtomicBoolean();
     private final AtomicInteger localRaiseSubmissions = new AtomicInteger();
@@ -251,6 +260,19 @@ final class GdxScenarioRenderer implements TableRenderer {
 
     void foldAutomatically(boolean enabled) {
         foldAutomatically.set(enabled);
+    }
+
+    void foldOnHand(long handId) {
+        foldHand.set(handId);
+    }
+
+    void requestTwoRabbitCardsOnHand(long handId) {
+        doubleRabbitHand.set(handId);
+        doubleRabbitRequests.set(0);
+    }
+
+    boolean sawTenCentRabbitFee() {
+        return sawTenCentRabbitFee.get();
     }
 
     void enableRaiseMix() {
@@ -442,10 +464,18 @@ final class GdxScenarioRenderer implements TableRenderer {
         if (event instanceof TableVisualEvent.HandBoundary boundary
                 && boundary.phase()
                 == TableVisualEvent.HandBoundary.Phase.PREPARE) {
+            rabbitHighlightNicknames.clear();
             playersAtHandStart.put(boundary.handId(), snapshot.players().stream()
                     .filter(player -> !player.exited())
                     .map(TableSnapshot.PlayerSnapshot::nickname)
                     .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        }
+        if (event instanceof TableVisualEvent.RabbitHand rabbit) {
+            // The projection applies the Rabbit highlight before invoking the
+            // renderer. Record that authority before validating the projected
+            // presentation, otherwise the first legitimate RabbitHand frame
+            // is indistinguishable from an invented showdown highlight.
+            rabbitHighlightNicknames.add(rabbit.nickname());
         }
         if (event instanceof TableVisualEvent.DealHoleCard deal
                 && deal.nickname().equals(snapshot.localNickname())) {
@@ -529,6 +559,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && (controls.state().callAction()
                 != ActionControlState.CallAction.DISABLED
                 || controls.state().allInEnabled())) {
+            currentControls.set(controls.state());
             firstActionSequences.putIfAbsent(currentHand.get(),
                     event.sequence());
             assertEquals(snapshot.localNickname(), snapshot.currentTurnNickname(),
@@ -549,10 +580,12 @@ final class GdxScenarioRenderer implements TableRenderer {
                     && localRaiseSubmissions.getAndIncrement() < 2) {
                 assertTrue(productTable().activateBetAction(),
                         "native GDX raise-mix control did not submit");
-            } else if (foldAutomatically.get()
+            } else if ((foldAutomatically.get()
+                    || foldHand.get() == currentHand.get())
                     && controls.state().foldEnabled()) {
                 assertTrue(productTable().activateFoldAction(),
                         "native GDX fold control did not submit");
+                foldHand.compareAndSet(currentHand.get(), -1L);
                 if (controls.state().callAction()
                         == ActionControlState.CallAction.CHECK) {
                     assertTrue(productTable().resolveActiveDialogChoice(true),
@@ -674,6 +707,19 @@ final class GdxScenarioRenderer implements TableRenderer {
                 && runItTwiceSideBSequence.get() > 0L
                 && deal.sequence() > runItTwiceSideBSequence.get()) {
             runItTwiceSideBDeals.add(deal.slot());
+        } else if (event instanceof TableVisualEvent.RabbitCards rabbit
+                && rabbit.requestable()
+                && doubleRabbitHand.get() == currentHand.get()
+                && doubleRabbitRequests.compareAndSet(0, 1)) {
+            table.commands().submit(new TableCommand.RequestRabbit());
+        } else if (event instanceof TableVisualEvent.RabbitResult rabbit) {
+            if (doubleRabbitHand.get() == currentHand.get()
+                    && doubleRabbitRequests.compareAndSet(1, 2)) {
+                table.commands().submit(new TableCommand.RequestRabbit());
+            }
+            if (Math.round(rabbit.fee() * 100d) == 10L) {
+                sawTenCentRabbitFee.set(true);
+            }
         } else if (event instanceof TableVisualEvent.CloseTable close) {
             summary.set(close.summary());
             closed.set(true);
@@ -768,6 +814,17 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     private void submitLegalHeldAction(String context) {
+        if (foldHand.get() == currentHand.get()
+                && productTable().activateFoldAction()) {
+            foldHand.compareAndSet(currentHand.get(), -1L);
+            ActionControlState controls = currentControls.get();
+            if (controls != null && controls.callAction()
+                    == ActionControlState.CallAction.CHECK) {
+                assertTrue(productTable().resolveActiveDialogChoice(true),
+                        "native GDX gated free-fold confirmation did not resolve");
+            }
+            return;
+        }
         if (productTable().activateCheckOrCallAction()) return;
         assertTrue(productTable().activateAllInAction(),
                 "native GDX " + context + " fallback ALL-IN did not arm");
@@ -1297,6 +1354,24 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
+    boolean hasUsableLatency(String nickname) {
+        TableSnapshot.PlayerSnapshot player = playerSnapshot(nickname);
+        return CoronaPokerGdxTable.effectiveLatencyMillis(player) >= 0;
+    }
+
+    boolean latencyIndicatorIsRed(String nickname) {
+        return Color.rgba8888(CoronaPokerGdxTable.latencyColor(
+                playerSnapshot(nickname))) == 0xf44336ff;
+    }
+
+    private TableSnapshot.PlayerSnapshot playerSnapshot(String nickname) {
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .findFirst().orElseThrow();
+    }
+
     boolean firstHotJoinLocalIsWarming() {
         TableSnapshot snapshot = firstHotJoinState.get();
         if (snapshot == null) {
@@ -1640,10 +1715,13 @@ final class GdxScenarioRenderer implements TableRenderer {
                         highlight.communityCardSlots(), player.nickname()
                         + " changed highlighted community cards");
             } else {
-                assertEquals(null,
-                        projection.showdownHighlight(player.nickname()),
-                        player.nickname()
-                        + " invented a showdown highlight");
+                GdxTableViewState.ShowdownHighlightState highlight
+                        = projection.showdownHighlight(player.nickname());
+                if (highlight != null) {
+                    assertTrue(rabbitHighlightNicknames.contains(
+                            player.nickname()), player.nickname()
+                            + " invented a showdown highlight");
+                }
             }
             if (player.nickname().equals(snapshot.localNickname())) {
                 boolean folded = projection.foldedThisHand(player.nickname());

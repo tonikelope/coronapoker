@@ -26,7 +26,14 @@ final class GdxLatencyIndicatorTest {
         long now = System.currentTimeMillis();
 
         assertColour(0x4caf50ff, player(-1, 75, now));
+        assertColour(0x4caf50ff, player(
+                LobbyParticipant.NO_LATENCY, 75, now));
         assertColour(0xf44336ff, player(-1, -1, now));
+        assertColour(0xf44336ff, player(
+                -1, LobbyParticipant.NO_LATENCY, now));
+        assertColour(0x9e9e9eff, player(
+                LobbyParticipant.NO_LATENCY,
+                LobbyParticipant.NO_LATENCY, now));
         assertColour(0x9e9e9eff, player(20, 25, 0L));
     }
 
@@ -38,6 +45,11 @@ final class GdxLatencyIndicatorTest {
                 player(-1, 75, System.currentTimeMillis())));
         assertEquals(-1, CoronaPokerGdxTable.effectiveLatencyMillis(
                 player(-1, -1, System.currentTimeMillis())));
+        assertEquals(LobbyParticipant.NO_LATENCY,
+                CoronaPokerGdxTable.effectiveLatencyMillis(player(
+                        LobbyParticipant.NO_LATENCY,
+                        LobbyParticipant.NO_LATENCY,
+                        System.currentTimeMillis())));
     }
 
     @Test

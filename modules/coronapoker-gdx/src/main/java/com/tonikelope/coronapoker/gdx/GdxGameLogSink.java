@@ -5,30 +5,64 @@ import com.tonikelope.coronapoker.core.game.GameLogSink;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Thread-safe bridge between the dealer log and the native GDX overlay. */
 final class GdxGameLogSink implements GameLogSink {
 
     private static final int MAX_LINES = 4_000;
+    private static final Logger LOGGER = Logger.getLogger(
+            GdxGameLogSink.class.getName());
+    private static final DateTimeFormatter FILE_TIME =
+            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
     private final ArrayList<String> lines = new ArrayList<>();
+    private final ArrayList<String> persistedLines = new ArrayList<>();
+    private final Path logDirectory;
+    private Path logFile;
+    private boolean persistenceFailureReported;
     private List<ShowdownEntry> showdown = List.of();
+
+    /** In-memory sink used by tests and renderer-only previews. */
+    GdxGameLogSink() {
+        this.logDirectory = null;
+    }
+
+    /** Production sink: one complete UTF-8 game log per opened table. */
+    GdxGameLogSink(Path databaseLocation) {
+        Objects.requireNonNull(databaseLocation, "databaseLocation");
+        Path database = databaseLocation.toAbsolutePath().normalize();
+        Path parent = database.getParent();
+        this.logDirectory = (parent == null
+                ? Path.of(System.getProperty("user.home"), ".coronapoker")
+                : parent).resolve("logs").toAbsolutePath().normalize();
+    }
 
     @Override
     public synchronized void print(String message) {
         String plain = GdxTableDialog.plainText(
                 Objects.requireNonNull(message, "message"));
+        ArrayList<String> added = new ArrayList<>();
         for (String line : plain.split("\\R", -1)) {
             lines.add(line);
+            persistedLines.add(line);
+            added.add(line);
         }
         int overflow = lines.size() - MAX_LINES;
         if (overflow > 0) {
             lines.subList(0, overflow).clear();
         }
+        appendPersisted(added);
     }
 
     @Override
@@ -37,6 +71,11 @@ final class GdxGameLogSink implements GameLogSink {
         for (int index = 0; index < lines.size(); index++) {
             lines.set(index, rewriteShowdownLine(lines.get(index), showdown));
         }
+        for (int index = 0; index < persistedLines.size(); index++) {
+            persistedLines.set(index, rewriteShowdownLine(
+                    persistedLines.get(index), showdown));
+        }
+        rewritePersisted();
     }
 
     /** Mirrors Swing by replacing the placeholder in its original log row. */
@@ -90,13 +129,84 @@ final class GdxGameLogSink implements GameLogSink {
 
     synchronized void reset() {
         lines.clear();
+        persistedLines.clear();
         showdown = List.of();
+        beginPersistentSession();
     }
 
     @Override
     public synchronized void replaceHistory(List<String> messages) {
-        reset();
+        lines.clear();
+        persistedLines.clear();
+        showdown = List.of();
+        truncatePersistentSession();
         Objects.requireNonNull(messages, "messages").forEach(this::print);
+    }
+
+    Path persistentLogPath() {
+        return logFile;
+    }
+
+    private void beginPersistentSession() {
+        if (logDirectory == null) return;
+        try {
+            Files.createDirectories(logDirectory);
+            String base = "coronapoker_game_"
+                    + FILE_TIME.format(LocalDateTime.now());
+            Path candidate = logDirectory.resolve(base + ".log");
+            int collision = 1;
+            while (Files.exists(candidate)) {
+                candidate = logDirectory.resolve(base + "_"
+                        + collision++ + ".log");
+            }
+            Files.createFile(candidate);
+            logFile = candidate.toAbsolutePath().normalize();
+            persistenceFailureReported = false;
+            LOGGER.log(Level.INFO, "GDX game log: {0}", logFile);
+        } catch (Exception failure) {
+            logFile = null;
+            reportPersistenceFailure("create", failure);
+        }
+    }
+
+    private void truncatePersistentSession() {
+        if (logFile == null) return;
+        try {
+            Files.writeString(logFile, "", StandardCharsets.UTF_8,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
+        } catch (Exception failure) {
+            reportPersistenceFailure("truncate", failure);
+        }
+    }
+
+    private void appendPersisted(List<String> added) {
+        if (logFile == null || added.isEmpty()) return;
+        try {
+            Files.write(logFile, added, StandardCharsets.UTF_8,
+                    StandardOpenOption.APPEND);
+        } catch (Exception failure) {
+            reportPersistenceFailure("append", failure);
+        }
+    }
+
+    private void rewritePersisted() {
+        if (logFile == null) return;
+        try {
+            Files.write(logFile, persistedLines, StandardCharsets.UTF_8,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
+        } catch (Exception failure) {
+            reportPersistenceFailure("rewrite", failure);
+        }
+    }
+
+    private void reportPersistenceFailure(String operation,
+            Exception failure) {
+        if (persistenceFailureReported) return;
+        persistenceFailureReported = true;
+        LOGGER.log(Level.SEVERE, "Unable to " + operation
+                + " the persistent GDX game log", failure);
     }
 
     synchronized void appendFinalSummary(TableSessionSummary summary,

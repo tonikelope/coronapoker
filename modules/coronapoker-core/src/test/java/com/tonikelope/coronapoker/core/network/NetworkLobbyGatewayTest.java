@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
@@ -58,6 +59,16 @@ import org.junit.jupiter.api.io.TempDir;
 
 class NetworkLobbyGatewayTest {
     @TempDir Path temporary;
+
+    @Test
+    void settlementConsensusResultIsRegisteredOnlyFromHost() {
+        assertEquals(GameCommandType.HANDVERIFY_RESULT,
+                GameCommandType.from(GameCommandType.Direction.HOST_TO_CLIENT,
+                        "HANDVERIFY_RESULT"));
+        assertNull(GameCommandType.from(
+                GameCommandType.Direction.CLIENT_TO_HOST,
+                "HANDVERIFY_RESULT"));
+    }
 
     @Test
     void customBotsJoinInCatalogueOrderBeforeStandardBots() throws Exception {

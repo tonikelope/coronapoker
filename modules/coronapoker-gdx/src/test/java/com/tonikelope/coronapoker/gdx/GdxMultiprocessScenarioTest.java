@@ -63,6 +63,7 @@ class GdxMultiprocessScenarioTest {
             "FAILED signature verify",
             "host forging",
             "disputed_hands row inserted",
+            "TABLE_SECURITY_INCIDENT_V1",
             "invalid-sig flag",
             "Recover action MISMATCH",
             "RECOVERDATA rejected",
@@ -97,6 +98,86 @@ class GdxMultiprocessScenarioTest {
     void liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand(
             @TempDir Path root) throws Exception {
         runLiveHotJoinScenario(root, 1, 1);
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void liveHotJoinCarriesAuthenticatedOddChipRemainderIntoFirstActiveHand(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 0, 1,
+                "live-hot-join-remainder");
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void admittedHotJoinSignsItsFirstActiveHandAndSharesZeroTrustFailure(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 0, 1,
+                "live-hot-join-consensus-fault-divergent");
+    }
+
+    @Test
+    @Timeout(value = 7, unit = TimeUnit.MINUTES)
+    void warmingHotJoinStaysOutsideConsensusAndReceivesZeroTrustFailure(
+            @TempDir Path root) throws Exception {
+        runLiveHotJoinScenario(root, 1, 0,
+                "live-hot-join-warming-consensus-fault-divergent");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void divergentReceiptStopsAsRecoverableFailureWithCompleteEvidence(
+            @TempDir Path root) throws Exception {
+        runZeroTrustConsensusFailureScenario(root,
+                "consensus-fault-divergent");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void missingReceiptStopsAsRecoverableFailureWithCompleteEvidence(
+            @TempDir Path root) throws Exception {
+        runZeroTrustConsensusFailureScenario(root,
+                "consensus-fault-missing");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void invalidReceiptSignatureStopsWithCompleteEvidence(
+            @TempDir Path root) throws Exception {
+        runZeroTrustConsensusFailureScenario(root,
+                "consensus-fault-invalid-signature");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void signedInvalidActionFlagStopsWithCompleteEvidence(
+            @TempDir Path root) throws Exception {
+        runZeroTrustConsensusFailureScenario(root,
+                "consensus-fault-invalid-flag");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void preSettlementCryptoAbortAlertsPersistsEvidenceAndClosesTheHand(
+            @TempDir Path root) throws Exception {
+        runFatalZeroTrustFamilyScenario(root, "zero-trust-fault-misdeal",
+                true, false);
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void localSecurityLockdownAlertsPersistsEvidenceAndPreservesTheHand(
+            @TempDir Path root) throws Exception {
+        runFatalZeroTrustFamilyScenario(root, "zero-trust-fault-lockdown",
+                false, true);
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void authenticatedHandBoundaryRejectionAlertsBeforeTransportClose(
+            @TempDir Path root) throws Exception {
+        runFatalZeroTrustFamilyScenario(root, "zero-trust-fault-boundary",
+                false, false);
     }
 
     @Test
@@ -589,6 +670,135 @@ class GdxMultiprocessScenarioTest {
     private static void runCompletingScenario(Path root, String scenario,
             int clients, int bots, String disruption) throws Exception {
         runCompletingScenario(root, scenario, clients, bots, disruption, 1);
+    }
+
+    private static void runZeroTrustConsensusFailureScenario(Path root,
+            String scenario) throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 1, 1, 2, scenario);
+            nodes.add(host);
+            assertTrue(host.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), host.diagnostic());
+            NodeProcess client = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 1, 1, 2, scenario);
+            nodes.add(client);
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_LOBBY_READY players=3",
+                        Duration.ofSeconds(45)), node.diagnostic());
+            }
+            host.send("START_GAME");
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN",
+                        Duration.ofSeconds(150)), node.diagnostic());
+                assertTrue(node.contains("recoverable=true"),
+                        "Zero Trust alert did not certify recoverable wording\n"
+                        + node.diagnostic());
+            }
+            // The dealer must be awaiting explicit acknowledgement. Closing
+            // or showing a normal final summary before this point recreates
+            // the original production bug.
+            Thread.sleep(350L);
+            for (NodeProcess node : nodes) {
+                assertTrue(node.process.isAlive(), node.diagnostic());
+                assertTrue(!node.contains("CP_GDX_E2E_HANDS_COMPLETE"),
+                        "Zero Trust dialog was overtaken by table close\n"
+                        + node.diagnostic());
+                node.send("ACK_ZERO_TRUST");
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await(
+                        "CP_GDX_E2E_ZERO_TRUST_DIALOG_ACKNOWLEDGED",
+                        Duration.ofSeconds(30)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_ZERO_TRUST_EVIDENCE_READY",
+                        Duration.ofSeconds(60)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE",
+                        Duration.ofSeconds(60)), node.diagnostic());
+                assertTrue(node.contains("reason=FAILURE"),
+                        node.diagnostic());
+                assertTrue(!node.contains("reason=COMPLETED"),
+                        node.diagnostic());
+                assertTrue(node.contains("ZERO TRUST EVIDENCE BEGIN"),
+                        node.diagnostic());
+                assertTrue(node.contains("ZERO TRUST EVIDENCE END"),
+                        node.diagnostic());
+                assertEquals(0, node.awaitExitAllowingSecurityIncident(
+                        Duration.ofSeconds(20)), node.diagnostic());
+            }
+        } finally {
+            for (NodeProcess node : nodes) node.close();
+        }
+    }
+
+    private static void runFatalZeroTrustFamilyScenario(Path root,
+            String scenario, boolean alertOnAllNodes,
+            boolean preserveOpenHand) throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 1, 1, 2, scenario);
+            nodes.add(host);
+            assertTrue(host.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), host.diagnostic());
+            NodeProcess client = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 1, 1, 2, scenario);
+            nodes.add(client);
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_LOBBY_READY players=3",
+                        Duration.ofSeconds(45)), node.diagnostic());
+            }
+            host.send("START_GAME");
+            List<NodeProcess> alertNodes = alertOnAllNodes
+                    ? nodes : List.of(client);
+            for (NodeProcess node : alertNodes) {
+                assertTrue(node.await("CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN",
+                        Duration.ofSeconds(150)), node.diagnostic());
+                assertTrue(node.contains("preserveOpenHand="
+                                + preserveOpenHand),
+                        "Zero Trust phase contract was not reported\n"
+                        + node.diagnostic());
+            }
+            Thread.sleep(350L);
+            for (NodeProcess node : alertNodes) {
+                assertTrue(node.process.isAlive(), node.diagnostic());
+                assertTrue(!node.contains("CP_GDX_E2E_HANDS_COMPLETE"),
+                        "Zero Trust alert was overtaken by table close\n"
+                        + node.diagnostic());
+                node.send("ACK_ZERO_TRUST");
+            }
+            for (NodeProcess node : alertNodes) {
+                assertTrue(node.await(
+                        "CP_GDX_E2E_ZERO_TRUST_DIALOG_ACKNOWLEDGED",
+                        Duration.ofSeconds(30)), node.diagnostic());
+                assertTrue(node.await("CP_GDX_E2E_ZERO_TRUST_EVIDENCE_READY",
+                        Duration.ofSeconds(60)), node.diagnostic());
+                assertTrue(node.contains("ZERO TRUST EVIDENCE BEGIN"),
+                        node.diagnostic());
+                assertTrue(node.contains("ZERO TRUST EVIDENCE END"),
+                        node.diagnostic());
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE",
+                        Duration.ofSeconds(90)), node.diagnostic());
+                if (alertNodes.contains(node)) {
+                    assertTrue(node.contains("reason=FAILURE"),
+                            node.diagnostic());
+                }
+                assertEquals(0, node.awaitExitAllowingSecurityIncident(
+                        Duration.ofSeconds(20)), node.diagnostic());
+            }
+        } finally {
+            for (NodeProcess node : nodes) node.close();
+        }
     }
 
     private static int configuredHands(String property, int fallback) {
@@ -1110,6 +1320,12 @@ class GdxMultiprocessScenarioTest {
                 || "live-hot-join-showdown-bootstrap".equals(scenario);
         boolean lastHandBootstrap
                 = "live-hot-join-last-hand-bootstrap".equals(scenario);
+        boolean admittedConsensusFault = scenario.startsWith(
+                "live-hot-join-consensus-fault-");
+        boolean warmingConsensusFault = scenario.startsWith(
+                "live-hot-join-warming-consensus-fault-");
+        boolean consensusFault = admittedConsensusFault
+                || warmingConsensusFault;
         List<NodeProcess> nodes = new ArrayList<>();
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
@@ -1165,6 +1381,11 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick="
                             + newcomerNickname,
                     Duration.ofSeconds(90)), newcomer.diagnostic());
+            assertTrue(newcomer.await(
+                    "CP_GDX_E2E_HOT_JOIN_LOCAL_LATENCY nick="
+                            + newcomerNickname
+                            + " state=pending-or-measured",
+                    Duration.ofSeconds(30)), newcomer.diagnostic());
             if ("live-hot-join-allin-bootstrap".equals(scenario)) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_ALL_IN_BOOTSTRAP nick="
@@ -1226,8 +1447,17 @@ class GdxMultiprocessScenarioTest {
                             + newcomerNickname,
                     Duration.ofSeconds(45)), host.diagnostic());
             assertTrue(host.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING_LATENCY nick="
+                            + newcomerNickname + " state=measured",
+                    Duration.ofSeconds(45)), host.diagnostic());
+            assertTrue(host.await(
                     "CP_GDX_E2E_HOT_JOIN_LOCAL_CARDS_INTACT nick=server",
                     Duration.ofSeconds(45)), host.diagnostic());
+            if ("live-hot-join-remainder".equals(scenario)) {
+                assertTrue(host.await(
+                        "CP_GDX_E2E_HOT_JOIN_REMAINDER_FEE cents=10",
+                        Duration.ofSeconds(90)), host.diagnostic());
+            }
             for (int index = 1; index <= incumbentClients; index++) {
                 NodeProcess incumbent = nodes.get(index);
                 assertTrue(incumbent.await(
@@ -1235,7 +1465,7 @@ class GdxMultiprocessScenarioTest {
                                 + newcomerNickname,
                         Duration.ofSeconds(45)), incumbent.diagnostic());
             }
-            if (!publicRunoutBootstrap) {
+            if (!publicRunoutBootstrap && !warmingConsensusFault) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_TIMER_SYNC nick="
                                 + newcomerNickname,
@@ -1267,7 +1497,7 @@ class GdxMultiprocessScenarioTest {
                 assertTrue(!newcomer.contains(
                         "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
                                 + newcomerNickname), newcomer.diagnostic());
-            } else {
+            } else if (!warmingConsensusFault) {
                 assertTrue(newcomer.await(
                         "CP_GDX_E2E_HOT_JOIN_ADMITTED nick="
                                 + newcomerNickname,
@@ -1278,22 +1508,101 @@ class GdxMultiprocessScenarioTest {
                             Duration.ofSeconds(150)), node.diagnostic());
                 }
                 assertMatchingCircularSeatRings(nodes);
+                if (admittedConsensusFault) {
+                    for (NodeProcess node : nodes) {
+                        assertTrue(node.canonicalCryptoRing().contains(
+                                        newcomerNickname),
+                                "admitted hot join is absent from the "
+                                + "consensus signer ring\n"
+                                + node.diagnostic());
+                    }
+                }
+            }
+
+            if (consensusFault) {
+                List<NodeProcess> consensusNodes = warmingConsensusFault
+                        ? nodes.subList(0, nodes.size() - 1) : nodes;
+                for (NodeProcess node : consensusNodes) {
+                    assertTrue(node.await(
+                                    "CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN",
+                                    Duration.ofSeconds(150)),
+                            node.diagnostic());
+                    assertTrue(node.contains("recoverable=true"),
+                            node.diagnostic());
+                }
+                Thread.sleep(350L);
+                if (warmingConsensusFault) {
+                    assertTrue(!newcomer.contains(
+                                    "CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN"),
+                            "warming observer must not participate in the "
+                            + "active-hand Zero Trust acknowledgement\n"
+                            + newcomer.diagnostic());
+                }
+                for (NodeProcess node : consensusNodes) {
+                    assertTrue(node.process.isAlive(), node.diagnostic());
+                    assertTrue(!node.contains(
+                                    "CP_GDX_E2E_HANDS_COMPLETE"),
+                            "Zero Trust dialog was overtaken by table close\n"
+                            + node.diagnostic());
+                    node.send("ACK_ZERO_TRUST");
+                }
             }
 
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_HOT_JOIN_COMPLETE",
                         Duration.ofSeconds(240)), node.diagnostic());
-                assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
+                assertEquals(0, consensusFault
+                                ? node.awaitExitAllowingSecurityIncident(
+                                        Duration.ofSeconds(20))
+                                : node.awaitExit(Duration.ofSeconds(20)),
                         node.diagnostic());
-                assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
-                        node.diagnostic());
-                assertTrue(!node.contains("TABLE_FAILURE_V1"),
-                        node.diagnostic());
-                for (String fatal : ALWAYS_FATAL_OUTPUT) {
-                    assertTrue(!node.contains(fatal),
-                            fatal + "\n" + node.diagnostic());
+                if (consensusFault) {
+                    boolean warmingObserver = warmingConsensusFault
+                            && node == newcomer;
+                    if (warmingObserver) {
+                        assertTrue(node.contains(
+                                        "CP_GDX_E2E_HOT_JOIN_WARMING_ZERO_TRUST_TERMINAL "
+                                        + "nick=" + newcomerNickname
+                                        + " reason=FAILURE"),
+                                node.diagnostic());
+                        assertTrue(!node.contains(
+                                        "CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN"),
+                                node.diagnostic());
+                        assertTrue(!node.contains(
+                                        "CP_GDX_E2E_ZERO_TRUST_EVIDENCE_READY"),
+                                "warming observer fabricated signer evidence\n"
+                                + node.diagnostic());
+                    } else {
+                        assertTrue(node.contains(
+                                        "CP_GDX_E2E_ZERO_TRUST_DIALOG_ACKNOWLEDGED"),
+                                node.diagnostic());
+                        assertTrue(node.contains(
+                                        "CP_GDX_E2E_ZERO_TRUST_EVIDENCE_READY"),
+                                node.diagnostic());
+                        assertTrue(node.contains(
+                                        "ZERO TRUST EVIDENCE BEGIN"),
+                                node.diagnostic());
+                        assertTrue(node.contains(
+                                        "ZERO TRUST EVIDENCE END"),
+                                node.diagnostic());
+                    }
+                    assertTrue(node.contains("reason=FAILURE"),
+                            node.diagnostic());
+                } else {
+                    assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
+                            node.diagnostic());
+                    assertTrue(!node.contains("TABLE_FAILURE_V1"),
+                            node.diagnostic());
+                    for (String fatal : ALWAYS_FATAL_OUTPUT) {
+                        assertTrue(!node.contains(fatal),
+                                fatal + "\n" + node.diagnostic());
+                    }
                 }
             }
+            assertMatchingConservedLedgers(nodes, scenario,
+                    lastHandBootstrap || warmingConsensusFault
+                            ? initialPlayers
+                            : initialPlayers + 1);
         } finally {
             for (NodeProcess node : nodes) node.close();
         }
@@ -4306,6 +4615,15 @@ class GdxMultiprocessScenarioTest {
                 assertNoUnexpectedFailures();
             }
             return exit;
+        }
+
+        int awaitExitAllowingSecurityIncident(Duration timeout)
+                throws Exception {
+            if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                return Integer.MIN_VALUE;
+            }
+            readerDone.await(2, TimeUnit.SECONDS);
+            return process.exitValue();
         }
 
         private void assertNoUnexpectedFailures() {

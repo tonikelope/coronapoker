@@ -137,7 +137,9 @@ public final class GdxLauncher {
 
         GdxGameText gameText = new GdxGameText(preferences.properties()
                 .getProperty("lenguaje", "es"));
-        GdxGameLogSink gameLog = new GdxGameLogSink();
+        DatabaseService database = application.service(DatabaseService.class);
+        GdxGameLogSink gameLog = new GdxGameLogSink(
+                Path.of(database.databaseLocation()));
         GameCinematicAssets bundledCinematics =
                 new ClasspathGameCinematicAssets("cinematics/allin");
         GameCinematicAssets cinematics = modMedia.installed()
@@ -145,7 +147,6 @@ public final class GdxLauncher {
                         Arrays.stream(Crupier.ALLIN_CINEMATICS.getValue())
                                 .map(entry -> (String) entry[0]).toList())
                 : bundledCinematics;
-        DatabaseService database = application.service(DatabaseService.class);
         StatsSyncService statsSync = new StatsSyncService(database,
                 () -> Boolean.parseBoolean(preferences.properties()
                         .getProperty("sync_stats_exclude_private", "true")),

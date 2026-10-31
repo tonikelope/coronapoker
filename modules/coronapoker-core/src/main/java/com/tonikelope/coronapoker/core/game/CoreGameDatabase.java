@@ -43,6 +43,9 @@ public final class CoreGameDatabase implements GameDatabase {
     @Override public Connection connection() throws SQLException {
         return database.connection();
     }
+    @Override public String databaseLocation() {
+        return database.databaseLocation();
+    }
     @Override public int recoveryGameId() { return recoveryGameId; }
 
     @Override
@@ -66,6 +69,17 @@ public final class CoreGameDatabase implements GameDatabase {
         boolean gameTableExisted = tableExists(connection, "game");
         boolean seatProvenanceExisted = gameTableExisted
                 && columnExists(connection, "game", "seats_verified");
+        boolean disputesTableExisted = tableExists(connection,
+                "disputed_hands");
+        boolean receiptNicksExisted = disputesTableExisted
+                && columnExists(connection, "disputed_hands",
+                        "receipt_nicks");
+        boolean evidenceTextExisted = disputesTableExisted
+                && columnExists(connection, "disputed_hands",
+                        "evidence_text");
+        boolean evidencePathExisted = disputesTableExisted
+                && columnExists(connection, "disputed_hands",
+                        "evidence_path");
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(30);
             statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER NOT NULL DEFAULT 0, recover_settings TEXT, private INTEGER NOT NULL DEFAULT 0, imported INTEGER NOT NULL DEFAULT 0, imported_from TEXT, seats_verified INTEGER NOT NULL DEFAULT 0)");
@@ -77,7 +91,7 @@ public final class CoreGameDatabase implements GameDatabase {
             statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
             statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
             statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
-            statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, local_h BLOB NOT NULL, reason TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+            statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, receipt_nicks TEXT NOT NULL DEFAULT '', local_h BLOB NOT NULL, reason TEXT, evidence_text TEXT NOT NULL DEFAULT '', evidence_path TEXT NOT NULL DEFAULT '', FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_hand_game ON hand(id_game)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_action_hand ON action(id_hand)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
@@ -97,6 +111,24 @@ public final class CoreGameDatabase implements GameDatabase {
                 statement.execute("UPDATE game SET seats_verified=1 "
                         + "WHERE COALESCE(imported,0)=0 AND "
                         + "EXISTS(SELECT 1 FROM hand WHERE hand.id_game=game.id)");
+            }
+        }
+        if (disputesTableExisted && !receiptNicksExisted) {
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.execute("ALTER TABLE disputed_hands ADD COLUMN receipt_nicks TEXT NOT NULL DEFAULT ''");
+            }
+        }
+        if (disputesTableExisted && !evidenceTextExisted) {
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.execute("ALTER TABLE disputed_hands ADD COLUMN evidence_text TEXT NOT NULL DEFAULT ''");
+            }
+        }
+        if (disputesTableExisted && !evidencePathExisted) {
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.execute("ALTER TABLE disputed_hands ADD COLUMN evidence_path TEXT NOT NULL DEFAULT ''");
             }
         }
         HandCreateTransaction.ensureUniqueBalanceRows(connection);

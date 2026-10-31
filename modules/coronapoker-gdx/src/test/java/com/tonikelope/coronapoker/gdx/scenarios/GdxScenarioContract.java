@@ -66,6 +66,7 @@ final class GdxScenarioContract {
                     "liveHotJoinAfterBotOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterHumanOnlyStartWarmsThenPlaysTheNextHand",
                     "liveHotJoinAfterMixedStartWarmsThenPlaysTheNextHand",
+                    "liveHotJoinCarriesAuthenticatedOddChipRemainderIntoFirstActiveHand",
                     "freshHotJoinOnFlopReceivesCompletePublicBootstrap",
                     "freshHotJoinReconstructsFoldedSeatSemanticsAndVisuals",
                     "freshHotJoinDuringAllInRunoutReceivesExactPublicPresentation",
@@ -235,7 +236,18 @@ final class GdxScenarioContract {
                     "gdxIwtsthCandidateRequestsAndRevealsTheMuckedNetworkHand",
                     "nativeGdxIwtsthOffersAndRevealsAMuckedBotLikeSwing")),
             Map.entry("blind-increase", Set.of(
-                    "realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong")));
+                    "realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong")),
+            Map.entry("zero-trust-consensus", Set.of(
+                    "divergentReceiptStopsAsRecoverableFailureWithCompleteEvidence",
+                    "missingReceiptStopsAsRecoverableFailureWithCompleteEvidence",
+                    "invalidReceiptSignatureStopsWithCompleteEvidence",
+                    "signedInvalidActionFlagStopsWithCompleteEvidence",
+                    "admittedHotJoinSignsItsFirstActiveHandAndSharesZeroTrustFailure",
+                    "warmingHotJoinStaysOutsideConsensusAndReceivesZeroTrustFailure")),
+            Map.entry("zero-trust-fatal-routes", Set.of(
+                    "preSettlementCryptoAbortAlertsPersistsEvidenceAndClosesTheHand",
+                    "localSecurityLockdownAlertsPersistsEvidenceAndPreservesTheHand",
+                    "authenticatedHandBoundaryRejectionAlertsBeforeTransportClose")));
 
     private GdxScenarioContract() {
     }

@@ -34,6 +34,14 @@ final class StatsRepositoryTest {
                     game.players());
             assertEquals(1, game.hands());
             assertTrue(game.imported());
+            assertTrue(game.hasZeroTrustIncident());
+            assertEquals(1, game.zeroTrustIncidents());
+            var evidence = repository.zeroTrustEvidence(7);
+            assertEquals(1, evidence.size());
+            assertEquals(3, evidence.get(0).handCounter());
+            assertEquals("DIVERGENT peers=invitado", evidence.get(0).reason());
+            assertEquals("ZERO_TRUST_EVIDENCE_V1\nreport", evidence.get(0).report());
+            assertEquals("logs/evidence.log", evidence.get(0).path());
 
             StatsRepository.HandSummary hand = repository.hands(7).get(0);
             assertEquals(3, hand.counter());
@@ -128,6 +136,13 @@ final class StatsRepositoryTest {
                 + "(2,11,'server',2,1,2,1,1,4),"
                 + "(3,11,'invitado',1,1,2,1,0,1)")) {
             action.executeUpdate();
+        }
+        try (PreparedStatement dispute = database.connection().prepareStatement(
+                "INSERT INTO disputed_hands(id,id_hand,timestamp,receipts,receipt_nicks,"
+                + "local_h,reason,evidence_text,evidence_path) VALUES"
+                + "(1,11,1234,X'00','c2VydmVy',X'01','DIVERGENT peers=invitado',"
+                + "'ZERO_TRUST_EVIDENCE_V1\nreport','logs/evidence.log')")) {
+            dispute.executeUpdate();
         }
     }
 

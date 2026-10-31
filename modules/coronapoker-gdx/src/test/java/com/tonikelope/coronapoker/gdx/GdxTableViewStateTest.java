@@ -3538,7 +3538,7 @@ final class GdxTableViewStateTest {
                 "🔒 [LOCKDOWN] Cuarentena activada",
                 "MANO ANULADA",
                 "REASON: invalid community reveal",
-                "⚠ DIVERGENCIA EN VERIFICACIÓN CRIPTOGRÁFICA · evidencia",
+                "⚠ DIVERGENCIA EN VERIFICACIÓN CRIPTOGRÁFICA. Evidencia",
                 "⚠ Invalid cryptographic signature on action attributed to X",
                 "⚠ Notice: X did not send closing signature - hand settled",
                 "⚠ Aviso: a X no les llegó la prueba de barajado honesto");

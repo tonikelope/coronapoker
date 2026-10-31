@@ -445,8 +445,14 @@ public final class GdxMultiprocessNodeMain {
                 + (exitWhileWarming || lastHandBootstrap
                         || warmingConsensusFault ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
-        String telemetryNickname = concurrentExit ? "client1"
-                : newcomerNickname;
+        /*
+         * Exit/reentry scenarios deliberately race cancellation against the
+         * host's observation.  Validate transport telemetry through the
+         * stable incumbent instead of requiring a sample from the seat that
+         * the scenario is concurrently removing.
+         */
+        String telemetryNickname = exitWhileWarming || reenterWhileWarming
+                ? "client1" : newcomerNickname;
         Set<String> churnNicknames = dualChurn
                 ? Set.of("client" + (config.clients - 1), newcomerNickname)
                 : Set.of(newcomerNickname);

@@ -60,26 +60,38 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
-    void shufflePreloadHasItsOwnMemoryAndFallbackTooltip() {
+    void shufflePreloadHasItsOwnConciseMemoryTooltip() {
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
                 "animacion_barajado_precarga", new Properties(),
                 new GdxGameText("es"));
         assertFalse(spanish.text().contains("MiB"));
         assertTrue(spanish.text().contains("uso de memoria"));
-        assertTrue(spanish.text().contains("sistema anterior"));
+        assertTrue(spanish.text().length() < 140);
 
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
                 "animacion_barajado_precarga", new Properties(),
                 new GdxGameText("en"));
         assertFalse(english.text().contains("MiB"));
         assertTrue(english.text().contains("memory usage"));
-        assertTrue(english.text().contains("previous low-memory streaming"));
+        assertTrue(english.text().length() < 140);
 
         assertEquals("gdx.settings.tooltip.animation",
                 GdxSettingsTooltips.descriptionKey("animacion_barajado"));
         assertEquals("gdx.settings.tooltip.shuffle_preload",
                 GdxSettingsTooltips.descriptionKey(
                         "animacion_barajado_precarga"));
+    }
+
+    @Test
+    void cpuMemoryTooltipStaysConcise() {
+        Properties properties = new Properties();
+        GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
+                "gdx_show_cpu_memory", properties, new GdxGameText("es"));
+        GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
+                "gdx_show_cpu_memory", properties, new GdxGameText("en"));
+
+        assertTrue(spanish.text().length() < 90);
+        assertTrue(english.text().length() < 90);
     }
 
     @Test

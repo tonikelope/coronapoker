@@ -7,6 +7,8 @@ import java.util.Objects;
 /** Authoritative player data shared by controllers and both frontends. */
 public class PlayerState {
 
+    private static final int NO_TELEMETRY = -2;
+
     public enum Decision { NONE, FOLD, CHECK, BET, ALL_IN }
     public enum ActionKind { NONE, FOLD, CHECK, CALL, BET, RAISE, RERAISE,
         ALL_IN }
@@ -49,8 +51,8 @@ public class PlayerState {
     private volatile boolean winner;
     private volatile boolean showingCards;
     private volatile boolean underTheGun;
-    private volatile int latency = -2;
-    private volatile int previousLatency = -2;
+    private volatile int latency = NO_TELEMETRY;
+    private volatile int previousLatency = NO_TELEMETRY;
     private volatile int reconnectionCount;
     private volatile long telemetryAt;
     private volatile String lastAction = "";
@@ -221,7 +223,11 @@ public class PlayerState {
         publicActionLabel = "";
     }
     public void setTelemetry(int current, int previous, int reconnections) {
-        if (current < -1 || previous < -1 || reconnections < 0) {
+        // -2 means no heartbeat sample exists yet and -1 means that the
+        // corresponding heartbeat path failed. Both are legitimate states
+        // while a newly authenticated hot join is being projected.
+        if (current < NO_TELEMETRY || previous < NO_TELEMETRY
+                || reconnections < 0) {
             throw new IllegalArgumentException("Invalid player telemetry");
         }
         latency = current;

@@ -53,6 +53,20 @@ class CorePlayerControllerTest {
         assertEquals(9.75d, player.getStack());
     }
 
+    @Test
+    void newlyAuthenticatedPeerAcceptsPendingHeartbeatTelemetry() {
+        CorePlayerController player = CorePlayerController.remote("warming");
+
+        player.applyTelemetry(-2, -2, 0);
+
+        PlayerState.Snapshot pending = player.getState().snapshot();
+        assertEquals(-2, pending.latency());
+        assertEquals(-2, pending.previousLatency());
+        assertEquals(0, pending.reconnectionCount());
+        assertThrows(IllegalArgumentException.class,
+                () -> player.applyTelemetry(-3, -2, 0));
+    }
+
     private static final class CountingRandom extends Random {
         private final AtomicInteger boundedCalls = new AtomicInteger();
 

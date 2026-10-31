@@ -41,7 +41,7 @@ final class GdxSettingsContract {
             "chat_notifications_ingame";
 
     enum Gate {
-        NONE, MUSIC, EFFECTS, ANIMATIONS
+        NONE, MUSIC, EFFECTS, ANIMATIONS, SHUFFLE_ANIMATION
     }
 
     enum PerformanceImpact {
@@ -307,6 +307,9 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
+            option("animacion_barajado_precarga",
+                    "PRECARGAR BARAJADO EN RAM", true,
+                    Gate.SHUFFLE_ANIMATION),
             option("animacion_reparto", "REPARTO", true,
                     Gate.ANIMATIONS),
             option("animacion_destape", "DESTAPAR", true,
@@ -438,6 +441,7 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
+                    animationToggle("animacion_barajado_precarga"),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
                     animationToggle("animacion_destape"),
@@ -494,7 +498,8 @@ final class GdxSettingsContract {
             "animacion_fuego_allin", "animacion_efecto_ganador",
             "animaciones", "cinematicas", "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
-            "animacion_barajado", "animacion_reparto",
+            "animacion_barajado", "animacion_barajado_precarga",
+            "animacion_reparto",
             "animacion_destape", "animacion_ciegas_dealer",
             "animacion_apuestas",
             "animacion_contadores",
@@ -1077,11 +1082,14 @@ final class GdxSettingsContract {
                 "sonido_efectos", "true"));
         boolean animations = Boolean.parseBoolean(properties.getProperty(
                 "animaciones", "true"));
+        boolean shuffleAnimation = animations && Boolean.parseBoolean(
+                properties.getProperty("animacion_barajado", "true"));
         return switch (option.gate()) {
             case NONE -> true;
             case MUSIC -> music;
             case EFFECTS -> effects;
             case ANIMATIONS -> animations;
+            case SHUFFLE_ANIMATION -> shuffleAnimation;
         };
     }
 

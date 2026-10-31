@@ -492,7 +492,8 @@ final class GdxSettingsContractTest {
         assertEquals(keys.size(), new java.util.HashSet<>(keys).size());
         assertTrue(keys.containsAll(java.util.List.of(
                 "cinematicas_allin", "cinematicas_gameover",
-                "animacion_barajado", "animacion_reparto",
+                "animacion_barajado", "animacion_barajado_precarga",
+                "animacion_reparto",
                 "animacion_destape", "animacion_ciegas_dealer",
                 "animacion_apuestas", "animacion_contadores",
                 "animacion_entrada_asientos", "animacion_swap",
@@ -528,14 +529,15 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(14, page.options().size());
+        assertEquals(15, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(20, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(21, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "cinematicas_allin",
                 "cinematicas_gameover",
                 "animacion_barajado",
+                "animacion_barajado_precarga",
                 "animacion_reparto",
                 "reparto_velocidad",
                 "animacion_destape",
@@ -587,7 +589,10 @@ final class GdxSettingsContractTest {
         GdxSettingsContract.ToggleOption cinematic =
                 GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(2);
         GdxSettingsContract.ToggleOption deal =
-                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(4);
+                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                        .filter(option -> "animacion_reparto".equals(
+                                option.key()))
+                        .findFirst().orElseThrow();
 
         assertTrue(GdxSettingsContract.enabled(cinematic, properties, true));
         assertTrue(GdxSettingsContract.enabled(deal, properties, true));
@@ -598,6 +603,24 @@ final class GdxSettingsContractTest {
         properties.setProperty("animaciones", "false");
         assertFalse(GdxSettingsContract.enabled(cinematic, properties, true));
         assertFalse(GdxSettingsContract.enabled(deal, properties, true));
+    }
+
+    @Test
+    void shufflePreloadRequiresOnlyItsShuffleAnimationParent() {
+        GdxSettingsContract.ToggleOption preload =
+                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                        .filter(option -> "animacion_barajado_precarga".equals(
+                                option.key()))
+                        .findFirst().orElseThrow();
+        Properties properties = new Properties();
+
+        assertTrue(preload.fallback());
+        assertTrue(GdxSettingsContract.enabled(preload, properties, true));
+        properties.setProperty("animacion_barajado", "false");
+        assertFalse(GdxSettingsContract.enabled(preload, properties, true));
+        properties.setProperty("animacion_barajado", "true");
+        properties.setProperty("animaciones", "false");
+        assertFalse(GdxSettingsContract.enabled(preload, properties, true));
     }
 
     @Test
@@ -713,6 +736,8 @@ final class GdxSettingsContractTest {
         assertEquals("true", properties.getProperty("animaciones"));
         assertEquals("true", properties.getProperty(
                 "animacion_fuego_allin"));
+        assertEquals("true", properties.getProperty(
+                "animacion_barajado_precarga"));
         assertEquals("true", properties.getProperty(
                 "animacion_efecto_ganador"));
         assertEquals("620", properties.getProperty("card_flip_duration"));

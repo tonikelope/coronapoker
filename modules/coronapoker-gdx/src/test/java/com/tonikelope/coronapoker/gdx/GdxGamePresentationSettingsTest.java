@@ -99,6 +99,7 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.betAnimation());
         assertFalse(settings.counterAnimation());
         assertFalse(settings.shuffleAnimation());
+        assertFalse(settings.shufflePreload());
         assertFalse(settings.dealAnimation());
         assertFalse(settings.flipAnimation());
         assertFalse(settings.swapAnimation());
@@ -120,6 +121,13 @@ final class GdxGamePresentationSettingsTest {
                 "the retired cinematics master must no longer affect playback");
         assertTrue(settings.allInCinematics());
         assertTrue(settings.gameOverCinematics());
+
+        preferences.properties().setProperty("animacion_barajado", "true");
+        assertTrue(settings.shufflePreload(),
+                "full preload must default on when shuffle animation is on");
+        preferences.properties().setProperty(
+                "animacion_barajado_precarga", "false");
+        assertFalse(settings.shufflePreload());
 
         preferences.properties().setProperty("animaciones", "false");
         assertFalse(settings.dealAnimation());

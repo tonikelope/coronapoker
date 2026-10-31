@@ -60,6 +60,27 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
+    void shufflePreloadHasItsOwnMemoryAndFallbackTooltip() {
+        GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
+                "animacion_barajado_precarga", new Properties(),
+                new GdxGameText("es"));
+        assertTrue(spanish.text().contains("90 y 180 MiB"));
+        assertTrue(spanish.text().contains("sistema anterior"));
+
+        GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
+                "animacion_barajado_precarga", new Properties(),
+                new GdxGameText("en"));
+        assertTrue(english.text().contains("90 to 180 MiB"));
+        assertTrue(english.text().contains("previous low-memory streaming"));
+
+        assertEquals("gdx.settings.tooltip.animation",
+                GdxSettingsTooltips.descriptionKey("animacion_barajado"));
+        assertEquals("gdx.settings.tooltip.shuffle_preload",
+                GdxSettingsTooltips.descriptionKey(
+                        "animacion_barajado_precarga"));
+    }
+
+    @Test
     void allGameRowsHaveDedicatedDescriptions() {
         List<String> keys = List.of(
                 "structure", "initial_blinds", "ante", "straddle",

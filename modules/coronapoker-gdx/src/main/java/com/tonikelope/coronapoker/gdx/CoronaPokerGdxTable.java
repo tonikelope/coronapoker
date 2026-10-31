@@ -92,6 +92,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -291,10 +292,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float AVATAR_ZOOM_FACTOR = 2f;
     private static final float AVATAR_ZOOM_MAX_HEIGHT_RATIO = 0.45f;
     private static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
-    private static final float SHUFFLE_AUDIO_FALLBACK_SECONDS = 2.720f;
-    private static final float SHUFFLE_TEXT_CYCLE_SECONDS = 0.300f;
     private static final int SHUFFLE_PRIMED_FRAME_COUNT =
             StreamingGifTextureAnimation.DECODED_FRAME_BUFFER;
+    private static final float SHUFFLE_AUDIO_FALLBACK_SECONDS = 2.720f;
+    private static final float SHUFFLE_TEXT_CYCLE_SECONDS = 0.300f;
     /** Never introduce an already-late WAV after a missed visual loop edge. */
     private static final float SHUFFLE_AUDIO_CYCLE_SYNC_GRACE_SECONDS = 0.050f;
     private static final int SHUFFLE_NATIVE_MAX_WIDTH = 960;
@@ -1514,6 +1515,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private StreamingGifTextureAnimation.PreparedLooping preparedShuffle;
     private String preparedShuffleDeck = "";
     private int preparedShuffleMaxWidth;
+    private boolean preparedShuffleFullyPreloaded;
+    private AtomicBoolean shufflePreparationCancellation =
+            new AtomicBoolean();
     private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
             recoveryPreparation;
     private StreamingGifTextureAnimation.PreparedLooping preparedRecovery;
@@ -1524,6 +1528,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         "coronapoker-table-preparation");
                 worker.setDaemon(true);
                 worker.setPriority(Thread.MIN_PRIORITY);
+                return worker;
+            });
+    /** Supports deterministic shuffle preloading after live setting changes. */
+    private final ExecutorService shufflePreparationExecutor =
+            Executors.newSingleThreadExecutor(task -> {
+                Thread worker = new Thread(task,
+                        "coronapoker-shuffle-preload");
+                worker.setDaemon(true);
+                worker.setPriority(Thread.NORM_PRIORITY);
                 return worker;
             });
     private boolean readySignalled;
@@ -2964,6 +2977,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         liveBotDifficultyDraft = null;
         settingsOpenedWindowMode = null;
         settingsSession.close();
+        reconcileShufflePreload();
         uiLayer = UI_NONE;
         if (restartNotice) {
             showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
@@ -3139,7 +3153,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         creationPhase = 0;
         if (!startupIntroOnly) {
-            prepareShuffleAnimation(liveDeck);
+            if (liveShuffleAnimationEnabled()) {
+                prepareShuffleAnimation(liveDeck);
+            }
             prepareRecoveryAnimation();
         }
     }
@@ -16572,6 +16588,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : presentationSettings.shuffleAnimation();
     }
 
+    private boolean liveShuffleFullPreloadEnabled() {
+        return liveShuffleAnimationEnabled()
+                && (presentationSettings == null
+                    ? tablePreference("animacion_barajado_precarga", true)
+                    : presentationSettings.shufflePreload());
+    }
+
     private boolean liveAnimationsEnabled() {
         return presentationSettings == null
                 ? tablePreference("animaciones", true)
@@ -16955,6 +16978,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private StreamingGifTextureAnimation liveShuffleAnimation(String deck) {
+        // A cache enabled from live settings may have completed since the
+        // previous hand. Publish it without blocking the render thread.
+        completeShufflePreparation();
         String selected = availableDeck(deck);
         int maxWidth = shuffleDecodeWidth(
                 Gdx.graphics.getBackBufferWidth(),
@@ -17002,9 +17028,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int maxWidth = shuffleDecodeWidth(
                 Gdx.graphics.getBackBufferWidth(),
                 Gdx.graphics.getBackBufferHeight());
+        boolean fullPreload = liveShuffleFullPreloadEnabled();
         preparedShuffle = null;
         preparedShuffleDeck = selected;
         preparedShuffleMaxWidth = maxWidth;
+        preparedShuffleFullyPreloaded = fullPreload;
+        AtomicBoolean cancellation = new AtomicBoolean();
+        shufflePreparationCancellation = cancellation;
         Path external = externalDeckAsset(selected, "gif/shuffle.gif")
                 .orElse(null);
         String bundled = external == null
@@ -17014,17 +17044,53 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : null;
         shufflePreparation = CompletableFuture.supplyAsync(() -> {
             try {
-                return external == null
-                        ? StreamingGifTextureAnimation.prepareLoopingPrimed(
-                                bundled, maxWidth,
-                                SHUFFLE_PRIMED_FRAME_COUNT)
+                if (external == null) {
+                    return fullPreload
+                            ? StreamingGifTextureAnimation.prepareLoopingFully(
+                                    bundled, maxWidth, cancellation::get)
+                            : StreamingGifTextureAnimation.prepareLoopingPrimed(
+                                    bundled, maxWidth,
+                                    SHUFFLE_PRIMED_FRAME_COUNT);
+                }
+                return fullPreload
+                        ? StreamingGifTextureAnimation.prepareLoopingFully(
+                                external, maxWidth, cancellation::get)
                         : StreamingGifTextureAnimation.prepareLoopingPrimed(
                                 external, maxWidth,
                                 SHUFFLE_PRIMED_FRAME_COUNT);
             } catch (IOException failure) {
                 throw new CompletionException(failure);
             }
-        }, creationPreparationExecutor);
+        }, shufflePreparationExecutor);
+    }
+
+    private void reconcileShufflePreload() {
+        if (startupIntroOnly) return;
+        if (!liveShuffleAnimationEnabled()) {
+            cancelShufflePreparation();
+            preparedShuffle = null;
+            preparedShuffleDeck = "";
+            preparedShuffleMaxWidth = 0;
+            preparedShuffleFullyPreloaded = false;
+            return;
+        }
+        String selected = availableDeck(liveDeck);
+        int maxWidth = shuffleDecodeWidth(
+                Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight());
+        boolean fullPreload = liveShuffleFullPreloadEnabled();
+        boolean matchingPrepared = preparedShuffle != null
+                && selected.equals(preparedShuffleDeck)
+                && maxWidth == preparedShuffleMaxWidth
+                && fullPreload == preparedShuffleFullyPreloaded;
+        boolean matchingPending = shufflePreparation != null
+                && selected.equals(preparedShuffleDeck)
+                && maxWidth == preparedShuffleMaxWidth
+                && fullPreload == preparedShuffleFullyPreloaded;
+        if (!matchingPrepared && !matchingPending) {
+            cancelShufflePreparation();
+            prepareShuffleAnimation(selected);
+        }
     }
 
     private boolean completeShufflePreparation() {
@@ -28765,6 +28831,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cancelShufflePreparation();
         cancelRecoveryPreparation();
         creationPreparationExecutor.shutdownNow();
+        shufflePreparationExecutor.shutdownNow();
         disposeSafely(creationFontGenerator);
         creationFontGenerator = null;
         if (shouldDisposeBackgroundMusic(sharedBackgroundMusic)) {
@@ -28906,6 +28973,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cancelShufflePreparation();
         cancelRecoveryPreparation();
         creationPreparationExecutor.shutdownNow();
+        shufflePreparationExecutor.shutdownNow();
         CompletableFuture<Void> closingSummaryBarrier = finalSummaryBarrier;
         finalSummaryBarrier = null;
         if (closingSummaryBarrier != null
@@ -29137,6 +29205,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void cancelShufflePreparation() {
+        shufflePreparationCancellation.set(true);
         CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
                 preparation = shufflePreparation;
         shufflePreparation = null;
@@ -29752,8 +29821,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             : cycleSeconds;
             if (animationEnabled) {
                 System.out.printf(
-                        "Shuffle stream: %dx%d | %.0f ms | audio cutoff %.0f ms%n",
+                        "Shuffle %s: %dx%d | %.1f MiB | %.0f ms | audio cutoff %.0f ms%n",
+                        animation.fullyPreloaded() ? "preloaded" : "stream",
                         animation.width(), animation.height(),
+                        animation.preloadedByteCount() / 1_048_576d,
                         cycleSeconds * 1000f, soundStopSeconds * 1000f);
             }
         }

@@ -103,6 +103,30 @@ final class GdxRenderThreadBudgetWiringTest {
     }
 
     @Test
+    void shufflePreloadsTheWholeLoopOnlyWhileItsAnimationIsEnabled()
+            throws Exception {
+        String table = source("CoronaPokerGdxTable.java");
+        String animation = source("StreamingGifTextureAnimation.java");
+
+        assertTrue(table.contains("if (liveShuffleAnimationEnabled()) {\n"
+                + "                prepareShuffleAnimation(liveDeck);"));
+        assertTrue(table.contains(
+                "StreamingGifTextureAnimation.prepareLoopingFully("));
+        assertTrue(table.contains(
+                "StreamingGifTextureAnimation.prepareLoopingPrimed("));
+        assertTrue(table.contains("liveShuffleFullPreloadEnabled()"));
+        assertTrue(table.contains(
+                "tablePreference(\"animacion_barajado_precarga\", true)"));
+        assertTrue(table.contains("reconcileShufflePreload();"));
+        assertTrue(table.contains("preparedShuffle = null;\n"
+                + "            preparedShuffleDeck = \"\";"));
+        assertTrue(animation.contains(
+                "MAX_FULLY_DECODED_BYTES = 256L * 1024L * 1024L"));
+        assertTrue(animation.contains(
+                "texture = new Texture(uploadPixmap, mipMaps);"));
+    }
+
+    @Test
     void twoDimensionalSurfacesDoNotAllocateOrClearDepthAndStencil()
             throws Exception {
         String launcher = source("GdxLauncher.java");

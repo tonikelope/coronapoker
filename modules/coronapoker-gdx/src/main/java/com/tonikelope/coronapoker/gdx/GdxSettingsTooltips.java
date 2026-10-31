@@ -49,6 +49,8 @@ final class GdxSettingsTooltips {
             case "nivel_luz" -> "tooltip.cfg.nivel_luz";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
+            case "animacion_barajado_precarga" ->
+                "gdx.settings.tooltip.shuffle_preload";
             case "gdx_window_mode" -> "tooltip.cfg.display_mode";
             case "auto_fullscreen" ->
                 "gdx.settings.tooltip.auto_fullscreen";

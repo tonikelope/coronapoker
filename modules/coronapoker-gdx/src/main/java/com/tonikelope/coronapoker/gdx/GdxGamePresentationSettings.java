@@ -451,6 +451,10 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean shuffleAnimation() {
         return animations() && bool("animacion_barajado", true);
     }
+    boolean shufflePreload() {
+        return shuffleAnimation()
+                && bool("animacion_barajado_precarga", true);
+    }
     @Override public boolean dealAnimation() {
         return animations() && bool("animacion_reparto", true);
     }

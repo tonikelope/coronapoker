@@ -301,6 +301,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int SHUFFLE_NATIVE_MAX_WIDTH = 960;
     private static final int SHUFFLE_REFERENCE_HEIGHT = 1080;
     private static final float SHUFFLE_LOW_RES_SCREEN_WIDTH_RATIO = 0.78f;
+    private static final long SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS =
+            1_000_000_000L;
     private static final float CHIP_FLIGHT_DELAY = 0.12f;
     private static final float CHIP_FLIGHT_SECONDS = 0.92f;
     private static final float PAYOUT_FLIGHT_DELAY = 0.18f;
@@ -1518,6 +1520,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String preparedShuffleDeck = "";
     private int preparedShuffleMaxWidth;
     private boolean preparedShuffleFullyPreloaded;
+    private long shufflePreloadReconcileAfterNanos;
     private AtomicBoolean shufflePreparationCancellation =
             new AtomicBoolean();
     private CompletableFuture<StreamingGifTextureAnimation.PreparedLooping>
@@ -5388,6 +5391,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 String selectedDeck = availableDeck(changed.deck());
                 if (!selectedDeck.equals(liveDeck)) {
                     liveDeck = selectedDeck;
+                    // ChangeDeck is also emitted by right-clicking any table
+                    // card. Browsing must stay instant without decoding every
+                    // intermediate deck; only the last stable choice is
+                    // prepared after a short idle period.
+                    deferShufflePreloadAfterDeckChange();
                     // Swing's cambiarBaraja() gives immediate audible feedback
                     // with uncover.wav after committing the selected deck.
                     if (tablePreference("sonido_efectos", true)
@@ -6161,6 +6169,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "A product table frame requires authoritative live state");
         networkBlockCache.update(delta, tableHost && lobby != null);
         networkBlocksAvailable = !networkBlockCache.current().isEmpty();
+        updateDeferredShufflePreload();
         updateLivePositionRotation();
         updateLiveActionChip();
         updateLiveChipBatch();
@@ -17071,6 +17080,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void reconcileShufflePreload() {
+        shufflePreloadReconcileAfterNanos = 0L;
         if (startupIntroOnly) return;
         if (!liveShuffleAnimationEnabled()) {
             cancelShufflePreparation();
@@ -17097,6 +17107,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             cancelShufflePreparation();
             prepareShuffleAnimation(selected);
         }
+    }
+
+    private void deferShufflePreloadAfterDeckChange() {
+        cancelShufflePreparation();
+        preparedShuffle = null;
+        preparedShuffleDeck = "";
+        preparedShuffleMaxWidth = 0;
+        preparedShuffleFullyPreloaded = false;
+        shufflePreloadReconcileAfterNanos = liveShuffleAnimationEnabled()
+                ? System.nanoTime() + SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS
+                : 0L;
+    }
+
+    private void updateDeferredShufflePreload() {
+        long deadline = shufflePreloadReconcileAfterNanos;
+        if (deadline == 0L || System.nanoTime() - deadline < 0L) return;
+        reconcileShufflePreload();
     }
 
     private boolean completeShufflePreparation() {

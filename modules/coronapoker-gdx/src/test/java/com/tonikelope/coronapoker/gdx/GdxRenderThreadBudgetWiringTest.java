@@ -126,6 +126,46 @@ final class GdxRenderThreadBudgetWiringTest {
     }
 
     @Test
+    void directDeckChangesDebounceTheShufflePreload() throws Exception {
+        String table = source("CoronaPokerGdxTable.java");
+        String deckChanged = method(table,
+                "if (event instanceof TableVisualEvent.DeckChanged changed)",
+                "if (activeDialog != null && activeDialog.isAutoAction()");
+        String deferred = method(table,
+                "private void deferShufflePreloadAfterDeckChange()",
+                "private void updateDeferredShufflePreload()");
+        String update = method(table,
+                "private void updateDeferredShufflePreload()",
+                "private boolean completeShufflePreparation()");
+        String reconciliation = method(table,
+                "private void reconcileShufflePreload()",
+                "private void deferShufflePreloadAfterDeckChange()");
+
+        assertTrue(deckChanged.contains("liveDeck = selectedDeck;\n"
+                + "                    // ChangeDeck is also emitted by right-clicking any table\n"
+                + "                    // card."));
+        assertTrue(deckChanged.contains(
+                "deferShufflePreloadAfterDeckChange();"));
+        assertTrue(deferred.contains("cancelShufflePreparation();"));
+        assertTrue(deferred.contains("preparedShuffle = null;"));
+        assertTrue(deferred.contains("System.nanoTime()"
+                + " + SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS"));
+        assertTrue(update.contains("System.nanoTime() - deadline < 0L"));
+        assertTrue(update.contains("reconcileShufflePreload();"));
+        assertTrue(table.contains(
+                "SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS =\n"
+                + "            1_000_000_000L;"));
+        assertTrue(table.indexOf("updateDeferredShufflePreload();")
+                < table.indexOf("updateLiveShuffle();"));
+        assertTrue(reconciliation.contains(
+                "shufflePreloadReconcileAfterNanos = 0L;"));
+        assertTrue(reconciliation.contains("cancelShufflePreparation();\n"
+                + "            prepareShuffleAnimation(selected);"));
+        assertTrue(table.contains(
+                "Executors.newSingleThreadExecutor(task -> {"));
+    }
+
+    @Test
     void twoDimensionalSurfacesDoNotAllocateOrClearDepthAndStencil()
             throws Exception {
         String launcher = source("GdxLauncher.java");

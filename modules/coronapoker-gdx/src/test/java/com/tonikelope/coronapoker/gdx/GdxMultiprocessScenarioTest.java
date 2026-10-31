@@ -48,6 +48,9 @@ class GdxMultiprocessScenarioTest {
             "abrupt-exit", "dual-abrupt-exit", "mixed-exit-crash",
             "allin-abrupt-exit");
 
+    private static final Set<String> EXPECTED_TABLE_FAILURE_SCENARIOS = Set.of(
+            "host-abrupt-exit", "live-hot-join-host-abrupt");
+
     private static final List<String> ALWAYS_FATAL_OUTPUT = List.of(
             "CP_GDX_E2E_FAIL",
             "TABLE_FAILURE_V1",
@@ -479,6 +482,20 @@ class GdxMultiprocessScenarioTest {
     }
 
     @Test
+    @Timeout(value = 3, unit = TimeUnit.MINUTES)
+    void abruptHostProcessExitFailsEveryIndependentClientClosed(
+            @TempDir Path root) throws Exception {
+        runAbruptHostExitScenario(root);
+    }
+
+    @Test
+    @Timeout(value = 4, unit = TimeUnit.MINUTES)
+    void abruptHostProcessExitWhileHotJoinWarmsFailsEveryClientClosed(
+            @TempDir Path root) throws Exception {
+        runWarmingHotJoinHostAbruptScenario(root);
+    }
+
+    @Test
     @Timeout(value = 4, unit = TimeUnit.MINUTES)
     void dualAbruptExitMatchesTheSwingGoldScenarioAcrossGdxProcesses(
             @TempDir Path root) throws Exception {
@@ -665,6 +682,68 @@ class GdxMultiprocessScenarioTest {
     void lifecycleChaosConvergesAcrossIndependentGdxProcesses(
             @TempDir Path root) throws Exception {
         runLifecycleChaosScenario(root);
+    }
+
+    private static void runAbruptHostExitScenario(Path root) throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        String scenario = "host-abrupt-exit";
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 2, 1, 2, scenario);
+            nodes.add(host);
+            assertTrue(host.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), host.diagnostic());
+            List<NodeProcess> clients = new ArrayList<>();
+            for (int index = 1; index <= 2; index++) {
+                NodeProcess client = startNode(root.resolve("client-" + index),
+                        "client", "client" + index, port, 2, 1, 2,
+                        scenario);
+                clients.add(client);
+                nodes.add(client);
+                assertTrue(client.await("CP_GDX_E2E_READY",
+                        Duration.ofSeconds(30)), client.diagnostic());
+            }
+            for (NodeProcess node : nodes) {
+                assertTrue(node.await("CP_GDX_E2E_LOBBY_READY players=4",
+                        Duration.ofSeconds(45)), node.diagnostic());
+            }
+            host.send("START_GAME");
+            NodeProcess witness = clients.get(0);
+            assertTrue(witness.await("CP_GDX_E2E_ACTION_GATE_REACHED"
+                    + " scenario=host-abrupt-exit nick=client1 hand=1",
+                    Duration.ofSeconds(90)), witness.diagnostic());
+            host.destroyForcibly();
+            assertTrue(host.awaitExit(Duration.ofSeconds(10)) != 0,
+                    host.diagnostic());
+
+            for (NodeProcess client : clients) {
+                assertTrue(client.await("CP_GDX_E2E_HANDS_COMPLETE",
+                        Duration.ofSeconds(45)), client.diagnostic());
+                assertEquals(0, client.awaitExit(Duration.ofSeconds(15)),
+                        client.diagnostic());
+                assertTrue(client.contains("reason=FAILURE"),
+                        client.diagnostic());
+                assertTrue(client.contains("TABLE_FAILURE_V1"),
+                        "terminal host loss did not reach the table engine\n"
+                        + client.diagnostic());
+                assertEquals(1, client.count("CP_GDX_E2E_HANDS_COMPLETE "),
+                        client.diagnostic());
+                assertTrue(!client.contains("reason=COMPLETED"),
+                        client.diagnostic());
+            }
+            assertEquals(clients.get(0).ledger(), clients.get(1).ledger(),
+                    "surviving clients disagreed after authoritative host loss");
+            assertEquals(clients.get(0).capital(), clients.get(1).capital(),
+                    "surviving clients reported different terminal capital");
+        } finally {
+            for (NodeProcess node : nodes) {
+                node.close();
+            }
+        }
     }
 
     private static void runCompletingScenario(Path root, String scenario,
@@ -2257,6 +2336,59 @@ class GdxMultiprocessScenarioTest {
                     assertTrue(!node.contains(fatal),
                             fatal + "\n" + node.diagnostic());
                 }
+            }
+        } finally {
+            for (NodeProcess node : nodes) node.close();
+        }
+    }
+
+    private static void runWarmingHotJoinHostAbruptScenario(Path root)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        String scenario = "live-hot-join-host-abrupt";
+        List<NodeProcess> nodes = new ArrayList<>();
+        try {
+            NodeProcess host = startNode(root.resolve("host"), "host",
+                    "server", port, 2, 1, 3, scenario);
+            nodes.add(host);
+            awaitHostReady(host);
+            NodeProcess incumbent = startNode(root.resolve("client-1"),
+                    "client", "client1", port, 2, 1, 3, scenario);
+            nodes.add(incumbent);
+            assertTrue(incumbent.await("CP_GDX_E2E_READY",
+                    Duration.ofSeconds(30)), incumbent.diagnostic());
+            assertTrue(host.await("CP_GDX_E2E_LOBBY_READY players=3",
+                    Duration.ofSeconds(45)), host.diagnostic());
+            host.send("START_GAME");
+            assertTrue(host.await("CP_GDX_E2E_HOT_JOIN_GATE",
+                    Duration.ofSeconds(90)), host.diagnostic());
+
+            NodeProcess newcomer = startNode(root.resolve("client-2"),
+                    "client", "client2", port, 2, 1, 3, scenario, "late");
+            nodes.add(newcomer);
+            assertTrue(newcomer.await(
+                    "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
+                    Duration.ofSeconds(90)), newcomer.diagnostic());
+            assertTrue(incumbent.await(
+                    "CP_GDX_E2E_HOT_JOIN_PEER_NOTIFIED nick=client2",
+                    Duration.ofSeconds(90)), incumbent.diagnostic());
+
+            host.destroyForcibly();
+            assertTrue(host.awaitExit(Duration.ofSeconds(10)) != 0,
+                    host.diagnostic());
+            for (NodeProcess client : List.of(incumbent, newcomer)) {
+                assertTrue(client.await("CP_GDX_E2E_HOT_JOIN_HOST_FAILURE",
+                        Duration.ofSeconds(90)), client.diagnostic());
+                assertEquals(0, client.awaitExit(Duration.ofSeconds(20)),
+                        client.diagnostic());
+                assertTrue(client.contains("TABLE_FAILURE_V1"),
+                        client.diagnostic());
+                assertEquals(1, client.count(
+                                "CP_GDX_E2E_HOT_JOIN_HOST_FAILURE"),
+                        client.diagnostic());
             }
         } finally {
             for (NodeProcess node : nodes) node.close();
@@ -4534,6 +4666,11 @@ class GdxMultiprocessScenarioTest {
                         + System.getProperty("coronapoker.qa.scenarioSeed",
                                 System.getProperty("qa.sim.seed",
                                         "0x434f524f4e41514c")),
+                "-Dcoronapoker.network.clientReconnectTimeoutMs="
+                        + (("host-abrupt-exit".equals(scenario)
+                                || "live-hot-join-host-abrupt".equals(
+                                        scenario))
+                                ? "5000" : "80000"),
                 "-cp", classpath,
                 GdxMultiprocessNodeMain.class.getName(), role, nick,
                 Integer.toString(port), Integer.toString(clients),
@@ -4628,6 +4765,11 @@ class GdxMultiprocessScenarioTest {
 
         private void assertNoUnexpectedFailures() {
             for (String marker : ALWAYS_FATAL_OUTPUT) {
+                if ("TABLE_FAILURE_V1".equals(marker)
+                        && EXPECTED_TABLE_FAILURE_SCENARIOS.contains(
+                                scenario)) {
+                    continue;
+                }
                 assertTrue(!contains(marker),
                         "fatal output escaped the " + scenario
                         + " scenario oracle: " + marker + "\n"
@@ -4636,7 +4778,8 @@ class GdxMultiprocessScenarioTest {
             assertTrue(!hasUnexpectedClientWriteFailure(),
                     "unexpected client write failure escaped the " + scenario
                     + " oracle\n" + diagnostic());
-            if (!EXPECTED_MISDEAL_SCENARIOS.contains(scenario)) {
+            if (!EXPECTED_MISDEAL_SCENARIOS.contains(scenario)
+                    && !EXPECTED_TABLE_FAILURE_SCENARIOS.contains(scenario)) {
                 assertTrue(!contains("MISDEAL triggered:"),
                         "unexpected MISDEAL in " + scenario + "\n"
                         + diagnostic());

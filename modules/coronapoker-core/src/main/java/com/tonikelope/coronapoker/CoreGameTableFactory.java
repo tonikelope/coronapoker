@@ -1265,6 +1265,16 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                         incident.id(), expel);
                             });
                 });
+        AutoCloseable transportFailure = context.channel()
+                .subscribeTransportFailure(detail -> {
+                    if (closing.get()) return;
+                    controlExecutor.execute(() -> {
+                        if (closing.get()) return;
+                        dealer.containExternalTableFailure(
+                                new IllegalStateException(detail));
+                        notifyBettingWait(dealer);
+                    });
+                });
 
                 TableCommandSink commandSink = new TableCommandSink() {
                     @Override
@@ -1375,6 +1385,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     pause.resume();
                     notifyBettingWait(dealer);
                     hotJoin.close();
+                    transportFailure.close();
                     securityIncidents.close();
                     peerLoss.close();
                     inbound.close();

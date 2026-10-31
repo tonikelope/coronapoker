@@ -97,6 +97,9 @@ final class GdxScenarioContract {
             Map.entry("abrupt-exit", Set.of(
                     "abruptProcessExitLeavesIndependentGdxPeersRecoverable",
                     "abruptExitAbortsTheHandAndLeavesSurvivorsRecoverable")),
+            Map.entry("host-abrupt-exit", Set.of(
+                    "abruptHostProcessExitFailsEveryIndependentClientClosed",
+                    "abruptHostProcessExitWhileHotJoinWarmsFailsEveryClientClosed")),
             Map.entry("controlled-exit", Set.of(
                     "controlledExitUsesIndependentGdxProcesses",
                     "nativeGdxExitConfirmationClosesRealNetworkTableWhilePaused",

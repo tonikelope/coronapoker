@@ -128,7 +128,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final int MAX_CONSECUTIVE_HEARTBEAT_FAILURES = 3;
     /** Same definitive peer-loss grace as the established Swing transport. */
     static final long HOST_PEER_RECONNECT_TIMEOUT_MS = 45_000L;
-    static final long CLIENT_RECONNECT_TIMEOUT_MS = 80_000L;
+    static final long CLIENT_RECONNECT_TIMEOUT_MS = Math.max(5_000L,
+            Long.getLong("coronapoker.network.clientReconnectTimeoutMs",
+                    80_000L));
     static final long CLIENT_RECONNECT_RETRY_MS = 1_000L;
     static final long EXECUTOR_CLOSE_TIMEOUT_MS = 5_000L;
     private static final AtomicInteger THREAD_NUMBER = new AtomicInteger();
@@ -1445,7 +1447,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     }
                     if (gameChannel.isTerminating()) return;
                     if (!closed.get() && connection.isReconnecting()) {
-                        fail("No se pudo recuperar la conexión con el servidor");
+                        failTableTransport(
+                                "No se pudo recuperar la conexión con el servidor");
                     }
                 } finally {
                     clientReconnectRunning.set(false);
@@ -2222,6 +2225,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             close();
         }
 
+        private void failTableTransport(String detail) {
+            publish(LobbySnapshot.Phase.ERROR, detail);
+            gameChannel.publishTransportFailure(detail);
+            close();
+        }
+
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
             // A completed table session is a deliberate departure even when
@@ -2281,12 +2290,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private Consumer<Inbound> listener;
         private Consumer<String> peerLossListener;
         private Consumer<SecurityIncident> securityIncidentListener;
+        private Consumer<String> transportFailureListener;
         private final java.util.LinkedHashSet<String> pendingPeerLosses
                 = new java.util.LinkedHashSet<>();
         private final java.util.LinkedHashSet<SecurityIncident>
                 pendingSecurityIncidents = new java.util.LinkedHashSet<>();
         private final java.util.LinkedHashSet<SecurityIncident>
                 reportedSecurityIncidents = new java.util.LinkedHashSet<>();
+        private String pendingTransportFailure;
+        private boolean transportFailureReported;
 
         NativeGameChannel(Transport transport, ExecutorService executor) {
             this.transport = transport;
@@ -2416,6 +2428,61 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private synchronized void detachSecurityIncidents() {
             securityIncidentListener = null;
+        }
+
+        @Override
+        public AutoCloseable subscribeTransportFailure(
+                Consumer<String> next) {
+            Consumer<String> target;
+            String pending;
+            synchronized (this) {
+                if (closed) throw new IllegalStateException(
+                        "Game channel is closed");
+                if (transportFailureListener != null) {
+                    throw new IllegalStateException(
+                            "Game channel already has a transport-failure consumer");
+                }
+                target = Objects.requireNonNull(next, "listener");
+                transportFailureListener = target;
+                pending = pendingTransportFailure;
+                pendingTransportFailure = null;
+            }
+            if (pending != null) {
+                String detail = pending;
+                executor.execute(() -> deliverTransportFailure(target,
+                        detail));
+            }
+            return this::detachTransportFailure;
+        }
+
+        private synchronized void detachTransportFailure() {
+            transportFailureListener = null;
+        }
+
+        void publishTransportFailure(String detail) {
+            Consumer<String> target;
+            String checked = Objects.requireNonNull(detail, "detail");
+            synchronized (this) {
+                if (closed || transportFailureReported) return;
+                transportFailureReported = true;
+                target = transportFailureListener;
+                if (target == null) {
+                    pendingTransportFailure = checked;
+                    return;
+                }
+            }
+            executor.execute(() -> deliverTransportFailure(target, checked));
+        }
+
+        private void deliverTransportFailure(Consumer<String> target,
+                String detail) {
+            try {
+                target.accept(detail);
+            } catch (RuntimeException failure) {
+                LOGGER.log(Level.WARNING,
+                        "The game rejected a terminal transport failure",
+                        failure);
+            }
         }
 
         void publishSecurityIncident(SecurityIncident incident) {
@@ -2630,6 +2697,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             listener = null;
             peerLossListener = null;
             securityIncidentListener = null;
+            transportFailureListener = null;
+            pendingTransportFailure = null;
+            transportFailureReported = false;
         }
     }
 

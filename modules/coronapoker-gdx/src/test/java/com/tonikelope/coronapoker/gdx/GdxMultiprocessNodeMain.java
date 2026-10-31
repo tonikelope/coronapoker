@@ -156,6 +156,7 @@ public final class GdxMultiprocessNodeMain {
             if ("live-hot-join".equals(config.scenario)
                     || "live-hot-join-remainder".equals(config.scenario)
                     || "live-hot-join-stop".equals(config.scenario)
+                    || "live-hot-join-host-abrupt".equals(config.scenario)
                     || "live-hot-join-exit".equals(config.scenario)
                     || "live-hot-join-bootstrap-exit".equals(config.scenario)
                     || "live-hot-join-admission-exit".equals(config.scenario)
@@ -289,6 +290,13 @@ public final class GdxMultiprocessNodeMain {
                     runAllInExit(config, table, renderer);
                 } else if (config.reconnectScenario()) {
                     runReconnectScenario(config, lobby, renderer);
+                } else if ("host-abrupt-exit".equals(config.scenario)
+                        && "client1".equals(config.nickname)) {
+                    await(renderer::hasHeldAction, Duration.ofSeconds(30),
+                            "host crash action gate");
+                    marker("ACTION_GATE_REACHED", "scenario="
+                            + config.scenario + " nick=" + config.nickname
+                            + " hand=1");
                 } else if (config.disruptedClient()) {
                     await(renderer::hasHeldAction, Duration.ofSeconds(30),
                             "disruption action gate");
@@ -360,6 +368,8 @@ public final class GdxMultiprocessNodeMain {
         }
         boolean stopWhileWarming = "live-hot-join-stop".equals(
                 config.scenario);
+        boolean hostAbruptWhileWarming
+                = "live-hot-join-host-abrupt".equals(config.scenario);
         boolean remainderScenario = "live-hot-join-remainder".equals(
                 config.scenario);
         boolean concurrentExit = "live-hot-join-two-exit".equals(
@@ -967,7 +977,8 @@ public final class GdxMultiprocessNodeMain {
                     marker("HOT_JOIN_EXITED", "nick=" + config.nickname);
                     return;
                 }
-                if (!stopWhileWarming && !thisWarmingIncarnationExits
+                if (!stopWhileWarming && !hostAbruptWhileWarming
+                        && !thisWarmingIncarnationExits
                         && !warmingConsensusFault) {
                     if (!publicRunoutBootstrap && !churnReentry) {
                         await(renderer::sawHotJoinPlayerAction,
@@ -1128,6 +1139,7 @@ public final class GdxMultiprocessNodeMain {
             // the boundary; a scenario-level exit flag must not suppress that
             // consensus check for every process.
             boolean remainsForAdmission = !stopWhileWarming
+                    && !hostAbruptWhileWarming
                     && (!exitWhileWarming || concurrentExit)
                     && !exitAtAdmission && !lastHandBootstrap
                     && !warmingConsensusFault;
@@ -1172,6 +1184,20 @@ public final class GdxMultiprocessNodeMain {
                 }
                 marker("HOT_JOIN_STOPPED", "role=" + config.role
                         + " nick=" + config.nickname);
+                return;
+            }
+
+            if (hostAbruptWhileWarming) {
+                await(renderer::isClosed, Duration.ofSeconds(90),
+                        "terminal host loss while hot join warms");
+                if (renderer.summary() == null
+                        || renderer.summary().reason()
+                        != TableSessionSummary.CloseReason.FAILURE) {
+                    throw new AssertionError("host loss while warming did not "
+                            + "fail closed");
+                }
+                marker("HOT_JOIN_HOST_FAILURE", "role=" + config.role
+                        + " nick=" + config.nickname + " reason=FAILURE");
                 return;
             }
 
@@ -4408,6 +4434,14 @@ public final class GdxMultiprocessNodeMain {
             }
             return;
         }
+        if ("host-abrupt-exit".equals(config.scenario)) {
+            if (renderer.summary().reason()
+                    != TableSessionSummary.CloseReason.FAILURE) {
+                throw new AssertionError("host-abrupt-exit must fail closed: "
+                        + renderer.summary().reason());
+            }
+            return;
+        }
         if ("mixed-exit-crash".equals(config.scenario)) {
             TableSessionSummary.CloseReason expected = config.disruptedClient()
                     ? TableSessionSummary.CloseReason.EXITED
@@ -4481,6 +4515,7 @@ public final class GdxMultiprocessNodeMain {
             case "abrupt-exit", "allin-abrupt-exit" -> Set.of("client1");
             case "dual-abrupt-exit" -> Set.of("client1", "client2");
             case "mixed-exit-crash" -> Set.of("client2");
+            case "host-abrupt-exit" -> Set.of("server");
             default -> Set.of();
         };
     }
@@ -4579,6 +4614,8 @@ public final class GdxMultiprocessNodeMain {
 
         boolean actionGateNode() {
             return disruptedClient()
+                    || (!host() && "host-abrupt-exit".equals(scenario)
+                    && "client1".equals(nickname))
                     || (!host() && "allin-reconnect".equals(scenario)
                     && "client1".equals(nickname))
                     || (!host() && ("allin-controlled-exit".equals(scenario)

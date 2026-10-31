@@ -74,6 +74,20 @@ public interface GameChannel extends AutoCloseable {
         return () -> { };
     }
 
+    /**
+     * Subscribes to an unrecoverable loss of the table transport itself.
+     * Unlike a peer loss, this means that the local process can no longer
+     * reach the authoritative host after exhausting the reconnect window.
+     * The table engine must receive this terminal cause before the channel is
+     * retired so it can publish one fail-closed outcome instead of waiting for
+     * commands that can never arrive.
+     */
+    default AutoCloseable subscribeTransportFailure(
+            Consumer<String> listener) {
+        Objects.requireNonNull(listener, "listener");
+        return () -> { };
+    }
+
     /** Host decision for one transport incident; true expels and blocks it. */
     default void resolveSecurityIncident(long incidentId, boolean expel) {
     }

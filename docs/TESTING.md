@@ -99,6 +99,13 @@ ordering, explicit acknowledgement, process liveness before acknowledgement,
 evidence parity across SQLite/file/debug, final `FAILURE` classification and
 the phase-specific open/closed SQL hand state.
 
+The process-loss matrix is deliberately bidirectional. `abrupt-exit` proves
+that the authoritative host can recover from definitive client loss, while
+`host-abrupt-exit` kills the host JVM during both active play and a warming hot
+join. Every surviving client must receive one terminal table failure, agree on
+the last conserved ledger and close as `FAILURE`; a dead authority can never
+leave a renderer or dealer waiting indefinitely.
+
 ### Versioned local builds
 
 `.\qa.cmd build -IncrementVersion` increments the two-component version before

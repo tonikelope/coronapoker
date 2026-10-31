@@ -108,6 +108,24 @@ class GdxScenarioContractTest {
     }
 
     @Test
+    void criticalProcessLossMatrixCoversClientAndAuthoritativeHostDeath() {
+        Set<String> scenarios = GdxScenarioContract.CERTIFICATION_SCENARIOS
+                .keySet();
+        assertTrue(scenarios.contains("abrupt-exit"),
+                "the process-loss matrix lost abrupt client death");
+        assertTrue(scenarios.contains("host-abrupt-exit"),
+                "the process-loss matrix lost authoritative host death");
+        Set<String> hostTests = GdxScenarioContract.CERTIFICATION_SCENARIOS
+                .getOrDefault("host-abrupt-exit", Set.of());
+        assertTrue(hostTests.contains(
+                        "abruptHostProcessExitFailsEveryIndependentClientClosed"),
+                "host death must run across independent JVMs and sockets");
+        assertTrue(hostTests.contains(
+                        "abruptHostProcessExitWhileHotJoinWarmsFailsEveryClientClosed"),
+                "host death must also cover a warming hot-join observer");
+    }
+
+    @Test
     void certificationMethodsBelongToOneScenarioOnly() {
         Set<String> uniqueTests = new HashSet<>();
         GdxScenarioContract.CERTIFICATION_SCENARIOS.values().stream()

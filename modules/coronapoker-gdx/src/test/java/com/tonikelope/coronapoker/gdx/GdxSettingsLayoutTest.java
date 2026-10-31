@@ -15,10 +15,15 @@ final class GdxSettingsLayoutTest {
         GdxSettingsLayout.DebugArea debug =
                 GdxSettingsLayout.debugArea(content);
         Rectangle copy = GdxSettingsLayout.debugCopyButton(content);
+        Rectangle clip = GdxSettingsLayout.contentClip(content);
 
         assertTrue(row.y >= debug.console().y + debug.console().height);
         assertTrue(debug.console().y >= copy.y + copy.height);
         assertTrue(content.contains(row));
+        assertTrue(clip.contains(row),
+                "the complete rounded outline must stay inside the scissor");
+        assertTrue(clip.y + clip.height - (row.y + row.height) >= 4f,
+                "the top outline needs visible antialiasing clearance");
         assertTrue(content.contains(debug.console()));
     }
 

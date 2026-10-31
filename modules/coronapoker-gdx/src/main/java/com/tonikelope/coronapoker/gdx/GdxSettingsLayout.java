@@ -374,7 +374,7 @@ final class GdxSettingsLayout {
 
     static Rectangle debugPerformanceRow(Rectangle content) {
         return new Rectangle(content.x + CONTENT_HORIZONTAL_INSET,
-                content.y + content.height - ROW_HEIGHT - 14f,
+                content.y + content.height - ROW_HEIGHT - 28f,
                 content.width - 2f * CONTENT_HORIZONTAL_INSET, ROW_HEIGHT);
     }
 

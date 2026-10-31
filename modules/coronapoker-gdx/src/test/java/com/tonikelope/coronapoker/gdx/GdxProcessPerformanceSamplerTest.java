@@ -1,83 +1,117 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.management.BufferPoolMXBean;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.util.List;
-import javax.management.ObjectName;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class GdxProcessPerformanceSamplerTest {
 
     @Test
-    void managedMemoryIncludesHeapNonHeapAndDirectBuffersExactly() {
-        MemoryMXBean memory = memory(20L, 7L);
-        BufferPoolMXBean direct = buffer(5L);
+    void renderThreadOnlyQueuesSamplingAndReturnsCachedDataImmediately() {
+        AtomicReference<Runnable> queued = new AtomicReference<>();
+        AtomicInteger probeCalls = new AtomicInteger();
+        GdxProcessPerformanceSampler sampler =
+                new GdxProcessPerformanceSampler(queued::set, () -> {
+                    probeCalls.incrementAndGet();
+                    return new GdxProcessPerformanceSampler.Sample(27, 48L);
+                });
 
-        assertEquals(32L, GdxProcessPerformanceSampler.managedMemoryBytes(
-                memory, List.of(direct)));
+        String initial = sampler.label(new GdxGameText("es"), 1L);
+
+        assertEquals(0, probeCalls.get(),
+                "the caller must never perform platform sampling");
+        assertTrue(initial.contains("CPU: --% | MEMORIA: 0 MB"));
+        assertTrue(sampler.samplePending());
+        assertNotNull(queued.get());
+
+        queued.get().run();
+
+        assertEquals(1, probeCalls.get());
+        assertFalse(sampler.samplePending());
+        assertTrue(sampler.label(new GdxGameText("es"), 2L)
+                .contains("CPU: 27% | MEMORIA: 48 MB"));
     }
 
     @Test
-    void formattedSnapshotIsLocalizedAndUsesNoMiddleDotSeparator() {
+    void optionalProbeFailureNeverEscapesIntoTheGameLoop() {
         GdxProcessPerformanceSampler sampler =
-                new GdxProcessPerformanceSampler(
-                        ManagementFactory.getOperatingSystemMXBean(),
-                        memory(2L * 1024L * 1024L, 0L), List.of());
+                new GdxProcessPerformanceSampler(Runnable::run, () -> {
+                    throw new IllegalStateException("platform probe failed");
+                });
+
+        String label = assertDoesNotThrow(() -> sampler.label(
+                new GdxGameText("en"), 1L));
+
+        assertTrue(label.contains("CPU: --% | MEMORY: 0 MB"));
+        assertFalse(sampler.samplePending());
+    }
+
+    @Test
+    void pendingSampleCoalescesEveryRenderRequestIntoOneTask() {
+        AtomicInteger queued = new AtomicInteger();
+        GdxProcessPerformanceSampler sampler =
+                new GdxProcessPerformanceSampler(task -> {
+                    queued.incrementAndGet();
+                    // Deliberately leave the sample pending.
+                }, () -> new GdxProcessPerformanceSampler.Sample(1, 1L));
+
+        for (int frame = 0; frame < 120; frame++) {
+            sampler.label(new GdxGameText("en"),
+                    frame * GdxProcessPerformanceSampler.SAMPLE_INTERVAL_NANOS);
+        }
+
+        assertEquals(1, queued.get(),
+                "a stalled platform query must not grow an executor queue");
+    }
+
+    @Test
+    void rejectedBackgroundTaskNeverEscapesIntoTheGameLoop() {
+        GdxProcessPerformanceSampler sampler =
+                new GdxProcessPerformanceSampler(task -> {
+                    throw new IllegalStateException("executor unavailable");
+                }, () -> new GdxProcessPerformanceSampler.Sample(1, 1L));
+
+        assertDoesNotThrow(() -> sampler.label(new GdxGameText("en"), 1L));
+        assertFalse(sampler.samplePending());
+    }
+
+    @Test
+    void cpuLoadIsNormalizedAcrossAvailableProcessors() {
+        assertEquals(25, GdxProcessPerformanceSampler.normalizedCpuPercent(
+                3_000_000_000L, 1_000_000_000L,
+                4_000_000_000L, 2_000_000_000L, 4));
+        assertEquals(-1, GdxProcessPerformanceSampler.normalizedCpuPercent(
+                -1L, 0L, 2L, 1L, 4));
+    }
+
+    @Test
+    void standardProcessDurationIsConvertedWithoutManagementMxBeans() {
+        assertEquals(2_000_000_000L,
+                GdxProcessPerformanceSampler.processCpuNanos(
+                        () -> Optional.of(Duration.ofSeconds(2L))));
+        assertEquals(-1L, GdxProcessPerformanceSampler.processCpuNanos(
+                Optional::empty));
+    }
+
+    @Test
+    void formattedSnapshotUsesNoMiddleDotSeparator() {
+        GdxProcessPerformanceSampler sampler =
+                new GdxProcessPerformanceSampler(Runnable::run,
+                        () -> new GdxProcessPerformanceSampler.Sample(12, 2L));
 
         String spanish = sampler.label(new GdxGameText("es"), 1L);
 
-        assertTrue(spanish.startsWith("CPU: "));
+        assertTrue(spanish.startsWith("CPU: 12%"));
         assertTrue(spanish.contains(" | MEMORIA: 2 MB"));
-        assertTrue(!spanish.contains("·"));
-    }
-
-    private static MemoryMXBean memory(long heap, long nonHeap) {
-        return new MemoryMXBean() {
-            @Override public int getObjectPendingFinalizationCount() {
-                return 0;
-            }
-            @Override public MemoryUsage getHeapMemoryUsage() {
-                return usage(heap);
-            }
-            @Override public MemoryUsage getNonHeapMemoryUsage() {
-                return usage(nonHeap);
-            }
-            @Override public boolean isVerbose() { return false; }
-            @Override public void setVerbose(boolean value) { }
-            @Override public void gc() { }
-            @Override public ObjectName getObjectName() {
-                return objectName("java.lang:type=Memory");
-            }
-        };
-    }
-
-    private static BufferPoolMXBean buffer(long bytes) {
-        return new BufferPoolMXBean() {
-            @Override public String getName() { return "test"; }
-            @Override public long getCount() { return 1L; }
-            @Override public long getTotalCapacity() { return bytes; }
-            @Override public long getMemoryUsed() { return bytes; }
-            @Override public ObjectName getObjectName() {
-                return objectName("java.nio:type=BufferPool,name=test");
-            }
-        };
-    }
-
-    private static MemoryUsage usage(long used) {
-        return new MemoryUsage(0L, used, used, Long.MAX_VALUE);
-    }
-
-    private static ObjectName objectName(String value) {
-        try {
-            return new ObjectName(value);
-        } catch (Exception impossible) {
-            throw new AssertionError(impossible);
-        }
+        assertFalse(spanish.contains("·"));
     }
 }

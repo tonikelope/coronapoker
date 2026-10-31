@@ -3431,13 +3431,14 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void remoteCallCostNeverEntersTheNicknamePod() {
-        assertEquals(104f, CoronaPokerGdxTable.remoteCallCostBottomY(
-                20f, 100f), 0.000_001f,
-                "the PlayerPod top plus its clearance owns the lower bound");
-        assertEquals(142f, CoronaPokerGdxTable.remoteCallCostBottomY(
-                120f, 100f), 0.000_001f,
-                "a card already clear of the pod keeps its original inset");
+    void remoteCallCostStartsExactlyWhereCardsLeaveTheNicknamePod() {
+        assertEquals(100f, CoronaPokerGdxTable.remoteCallCostBottomY(100f),
+                0.000_001f,
+                "the visible glyph base must share the seat-relative pod top");
+        assertEquals(487.5f,
+                CoronaPokerGdxTable.remoteCallCostBottomY(487.5f),
+                0.000_001f,
+                "every rival seat must retain its own nickname-pod anchor");
     }
 
     @Test

@@ -505,8 +505,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HAND_CENTER_X_INSET = 183f;
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
-    private static final float REMOTE_CALL_COST_CARD_INSET = 22f;
-    private static final float REMOTE_CALL_COST_POD_CLEARANCE = 4f;
+    private static final float REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO = 0.04f;
     private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
     private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
     static final int UI_NONE = 0;
@@ -15094,7 +15093,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (firstHidden >= 0) {
             float x = firstX + firstHidden * gap;
             float overlayWidth = cardW + (4 - firstHidden) * gap;
-            drawCallCostText(x, cardY, overlayWidth, cardH);
+            // The hidden suffix is already the exact union of its board-card
+            // slots. Do not spend part of that width on an extra inset: doing
+            // so made short values such as +0.6 fall to the next native font
+            // tier even though the two cards had enough room.
+            drawCallCostText(x, cardY, overlayWidth, cardH, 0f, false);
             return;
         }
 
@@ -15112,21 +15115,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 right.x - right.width / 2f);
         float maxX = Math.max(left.x + left.width / 2f,
                 right.x + right.width / 2f);
-        float minY = Math.min(left.y - left.height / 2f,
-                right.y - right.height / 2f);
         float maxY = Math.max(left.y + left.height / 2f,
                 right.y + right.height / 2f);
-        // The cards emerge from behind the PlayerPod. Keep the complete call
-        // amount above its top edge so not one glyph can enter the nickname
-        // row; the positional puck may still sit behind this overlay.
-        float callY = remoteCallCostBottomY(minY,
+        // Rival cards emerge exactly from the top of their PlayerPod. Anchor
+        // the visible bottom of the amount to that same seat-relative edge;
+        // centring the glyph in the full card-height box made it float too far
+        // above the nickname on every remote seat.
+        float callY = remoteCallCostBottomY(
                 aggressor.podY + PLAYER_POD_HEIGHT);
-        drawCallCostText(minX, callY, maxX - minX, maxY - minY);
+        drawCallCostText(minX, callY, maxX - minX, maxY - callY,
+                REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO, true);
     }
 
-    static float remoteCallCostBottomY(float cardBottomY, float podTopY) {
-        return Math.max(cardBottomY + REMOTE_CALL_COST_CARD_INSET,
-                podTopY + REMOTE_CALL_COST_POD_CLEARANCE);
+    static float remoteCallCostBottomY(float podTopY) {
+        return podTopY;
     }
 
     private static boolean firstTwoHoleCardsRemainCovered(
@@ -15138,16 +15140,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
-    private void drawCallCostText(float x, float y, float width, float height) {
+    private void drawCallCostText(float x, float y, float width, float height,
+            float horizontalInsetRatio, boolean alignVisualBottom) {
         batch.begin();
-        float inset = width * 0.04f;
+        float inset = width * horizontalInsetRatio;
         TableSnapshot snapshot = liveState.snapshot();
         boolean localTurn = isActionableTurn(snapshot,
                 snapshot.localNickname());
         float pulse = callCostBorderPulse(totalTime, localTurn);
-        drawFittedCenteredInBox(callCostFont, liveState.callCostText(),
-                x + inset, y, width - inset * 2f, height,
-                callCostBorderTint(pulse, callCostPulseTint), 1f);
+        float contentWidth = width - inset * 2f;
+        Color tint = callCostBorderTint(pulse, callCostPulseTint);
+        if (alignVisualBottom) {
+            drawFittedCenteredAtBottom(callCostFont,
+                    liveState.callCostText(), x + inset, y,
+                    contentWidth, height, tint, 1f);
+        } else {
+            drawFittedCenteredInBox(callCostFont,
+                    liveState.callCostText(), x + inset, y,
+                    contentWidth, height, tint, 1f);
+        }
         batch.end();
     }
 
@@ -28651,6 +28662,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxPixelText.draw(selected, batch, glyph,
                 x + (width - glyph.width) / 2f,
                 y + (height + glyph.height) / 2f, viewport);
+        selected.setColor(Color.WHITE);
+    }
+
+    /** Fits natively but pins the visible glyph bottom to the box bottom. */
+    private void drawFittedCenteredAtBottom(BitmapFont font, String text,
+            float x, float bottomY, float width, float height,
+            Color color, float alpha) {
+        GdxCrispButtonText.resolveWithinBox(glyph, text, width, height,
+                nativeTextTiers(font), crispButtonText);
+        BitmapFont selected = crispButtonText.font();
+        selected.setColor(color.r, color.g, color.b, alpha);
+        glyph.setText(selected, crispButtonText.text());
+        GdxPixelText.draw(selected, batch, glyph,
+                x + (width - glyph.width) / 2f,
+                bottomY + glyph.height, viewport);
         selected.setColor(Color.WHITE);
     }
 

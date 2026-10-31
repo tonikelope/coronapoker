@@ -1355,8 +1355,12 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     boolean hasUsableLatency(String nickname) {
-        TableSnapshot.PlayerSnapshot player = playerSnapshot(nickname);
-        return CoronaPokerGdxTable.effectiveLatencyMillis(player) >= 0;
+        GdxTableViewState projection = state.get();
+        assertNotNull(projection);
+        return projection.snapshot().players().stream()
+                .filter(player -> player.nickname().equals(nickname))
+                .anyMatch(player -> CoronaPokerGdxTable
+                        .effectiveLatencyMillis(player) >= 0);
     }
 
     boolean latencyIndicatorIsRed(String nickname) {

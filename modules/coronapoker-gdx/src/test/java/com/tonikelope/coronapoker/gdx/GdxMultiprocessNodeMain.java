@@ -445,6 +445,8 @@ public final class GdxMultiprocessNodeMain {
                 + (exitWhileWarming || lastHandBootstrap
                         || warmingConsensusFault ? 0 : 1);
         String newcomerNickname = "client" + config.clients;
+        String telemetryNickname = concurrentExit ? "client1"
+                : newcomerNickname;
         Set<String> churnNicknames = dualChurn
                 ? Set.of("client" + (config.clients - 1), newcomerNickname)
                 : Set.of(newcomerNickname);
@@ -641,11 +643,11 @@ public final class GdxMultiprocessNodeMain {
                         newcomerNickname);
                 marker("HOT_JOIN_SERVER_NOTIFIED", "nick="
                         + newcomerNickname);
-                await(() -> renderer.hasUsableLatency(newcomerNickname),
+                await(() -> renderer.hasUsableLatency(telemetryNickname),
                         Duration.ofSeconds(30),
                         "warming hot-join latency sample");
                 marker("HOT_JOIN_WARMING_LATENCY", "nick="
-                        + newcomerNickname + " state=measured");
+                        + telemetryNickname + " state=measured");
                 if (!renderer.localHoleCardsRemainRevealed()) {
                     throw new AssertionError(
                             "hot join roster hid the host pocket cards");

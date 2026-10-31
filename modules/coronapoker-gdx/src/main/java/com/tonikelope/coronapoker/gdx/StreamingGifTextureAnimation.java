@@ -51,13 +51,6 @@ import org.w3c.dom.Node;
 final class StreamingGifTextureAnimation implements Disposable {
 
     static final int DECODED_FRAME_BUFFER = 6;
-    /**
-     * A selected shuffle may trade a bounded amount of desktop memory for
-     * deterministic playback. This limit contains arbitrary MOD GIFs while
-     * leaving ample room for the 960x540 official 86-frame animations.
-     */
-    static final long MAX_FULLY_DECODED_BYTES = 256L * 1024L * 1024L;
-
     private final BlockingQueue<CpuFrame> decoded =
             new ArrayBlockingQueue<>(DECODED_FRAME_BUFFER);
     private final Thread decoderThread;
@@ -274,11 +267,6 @@ final class StreamingGifTextureAnimation implements Disposable {
         }
         GifTiming timing = inspect(data, label, maxWidth);
         long byteCount = fullyDecodedByteCount(timing);
-        if (byteCount > MAX_FULLY_DECODED_BYTES) {
-            throw new IOException("Decoded GIF exceeds the "
-                    + MAX_FULLY_DECODED_BYTES + "-byte preload limit: "
-                    + label + " requires " + byteCount + " bytes");
-        }
         PreloadedFrames frames = decodeFully(data, label, maxWidth, timing,
                 Math.toIntExact(byteCount), cancelled);
         // The compressed source is no longer required once every frame has

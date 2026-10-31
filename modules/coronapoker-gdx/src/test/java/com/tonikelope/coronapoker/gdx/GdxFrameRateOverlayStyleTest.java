@@ -36,6 +36,23 @@ final class GdxFrameRateOverlayStyleTest {
     }
 
     @Test
+    void performancePanelIsIndependentAndDirectlyBelowFps() {
+        float surfaceWidth = 1920f;
+        float surfaceHeight = 1080f;
+
+        assertEquals(GdxFrameRateOverlayStyle.RIGHT_MARGIN,
+                surfaceWidth - GdxFrameRateOverlayStyle
+                        .performanceX(surfaceWidth)
+                        - GdxFrameRateOverlayStyle.PERFORMANCE_WIDTH);
+        assertEquals(GdxFrameRateOverlayStyle.VERTICAL_GAP,
+                GdxFrameRateOverlayStyle.y(surfaceHeight)
+                        - GdxFrameRateOverlayStyle.performanceY(surfaceHeight)
+                        - GdxFrameRateOverlayStyle.HEIGHT);
+        assertTrue(GdxFrameRateOverlayStyle.PERFORMANCE_WIDTH
+                > GdxFrameRateOverlayStyle.WIDTH);
+    }
+
+    @Test
     void everySurfaceDelegatesTheWholeBadgeToOneRenderer() throws IOException {
         String frontend = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
@@ -54,6 +71,10 @@ final class GdxFrameRateOverlayStyleTest {
         assertFalse(frontendMethod.contains("roundedRect("));
         assertFalse(tableMethod.contains("roundedRect("));
         assertFalse(tableMethod.contains("gameLogFont"));
+        assertTrue(frontend.contains(
+                "GdxFrameRateOverlayStyle.drawPerformance("));
+        assertTrue(table.contains(
+                "GdxFrameRateOverlayStyle.drawPerformance("));
     }
 
     @Test

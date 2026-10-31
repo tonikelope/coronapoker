@@ -50,7 +50,7 @@ final class GdxSettingsTooltipsTest {
                 "gdx_window_mode", "auto_fullscreen", "gdx_vsync",
                 "gdx_fps_limit", "gdx_msaa_samples",
                 GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
-                "gpu_renderer", "auto_action_buttons",
+                "gdx_show_cpu_memory", "gpu_renderer", "auto_action_buttons",
                 "auto_call_enabled", "auto_action_persist",
                 "modo_auto_confirm", "confirmar_todo", "auto_rebuy",
                 "shortcut");
@@ -64,13 +64,15 @@ final class GdxSettingsTooltipsTest {
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
                 "animacion_barajado_precarga", new Properties(),
                 new GdxGameText("es"));
-        assertTrue(spanish.text().contains("90 y 180 MiB"));
+        assertFalse(spanish.text().contains("MiB"));
+        assertTrue(spanish.text().contains("uso de memoria"));
         assertTrue(spanish.text().contains("sistema anterior"));
 
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
                 "animacion_barajado_precarga", new Properties(),
                 new GdxGameText("en"));
-        assertTrue(english.text().contains("90 to 180 MiB"));
+        assertFalse(english.text().contains("MiB"));
+        assertTrue(english.text().contains("memory usage"));
         assertTrue(english.text().contains("previous low-memory streaming"));
 
         assertEquals("gdx.settings.tooltip.animation",

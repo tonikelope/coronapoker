@@ -60,6 +60,8 @@ final class GdxSettingsTooltips {
             case GdxSettingsContract.CARD_RENDERING_KEY ->
                 "gdx.settings.tooltip.card_rendering";
             case "gdx_show_fps" -> "gdx.settings.tooltip.show_fps";
+            case "gdx_show_cpu_memory" ->
+                "gdx.settings.tooltip.show_cpu_memory";
             case "gpu_renderer" -> "gdx.settings.tooltip.gpu_renderer";
             case "gdx_audio_output_device" ->
                 "gdx.settings.tooltip.audio_output";

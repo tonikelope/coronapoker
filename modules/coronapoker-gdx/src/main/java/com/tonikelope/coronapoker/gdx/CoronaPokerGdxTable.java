@@ -1364,6 +1364,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont finalCardBoldFont;
     private BitmapFont finalCardResultFont;
     private BitmapFont fpsFont;
+    private final GdxProcessPerformanceSampler performanceSampler =
+            new GdxProcessPerformanceSampler();
     private BitmapFont gameLogFont;
     private BitmapFont gameLogBoldFont;
     private BitmapFont gameLogSuitFont;
@@ -6303,6 +6305,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawProductVersionBrand(1f);
         if (tablePreference("gdx_show_fps", false)) {
             drawFpsCounter(viewport.getWorldWidth(), viewport.getWorldHeight());
+        }
+        if (tablePreference("gdx_show_cpu_memory", false)) {
+            drawPerformanceCounter(viewport.getWorldWidth(),
+                    viewport.getWorldHeight());
         }
         if (screenshotRequested) {
             screenshotRequested = false;
@@ -21262,10 +21268,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         rabbit.x, rabbit.width));
                 return;
             }
-        } else if (contentPage == 9
-                && settingsDebugCopyButton().contains(x, y)) {
-            copySettingsDebugLog();
-            return;
+        } else if (contentPage == 9) {
+            Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
+                    currentSettingsContent());
+            if (performance.contains(x, y)) {
+                toggleTablePreference("gdx_show_cpu_memory", false);
+                return;
+            }
+            if (settingsDebugCopyButton().contains(x, y)) {
+                copySettingsDebugLog();
+                return;
+            }
         }
         // Clicking outside a modal dialog deliberately does nothing.
     }
@@ -24235,10 +24248,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float firstY, float width) {
         Rectangle content = currentSettingsContent();
         Rectangle viewportBounds = settingsRowsViewport(content, firstY);
-        if (!viewportBounds.contains(pointer)
+        int contentPage = settingsContentPage();
+        if ((contentPage != 9 && !viewportBounds.contains(pointer))
                 || settingsLockHover(x, firstY, width) != null) return null;
         Properties properties = tableSettingsProperties();
-        int contentPage = settingsContentPage();
         if (contentPage == 0) {
             GdxSettingsContract.TogglePage page = settingsAudioPage();
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
@@ -24439,6 +24452,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         settingsGameRow(x, firstY, width, row), keys[row],
                         viewportBounds, properties);
                 if (hovered != null) return hovered;
+            }
+        }
+        if (contentPage == 9) {
+            Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
+                    content);
+            if (performance.contains(pointer)) {
+                return new SettingsTooltipHover("gdx_show_cpu_memory",
+                        GdxSettingsTooltips.content("gdx_show_cpu_memory",
+                                properties, gameText));
             }
         }
         return null;
@@ -25211,6 +25233,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsDebugShape(float x, float firstY,
             float width, float alpha) {
+        Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
+                currentSettingsContent());
+        drawSettingsToggleShape(performance.x, performance.y,
+                performance.width,
+                tablePreference("gdx_show_cpu_memory", false), alpha);
         GdxSettingsLayout.DebugArea debug = settingsDebugArea();
         Rectangle console = debug.console();
         Rectangle viewportBounds = debug.viewport();
@@ -26039,6 +26066,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         } else if (contentPage == 9) {
+            Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
+                    currentSettingsContent());
+            drawSettingsToggleText(performance.x, performance.y,
+                    performance.width,
+                    uppercase(gameText.translate(
+                            "gdx.settings.option.gdx_show_cpu_memory")),
+                    GdxSettingsContract.booleanStatusLabel(
+                            tablePreference("gdx_show_cpu_memory", false),
+                            false, gameText), true, alpha);
             Rectangle copy = settingsDebugCopyButton();
             drawDialogButtonLabel(settingsSmallFont, uppercase(gameText.translate(
                     "gdx.settings.debug.copy")), copy.x, copy.y,
@@ -28648,6 +28684,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont, glyph,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
+                width, height, viewport);
+    }
+
+    private void drawPerformanceCounter(float width, float height) {
+        GdxFrameRateOverlayStyle.drawPerformance(shapes, batch, fpsFont,
+                glyph, performanceSampler.label(gameText, System.nanoTime()),
                 width, height, viewport);
     }
 

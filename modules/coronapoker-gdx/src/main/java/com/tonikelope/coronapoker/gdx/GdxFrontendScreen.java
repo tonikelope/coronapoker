@@ -465,6 +465,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont uiFont;
     private BitmapFont volumeOverlayFont;
     private BitmapFont fpsFont;
+    private final GdxProcessPerformanceSampler performanceSampler =
+            new GdxProcessPerformanceSampler();
     private BitmapFont debugLogFont;
     private BitmapFont debugLogBoldFont;
     private BitmapFont smallFont;
@@ -1650,6 +1652,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawFrontendVersionLabelTopLayer();
         if (preferenceBoolean("gdx_show_fps", false)) {
             drawFrontendFpsCounter();
+        }
+        if (preferenceBoolean("gdx_show_cpu_memory", false)) {
+            drawFrontendPerformanceCounter();
         }
     }
 
@@ -9812,6 +9817,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawDebugSettings(float x, float y, float w, float h) {
         Rectangle content = new Rectangle(x, y, w, h);
+        Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
+                content);
+        settingsBooleanToggle(performance.x, performance.y,
+                performance.width,
+                uppercase(gameText.translate(
+                        "gdx.settings.option.gdx_show_cpu_memory")),
+                preferenceBoolean("gdx_show_cpu_memory", false), false,
+                () -> togglePreference("gdx_show_cpu_memory", false), true);
+        settingsTooltip(performance, "gdx_show_cpu_memory");
         Rectangle copy = GdxSettingsLayout.debugCopyButton(content);
         GdxSettingsLayout.DebugArea debug =
                 GdxSettingsLayout.debugArea(content);
@@ -12590,6 +12604,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont, glyph,
                 presentationSettings.frameRateOverlayLabel(
                         Gdx.graphics.getFramesPerSecond()),
+                WIDTH, HEIGHT, viewport);
+    }
+
+    private void drawFrontendPerformanceCounter() {
+        GdxFrameRateOverlayStyle.drawPerformance(shapes, batch, fpsFont,
+                glyph, performanceSampler.label(gameText, System.nanoTime()),
                 WIDTH, HEIGHT, viewport);
     }
 

@@ -94,9 +94,7 @@ class StreamingGifTextureAnimationTest {
         assertEquals(1_720L, timing.durationMs());
         assertEquals(178_329_600L,
                 StreamingGifTextureAnimation.fullyDecodedByteCount(timing),
-                "native preload must stay below the bounded desktop budget");
-        assertTrue(StreamingGifTextureAnimation.fullyDecodedByteCount(timing)
-                < StreamingGifTextureAnimation.MAX_FULLY_DECODED_BYTES);
+                "native preload must retain the exact decoded footprint");
         assertThrows(java.io.IOException.class,
                 () -> StreamingGifTextureAnimation.prepareLoopingFully(data,
                         "cancelled-shuffle.gif", 180, () -> true),

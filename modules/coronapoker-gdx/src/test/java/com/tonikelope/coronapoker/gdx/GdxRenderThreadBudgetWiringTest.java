@@ -120,8 +120,7 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("reconcileShufflePreload();"));
         assertTrue(table.contains("preparedShuffle = null;\n"
                 + "            preparedShuffleDeck = \"\";"));
-        assertTrue(animation.contains(
-                "MAX_FULLY_DECODED_BYTES = 256L * 1024L * 1024L"));
+        assertFalse(animation.contains("MAX_FULLY_DECODED_BYTES"));
         assertTrue(animation.contains(
                 "texture = new Texture(uploadPixmap, mipMaps);"));
     }

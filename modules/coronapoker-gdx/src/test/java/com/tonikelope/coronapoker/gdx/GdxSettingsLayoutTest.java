@@ -9,6 +9,20 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsLayoutTest {
 
     @Test
+    void debugPerformanceRowOwnsASeparateBandAboveTheConsole() {
+        Rectangle content = new Rectangle(100f, 80f, 1400f, 720f);
+        Rectangle row = GdxSettingsLayout.debugPerformanceRow(content);
+        GdxSettingsLayout.DebugArea debug =
+                GdxSettingsLayout.debugArea(content);
+        Rectangle copy = GdxSettingsLayout.debugCopyButton(content);
+
+        assertTrue(row.y >= debug.console().y + debug.console().height);
+        assertTrue(debug.console().y >= copy.y + copy.height);
+        assertTrue(content.contains(row));
+        assertTrue(content.contains(debug.console()));
+    }
+
+    @Test
     void sharedSettingsFrameIsCenteredAndStaysInsideTheViewport() {
         Rectangle fullHd = GdxSettingsLayout.panelBounds(1920f, 1080f);
         assertEquals(160f, fullHd.x);
@@ -334,7 +348,8 @@ final class GdxSettingsLayoutTest {
         assertEquals(content.x + 24f, debug.console().x);
         assertEquals(content.y + 82f, debug.console().y);
         assertEquals(content.width - 48f, debug.console().width);
-        assertEquals(content.height - 110f, debug.console().height);
+        assertEquals(content.height - GdxSettingsLayout.ROW_HEIGHT - 132f,
+                debug.console().height);
         assertEquals(debug.console().x + 14f, debug.viewport().x);
         assertEquals(debug.console().y + 14f, debug.viewport().y);
         assertEquals(debug.console().width - 44f,

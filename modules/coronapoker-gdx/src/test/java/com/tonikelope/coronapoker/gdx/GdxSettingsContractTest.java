@@ -519,7 +519,8 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("animacion_downgrade"));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.containsAll(
                 java.util.List.of("gdx_vsync", "gdx_fps_limit",
-                        "gdx_show_fps", "gdx_msaa_samples",
+                        "gdx_show_fps", "gdx_show_cpu_memory",
+                        "gdx_msaa_samples",
                         "gdx_card_smaa_quality")));
     }
 

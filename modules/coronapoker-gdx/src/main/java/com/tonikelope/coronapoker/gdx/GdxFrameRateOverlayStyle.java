@@ -14,9 +14,11 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 final class GdxFrameRateOverlayStyle {
 
     static final float WIDTH = 206f;
+    static final float PERFORMANCE_WIDTH = 360f;
     static final float HEIGHT = 38f;
     static final float RIGHT_MARGIN = 12f;
     static final float TOP_MARGIN = 10f;
+    static final float VERTICAL_GAP = 6f;
     static final int FONT_SIZE = 18;
     private static final float HORIZONTAL_PADDING = 8f;
     private static final float CORNER_RADIUS = 11f;
@@ -28,6 +30,14 @@ final class GdxFrameRateOverlayStyle {
 
     static float y(float surfaceHeight) {
         return surfaceHeight - HEIGHT - TOP_MARGIN;
+    }
+
+    static float performanceX(float surfaceWidth) {
+        return surfaceWidth - PERFORMANCE_WIDTH - RIGHT_MARGIN;
+    }
+
+    static float performanceY(float surfaceHeight) {
+        return y(surfaceHeight) - HEIGHT - VERTICAL_GAP;
     }
 
     static BitmapFont font(GdxAdaptiveFontQuality.Profile profile) {
@@ -43,19 +53,32 @@ final class GdxFrameRateOverlayStyle {
     static void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont font,
             GlyphLayout glyph, String label, float surfaceWidth,
             float surfaceHeight, Viewport viewport) {
-        float x = x(surfaceWidth);
-        float y = y(surfaceHeight);
+        drawPanel(shapes, batch, font, glyph, label, x(surfaceWidth),
+                y(surfaceHeight), WIDTH, viewport);
+    }
+
+    static void drawPerformance(ShapeRenderer shapes, SpriteBatch batch,
+            BitmapFont font, GlyphLayout glyph, String label,
+            float surfaceWidth, float surfaceHeight, Viewport viewport) {
+        drawPanel(shapes, batch, font, glyph, label,
+                performanceX(surfaceWidth), performanceY(surfaceHeight),
+                PERFORMANCE_WIDTH, viewport);
+    }
+
+    private static void drawPanel(ShapeRenderer shapes, SpriteBatch batch,
+            BitmapFont font, GlyphLayout glyph, String label, float x,
+            float y, float width, Viewport viewport) {
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.88f);
-        roundedRect(shapes, x, y, WIDTH, HEIGHT, CORNER_RADIUS);
+        roundedRect(shapes, x, y, width, HEIGHT, CORNER_RADIUS);
         shapes.end();
 
         batch.begin();
         drawFittedCenteredInBox(batch, font, glyph, label,
-                x + HORIZONTAL_PADDING, y, WIDTH - 2f * HORIZONTAL_PADDING,
+                x + HORIZONTAL_PADDING, y, width - 2f * HORIZONTAL_PADDING,
                 HEIGHT, viewport);
         batch.end();
     }

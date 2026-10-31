@@ -103,6 +103,32 @@ final class GdxTableShortcutTest {
     }
 
     @Test
+    void queuedAutoResolutionRunsBeforeEveryForegroundInputRoute()
+            throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8).replace("\r\n", "\n");
+        int dialogUpdate = source.indexOf("updateDialog();");
+        int autoUpdate = source.indexOf("updateQueuedPreAction();",
+                dialogUpdate);
+        int input = source.indexOf("handleInput();", autoUpdate);
+        int liveInput = source.indexOf(
+                "private void handleLiveTableInput(");
+        int liveInputEnd = source.indexOf(
+                "static TableShortcut tableShortcut", liveInput);
+
+        assertTrue(dialogUpdate >= 0 && autoUpdate > dialogUpdate
+                && input > autoUpdate,
+                "AUTO must advance in the frame loop before settings/log input");
+        assertTrue(liveInput >= 0 && liveInputEnd > liveInput);
+        assertFalse(source.substring(liveInput, liveInputEnd)
+                        .contains("maybeExecuteQueuedPreAction("),
+                "AUTO must not depend on live-table pointer routing");
+        assertTrue(source.contains("autoActionUsesForegroundDialog()"),
+                "AUTO needs a visible top layer while a utility is open");
+    }
+
+    @Test
     void pauseAndLightsRequireTheCanonicalAltModifier() {
         GdxShortcutBindings bindings = bindings();
         assertEquals(GdxShortcutBindings.PAUSE,

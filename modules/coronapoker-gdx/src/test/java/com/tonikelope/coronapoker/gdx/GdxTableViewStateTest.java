@@ -3431,11 +3431,11 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void remoteCallCostStartsExactlyWhereCardsLeaveTheNicknamePod() {
-        assertEquals(100f, CoronaPokerGdxTable.remoteCallCostBottomY(100f),
+    void remoteCallCostClearsTheNicknamePodAtEverySeat() {
+        assertEquals(104f, CoronaPokerGdxTable.remoteCallCostBottomY(100f),
                 0.000_001f,
-                "the visible glyph base must share the seat-relative pod top");
-        assertEquals(487.5f,
+                "the visible glyph base needs a small gap above the pod");
+        assertEquals(491.5f,
                 CoronaPokerGdxTable.remoteCallCostBottomY(487.5f),
                 0.000_001f,
                 "every rival seat must retain its own nickname-pod anchor");

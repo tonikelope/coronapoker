@@ -506,6 +506,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
     private static final float REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO = 0.04f;
+    /** Keeps the visible glyph clear of the remote nickname plate. */
+    private static final float REMOTE_CALL_COST_POD_CLEARANCE = 4f;
     private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
     private static final float REMOTE_CHAT_VIEWPORT_MARGIN = 6f;
     static final int UI_NONE = 0;
@@ -1642,7 +1644,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 // A real dialog owns the keyboard completely.  The render-loop
                 // handler still reads ESC/ENTER from Gdx.input, but the event
                 // must not continue to a control that happens to sit behind it.
@@ -1757,7 +1759,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 finishVoiceRecording(false);
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1773,7 +1775,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 handleAutoCallAmountTyped(character);
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1808,7 +1810,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean scrolled(float amountX, float amountY) {
             if (tableImageClearConfirmation) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1900,7 +1902,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (tableImageClearConfirmation) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 // Dialog buttons are resolved once per frame by
                 // handleDialogInput().  Consume the raw press here as well so
                 // an InputMultiplexer can never deliver it underneath.
@@ -2031,7 +2033,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (voicePointer.owns(pointerIndex, Input.Buttons.LEFT)) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 return true;
             }
             if (finalSummary != null && uiLayer == UI_NONE) {
@@ -2088,7 +2090,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialogBlocksRawInput()) {
                 chatPointerSelectionDragging = false;
                 clearTableScrollDrag();
                 gameLogSelectionDragging = false;
@@ -6166,6 +6168,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveState.snapshot().paused());
         }
         updateDialog();
+        updateQueuedPreAction();
         updatePointerButtonTransitions();
         updatePointerRepeat(delta);
         updateBetShortcutRepeat(delta);
@@ -6274,6 +6277,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         drawUiLayer();
         drawTerminationOverlay();
+        if (autoActionUsesForegroundDialog()) {
+            // Settings, the floating log and the other foreground tools stay
+            // open underneath AUTO.  Only a temporary dimmer is added so the
+            // five-second decision is unmistakably the topmost interaction.
+            drawUnifiedModalBackdrop();
+        }
         drawActiveDialog();
         drawChipCatalogDialog();
         drawTableIdentityDialog();
@@ -6494,6 +6503,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean dialogDecisionInputReady = dialogInputGate.accepts(
                     activeDialog, dialogDecisionInputHeld);
             if (activeDialog.isAutoAction()) {
+                if (autoActionUsesForegroundDialog()) {
+                    if (!dialogDecisionInputReady) return;
+                    if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                        primaryPointer.capturePressedGesture();
+                    }
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                        activeDialog.accept();
+                    } else {
+                        handleDialogInput();
+                    }
+                    return;
+                }
                 // AUTO is a veto over poker actions, not an input modal. Its
                 // inherited-press gate may delay AUTO's own CANCEL/SPACE
                 // controls, but must never freeze shortcuts, the quick bar or
@@ -7596,8 +7617,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = dialogY(dialog, panelH);
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
-        float negativeX = panelX + 42f;
         float negativeW = 230f;
+        float negativeX = dialog.showsPositive()
+                ? panelX + 42f
+                : panelX + (panelW - negativeW) / 2f;
         float buttonY = panelY + 34f;
         float buttonH = 64f;
         Rectangle amountValue = dialog.isAutoCall()
@@ -8614,14 +8637,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 = hasPendingLocalActionSubmission();
         boolean localTurn = hasActiveLocalTurn()
                 && !localActionSubmissionPending;
-        maybeExecuteQueuedPreAction(localTurn, controls);
-        // maybeExecuteQueuedPreAction can install the AUTO veto in this same
-        // frame or submit directly. Refresh both ownership and turn state so
-        // no shortcut or HUD release can slip underneath before the next
-        // render/input cycle.
-        autoActionVeto = activeDialog != null && activeDialog.isAutoAction();
-        localActionSubmissionPending = hasPendingLocalActionSubmission();
-        localTurn = hasActiveLocalTurn() && !localActionSubmissionPending;
         TableShortcut shortcut = tableShortcut(shortcutAction);
         if (shortcut == TableShortcut.PAUSE) {
             togglePauseAction();
@@ -8952,6 +8967,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         });
         showDialog(confirmation);
+    }
+
+    /**
+     * Resolves queued AUTO independently from pointer routing.  Foreground
+     * tools intentionally own table input, but they must never pause the
+     * authoritative turn transition or defer an already armed AUTO action.
+     */
+    private void updateQueuedPreAction() {
+        if (liveState == null
+                || preparationPhase
+                        != TableVisualEvent.PreparationStatus.Phase.READY) {
+            return;
+        }
+        maybeExecuteQueuedPreAction(hasActiveLocalTurn()
+                        && !hasPendingLocalActionSubmission(),
+                liveState.actionControls());
+    }
+
+    private boolean autoActionUsesForegroundDialog() {
+        return activeDialog != null && activeDialog.isAutoAction()
+                && uiLayer != UI_NONE;
+    }
+
+    private boolean activeDialogBlocksRawInput() {
+        return activeDialog != null && (!activeDialog.isAutoAction()
+                || autoActionUsesForegroundDialog());
     }
 
     static String autoActionMessage(int target,
@@ -15128,7 +15169,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static float remoteCallCostBottomY(float podTopY) {
-        return podTopY;
+        return podTopY + REMOTE_CALL_COST_POD_CLEARANCE;
     }
 
     private static boolean firstTwoHoleCardsRemainCovered(
@@ -20909,16 +20950,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 settingsAppearanceScroll = rows.offset();
                 Rectangle rowViewport = settingsRowsViewport(content,
                         firstRowY);
+                List<GdxSettingsContract.AppearanceAnimationRow>
+                        animationRows = GdxSettingsContract
+                                .appearanceRows(page);
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
-                    if (row < page.options().size()) {
+                    GdxSettingsContract.AppearanceAnimationRow animationRow =
+                            animationRows.get(row);
+                    if (animationRow.toggle() != null) {
                         GdxSettingsContract.ToggleOption option =
-                                page.options().get(row);
+                                animationRow.toggle();
                         Rectangle bounds = GdxSettingsLayout.optionRow(
                                 contentX,
                                 rows.rowY(row),
-                                rowW, GdxSettingsContract.isChildOption(
-                                        page, option));
+                                rowW, animationRow.child());
                         if (rowViewport.contains(x, y)
                                 && bounds.contains(x, y)) {
                             if (GdxSettingsContract.enabled(option,
@@ -20931,11 +20976,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         }
                     } else {
                         GdxAppearanceOptions.Choice option =
-                                GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                        row - page.options().size());
+                                animationRow.choice();
                         Rectangle bounds = GdxSettingsLayout.optionRow(
                                 contentX, rows.rowY(row), rowW,
-                                GdxAppearanceOptions.isChildChoice(option));
+                                animationRow.child());
                         if (rowViewport.contains(x, y)
                                 && bounds.contains(x, y)) {
                             if (!GdxAppearanceOptions.enabled(option,
@@ -22872,8 +22916,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawActiveDialog() {
         GdxTableDialog dialog = activeDialog;
         // AUTO MODE is rendered inside the local HUD so it replaces the poker
-        // controls instead of behaving like a second floating window.
-        if (dialog == null || dialog.isAutoAction()) return;
+        // controls.  A foreground utility would cover that HUD, so in that
+        // one case the same decision is promoted to the ordinary top layer
+        // without closing or mutating the utility underneath.
+        if (dialog == null || dialog.isAutoAction()
+                && !autoActionUsesForegroundDialog()) return;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float width = viewport.getWorldWidth();
@@ -22913,8 +22960,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? GdxTableDialogLayout.standaloneOption(
                         panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
-        float negativeX = panelX + 42f;
         float negativeW = 230f;
+        float negativeX = dialog.showsPositive()
+                ? panelX + 42f
+                : panelX + (panelW - negativeW) / 2f;
         float buttonY = panelY + 34f;
         float buttonH = 64f;
         Color accent = switch (dialog.kind()) {
@@ -24266,26 +24315,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int rowCount = GdxSettingsContract.appearanceRowCount(page);
             GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
                     firstY, rowCount, settingsAppearanceScroll);
+            List<GdxSettingsContract.AppearanceAnimationRow> animationRows =
+                    GdxSettingsContract.appearanceRows(page);
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
-                String key;
-                boolean child;
-                if (row < page.options().size()) {
-                    GdxSettingsContract.ToggleOption option =
-                            page.options().get(row);
-                    key = option.key();
-                    child = GdxSettingsContract.isChildOption(page, option);
-                } else {
-                    GdxAppearanceOptions.Choice option =
-                            GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                    row - page.options().size());
-                    key = option.key();
-                    child = GdxAppearanceOptions.isChildChoice(option);
-                }
+                GdxSettingsContract.AppearanceAnimationRow animationRow =
+                        animationRows.get(row);
                 Rectangle bounds = GdxSettingsLayout.optionRow(x,
-                        rows.rowY(row), width, child);
+                        rows.rowY(row), width, animationRow.child());
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        key, viewportBounds, properties);
+                        animationRow.key(), viewportBounds, properties);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -24910,29 +24949,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         currentSettingsContent(), firstY, rowCount,
                         settingsAppearanceScroll);
                 settingsAppearanceScroll = rows.offset();
+                List<GdxSettingsContract.AppearanceAnimationRow>
+                        animationRows = GdxSettingsContract
+                                .appearanceRows(page);
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
-                    if (row < page.options().size()) {
+                    GdxSettingsContract.AppearanceAnimationRow animationRow =
+                            animationRows.get(row);
+                    if (animationRow.toggle() != null) {
                         GdxSettingsContract.ToggleOption option =
-                                page.options().get(row);
+                                animationRow.toggle();
                         boolean enabled = GdxSettingsContract.enabled(option,
                                 tableSettingsProperties(),
                                 audioControl.enabled());
                         Rectangle bounds = GdxSettingsLayout.optionRow(x,
                                 rows.rowY(row),
-                                width, GdxSettingsContract.isChildOption(
-                                        page, option));
+                                width, animationRow.child());
                         drawSettingsToggleShape(bounds.x, bounds.y,
                                 bounds.width, tablePreference(option.key(),
                                         option.fallback()),
                                 enabled, alpha);
                     } else {
                         GdxAppearanceOptions.Choice option =
-                                GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                        row - page.options().size());
+                                animationRow.choice();
                         Rectangle bounds = GdxSettingsLayout.optionRow(x,
-                                rows.rowY(row), width,
-                                GdxAppearanceOptions.isChildChoice(option));
+                                rows.rowY(row), width, animationRow.child());
                         drawSettingsStepperShape(bounds.x, bounds.y,
                                 bounds.width,
                                 GdxAppearanceOptions.enabled(option,
@@ -25625,17 +25666,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         currentSettingsContent(), firstY, rowCount,
                         settingsAppearanceScroll);
                 settingsAppearanceScroll = rows.offset();
+                List<GdxSettingsContract.AppearanceAnimationRow>
+                        animationRows = GdxSettingsContract
+                                .appearanceRows(page);
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
-                    if (row >= page.options().size()) {
+                    GdxSettingsContract.AppearanceAnimationRow animationRow =
+                            animationRows.get(row);
+                    if (animationRow.choice() != null) {
                         GdxAppearanceOptions.Choice option =
-                                GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                        row - page.options().size());
+                                animationRow.choice();
                         boolean enabled = GdxAppearanceOptions.enabled(option,
                                 tableSettingsProperties());
                         Rectangle bounds = GdxSettingsLayout.optionRow(x,
-                                rows.rowY(row), width,
-                                GdxAppearanceOptions.isChildChoice(option));
+                                rows.rowY(row), width, animationRow.child());
                         drawSettingsStepperText(bounds.x, bounds.y,
                                 bounds.width,
                                 option.label(gameText),
@@ -25653,14 +25697,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 enabled, alpha);
                     } else {
                         GdxSettingsContract.ToggleOption option =
-                                page.options().get(row);
+                                animationRow.toggle();
                         boolean enabled = GdxSettingsContract.enabled(option,
                                 tableSettingsProperties(),
                                 audioControl.enabled());
                         Rectangle bounds = GdxSettingsLayout.optionRow(x,
                                 rows.rowY(row),
-                                width, GdxSettingsContract.isChildOption(
-                                        page, option));
+                                width, animationRow.child());
                         boolean value = settingsOptionDisplayedValue(option);
                         drawSettingsToggleText(bounds.x, bounds.y,
                                 bounds.width, option.label(gameText),

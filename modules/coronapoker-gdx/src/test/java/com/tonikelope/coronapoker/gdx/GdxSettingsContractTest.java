@@ -531,12 +531,30 @@ final class GdxSettingsContractTest {
         assertEquals(14, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
         assertEquals(20, GdxSettingsContract.appearanceRowCount(page));
-        assertEquals("animacion_apuestas",
-                page.options().get(page.options().size() - 1).key());
-        assertEquals("reparto_velocidad",
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(0).key());
-        assertEquals("card_flip_direction",
-                GdxAppearanceOptions.ANIMATION_CHOICES.get(2).key());
+        assertEquals(java.util.List.of(
+                "animaciones",
+                "cinematicas_allin",
+                "cinematicas_gameover",
+                "animacion_barajado",
+                "animacion_reparto",
+                "reparto_velocidad",
+                "animacion_destape",
+                "card_flip_duration",
+                "card_flip_direction",
+                "card_flip_zoom",
+                "animacion_ciegas_dealer",
+                "animacion_contadores",
+                "animacion_entrada_asientos",
+                "animacion_swap",
+                "swap_velocidad",
+                "swap_arco",
+                "animacion_contador_final",
+                "animacion_fuego_allin",
+                "animacion_efecto_ganador",
+                "animacion_apuestas"),
+                GdxSettingsContract.appearanceRows(page).stream()
+                        .map(GdxSettingsContract.AppearanceAnimationRow::key)
+                        .toList());
     }
 
     @Test

@@ -8972,18 +8972,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
         float baseWidth = w - 2f
                 * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        List<GdxSettingsContract.AppearanceAnimationRow> animationRows =
+                GdxSettingsContract.appearanceRows(page);
         for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
             float currentY = rows.rowY(row);
-            if (row < page.options().size()) {
+            GdxSettingsContract.AppearanceAnimationRow animationRow =
+                    animationRows.get(row);
+            if (animationRow.toggle() != null) {
                 GdxSettingsContract.ToggleOption option =
-                        page.options().get(row);
+                        animationRow.toggle();
                 boolean enabled = GdxSettingsContract.enabled(option,
                         initialProperties, audioControl.enabled());
                 boolean value = preferenceBoolean(option.key(),
                         option.fallback());
                 Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
-                        currentY, baseWidth,
-                        GdxSettingsContract.isChildOption(page, option));
+                        currentY, baseWidth, animationRow.child());
                 settingsBooleanToggle(rowBounds.x, rowBounds.y,
                         rowBounds.width, option.label(gameText), value,
                         GdxSettingsContract.displayedFallback(option),
@@ -8992,13 +8995,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsTooltip(rowBounds, option.key());
             } else {
                 GdxAppearanceOptions.Choice option =
-                        GdxAppearanceOptions.ANIMATION_CHOICES.get(
-                                row - page.options().size());
+                        animationRow.choice();
                 boolean enabled = GdxAppearanceOptions.enabled(option,
                         initialProperties);
                 Rectangle rowBounds = GdxSettingsLayout.optionRow(baseX,
-                        currentY, baseWidth,
-                        GdxAppearanceOptions.isChildChoice(option));
+                        currentY, baseWidth, animationRow.child());
                 settingsStepper(rowBounds.x, rowBounds.y, rowBounds.width,
                         GdxSettingsLayout.ROW_HEIGHT,
                         option.label(gameText),

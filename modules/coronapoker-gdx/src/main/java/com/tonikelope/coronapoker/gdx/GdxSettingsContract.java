@@ -71,6 +71,33 @@ final class GdxSettingsContract {
         }
     }
 
+    /**
+     * One visual row in Appearance > Animations.  Switches and their related
+     * selectors deliberately share this ordered model so the menu and the
+     * live-table settings cannot drift into two different layouts.
+     */
+    record AppearanceAnimationRow(ToggleOption toggle,
+            GdxAppearanceOptions.Choice choice) {
+
+        AppearanceAnimationRow {
+            if ((toggle == null) == (choice == null)) {
+                throw new IllegalArgumentException(
+                        "Exactly one animation row control is required");
+            }
+        }
+
+        String key() {
+            return toggle != null ? toggle.key() : choice.key();
+        }
+
+        boolean child() {
+            return toggle != null
+                    ? GdxSettingsContract.isChildOption(
+                            APPEARANCE_ANIMATIONS_PAGE, toggle)
+                    : GdxAppearanceOptions.isChildChoice(choice);
+        }
+    }
+
     record AudioPreview(String resource, float volume, float limitSeconds) {
     }
 
@@ -402,6 +429,33 @@ final class GdxSettingsContract {
             APPEARANCE_ANIMATIONS_PAGE);
 
     /**
+     * Product order: each animation's speed, direction or style follows the
+     * switch that owns it instead of being collected in a detached block.
+     */
+    private static final List<AppearanceAnimationRow>
+            APPEARANCE_ANIMATION_ROWS = List.of(
+                    animationToggle("animaciones"),
+                    animationToggle("cinematicas_allin"),
+                    animationToggle("cinematicas_gameover"),
+                    animationToggle("animacion_barajado"),
+                    animationToggle("animacion_reparto"),
+                    animationChoice("reparto_velocidad"),
+                    animationToggle("animacion_destape"),
+                    animationChoice("card_flip_duration"),
+                    animationChoice("card_flip_direction"),
+                    animationChoice("card_flip_zoom"),
+                    animationToggle("animacion_ciegas_dealer"),
+                    animationToggle("animacion_contadores"),
+                    animationToggle("animacion_entrada_asientos"),
+                    animationToggle("animacion_swap"),
+                    animationChoice("swap_velocidad"),
+                    animationChoice("swap_arco"),
+                    animationToggle("animacion_contador_final"),
+                    animationToggle("animacion_fuego_allin"),
+                    animationToggle("animacion_efecto_ganador"),
+                    animationToggle("animacion_apuestas"));
+
+    /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
      * This is deliberately a superset of the currently displayed GDX rows:
      * Cancel must preserve hidden Swing-only values, and controls still under
@@ -662,10 +716,36 @@ final class GdxSettingsContract {
         return page == APPEARANCE_ANIMATIONS_PAGE;
     }
 
+    static List<AppearanceAnimationRow> appearanceRows(TogglePage page) {
+        if (hasAppearanceAnimationOptions(page)) {
+            return APPEARANCE_ANIMATION_ROWS;
+        }
+        return page.options().stream()
+                .map(option -> new AppearanceAnimationRow(option, null))
+                .toList();
+    }
+
     static int appearanceRowCount(TogglePage page) {
-        return page.options().size()
-                + (hasAppearanceAnimationOptions(page)
-                        ? GdxAppearanceOptions.ANIMATION_CHOICES.size() : 0);
+        return appearanceRows(page).size();
+    }
+
+    private static AppearanceAnimationRow animationToggle(String key) {
+        return new AppearanceAnimationRow(
+                APPEARANCE_ANIMATIONS_PAGE.options().stream()
+                        .filter(option -> option.key().equals(key))
+                        .findFirst().orElseThrow(
+                                () -> new IllegalStateException(
+                                        "Unknown animation switch: " + key)),
+                null);
+    }
+
+    private static AppearanceAnimationRow animationChoice(String key) {
+        return new AppearanceAnimationRow(null,
+                GdxAppearanceOptions.ANIMATION_CHOICES.stream()
+                        .filter(choice -> choice.key().equals(key))
+                        .findFirst().orElseThrow(
+                                () -> new IllegalStateException(
+                                        "Unknown animation choice: " + key)));
     }
 
     static TogglePage appearanceTablePage() {

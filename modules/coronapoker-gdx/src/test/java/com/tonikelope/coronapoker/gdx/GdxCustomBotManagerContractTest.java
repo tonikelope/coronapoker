@@ -55,7 +55,8 @@ final class GdxCustomBotManagerContractTest {
                 "CustomBotProfileCatalog.writeTo(initialProperties"));
         assertTrue(source.contains(
                 "customBotAutomaticRebuyDraft = true"));
-        assertTrue(source.contains(
+        assertTrue(source.contains("float y = 145f;"));
+        assertFalse(source.contains(
                 "float y = customBotManagerOpen ? 502f : 145f;"));
         assertTrue(source.contains(
                 "if (customBotManagerOpen\n"

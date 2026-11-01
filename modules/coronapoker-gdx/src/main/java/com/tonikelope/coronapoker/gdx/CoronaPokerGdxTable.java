@@ -1218,7 +1218,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean voiceNotesPurgeConfirmation;
     private float shortcutScroll;
     private String shortcutCaptureId;
-    private String shortcutStatus = "";
     private boolean shortcutCaptureConsumed;
     private int emojiPage;
     private boolean emojiPickerOpen;
@@ -1689,12 +1688,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 shortcutCaptureConsumed = true;
                 if (assignment == GdxShortcutBindings.Assignment.ASSIGNED) {
                     shortcutCaptureId = null;
-                    shortcutStatus = "updated";
+                    showShortcutToast("updated");
                 } else if (assignment
                         == GdxShortcutBindings.Assignment.CONFLICT) {
-                    shortcutStatus = "conflict";
+                    showShortcutToast("conflict");
                 } else {
-                    shortcutStatus = "unsupported";
+                    showShortcutToast("unsupported");
                 }
                 return true;
             }
@@ -2789,7 +2788,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsDebugScroll = 0;
         shortcutScroll = 0f;
         shortcutCaptureId = null;
-        shortcutStatus = "";
         shortcutBindings.beginEdit();
         GdxAudioDevices.refreshCaptureDevicesAsync();
         settingsAutoRebuySnapshot = autoRebuy;
@@ -2877,7 +2875,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         presentationSettings.requestedMsaaSamples(),
                         presentationSettings.actualMsaaSamples());
         shortcutCaptureId = null;
-        shortcutStatus = "";
         if (save) {
             shortcutBindings.commitEdit();
         } else {
@@ -3152,8 +3149,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 == GdxSettingsContract.Section.SHORTCUTS) {
             shortcutBindings.resetAllEdits();
             shortcutCaptureId = null;
-            shortcutStatus = "restored";
+        } else {
+            return;
         }
+        showSettingsDefaultsRestoredToast();
     }
 
     @Override
@@ -20887,7 +20886,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 settingsAudioScroll = 0f;
                 shortcutScroll = 0f;
                 shortcutCaptureId = null;
-                shortcutStatus = "";
                 return;
             }
         }
@@ -21257,7 +21255,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (rowViewport.contains(x, y)
                         && shortcut.bounds().contains(x, y)) {
                     shortcutCaptureId = entries.get(entryIndex).id();
-                    shortcutStatus = "prompt";
                     return;
                 }
             }
@@ -21537,7 +21534,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case SHORTCUTS -> {
                 shortcutScroll = 0f;
                 shortcutCaptureId = null;
-                shortcutStatus = "";
             }
             case DEBUG -> {
             }
@@ -22025,8 +22021,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle accept = layout.positiveButton();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
         drawDialogButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 CYAN, cancel.contains(pointer), 1f);
         drawDialogButton(accept.x, accept.y, accept.width, accept.height,
@@ -23077,6 +23073,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         screenshotToastUntil = totalTime + duration;
     }
 
+    private void showShortcutToast(String status) {
+        showTableToast(gameText.translate(
+                "gdx.settings.shortcut.status." + status), 2.8f);
+    }
+
+    private void showSettingsDefaultsRestoredToast() {
+        showTableToast(gameText.translate(
+                "gdx.settings.defaults_restored"), 2.8f);
+    }
+
     private void advanceTableToast() {
         if (!screenshotToast.isBlank() && totalTime < screenshotToastUntil) {
             return;
@@ -23198,8 +23204,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panelX, panelY,
-                panelW, panelH, accent);
+        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                panelW, panelH, accent, 1f);
         GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
                 panelY + 125f, panelW - 56f, panelH - 222f, 1f);
         if (dialog.isRunItTwice()) {
@@ -23522,8 +23528,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
         if (dialog.showsNegative()) {
             drawDialogButton(negative.x, negative.y,
                     negative.width, negative.height,
@@ -23571,8 +23577,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
         if (hasAction) {
             drawDialogButton(button.x, button.y, button.width, button.height,
                     error ? FOLD_RED : POT_GOLD,
@@ -23623,8 +23629,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
         drawDialogButton(negative.x, negative.y,
                 negative.width, negative.height, CYAN,
                 negative.contains(pointer), 1f);
@@ -26041,16 +26047,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             uppercase(entry.markedDescription()), capturing,
                             alpha);
                 }
-            }
-            if (!shortcutStatus.isBlank()) {
-                boolean warning = shortcutStatus.equals("conflict")
-                        || shortcutStatus.equals("unsupported");
-                drawFittedCenteredInBox(settingsSmallFont,
-                        uppercase(gameText.translate(
-                                "gdx.settings.shortcut.status."
-                                        + shortcutStatus)),
-                        x, firstY + 64f, width, 20f,
-                        warning ? FOLD_RED : CYAN, alpha);
             }
         } else if (contentPage == 3) {
             SettingsRowAccess access = liveGameRuleAccess();

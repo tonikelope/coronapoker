@@ -14,12 +14,12 @@ import org.junit.jupiter.api.Test;
 final class GdxUiDialogStyleTest {
 
     @Test
-    void sharedDialogMaterialRemainsTranslucent() {
+    void sharedDialogMaterialMatchesTheSettingsSurface() {
         int panelAlpha = GdxUiDialogStyle.PANEL_RGBA & 0xff;
         int insetAlpha = GdxUiDialogStyle.INSET_RGBA & 0xff;
 
         assertTrue(panelAlpha < 0xff,
-                "dialog panel must preserve the scene behind it");
+                "dialog panel must use the same glass opacity as settings");
         assertEquals(GdxFrontendScreen.SCREEN_PANEL_RGBA & 0xff,
                 panelAlpha,
                 "dialogs must match the frontend glass opacity");
@@ -29,13 +29,7 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
-    void nestedConfirmationMaterialIsFullyOpaque() {
-        assertEquals(0xff, GdxUiDialogStyle.OPAQUE_PANEL_RGBA & 0xff,
-                "nested confirmation text must not mix with its parent dialog");
-    }
-
-    @Test
-    void confirmationsNoticesAndTablePromptsAlwaysUseOpaqueForegrounds()
+    void confirmationsNoticesAndTablePromptsUseTheSharedSettingsMaterial()
             throws Exception {
         String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
         String frontend = Files.readString(Path.of(base
@@ -46,24 +40,45 @@ final class GdxUiDialogStyleTest {
         assertMethodSectionUses(frontend,
                 "private GdxUiDialogStyle.ConfirmationLayout "
                         + "drawConfirmationChrome(",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(frontend,
                 "private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table, "private void drawActiveDialog()",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
                 "private void drawTableImageClearConfirmation()",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
                 "private void drawCanonicalConfirmationDialog(",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
                 "private void drawCanonicalNoticeDialog(",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
                 "private void drawSettingsDiscardDialog(",
-                "GdxUiDialogStyle.drawOpaquePanel(");
+                "GdxUiDialogStyle.drawPanel(");
+        assertFalse(frontend.contains("drawOpaquePanel("));
+        assertFalse(table.contains("drawOpaquePanel("));
+    }
+
+    @Test
+    void createJoinAndStatisticsUseTheSameFrontendPanelAsSettings()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/"
+                + "tonikelope/coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+
+        assertMethodSectionUses(frontend,
+                "private void drawNewGameDialogFrame()",
+                "CYAN_DARK, PANEL);");
+        assertMethodSectionUses(frontend,
+                "private void drawStatsScreen()",
+                "panel(20f, 20f, 1880f, 1040f, \"\");");
+        assertMethodSectionUses(frontend,
+                "private void panel(float x, float y, float w, float h, "
+                        + "String title)",
+                "outerBox(x, y, w, h, LINE, PANEL);");
     }
 
     @Test

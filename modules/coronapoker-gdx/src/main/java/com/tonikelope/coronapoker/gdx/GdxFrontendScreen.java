@@ -648,7 +648,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxPointerHold scrollPointer = new GdxPointerHold();
     private float scrollDragGrabOffset;
     private String settingsShortcutCaptureId;
-    private String settingsShortcutStatus = "";
     private GdxTableDialog settingsAutoCallDialog;
     private boolean settingsAutoRebuySnapshot;
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
@@ -2528,8 +2527,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK, 1f);
         textFit(headingFont, title, titleBounds.x,
                 titleBounds.y + titleBounds.height * 0.76f,
                 GOLD, false, titleBounds.width);
@@ -2556,8 +2555,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
-        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
+        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
         textFit(headingFont, uppercase(title),
                 titleBounds.x + titleBounds.width / 2f,
                 titleBounds.y + titleBounds.height * 0.76f,
@@ -8249,7 +8248,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugScroll = 0;
         settingsDebugLineCount = 0;
         settingsShortcutCaptureId = null;
-        settingsShortcutStatus = "";
         settingsAutoCallDialog = null;
         settingsAutoRebuySnapshot = presentationSettings.autoRebuyOnBroke();
         shortcutBindings.beginEdit();
@@ -8274,7 +8272,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeSettings(boolean save) {
         settingsShortcutCaptureId = null;
-        settingsShortcutStatus = "";
         if (save && settingsReturnSurface == Surface.LOBBY && lobby != null) {
             NewGameTableDraft.Settings requested = settingsTable == null
                     ? null : settingsTable.snapshot();
@@ -8457,11 +8454,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shortcutBindings.resetAllEdits();
                 restoreFrontendControlDefaults();
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus = "restored";
             }
             case GAME, DEBUG -> {
+                return;
             }
         }
+        showSettingsDefaultsRestoredToast();
     }
 
     private List<GdxSettingsContract.Section> settingsSections() {
@@ -8503,7 +8501,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case SHORTCUTS -> {
                 settingsShortcutScroll = 0f;
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus = "";
             }
             case DEBUG -> {
             }
@@ -8572,7 +8569,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameScroll = 0f;
                 settingsShortcutScroll = 0f;
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus = "";
             });
         }
 
@@ -9772,21 +9768,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Rectangle hitBounds = shortcut.bounds();
             settingsTooltip(hitBounds, "shortcut");
             hit(hitBounds.x, hitBounds.y, hitBounds.width, hitBounds.height,
-                    () -> {
-                settingsShortcutCaptureId = entry.id();
-                settingsShortcutStatus = "prompt";
-            });
+                    () -> settingsShortcutCaptureId = entry.id());
         }
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
-        if (!settingsShortcutStatus.isBlank()) {
-            Color color = settingsShortcutStatus.equals("conflict")
-                    || settingsShortcutStatus.equals("unsupported")
-                            ? ORANGE : CYAN;
-            textFit(tinyFont, uppercase(gameText.translate(
-                    "gdx.settings.shortcut.status."
-                            + settingsShortcutStatus)), x + w / 2f,
-                    y + 62f, color, true, w - 68f);
-        }
     }
 
     private void drawFrontendControlSetting(int row, float x, float y,
@@ -12722,9 +12706,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 textWidth(uiFont, toast), 0f, 52f,
                 260f, 820f, WIDTH - 80f);
         float x = WIDTH / 2f - w / 2f;
-        // Feedback from the bot manager belongs to the manager itself. Its
-        // regular bottom placement covered the pagination and edit actions.
-        float y = customBotManagerOpen ? 502f : 145f;
+        float y = 145f;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -14705,6 +14687,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         toastUntil = System.currentTimeMillis() + 2800L;
     }
 
+    private void showShortcutToast(String status) {
+        showToast(gameText.translate("gdx.settings.shortcut.status." + status));
+    }
+
+    private void showSettingsDefaultsRestoredToast() {
+        showToast(gameText.translate("gdx.settings.defaults_restored"));
+    }
+
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
@@ -15299,11 +15289,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsShortcutCaptureId, keycode, alt, control, shift);
             if (assignment == GdxShortcutBindings.Assignment.ASSIGNED) {
                 settingsShortcutCaptureId = null;
-                settingsShortcutStatus = "updated";
+                showShortcutToast("updated");
             } else if (assignment == GdxShortcutBindings.Assignment.CONFLICT) {
-                settingsShortcutStatus = "conflict";
+                showShortcutToast("conflict");
             } else {
-                settingsShortcutStatus = "unsupported";
+                showShortcutToast("unsupported");
             }
             return true;
         }

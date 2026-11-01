@@ -256,6 +256,89 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void settingsFeedbackUsesTransientNotificationsInEverySettingsSurface()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        for (String source : List.of(frontend, table)) {
+            assertTrue(source.contains(
+                    "showSettingsDefaultsRestoredToast();"));
+            assertTrue(source.contains(
+                    "\"gdx.settings.defaults_restored\""));
+            assertTrue(source.contains("showShortcutToast(\"updated\")"));
+            assertTrue(source.contains("showShortcutToast(\"conflict\")"));
+            assertTrue(source.contains("showShortcutToast(\"unsupported\")"));
+            assertFalse(source.contains("showShortcutToast(\"restored\")"),
+                    "restoring any settings section must use the shared notice");
+            assertFalse(source.contains("shortcutStatus ="),
+                    "shortcut results must never remain embedded in settings");
+        }
+        assertTrue(frontend.contains("showToast(gameText.translate("));
+        assertTrue(table.contains("showTableToast(gameText.translate("));
+    }
+
+    @Test
+    void restoringAnySupportedSettingsSectionQueuesOneGlobalNotice()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        String frontendRestore = methodSection(frontend,
+                "private void restoreCurrentFrontendSettingsSectionDefaults()");
+        assertTrue(frontendRestore.contains(
+                "case APPEARANCE -> restoreFrontendAppearanceDefaults();"));
+        assertTrue(frontendRestore.contains(
+                "case AUDIO -> restoreFrontendAudioDefaults();"));
+        assertTrue(frontendRestore.contains(
+                "case SHORTCUTS ->"));
+        assertEquals(1, occurrences(frontendRestore,
+                "showSettingsDefaultsRestoredToast();"));
+
+        String tableRestore = methodSection(table,
+                "private void restoreCurrentSettingsSectionDefaults()");
+        assertTrue(tableRestore.contains("restoreTableAppearanceDefaults();"));
+        assertTrue(tableRestore.contains("restoreTableAudioDefaults();"));
+        assertTrue(tableRestore.contains("shortcutBindings.resetAllEdits();"));
+        assertEquals(1, occurrences(tableRestore,
+                "showSettingsDefaultsRestoredToast();"));
+
+        int modalComposition = frontend.indexOf(
+                "if (hasVisibleFrontendModal()) {");
+        int finalTopLayers = frontend.indexOf("drawFrontendTopLayers();",
+                modalComposition);
+        assertTrue(modalComposition >= 0 && finalTopLayers > modalComposition,
+                "global notices must be composited after the settings modal");
+    }
+
+    @Test
+    void frontendNotificationsKeepOneGlobalPlacement() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf("private void drawToastTopLayer()");
+        int end = frontend.indexOf("private void drawScreenshotToastTopLayer()",
+                start);
+        assertTrue(start >= 0 && end > start);
+        String method = frontend.substring(start, end);
+
+        assertTrue(method.contains("float y = 145f;"));
+        assertFalse(method.contains("customBotManagerOpen"),
+                "dialogs must not move the global notification layer");
+        assertTrue(frontend.contains(
+                "showToast(gameText.translate(\"gdx.custom_bots.saved\"))"),
+                "bot-manager feedback must use the global notification");
+    }
+
+    @Test
     void iconButtonsHaveNoDecorativeSeparatorAndUseVectorKeyIcons()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
@@ -393,6 +476,24 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(method.contains(
                 "communityPauseX + 8f, communityPauseY + 5f"),
                 "The pause label must use the space freed by its old icon");
+    }
+
+    private static String methodSection(String source, String signature) {
+        int start = source.indexOf(signature);
+        int end = source.indexOf("\n    private ", start + signature.length());
+        assertTrue(start >= 0 && end > start,
+                "method boundary not found for " + signature);
+        return source.substring(start, end);
+    }
+
+    private static int occurrences(String text, String needle) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = text.indexOf(needle, offset)) >= 0) {
+            count++;
+            offset += needle.length();
+        }
+        return count;
     }
 
     private static LobbySnapshot snapshot(boolean host,

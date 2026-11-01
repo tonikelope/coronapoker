@@ -12702,7 +12702,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String visible = passwordDisplay(value, secret, revealed);
         float textWidth = w - (secret ? 102f : 44f);
         FrontendInputWindow window = visible.isEmpty()
-                ? new FrontendInputWindow("-", 0, 0, 0f, 0f, 0f)
+                ? new FrontendInputWindow("—", 0, 0, 0f, 0f, 0f)
                 : frontendInputWindow(uiFont, value, visible, textWidth,
                         focused);
         drawInputSelection(x + 22f, y + 17f, 36f, window, focused);

@@ -1488,6 +1488,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String screenshotMetadata = "";
     private String screenshotToast = "";
     private float screenshotToastUntil;
+    private final ArrayDeque<TableToast> pendingTableToasts =
+            new ArrayDeque<>();
     private boolean screenshotOperationPending;
 
     private float tableCenterX;
@@ -1552,6 +1554,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private PendingCollectBets pendingCollectBets;
     private LiveChipBatch liveChipBatch;
     private final Map<String, Double> livePotContributions = new HashMap<>();
+    /** Prevents reconnect/re-entry roster updates from announcing twice. */
+    private final Set<String> knownTableParticipants = new HashSet<>();
     /** Exact landed chip identities behind each player's hand investment. */
     private final Map<String, ArrayList<VisualChipSpec>> liveInvestmentChips
             = new HashMap<>();
@@ -2464,6 +2468,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "A product GDX table requires authoritative live state");
         }
         this.liveState = liveState;
+        if (liveState != null) {
+            liveState.snapshot().players().stream()
+                    .map(TableSnapshot.PlayerSnapshot::nickname)
+                    .filter(name -> name != null && !name.isBlank())
+                    .forEach(knownTableParticipants::add);
+        }
         this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
         this.onIntroLightsOn = Objects.requireNonNull(
@@ -3691,7 +3701,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             case 5 -> {
-                if (!startupIntroOnly && musicEnabled()) backgroundMusic.play();
+                // Playback deliberately starts at the shell's final handoff.
+                // Until then the persistent frontend still renders and owns
+                // the shared decoder, so starting here would let a following
+                // frontend frame pause a hot-joined table again.
             }
             case 6 -> Gdx.input.setCursorCatched(false);
             case 7 -> fontQualityProfile = GdxAdaptiveFontQuality.current(
@@ -4702,6 +4715,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return livePlayers.player(nickname);
     }
 
+    private List<String> newlyJoinedPlayers(
+            List<TableSnapshot.PlayerSnapshot> players) {
+        return recordNewHumanParticipants(knownTableParticipants,
+                liveState.snapshot().localNickname(), players);
+    }
+
+    static List<String> recordNewHumanParticipants(Set<String> known,
+            String localNickname,
+            List<TableSnapshot.PlayerSnapshot> players) {
+        Objects.requireNonNull(known, "known");
+        if (players == null || players.isEmpty()) return List.of();
+        ArrayList<String> joined = new ArrayList<>();
+        for (TableSnapshot.PlayerSnapshot player : players) {
+            String nickname = player.nickname();
+            if (nickname == null || nickname.isBlank()) continue;
+            boolean firstAppearance = known.add(nickname);
+            if (firstAppearance && !player.exited()
+                    && !BotNickname.isBot(nickname)
+                    && !nickname.equals(localNickname)) {
+                joined.add(nickname);
+            }
+        }
+        return List.copyOf(joined);
+    }
+
+    private void showJoinedPlayerNotices(List<String> joinedPlayers) {
+        for (String nickname : joinedPlayers) {
+            showTableToast(nickname + " "
+                    + gameText.translate("game.se_une_a_la_timba"), 3.2f);
+        }
+    }
+
     static String formatAmount(double amount) {
         return java.math.BigDecimal.valueOf(amount)
                 .setScale(2, java.math.RoundingMode.HALF_UP)
@@ -4821,9 +4866,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
             liveState.apply(event);
-            screenshotToast = "[" + request.nickname() + "] "
-                    + gameText.translate("game.quiere_entrar_en_la_timba");
-            screenshotToastUntil = totalTime + 4f;
+            showTableToast("[" + request.nickname() + "] "
+                    + gameText.translate("game.quiere_entrar_en_la_timba"),
+                    4f);
             playPreferenceSound("misc/new_user.wav",
                     "sonido_entrar_sala", 0.82f);
             barrier.complete(null);
@@ -4845,6 +4890,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || event instanceof TableVisualEvent.TelemetryStatus
                 || event instanceof TableVisualEvent.SeatRoster) {
             boolean wasPaused = liveState.snapshot().paused();
+            List<String> joinedPlayers =
+                    event instanceof TableVisualEvent.SeatRoster roster
+                            ? newlyJoinedPlayers(roster.players()) : List.of();
             liveState.apply(event);
             if (GdxSoundFeedback.pauseStarted(wasPaused,
                     liveState.snapshot().paused())) {
@@ -4854,6 +4902,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             syncSeatsFromLiveState();
             if (event instanceof TableVisualEvent.SeatRoster) {
                 reconcileSeatRacksToAuthoritativeState();
+                showJoinedPlayerNotices(joinedPlayers);
             }
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.AllInRunoutPause pause) {
@@ -13543,8 +13592,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float remaining = MathUtils.clamp(
                 (notice.expiresAt - totalTime) / 0.22f, 0f, 1f);
         float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
+        String message = notice.nickname + ": " + notice.content;
+        glyph.setText(smallFont, message);
+        float desiredWidth = GdxTransientNoticeLayout.contentWidth(
+                glyph.width, 92f, 20f, 300f,
+                TABLE_NOTIFICATION_MAX_WIDTH,
+                viewport.getWorldWidth() - 40f);
         Rectangle bounds = tableNotificationBounds(
-                viewport.getWorldWidth(), viewport.getWorldHeight());
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                desiredWidth);
         float width = bounds.width;
         float height = bounds.height;
         float x = bounds.x;
@@ -13562,7 +13618,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(icon, x + 18f, y + 18f, 56f, 56f);
         drawFittedCenteredInBox(smallFont,
-                notice.nickname + ": " + notice.content,
+                message,
                 x + 92f, y + 16f, width - 112f, height - 32f,
                 notice.senderBlocked ? POT_GOLD : Color.WHITE, alpha);
         batch.setColor(Color.WHITE);
@@ -13719,7 +13775,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawStackViewerTooltip() {
         if (liveState == null || uiLayer != UI_NONE
                 || blocksTableUtilities(activeDialog)
-                || chipCatalogVisible) {
+                || chipCatalogVisible
+                || fastAccessBarContains(pointer.x, pointer.y)) {
             stackViewerTooltipDelay.clear();
             return;
         }
@@ -13755,6 +13812,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x + 12f, y + 5f, width - 24f, height - 10f,
                 Color.WHITE, 1f);
         batch.end();
+    }
+
+    private boolean fastAccessBarContains(float x, float y) {
+        float panelW = fastBarExpanded ? fastExpandedWidth()
+                : FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
+        float panelH = FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING;
+        return contains(x, y, FAST_BAR_X, FAST_BAR_Y, panelW, panelH);
     }
 
     private void drawLatencyTooltip() {
@@ -22565,8 +22629,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String notice = result;
             if (Gdx.app != null) {
                 Gdx.app.postRunnable(() -> {
-                    screenshotToast = notice;
-                    screenshotToastUntil = totalTime + 2f;
+                    showTableToast(notice, 2f);
                 });
             }
         }, "coronapoker-gdx-screenshot");
@@ -22769,8 +22832,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (completed && afterSuccess != null) afterSuccess.run();
                     String key = completed ? successKey : failureKey;
                     if (key != null && !key.isBlank()) {
-                        screenshotToast = uppercase(gameText.translate(key));
-                        screenshotToastUntil = totalTime + 1.8f;
+                        showTableToast(uppercase(gameText.translate(key)),
+                                1.8f);
                     }
                 });
             }
@@ -22908,6 +22971,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawScreenshotToast() {
+        advanceTableToast();
         if (screenshotToast.isBlank() || totalTime >= screenshotToastUntil) {
             return;
         }
@@ -22917,11 +22981,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         boolean viewer = uiLayer == UI_SCREENSHOTS;
+        glyph.setText(actionFont, screenshotToast);
+        float desiredWidth = GdxTransientNoticeLayout.contentWidth(
+                glyph.width, 0f, 36f, 220f,
+                TABLE_NOTIFICATION_MAX_WIDTH, worldWidth - 40f);
         Rectangle bounds = viewer
-                ? new Rectangle(worldWidth / 2f - 270f,
+                ? new Rectangle((worldWidth - desiredWidth) / 2f,
                         (worldHeight - BASE_HEIGHT) / 2f + 875f,
-                        540f, 64f)
-                : tableNotificationBounds(worldWidth, worldHeight);
+                        desiredWidth, 64f)
+                : tableNotificationBounds(worldWidth, worldHeight,
+                        desiredWidth);
         float x = bounds.x;
         float y = bounds.y;
         float width = bounds.width;
@@ -22940,16 +23009,44 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void showTableToast(String value, float durationSeconds) {
+        if (value == null || value.isBlank()) return;
+        float duration = Float.isFinite(durationSeconds)
+                ? Math.max(0.25f, durationSeconds) : 2f;
+        advanceTableToast();
+        if (!screenshotToast.isBlank() && totalTime < screenshotToastUntil) {
+            pendingTableToasts.addLast(new TableToast(value, duration));
+            return;
+        }
+        screenshotToast = value;
+        screenshotToastUntil = totalTime + duration;
+    }
+
+    private void advanceTableToast() {
+        if (!screenshotToast.isBlank() && totalTime < screenshotToastUntil) {
+            return;
+        }
+        TableToast next = pendingTableToasts.pollFirst();
+        if (next == null) {
+            screenshotToast = "";
+            screenshotToastUntil = 0f;
+            return;
+        }
+        screenshotToast = next.text();
+        screenshotToastUntil = totalTime + next.durationSeconds();
+    }
+
     static Rectangle tableNotificationBounds(float worldWidth,
             float worldHeight) {
-        float width = Math.max(1f, Math.min(TABLE_NOTIFICATION_MAX_WIDTH,
-                worldWidth - 80f));
-        float height = Math.min(TABLE_NOTIFICATION_HEIGHT,
-                Math.max(1f, worldHeight - 16f));
-        float x = (worldWidth - width) / 2f;
-        float y = Math.max(8f, worldHeight - TABLE_NOTIFICATION_TOP_INSET
-                - height);
-        return new Rectangle(x, y, width, height);
+        return tableNotificationBounds(worldWidth, worldHeight,
+                TABLE_NOTIFICATION_MAX_WIDTH);
+    }
+
+    static Rectangle tableNotificationBounds(float worldWidth,
+            float worldHeight, float desiredWidth) {
+        return GdxTransientNoticeLayout.topCentered(worldWidth, worldHeight,
+                desiredWidth, TABLE_NOTIFICATION_HEIGHT,
+                TABLE_NOTIFICATION_TOP_INSET, 40f);
     }
 
     private void drawVolumeOverlay() {
@@ -26228,9 +26325,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void copySettingsDebugLog() {
         Gdx.app.getClipboard().setContents(GdxDebugLogFormatter.clipboardText(
                 settingsDebugLines()));
-        screenshotToast = uppercase(gameText.translate(
-                "gdx.settings.debug.copied"));
-        screenshotToastUntil = totalTime + 1.5f;
+        showTableToast(uppercase(gameText.translate(
+                "gdx.settings.debug.copied")), 1.5f);
     }
 
     private void drawSettingsRowText(float x, float y, float width,
@@ -29269,6 +29365,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (SeatChatNotice notice : seatChatNotices.values()) notice.dispose();
         seatChatNotices.clear();
         silentChatNotices.clear();
+        pendingTableToasts.clear();
         blockedSeatMediaNotices.clear();
         if (tableChat != null) tableChat.close();
     }
@@ -29306,6 +29403,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.senderBlocked = senderBlocked;
             this.duration = duration;
         }
+    }
+
+    private record TableToast(String text, float durationSeconds) {
     }
 
     private static final class LiveAudioPlayback {

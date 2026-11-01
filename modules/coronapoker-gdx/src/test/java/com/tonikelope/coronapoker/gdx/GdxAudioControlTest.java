@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Properties;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import org.junit.jupiter.api.Test;
 
 final class GdxAudioControlTest {
@@ -45,5 +47,24 @@ final class GdxAudioControlTest {
                 "misc/startplay.wav", true));
         assertFalse(CoronaPokerGdxTable.shouldStreamNonBlockingAudioCue(
                 "misc/deal.wav", false));
+    }
+
+    @Test
+    void connectionCueBelongsToTheWaitingRoomNotHotJoinPreparation() {
+        assertTrue(GdxFrontendScreen.shouldPlayLobbyConnectionSound(
+                NewGameConnectionDraft.Mode.JOIN,
+                LobbySnapshot.Phase.CONNECTED));
+        assertTrue(GdxFrontendScreen.shouldPlayLobbyConnectionSound(
+                NewGameConnectionDraft.Mode.JOIN,
+                LobbySnapshot.Phase.WAITING_FOR_PLAYERS));
+        assertFalse(GdxFrontendScreen.shouldPlayLobbyConnectionSound(
+                NewGameConnectionDraft.Mode.JOIN,
+                LobbySnapshot.Phase.INITIALIZING_GAME));
+        assertFalse(GdxFrontendScreen.shouldPlayLobbyConnectionSound(
+                NewGameConnectionDraft.Mode.JOIN,
+                LobbySnapshot.Phase.IN_GAME));
+        assertFalse(GdxFrontendScreen.shouldPlayLobbyConnectionSound(
+                NewGameConnectionDraft.Mode.CREATE,
+                LobbySnapshot.Phase.WAITING_FOR_PLAYERS));
     }
 }

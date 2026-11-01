@@ -15,15 +15,14 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 /**
- * Shared two-pass backdrop blur for every native GDX modal.
+ * Shared separable Gaussian backdrop blur for every native GDX modal.
  *
- * <p>The scene is deliberately captured at half resolution: the result is
- * blurred and darkened by the modal chrome, so processing every physical 4K
- * pixel only adds fill-rate without visible detail.</p>
+ * <p>The scene is captured at native backbuffer resolution. Modal chrome still
+ * darkens and blurs it, but retaining every physical pixel avoids a visibly
+ * lower-resolution backdrop on high-DPI displays.</p>
  */
 final class GdxModalBackdropBlur implements Disposable {
 
-    private static final int DOWNSAMPLE = 2;
     private static final String VERTEX_SHADER =
             "attribute vec4 a_position;\n"
             + "attribute vec4 a_color;\n"
@@ -47,11 +46,27 @@ final class GdxModalBackdropBlur implements Disposable {
             + "uniform vec2 u_direction;\n"
             + "void main() {\n"
             + "    vec2 step = u_texelSize * u_direction;\n"
-            + "    vec4 c = texture2D(u_texture, v_texCoords) * 0.227027;\n"
-            + "    c += texture2D(u_texture, v_texCoords + step * 1.384615) * 0.316216;\n"
-            + "    c += texture2D(u_texture, v_texCoords - step * 1.384615) * 0.316216;\n"
-            + "    c += texture2D(u_texture, v_texCoords + step * 3.230769) * 0.070270;\n"
-            + "    c += texture2D(u_texture, v_texCoords - step * 3.230769) * 0.070270;\n"
+            // A normalized 33-tap Gaussian kernel (sigma 6.5) combined into
+            // seventeen linear-filtered lookups. The wider contiguous kernel
+            // keeps the native-resolution backdrop unobtrusive without the
+            // directional echoes caused by widening sparse samples.
+            + "    vec4 c = texture2D(u_texture, v_texCoords) * 0.06206181;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 1.49112519) * 0.12052410;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 1.49112519) * 0.12052410;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 3.47930178) * 0.10714751;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 3.47930178) * 0.10714751;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 5.46750150) * 0.08669949;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 5.46750150) * 0.08669949;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 7.45573747) * 0.06385230;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 7.45573747) * 0.06385230;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 9.44402263) * 0.04280173;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 9.44402263) * 0.04280173;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 11.43236969) * 0.02611378;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 11.43236969) * 0.02611378;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 13.42079112) * 0.01450108;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 13.42079112) * 0.01450108;\n"
+            + "    c += texture2D(u_texture, v_texCoords + step * 15.40929903) * 0.00732911;\n"
+            + "    c += texture2D(u_texture, v_texCoords - step * 15.40929903) * 0.00732911;\n"
             + "    gl_FragColor = c * v_color;\n"
             + "}\n";
 
@@ -80,11 +95,11 @@ final class GdxModalBackdropBlur implements Disposable {
     /**
      * Allocates at most one framebuffer for the requested size. Table startup
      * calls this once per render-loop turn so the first modal frame never has
-     * to allocate both half-resolution surfaces in one burst.
+     * to allocate both native-resolution surfaces in one burst.
      */
     boolean prepareNextBuffer(int backBufferWidth, int backBufferHeight) {
-        int width = downsampledDimension(backBufferWidth);
-        int height = downsampledDimension(backBufferHeight);
+        int width = captureDimension(backBufferWidth);
+        int height = captureDimension(backBufferHeight);
         if (bufferHasDifferentSize(backdrop, width, height)
                 || bufferHasDifferentSize(scratch, width, height)) {
             disposeBuffers();
@@ -167,8 +182,8 @@ final class GdxModalBackdropBlur implements Disposable {
     boolean hasCachedFrame(int backBufferWidth, int backBufferHeight) {
         return cachedReady
                 && !bufferHasDifferentSize(backdrop,
-                        downsampledDimension(backBufferWidth),
-                        downsampledDimension(backBufferHeight));
+                        captureDimension(backBufferWidth),
+                        captureDimension(backBufferHeight));
     }
 
     void drawCached(Viewport viewport, SpriteBatch batch,
@@ -197,8 +212,8 @@ final class GdxModalBackdropBlur implements Disposable {
         return backdrop == null ? 1 : backdrop.getHeight();
     }
 
-    static int downsampledDimension(int backBufferDimension) {
-        return Math.max(1, backBufferDimension / DOWNSAMPLE);
+    static int captureDimension(int backBufferDimension) {
+        return Math.max(1, backBufferDimension);
     }
 
     private void ensureBuffers(int backBufferWidth, int backBufferHeight) {

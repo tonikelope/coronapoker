@@ -2523,23 +2523,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private GdxUiDialogStyle.ConfirmationLayout drawConfirmationChrome(
             String title, String message) {
-        return drawConfirmationChrome(title, message, false);
-    }
-
-    private GdxUiDialogStyle.ConfirmationLayout drawConfirmationChrome(
-            String title, String message, boolean opaque) {
         GdxUiDialogStyle.ConfirmationLayout layout =
                 GdxUiDialogStyle.confirmationLayout(WIDTH, HEIGHT);
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
-        if (opaque) {
-            GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
-                    panel.width, panel.height, CYAN_DARK);
-        } else {
-            GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                    panel.width, panel.height, CYAN_DARK, 1f);
-        }
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK);
         textFit(headingFont, title, titleBounds.x,
                 titleBounds.y + titleBounds.height * 0.76f,
                 GOLD, false, titleBounds.width);
@@ -2566,8 +2556,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
         textFit(headingFont, uppercase(title),
                 titleBounds.x + titleBounds.width / 2f,
                 titleBounds.y + titleBounds.height * 0.76f,
@@ -12505,7 +12495,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.custom_bots.delete_title"),
                 gameText.translate("gdx.custom_bots.delete_confirm",
                         customBotProfiles.get(customBotSelected)
-                                .displayName()), true);
+                                .displayName()));
         Rectangle cancel = layout.negativeButton();
         Rectangle accept = layout.positiveButton();
         themedButton(cancel.x, cancel.y, cancel.width, cancel.height,

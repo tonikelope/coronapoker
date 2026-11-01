@@ -6276,8 +6276,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.apply();
         if (blurModalBackdrop) {
             // Viewport.apply() targets the real backbuffer. Restore the
-            // deliberately smaller modal capture surface while its FBO is
-            // bound.
+            // modal capture viewport explicitly while its FBO is bound.
             Gdx.gl.glViewport(0, 0, modalBackdropBlur.captureWidth(),
                     modalBackdropBlur.captureHeight());
         }
@@ -6378,7 +6377,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static int modalBackdropDimension(int backBufferDimension) {
-        return GdxModalBackdropBlur.downsampledDimension(backBufferDimension);
+        return GdxModalBackdropBlur.captureDimension(backBufferDimension);
     }
 
     private void restoreDefaultTableRenderState() {
@@ -11601,21 +11600,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     roundedRect(seat.podX + 7f, seat.podY + 7f,
                             PLAYER_POD_WIDTH - 14f, 44f, 8f);
                 }
-                shapes.setColor(rim.r, rim.g, rim.b,
-                        (active ? 0.88f : 0.42f) * visualPresence);
-                if (active) {
-                    shapes.rect(seat.podX + 14f,
-                            seat.podY + PLAYER_POD_HEIGHT - 5f,
-                            PLAYER_POD_WIDTH - 28f, 5f);
-                }
-                shapes.rect(seat.podX + 12f, seat.podY + 55f,
-                        PLAYER_POD_WIDTH - 24f, 2f);
-                shapes.rect(seat.podX + 12f, seat.podY + 89f,
-                        PLAYER_POD_WIDTH - 24f, 2f);
-                shapes.rect(seat.podX + RIVAL_MONEY_CELL_X
-                                + RIVAL_MONEY_CELL_WIDTH
-                                + RIVAL_MONEY_CELL_GAP / 2f - 1f,
-                        seat.podY + 61f, 2f, 24f);
+                // Keep the remote pod as one continuous surface. The rounded
+                // outer rim, money cells and action badge already establish
+                // its hierarchy; semantic-colour separator bars inside the
+                // pod only create visual seams and must never be drawn.
             }
             float avatarX = seatAvatarX(seat);
             Color avatarRim = avatarRimColor(settledWinner,
@@ -22036,8 +22024,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle accept = layout.positiveButton();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK);
         drawDialogButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 CYAN, cancel.contains(pointer), 1f);
         drawDialogButton(accept.x, accept.y, accept.width, accept.height,
@@ -23209,8 +23197,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, accent, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panelX, panelY,
+                panelW, panelH, accent);
         GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
                 panelY + 125f, panelW - 56f, panelH - 222f, 1f);
         if (dialog.isRunItTwice()) {
@@ -23533,8 +23521,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK);
         if (dialog.showsNegative()) {
             drawDialogButton(negative.x, negative.y,
                     negative.width, negative.height,
@@ -23582,8 +23570,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
         if (hasAction) {
             drawDialogButton(button.x, button.y, button.width, button.height,
                     error ? FOLD_RED : POT_GOLD,
@@ -23634,8 +23622,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawOpaquePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, CYAN_DARK);
         drawDialogButton(negative.x, negative.y,
                 negative.width, negative.height, CYAN,
                 negative.contains(pointer), 1f);

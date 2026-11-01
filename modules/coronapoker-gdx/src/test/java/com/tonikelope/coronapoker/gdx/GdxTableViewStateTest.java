@@ -456,12 +456,12 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void everyModalBlurUsesTheSameBoundedDownsampledBackdrop() {
-        assertEquals(1920, CoronaPokerGdxTable.modalBackdropDimension(3840));
-        assertEquals(1080, CoronaPokerGdxTable.modalBackdropDimension(2160));
+    void everyModalBlurUsesTheSameNativeResolutionBackdrop() {
+        assertEquals(3840, CoronaPokerGdxTable.modalBackdropDimension(3840));
+        assertEquals(2160, CoronaPokerGdxTable.modalBackdropDimension(2160));
         assertEquals(1, CoronaPokerGdxTable.modalBackdropDimension(1));
         assertEquals(1, CoronaPokerGdxTable.modalBackdropDimension(0));
-        assertEquals(1920, GdxModalBackdropBlur.downsampledDimension(3840));
+        assertEquals(3840, GdxModalBackdropBlur.captureDimension(3840));
     }
 
     @Test

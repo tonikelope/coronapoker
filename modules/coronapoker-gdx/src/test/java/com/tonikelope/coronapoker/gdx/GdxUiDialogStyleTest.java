@@ -35,6 +35,38 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
+    void confirmationsNoticesAndTablePromptsAlwaysUseOpaqueForegrounds()
+            throws Exception {
+        String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
+        String frontend = Files.readString(Path.of(base
+                + "GdxFrontendScreen.java"), StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of(base
+                + "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
+
+        assertMethodSectionUses(frontend,
+                "private GdxUiDialogStyle.ConfirmationLayout "
+                        + "drawConfirmationChrome(",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(frontend,
+                "private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(table, "private void drawActiveDialog()",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(table,
+                "private void drawTableImageClearConfirmation()",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(table,
+                "private void drawCanonicalConfirmationDialog(",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(table,
+                "private void drawCanonicalNoticeDialog(",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+        assertMethodSectionUses(table,
+                "private void drawSettingsDiscardDialog(",
+                "GdxUiDialogStyle.drawOpaquePanel(");
+    }
+
+    @Test
     void legacyTopEdgeRailsStayRemovedFromSharedSurfaces() throws Exception {
         String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
         String dialogs = Files.readString(Path.of(base
@@ -176,6 +208,16 @@ final class GdxUiDialogStyleTest {
             String expected) {
         int start = source.indexOf("private void " + signature);
         int end = source.indexOf("private ", start + 1);
+        assertTrue(start >= 0 && end > start,
+                "method boundary not found for " + signature);
+        assertTrue(source.substring(start, end).contains(expected),
+                signature + " must use " + expected);
+    }
+
+    private static void assertMethodSectionUses(String source,
+            String signature, String expected) {
+        int start = source.indexOf(signature);
+        int end = source.indexOf("\n    private ", start + signature.length());
         assertTrue(start >= 0 && end > start,
                 "method boundary not found for " + signature);
         assertTrue(source.substring(start, end).contains(expected),

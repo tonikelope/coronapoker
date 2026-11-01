@@ -104,7 +104,7 @@ final class GdxNestedFramebufferContractTest {
         assertTrue(method >= 0);
         assertTrue(bind > method);
         assertTrue(viewport > bind,
-                "rebinding must also restore the downsampled viewport");
+                "rebinding must also restore the native capture viewport");
     }
 
     @Test

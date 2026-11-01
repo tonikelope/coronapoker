@@ -46,7 +46,8 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains("customBotManagerMusic.dispose();"));
         assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
                 + "                drawCustomBotDeleteConfirmationTopLayer();"));
-        assertTrue(source.contains(".displayName()), true);"));
+        assertTrue(source.contains(".displayName()));"));
+        assertFalse(source.contains(".displayName()), true);"));
         assertTrue(source.contains("batch.setShader(avatarShader);"));
         assertTrue(source.contains(
                 "table.customBots() ? List.copyOf(customBotProfiles)"));

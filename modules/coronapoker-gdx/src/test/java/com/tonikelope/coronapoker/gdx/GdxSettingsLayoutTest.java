@@ -162,7 +162,10 @@ final class GdxSettingsLayoutTest {
                 row.bounds().height);
         assertTrue(row.bounds().contains(row.key()));
         assertTrue(row.bounds().contains(row.description()));
-        assertTrue(row.key().x + row.key().width < row.description().x);
+        assertTrue(row.description().x + row.description().width
+                < row.key().x);
+        assertEquals(row.bounds().x + row.bounds().width - 12f,
+                row.key().x + row.key().width);
         assertEquals(238f, GdxSettingsLayout.shortcutKeyBaseline(row));
         assertEquals(238f,
                 GdxSettingsLayout.shortcutDescriptionBaseline(row));

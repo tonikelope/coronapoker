@@ -325,9 +325,10 @@ final class GdxSettingsLayout {
      */
     static ShortcutRow shortcutRow(float x, float y, float width) {
         Rectangle bounds = new Rectangle(x, y, width, SHORTCUT_ROW_HEIGHT);
-        Rectangle key = new Rectangle(x + 12f, y + 8f, 216f, 46f);
-        Rectangle description = new Rectangle(x + 252f, y + 5f,
+        Rectangle description = new Rectangle(x + 24f, y + 5f,
                 Math.max(0f, width - 276f), 52f);
+        Rectangle key = new Rectangle(x + width - 228f, y + 8f,
+                216f, 46f);
         return new ShortcutRow(bounds, key, description);
     }
 

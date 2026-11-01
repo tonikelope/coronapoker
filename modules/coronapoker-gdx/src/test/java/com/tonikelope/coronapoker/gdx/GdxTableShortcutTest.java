@@ -7,6 +7,7 @@ import java.awt.event.KeyEvent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -307,8 +308,19 @@ final class GdxTableShortcutTest {
     void editorExposesEveryImplementedActionWithReadableKeyCaps() {
         GdxShortcutBindings bindings = bindings();
         assertEquals(20, bindings.editableEntries().size());
+        assertEquals(List.of(
+                GdxShortcutBindings.FOLD,
+                GdxShortcutBindings.CHECK,
+                GdxShortcutBindings.BET_DOWN,
+                GdxShortcutBindings.BET_UP,
+                GdxShortcutBindings.BET,
+                GdxShortcutBindings.ALL_IN),
+                bindings.editableEntries().subList(0, 6).stream()
+                        .map(GdxShortcutBindings.ShortcutEntry::id).toList());
         GdxShortcutBindings.ShortcutEntry pause
-                = bindings.editableEntries().get(0);
+                = bindings.editableEntries().stream()
+                        .filter(entry -> GdxShortcutBindings.PAUSE.equals(
+                        entry.id())).findFirst().orElseThrow();
         assertEquals(GdxShortcutBindings.PAUSE, pause.id());
         assertEquals("ALT + P", pause.display());
         assertEquals("PAUSAR LA TIMBA", pause.description());
@@ -318,7 +330,7 @@ final class GdxTableShortcutTest {
         assertEquals("UP", bindings.displayFor(GdxShortcutBindings.BET_UP));
         assertEquals("DOWN", bindings.displayFor(
                 GdxShortcutBindings.BET_DOWN));
-        assertEquals("Pause game", bindings.editableEntries(
+        assertEquals("Fold", bindings.editableEntries(
                 new GdxGameText("en")).get(0).description());
         assertEquals(GdxShortcutBindings.SCREENSHOT,
                 bindings.actionFor(Input.Keys.P, false, true, false));
@@ -337,7 +349,9 @@ final class GdxTableShortcutTest {
         assertFalse(bindings.isDefault(GdxShortcutBindings.PAUSE));
         assertFalse(bindings.allDefaults());
         GdxShortcutBindings.ShortcutEntry pause
-                = bindings.editableEntries().get(0);
+                = bindings.editableEntries().stream()
+                        .filter(entry -> GdxShortcutBindings.PAUSE.equals(
+                        entry.id())).findFirst().orElseThrow();
         assertEquals("ALT + K", pause.display());
         assertEquals("PAUSAR LA TIMBA", pause.markedDescription());
 

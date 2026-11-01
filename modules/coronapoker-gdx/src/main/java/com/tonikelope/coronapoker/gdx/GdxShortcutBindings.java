@@ -49,6 +49,17 @@ final class GdxShortcutBindings {
     static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
     static final String SCREENSHOT = "SCREENSHOT";
 
+    /**
+     * User-facing order for the shortcut editor. Keep this independent from
+     * the binding registration order so presentation changes can never alter
+     * input dispatch precedence.
+     */
+    private static final List<String> EDITOR_ORDER = List.of(
+            FOLD, CHECK, BET_DOWN, BET_UP, BET, ALL_IN,
+            PAUSE, LOG, BUYIN, SCREENSHOT,
+            MUTE, VOLUME_DOWN, VOLUME_UP, VOICE_RECORD, FASTCHAT_IMAGE,
+            FULLSCREEN, LIGHTS, HALT, QUIT, FORCE_EXIT);
+
     private static final String PREFIX = "shortcut.";
     private static final int RELEVANT_MODIFIERS = InputEvent.SHIFT_DOWN_MASK
             | InputEvent.CTRL_DOWN_MASK | InputEvent.ALT_DOWN_MASK
@@ -238,7 +249,8 @@ final class GdxShortcutBindings {
 
     List<ShortcutEntry> editableEntries(GdxGameText text) {
         ArrayList<ShortcutEntry> entries = new ArrayList<>();
-        for (Definition definition : definitions.values()) {
+        for (String id : EDITOR_ORDER) {
+            Definition definition = definitions.get(id);
             entries.add(new ShortcutEntry(definition.id,
                     text == null ? shortcutDescription(definition.id)
                             : shortcutDescription(definition.id, text),

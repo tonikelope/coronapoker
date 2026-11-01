@@ -59,6 +59,33 @@ final class GdxModalCompositionContractTest {
                 "GdxUiDialogStyle.drawBackdrop("));
     }
 
+    @Test
+    void nestedCustomBotConfirmationShieldsCoveredHoverAndInput()
+            throws IOException {
+        String source = source("GdxFrontendScreen.java");
+        int managerBranch = source.indexOf(
+                "} else if (customBotManagerOpen) {");
+        int pointerShield = source.indexOf(
+                "if (customBotDeleteConfirmation) {", managerBranch);
+        int managerDraw = source.indexOf("drawCustomBotManagerDialog();",
+                pointerShield);
+        int pointerRestore = source.indexOf(
+                "pointer.set(managerPointerX, managerPointerY);", managerDraw);
+        int confirmationDraw = source.indexOf(
+                "drawCustomBotDeleteConfirmationTopLayer();", pointerRestore);
+
+        assertTrue(managerBranch >= 0 && pointerShield > managerBranch);
+        assertTrue(managerDraw > pointerShield,
+                "the covered manager must render with its pointer shielded");
+        assertTrue(pointerRestore > managerDraw,
+                "the child dialog must recover the live pointer");
+        assertTrue(confirmationDraw > pointerRestore,
+                "only the foreground confirmation may react to hover");
+        assertTrue(source.contains(
+                "if (customBotDeleteConfirmation) return false;"),
+                "the child dialog must also block manager scrollbar capture");
+    }
+
     private static int occurrences(String source, String needle) {
         int count = 0;
         int offset = 0;

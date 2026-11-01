@@ -206,6 +206,26 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void botSettingsRowsUseOneUniformVerticalRhythm() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf("private void drawBotsPage()");
+        int end = frontend.indexOf("private void nextBotDifficulty()", start);
+        assertTrue(start >= 0 && end > start);
+        String method = frontend.substring(start, end);
+
+        assertTrue(method.contains("float botOptionTopY = 507f;"));
+        assertTrue(method.contains("float botOptionStride = 105f;"));
+        assertTrue(method.contains(
+                "float customBotsOnlyY = botOptionTopY - botOptionStride;"));
+        assertTrue(method.contains(
+                "float botRebuyY = botOptionTopY - botOptionStride * 2f;"));
+        assertTrue(method.contains(
+                "float botBalanceY = botOptionTopY - botOptionStride * 3f;"));
+    }
+
+    @Test
     void menuLobbyAndLiveControlsShareTheSameSixActionRows()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"

@@ -108,7 +108,7 @@ public sealed interface TableCommand permits TableCommand.Fold,
     record ToggleImmediateRebuy() implements TableCommand {
     }
 
-    /** Host-only manual rebuy for one bot that is currently spectating. */
+    /** Host-only manual or scheduled rebuy for one established bot. */
     record RequestBotRebuy(String nickname) implements TableCommand {
 
         public RequestBotRebuy {

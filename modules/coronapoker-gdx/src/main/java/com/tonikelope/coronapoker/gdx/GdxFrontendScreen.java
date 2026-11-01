@@ -1443,7 +1443,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (rootSurfaceModal) {
                 drawRootModalSurface();
             } else if (customBotManagerOpen) {
+                // This child confirmation is composed later so it stays sharp.
+                // Paint the covered manager with an off-screen pointer too:
+                // clearing its hit map blocks clicks, but cannot undo hover
+                // feedback that was already drawn in the same frame.
+                float managerPointerX = pointer.x;
+                float managerPointerY = pointer.y;
+                if (customBotDeleteConfirmation) {
+                    pointer.set(-10_000f, -10_000f);
+                }
                 drawCustomBotManagerDialog();
+                if (customBotDeleteConfirmation) {
+                    pointer.set(managerPointerX, managerPointerY);
+                }
             } else if (surface == Surface.SETTINGS) {
                 if (settingsAutoCallDialog != null) {
                     drawSettingsAutoCallDialog();
@@ -11722,34 +11734,40 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                         "gdx.settings.game.value.medium"),
                 this::previousBotDifficulty, this::nextBotDifficulty, true);
         tooltip(580f, 610f, 1110f, 102f, "tooltip.cfg.bots");
-        toggle(580f, 500f, 675f,
+        float botOptionTopY = 507f;
+        float botOptionStride = 105f;
+        float customBotsY = botOptionTopY;
+        float customBotsOnlyY = botOptionTopY - botOptionStride;
+        float botRebuyY = botOptionTopY - botOptionStride * 2f;
+        float botBalanceY = botOptionTopY - botOptionStride * 3f;
+        toggle(580f, customBotsY, 675f,
                 gameText.translate("gdx.custom_bots.use"),
                 table.customBots(),
                 this::toggleCustomBots, true);
-        tooltip(580f, 500f, 675f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, customBotsY, 675f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots");
-        button(1280f, 500f, 410f, GdxSettingsLayout.ROW_HEIGHT,
+        button(1280f, customBotsY, 410f, GdxSettingsLayout.ROW_HEIGHT,
                 uppercase(gameText.translate("gdx.custom_bots.manage")),
                 false, this::openCustomBotManager, table.customBots());
-        tooltip(1280f, 500f, 410f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(1280f, customBotsY, 410f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots.manage");
-        toggle(580f, 390f, 1110f,
+        toggle(580f, customBotsOnlyY, 1110f,
                 gameText.translate("gdx.custom_bots.only"),
                 table.customBots() && table.customBotsOnly(),
                 this::toggleCustomBotsOnly, table.customBots());
-        tooltip(580f, 390f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, customBotsOnlyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.custom_bots.only");
-        toggle(580f, 280f, 1110f,
+        toggle(580f, botRebuyY, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_rebuy"),
                 table.botRebuy(),
                 () -> table.setBotRebuy(!table.botRebuy()), table.botRebuyEnabled());
-        tooltip(580f, 280f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, botRebuyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.bot_rebuy");
-        toggle(580f, 190f, 1110f,
+        toggle(580f, botBalanceY, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_balance"),
                 table.botBalanceToHumans(),
                 () -> table.setBotBalanceToHumans(!table.botBalanceToHumans()), true);
-        tooltip(580f, 190f, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(580f, botBalanceY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.bot_balance");
     }
 

@@ -362,7 +362,7 @@ final class GdxChipCatalogTest {
     }
 
     @Test
-    void rebuyButtonIsAvailableToEligibleLocalAndHostManagedBotStacks() {
+    void rebuyButtonIsAvailableToLocalAndAnyEstablishedHostManagedBot() {
         assertTrue(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
                 false, true, false, true));
         assertTrue(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
@@ -373,6 +373,20 @@ final class GdxChipCatalogTest {
                 true, true, true, true));
         assertFalse(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
                 false, true, true, false));
+    }
+
+    @Test
+    void hostBotRebuyTargetRejectsNonBotsWarmingAndExitedPlayers() {
+        assertTrue(CoronaPokerGdxTable.hostManagedBotRebuyTarget(
+                true, "T-800$", false, false));
+        assertFalse(CoronaPokerGdxTable.hostManagedBotRebuyTarget(
+                false, "T-800$", false, false));
+        assertFalse(CoronaPokerGdxTable.hostManagedBotRebuyTarget(
+                true, "Antonio", false, false));
+        assertFalse(CoronaPokerGdxTable.hostManagedBotRebuyTarget(
+                true, "T-800$", true, false));
+        assertFalse(CoronaPokerGdxTable.hostManagedBotRebuyTarget(
+                true, "T-800$", false, true));
     }
 
     @Test

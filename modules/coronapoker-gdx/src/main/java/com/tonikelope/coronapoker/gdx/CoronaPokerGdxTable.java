@@ -7808,9 +7808,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!chipCatalogShowsRebuyButton() || chipCatalogTarget == null) return;
         TableSnapshot.PlayerSnapshot target = livePlayer(
                 chipCatalogTarget.nickname());
-        boolean hostBot = tableHost && target != null
-                && target.spectator()
-                && BotNickname.isBot(target.nickname());
+        TableSnapshot snapshot = liveState == null ? null
+                : liveState.snapshot();
+        boolean localTarget = target != null && snapshot != null
+                && target.nickname().equals(snapshot.localNickname());
+        boolean hostBot = target != null && hostManagedBotRebuyTarget(
+                tableHost, target.nickname(), target.warming(),
+                target.exited());
+        if (!localTarget && !hostBot) return;
         chipCatalogReturnTarget = chipCatalogTarget;
         chipCatalogReturnDialog = null;
         chipCatalogReturnAwaitingDialog = true;
@@ -8503,18 +8508,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         TableSnapshot.PlayerSnapshot player = chipCatalogTarget == null
                 || chipCatalogTarget.pot() ? null
                         : livePlayer(chipCatalogTarget.nickname());
-        boolean hostBotSpectator = tableHost && player != null
-                && player.spectator() && !player.warming()
-                && !player.exited() && BotNickname.isBot(player.nickname());
+        boolean hostManagedBot = player != null
+                && hostManagedBotRebuyTarget(tableHost, player.nickname(),
+                        player.warming(), player.exited());
+        boolean controlEnabled = localTarget ? canToggleImmediateRebuy()
+                : immediateRebuyControlEnabled(tableRebuyAllowed);
         return detailedStackRebuyButtonVisible(chipCatalogTarget != null
-                && chipCatalogTarget.pot(), localTarget, hostBotSpectator,
-                canToggleImmediateRebuy());
+                && chipCatalogTarget.pot(), localTarget, hostManagedBot,
+                controlEnabled);
     }
 
     static boolean detailedStackRebuyButtonVisible(boolean pot,
-            boolean localTarget, boolean hostBotSpectator,
+            boolean localTarget, boolean hostManagedBot,
             boolean controlEnabled) {
-        return !pot && (localTarget || hostBotSpectator) && controlEnabled;
+        return !pot && (localTarget || hostManagedBot) && controlEnabled;
+    }
+
+    static boolean hostManagedBotRebuyTarget(boolean host, String nickname,
+            boolean warming, boolean exited) {
+        return host && nickname != null && BotNickname.isBot(nickname)
+                && !warming && !exited;
     }
 
     static boolean chipCatalogCounterTitleVisible(boolean pot) {

@@ -22,7 +22,11 @@ final class GdxCustomBotManagerContractTest {
                 StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         assertTrue(source.contains(
-                "} else if (customBotManagerOpen) {\n"
+                "} else if (customBotManagerOpen) {"));
+        assertTrue(source.contains(
+                "if (customBotDeleteConfirmation) {\n"
+                + "                    pointer.set(-10_000f, -10_000f);\n"
+                + "                }\n"
                 + "                drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerDialog();"));
         assertTrue(source.contains("drawCustomBotManagerImages();"));

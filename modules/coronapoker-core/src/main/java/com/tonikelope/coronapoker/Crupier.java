@@ -8362,23 +8362,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         requestImmediateRebuy(localPlayer);
     }
 
-    /** Host-only manual return path for a bot that stayed as spectator. */
+    /** Host-only manual or scheduled top-up path for an established bot. */
     public void requestBotImmediateRebuy(String nickname) {
         if (nickname == null) return;
         GamePlayerController bot = getNick2player().get(nickname);
         GamePeerController participant = peers().get(nickname);
         if (bot == null || participant == null
                 || !botManualRebuyAllowed(gameSession().isHost(),
-                        participant.isCpu(), bot.isSpectator(),
-                        bot.isCalentando(), bot.isExit())) {
+                        participant.isCpu(), bot.isCalentando(),
+                        bot.isExit())) {
             return;
         }
         requestImmediateRebuy(bot);
     }
 
     static boolean botManualRebuyAllowed(boolean host, boolean cpu,
-            boolean spectator, boolean warming, boolean exited) {
-        return host && cpu && spectator && !warming && !exited;
+            boolean warming, boolean exited) {
+        return host && cpu && !warming && !exited;
     }
 
     private void requestImmediateRebuy(GamePlayerController targetPlayer) {

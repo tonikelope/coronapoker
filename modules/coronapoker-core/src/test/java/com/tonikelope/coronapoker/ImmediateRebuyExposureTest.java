@@ -43,18 +43,11 @@ class ImmediateRebuyExposureTest {
     }
 
     @Test
-    void onlyTheHostCanManuallyReturnAnEligibleBotSpectator() {
-        assertTrue(Crupier.botManualRebuyAllowed(true, true, true, false,
-                false));
-        assertFalse(Crupier.botManualRebuyAllowed(false, true, true, false,
-                false));
-        assertFalse(Crupier.botManualRebuyAllowed(true, false, true, false,
-                false));
-        assertFalse(Crupier.botManualRebuyAllowed(true, true, false, false,
-                false));
-        assertFalse(Crupier.botManualRebuyAllowed(true, true, true, true,
-                false));
-        assertFalse(Crupier.botManualRebuyAllowed(true, true, true, false,
-                true));
+    void hostCanScheduleAnyEstablishedBotButNotWarmingOrExitedOnes() {
+        assertTrue(Crupier.botManualRebuyAllowed(true, true, false, false));
+        assertFalse(Crupier.botManualRebuyAllowed(false, true, false, false));
+        assertFalse(Crupier.botManualRebuyAllowed(true, false, false, false));
+        assertFalse(Crupier.botManualRebuyAllowed(true, true, true, false));
+        assertFalse(Crupier.botManualRebuyAllowed(true, true, false, true));
     }
 }

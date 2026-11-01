@@ -19,7 +19,7 @@ class CriticalVoteFailClosedWiringTest {
         assertTrue(crupier.contains("CriticalVoteEnvelope.parseStraddleResponse(partes)"));
         assertTrue(crupier.contains("CriticalVoteEnvelope.parseStraddleDecision(partes)"));
         assertTrue(crupier.contains("rejectCriticalVoteCommand(cmd"));
-        assertTrue(crupier.contains("Invalid critical STRADDLE_DECISION; closing host channel"));
+        assertTrue(crupier.contains("Invalid critical STRADDLE_DECISION. Closing host channel"));
         assertFalse(crupier.contains("// Malformed vote: ignored."));
         assertFalse(crupier.contains("// Malformed RESP: ignored."));
     }

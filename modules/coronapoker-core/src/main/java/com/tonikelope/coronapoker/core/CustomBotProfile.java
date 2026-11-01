@@ -6,7 +6,8 @@ import java.util.Objects;
 
 /** Host-local presentation and AI settings for one custom bot. */
 public record CustomBotProfile(String nickname, Path avatar,
-        NewGameTableDraft.BotDifficulty difficulty, Personality personality) {
+        NewGameTableDraft.BotDifficulty difficulty, Personality personality,
+        boolean automaticRebuy) {
 
     public enum Personality { RANDOM, NIT, STATION, TAG, LAG }
 
@@ -26,20 +27,33 @@ public record CustomBotProfile(String nickname, Path avatar,
 
     public CustomBotProfile(String nickname, Path avatar,
             NewGameTableDraft.BotDifficulty difficulty) {
-        this(nickname, avatar, difficulty, Personality.RANDOM);
+        this(nickname, avatar, difficulty, Personality.RANDOM, true);
+    }
+
+    public CustomBotProfile(String nickname, Path avatar,
+            NewGameTableDraft.BotDifficulty difficulty,
+            Personality personality) {
+        this(nickname, avatar, difficulty, personality, true);
     }
 
     public static CustomBotProfile create(String displayName, Path avatar,
             NewGameTableDraft.BotDifficulty difficulty) {
         return new CustomBotProfile(BotNickname.custom(displayName), avatar,
-                difficulty, Personality.RANDOM);
+                difficulty, Personality.RANDOM, true);
     }
 
     public static CustomBotProfile create(String displayName, Path avatar,
             NewGameTableDraft.BotDifficulty difficulty,
             Personality personality) {
         return new CustomBotProfile(BotNickname.custom(displayName), avatar,
-                difficulty, personality);
+                difficulty, personality, true);
+    }
+
+    public static CustomBotProfile create(String displayName, Path avatar,
+            NewGameTableDraft.BotDifficulty difficulty,
+            Personality personality, boolean automaticRebuy) {
+        return new CustomBotProfile(BotNickname.custom(displayName), avatar,
+                difficulty, personality, automaticRebuy);
     }
 
     public String displayName() {

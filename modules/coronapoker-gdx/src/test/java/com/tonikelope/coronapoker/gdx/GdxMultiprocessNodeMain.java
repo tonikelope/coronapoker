@@ -2863,12 +2863,14 @@ public final class GdxMultiprocessNodeMain {
                     continue;
                 }
 
+                int completedAfterRecovery = config.hands - 4;
                 if (renderer.sawLocalSpectator()
                         && !renderer.returnedAfterSpectating()) {
-                    renderer.assertCompleteAsPassiveObserver(4,
+                    renderer.assertCompleteAsPassiveObserver(
+                            completedAfterRecovery,
                             expectedPlayers, expectedPlayers);
                 } else {
-                    renderer.assertComplete(4);
+                    renderer.assertComplete(completedAfterRecovery);
                 }
                 if (renderer.summary().handCount() != config.hands) {
                     throw new AssertionError("double recovery durable hand "

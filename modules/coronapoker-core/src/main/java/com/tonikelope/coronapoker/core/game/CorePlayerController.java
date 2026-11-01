@@ -34,6 +34,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile Runnable acceptedLocalFoldSignal = () -> { };
     private volatile Runnable acceptedLocalAllInSignal = () -> { };
     private volatile Supplier<Integer> committedRebuy = () -> null;
+    private volatile boolean automaticRebuyEnabled = true;
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
         this(nickname, local, automated, null);
@@ -112,6 +113,14 @@ public final class CorePlayerController implements GamePlayerController {
     public synchronized void configureBot(
             NewGameTableDraft.BotDifficulty difficulty,
             CustomBotProfile.Personality personality) {
+        configureBot(difficulty, personality, true);
+    }
+
+    /** Applies the complete custom-bot preset and its automatic-rebuy policy. */
+    public synchronized void configureBot(
+            NewGameTableDraft.BotDifficulty difficulty,
+            CustomBotProfile.Personality personality,
+            boolean automaticRebuy) {
         if (bot == null) {
             if (difficulty != null || (personality != null
                     && personality != CustomBotProfile.Personality.RANDOM)) {
@@ -126,6 +135,12 @@ public final class CorePlayerController implements GamePlayerController {
                 || personality == CustomBotProfile.Personality.RANDOM
                         ? null : Bot.Profile.valueOf(personality.name());
         bot.configure(mappedDifficulty, mappedProfile);
+        automaticRebuyEnabled = automaticRebuy;
+    }
+
+    @Override
+    public boolean automaticRebuyEnabled() {
+        return automaticRebuyEnabled;
     }
 
     /** Binds the dealer wait that must be released after a renderer decision. */

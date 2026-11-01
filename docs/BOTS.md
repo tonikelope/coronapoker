@@ -404,13 +404,14 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 
 ## 13. Custom bot profiles
 
-The host can enable **Use custom bots** on the Bots page of the New Game
-screen and open **Manage bots**. Each ordered profile contains:
+The host can enable **Use custom bots** on the Bots page of the game settings
+and open **Manage custom bots**. Each ordered profile contains:
 
 - a display nickname
 - the official bot avatar or a validated custom image
 - an individual Easy, Normal or Hard difficulty
-- a real engine personality: Random, NIT, STATION, TAG or LAG.
+- a real engine personality: Random, NIT, STATION, TAG or LAG
+- an individual automatic-rebuy preference.
 
 Random preserves the normal weighted personality roll. A fixed personality
 pins the bot's base profile while retaining the engine's legitimate in-hand
@@ -423,7 +424,23 @@ when a new lobby is created. Each configured profile can still enter at most
 once, the chosen order stays stable for that lobby, and recovery keeps the
 identities already stored by the game. If the host adds more bots than there
 are custom profiles, the remaining seats use the standard sequential
-`CoronaBot` identities. A removed custom bot becomes eligible again.
+`CoronaBot` identities. **Allow only custom bots** prevents that fallback and
+stops adding bots when the catalogue is exhausted. A removed custom bot becomes
+eligible again.
+
+**Automatic rebuy** on the Bots settings page is the master control for every
+bot. Standard bots rebuy while that control is enabled. A custom bot also needs
+its own saved automatic-rebuy preference enabled. If either requirement is not
+met, the busted bot remains at the table as a spectator instead of being
+removed. The host can still open that bot's stack dialog and request a manual
+rebuy. This preserves a seat for the same identity without silently changing
+the saved automatic policy.
+
+The main-menu **Games** settings page stores the defaults used to initialise a
+future New Game dialog. The waiting room and live-table **Current Game** page
+edits only that table. Creating, hosting or changing a live table never writes
+those values back into the main-menu defaults, and saved New Game presets remain
+independent.
 
 The manager accepts the visible name without a dollar sign and appends the
 reserved `$` bot marker automatically. The marker remains part of the protocol

@@ -47,6 +47,33 @@ public class RecoveryWireWiringTest {
     }
 
     @Test
+    public void recoveredOpeningBalanceRestoresAuthenticatedOddChipCarryBeforePlayerMutation()
+            throws IOException {
+        String source = Files.readString(locateRoot().resolve(
+                "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int recoveryMethod = source.indexOf("void recuperarDatosClavePartida()");
+        int recoveredBlock = source.indexOf(
+                "if (recoveredBalances != null && recoveredBalances.isOk())",
+                recoveryMethod);
+        int deriveRemainder = source.indexOf(
+                "RecoveryBalanceReconciler.unallocatedCents(", recoveredBlock);
+        int restoreRemainder = source.indexOf(
+                "this.bote_sobrante = MoneyMath.clean(", deriveRemainder);
+        int restorePot = source.indexOf(
+                "this.bote_total = this.bote_sobrante", restoreRemainder);
+        int restoreOpening = source.indexOf(
+                "this.opening_remainder_cents = recoveredRemainderCents",
+                restorePot);
+        int mutateStack = source.indexOf("jug.setStack(stack)", restoreRemainder);
+
+        assertTrue(recoveredBlock >= 0 && recoveredBlock < deriveRemainder);
+        assertTrue(deriveRemainder < restoreRemainder);
+        assertTrue(restoreRemainder < restorePot && restorePot < restoreOpening);
+        assertTrue(restoreOpening < mutateStack,
+                "recovery must restore the authenticated carry before replay state mutates");
+    }
+
+    @Test
     public void missingOrInvalidActionDataTerminatesRecoveryInsteadOfBecomingEmpty() throws IOException {
         String source = Files.readString(locateRoot().resolve(
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));

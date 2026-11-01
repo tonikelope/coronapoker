@@ -168,9 +168,11 @@ foreach ($entry in $catalogue) {
                 Scenario = $entry.Scenario
                 Class = $owners[0]
                 Method = $method
+                CatalogueOrdinal = $resolved.Count + 1
             })
     }
 }
+$catalogueMethodCount = $resolved.Count
 
 $quickScenarios = @(
     'normal', 'allin-single-board', 'allin-rebuy', 'allin-rit',
@@ -259,7 +261,11 @@ for ($repeat = 1; $repeat -le $ScenarioRepeats; $repeat++) {
                 Scenario = $test.Scenario
                 Class = $test.Class
                 Method = $test.Method
-                SeedOrdinal = $schedule.Count + 1
+                # Keep every method's derived seed stable when a failed key is
+                # replayed in isolation. The same base seed must reproduce the
+                # same cards and seats as the complete catalogue.
+                SeedOrdinal = (($repeat - 1) * $catalogueMethodCount) +
+                    $test.CatalogueOrdinal
             })
     }
 }
@@ -289,9 +295,8 @@ Write-Host "Reports: $reportDir"
 $failed = $false
 for ($index = 0; $index -lt $schedule.Count; $index++) {
     $test = $schedule[$index]
-    # Preserve deterministic seeds when resuming with -StartAtScenario. The
-    # filtered schedule starts at index zero again, but each case must replay
-    # the same seed it had in the original complete schedule.
+    # Catalogue ordinals preserve deterministic seeds both when resuming and
+    # when replaying a failed scenario key in isolation.
     $scenarioSeed = $Seed + ($test.SeedOrdinal * 1009)
     $selector = $test.Class + '#' + $test.Method
     $safeName = ($test.Scenario + '-' + $test.Method) -replace '[^A-Za-z0-9_.-]', '_'

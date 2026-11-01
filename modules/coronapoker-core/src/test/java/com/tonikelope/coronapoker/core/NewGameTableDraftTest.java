@@ -137,6 +137,28 @@ final class NewGameTableDraftTest {
     }
 
     @Test
+    void createGameCopyCannotMutatePersistedMainMenuDefaults() {
+        NewGameTableDraft defaults = new NewGameTableDraft();
+        defaults.setCustomBots(true);
+        defaults.setBotRebuy(true);
+        defaults.setBuyin(15);
+        NewGameTableDraft.Settings persistedDefaults = defaults.snapshot();
+
+        NewGameTableDraft createGame = NewGameTableDraft.from(
+                persistedDefaults);
+        createGame.setCustomBots(false);
+        createGame.setCustomBotsOnly(true);
+        createGame.setBotRebuy(false);
+        createGame.setBuyin(18);
+
+        assertEquals(persistedDefaults, defaults.snapshot());
+        assertTrue(defaults.customBots());
+        assertFalse(defaults.customBotsOnly());
+        assertTrue(defaults.botRebuy());
+        assertEquals(15, defaults.buyin());
+    }
+
+    @Test
     void serializesTheClassicLobbyConfigWithoutFrontendTypes() {
         NewGameTableDraft.Settings settings = new NewGameTableDraft().snapshot();
 
@@ -145,7 +167,7 @@ final class NewGameTableDraftTest {
                 + "#REBUY=1#RLIM=0#BOTRB=1#BOTBAL=0#RCAP=0#DBL=0#DTYPE=1"
                 + "#BCAP=0.0#MANOS=-1#ANTE=0#STR=0#IWTSTH=0#RIT=0#RABBIT=0"
                 + "#THINKT=40#THINKON=1#SHOWDOWN=10#DIFF=MEDIUM#HOTJOIN=1"
-                + "#CUSTOMBOTS=0",
+                + "#CUSTOMBOTS=0#CUSTOMBOTSONLY=0",
                 settings.serializeForWire());
         assertEquals(settings, NewGameTableDraft.Settings.parseWire(settings.serializeForWire()));
     }
@@ -165,6 +187,16 @@ final class NewGameTableDraftTest {
                 "#CUSTOMBOTS=0", "");
 
         assertFalse(NewGameTableDraft.Settings.parseWire(oldWire).customBots());
+    }
+
+    @Test
+    void oldWireDefaultsCustomBotsOnlyToDisabled() {
+        NewGameTableDraft.Settings current = new NewGameTableDraft().snapshot();
+        String oldWire = current.serializeForWire().replace(
+                "#CUSTOMBOTSONLY=0", "");
+
+        assertFalse(NewGameTableDraft.Settings.parseWire(oldWire)
+                .customBotsOnly());
     }
 
     @Test
@@ -203,6 +235,7 @@ final class NewGameTableDraftTest {
         draft.setBotDifficulty(NewGameTableDraft.BotDifficulty.HARD);
         draft.setAllowHotJoin(false);
         draft.setCustomBots(true);
+        draft.setCustomBotsOnly(true);
 
         NewGameTableDraft.Settings expected = draft.snapshot();
 

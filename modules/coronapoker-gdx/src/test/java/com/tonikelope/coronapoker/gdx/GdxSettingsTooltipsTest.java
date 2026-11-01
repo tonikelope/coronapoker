@@ -129,7 +129,8 @@ final class GdxSettingsTooltipsTest {
                 "fixed_buyin", "initial_buyin", "minimum_buyin",
                 "maximum_buyin", "rebuy_cap", "rebuy",
                 "player_rebuy_limit", "maximum_rebuys", "bot_difficulty",
-                "bot_rebuy", "bot_balance", "hand_limit", "hand_count",
+                "bot_rebuy", "custom_bots", "custom_bots_only",
+                "bot_balance", "custom_bots_manage", "hand_limit", "hand_count",
                 "think_time", "think_seconds", "showdown_time",
                 "allow_hot_join", "iwtsth", "run_it_twice",
                 "rabbit_hunting");

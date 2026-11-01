@@ -16,7 +16,7 @@ class ExitCanonicalDeliveryTest {
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("broadcastGAMECommandFromServer(cmd, nick, true)"));
-        assertTrue(source.contains("EXIT delivery failed; aborting hand"));
+        assertTrue(source.contains("EXIT delivery failed. Aborting hand"));
         assertFalse(source.contains("public synchronized void remotePlayerQuit"));
         assertFalse(source.contains("private synchronized void exitSpectatorBots"));
         assertFalse(source.contains("broadcastGAMECommandFromServer(cmd, nick, false)"));

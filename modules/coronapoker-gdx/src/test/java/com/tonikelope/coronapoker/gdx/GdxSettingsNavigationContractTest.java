@@ -82,6 +82,42 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void liveBotSettingsExposeCreationOnlyRowsAsLocked() throws IOException {
+        String source = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+
+        assertTrue(source.contains("tableCustomBots"));
+        assertTrue(source.contains("tableCustomBotsOnly"));
+        assertTrue(source.contains(
+                "gameText.translate(\"gdx.custom_bots.use\")"));
+        assertTrue(source.contains(
+                "gameText.translate(\"gdx.custom_bots.only\")"));
+        assertTrue(source.contains(
+                "String[] keys = {\"bot_difficulty\", \"bot_rebuy\", \"custom_bots\","));
+        assertTrue(source.contains(
+                "firstY - 5f * GdxSettingsLayout.ROW_STRIDE"));
+    }
+
+    @Test
+    void settingsRowsNormalizeLabelsAtTheSharedRenderBoundary()
+            throws IOException {
+        String table = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "CoronaPokerGdxTable.java"));
+        String frontend = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "GdxFrontendScreen.java"));
+
+        assertTrue(table.contains(
+                "drawFittedLeft(settingsSmallFont, uppercase(label)"));
+        assertTrue(frontend.contains(
+                "textFit(smallFont, uppercase(label), row.label().x"));
+        assertTrue(frontend.contains(
+                "toggle(x, y, w, uppercase(label),"));
+    }
+
+    @Test
     void mergedGameTabsRouteToTheirCombinedContentPages() {
         assertEquals(3, CoronaPokerGdxTable.settingsGameContentPage(0));
         assertEquals(4, CoronaPokerGdxTable.settingsGameContentPage(1));

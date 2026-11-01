@@ -479,6 +479,24 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void committedRebuyReturnsABustedCustomBotFromSpectatorNextHand() {
+        CorePlayerController player = CorePlayerController.bot("T-800$");
+        player.setStack(0d);
+        player.setBuyin(10);
+        player.setSpectator("ESPECTADOR");
+        player.bindCommittedRebuy(() -> 10);
+
+        player.unsetSpectator();
+        player.nuevaMano();
+
+        assertFalse(player.isSpectator());
+        assertFalse(player.isExit());
+        assertTrue(player.isActivo());
+        assertEquals(10d, player.getStack());
+        assertEquals(20, player.getBuyin());
+    }
+
+    @Test
     void nativeShowdownOutcomeOffersAnActuallyMuckedHumanLoserForIwtsth() {
         CorePlayerController remote = CorePlayerController.remote("rival");
         remote.getHoleCard1().setVisibleCard(true);

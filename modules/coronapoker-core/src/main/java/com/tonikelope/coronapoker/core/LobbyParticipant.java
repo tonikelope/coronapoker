@@ -9,7 +9,8 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
         boolean secure, int latency, int previousLatency,
         byte[] identityPublicKey, byte[] sessionFingerprint, boolean warming,
         NewGameTableDraft.BotDifficulty botDifficulty,
-        CustomBotProfile.Personality botPersonality) {
+        CustomBotProfile.Personality botPersonality,
+        Boolean botAutomaticRebuy) {
 
     public static final int NO_LATENCY = -2;
 
@@ -25,7 +26,8 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
         if (!bot && BotNickname.isBot(nickname)) {
             throw new IllegalArgumentException("Human nicknames cannot use the bot marker");
         }
-        if (!bot && (botDifficulty != null || botPersonality != null)) {
+        if (!bot && (botDifficulty != null || botPersonality != null
+                || botAutomaticRebuy != null)) {
             throw new IllegalArgumentException(
                     "Only bots can carry an individual difficulty");
         }
@@ -48,7 +50,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean secure, int latency, int previousLatency) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, null, null, false, null,
-                null);
+                null, null);
     }
 
     /** Backwards-compatible constructor for identity-aware participants. */
@@ -58,7 +60,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             byte[] identityPublicKey) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey, null,
-                false, null, null);
+                false, null, null, null);
     }
 
     /** Backwards-compatible constructor for session-fingerprint callers. */
@@ -68,7 +70,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             byte[] identityPublicKey, byte[] sessionFingerprint) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey,
-                sessionFingerprint, false, null, null);
+                sessionFingerprint, false, null, null, null);
     }
 
     /** Backwards-compatible constructor for pre-profile lobby snapshots. */
@@ -79,7 +81,7 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean warming) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey,
-                sessionFingerprint, warming, null, null);
+                sessionFingerprint, warming, null, null, null);
     }
 
     public LobbyParticipant(String nickname, Path avatar, boolean local,
@@ -89,7 +91,19 @@ public record LobbyParticipant(String nickname, Path avatar, boolean local,
             boolean warming, NewGameTableDraft.BotDifficulty botDifficulty) {
         this(nickname, avatar, local, host, bot, connected, asyncWaiting,
                 secure, latency, previousLatency, identityPublicKey,
-                sessionFingerprint, warming, botDifficulty, null);
+                sessionFingerprint, warming, botDifficulty, null, null);
+    }
+
+    public LobbyParticipant(String nickname, Path avatar, boolean local,
+            boolean host, boolean bot, boolean connected, boolean asyncWaiting,
+            boolean secure, int latency, int previousLatency,
+            byte[] identityPublicKey, byte[] sessionFingerprint,
+            boolean warming, NewGameTableDraft.BotDifficulty botDifficulty,
+            CustomBotProfile.Personality botPersonality) {
+        this(nickname, avatar, local, host, bot, connected, asyncWaiting,
+                secure, latency, previousLatency, identityPublicKey,
+                sessionFingerprint, warming, botDifficulty, botPersonality,
+                null);
     }
 
     @Override

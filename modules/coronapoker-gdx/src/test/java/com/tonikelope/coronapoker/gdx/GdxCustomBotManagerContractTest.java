@@ -42,13 +42,14 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains("customBotManagerMusic.dispose();"));
         assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
                 + "                drawCustomBotDeleteConfirmationTopLayer();"));
+        assertTrue(source.contains(".displayName()), true);"));
         assertTrue(source.contains("batch.setShader(avatarShader);"));
         assertTrue(source.contains(
                 "table.customBots() ? List.copyOf(customBotProfiles)"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeTo(initialProperties"));
         assertTrue(source.contains(
-                "customBotPersonalityDraft = CustomBotProfile.Personality.RANDOM"));
+                "customBotAutomaticRebuyDraft = true"));
         assertTrue(source.contains(
                 "float y = customBotManagerOpen ? 502f : 145f;"));
         assertTrue(source.contains(
@@ -67,9 +68,7 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "\"tooltip.cfg.custom_bots.save\""));
         assertTrue(source.contains(
-                "compactRepeatButton(listX + 479f"));
-        assertTrue(source.contains(
-                "compactRepeatButton(listX + 654f"));
+                "customBotAddButton(newButtonX, 820f, 220f, 54f"));
         assertTrue(source.contains(
                 "() -> newCustomBot(emptyRow));\n"
                 + "                    tooltip(rowX, hitBottom"));
@@ -91,12 +90,8 @@ final class GdxCustomBotManagerContractTest {
                 "textFit(uiFont, gameText.translate(\"gdx.custom_bots.catalog\")"));
         assertTrue(source.contains(
                 "textFit(uiFont, customBotSelected < 0"));
-        assertTrue(source.contains(
-                "rowY + 56f, Color.WHITE, false, 340f);"));
-        assertTrue(source.contains(
-                "listX + 600f, rowY + 72f, GOLD, true, 220f);"));
-        assertTrue(source.contains(
-                "listX + 600f, rowY + 44f, CYAN, true, 245f);"));
+        assertTrue(source.contains("float rowX = listX + 32f;"));
+        assertTrue(source.contains("float rowW = listW - 100f;"));
         assertFalse(source.contains(
                 "textFit(smallFont, profile.nickname()"));
         assertFalse(source.contains(
@@ -120,15 +115,19 @@ final class GdxCustomBotManagerContractTest {
         assertFalse(source.contains(
                 "gameText.translate(\"gdx.custom_bots.marker_help\")"));
         assertTrue(source.contains(
-                "field(editX + 42f, 590f, editW - 84f"));
+                "field(editX + 42f, 610f, editW - 84f"));
         assertTrue(source.contains(
-                "bidirectionalChoice(editX + 42f, 420f, editW - 84f"));
+                "bidirectionalChoice(editX + 42f, 465f, editW - 84f"));
         assertTrue(source.contains(
-                "bidirectionalChoice(editX + 42f, 285f, editW - 84f"));
+                "bidirectionalChoice(editX + 42f, 340f, editW - 84f"));
         assertTrue(source.contains(
-                "compactButton(newButtonX, 944f, 140f, 54f"));
+                "gameText.translate(\"gdx.custom_bots.automatic_rebuy\")"));
         assertTrue(source.contains(
-                "this::saveCustomBot, customBotSaveEnabled());"));
+                "globalBotRebuy && customBotAutomaticRebuyDraft"));
+        assertTrue(source.contains("ButtonTone.POSITIVE, this::saveCustomBot"));
+        assertTrue(source.contains("ButtonTone.DANGER, this::openCustomBotDeleteConfirmation"));
+        assertTrue(source.contains("compactVerticalArrowButton(moveUpX"));
+        assertTrue(source.contains("GdxUiIconRenderer.Icon.ADD"));
         assertTrue(source.contains("ensureCustomBotVisible(target);"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.writeEnabled(initialProperties"));
@@ -138,6 +137,14 @@ final class GdxCustomBotManagerContractTest {
                 "CustomBotProfileCatalog.writeRandomSelection"));
         assertTrue(source.contains(
                 "CustomBotProfileCatalog.profilesForSession"));
+        String toggleCustomBots = source.substring(
+                source.indexOf("private void toggleCustomBots()"),
+                source.indexOf("private void toggleCustomBotsOnly()"));
+        String toggleCustomBotsOnly = source.substring(
+                source.indexOf("private void toggleCustomBotsOnly()"),
+                source.indexOf("private void selectBotDifficulty"));
+        assertFalse(toggleCustomBots.contains("initialProperties"));
+        assertFalse(toggleCustomBotsOnly.contains("initialProperties"));
         assertFalse(source.contains("customBotPage"));
         assertFalse(source.contains("customBotScrollFirstRow"));
         assertFalse(source.contains(
@@ -181,20 +188,24 @@ final class GdxCustomBotManagerContractTest {
         assertFalse(GdxFrontendScreen.customBotDraftHasChanges(selected,
                 "  T-800  ", avatar,
                 NewGameTableDraft.BotDifficulty.MEDIUM,
-                CustomBotProfile.Personality.NIT));
+                CustomBotProfile.Personality.NIT, true));
         assertTrue(GdxFrontendScreen.customBotDraftHasChanges(selected,
                 "T-1000", avatar,
                 NewGameTableDraft.BotDifficulty.MEDIUM,
-                CustomBotProfile.Personality.NIT));
+                CustomBotProfile.Personality.NIT, true));
         assertTrue(GdxFrontendScreen.customBotDraftHasChanges(selected,
                 "T-800", null,
                 NewGameTableDraft.BotDifficulty.MEDIUM,
-                CustomBotProfile.Personality.NIT));
+                CustomBotProfile.Personality.NIT, true));
+        assertTrue(GdxFrontendScreen.customBotDraftHasChanges(selected,
+                "T-800", avatar,
+                NewGameTableDraft.BotDifficulty.MEDIUM,
+                CustomBotProfile.Personality.NIT, false));
         assertFalse(GdxFrontendScreen.customBotDraftHasChanges(null, "",
                 null, NewGameTableDraft.BotDifficulty.MEDIUM,
-                CustomBotProfile.Personality.RANDOM));
+                CustomBotProfile.Personality.RANDOM, true));
         assertTrue(GdxFrontendScreen.customBotDraftHasChanges(null, "New bot",
                 null, NewGameTableDraft.BotDifficulty.MEDIUM,
-                CustomBotProfile.Personality.RANDOM));
+                CustomBotProfile.Personality.RANDOM, true));
     }
 }

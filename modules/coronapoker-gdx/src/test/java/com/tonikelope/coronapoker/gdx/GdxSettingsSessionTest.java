@@ -14,7 +14,8 @@ final class GdxSettingsSessionTest {
         GdxSettingsSession session = new GdxSettingsSession();
         session.begin(GdxSettingsSession.Context.MENU, new Properties());
         assertEquals(GdxSettingsContract.MENU_SECTIONS, session.sections());
-        assertTrue(session.gamePages().isEmpty());
+        assertEquals(GdxSettingsContract.WAITING_ROOM_GAME_PAGES,
+                session.gamePages());
         session.selectTab(99);
         assertEquals(GdxSettingsContract.Section.DEBUG, session.section());
 

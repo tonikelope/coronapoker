@@ -30,7 +30,7 @@ public class CriticalHandverifyDrainBoundTest {
         assertTrue(count(crupier, "drainedHandverify < scanLimit") >= 2);
         assertTrue(crupier.contains("partes.length == 5"));
         assertTrue(crupier.contains("HandverifyReceiptEnvelope.parse(partes)"));
-        assertTrue(crupier.contains("Malformed critical HANDVERIFY receipt; closing source"));
+        assertTrue(crupier.contains("Malformed critical HANDVERIFY receipt. Closing source"));
         assertTrue(count(crupier, "this.received_commands.reject(comando)") >= 3);
         assertTrue(crupier.contains("handverify_trigger_received.set(false)"));
         assertTrue(crupier.contains("handverify_receipts_received.clear()"));

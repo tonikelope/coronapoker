@@ -47,8 +47,7 @@ final class GdxSettingsSession {
 
     List<String> gamePages() {
         return switch (context) {
-            case MENU -> List.of();
-            case WAITING_ROOM ->
+            case MENU, WAITING_ROOM ->
                 GdxSettingsContract.WAITING_ROOM_GAME_PAGES;
             case LIVE_TABLE -> GdxSettingsContract.LIVE_TABLE_GAME_PAGES;
         };

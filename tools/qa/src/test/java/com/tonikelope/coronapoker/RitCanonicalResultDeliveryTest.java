@@ -16,9 +16,9 @@ class RitCanonicalResultDeliveryTest {
                 "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java"));
 
         assertTrue(source.contains("private boolean broadcastRitClose(int result)"));
-        assertTrue(source.contains("RIT_VOTE_CLOSE delivery failed; aborting hand"));
+        assertTrue(source.contains("RIT_VOTE_CLOSE delivery failed. Aborting hand"));
         assertTrue(source.contains("if (!broadcastRitClose(agreed ? 1 : 0))"));
-        assertTrue(source.contains("MISDEAL broadcast failed; continuing local refund and abort"));
+        assertTrue(source.contains("MISDEAL broadcast failed. Continuing local refund and abort"));
         assertFalse(source.contains("LOGGER.log(Level.WARNING, \"Failed to broadcast RIT_VOTE_CLOSE\""));
     }
 

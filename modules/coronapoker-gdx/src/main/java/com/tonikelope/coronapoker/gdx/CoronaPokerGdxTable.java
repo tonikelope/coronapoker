@@ -1048,6 +1048,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final IdentityTrustStore identityTrust;
     private final boolean tableRebuyAllowed;
     private final boolean tableHost;
+    private final boolean tableCustomBots;
+    private final boolean tableCustomBotsOnly;
     private final boolean startupIntroOnly;
     private final GdxNetworkBlockCache networkBlockCache;
     private double visualChipSmallBlind;
@@ -2500,16 +2502,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (presentationSettings != null) {
             liveDeck = presentationSettings.deck();
         }
-        tableRebuyAllowed = lobby != null
-                && lobby.snapshot().tableSettings() != null
-                && lobby.snapshot().tableSettings().rebuy();
-        tableHost = lobby != null && lobby.snapshot().host();
-        tableBotDifficulty = lobby == null
-                || lobby.snapshot().tableSettings() == null
-                        ? NewGameTableDraft.BotDifficulty.MEDIUM
-                        : lobby.snapshot().tableSettings().botDifficulty();
         NewGameTableDraft.Settings initialTableSettings = lobby == null
                 ? null : lobby.snapshot().tableSettings();
+        tableRebuyAllowed = initialTableSettings != null
+                && initialTableSettings.rebuy();
+        tableHost = lobby != null && lobby.snapshot().host();
+        tableCustomBots = initialTableSettings != null
+                && initialTableSettings.customBots();
+        tableCustomBotsOnly = initialTableSettings != null
+                && initialTableSettings.customBotsOnly();
+        tableBotDifficulty = initialTableSettings == null
+                        ? NewGameTableDraft.BotDifficulty.MEDIUM
+                        : initialTableSettings.botDifficulty();
         if (initialTableSettings != null
                 && !initialTableSettings.blindLevels().isEmpty()) {
             NewGameTableDraft.BlindLevel initialBlindLevel
@@ -3562,7 +3566,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 18 -> settingsTinyFont = font(creationFontGenerator,
                     GdxSettingsStyle.TINY_FONT_SIZE, 0f);
             case 19 -> potFont = font(creationFontGenerator, 38, 0f);
-            case 20 -> dialogAmountFont = font(creationFontGenerator, 50, 0f);
+            case 20 -> dialogAmountFont = font(creationFontGenerator, 100, 0f);
             case 21 -> localOutcomeMediumFont = cacheLocalOutcomeFont(53,
                     localOutcomeFont(creationFontGenerator, 53));
             case 22 -> localOutcomeCompactFont = cacheLocalOutcomeFont(48,
@@ -4198,7 +4202,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             actionFont = replaceFont(actionFont,
                     font(generator, 22, 0f, profile));
             dialogAmountFont = replaceFont(dialogAmountFont,
-                    font(generator, 50, 0f, profile));
+                    font(generator, 100, 0f, profile));
             seatActionFont = replaceFont(seatActionFont,
                     font(generator, 32, 0f, profile));
             rebuildLocalOutcomeNativeFonts(generator, profile);
@@ -7679,20 +7683,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = dialogY(dialog, panelH);
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
+        RebuyAmountLayout rebuyAmountLayout = dialog.isRebuy()
+                ? rebuyAmountLayout(panelX, panelY, panelW) : null;
         float negativeX = panelX + 42f;
         float negativeW = 230f;
         float buttonY = panelY + 34f;
         float buttonH = 64f;
         Rectangle amountValue = dialog.isAutoCall()
                 ? autoCallLayout.amount().value()
+                : dialog.isRebuy() ? rebuyAmountLayout.value()
                 : new Rectangle(panelX + panelW / 2f - 110f,
                         panelY + 155f, 220f, 64f);
         Rectangle amountMinus = dialog.isAutoCall()
                 ? autoCallLayout.amount().minusButton()
+                : dialog.isRebuy() ? rebuyAmountLayout.minus()
                 : new Rectangle(panelX + panelW / 2f - 190f,
                         panelY + 155f, 72f, 64f);
         Rectangle amountPlus = dialog.isAutoCall()
                 ? autoCallLayout.amount().plusButton()
+                : dialog.isRebuy() ? rebuyAmountLayout.plus()
                 : new Rectangle(panelX + panelW / 2f + 118f,
                         panelY + 155f, 72f, 64f);
         Rectangle standaloneOption = dialog.hasStandaloneOption()
@@ -7797,12 +7806,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void requestRebuyFromChipCatalog() {
         if (!chipCatalogShowsRebuyButton() || chipCatalogTarget == null) return;
+        TableSnapshot.PlayerSnapshot target = livePlayer(
+                chipCatalogTarget.nickname());
+        boolean hostBot = tableHost && target != null
+                && target.spectator()
+                && BotNickname.isBot(target.nickname());
         chipCatalogReturnTarget = chipCatalogTarget;
         chipCatalogReturnDialog = null;
         chipCatalogReturnAwaitingDialog = true;
         chipCatalogReturnRequestedAt = totalTime;
         closeChipCatalog();
-        submit(new TableCommand.ToggleImmediateRebuy());
+        submit(hostBot
+                ? new TableCommand.RequestBotRebuy(target.nickname())
+                : new TableCommand.ToggleImmediateRebuy());
     }
 
     private void closeChipCatalog() {
@@ -8484,14 +8500,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean localTarget = chipCatalogTarget != null && snapshot != null
                 && chipCatalogTarget.nickname().equals(
                         snapshot.localNickname());
+        TableSnapshot.PlayerSnapshot player = chipCatalogTarget == null
+                || chipCatalogTarget.pot() ? null
+                        : livePlayer(chipCatalogTarget.nickname());
+        boolean hostBotSpectator = tableHost && player != null
+                && player.spectator() && !player.warming()
+                && !player.exited() && BotNickname.isBot(player.nickname());
         return detailedStackRebuyButtonVisible(chipCatalogTarget != null
-                && chipCatalogTarget.pot(), localTarget,
+                && chipCatalogTarget.pot(), localTarget, hostBotSpectator,
                 canToggleImmediateRebuy());
     }
 
     static boolean detailedStackRebuyButtonVisible(boolean pot,
-            boolean localTarget, boolean controlEnabled) {
-        return !pot && localTarget && controlEnabled;
+            boolean localTarget, boolean hostBotSpectator,
+            boolean controlEnabled) {
+        return !pot && (localTarget || hostBotSpectator) && controlEnabled;
     }
 
     static boolean chipCatalogCounterTitleVisible(boolean pot) {
@@ -8670,6 +8693,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float dialogY(GdxTableDialog dialog, float panelH) {
         return (viewport.getWorldHeight() - panelH) / 2f;
+    }
+
+    private record RebuyAmountLayout(Rectangle minus, Rectangle value,
+            Rectangle plus) {
+    }
+
+    private static RebuyAmountLayout rebuyAmountLayout(float panelX,
+            float panelY, float panelW) {
+        float buttonWidth = 82f;
+        float valueWidth = 260f;
+        float gap = 10f;
+        float height = 92f;
+        float totalWidth = 2f * buttonWidth + valueWidth + 2f * gap;
+        float x = panelX + (panelW - totalWidth) / 2f;
+        float y = panelY + 145f;
+        Rectangle minus = new Rectangle(x, y, buttonWidth, height);
+        Rectangle value = new Rectangle(x + buttonWidth + gap, y,
+                valueWidth, height);
+        Rectangle plus = new Rectangle(value.x + value.width + gap, y,
+                buttonWidth, height);
+        return new RebuyAmountLayout(minus, value, plus);
     }
 
     private void handleLiveTableInput(String shortcutAction,
@@ -21290,7 +21334,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return;
             }
             if (contains(x, y, contentX,
-                    firstRowY - 2f * GdxSettingsLayout.ROW_STRIDE,
+                    firstRowY - 4f * GdxSettingsLayout.ROW_STRIDE,
                     rowW, GdxSettingsLayout.ROW_HEIGHT)) {
                 boolean enabled = liveSettingsDraft.botBalanceToHumans();
                 runSwitchAction(enabled, () -> liveSettingsDraft =
@@ -23187,10 +23231,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? 0.34f : 1f;
             Rectangle minus = dialog.isAutoCall()
                     ? autoCallLayout.amount().minusButton()
+                    : dialog.isRebuy()
+                            ? rebuyAmountLayout(panelX, panelY, panelW).minus()
                     : new Rectangle(panelX + panelW / 2f - 190f,
                             panelY + 155f, 72f, 64f);
             Rectangle plus = dialog.isAutoCall()
                     ? autoCallLayout.amount().plusButton()
+                    : dialog.isRebuy()
+                            ? rebuyAmountLayout(panelX, panelY, panelW).plus()
                     : new Rectangle(panelX + panelW / 2f + 118f,
                             panelY + 155f, 72f, 64f);
             if (dialog.isAutoCall()) {
@@ -23373,17 +23421,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         amount.plusButton().width, amount.plusButton().height,
                         Color.WHITE, 1f);
             } else {
+                RebuyAmountLayout rebuyLayout = dialog.isRebuy()
+                        ? rebuyAmountLayout(panelX, panelY, panelW) : null;
+                Rectangle minus = rebuyLayout == null
+                        ? new Rectangle(panelX + panelW / 2f - 190f,
+                                panelY + 155f, 72f, 64f)
+                        : rebuyLayout.minus();
+                Rectangle value = rebuyLayout == null
+                        ? new Rectangle(panelX + panelW / 2f - 110f,
+                                panelY + 155f, 220f, 64f)
+                        : rebuyLayout.value();
+                Rectangle plus = rebuyLayout == null
+                        ? new Rectangle(panelX + panelW / 2f + 118f,
+                                panelY + 155f, 72f, 64f)
+                        : rebuyLayout.plus();
                 drawFittedCenteredInBox(seatActionFont, "-",
-                        panelX + panelW / 2f - 190f, panelY + 155f,
-                        72f, 64f, Color.WHITE, 1f);
+                        minus.x, minus.y, minus.width, minus.height,
+                        Color.WHITE, 1f);
                 drawFittedCenteredInBox(dialog.isRebuy()
                                 ? dialogAmountFont : uiFont, amountText,
-                        panelX + panelW / 2f - 110f, panelY + 155f,
-                        220f, 64f, POT_GOLD,
+                        value.x, value.y, value.width, value.height, POT_GOLD,
                         dialog.waitingForExternalClose() ? 0.52f : 1f);
                 drawFittedCenteredInBox(seatActionFont, "+",
-                        panelX + panelW / 2f + 118f, panelY + 155f,
-                        72f, 64f, Color.WHITE, 1f);
+                        plus.x, plus.y, plus.width, plus.height,
+                        Color.WHITE, 1f);
             }
             if (!dialog.isRebuy()) {
                 drawFittedCenteredInBox(smallFont,
@@ -24092,8 +24153,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (int i = 0; i < sections.size(); i++) {
             Rectangle tab = frame.mainTab(i);
             Rectangle label = GdxSettingsLayout.mainTabLabel(tab);
+            String sectionLabel = sections.get(i)
+                    == GdxSettingsContract.Section.GAME
+                            ? uppercase(gameText.translate(
+                                    "settings.tab_current_game"))
+                            : sections.get(i).label(gameText);
             drawDialogButtonLabel(settingsActionFont,
-                    sections.get(i).label(gameText),
+                    sectionLabel,
                     label.x, label.y, label.width, label.height,
                     i == settingsSession.tabIndex()
                             ? Color.WHITE : SETTINGS_MUTED,
@@ -24204,17 +24270,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     columns.right(firstY, 2), columns.right(firstY, 3));
         }
         if (page == 6) {
-            SettingsLockHover manage = hoveredLock(
+            SettingsLockHover fixed = firstHoveredLock(
+                    "gdx.settings.game.locked_during_game", "bots-fixed",
+                    settingsGameRow(x, firstY, width, 2),
                     settingsGameRow(x, firstY, width, 3),
-                    "gdx.settings.game.locked_during_game", "bots-manage");
-            if (manage != null) return manage;
+                    settingsGameRow(x, firstY, width, 5));
+            if (fixed != null) return fixed;
             SettingsRowAccess access = liveGameRuleAccess();
             if (access != SettingsRowAccess.EDITABLE) {
                 return firstHoveredLock(settingsAccessTooltipKey(access),
                         "bots-server",
                         settingsGameRow(x, firstY, width, 0),
                         settingsGameRow(x, firstY, width, 1),
-                        settingsGameRow(x, firstY, width, 2));
+                        settingsGameRow(x, firstY, width, 4));
             }
             return null;
         }
@@ -24570,7 +24638,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return null;
         }
         if (contentPage == 6) {
-            String[] keys = {"bot_difficulty", "bot_rebuy", "bot_balance"};
+            String[] keys = {"bot_difficulty", "bot_rebuy", "custom_bots",
+                "custom_bots_only", "bot_balance", "custom_bots_manage"};
             for (int row = 0; row < keys.length; row++) {
                 SettingsTooltipHover hovered = settingsTooltipHover(
                         settingsGameRow(x, firstY, width, row), keys[row],
@@ -25292,11 +25361,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     botRebuyAccess, alpha);
             drawLiveSettingsToggleShape(x,
                     firstY - 2f * GdxSettingsLayout.ROW_STRIDE, width,
+                    tableCustomBots, SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleShape(x,
+                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    tableCustomBots && tableCustomBotsOnly,
+                    SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleShape(x,
+                    firstY - 4f * GdxSettingsLayout.ROW_STRIDE, width,
                     liveSettingsDraft != null
                     && liveSettingsDraft.botBalanceToHumans(), access,
                     alpha);
             drawLiveSettingsRowShape(x,
-                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    firstY - 5f * GdxSettingsLayout.ROW_STRIDE, width,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
         } else if (contentPage == 7) {
             SettingsRowAccess access = liveGameRuleAccess();
@@ -26122,11 +26198,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             true, gameText), botRebuyAccess, alpha);
             drawLiveSettingsToggleText(x,
                     firstY - 2f * GdxSettingsLayout.ROW_STRIDE, width,
+                    gameText.translate("gdx.custom_bots.use"),
+                    GdxSettingsContract.booleanStatusLabel(tableCustomBots,
+                            false, gameText), SettingsRowAccess.LIVE_LOCKED,
+                    alpha);
+            drawLiveSettingsToggleText(x,
+                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    gameText.translate("gdx.custom_bots.only"),
+                    GdxSettingsContract.booleanStatusLabel(
+                            tableCustomBots && tableCustomBotsOnly, false,
+                            gameText), SettingsRowAccess.LIVE_LOCKED, alpha);
+            drawLiveSettingsToggleText(x,
+                    firstY - 4f * GdxSettingsLayout.ROW_STRIDE, width,
                     settingsGameText("row.bot_balance"),
                     GdxSettingsContract.booleanStatusLabel(botBalanceValue,
                             false, gameText), access, alpha);
             drawLiveSettingsRowText(x,
-                    firstY - 3f * GdxSettingsLayout.ROW_STRIDE, width,
+                    firstY - 5f * GdxSettingsLayout.ROW_STRIDE, width,
                     uppercase(gameText.translate("gdx.custom_bots.manage")),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
         } else if (contentPage == 7) {
@@ -26342,7 +26430,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsRowText(float x, float y, float width,
             String label, Color color, boolean enabled, float alpha) {
         Rectangle bounds = GdxSettingsLayout.rowLabel(x, y, width);
-        drawFittedLeft(settingsSmallFont, label, bounds.x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), bounds.x,
                 GdxSettingsLayout.rowTextBaseline(y),
                 bounds.width,
                 enabled ? color : SETTINGS_DISABLED, alpha);
@@ -26351,7 +26439,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveSettingsRowText(float x, float y, float width,
             String label, SettingsRowAccess access, float alpha) {
         Rectangle bounds = GdxSettingsLayout.rowLabel(x, y, width);
-        drawFittedLeft(settingsSmallFont, label, bounds.x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), bounds.x,
                 GdxSettingsLayout.rowTextBaseline(y), bounds.width,
                 settingsAccessLabelColor(access), alpha);
     }
@@ -26362,7 +26450,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 width, GdxSettingsLayout.ROW_HEIGHT);
         Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
         Color valueColor = enabled ? POT_GOLD : SETTINGS_DISABLED;
-        drawFittedLeft(settingsSmallFont, label, row.label().x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), row.label().width,
                 labelColor, alpha);
         drawFittedCentered(settingsBodyFont, value,
@@ -26383,7 +26471,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxSettingsLayout.ToggleRow layout = GdxSettingsLayout.toggleRow(
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT,
                 trailingValueReserve);
-        drawFittedLeft(settingsSmallFont, label, layout.label().x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), layout.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), layout.label().width,
                 enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
         drawFittedCentered(settingsBodyFont, value,
@@ -26401,7 +26489,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT, 0f);
         Color labelColor = settingsAccessLabelColor(access);
         Color valueColor = settingsAccessValueColor(access);
-        drawFittedLeft(settingsSmallFont, label, layout.label().x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), layout.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), layout.label().width,
                 labelColor, alpha);
         drawFittedCentered(settingsBodyFont, value,
@@ -26413,7 +26501,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsInfoText(float x, float y, float width,
             String label, String value, float alpha) {
         float valueWidth = Math.min(660f, width * 0.58f);
-        drawFittedLeft(settingsSmallFont, label, x + 20f,
+        drawFittedLeft(settingsSmallFont, uppercase(label), x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
                 width - valueWidth - 52f, Color.WHITE, alpha);
         drawFittedRight(settingsBodyFont, value,
@@ -26443,7 +26531,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean hasStatus = status != null && !status.isBlank();
         float labelWidth = hasStatus
                 ? row.label().width * 0.38f : row.label().width;
-        drawFittedLeft(settingsSmallFont, label,
+        drawFittedLeft(settingsSmallFont, uppercase(label),
                 row.label().x, GdxSettingsLayout.stepperLabelBaseline(y),
                 labelWidth, labelColor, alpha);
         if (hasStatus) {
@@ -26488,7 +26576,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x, y, width, GdxSettingsLayout.ROW_HEIGHT);
         Color labelColor = settingsAccessLabelColor(access);
         Color valueColor = settingsAccessValueColor(access);
-        drawFittedLeft(settingsSmallFont, label, row.label().x,
+        drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.stepperLabelBaseline(y), row.label().width,
                 labelColor, alpha);
         drawFittedCentered(settingsStepperSignFont, "-",

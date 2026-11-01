@@ -4162,18 +4162,21 @@ class GdxMultiprocessScenarioTest {
             port = reservation.getLocalPort();
         }
         String scenario = "spectator-double-recovery-crash-mix";
+        int totalDurableHands = 8;
+        int finalPhaseHands = totalDurableHands - 4;
         List<NodeProcess> nodes = new ArrayList<>();
         Set<NodeProcess> killed = new HashSet<>();
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
-                    "server", port, 6, 1, 8, scenario);
+                    "server", port, 6, 1, totalDurableHands, scenario);
             nodes.add(host);
             assertTrue(host.await("CP_GDX_E2E_READY",
                     Duration.ofSeconds(30)), host.diagnostic());
             List<NodeProcess> clients = new ArrayList<>();
             for (int index = 1; index <= 4; index++) {
                 NodeProcess client = startNode(root.resolve("client-" + index),
-                        "client", "client" + index, port, 6, 1, 8,
+                        "client", "client" + index, port, 6, 1,
+                        totalDurableHands,
                         scenario);
                 clients.add(client);
                 nodes.add(client);
@@ -4209,7 +4212,8 @@ class GdxMultiprocessScenarioTest {
             for (int index = 5; index <= 6; index++) {
                 NodeProcess newcomer = startNode(
                         root.resolve("client-" + index), "client",
-                        "client" + index, port, 6, 1, 8, scenario);
+                        "client" + index, port, 6, 1,
+                        totalDurableHands, scenario);
                 newcomer.send("REOPEN_RECOVERY_LOBBY");
                 clients.add(newcomer);
                 nodes.add(newcomer);
@@ -4247,7 +4251,8 @@ class GdxMultiprocessScenarioTest {
                 }
             }
             NodeProcess restarted = startNode(root.resolve("client-3"),
-                    "client", "client3", port, 6, 1, 8, scenario,
+                    "client", "client3", port, 6, 1,
+                    totalDurableHands, scenario,
                     "second-recovery");
             restarted.send("REOPEN_RECOVERY_LOBBY");
             nodes.add(restarted);
@@ -4275,8 +4280,9 @@ class GdxMultiprocessScenarioTest {
             List<NodeProcess> completed = new ArrayList<>(survivors);
             completed.add(restarted);
             for (NodeProcess node : completed) {
-                assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE hands=4"
-                        + " durableHands=8 reason=COMPLETED",
+                assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE hands="
+                        + finalPhaseHands + " durableHands="
+                        + totalDurableHands + " reason=COMPLETED",
                         Duration.ofSeconds(360)), node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(20)),
                         node.diagnostic());

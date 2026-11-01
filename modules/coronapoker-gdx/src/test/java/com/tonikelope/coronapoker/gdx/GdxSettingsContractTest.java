@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -156,13 +158,24 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void menuUsesTheCanonicalSwingTabOrder() {
+    void menuAddsFutureGameDefaultsToTheCanonicalTabOrder() {
         assertEquals(java.util.List.of(
                 GdxSettingsContract.Section.APPEARANCE,
                 GdxSettingsContract.Section.AUDIO,
                 GdxSettingsContract.Section.SHORTCUTS,
+                GdxSettingsContract.Section.GAME,
                 GdxSettingsContract.Section.DEBUG),
                 GdxSettingsContract.MENU_SECTIONS);
+    }
+
+    @Test
+    void menuSettingsDoNotDereferenceAnAbsentLobby() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/tonikelope/coronapoker/gdx/"
+                + "GdxFrontendScreen.java"));
+
+        assertTrue(source.contains("settingsTable != null && lobby != null "
+                + "&& lobby.recovering()"));
     }
 
     @Test

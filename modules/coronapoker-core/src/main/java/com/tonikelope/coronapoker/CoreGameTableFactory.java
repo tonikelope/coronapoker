@@ -1513,9 +1513,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                     botRandom)
                     : CorePlayerController.remote(participant.nickname());
             if (participant.bot() && (participant.botDifficulty() != null
-                    || participant.botPersonality() != null)) {
+                    || participant.botPersonality() != null
+                    || participant.botAutomaticRebuy() != null)) {
                 player.configureBot(participant.botDifficulty(),
-                        participant.botPersonality());
+                        participant.botPersonality(),
+                        !Boolean.FALSE.equals(
+                                participant.botAutomaticRebuy()));
             }
             initializePlayer(player, buyin);
             players.add(player);
@@ -1735,6 +1738,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                     sequence, deck));
         } else if (command instanceof TableCommand.ToggleImmediateRebuy) {
             dealer.requestImmediateRebuy();
+        } else if (command instanceof TableCommand.RequestBotRebuy rebuy) {
+            if (!host) {
+                throw new IllegalStateException(
+                        "Only the host can schedule a bot rebuy");
+            }
+            dealer.requestBotImmediateRebuy(rebuy.nickname());
         } else if (command instanceof TableCommand.SetLastHand lastHand) {
             if (!host) {
                 throw new IllegalStateException(

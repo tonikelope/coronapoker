@@ -11,10 +11,12 @@ final class GdxUiDialogStyle {
     // Dialogs get their hierarchy from the dimmed backdrop and outline, not
     // from turning the panel into an almost opaque second visual language.
     static final int PANEL_RGBA = 0x071321cc;
+    static final int OPAQUE_PANEL_RGBA = 0x071321ff;
     static final int INSET_RGBA = 0x08182870;
     static final float BACKDROP_ALPHA = 0.68f;
     static final String CLOSE_GLYPH = "\u00d7";
     private static final Color PANEL = new Color(PANEL_RGBA);
+    private static final Color OPAQUE_PANEL = new Color(OPAQUE_PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
 
@@ -125,6 +127,13 @@ final class GdxUiDialogStyle {
     static void drawPanel(ShapeRenderer shapes, float x, float y,
             float width, float height, Color accent, float alpha) {
         drawPanel(shapes, x, y, width, height, PANEL, accent, alpha);
+    }
+
+    /** Fully opaque foreground for a confirmation nested in another dialog. */
+    static void drawOpaquePanel(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent) {
+        drawPanel(shapes, x, y, width, height,
+                OPAQUE_PANEL, accent, 1f);
     }
 
     static void drawPanel(ShapeRenderer shapes, float x, float y,

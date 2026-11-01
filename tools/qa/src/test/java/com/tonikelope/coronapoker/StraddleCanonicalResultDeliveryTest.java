@@ -18,7 +18,7 @@ class StraddleCanonicalResultDeliveryTest {
         assertTrue(source.contains("private boolean broadcastStraddleResult(int v)"));
         assertTrue(source.contains("broadcastGAMECommandFromServer(\"STRADDLE_RESULT#\" + v, null, true)"));
         assertTrue(source.contains("rejectCriticalStraddleResult(cmd"));
-        assertTrue(source.contains("STRADDLE_RESULT timeout; closing host channel"));
+        assertTrue(source.contains("STRADDLE_RESULT timeout. Closing host channel"));
         assertFalse(source.contains("return VoluntaryStraddleDialog.NO_STRADDLE;\n    }\n\n    // Straddler client"));
     }
 

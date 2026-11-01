@@ -187,6 +187,9 @@ class QaBaselineWiringTest {
                 "chance exhaustion must not be mislabeled as a functional failure");
         assertTrue(certification.contains("\"-Dqa.sim.seed=$scenarioSeed\""),
                 "each scenario process must receive its derived replay seed");
+        assertTrue(certification.contains("CatalogueOrdinal = $resolved.Count + 1"));
+        assertTrue(certification.contains("$test.CatalogueOrdinal"),
+                "targeted replay must preserve the failing method's full-catalogue seed");
         assertFalse(certification.contains("'-o'"),
                 "the public certifier must work with an empty checkout-local Maven cache");
     }

@@ -163,6 +163,9 @@ final class GdxSettingsTooltips {
             case "bot_difficulty" -> "tooltip.cfg.bots";
             case "bot_rebuy" -> "tooltip.cfg.bot_rebuy";
             case "bot_balance" -> "tooltip.cfg.bot_balance";
+            case "custom_bots" -> "tooltip.cfg.custom_bots";
+            case "custom_bots_only" -> "tooltip.cfg.custom_bots.only";
+            case "custom_bots_manage" -> "tooltip.cfg.custom_bots.manage";
             case "hand_limit", "hand_count" -> "tooltip.cfg.hand_limit";
             case "think_time", "think_seconds" -> "tooltip.cfg.think_time";
             case "showdown_time" -> "tooltip.cfg.showdown_time";

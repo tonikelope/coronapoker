@@ -21,7 +21,8 @@ public sealed interface TableCommand permits TableCommand.Fold,
         TableCommand.TogglePause, TableCommand.OpenSettings,
         TableCommand.OpenLog, TableCommand.ChangeDeck,
         TableCommand.SelectDeck,
-        TableCommand.ToggleImmediateRebuy, TableCommand.SetLastHand,
+        TableCommand.ToggleImmediateRebuy, TableCommand.RequestBotRebuy,
+        TableCommand.SetLastHand,
         TableCommand.SetHandLimit, TableCommand.ApplyGameConfiguration,
         TableCommand.SetBotDifficulty, TableCommand.SetCommunicationRules,
         TableCommand.ForceReconnectPlayers,
@@ -105,6 +106,17 @@ public sealed interface TableCommand permits TableCommand.Fold,
 
     /** Opens the canonical top-up dialog, or cancels an already queued top-up. */
     record ToggleImmediateRebuy() implements TableCommand {
+    }
+
+    /** Host-only manual rebuy for one bot that is currently spectating. */
+    record RequestBotRebuy(String nickname) implements TableCommand {
+
+        public RequestBotRebuy {
+            Objects.requireNonNull(nickname, "nickname");
+            if (nickname.isBlank()) {
+                throw new IllegalArgumentException("nickname cannot be blank");
+            }
+        }
     }
 
     /** Host-only authoritative scheduling or cancellation of the last hand. */

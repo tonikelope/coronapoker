@@ -15,10 +15,10 @@ class CustomBotProfileCatalogTest {
         List<CustomBotProfile> profiles = List.of(
                 CustomBotProfile.create("Ada", null,
                         NewGameTableDraft.BotDifficulty.MEDIUM,
-                        CustomBotProfile.Personality.TAG),
+                        CustomBotProfile.Personality.TAG, true),
                 CustomBotProfile.create("Turing", null,
                         NewGameTableDraft.BotDifficulty.HARD,
-                        CustomBotProfile.Personality.NIT));
+                        CustomBotProfile.Personality.NIT, false));
         Properties properties = new Properties();
 
         CustomBotProfileCatalog.writeTo(properties, profiles);
@@ -41,6 +41,7 @@ class CustomBotProfileCatalogTest {
                 profile.difficulty());
         assertEquals(CustomBotProfile.Personality.RANDOM,
                 profile.personality());
+        assertTrue(profile.automaticRebuy());
     }
 
     @Test
@@ -58,6 +59,18 @@ class CustomBotProfileCatalogTest {
         assertEquals("true", properties.getProperty(
                 CustomBotProfileCatalog.PROP_ENABLED));
         assertEquals(1, CustomBotProfileCatalog.readFrom(properties).size());
+    }
+
+    @Test
+    void customOnlyPreferenceDefaultsOffAndPersistsIndependently() {
+        Properties properties = new Properties();
+
+        assertFalse(CustomBotProfileCatalog.onlyCustom(properties));
+        CustomBotProfileCatalog.writeOnlyCustom(properties, true);
+
+        assertTrue(CustomBotProfileCatalog.onlyCustom(properties));
+        assertEquals("true", properties.getProperty(
+                CustomBotProfileCatalog.PROP_ONLY_CUSTOM));
     }
 
     @Test

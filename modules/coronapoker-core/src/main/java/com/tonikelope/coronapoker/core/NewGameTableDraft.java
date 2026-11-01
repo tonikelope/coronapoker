@@ -65,6 +65,7 @@ public final class NewGameTableDraft {
     private RabbitHunting rabbitHunting = RabbitHunting.OFF;
     private BotDifficulty botDifficulty = BotDifficulty.MEDIUM;
     private boolean customBots;
+    private boolean customBotsOnly;
     private boolean economyLocked;
 
     public NewGameTableDraft() {
@@ -105,6 +106,7 @@ public final class NewGameTableDraft {
         draft.setRabbitHunting(settings.rabbitHunting());
         draft.setBotDifficulty(settings.botDifficulty());
         draft.setCustomBots(settings.customBots());
+        draft.setCustomBotsOnly(settings.customBotsOnly());
         return draft;
     }
 
@@ -218,6 +220,8 @@ public final class NewGameTableDraft {
     public void setBotDifficulty(BotDifficulty value) { botDifficulty = Objects.requireNonNull(value); }
     public boolean customBots() { return customBots; }
     public void setCustomBots(boolean value) { customBots = value; }
+    public boolean customBotsOnly() { return customBotsOnly; }
+    public void setCustomBotsOnly(boolean value) { customBotsOnly = value; }
 
     public boolean economyLocked() { return economyLocked; }
     public void setEconomyLocked(boolean value) { economyLocked = value; }
@@ -230,7 +234,7 @@ public final class NewGameTableDraft {
                 botBalanceToHumans, rebuyCapPolicy, handLimit, handLimitCount,
                 thinkTime, thinkSeconds, showdownSeconds, ante, straddle,
                 iwtsth, runItTwice, rabbitHunting, botDifficulty,
-                allowHotJoin, customBots);
+                allowHotJoin, customBots, customBotsOnly);
     }
 
     private void clampDependentValues() {
@@ -281,7 +285,8 @@ public final class NewGameTableDraft {
             boolean thinkTime, int thinkSeconds, int showdownSeconds,
             boolean ante, boolean straddle, boolean iwtsth, boolean runItTwice,
             RabbitHunting rabbitHunting, BotDifficulty botDifficulty,
-            boolean allowHotJoin, boolean customBots) {
+            boolean allowHotJoin, boolean customBots,
+            boolean customBotsOnly) {
         public Settings {
             blindLevels = List.copyOf(blindLevels);
         }
@@ -339,7 +344,8 @@ public final class NewGameTableDraft {
                     + "#SHOWDOWN=" + showdownSeconds
                     + "#DIFF=" + botDifficulty.name()
                     + "#HOTJOIN=" + bool(allowHotJoin)
-                    + "#CUSTOMBOTS=" + bool(customBots);
+                    + "#CUSTOMBOTS=" + bool(customBots)
+                    + "#CUSTOMBOTSONLY=" + bool(customBotsOnly);
         }
 
         /** Reads the classic KEY=VALUE mirror into the neutral settings model. */
@@ -420,6 +426,8 @@ public final class NewGameTableDraft {
                 // the historic behaviour by treating an absent key as ON.
                 draft.setAllowHotJoin(!"0".equals(values.get("HOTJOIN")));
                 draft.setCustomBots("1".equals(values.get("CUSTOMBOTS")));
+                draft.setCustomBotsOnly(
+                        "1".equals(values.get("CUSTOMBOTSONLY")));
                 return draft.snapshot();
             } catch (RuntimeException invalid) {
                 throw new IllegalArgumentException("Malformed table configuration", invalid);

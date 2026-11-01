@@ -25,6 +25,7 @@ public final class CustomBotProfileCatalog {
     public static final String PROP_ENABLED = "custom_bots.enabled";
     public static final String PROP_RANDOM_SELECTION =
             "custom_bots.random_selection";
+    public static final String PROP_ONLY_CUSTOM = "custom_bots.only_custom";
     public static final String PROP_COUNT = "custom_bots.count";
     public static final String PROP_PREFIX = "custom_bot.";
     public static final int MAX_PROFILES = 50;
@@ -58,6 +59,21 @@ public final class CustomBotProfileCatalog {
             boolean enabled) {
         if (properties != null) {
             properties.setProperty(PROP_RANDOM_SELECTION,
+                    Boolean.toString(enabled));
+        }
+    }
+
+    /** Returns whether bot admission must stop when the custom catalogue ends. */
+    public static boolean onlyCustom(Properties properties) {
+        return properties != null && Boolean.parseBoolean(
+                properties.getProperty(PROP_ONLY_CUSTOM, "false"));
+    }
+
+    /** Persists the custom-only admission policy. */
+    public static void writeOnlyCustom(Properties properties,
+            boolean enabled) {
+        if (properties != null) {
+            properties.setProperty(PROP_ONLY_CUSTOM,
                     Boolean.toString(enabled));
         }
     }
@@ -103,6 +119,8 @@ public final class CustomBotProfileCatalog {
                     NewGameTableDraft.BotDifficulty.MEDIUM.name());
             String personality = properties.getProperty(prefix + "personality",
                     CustomBotProfile.Personality.RANDOM.name());
+            boolean automaticRebuy = Boolean.parseBoolean(
+                    properties.getProperty(prefix + "automatic_rebuy", "true"));
             String storedAvatar = properties.getProperty(prefix + "avatar", "");
             try {
                 String canonical = Normalizer.normalize(nickname.trim(),
@@ -111,7 +129,8 @@ public final class CustomBotProfileCatalog {
                 Path avatar = validStoredAvatar(storedAvatar);
                 result.add(new CustomBotProfile(canonical, avatar,
                         NewGameTableDraft.BotDifficulty.valueOf(difficulty),
-                        CustomBotProfile.Personality.valueOf(personality)));
+                        CustomBotProfile.Personality.valueOf(personality),
+                        automaticRebuy));
             } catch (IllegalArgumentException ignored) {
                 // A hand-edited entry must not hide the remaining profiles.
             }
@@ -139,6 +158,8 @@ public final class CustomBotProfileCatalog {
                         profile.difficulty().name());
                 properties.setProperty(prefix + "personality",
                         profile.personality().name());
+                properties.setProperty(prefix + "automatic_rebuy",
+                        Boolean.toString(profile.automaticRebuy()));
                 properties.setProperty(prefix + "avatar",
                         profile.avatar() == null ? ""
                                 : profile.avatar().toString());

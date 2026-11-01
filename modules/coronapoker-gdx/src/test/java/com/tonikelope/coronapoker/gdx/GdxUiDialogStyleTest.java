@@ -29,6 +29,12 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
+    void nestedConfirmationMaterialIsFullyOpaque() {
+        assertEquals(0xff, GdxUiDialogStyle.OPAQUE_PANEL_RGBA & 0xff,
+                "nested confirmation text must not mix with its parent dialog");
+    }
+
+    @Test
     void legacyTopEdgeRailsStayRemovedFromSharedSurfaces() throws Exception {
         String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
         String dialogs = Files.readString(Path.of(base

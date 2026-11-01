@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
+import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
@@ -89,7 +90,7 @@ class NetworkLobbyGatewayTest {
                         CustomBotProfile.Personality.TAG),
                 CustomBotProfile.create("Turing", null,
                         NewGameTableDraft.BotDifficulty.HARD,
-                        CustomBotProfile.Personality.NIT));
+                        CustomBotProfile.Personality.NIT, false));
         NewGameConnectionDraft.Submission connection
                 = new NewGameConnectionDraft.Submission(
                         NewGameConnectionDraft.Mode.CREATE, "Host", "",
@@ -130,8 +131,16 @@ class NetworkLobbyGatewayTest {
                                 .filter(participant -> participant.nickname()
                                         .equals("Turing$"))
                                 .findFirst().orElseThrow().botPersonality());
+                assertFalse(host.snapshot().participants().stream()
+                        .filter(participant -> participant.nickname()
+                                .equals("Turing$"))
+                        .findFirst().orElseThrow().botAutomaticRebuy());
                 await(() -> client.snapshot().participants().stream()
                         .filter(participant -> participant.bot()).count() == 3);
+                assertFalse(client.snapshot().participants().stream()
+                        .filter(participant -> participant.nickname()
+                                .equals("Turing$"))
+                        .findFirst().orElseThrow().botAutomaticRebuy());
                 Path receivedAvatar = client.snapshot().participants().stream()
                         .filter(participant -> participant.nickname()
                                 .equals("Ada$"))
@@ -141,6 +150,47 @@ class NetworkLobbyGatewayTest {
                         Files.readAllBytes(receivedAvatar));
             } finally {
                 client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
+    void customOnlyLobbyStopsWhenTheCatalogueIsExhausted() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        NewGameTableDraft table = new NewGameTableDraft();
+        table.setCustomBots(true);
+        table.setCustomBotsOnly(true);
+        List<CustomBotProfile> profiles = List.of(
+                CustomBotProfile.create("Ada", null,
+                        NewGameTableDraft.BotDifficulty.MEDIUM,
+                        CustomBotProfile.Personality.TAG));
+        NewGameConnectionDraft.Submission connection
+                = new NewGameConnectionDraft.Submission(
+                        NewGameConnectionDraft.Mode.CREATE, "Host", "",
+                        "127.0.0.1", Integer.toString(port), null,
+                        false, false, null);
+        NewGameRequest request = new NewGameRequest(connection,
+                table.snapshot(), null, profiles);
+
+        try (NetworkLobbyGateway gateway = new NetworkLobbyGateway(
+                temporary.resolve("custom-only-host"))) {
+            LobbySession host = gateway.open(request).get(5,
+                    TimeUnit.SECONDS);
+            try {
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+
+                assertEquals(List.of("Ada$"),
+                        host.snapshot().participants().stream()
+                                .filter(LobbyParticipant::bot)
+                                .map(LobbyParticipant::nickname).toList());
+            } finally {
                 host.close();
             }
         }

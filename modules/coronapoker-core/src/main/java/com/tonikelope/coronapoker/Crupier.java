@@ -8359,15 +8359,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || localPlayer.isExit()) {
             return;
         }
+        requestImmediateRebuy(localPlayer);
+    }
+
+    /** Host-only manual return path for a bot that stayed as spectator. */
+    public void requestBotImmediateRebuy(String nickname) {
+        if (nickname == null) return;
+        GamePlayerController bot = getNick2player().get(nickname);
+        GamePeerController participant = peers().get(nickname);
+        if (bot == null || participant == null
+                || !botManualRebuyAllowed(gameSession().isHost(),
+                        participant.isCpu(), bot.isSpectator(),
+                        bot.isCalentando(), bot.isExit())) {
+            return;
+        }
+        requestImmediateRebuy(bot);
+    }
+
+    static boolean botManualRebuyAllowed(boolean host, boolean cpu,
+            boolean spectator, boolean warming, boolean exited) {
+        return host && cpu && spectator && !warming && !exited;
+    }
+
+    private void requestImmediateRebuy(GamePlayerController targetPlayer) {
         if (!immediate_rebuy_dialog_open.compareAndSet(false, true)) {
             return;
         }
         game_async.execute(() -> {
             GameDecisionSink.RebuyHandle dialog = null;
             try {
-                GamePlayerController local = localPlayer();
-                if (local == null || tableWaitCancelled()) return;
-                String nickname = local.getNickname();
+                GamePlayerController target = getNick2player().get(
+                        targetPlayer.getNickname());
+                if (target == null || target.isExit()
+                        || target.isCalentando() || tableWaitCancelled()) {
+                    return;
+                }
+                String nickname = target.getNickname();
                 int pendingAmount = rebuy_now.getOrDefault(nickname, 0);
                 if (pendingAmount > 0) {
                     boolean cancel = awaitConfirmation(game_dialogs.confirm(
@@ -8392,7 +8419,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             configuration().rebuyLimit())));
                     return;
                 }
-                int headroom = immediateRebuyHeadroom(local);
+                int headroom = immediateRebuyHeadroom(target);
                 int minimum = configuration().fixedBuyin()
                         ? 1 : buyinRange().min();
                 if (headroom < minimum) {
@@ -11674,6 +11701,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (recoveredBalances != null && recoveredBalances.isOk()) {
+                final long recoveredRemainderCents;
+                try {
+                    recoveredRemainderCents
+                            = RecoveryBalanceReconciler.unallocatedCents(
+                                    recoveredBalances);
+                } catch (IllegalArgumentException ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "Invalid local recovery balance conservation", ex);
+                    setFin_de_la_transmision(true);
+                    return;
+                }
+                /*
+                 * The persisted balance is the authenticated opening state of
+                 * the recovered hand. Player stacks deliberately exclude the
+                 * odd-chip carry, so restore that carry from the same canonical
+                 * bytes before replaying the hand. Deferring this to the legacy
+                 * end-of-game auditor loses the remainder across a second
+                 * recovery and makes an otherwise honest next-hand boundary
+                 * fail Zero Trust.
+                 */
+                synchronized (lock_contabilidad) {
+                    this.bote_sobrante = MoneyMath.clean(
+                            recoveredRemainderCents / 100d);
+                    this.bote_total = this.bote_sobrante;
+                    this.opening_remainder_cents = recoveredRemainderCents;
+                }
                 java.util.Set<String> nicksRec = recoveredBalances.balances().keySet();
                 this.current_hand_balance_roster = HandBalanceRoster.bind(nicksRec);
                 // The complete immutable snapshot was parsed and reconciled before any
@@ -11745,11 +11798,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // boundary. Otherwise the ordinary correlated nickname makes
                 // the new lobby bot indistinguishable from the old spectator
                 // and it is silently expelled after recovery.
-                if (configuration().rebuy() && configuration().botRebuy()) {
+                if (configuration().rebuy()) {
                     int requested = configuration().fixedBuyin()
                             ? configuration().buyin() : buyinDefault();
                     for (String nick : recoveryLobbyBotsNeedingBuyin(
                             recoveredBalances.balances(), recoveryLobbyBots)) {
+                        GamePlayerController recoveredBot = nick2player.get(nick);
+                        if (recoveredBot == null
+                                || !botAutomaticRebuyAllowed(recoveredBot,
+                                        true)) {
+                            continue;
+                        }
                         if (atRebuyLimit(nick)) {
                             continue;
                         }
@@ -29092,7 +29151,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GamePeerController participante = peers()
                         .get(jugador.getNickname());
                 boolean bot = participante != null && participante.isCpu();
-                if (configuration().rebuy() && (!bot || configuration().botRebuy())
+                if (configuration().rebuy()
+                        && botAutomaticRebuyAllowed(jugador, bot)
                         && !testModeNickSelected(
                                 "coronapoker.qa.spectatorOnBrokeNicks",
                                 jugador.getNickname())
@@ -29129,7 +29189,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GamePeerController participante = peers().get(nick);
                 boolean isBot = participante != null && participante.isCpu();
 
-                if (!configuration().rebuy() || (isBot && !configuration().botRebuy()) || atRebuyLimit(nick)) {
+                if (!configuration().rebuy()
+                        || !botAutomaticRebuyAllowed(jugador, isBot)
+                        || atRebuyLimit(nick)) {
                     jugador.setSpectator(null);
                 } else {
                     rebuy_players.add(nick);
@@ -29365,6 +29427,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "Post-rebuy spectator roster presentation failed");
         }
 
+    }
+
+    private boolean botAutomaticRebuyAllowed(GamePlayerController player,
+            boolean bot) {
+        return botAutomaticRebuyAllowed(bot, configuration().botRebuy(),
+                BotNickname.isStandard(player.getNickname()),
+                player.automaticRebuyEnabled());
+    }
+
+    static boolean botAutomaticRebuyAllowed(boolean bot,
+            boolean globalBotRebuy, boolean standardBot,
+            boolean individualAutomaticRebuy) {
+        if (!bot) return true;
+        return globalBotRebuy
+                && (standardBot || individualAutomaticRebuy);
     }
 
     private void logQueuedRebuyContinuation() {

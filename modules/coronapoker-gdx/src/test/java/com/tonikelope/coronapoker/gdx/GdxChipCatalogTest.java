@@ -362,15 +362,17 @@ final class GdxChipCatalogTest {
     }
 
     @Test
-    void rebuyButtonIsExclusiveToAnEligibleLocalStack() {
+    void rebuyButtonIsAvailableToEligibleLocalAndHostManagedBotStacks() {
         assertTrue(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
-                false, true, true));
+                false, true, false, true));
+        assertTrue(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
+                false, false, true, true));
         assertFalse(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
-                false, false, true));
+                false, false, false, true));
         assertFalse(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
-                true, true, true));
+                true, true, true, true));
         assertFalse(CoronaPokerGdxTable.detailedStackRebuyButtonVisible(
-                false, true, false));
+                false, true, true, false));
     }
 
     @Test

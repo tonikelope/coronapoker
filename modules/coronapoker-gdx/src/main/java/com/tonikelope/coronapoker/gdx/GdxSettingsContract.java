@@ -183,10 +183,10 @@ final class GdxSettingsContract {
         }
     }
 
-    /** Swing's canonical order. GAME is added only while a table is open. */
+    /** Shared order; GAME edits future-table defaults from the main menu. */
     static final List<Section> MENU_SECTIONS = List.of(
             Section.APPEARANCE, Section.AUDIO, Section.SHORTCUTS,
-            Section.DEBUG);
+            Section.GAME, Section.DEBUG);
     static final List<Section> TABLE_SECTIONS = List.of(
             Section.APPEARANCE, Section.AUDIO, Section.SHORTCUTS,
             Section.GAME, Section.DEBUG);

@@ -223,6 +223,11 @@ public interface GamePlayerController
 
     boolean isSpectator();
 
+    /** Per-seat opt-in used by custom bots below the global bot-rebuy switch. */
+    default boolean automaticRebuyEnabled() {
+        return true;
+    }
+
     boolean isExit();
 
     void setExit();

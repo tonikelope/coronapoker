@@ -218,11 +218,27 @@ seating and observable cinematic selection. Keys, proofs, nonces, IVs and other
 security entropy remain cryptographically random and may differ on replay.
 They do not change the functional scenario path.
 
-On failure, first replay the same scenario key with the recorded base seed:
+On failure, first replay the same scenario key with the recorded base seed.
+Catalogue ordinals are stable, so the targeted run receives the same derived
+method seed as the complete run:
 
 ```powershell
 .\qa.cmd scenarios fast -Scenario spectator-rebuy-cycle -Seed 42
 ```
+
+After correcting a functional defect, validate the affected key twice before
+continuing the original schedule:
+
+1. Double the failed mode's hand depth for that scenario and replay the exact
+   failing base seed.
+2. Keep the doubled depth and run the same key with one newly generated seed.
+3. Restore the mode's normal depth and continue the original schedule from the
+   next pending key with its original mode, base seed and overrides.
+
+Restart the complete schedule instead of continuing when the defect can
+invalidate earlier evidence, including shared harness state, common protocol or
+scheduling code, or seed derivation. An isolated game-path defect does not make
+unrelated preceding scenarios invalid.
 
 ### Continuing an interrupted schedule
 

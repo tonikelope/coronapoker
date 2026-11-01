@@ -457,6 +457,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
     private GdxModalBackdropBlur modalBackdropBlur;
+    private GdxModalBackdropBlur nestedModalBackdropBlur;
     private boolean lobbyLoadingBackdropCached;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
@@ -904,6 +905,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     + roundedTextureShader.getLog());
         }
         modalBackdropBlur = new GdxModalBackdropBlur();
+        nestedModalBackdropBlur = new GdxModalBackdropBlur();
         modAdultWarning = presentationSettings.modAdultWarningRequired();
         checkForUpdates();
         purgeExpiredVoiceNotes();
@@ -1263,6 +1265,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     || surface == Surface.SCREENSHOTS
                         && screenshotReturnSurface == Surface.LOBBY);
         boolean blurModalBackdrop = hasVisibleFrontendModal();
+        boolean nestedFrontendModal = hasNestedFrontendModal();
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
                     Gdx.graphics.getBackBufferHeight());
@@ -1369,6 +1372,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 modalBackdropBlur.endCaptureAndCache(viewport, batch,
                         viewport.getCamera().combined, BACKGROUND);
                 lobbyLoadingBackdropCached = true;
+            } else if (nestedFrontendModal) {
+                // Keep the first modal level as a reusable native-resolution
+                // image. The nested pass adds the parent dialog and applies a
+                // second Gaussian blur before the child popup is composited.
+                modalBackdropBlur.endCaptureAndCache(viewport, batch,
+                        viewport.getCamera().combined, BACKGROUND);
             } else {
                 modalBackdropBlur.endCaptureAndDraw(viewport, batch,
                         viewport.getCamera().combined, BACKGROUND);
@@ -1388,7 +1397,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Modal surfaces must be composed after every underlying glyph. Texts
         // are batched separately from shapes, so drawing the modal inside
         // drawLobby would otherwise let the lobby chat glyphs bleed over it.
-        if (hasVisibleFrontendModal()) {
+        if (nestedFrontendModal) {
+            renderNestedFrontendModal();
+        } else if (hasVisibleFrontendModal()) {
             texts.clear();
             if (rootSurfaceModal) {
                 lobbyAvatars.clear();
@@ -1655,6 +1666,122 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawFrontendTopLayers();
     }
 
+    /**
+     * Composes a popup opened above another modal as a true two-level stack.
+     *
+     * <p>The already blurred root is combined with the parent dialog in a
+     * second native-resolution framebuffer. That complete parent level is
+     * blurred again, dimmed, and only then is the child popup drawn sharply.
+     * Parent hit maps are discarded before the child is built, so pointer,
+     * wheel and click input cannot leak through the popup.</p>
+     */
+    private void renderNestedFrontendModal() {
+        nestedModalBackdropBlur.beginCapture(
+                Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight());
+        modalBackdropBlur.drawCached(viewport, batch,
+                viewport.getCamera().combined, BACKGROUND);
+        drawUnifiedModalBackdrop();
+
+        clearModalCompositionState();
+        float parentPointerX = pointer.x;
+        float parentPointerY = pointer.y;
+        pointer.set(-10_000f, -10_000f);
+        try {
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                    GL20.GL_ONE_MINUS_SRC_ALPHA);
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            drawNestedModalParent();
+            shapes.end();
+
+            batch.begin();
+            if (customBotManagerOpen) drawCustomBotManagerImages();
+            for (TextItem item : texts) drawTextItem(item);
+            batch.end();
+            if (customBotManagerOpen) drawCustomBotManagerListLayer();
+        } finally {
+            pointer.set(parentPointerX, parentPointerY);
+        }
+
+        nestedModalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                viewport.getCamera().combined, BACKGROUND);
+        drawUnifiedModalBackdrop();
+        drawNestedModalChild();
+    }
+
+    private void drawNestedModalParent() {
+        if (customBotManagerOpen && customBotDeleteConfirmation) {
+            drawCustomBotManagerDialog();
+            return;
+        }
+        if (networkBlocksOpen && networkBlockUnblockConfirmation != null) {
+            drawNetworkBlocksDialog();
+            return;
+        }
+        if (voiceNotesOpen && (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation)) {
+            GdxVoiceNoteLibrary.Entry savedEntry = voiceNoteDeleteConfirmation;
+            boolean savedPurge = voiceNotesPurgeConfirmation;
+            voiceNoteDeleteConfirmation = null;
+            voiceNotesPurgeConfirmation = false;
+            try {
+                drawVoiceNotesDialog();
+            } finally {
+                voiceNoteDeleteConfirmation = savedEntry;
+                voiceNotesPurgeConfirmation = savedPurge;
+            }
+            return;
+        }
+        if (isBlindStructureChildDialog()) {
+            BlindStructureDialog savedDialog = blindStructureDialog;
+            blindStructureDialog = BlindStructureDialog.EDITOR;
+            try {
+                drawBlindStructureDialog();
+            } finally {
+                blindStructureDialog = savedDialog;
+            }
+        }
+    }
+
+    private void drawNestedModalChild() {
+        clearModalCompositionState();
+        if (customBotManagerOpen && customBotDeleteConfirmation) {
+            drawCustomBotDeleteConfirmationTopLayer();
+            return;
+        }
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (networkBlocksOpen && networkBlockUnblockConfirmation != null) {
+            drawNetworkBlockUnblockConfirmation();
+        } else if (voiceNotesOpen && (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation)) {
+            drawVoiceNotesDialog();
+        } else if (isBlindStructureChildDialog()) {
+            drawBlindStructureDialog();
+        }
+        shapes.end();
+        batch.begin();
+        for (TextItem item : texts) drawTextItem(item);
+        batch.end();
+    }
+
+    private void clearModalCompositionState() {
+        texts.clear();
+        lobbyAvatars.clear();
+        uiImages.clear();
+        customBotManagerListTexts.clear();
+        customBotManagerListImages.clear();
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        passwordRevealHits.clear();
+        editMenuHits.clear();
+        tooltipHits.clear();
+    }
+
     private void drawFrontendTopLayers() {
         if (surface == Surface.SCREENSHOTS
                 && !screenshotDeleteConfirmation
@@ -1716,6 +1843,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.SCREENSHOTS
                         && screenshotDeleteConfirmation)
                 || isFrontendRootModal();
+    }
+
+    private boolean hasNestedFrontendModal() {
+        return (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+                        && customBotManagerOpen
+                        && customBotDeleteConfirmation
+                || surface == Surface.LOBBY && networkBlocksOpen
+                        && networkBlockUnblockConfirmation != null
+                || surface == Surface.SETTINGS && voiceNotesOpen
+                        && (voiceNoteDeleteConfirmation != null
+                        || voiceNotesPurgeConfirmation)
+                || (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+                        && isBlindStructureChildDialog();
+    }
+
+    private boolean isBlindStructureChildDialog() {
+        return blindStructureDialog != BlindStructureDialog.NONE
+                && blindStructureDialog != BlindStructureDialog.EDITOR;
     }
 
     /** True only when PREPARANDO LA MESA owns the lobby modal foreground. */
@@ -14787,6 +14932,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if (avatarCropSession == null
+                && !hasNestedFrontendModal()
                 && (!blockingModal || rootSurfaceOwnsPointer
                 || statsPicker != StatsPicker.NONE || networkBlocksOpen
                 || customBotManagerOpen || statsEvidenceOpen)
@@ -14837,7 +14983,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     return true;
                 }
             }
-            return false;
+            return blockingModal;
         }
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit hit = hits.get(i);
@@ -14887,6 +15033,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             avatarCropLastY = pointer.y;
             return true;
         }
+        if (hasNestedFrontendModal()) return true;
         if (statsEvidenceWindowPointer.owns(pointerIndex,
                 Input.Buttons.LEFT)) {
             updateStatsEvidenceWindowDrag(pointer.x, pointer.y);
@@ -14908,7 +15055,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
         }
-        return false;
+        return hasBlockingFrontendModal();
     }
 
     @Override
@@ -16134,6 +16281,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         avatarShader.dispose();
         roundedTextureShader.dispose();
         modalBackdropBlur.dispose();
+        nestedModalBackdropBlur.dispose();
         titleFont.dispose();
         headingFont.dispose();
         settingsStepperSignFont.dispose();
@@ -16195,7 +16343,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
-        return false;
+        return hasBlockingFrontendModal();
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
@@ -16307,7 +16455,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     lobbyChatScrollMaximum, amountY);
             return true;
         }
-        return false;
+        return hasBlockingFrontendModal();
     }
 
     private void scrollActiveSettingsSection(float amountY) {

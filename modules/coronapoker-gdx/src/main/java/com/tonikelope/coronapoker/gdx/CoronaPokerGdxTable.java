@@ -1310,7 +1310,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram allInFireShader;
     private GdxAlphaEdgeRenderer alphaEdgeRenderer;
     private GdxModalBackdropBlur modalBackdropBlur;
+    private GdxModalBackdropBlur nestedModalBackdropBlur;
     private boolean modalBackdropCaptureActive;
+    private boolean nestedModalParentCaptureActive;
     private final GdxCardSmaaRenderer cardSmaaRenderer
             = new GdxCardSmaaRenderer();
     private FrameBuffer disabledHoleCardsLayer;
@@ -1651,6 +1653,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyDown(int keycode) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
             if (keycode == Input.Keys.ESCAPE
                     && foregroundUiOwnsEscape(uiLayer)) {
@@ -1775,6 +1778,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             textDeleteRepeat.release(keycode);
             betShortcutRepeat.release(keycode);
             if (chipCatalogVisible) return true;
+            if (tableVoiceConfirmationVisible()) return true;
             if (shortcutBindings.keyCodeMatches(
                     GdxShortcutBindings.VOICE_RECORD, keycode)
                     && voiceRecorder != null) {
@@ -1792,6 +1796,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         public boolean keyTyped(char character) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
             if (activeDialog != null && activeDialog.isAutoCall()) {
                 handleAutoCallAmountTyped(character);
@@ -1831,6 +1836,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean scrolled(float amountX, float amountY) {
             if (tableImageClearConfirmation) return true;
+            if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 return true;
@@ -1908,7 +1914,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         quickChatScroll, quickChatScrollMaximum, amountY);
                 return true;
             }
-            if (uiLayer != UI_GAME_LOG || amountY == 0f) return false;
+            if (uiLayer != UI_GAME_LOG || amountY == 0f) {
+                return blockingTablePointerSurface();
+            }
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
             if (!gameLogPanelContains(pointer.x, pointer.y)) return false;
@@ -1922,6 +1930,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 int button) {
             if (isClientTransportReconnecting()) return true;
             if (tableImageClearConfirmation) return true;
+            if (tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
@@ -2019,7 +2028,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     feltClickDownX = pointer.x;
                     feltClickDownY = pointer.y;
                 }
-                return false;
+                return blockingTablePointerSurface();
             }
             pointer.set(screenX, screenY);
             viewport.unproject(pointer);
@@ -2053,6 +2062,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
             if (voicePointer.owns(pointerIndex, Input.Buttons.LEFT)) return true;
+            if (tableImageClearConfirmation
+                    || tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
@@ -2099,7 +2110,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (line >= 0) gameLogSelectionCaret = line;
                 return true;
             }
-            return false;
+            return blockingTablePointerSurface();
         }
 
         @Override
@@ -2112,6 +2123,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
+            if (tableImageClearConfirmation
+                    || tableVoiceConfirmationVisible()) return true;
             if (activeDialog != null && !activeDialog.isAutoAction()) {
                 chatPointerSelectionDragging = false;
                 clearTableScrollDrag();
@@ -2162,7 +2175,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 registerEmptyFeltClick(pointer.x, pointer.y,
                         System.nanoTime());
             }
-            if (!gameLogSelectionDragging) return false;
+            if (!gameLogSelectionDragging) {
+                return blockingTablePointerSurface();
+            }
             gameLogSelectionDragging = false;
             return true;
         }
@@ -2189,7 +2204,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             chatPointerSelectionDragging = false;
             gameLogSelectionDragging = false;
             feltClickCandidate = false;
-            return false;
+            return blockingTablePointerSurface();
+        }
+
+        @Override
+        public boolean mouseMoved(int screenX, int screenY) {
+            return blockingTablePointerSurface();
         }
     };
 
@@ -3283,9 +3303,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case 10 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
+                nestedModalBackdropBlur = new GdxModalBackdropBlur();
             }
             case 11 -> {
                 if (!modalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return false;
+                }
+                if (!nestedModalBackdropBlur.prepareNextBuffer(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
                     return false;
@@ -3681,6 +3707,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         Gdx.graphics.getBackBufferHeight())) {
                     return false;
                 }
+                if (!nestedModalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return false;
+                }
             }
             case 1 -> creationPreparationExecutor.shutdown();
             case 2 -> initialiseSeats();
@@ -3697,6 +3728,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // to a differently scaled monitor during the intervening
                 // preparation frames.
                 if (!modalBackdropBlur.prepareNextBuffer(
+                        Gdx.graphics.getBackBufferWidth(),
+                        Gdx.graphics.getBackBufferHeight())) {
+                    return false;
+                }
+                if (!nestedModalBackdropBlur.prepareNextBuffer(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
                     return false;
@@ -6257,6 +6293,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 != TableVisualEvent.PreparationStatus.Phase.READY;
         boolean sharpGraphicsPreview = usesSharpGraphicsSettingsPreview();
         boolean blockingBlur = hasBlurredTableModal(preparationModal);
+        boolean nestedTableModal = hasNestedTableModal();
         boolean pausedBackdrop = finalSummary == null && !intro
                 && liveState.snapshot().paused();
         // When pause is the only modal surface, blur just the live table and
@@ -6322,8 +6359,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (blurModalBackdrop) {
             try {
-                modalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                        camera.combined, BACKGROUND_BOTTOM);
+                if (nestedTableModal) {
+                    modalBackdropBlur.endCaptureAndCache(viewport, batch,
+                            camera.combined, BACKGROUND_BOTTOM);
+                } else {
+                    modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                            camera.combined, BACKGROUND_BOTTOM);
+                }
             } finally {
                 // A modal pass may contain nested card framebuffers. Restore
                 // every shared renderer explicitly before any sharp dialog or
@@ -6352,9 +6394,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // card detail by first downsampling and blurring the cards.
             drawUnifiedModalBackdrop();
         }
-        drawUiLayer();
+        if (nestedTableModal) {
+            renderNestedTableModal();
+        } else {
+            drawUiLayer();
+            drawActiveDialog();
+        }
         drawTerminationOverlay();
-        drawActiveDialog();
         drawChipCatalogDialog();
         drawTableIdentityDialog();
         drawNetworkReconnectOverlay();
@@ -6398,6 +6444,77 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null && !intro
                 || terminationRequested && finalSummary == null && !intro;
+    }
+
+    /**
+     * True when a blocking popup is displayed above another modal surface.
+     * The parent must become part of the child's blurred backdrop instead of
+     * remaining sharp behind it.
+     */
+    private boolean hasNestedTableModal() {
+        return tableImageClearConfirmation
+                || activeDialog != null && !activeDialog.isAutoAction()
+                        && uiLayer != UI_NONE;
+    }
+
+    private boolean tableVoiceConfirmationVisible() {
+        return uiLayer == UI_SETTINGS && voiceNotesOpen
+                && (voiceNoteDeleteConfirmation != null
+                || voiceNotesPurgeConfirmation);
+    }
+
+    private void renderNestedTableModal() {
+        nestedModalBackdropBlur.beginCapture(
+                Gdx.graphics.getBackBufferWidth(),
+                Gdx.graphics.getBackBufferHeight());
+        modalBackdropBlur.drawCached(viewport, batch, camera.combined,
+                BACKGROUND_BOTTOM);
+        drawUnifiedModalBackdrop();
+
+        float livePointerX = pointer.x;
+        float livePointerY = pointer.y;
+        nestedModalParentCaptureActive = true;
+        pointer.set(-10_000f, -10_000f);
+        try {
+            if (tableImageClearConfirmation) {
+                tableImageClearConfirmation = false;
+                try {
+                    drawUiLayer();
+                } finally {
+                    tableImageClearConfirmation = true;
+                }
+            } else {
+                drawUiLayer();
+            }
+        } finally {
+            nestedModalParentCaptureActive = false;
+            pointer.set(livePointerX, livePointerY);
+        }
+
+        nestedModalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                camera.combined, BACKGROUND_BOTTOM);
+        restoreDefaultTableRenderState();
+        drawUnifiedModalBackdrop();
+        if (tableImageClearConfirmation) {
+            drawTableImageClearConfirmation();
+        } else {
+            drawActiveDialog();
+        }
+    }
+
+    /** Complete pointer ownership for every truly modal table surface. */
+    private boolean blockingTablePointerSurface() {
+        return preparationPhase
+                        != TableVisualEvent.PreparationStatus.Phase.READY
+                || tableImageClearConfirmation
+                || tableIdentityDialog != null
+                || chipCatalogVisible
+                || activeDialog != null && !activeDialog.isAutoAction()
+                || finalSummary != null && uiLayer != UI_GAME_LOG
+                || uiLayerUsesBackdropBlur(uiLayer, chatImageMode)
+                || isClientTransportReconnecting()
+                || recoveryStopBarrier != null
+                || terminationRequested;
     }
 
     private boolean usesSharpGraphicsSettingsPreview() {
@@ -22566,8 +22683,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (uiLayer == UI_NONE) {
             return;
         }
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
+        if (!nestedModalParentCaptureActive) {
+            pointer.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(pointer);
+        }
         switch (uiLayer) {
             case UI_SETTINGS -> drawSettingsDialog();
             case UI_GAME_LOG -> drawGameLogDialog();
@@ -29204,6 +29323,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
         liveCardFaces.clear();
         disposeSafely(modalBackdropBlur);
+        disposeSafely(nestedModalBackdropBlur);
         disposeSafely(allInFireShader);
         disposeSafely(cinematicShader);
         disposeSafely(avatarShader);
@@ -29301,6 +29421,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (cinematicShader != null) cinematicShader.dispose();
         if (allInFireShader != null) allInFireShader.dispose();
         if (modalBackdropBlur != null) modalBackdropBlur.dispose();
+        if (nestedModalBackdropBlur != null) nestedModalBackdropBlur.dispose();
         cardSmaaRenderer.dispose();
         if (disabledHoleCardsLayer != null) disabledHoleCardsLayer.dispose();
         if (chipRackCompositeLayer != null) {

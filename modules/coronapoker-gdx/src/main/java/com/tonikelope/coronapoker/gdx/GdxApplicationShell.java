@@ -16,6 +16,7 @@ import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.table.TableCommandSink;
@@ -401,14 +402,13 @@ final class GdxApplicationShell extends ApplicationAdapter {
             CoronaPokerGdxTable candidate = null;
             try {
                 gameLog.reset();
-                String endpoint = lobby == null ? "unknown"
-                        : lobby.snapshot().serverAddress();
-                String endpointLine = MessageFormat.format(
-                        gameText.translate("gdx.table.connection_endpoint"),
-                        endpoint);
-                gameLog.print(endpointLine);
-                LOGGER.log(Level.INFO, "Game connection endpoint: {0}",
-                        endpoint);
+                LobbySnapshot lobbyState = lobby == null
+                        ? null : lobby.snapshot();
+                for (String endpointLine : tableConnectionEndpointLines(
+                        lobbyState, menu.tablePublicAddress(), gameText)) {
+                    gameLog.print(endpointLine);
+                    LOGGER.log(Level.INFO, endpointLine);
+                }
                 flushPendingIdentityGameLogNotices();
                 candidate = new CoronaPokerGdxTable(
                         refreshRate, new GdxTableViewState(initialState), commands,
@@ -447,11 +447,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             switch (pending.handoffStep++) {
                 case 0 -> menu.suspendForTable(true);
-                case 1 -> pending.table.activateBackgroundMusic();
-                case 2 -> pending.table.resize(Gdx.graphics.getWidth(),
+                case 1 -> pending.table.resize(Gdx.graphics.getWidth(),
                         Gdx.graphics.getHeight());
-                case 3 -> flushPendingIdentityGameLogNotices();
-                case 4 -> {
+                case 2 -> flushPendingIdentityGameLogNotices();
+                case 3 -> {
                     table = pending.table;
                     // The lobby keeps its last hit map while the table is
                     // visible. Leaving it installed would make one table click
@@ -459,6 +458,12 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     // control on release.
                     Gdx.input.setInputProcessor(pending.table.inputProcessor());
                     pendingTableOpen = null;
+                    // The persistent frontend still renders on every earlier
+                    // handoff step and therefore owns the shared decoder until
+                    // this exact scene boundary. Starting it any sooner lets
+                    // the next frontend frame pause it again, which left a
+                    // hot-joining client silent until the user toggled music.
+                    table.activateBackgroundMusic();
                 }
                 default -> throw new IllegalStateException(
                         "Unknown GDX table handoff step");
@@ -478,6 +483,28 @@ final class GdxApplicationShell extends ApplicationAdapter {
                     "gdx.table.open_failed_detail", rootMessage(error)));
             pending.openingBarrier.completeExceptionally(error);
         }
+    }
+
+    static List<String> tableConnectionEndpointLines(LobbySnapshot state,
+            String publicAddress, GdxGameText text) {
+        Objects.requireNonNull(text, "text");
+        String endpoint = state == null ? "unknown" : state.serverAddress();
+        if (state == null || !state.host()) {
+            return List.of(MessageFormat.format(text.translate(
+                    "gdx.table.server_connection_endpoint"), endpoint));
+        }
+        String publicEndpoint = GdxFrontendScreen.lobbyPublicAddressEndpoint(
+                endpoint, publicAddress);
+        if (publicEndpoint.isBlank()) {
+            publicEndpoint = text.translate(
+                    "gdx.lobby.public_address_unavailable");
+        }
+        return List.of(
+                MessageFormat.format(text.translate(
+                        "gdx.table.private_connection_endpoint"), endpoint),
+                MessageFormat.format(text.translate(
+                        "gdx.table.public_connection_endpoint"),
+                        publicEndpoint));
     }
 
     void closeTable(CoronaPokerGdxTable expected) {

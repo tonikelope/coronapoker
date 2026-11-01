@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -38,6 +39,35 @@ final class GdxSceneTransitionContractTest {
                 + "                || hasVisibleFrontendModal();"));
         assertEquals(2, occurrences(frontend, "\n        surface = "),
                 "only construction and activateSurface may assign the surface");
+    }
+
+    @Test
+    void sharedMusicStartsOnlyAfterTheFrontendStopsRendering()
+            throws Exception {
+        String shell = source("GdxApplicationShell.java");
+        String table = source("CoronaPokerGdxTable.java");
+        int suspended = shell.indexOf("case 0 -> menu.suspendForTable(true);");
+        int installed = shell.indexOf("table = pending.table;", suspended);
+        int pendingCleared = shell.indexOf("pendingTableOpen = null;",
+                installed);
+        int activated = shell.indexOf("table.activateBackgroundMusic();",
+                pendingCleared);
+
+        assertTrue(suspended >= 0);
+        assertTrue(installed > suspended);
+        assertTrue(pendingCleared > installed);
+        assertTrue(activated > pendingCleared,
+                "the frontend must not get another render turn after activation");
+        assertEquals(1, occurrences(shell, "activateBackgroundMusic();"));
+
+        int finalizationStart = table.indexOf(
+                "private boolean createNextTableFinalizationStep()");
+        int finalizationEnd = table.indexOf(
+                "void shareBackgroundMusic(Music music)", finalizationStart);
+        assertTrue(finalizationStart >= 0 && finalizationEnd > finalizationStart);
+        assertFalse(table.substring(finalizationStart, finalizationEnd)
+                        .contains("backgroundMusic.play()"),
+                "table construction must not start the frontend-owned decoder");
     }
 
     private static int occurrences(String source, String token) {

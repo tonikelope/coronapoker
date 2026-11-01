@@ -3,7 +3,10 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.tonikelope.coronapoker.core.LobbyParticipant;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
 import java.security.SecureRandom;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class GdxLobbyConnectionDataTest {
@@ -87,5 +90,37 @@ class GdxLobbyConnectionDataTest {
                         GdxFrontendScreen.LOBBY_LEFT_CONTENT_WIDTH, false);
         assertFalse(noBadge.statusVisible());
         assertEquals(noBadge.fullValueWidth(), noBadge.valueWidth());
+    }
+
+    @Test
+    void gameLogShowsBothHostEndpointsButOnlyTheServerForClients() {
+        GdxGameText spanish = new GdxGameText("es");
+        LobbySnapshot host = new LobbySnapshot("host", "host",
+                "192.168.1.20:21339", true,
+                LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
+                List.of(participant("host", true, true)), List.of(),
+                null, false, true);
+        assertEquals(List.of(
+                "IP PRIVADA / PUERTO: 192.168.1.20:21339",
+                "IP PÚBLICA / PUERTO: 83.39.59.168:21339"),
+                GdxApplicationShell.tableConnectionEndpointLines(host,
+                        "83.39.59.168", spanish));
+
+        LobbySnapshot client = new LobbySnapshot("client", "host",
+                "83.39.59.168:21339", false,
+                LobbySnapshot.Phase.IN_GAME, "",
+                List.of(participant("host", false, true),
+                        participant("client", true, false)),
+                List.of(), null, true, true);
+        assertEquals(List.of("SERVIDOR IP / PUERTO: 83.39.59.168:21339"),
+                GdxApplicationShell.tableConnectionEndpointLines(client,
+                        "203.0.113.9", spanish));
+    }
+
+    private static LobbyParticipant participant(String nickname,
+            boolean local, boolean host) {
+        return new LobbyParticipant(nickname, null, local, host, false,
+                true, false, true, LobbyParticipant.NO_LATENCY,
+                LobbyParticipant.NO_LATENCY);
     }
 }

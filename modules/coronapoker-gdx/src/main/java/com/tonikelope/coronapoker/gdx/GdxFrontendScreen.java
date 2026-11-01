@@ -1904,8 +1904,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearActiveField();
         activateSurface(Surface.LOBBY);
         presentLobbyNotice(null, lobby);
-        if (connection != null
-                && connection.mode() == NewGameConnectionDraft.Mode.JOIN) {
+        if (shouldPlayLobbyConnectionSound(connection, lobby)) {
             playPreferenceSound("misc/yahoo.wav", "sonido_conexion", 0.82f);
         }
         lobbySubscription = session.subscribe(next -> Gdx.app.postRunnable(() -> {
@@ -1929,6 +1928,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 handleLobbyMedia(next);
             }
         }));
+    }
+
+    static boolean shouldPlayLobbyConnectionSound(
+            NewGameConnectionDraft connection, LobbySnapshot state) {
+        return connection != null && state != null
+                && shouldPlayLobbyConnectionSound(connection.mode(),
+                        state.phase());
+    }
+
+    static boolean shouldPlayLobbyConnectionSound(
+            NewGameConnectionDraft.Mode mode, LobbySnapshot.Phase phase) {
+        return mode == NewGameConnectionDraft.Mode.JOIN
+                && phase != LobbySnapshot.Phase.INITIALIZING_GAME
+                && phase != LobbySnapshot.Phase.IN_GAME;
     }
 
     private void presentLobbyNotice(LobbySnapshot previous,
@@ -10295,6 +10308,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return backgroundMusic;
     }
 
+    String tablePublicAddress() {
+        return lobbyPublicAddress;
+    }
+
     private void openNewGame(NewGameConnectionDraft.Mode mode) {
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
@@ -12522,7 +12539,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawToastTopLayer() {
-        float w = 820f;
+        float w = GdxTransientNoticeLayout.contentWidth(
+                textWidth(uiFont, toast), 0f, 52f,
+                260f, 820f, WIDTH - 80f);
         float x = WIDTH / 2f - w / 2f;
         // Feedback from the bot manager belongs to the manager itself. Its
         // regular bottom placement covered the pagination and edit actions.
@@ -12541,9 +12560,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawScreenshotToastTopLayer() {
         float alpha = MathUtils.clamp(
                 (screenshotToastUntil - elapsed) / 0.25f, 0f, 1f);
-        float x = 690f;
         float y = 875f;
-        float w = 540f;
+        float w = GdxTransientNoticeLayout.contentWidth(
+                textWidth(actionFont, screenshotToast), 0f, 36f,
+                220f, 820f, WIDTH - 80f);
+        float x = (WIDTH - w) / 2f;
         float h = 64f;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);

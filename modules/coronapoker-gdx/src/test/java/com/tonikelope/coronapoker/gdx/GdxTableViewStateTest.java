@@ -3567,13 +3567,11 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void thinkingSurfacePreservesSwingTransparency() {
-        assertColor(0xcc, 0xcc, 0xcc, 0x4b,
-                CoronaPokerGdxTable.LEGACY_THINKING);
-        assertEquals((0x4b / 255f) * 0.92f * 0.75f,
-                CoronaPokerGdxTable.composedAlpha(
-                        CoronaPokerGdxTable.LEGACY_THINKING, 0.92f, 0.75f),
-                0.000_001f);
+    void thinkingSurfaceUsesTheActiveTurnPalette() {
+        assertColor(0xff, 0xad, 0x20, 0xff,
+                CoronaPokerGdxTable.thinkingActionSurfaceColor());
+        assertEquals(Color.BLACK,
+                CoronaPokerGdxTable.thinkingActionTextColor());
     }
 
     @Test

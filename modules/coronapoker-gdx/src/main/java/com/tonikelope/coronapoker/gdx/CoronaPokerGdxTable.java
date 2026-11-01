@@ -996,7 +996,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color LEGACY_ALL_IN = new Color(0x000000ff);
     private static final Color ARMED_ACTION_GREEN = new Color(0x20df72ff);
     private static final Color ARMED_ACTION_TEXT = new Color(0x071b12ff);
-    static final Color LEGACY_THINKING = new Color(0xcccccc4b);
     private static final Color LEGACY_WINNER = new Color(0x00ff00ff);
     private static final Color WINNER_NEON_GREEN = new Color(0x39ff5aff);
     private static final Color LEGACY_LOSER = new Color(0xff0000ff);
@@ -17983,7 +17982,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (isLiveReconnectingPlayer(player.nickname())) {
             return LATENCY_ORANGE;
         }
-        if (isLiveThinkingSeat(seats[seat])) return LEGACY_THINKING;
+        if (isLiveThinkingSeat(seats[seat])) {
+            return thinkingActionSurfaceColor();
+        }
         if (liveState.isIwtsthCandidate(player.nickname())) {
             return iwtsthBlinkOn() ? Color.WHITE : LEGACY_LOSER;
         }
@@ -18030,7 +18031,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return Color.WHITE;
         }
         if (isLiveThinkingSeat(seats[seat])) {
-            return Color.LIGHT_GRAY;
+            return thinkingActionTextColor();
         }
         if (player != null && liveState.isIwtsthCandidate(player.nickname())) {
             return iwtsthBlinkOn() ? LEGACY_LOSER : Color.WHITE;
@@ -18269,6 +18270,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // same gold/orange. Once the turn moves on, the canonical action
         // colour becomes visible again (check, call, raise, fold, and so on).
         return activeTurn ? ACTIVE_TURN_GOLD : semanticColor;
+    }
+
+    static Color thinkingActionSurfaceColor() {
+        return ACTIVE_TURN_GOLD;
+    }
+
+    static Color thinkingActionTextColor() {
+        return Color.BLACK;
     }
 
     static Color liveActionTextColor(

@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>26.97</version>
+        <version>26.98</version>
     </parent>
     <artifactId>coronapoker-gdx</artifactId>
     <name>CoronaPoker GDX application</name>

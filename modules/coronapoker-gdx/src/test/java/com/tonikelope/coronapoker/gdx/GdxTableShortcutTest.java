@@ -273,18 +273,49 @@ final class GdxTableShortcutTest {
     }
 
     @Test
-    void editingRejectsCollisionsIncludingFixedAliases() {
+    void editingMovesAnOccupiedCombinationAndStillRejectsFixedAliases() {
         GdxShortcutBindings bindings = bindings();
         bindings.beginEdit();
 
-        assertEquals(GdxShortcutBindings.Assignment.CONFLICT,
+        assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.SPACE,
                         false, false, false));
+        assertEquals(GdxShortcutBindings.PAUSE,
+                bindings.actionFor(Input.Keys.SPACE,
+                        false, false, false));
+        assertEquals("SIN ASIGNAR", bindings.displayFor(
+                GdxShortcutBindings.CHECK));
         assertEquals(GdxShortcutBindings.Assignment.CONFLICT,
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.RIGHT,
                         false, false, false));
         assertEquals(GdxShortcutBindings.PAUSE,
-                bindings.actionFor(Input.Keys.P, true, false, false));
+                bindings.actionFor(Input.Keys.SPACE,
+                        false, false, false));
+    }
+
+    @Test
+    void reassignedShortcutPersistsThePreviousActionAsUnassigned() {
+        Properties properties = new Properties();
+        GdxShortcutBindings bindings = new GdxShortcutBindings(properties);
+        bindings.beginEdit();
+
+        assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
+                bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.SPACE,
+                        false, false, false));
+        bindings.commitEdit();
+
+        assertEquals("NONE", properties.getProperty(
+                "shortcut.CHECK-BUTTON"));
+        GdxShortcutBindings reloaded = new GdxShortcutBindings(properties);
+        assertEquals(GdxShortcutBindings.PAUSE,
+                reloaded.actionFor(Input.Keys.SPACE,
+                        false, false, false));
+        assertEquals("SIN ASIGNAR", reloaded.displayFor(
+                GdxShortcutBindings.CHECK));
+        assertEquals("UNASSIGNED", reloaded.editableEntries(
+                new GdxGameText("en")).stream()
+                        .filter(entry -> GdxShortcutBindings.CHECK.equals(
+                        entry.id())).findFirst().orElseThrow().display());
     }
 
     @Test

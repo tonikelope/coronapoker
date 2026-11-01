@@ -2,7 +2,11 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -44,6 +48,18 @@ final class GdxSettingsChromeTest {
                         GdxSettingsContract.Section.GAME),
                 GdxSettingsChrome.mainTabIconFor(
                         GdxSettingsContract.Section.DEBUG));
+    }
+
+    @Test
+    void saveUsesThePositiveMaterialAndRespectsDirtyState()
+            throws Exception {
+        String chrome = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxSettingsChrome.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(chrome.contains("boolean saveEnabled, float alpha"));
+        assertTrue(chrome.contains("GdxUiButtonStyle.Tone.POSITIVE, pointer, "
+                + "saveEnabled, alpha"));
     }
 
     private static void assertSemanticIcons(

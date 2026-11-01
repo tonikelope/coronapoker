@@ -8534,9 +8534,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
         boolean restoreEnabled = restoreVisible
                 && !currentSettingsSubsectionAtDefaults();
+        boolean saveEnabled = !lobbyCommandPending
+                && settingsHavePendingChanges();
         GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
-                pointer, restoreVisible, restoreEnabled, 1f);
+                pointer, restoreVisible, restoreEnabled, saveEnabled, 1f);
 
         // Keep title and subtitle in independent vertical bands. Their fonts
         // have different ascenders, so baseline-only spacing can overlap even
@@ -8632,8 +8634,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 lobbyCommandPending
                         ? uppercase(gameText.translate("gdx.saving"))
                         : gameText.translate("ui.guardar"),
-                save.x, save.y, save.width, save.height, GOLD);
-        if (!lobbyCommandPending) {
+                save.x, save.y, save.width, save.height,
+                saveEnabled ? Color.WHITE : DISABLED);
+        if (saveEnabled) {
             hit(save.x, save.y, save.width, save.height,
                     () -> closeSettings(true));
         }

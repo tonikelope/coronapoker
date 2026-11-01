@@ -21440,7 +21440,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             restoreCurrentSettingsSectionDefaults();
             return true;
         }
-        if (frame.saveButton().contains(x, y)) {
+        if (settingsHavePendingChanges()
+                && frame.saveButton().contains(x, y)) {
             closeTableSettings(true);
             return true;
         }
@@ -24137,9 +24138,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean restoreVisible = settingsSectionHasRestoreDefaults();
         boolean restoreEnabled = restoreVisible
                 && !currentSettingsSubsectionAtDefaults();
+        boolean saveEnabled = settingsHavePendingChanges();
         GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
-                pointer, restoreVisible, restoreEnabled, alpha);
+                pointer, restoreVisible, restoreEnabled, saveEnabled, alpha);
 
         Rectangle settingsContentClip = GdxSettingsLayout.contentClip(content);
         shapes.flush();
@@ -24203,7 +24205,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawDialogButtonLabel(settingsActionFont,
                 gameText.translate("ui.guardar"),
                 save.x, save.y, save.width, save.height,
-                POT_GOLD, alpha);
+                saveEnabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
         batch.end();
         if (settingsContentPage() == 9) {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);

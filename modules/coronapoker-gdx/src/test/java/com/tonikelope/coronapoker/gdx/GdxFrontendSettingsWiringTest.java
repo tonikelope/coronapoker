@@ -202,6 +202,7 @@ final class GdxFrontendSettingsWiringTest {
                 + "row input has ended");
         assertTrue(method.indexOf("this::requestCancelSettings", cancel)
                 > cancel);
+        assertTrue(method.indexOf("if (saveEnabled)", save) > save);
         assertTrue(method.indexOf("() -> closeSettings(true)", save) > save);
     }
 

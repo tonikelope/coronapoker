@@ -61,6 +61,7 @@ final class GdxShortcutBindings {
             FULLSCREEN, LIGHTS, HALT, QUIT, FORCE_EXIT);
 
     private static final String PREFIX = "shortcut.";
+    private static final String UNASSIGNED = "NONE";
     private static final int RELEVANT_MODIFIERS = InputEvent.SHIFT_DOWN_MASK
             | InputEvent.CTRL_DOWN_MASK | InputEvent.ALT_DOWN_MASK
             | InputEvent.META_DOWN_MASK | InputEvent.ALT_GRAPH_DOWN_MASK;
@@ -100,8 +101,12 @@ final class GdxShortcutBindings {
     synchronized void reload() {
         LinkedHashMap<String, Binding> loaded = new LinkedHashMap<>();
         for (Definition definition : definitions.values()) {
-            Binding override = deserialize(properties.getProperty(
-                    PREFIX + definition.id));
+            String serialized = properties.getProperty(PREFIX + definition.id);
+            if (UNASSIGNED.equalsIgnoreCase(serialized == null ? ""
+                    : serialized.trim())) {
+                continue;
+            }
+            Binding override = deserialize(serialized);
             loaded.put(definition.id,
                     override == null ? definition.fallback : override);
         }
@@ -179,7 +184,9 @@ final class GdxShortcutBindings {
         for (Definition definition : definitions.values()) {
             Binding binding = current.get(definition.id);
             String key = PREFIX + definition.id;
-            if (binding == null || binding.equals(definition.fallback)) {
+            if (binding == null) {
+                properties.setProperty(key, UNASSIGNED);
+            } else if (binding.equals(definition.fallback)) {
                 properties.remove(key);
             } else {
                 properties.setProperty(key, binding.awtKeyCode + ","
@@ -224,13 +231,10 @@ final class GdxShortcutBindings {
                 | (control ? InputEvent.CTRL_DOWN_MASK : 0)
                 | (alt ? InputEvent.ALT_DOWN_MASK : 0);
         Binding candidate = new Binding(awtKeyCode, gdxKeyCode, modifiers);
+        // Aliases are fixed compatibility shortcuts and cannot be cleared by
+        // the editor. Keep rejecting those collisions before changing any
+        // editable binding.
         for (Definition definition : definitions.values()) {
-            if (!definition.id.equals(id)
-                    && conflicts(candidate, target.keycodeOnly,
-                            current.get(definition.id),
-                            definition.keycodeOnly)) {
-                return Assignment.CONFLICT;
-            }
             for (Binding alias : definition.aliases) {
                 if (conflicts(candidate, target.keycodeOnly, alias, false)) {
                     return Assignment.CONFLICT;
@@ -238,6 +242,17 @@ final class GdxShortcutBindings {
             }
         }
         LinkedHashMap<String, Binding> edited = new LinkedHashMap<>(current);
+        // A user-selected shortcut wins over another editable shortcut. The
+        // previous action is deliberately left unassigned instead of making
+        // one key dispatch two commands.
+        for (Definition definition : definitions.values()) {
+            if (!definition.id.equals(id)
+                    && conflicts(candidate, target.keycodeOnly,
+                            current.get(definition.id),
+                            definition.keycodeOnly)) {
+                edited.remove(definition.id);
+            }
+        }
         edited.put(id, candidate);
         current = Map.copyOf(edited);
         return Assignment.ASSIGNED;
@@ -251,12 +266,16 @@ final class GdxShortcutBindings {
         ArrayList<ShortcutEntry> entries = new ArrayList<>();
         for (String id : EDITOR_ORDER) {
             Definition definition = definitions.get(id);
+            Binding binding = current.get(definition.id);
             entries.add(new ShortcutEntry(definition.id,
                     text == null ? shortcutDescription(definition.id)
                             : shortcutDescription(definition.id, text),
-                    display(current.get(definition.id)),
-                    Objects.equals(current.get(definition.id),
-                            definition.fallback)));
+                    binding == null
+                            ? text == null ? "SIN ASIGNAR"
+                                    : text.translate(
+                                            "gdx.settings.shortcut.unassigned")
+                            : display(binding),
+                    Objects.equals(binding, definition.fallback)));
         }
         return List.copyOf(entries);
     }
@@ -333,7 +352,7 @@ final class GdxShortcutBindings {
     }
 
     private static String display(Binding binding) {
-        if (binding == null) return "?";
+        if (binding == null) return "SIN ASIGNAR";
         ArrayList<String> parts = new ArrayList<>();
         if ((binding.modifiers & InputEvent.CTRL_DOWN_MASK) != 0) {
             parts.add("CTRL");

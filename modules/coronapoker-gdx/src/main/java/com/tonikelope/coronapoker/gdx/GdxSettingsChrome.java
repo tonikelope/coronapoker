@@ -45,7 +45,7 @@ final class GdxSettingsChrome {
             List<GdxSettingsContract.Section> sections, int subpageCount,
             int activeSection,
             int activeSubpage, Vector2 pointer, boolean restoreVisible,
-            boolean restoreEnabled, float alpha) {
+            boolean restoreEnabled, boolean saveEnabled, float alpha) {
         Rectangle panel = frame.panel();
         Rectangle content = frame.content();
         int sectionCount = sections.size();
@@ -110,7 +110,7 @@ final class GdxSettingsChrome {
                     alpha);
         }
         drawFooterButton(shapes, frame.saveButton(),
-                GdxUiButtonStyle.Tone.FEATURED, pointer, alpha);
+                GdxUiButtonStyle.Tone.POSITIVE, pointer, saveEnabled, alpha);
     }
 
     private static void drawFooterButton(ShapeRenderer shapes,

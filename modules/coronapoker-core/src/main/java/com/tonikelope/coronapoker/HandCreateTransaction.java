@@ -169,7 +169,7 @@ public final class HandCreateTransaction {
             throws SQLException {
         if (affected != 1) {
             throw new SQLException(operation + " for " + target
-                    + " affected " + affected + " rows; expected exactly 1");
+                    + " affected " + affected + " rows. Expected exactly 1");
         }
     }
 

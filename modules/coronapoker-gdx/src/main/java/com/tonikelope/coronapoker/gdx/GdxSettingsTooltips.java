@@ -47,10 +47,69 @@ final class GdxSettingsTooltips {
             case "trasera" -> "tooltip.cfg.deck_back";
             case "color_tapete" -> "tooltip.cfg.table_felt";
             case "nivel_luz" -> "tooltip.cfg.nivel_luz";
+            case "show_time" -> "gdx.settings.tooltip.show_time";
+            case "mostrar_coste_igualar" ->
+                "gdx.settings.tooltip.show_call_cost";
+            case "resaltar_jugada_showdown" ->
+                "tooltip.cfg.resaltar_jugada_showdown";
+            case "resaltar_avatares" ->
+                "tooltip.cfg.resaltar_avatares";
+            case "screenshot_fin_timba" ->
+                "tooltip.cfg.screenshot_fin_timba";
+            case GdxSettingsContract.ANTI_DOS_WARNINGS_KEY ->
+                "gdx.settings.tooltip.anti_dos_warnings";
+            case GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY ->
+                "gdx.settings.tooltip.chat_notifications";
+            case "chat_images_ingame" ->
+                "gdx.settings.tooltip.chat_images";
+            case "animaciones" ->
+                "gdx.settings.tooltip.animations_master";
+            case "cinematicas", "cinematicas_accion" ->
+                "gdx.settings.tooltip.cinematics_master";
+            case "cinematicas_allin" ->
+                "gdx.settings.tooltip.cinematic_allin";
+            case "cinematicas_gameover" ->
+                "gdx.settings.tooltip.cinematic_gameover";
+            case "animacion_barajado" ->
+                "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
             case "animacion_barajado_precarga" ->
                 "gdx.settings.tooltip.shuffle_preload";
+            case "animacion_reparto" ->
+                "gdx.settings.tooltip.animation_deal";
+            case "reparto_velocidad" ->
+                "tooltip.cfg.reparto_velocidad";
+            case "animacion_destape" ->
+                "gdx.settings.tooltip.animation_reveal";
+            case "card_flip_duration" ->
+                "tooltip.cfg.card_flip_duration";
+            case "card_flip_zoom" -> "tooltip.cfg.card_flip_zoom";
+            case "animacion_ciegas_dealer" ->
+                "gdx.settings.tooltip.animation_position_chips";
+            case "animacion_contadores" ->
+                "gdx.settings.tooltip.animation_counters";
+            case "animacion_entrada_asientos" ->
+                "gdx.settings.tooltip.animation_seats";
+            case "animacion_swap" ->
+                "gdx.settings.tooltip.animation_sort_hand";
+            case "swap_velocidad" -> "tooltip.cfg.swap_velocidad";
+            case "swap_arco" -> "tooltip.cfg.swap_estilo";
+            case "animacion_contador_final" ->
+                "gdx.settings.tooltip.animation_final_count";
+            case "animacion_fuego_allin" ->
+                "gdx.settings.tooltip.animation_allin_fire";
+            case "animacion_efecto_ganador" ->
+                "gdx.settings.tooltip.animation_winner";
+            case "animacion_apuestas" ->
+                "gdx.settings.tooltip.animation_chips";
+            case "animacion_downgrade" ->
+                "gdx.settings.tooltip.animation_reseat";
+            case "downgrade_velocidad" ->
+                "tooltip.cfg.downgrade_velocidad";
+            case "animacion_cascada_overlay" ->
+                "gdx.settings.tooltip.animation_shuffle_cascade";
+            case "anim_calidad" -> "tooltip.cfg.anim_calidad";
             case "gdx_window_mode" -> "tooltip.cfg.display_mode";
             case "auto_fullscreen" ->
                 "gdx.settings.tooltip.auto_fullscreen";
@@ -122,8 +181,6 @@ final class GdxSettingsTooltips {
             return "gdx.settings.tooltip.audio_event";
         }
         if (settingKey.startsWith("animacion_")
-                || settingKey.equals("animaciones")
-                || settingKey.equals("reparto_velocidad")
                 || settingKey.startsWith("card_flip_")
                 || settingKey.startsWith("swap_")) {
             return "gdx.settings.tooltip.animation";

@@ -185,7 +185,7 @@ public final class ShuffleVerificationQueue {
         boolean accepted = queue.offer(job);
         if (!accepted) {
             LOGGER.log(Level.WARNING,
-                    "SHUFFLE-VERIFY: queue full — rejecting critical verify job for hand {0}; "
+                    "SHUFFLE-VERIFY: queue full. Rejecting critical verify job for hand {0}. "
                     + "caller must close the host channel", job.handId);
         }
         return accepted;

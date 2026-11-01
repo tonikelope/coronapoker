@@ -1341,7 +1341,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     }
                     String nickname = connection.remoteNickname;
                     LOGGER.log(Level.WARNING,
-                            "Native peer {0} did not reconnect within {1}ms; declaring definitive loss",
+                            "Native peer {0} did not reconnect within {1}ms. Declaring definitive loss",
                             new Object[]{nickname, HOST_PEER_RECONNECT_TIMEOUT_MS});
                     gameChannel.publishPeerLoss(nickname);
                     publishCurrent();
@@ -2126,7 +2126,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             if (!expel) {
                 LOGGER.log(Level.INFO,
-                        "Host forgave anti-DoS incident for peer {0}; counters reset",
+                        "Host forgave anti-DoS incident for peer {0}. Counters reset",
                         peer.nickname);
                 return;
             }
@@ -3031,7 +3031,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
                 if (consecutiveFailures >= MAX_CONSECUTIVE_HEARTBEAT_FAILURES) {
                     LOGGER.log(Level.WARNING,
-                            "Native peer {0} lost {1} consecutive heartbeat rounds; closing socket",
+                            "Native peer {0} lost {1} consecutive heartbeat rounds. Closing socket",
                             new Object[]{remoteNickname, consecutiveFailures});
                     active.close();
                     return;
@@ -3435,7 +3435,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             case "NICKFAIL" -> "El nick ya está en uso";
             case "NICKUNAUTHORIZED" -> "El nick contiene caracteres reservados";
             case "IDENTITYMISMATCH" -> "La identidad no corresponde al propietario de este nick";
-            case "HOTJOINTHROTTLED" -> "Demasiadas entradas en caliente; inténtalo de nuevo en unos segundos";
+            case "HOTJOINTHROTTLED" -> "Demasiadas entradas en caliente. Inténtalo de nuevo en unos segundos";
             default -> "El servidor rechazó la conexión";
         };
         return new LobbyConnectionRefusedException(reason,

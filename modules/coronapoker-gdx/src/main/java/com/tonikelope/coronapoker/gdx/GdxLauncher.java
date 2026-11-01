@@ -223,7 +223,7 @@ public final class GdxLauncher {
             Monitor[] monitors = Lwjgl3ApplicationConfiguration.getMonitors();
             if (requested < 1 || requested > monitors.length) {
                 throw new IllegalArgumentException("Monitor " + requested
-                        + " no disponible; detectados: " + monitors.length);
+                        + " no disponible. Detectados: " + monitors.length);
             }
             return monitors[requested - 1];
         }

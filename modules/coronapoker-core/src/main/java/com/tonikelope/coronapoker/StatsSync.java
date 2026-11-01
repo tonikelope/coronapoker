@@ -495,7 +495,7 @@ public final class StatsSync {
             }
         }
         // Per-batch breakdown behind the manager's INFO headline ("imported N new game(s) from X").
-        LOGGER.log(Level.FINE, "StatsSync: import done — {0} new, {1} already-known, {2} rejected",
+        LOGGER.log(Level.FINE, "StatsSync: import done. {0} new, {1} already-known, {2} rejected",
                 new Object[]{imported, skipped, failed});
         return imported;
     }

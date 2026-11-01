@@ -5704,7 +5704,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int effectiveLatency = lobbyEffectiveLatencyMillis(participant);
         tooltip(x + 43f, y + h / 2f - 12f, 24f, 24f,
                 "gdx.table.latency_tooltip",
-                effectiveLatency < 0 ? "—" : Integer.toString(effectiveLatency));
+                effectiveLatency < 0 ? "-" : Integer.toString(effectiveLatency));
         textFit(smallFont, participant.nickname(), x + 68f, y + 35f,
                 participant.asyncWaiting() ? DISABLED : Color.WHITE,
                 false, w - 190f);
@@ -12702,7 +12702,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String visible = passwordDisplay(value, secret, revealed);
         float textWidth = w - (secret ? 102f : 44f);
         FrontendInputWindow window = visible.isEmpty()
-                ? new FrontendInputWindow("—", 0, 0, 0f, 0f, 0f)
+                ? new FrontendInputWindow("-", 0, 0, 0f, 0f, 0f)
                 : frontendInputWindow(uiFont, value, visible, textWidth,
                         focused);
         drawInputSelection(x + 22f, y + 17f, 36f, window, focused);
@@ -13328,7 +13328,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             });
         }
         if (options.size() > visible) {
-            textFit(tinyFont, (dropdownScroll + 1) + "–"
+            textFit(tinyFont, (dropdownScroll + 1) + " - "
                     + (dropdownScroll + visible) + " / " + options.size(),
                     x + w - 18f, y - 12f, MUTED, true, 130f);
         }

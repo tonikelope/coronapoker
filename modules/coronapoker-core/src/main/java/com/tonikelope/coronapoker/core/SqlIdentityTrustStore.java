@@ -105,7 +105,7 @@ public final class SqlIdentityTrustStore implements IdentityTrustStore {
                             verified));
                     LOGGER.log(Level.WARNING,
                             verified
-                                    ? "Identity key changed for {0}; explicit verification was cleared"
+                                    ? "Identity key changed for {0}. Explicit verification was cleared"
                                     : "Unverified identity key changed for {0}",
                             nickname);
                 }

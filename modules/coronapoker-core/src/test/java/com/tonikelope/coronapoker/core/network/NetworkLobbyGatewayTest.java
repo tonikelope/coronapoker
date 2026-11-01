@@ -895,7 +895,7 @@ class NetworkLobbyGatewayTest {
                 Exception rejected = assertThrows(Exception.class,
                         () -> throttled.open(request(true, "Persistente",
                                 port)).get(5, TimeUnit.SECONDS));
-                assertEquals("Demasiadas entradas en caliente; inténtalo de nuevo en unos segundos",
+        assertEquals("Demasiadas entradas en caliente. Inténtalo de nuevo en unos segundos",
                         rootCause(rejected).getMessage());
             }
             assertEquals(2, host.snapshot().participants().size(),

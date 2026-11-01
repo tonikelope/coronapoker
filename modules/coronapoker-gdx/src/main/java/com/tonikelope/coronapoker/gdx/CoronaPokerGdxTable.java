@@ -6509,7 +6509,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String startupPresentationTitle(int currentYear) {
-        return "© 2020–" + Math.max(2020, currentYear)
+        return "© 2020 - " + Math.max(2020, currentYear)
                 + " Tonikelope Solutions S. L.";
     }
 
@@ -8400,7 +8400,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             + Math.max(4f, buyInPad * 0.45f)
                     : layout.buyInArea().y + buyInPad;
             drawFittedCenteredInBox(chipCatalogAmountFont,
-                    Double.isFinite(buyIn) ? formatAmount(buyIn) : "—",
+                    Double.isFinite(buyIn) ? formatAmount(buyIn) : "-",
                     layout.buyInArea().x + 14f, buyInBodyBottom,
                     layout.buyInArea().width - 28f,
                     Math.max(1f, buyInLabelY - 4f - buyInBodyBottom),
@@ -11836,7 +11836,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } catch (RuntimeException failure) {
             chipRackCompositeUnavailable = true;
             LOGGER.log(Level.WARNING,
-                    "Unable to create chip-rack composite layer; "
+                    "Unable to create chip-rack composite layer. "
                             + "falling back to direct rendering",
                     failure);
             return chipRackCompositeLayer != null;
@@ -13842,7 +13842,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         int latency = effectiveLatencyMillis(player);
-        String value = latency < 0 ? "—" : Integer.toString(latency);
+        String value = latency < 0 ? "-" : Integer.toString(latency);
         String label = gameText.translate("gdx.table.latency_tooltip", value);
         glyph.setText(settingsSmallFont, label);
         float width = Math.max(132f, glyph.width + 30f);
@@ -15680,7 +15680,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int blindIncreaseType, int blindIncreaseCount) {
         String title = uppercase(text.translate("blinds.ciegas_titulo"), text);
         if (smallBlind <= 0d || bigBlind <= 0d) {
-            return title + "  —";
+            return title + "  -";
         }
         StringBuilder label = new StringBuilder(title).append("  ")
                 .append(ante ? "(A) " : "")
@@ -15712,7 +15712,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static String communityHandText(GdxGameText text, int handNumber,
             int maximumHands, boolean lastHand) {
         String title = uppercase(text.translate("game.mano_2"), text);
-        if (handNumber <= 0) return title + "  —";
+        if (handNumber <= 0) return title + "  -";
         return title + " " + handNumber
                 + (maximumHands > 0 ? "/" + maximumHands : "");
     }
@@ -23799,7 +23799,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !gameOverAnimationFailureReported) {
             gameOverAnimationFailureReported = true;
             Gdx.app.error("CoronaPoker GDX",
-                    "GAME OVER GIF decode failed; using live fallback",
+                    "GAME OVER GIF decode failed. Using live fallback",
                     animation.failure());
         }
         if (gameOverFrame != null) {
@@ -23862,7 +23862,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // missing/broken cosmetic asset must never strand the dealer.
                 gameOverAnimationFailureReported = true;
                 Gdx.app.error("CoronaPoker GDX",
-                        "GAME OVER GIF unavailable; using live fallback",
+                        "GAME OVER GIF unavailable. Using live fallback",
                         missing);
             }
         }
@@ -23952,7 +23952,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } catch (IOException | RuntimeException failure) {
             remoteRebuyAnimationFailed = true;
             LOGGER.log(Level.WARNING,
-                    "Could not load remote GAME OVER cinematic; using numeric countdown",
+                    "Could not load remote GAME OVER cinematic. Using numeric countdown",
                     failure);
         }
     }
@@ -25984,7 +25984,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     draftBlindStructureLabel(), access, alpha);
             drawLiveSettingsStepperText(level.x, level.y, level.width,
                     settingsGameText("row.initial_blinds"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : formatAmount(liveSettingsDraft.smallBlind())
                             + " / " + formatAmount(
                                     liveSettingsDraft.bigBlind()),
@@ -26022,7 +26022,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsStepperText(interval.x, interval.y,
                     interval.width,
                     settingsGameText("row.interval"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : Integer.toString(Math.max(1,
                                     liveSettingsDraft.blindsDouble())),
                     dependentAccess(access, increasing), alpha);
@@ -26036,7 +26036,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsStepperText(cap.x, cap.y, cap.width,
                     settingsGameText("row.cap"),
                     liveSettingsDraft == null
-                            || liveSettingsDraft.blindCap() <= 0d ? "—"
+                            || liveSettingsDraft.blindCap() <= 0d ? "-"
                                     : formatAmount(
                                             liveSettingsDraft.blindCap()),
                     dependentAccess(access, capped), alpha);
@@ -26060,24 +26060,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     alpha);
             drawLiveSettingsStepperText(initialBuyin.x, initialBuyin.y,
                     initialBuyin.width, settingsGameText("row.initial_buyin"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : Integer.toString(liveSettingsDraft.buyin()),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             drawLiveSettingsStepperText(minimumBuyin.x, minimumBuyin.y,
                     minimumBuyin.width,
                     settingsGameText("row.minimum_range_bb"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : liveSettingsDraft.buyinMinBb() + " BB",
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             drawLiveSettingsStepperText(maximumBuyin.x, maximumBuyin.y,
                     maximumBuyin.width,
                     settingsGameText("row.maximum_range_bb"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : liveSettingsDraft.buyinMaxBb() + " BB",
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             drawLiveSettingsStepperText(rebuyCap.x, rebuyCap.y,
                     rebuyCap.width, settingsGameText("row.rebuy_cap"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : liveSettingsDraft.rebuyCapPolicy() == 0
                                     ? "BUY-IN"
                                     : settingsGameText("value.highest_stack"),
@@ -26098,7 +26098,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsStepperText(maximumRebuys.x, maximumRebuys.y,
                     maximumRebuys.width,
                     settingsGameText("row.maximum_rebuys"),
-                    liveSettingsDraft == null ? "—"
+                    liveSettingsDraft == null ? "-"
                             : liveSettingsDraft.rebuyLimit() <= 0
                                     ? settingsGameText("value.no_limit")
                                     : Integer.toString(
@@ -26161,12 +26161,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             SettingsRowAccess.LIVE_LOCKED, alpha);
                     case 3 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.think_seconds"),
-                            liveSettingsDraft == null ? "—"
+                            liveSettingsDraft == null ? "-"
                                     : liveSettingsDraft.thinkTime() + " S",
                             SettingsRowAccess.LIVE_LOCKED, alpha);
                     case 4 -> drawLiveSettingsStepperText(x, rowY, width,
                             settingsGameText("row.showdown_seconds"),
-                            liveSettingsDraft == null ? "—"
+                            liveSettingsDraft == null ? "-"
                                     : liveSettingsDraft.showdownTime() + " S",
                             SettingsRowAccess.LIVE_LOCKED, alpha);
                     case 5 -> drawLiveSettingsToggleText(x, rowY, width,
@@ -26832,7 +26832,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logW = logFrame.width;
         float logH = logFrame.height;
         List<String> logLines = gameLogLines();
-        if (logLines.isEmpty()) logLines = List.of("—");
+        if (logLines.isEmpty()) logLines = List.of("-");
         Rectangle content = gameLogContentBounds();
         float maximumScroll = gameLogMaximumPixelScroll(logLines.size(),
                 content.height);

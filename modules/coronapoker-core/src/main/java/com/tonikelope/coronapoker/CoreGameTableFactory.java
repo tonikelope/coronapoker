@@ -2258,7 +2258,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 Integer hand = boundaryReady.get(nickname);
                 if (hand == null || hand != dealer.getMano() + 1) {
                     LOGGER.log(java.util.logging.Level.INFO,
-                            "HOT JOIN: deferring activation for {0}; ready hand={1}, expected={2}",
+                            "HOT JOIN: deferring activation for {0}. Ready hand={1}, expected={2}",
                             new Object[]{nickname, hand,
                                 dealer.getMano() + 1});
                     return;

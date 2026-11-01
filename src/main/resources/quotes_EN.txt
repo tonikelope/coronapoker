@@ -8,11 +8,11 @@ Poker may be a branch of psychological warfare, an art form or indeed a way of l
 Just play every hand, you can’t miss them all.#Sammy Farha
 Poker is war. People pretend it is a game.#Doyle Brunson
 People would be surprised to know how much I learned about prayer from playing poker.#Mary Austin
-The commonest mistake in history is underestimating your opponent; happens at the poker table all the time.#General David Shoup
+The commonest mistake in history is underestimating your opponent. It happens at the poker table all the time.#General David Shoup
 In the long run there’s no luck in poker, but the short run is longer than most people know.#Rick Bennet
 What I know about poker you can fit into a thimble with room left over, but I’m learning.#Wilford Brimley
 If you always start with the worse hand, you never have a bad beat story to tell.#Chuck Thompson
-Forget about a chip and a chair; give me a hand and I’ll stand.#Warren Karp
+Forget about a chip and a chair. Give me a hand and I’ll stand.#Warren Karp
 Don’t get mad that you lost, get mad because you didn’t win.#Michael Gersitz
 Last night I stayed up late playing poker with Tarot cards. I got a full house and four people died.#Steven Wright
 Avoid people with gold teeth who want to play cards.#George Carlin
@@ -58,7 +58,7 @@ Poker is not simply a game of odds, moves and calculations. It is a game of cont
 Everyone gets lucky once in a while, but no one is consistently lucky.#Doyle Brunson
 Living in the past is a Jethro Tull album, not a smart poker strategy.#Richard Roeper
 What’s true of the poker game is true of life. Most people are suckers and don’t realise it.#Michael Faust
-Baseball is like a poker game. Nobody wants to quit when he’s losing; nobody wants you to quit when you’re ahead.#Jackie Robinson
+Baseball is like a poker game. Nobody wants to quit when he’s losing and nobody wants you to quit when you’re ahead.#Jackie Robinson
 Most of the money you’ll win at poker comes not from the brilliance of your own play, but from the ineptitude of your opponents.#Lou Krieger
 Whoever coined the phrase ‘a man’s got to play the hand that was dealt him’ was most certainly one piss-poor bluffer.#Jeannette Walls
 Don’t challenge strong players, challenge weak ones. That’s what they’re there for.#John Vorhaus
@@ -77,7 +77,7 @@ It’s said that the two psychological features of snipers are patience and stub
 A faint heart never filled a spade flush.#Unknown
 Is it really not possible to touch the gaming table without being instantly infected by superstition?#Fyodor Dostoyevsky
 Poker’s the only game fit for a grown man. Then, your hand is against every man’s, and every man’s is against yours.#W. Somerset Maugham
-Take time to deliberate; but when the time for action arrives, stop thinking and go in.#Andrew Jackson
+Take time to deliberate. When the time for action arrives, stop thinking and go in.#Andrew Jackson
 Life is too long to play bad cards.#Frank DiElsi
 When a man with money meets a man with experience, the man with experience leaves with money and the man with money leaves with experience.#Unknown
 It’s not enough to succeed. Others must fail.#Gore Vidal
@@ -88,7 +88,7 @@ Play like a champ. Win like a champ. Act like a champ.#Frank Henderson
 Money won is twice as sweet as money earned.#Paul Newman
 The only bad luck for a good gambler is bad health. Any other setbacks are temporary aggravation.#Benny Binion
 A person should gamble every day, because think of how bad it would be to be walking around lucky and not know it.#Robert Turner
-Life is like a game of cards. The hand that is dealt you is determinism; though the way you play it is free will.#Jawaharlal Nehru
+Life is like a game of cards. The hand that is dealt you is determinism, though the way you play it is free will.#Jawaharlal Nehru
 Depend on the rabbit’s foot if you will, but remember it didn’t work for the rabbit.#R. E. Shay
 No wife can endure a gambling husband unless he is a steady winner.#Lord Dewar
 The smarter you play, the luckier you’ll be.#Mark Pilarski

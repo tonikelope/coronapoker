@@ -12,9 +12,9 @@ final class GdxStartupPresentationTest {
 
     @Test
     void copyrightSignatureUsesTheRuntimeYearAfterTheStartYear() {
-        assertEquals("© 2020–2026 Tonikelope Solutions S. L.",
+        assertEquals("© 2020 - 2026 Tonikelope Solutions S. L.",
                 CoronaPokerGdxTable.startupPresentationTitle(2026));
-        assertEquals("© 2020–2020 Tonikelope Solutions S. L.",
+        assertEquals("© 2020 - 2020 Tonikelope Solutions S. L.",
                 CoronaPokerGdxTable.startupPresentationTitle(2019));
     }
 

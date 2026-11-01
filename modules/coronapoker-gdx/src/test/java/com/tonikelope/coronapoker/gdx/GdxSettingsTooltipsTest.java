@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -36,9 +37,12 @@ final class GdxSettingsTooltipsTest {
         Stream<String> appearance = GdxSettingsContract.APPEARANCE_PAGES
                 .stream().flatMap(page -> page.options().stream())
                 .map(GdxSettingsContract.ToggleOption::key);
+        Stream<String> table = GdxSettingsContract.appearanceTablePage()
+                .options().stream().map(GdxSettingsContract.ToggleOption::key);
         Stream<String> choices = GdxAppearanceOptions.ANIMATION_CHOICES
                 .stream().map(GdxAppearanceOptions.Choice::key);
-        Stream.concat(Stream.concat(audio, appearance), choices)
+        Stream.concat(Stream.concat(Stream.concat(audio, appearance), table),
+                choices)
                 .forEach(key -> assertFalse(
                         "gdx.settings.tooltip.generic".equals(
                                 GdxSettingsTooltips.descriptionKey(key)), key));
@@ -75,11 +79,33 @@ final class GdxSettingsTooltipsTest {
         assertTrue(english.text().contains("memory usage"));
         assertTrue(english.text().length() < 140);
 
-        assertEquals("gdx.settings.tooltip.animation",
+        assertEquals("gdx.settings.tooltip.animation_shuffle",
                 GdxSettingsTooltips.descriptionKey("animacion_barajado"));
         assertEquals("gdx.settings.tooltip.shuffle_preload",
                 GdxSettingsTooltips.descriptionKey(
                         "animacion_barajado_precarga"));
+    }
+
+    @Test
+    void everyVisibleAnimationSettingExplainsItsOwnEffect() {
+        Set<String> genericKeys = Set.of(
+                "gdx.settings.tooltip.generic",
+                "gdx.settings.tooltip.animation",
+                "gdx.settings.tooltip.cinematic",
+                "gdx.settings.tooltip.information");
+        Stream<String> toggles = GdxSettingsContract.APPEARANCE_PAGES
+                .stream().flatMap(page -> page.options().stream())
+                .map(GdxSettingsContract.ToggleOption::key);
+        Stream<String> choices = GdxAppearanceOptions.ANIMATION_CHOICES
+                .stream().map(GdxAppearanceOptions.Choice::key);
+        Stream.concat(toggles, choices).forEach(key -> {
+            String descriptionKey = GdxSettingsTooltips.descriptionKey(key);
+            assertFalse(genericKeys.contains(descriptionKey), key);
+            String spanish = new GdxGameText("es").translate(descriptionKey);
+            String english = new GdxGameText("en").translate(descriptionKey);
+            assertTrue(spanish.length() >= 35, key + " es");
+            assertTrue(english.length() >= 35, key + " en");
+        });
     }
 
     @Test

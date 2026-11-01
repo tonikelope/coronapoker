@@ -14,7 +14,7 @@ public final class GameCancellation {
         if (failure instanceof InterruptedException) {
             Thread.currentThread().interrupt();
         }
-        logger.log(Level.INFO, "{0} cancelled — {1} (cooperative cancellation)",
+        logger.log(Level.INFO, "{0} cancelled. {1} (cooperative cancellation)",
                 new Object[]{operation, failure.getClass().getSimpleName()});
     }
 }

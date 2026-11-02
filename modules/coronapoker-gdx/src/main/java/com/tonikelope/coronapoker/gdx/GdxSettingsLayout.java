@@ -219,11 +219,17 @@ final class GdxSettingsLayout {
     /** Right-aligned value lane shared by compact choice rows. */
     static ChoiceRow choiceRow(float x, float y, float width, float height) {
         Rectangle bounds = new Rectangle(x, y, width, height);
-        float arrowWidth = 54f;
-        Rectangle arrow = new Rectangle(x + width - arrowWidth - 12f,
-                y + 6f, arrowWidth, Math.max(0f, height - 12f));
-        float valueWidth = Math.min(360f, Math.max(190f, width * 0.28f));
-        Rectangle value = new Rectangle(arrow.x - valueWidth - 12f,
+        StepperRow reference = stepperRow(x, y, width, height);
+        Rectangle arrow = new Rectangle(reference.plusButton());
+        float valueCenter = reference.value().x
+                + reference.value().width / 2f;
+        float availableHalfWidth = Math.max(0f,
+                arrow.x - 12f - valueCenter);
+        float requestedWidth = Math.min(360f,
+                Math.max(190f, width * 0.28f));
+        float valueWidth = Math.min(requestedWidth,
+                availableHalfWidth * 2f);
+        Rectangle value = new Rectangle(valueCenter - valueWidth / 2f,
                 y + 5f, valueWidth, Math.max(0f, height - 10f));
         Rectangle label = new Rectangle(x + 22f, y + 5f,
                 Math.max(0f, value.x - x - 44f),

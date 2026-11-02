@@ -107,6 +107,25 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void autoCallSummaryAlwaysDescribesTheCompleteState() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("DESACTIVADO",
+                GdxSettingsContract.autoCallStatusLabel(false, 0d,
+                        "0.05", spanish));
+        assertEquals("ACTIVADO (SIN LÍMITE)",
+                GdxSettingsContract.autoCallStatusLabel(true, 0d,
+                        "0.05", spanish));
+        assertEquals("ACTIVADO (HASTA 1.25)",
+                GdxSettingsContract.autoCallStatusLabel(true, 1.25d,
+                        "1.25", spanish));
+        assertEquals("ENABLED (UP TO 1.25)",
+                GdxSettingsContract.autoCallStatusLabel(true, 1.25d,
+                        "1.25", english));
+    }
+
+    @Test
     void antialiasingImpactBelongsToTheSettingNotItsSelectedValue() {
         Properties properties = new Properties();
         properties.setProperty("gdx_msaa_samples", "0");

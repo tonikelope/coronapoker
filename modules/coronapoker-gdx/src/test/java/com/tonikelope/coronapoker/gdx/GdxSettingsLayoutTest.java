@@ -441,11 +441,16 @@ final class GdxSettingsLayoutTest {
     void choiceRowsReserveAnIndependentRightAlignedValueLane() {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
                 100f, 430f, 1_000f, GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.StepperRow stepper = GdxSettingsLayout.stepperRow(
+                100f, 430f, 1_000f, GdxSettingsLayout.ROW_HEIGHT);
 
         assertTrue(row.value().x > row.label().x + row.label().width);
         assertTrue(row.arrow().x > row.value().x + row.value().width);
-        assertEquals(row.bounds().x + row.bounds().width - 12f,
-                row.arrow().x + row.arrow().width);
+        assertEquals(stepper.plusButton(), row.arrow(),
+                "the choice arrow must use the canonical embedded button");
+        assertEquals(stepper.value().x + stepper.value().width / 2f,
+                row.value().x + row.value().width / 2f,
+                "choice summaries must share the canonical value axis");
     }
 
     @Test

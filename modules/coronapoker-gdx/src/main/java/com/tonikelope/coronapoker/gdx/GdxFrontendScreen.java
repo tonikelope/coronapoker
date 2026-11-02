@@ -9369,6 +9369,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
+        embeddedButtonSurface(row.arrow().x, row.arrow().y,
+                row.arrow().width, row.arrow().height, enabled);
         textFit(smallFont, uppercase(label), row.label().x,
                 y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, row.label().width);
@@ -10103,13 +10105,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String frontendAutoCallValue() {
-        if (!preferenceBoolean("auto_call_enabled", false)) {
-            return uppercase(gameText.translate("auto_call.desactivado"));
-        }
+        boolean enabled = preferenceBoolean("auto_call_enabled", false);
         double maximum = preferenceDouble("auto_call_max", 0d);
-        return maximum <= 0d
-                ? uppercase(gameText.translate("auto_call.sin_limite"))
-                : formatBlind(maximum);
+        return GdxSettingsContract.autoCallStatusLabel(enabled, maximum,
+                formatBlind(maximum), gameText);
     }
 
     private boolean frontendControlSettingsAtDefaults() {

@@ -220,6 +220,8 @@ final class GdxTableDialogTest {
         assertEquals("ACEPTAR", dialog.positiveLabel());
         assertFalse(dialog.optionEnabled());
         assertTrue(dialog.noLimit());
+        assertFalse(dialog.autoCallAmountEditable());
+        assertFalse(dialog.showsMinimumAmount());
         assertEquals(5, dialog.amount());
         assertEquals(Integer.MAX_VALUE, dialog.maximumAmount(),
                 "Swing Auto Call has no artificial upper cap");
@@ -228,7 +230,13 @@ final class GdxTableDialogTest {
         assertEquals(5, dialog.amount(),
                 "disabled auto-call must not alter its hidden limit");
         dialog.toggleOptionEnabled();
+        assertTrue(dialog.optionEnabled());
+        assertTrue(dialog.noLimit());
+        assertFalse(dialog.autoCallAmountEditable());
+        assertFalse(dialog.showsMinimumAmount());
         dialog.toggleNoLimit();
+        assertTrue(dialog.autoCallAmountEditable());
+        assertTrue(dialog.showsMinimumAmount());
         dialog.changeAmount(1);
         assertTrue(dialog.optionEnabled());
         assertFalse(dialog.noLimit());

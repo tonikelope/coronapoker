@@ -1054,6 +1054,23 @@ final class GdxSettingsContract {
                 enabled == factoryDefault);
     }
 
+    /** Complete Auto Call summary shared by menu and live-table settings. */
+    static String autoCallStatusLabel(boolean enabled, double maximum,
+            String formattedMaximum, GdxGameText text) {
+        if (!enabled) {
+            return translatedUpper(text, "gdx.settings.value.disabled",
+                    "DESACTIVADO");
+        }
+        String enabledText = translatedUpper(text,
+                "gdx.settings.value.enabled", "ACTIVADO");
+        String detail = maximum <= 0d
+                ? translatedUpper(text,
+                        "gdx.settings.game.value.no_limit", "SIN LÍMITE")
+                : translatedUpper(text, "gdx.settings.value.up_to", "HASTA")
+                        + " " + formattedMaximum;
+        return enabledText + " (" + detail + ")";
+    }
+
     static String voiceRetentionLabel(Properties properties) {
         int days = voiceRetentionDays(properties);
         return days == 0 ? "PARA SIEMPRE" : days + " DÍAS";

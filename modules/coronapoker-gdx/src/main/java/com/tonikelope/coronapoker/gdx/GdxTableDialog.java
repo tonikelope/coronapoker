@@ -435,6 +435,10 @@ final class GdxTableDialog {
         return isAutoCall() && optionEnabled && !noLimit;
     }
 
+    boolean showsMinimumAmount() {
+        return isHandLimit() || isAutoCall() && autoCallAmountEditable();
+    }
+
     double autoCallAmount() {
         if (!isAutoCall()) return amount;
         if (noLimit) return 0d;

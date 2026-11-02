@@ -23356,6 +23356,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         screenshotToastUntil = totalTime + next.durationSeconds();
     }
 
+    private static float dialogAmountAlpha(GdxTableDialog dialog) {
+        if (dialog.waitingForExternalClose()) return 0.34f;
+        if (dialog.isHandLimit() && dialog.noLimit()) return 0.34f;
+        if (dialog.isAutoCall() && !dialog.autoCallAmountEditable()) {
+            return 0.34f;
+        }
+        return 1f;
+    }
+
     static Rectangle tableNotificationBounds(float worldWidth,
             float worldHeight) {
         return tableNotificationBounds(worldWidth, worldHeight,
@@ -23500,11 +23509,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             panelY + 34f, 230f, 64f), 1f);
         }
         if (dialog.hasAmount()) {
-            float amountAlpha = dialog.waitingForExternalClose() ? 0.34f
-                    : dialog.isHandLimit() && dialog.noLimit()
-                    || dialog.isAutoCall()
-                    && (!dialog.optionEnabled() || dialog.noLimit())
-                    ? 0.34f : 1f;
+            float amountAlpha = dialogAmountAlpha(dialog);
             Rectangle minus = dialog.isAutoCall()
                     ? autoCallLayout.amount().minusButton()
                     : dialog.isRebuy()
@@ -23679,23 +23684,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (dialog.isAutoCall()) {
                 GdxSettingsLayout.StepperRow amount = autoCallLayout.amount();
+                float amountAlpha = dialogAmountAlpha(dialog);
                 drawLeftInBox(actionFont,
                         uppercase(settingsGameText("value.maximum")),
                         amount.label().x, amount.label().y,
                         amount.label().width, amount.label().height,
-                        Color.WHITE, 1f);
+                        Color.WHITE, amountAlpha);
                 drawFittedCenteredInBox(seatActionFont, "-",
                         amount.minusButton().x, amount.minusButton().y,
                         amount.minusButton().width, amount.minusButton().height,
-                        Color.WHITE, 1f);
+                        Color.WHITE, amountAlpha);
                 drawFittedCenteredInBox(uiFont, amountText,
                         amount.value().x, amount.value().y,
                         amount.value().width, amount.value().height, POT_GOLD,
-                        dialog.waitingForExternalClose() ? 0.52f : 1f);
+                        amountAlpha);
                 drawFittedCenteredInBox(seatActionFont, "+",
                         amount.plusButton().x, amount.plusButton().y,
                         amount.plusButton().width, amount.plusButton().height,
-                        Color.WHITE, 1f);
+                        Color.WHITE, amountAlpha);
             } else {
                 RebuyAmountLayout rebuyLayout = dialog.isRebuy()
                         ? rebuyAmountLayout(panelX, panelY, panelW) : null;
@@ -23722,7 +23728,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         plus.x, plus.y, plus.width, plus.height,
                         Color.WHITE, 1f);
             }
-            if (!dialog.isRebuy()) {
+            if (dialog.showsMinimumAmount()) {
                 drawFittedCenteredInBox(smallFont,
                         dialog.isHandLimit()
                                 ? uppercase(gameText.translate(
@@ -25927,12 +25933,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean enabled, float alpha) {
         drawCanonicalSettingsRow(x, y, width,
                 GdxSettingsLayout.ROW_HEIGHT, enabled, alpha);
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        drawCanonicalSettingsEmbeddedButton(row.arrow(), enabled, alpha);
         Color color = enabled ? POT_GOLD : SETTINGS_DISABLED;
         shapes.setColor(color.r, color.g, color.b, alpha);
-        shapes.rectLine(x + width - 45f, y + 24f,
-                x + width - 33f, y + 35f, 3f);
-        shapes.rectLine(x + width - 33f, y + 35f,
-                x + width - 45f, y + 46f, 3f);
+        float centerX = row.arrow().x + row.arrow().width / 2f;
+        float centerY = row.arrow().y + row.arrow().height / 2f;
+        shapes.rectLine(centerX - 6f, centerY - 10f,
+                centerX + 5f, centerY, 3f);
+        shapes.rectLine(centerX + 5f, centerY,
+                centerX - 6f, centerY + 10f, 3f);
     }
 
     private void drawSettingsStepperShape(float x, float y, float width,
@@ -27126,13 +27137,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String autoCallSettingsValue() {
-        if (!autoCallEnabled) {
-            return gameText.translate("auto_call.desactivado");
-        }
-        return autoCallMax == 0d
-                ? settingsGameText("value.no_limit")
-                : settingsGameText("value.maximum") + " "
-                        + formatAmount(autoCallMax);
+        return GdxSettingsContract.autoCallStatusLabel(autoCallEnabled,
+                autoCallMax, formatAmount(autoCallMax), gameText);
     }
 
     private List<GameConfigCodecV1.BlindLevel> draftBlindLevels() {

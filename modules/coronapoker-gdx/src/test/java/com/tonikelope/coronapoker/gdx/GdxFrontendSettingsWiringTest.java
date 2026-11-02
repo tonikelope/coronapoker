@@ -184,6 +184,23 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void everyFrontendSettingsRowUsesTheCompleteVolumetricMaterial()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+
+        assertFalse(frontend.contains("GdxSettingsStyle.rowBorder("),
+                "settings rows must not bypass the shared bevel renderer");
+        assertFalse(frontend.contains("GdxSettingsStyle.rowFill("),
+                "settings rows must not rebuild only the flat fill");
+        assertTrue(frontend.split("GdxSettingsStyle\\.drawRow\\(shapes", -1)
+                .length - 1 >= 8,
+                "selectors, steppers and information rows must use the "
+                + "same complete material as toggles");
+    }
+
+    @Test
     void menuAndLobbySettingsFooterHitsAreOutsideTheScrollableClip()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"

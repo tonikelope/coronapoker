@@ -9355,11 +9355,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String label, String value, Runnable action, boolean enabled) {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
                 x, y, w, h);
-        Color border = GdxSettingsStyle.rowBorder(enabled,
-                enabled && hovered(x, y, w, h));
-        Color fill = GdxSettingsStyle.rowFill(enabled,
-                enabled && pressed(x, y, w, h));
-        outerBox(x, y, w, h, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
+                enabled && hovered(x, y, w, h),
+                enabled && pressed(x, y, w, h), 1f);
         textFit(smallFont, uppercase(label), row.label().x,
                 y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, row.label().width);
@@ -9412,10 +9410,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Runnable plus, Runnable valueAction, boolean enabled) {
         GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
                 x, y, w, h);
-        outerBox(x, y, w, h,
-                GdxSettingsStyle.rowBorder(enabled,
-                        enabled && hovered(x, y, w, h)),
-                GdxSettingsStyle.rowFill(enabled, false));
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
+                enabled && hovered(x, y, w, h),
+                enabled && pressed(x, y, w, h), 1f);
         Rectangle minusBounds = row.minusButton();
         Rectangle valueBounds = row.value();
         Rectangle plusBounds = row.plusButton();
@@ -9468,8 +9465,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsInfoRow(float x, float y, float w, float h,
             String label, String value) {
-        outerBox(x, y, w, h, GdxSettingsStyle.rowBorder(true, false),
-                GdxSettingsStyle.rowFill(true, false));
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h,
+                true, false, false, 1f);
         float valueWidth = Math.min(660f, w * 0.58f);
         textFit(smallFont, uppercase(label), x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
@@ -13574,11 +13571,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int min, int max, Runnable minus, Runnable plus, boolean enabled) {
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
-        Color border = enabled && hovered(x, y, w, 72f)
-                ? CYAN : enabled ? LINE : new Color(0x253044ff);
-        Color fill = enabled && pressed(x, y, w, 72f)
-                ? new Color(0x0b1424ff) : enabled ? PANEL_LIGHT : new Color(0x0b111ddd);
-        outerBox(x, y, w, 72f, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, 72f, enabled,
+                enabled && hovered(x, y, w, 72f),
+                enabled && pressed(x, y, w, 72f), 1f);
         float side = 70f;
         embeddedButtonSurface(x, y, side + 3f, 72f, enabled);
         embeddedButtonSurface(x + w - side - 3f, y, side + 3f, 72f,
@@ -13605,11 +13600,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int min, int max, Runnable minus, Runnable plus,
             boolean enabled) {
         float height = GdxSettingsLayout.ROW_HEIGHT;
-        Color border = GdxSettingsStyle.rowBorder(enabled,
-                enabled && hovered(x, y, w, height));
-        Color fill = GdxSettingsStyle.rowFill(enabled,
-                enabled && pressed(x, y, w, height));
-        outerBox(x, y, w, height, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, height, enabled,
+                enabled && hovered(x, y, w, height),
+                enabled && pressed(x, y, w, height), 1f);
         float side = 66f;
         embeddedButtonSurface(x, y, side + 3f, height, enabled);
         embeddedButtonSurface(x + w - side - 3f, y,
@@ -13648,11 +13641,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String value, Runnable action, boolean enabled) {
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
-        Color border = GdxSettingsStyle.rowBorder(enabled,
-                enabled && hovered(x, y, w, h));
-        Color fill = GdxSettingsStyle.rowFill(enabled,
-                enabled && pressed(x, y, w, h));
-        outerBox(x, y, w, h, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
+                enabled && hovered(x, y, w, h),
+                enabled && pressed(x, y, w, h), 1f);
         textFit(uiFont, value, x + 22f, y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, w - 88f);
         Color arrowColor = enabled ? GOLD : DISABLED;
@@ -13672,11 +13663,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float h = 72f;
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
-        Color border = GdxSettingsStyle.rowBorder(enabled,
-                enabled && hovered(x, y, w, h));
-        Color fill = GdxSettingsStyle.rowFill(enabled,
-                enabled && pressed(x, y, w, h));
-        outerBox(x, y, w, h, border, fill);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
+                enabled && hovered(x, y, w, h),
+                enabled && pressed(x, y, w, h), 1f);
         textFit(uiFont, value, x + 22f, y + 46f,
                 enabled ? Color.WHITE : DISABLED, false, w - 92f);
         shapes.setColor(enabled ? GOLD : DISABLED);

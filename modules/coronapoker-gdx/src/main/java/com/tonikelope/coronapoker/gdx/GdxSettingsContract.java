@@ -1,11 +1,17 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.function.IntUnaryOperator;
 
 /**
  * Shared contract for the GDX settings surface.
@@ -41,7 +47,7 @@ final class GdxSettingsContract {
             "chat_notifications_ingame";
 
     enum Gate {
-        NONE, MUSIC, EFFECTS, ANIMATIONS, SHUFFLE_ANIMATION
+        NONE, MUSIC, EFFECTS, FUNNY_SOUNDS, ANIMATIONS, SHUFFLE_ANIMATION
     }
 
     enum PerformanceImpact {
@@ -56,7 +62,13 @@ final class GdxSettingsContract {
     }
 
     record ToggleOption(String key, String label, boolean fallback,
-            Gate gate, boolean inverted) {
+            Gate gate, boolean inverted, String parentKey) {
+
+        ToggleOption(String key, String label, boolean fallback,
+                Gate gate, boolean inverted) {
+            this(key, label, fallback, gate, inverted,
+                    defaultParentKey(gate));
+        }
 
         String label(GdxGameText text) {
             return translatedUpper(text, "gdx.settings.option." + key,
@@ -68,6 +80,16 @@ final class GdxSettingsContract {
 
         String title(GdxGameText text) {
             return translatedUpper(text, pageTranslationKey(title), title);
+        }
+    }
+
+    /** A contiguous parent/descendant block painted as one nested group. */
+    record RowGroup(int parentRow, int lastRow, int depth) {
+
+        RowGroup {
+            if (parentRow < 0 || lastRow <= parentRow || depth < 0) {
+                throw new IllegalArgumentException("Invalid settings group");
+            }
         }
     }
 
@@ -103,6 +125,11 @@ final class GdxSettingsContract {
 
     static AudioPreview audioPreview(ToggleOption option, String language) {
         if (option == null) return null;
+        String concreteJoke = GamePresentationSettings.jokeSoundResource(
+                option.key());
+        if (concreteJoke != null) {
+            return new AudioPreview(concreteJoke, 1f, 10f);
+        }
         String resource = switch (option.key()) {
             case "sonido_ascensor" -> "misc/background_music.mp3";
             case "musica_sala_espera" -> "misc/waiting_room.mp3";
@@ -146,6 +173,12 @@ final class GdxSettingsContract {
             case "sonido_visor" -> "misc/card_visor.wav";
             case "sonido_volumen" -> "misc/volume_change.wav";
             case "sonido_arranque" -> "misc/init.wav";
+            case "sonido_chorra_raise" -> GdxSoundFeedback.FUNNY_RAISE;
+            case "sonido_chorra_norebuy" -> GdxSoundFeedback.FUNNY_NO_REBUY;
+            case "sonido_chorra_indivisible" -> "misc/indivisible.wav";
+            case "sonido_chorra_lastcard" -> "misc/lastcard.wav";
+            case "sonido_chorra_badbeat" -> "misc/badbeat.wav";
+            case "sonido_chorra_lucky" -> "misc/youarelucky.wav";
             default -> null;
         };
         if (resource == null) return null;
@@ -355,7 +388,8 @@ final class GdxSettingsContract {
             page("ACCIONES",
                     option("sonido_efectos", "USAR EFECTOS DE SONIDO", true,
                             Gate.NONE),
-                    option("sonidos_chorra", "SONIDOS DE COÑA", false,
+                    option("sonido_cinematicas",
+                            "REPRODUCIR AUDIO DE CINEMÁTICAS", true,
                             Gate.EFFECTS),
                     option("sonido_apostar", "APOSTAR", true, Gate.EFFECTS),
                     option("sonido_igualar", "IGUALAR", true, Gate.EFFECTS),
@@ -421,6 +455,35 @@ final class GdxSettingsContract {
             AUDIO_VOICE_CHAT_PAGE,
             AUDIO_DEVICE_PAGE);
 
+    private static final TogglePage AUDIO_FUNNY_SOUNDS_PAGE = page(
+            "SONIDOS DE COÑA",
+            option("sonidos_chorra", "USAR SONIDOS DE COÑA", false,
+                    Gate.EFFECTS),
+            option("sonido_chorra_allin", "ALL-IN", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_fold", "RETIRARSE", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_showdown", "SHOWDOWN", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_winner", "GANADOR", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_loser", "PERDEDOR", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_raise", "SUBIDA", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_norebuy", "SIN RECOMPRA", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_indivisible", "RESTO INDIVISIBLE", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_lastcard", "GANAR EN LA ÚLTIMA CARTA", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_badbeat", "BAD BEAT", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_lucky", "MANO AFORTUNADA", true,
+                    Gate.FUNNY_SOUNDS),
+            option("sonido_chorra_special_card", "CARTAS ESPECIALES", true,
+                    Gate.FUNNY_SOUNDS));
+
     /**
      * Audio keeps only meaningful navigation groups.  Detailed Swing sound
      * families remain available as rows inside the scrollable EFFECTS page
@@ -432,8 +495,19 @@ final class GdxSettingsContract {
             AUDIO_SOURCE_PAGES.get(0),
             AUDIO_SOURCE_PAGES.get(1),
             AUDIO_EFFECTS_PAGE,
+            AUDIO_FUNNY_SOUNDS_PAGE,
             AUDIO_SOURCE_PAGES.get(9),
             AUDIO_DEVICE_PAGE);
+
+    static TogglePage audioPage(int pageIndex,
+            GdxGamePresentationSettings settings, String language) {
+        int index = Math.max(0, Math.min(pageIndex, AUDIO_PAGES.size() - 1));
+        TogglePage page = AUDIO_PAGES.get(index);
+        return page == AUDIO_FUNNY_SOUNDS_PAGE
+                ? GdxGameAudioResources.jokeSoundsPage(settings, language,
+                        page)
+                : page;
+    }
 
     /** Appearance switches shared with Swing; choice controls are separate. */
     static final List<TogglePage> APPEARANCE_PAGES = List.of(
@@ -478,7 +552,14 @@ final class GdxSettingsContract {
             "sonido_ascensor", "musica_sala_espera", "musica_about",
             "musica_stats", "musica_gestor_bots", "musica_recuperacion",
             "sonido_efectos",
+            "sonido_cinematicas",
             "sonidos_chorra",
+            "sonido_chorra_allin", "sonido_chorra_fold",
+            "sonido_chorra_showdown", "sonido_chorra_winner",
+            "sonido_chorra_loser", "sonido_chorra_raise",
+            "sonido_chorra_norebuy", "sonido_chorra_indivisible",
+            "sonido_chorra_lastcard", "sonido_chorra_badbeat",
+            "sonido_chorra_lucky", "sonido_chorra_special_card",
             "sonido_barajado", "sonido_reparto", "sonido_destape",
             "sonido_destape_mis_cartas", "sonido_apostar", "sonido_fold",
             "sonido_conteo", "sonido_carga_stacks", "sonido_entra",
@@ -600,9 +681,138 @@ final class GdxSettingsContract {
         return new ToggleOption(key, label, fallback, gate, true);
     }
 
-    /** Every control governed by a switch uses the shared child-row geometry. */
+    private static String defaultParentKey(Gate gate) {
+        return switch (gate) {
+            case MUSIC -> "musica";
+            case EFFECTS -> "sonido_efectos";
+            case FUNNY_SOUNDS -> "sonidos_chorra";
+            case ANIMATIONS -> "animaciones";
+            case SHUFFLE_ANIMATION -> "animacion_barajado";
+            case NONE -> null;
+        };
+    }
+
+    /** Every control governed by a parent present on this page is a child. */
     static boolean isChildOption(TogglePage page, ToggleOption option) {
-        return option != null && option.gate() != Gate.NONE;
+        return option != null && option.parentKey() != null
+                && page.options().stream().anyMatch(parent ->
+                        option.parentKey().equals(parent.key()));
+    }
+
+    /**
+     * Computes every real parent/descendant block from the canonical option
+     * tree. The renderer only supplies the physical row used by each option.
+     */
+    static List<RowGroup> toggleGroups(TogglePage page,
+            IntUnaryOperator optionRow) {
+        Map<String, Integer> optionByKey = new HashMap<>();
+        for (int index = 0; index < page.options().size(); index++) {
+            optionByKey.put(page.options().get(index).key(), index);
+        }
+        ArrayList<RowGroup> groups = new ArrayList<>();
+        for (int parentIndex = 0; parentIndex < page.options().size();
+                parentIndex++) {
+            String parentKey = page.options().get(parentIndex).key();
+            int lastRow = -1;
+            for (int childIndex = 0; childIndex < page.options().size();
+                    childIndex++) {
+                if (isDescendant(page.options().get(childIndex), parentKey,
+                        optionByKey, page.options())) {
+                    lastRow = Math.max(lastRow, optionRow.applyAsInt(
+                            childIndex));
+                }
+            }
+            int parentRow = optionRow.applyAsInt(parentIndex);
+            if (lastRow > parentRow) {
+                groups.add(new RowGroup(parentRow, lastRow,
+                        optionDepth(page.options().get(parentIndex),
+                                optionByKey, page.options())));
+            }
+        }
+        groups.sort((left, right) -> {
+            int byDepth = Integer.compare(left.depth(), right.depth());
+            return byDepth != 0 ? byDepth
+                    : Integer.compare(left.parentRow(), right.parentRow());
+        });
+        return List.copyOf(groups);
+    }
+
+    static Set<Integer> groupGapsBefore(List<RowGroup> groups,
+            int totalRows) {
+        LinkedHashSet<Integer> gaps = new LinkedHashSet<>();
+        for (RowGroup group : groups) {
+            if (group.parentRow() > 0) gaps.add(group.parentRow());
+            if (group.lastRow() + 1 < totalRows) {
+                gaps.add(group.lastRow() + 1);
+            }
+        }
+        return Set.copyOf(gaps);
+    }
+
+    /**
+     * Removes frames already supplied by the subpage container and then
+     * recalculates nesting from the remaining visible ranges. This prevents
+     * a whole-page parent from producing a redundant second border while its
+     * meaningful child categories keep their own frames.
+     */
+    static List<RowGroup> visualGroups(List<RowGroup> groups,
+            int totalRows) {
+        if (groups == null || groups.isEmpty() || totalRows <= 0) {
+            return List.of();
+        }
+        List<RowGroup> useful = groups.stream()
+                .filter(group -> !(group.parentRow() == 0
+                        && group.lastRow() == totalRows - 1))
+                .toList();
+        ArrayList<RowGroup> result = new ArrayList<>(useful.size());
+        for (RowGroup group : useful) {
+            int depth = 0;
+            for (RowGroup candidate : useful) {
+                if (candidate == group) continue;
+                boolean strictlyContains = candidate.parentRow()
+                        <= group.parentRow()
+                        && candidate.lastRow() >= group.lastRow()
+                        && (candidate.parentRow() < group.parentRow()
+                                || candidate.lastRow() > group.lastRow());
+                if (strictlyContains) depth++;
+            }
+            result.add(new RowGroup(group.parentRow(), group.lastRow(),
+                    depth));
+        }
+        result.sort((left, right) -> {
+            int byDepth = Integer.compare(left.depth(), right.depth());
+            return byDepth != 0 ? byDepth
+                    : Integer.compare(left.parentRow(), right.parentRow());
+        });
+        return List.copyOf(result);
+    }
+
+    private static boolean isDescendant(ToggleOption candidate,
+            String ancestorKey, Map<String, Integer> optionByKey,
+            List<ToggleOption> options) {
+        String parent = candidate.parentKey();
+        Set<String> visited = new LinkedHashSet<>();
+        while (parent != null && visited.add(parent)) {
+            if (ancestorKey.equals(parent)) return true;
+            Integer parentIndex = optionByKey.get(parent);
+            parent = parentIndex == null ? null
+                    : options.get(parentIndex).parentKey();
+        }
+        return false;
+    }
+
+    private static int optionDepth(ToggleOption option,
+            Map<String, Integer> optionByKey, List<ToggleOption> options) {
+        int depth = 0;
+        String parent = option.parentKey();
+        Set<String> visited = new LinkedHashSet<>();
+        while (parent != null && visited.add(parent)) {
+            Integer parentIndex = optionByKey.get(parent);
+            if (parentIndex == null) break;
+            depth++;
+            parent = options.get(parentIndex).parentKey();
+        }
+        return depth;
     }
 
     static boolean displayedValue(ToggleOption option, Properties properties,
@@ -744,6 +954,45 @@ final class GdxSettingsContract {
         return appearanceRows(page).size();
     }
 
+    static List<RowGroup> appearanceGroups(TogglePage page) {
+        List<AppearanceAnimationRow> rows = appearanceRows(page);
+        ArrayList<ToggleOption> visualOptions = new ArrayList<>(rows.size());
+        for (AppearanceAnimationRow row : rows) {
+            if (row.toggle() != null) {
+                visualOptions.add(row.toggle());
+            } else {
+                GdxAppearanceOptions.Choice choice = row.choice();
+                visualOptions.add(new ToggleOption(choice.key(),
+                        choice.label(), false, Gate.NONE, false,
+                        GdxAppearanceOptions.parentKey(choice)));
+            }
+        }
+        return toggleGroups(new TogglePage(page.title(),
+                List.copyOf(visualOptions)), index -> index);
+    }
+
+    static List<RowGroup> controlGroups() {
+        return List.of(new RowGroup(0, 3, 0));
+    }
+
+    /** Parent/child blocks shared by menu, lobby and live game settings. */
+    static List<RowGroup> gameGroups(int gamePage) {
+        return switch (gamePage) {
+            case 0 -> List.of(
+                    new RowGroup(0, 4, 0),
+                    new RowGroup(3, 4, 1));
+            case 1 -> List.of(
+                    new RowGroup(0, 1, 0),
+                    new RowGroup(0, 3, 0),
+                    new RowGroup(1, 2, 1));
+            case 2 -> List.of(new RowGroup(2, 4, 0));
+            case 3 -> List.of(
+                    new RowGroup(0, 1, 0),
+                    new RowGroup(2, 3, 0));
+            default -> List.of();
+        };
+    }
+
     private static AppearanceAnimationRow animationToggle(String key) {
         return new AppearanceAnimationRow(
                 APPEARANCE_ANIMATIONS_PAGE.options().stream()
@@ -849,6 +1098,13 @@ final class GdxSettingsContract {
             boolean includeGlobalRules, boolean microphoneAvailable) {
         int index = Math.max(0, Math.min(pageIndex, AUDIO_PAGES.size() - 1));
         TogglePage page = AUDIO_PAGES.get(index);
+        if (page == AUDIO_FUNNY_SOUNDS_PAGE) {
+            properties.stringPropertyNames().stream()
+                    .filter(key -> key.startsWith(
+                            GamePresentationSettings
+                                    .JOKE_SOUND_PREFERENCE_PREFIX))
+                    .toList().forEach(properties::remove);
+        }
         if (index == 0) {
             properties.setProperty("master_volume",
                     Float.toString(DEFAULT_MASTER_VOLUME));
@@ -891,6 +1147,15 @@ final class GdxSettingsContract {
         }
         if (hasVoiceRetention(page)
                 && voiceRetentionDays(properties) != 90) return false;
+        if (page == AUDIO_FUNNY_SOUNDS_PAGE
+                && properties.stringPropertyNames().stream()
+                        .filter(key -> key.startsWith(
+                                GamePresentationSettings
+                                        .JOKE_SOUND_PREFERENCE_PREFIX))
+                        .anyMatch(key -> !Boolean.parseBoolean(
+                                properties.getProperty(key, "true")))) {
+            return false;
+        }
         return !hasAudioDevices(page)
                 || (properties.getProperty(GdxAudioDevices.OUTPUT_KEY, "")
                         .isBlank()
@@ -1035,6 +1300,7 @@ final class GdxSettingsContract {
             case "GENERAL" -> "gdx.settings.page.general";
             case "MÚSICA" -> "gdx.settings.page.music";
             case "EFECTOS" -> "gdx.settings.page.effects";
+            case "SONIDOS DE COÑA" -> "gdx.settings.page.joke_sounds";
             case "ACCIONES" -> "gdx.settings.page.actions";
             case "CARTAS" -> "gdx.settings.page.cards";
             case "PARTIDA" -> "gdx.settings.page.game";
@@ -1090,14 +1356,27 @@ final class GdxSettingsContract {
                 "musica", "true"));
         boolean effects = Boolean.parseBoolean(properties.getProperty(
                 "sonido_efectos", "true"));
+        boolean funnySounds = effects && Boolean.parseBoolean(
+                properties.getProperty("sonidos_chorra", "false"));
         boolean animations = Boolean.parseBoolean(properties.getProperty(
                 "animaciones", "true"));
         boolean shuffleAnimation = animations && Boolean.parseBoolean(
                 properties.getProperty("animacion_barajado", "true"));
+        String concreteJoke = GamePresentationSettings.jokeSoundResource(
+                option.key());
+        if (concreteJoke != null) {
+            String categoryPreference = GdxSoundFeedback.funnyPreferenceKey(
+                    concreteJoke);
+            if (categoryPreference != null && !Boolean.parseBoolean(
+                    properties.getProperty(categoryPreference, "true"))) {
+                return false;
+            }
+        }
         return switch (option.gate()) {
             case NONE -> true;
             case MUSIC -> music;
             case EFFECTS -> effects;
+            case FUNNY_SOUNDS -> funnySounds;
             case ANIMATIONS -> animations;
             case SHUFFLE_ANIMATION -> shuffleAnimation;
         };
@@ -1160,6 +1439,8 @@ final class GdxSettingsContract {
     private static boolean isTransactionalDynamicKey(String key) {
         return key.startsWith("shortcut.")
                 || key.startsWith("blind_structure.")
+                || key.startsWith(
+                        GamePresentationSettings.JOKE_SOUND_PREFERENCE_PREFIX)
                 || key.equals("blind_structures.count");
     }
 

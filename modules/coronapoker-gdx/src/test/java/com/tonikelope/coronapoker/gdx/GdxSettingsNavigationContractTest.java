@@ -96,7 +96,9 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(source.contains(
                 "String[] keys = {\"bot_difficulty\", \"bot_rebuy\", \"custom_bots\","));
         assertTrue(source.contains(
-                "firstY - 5f * GdxSettingsLayout.ROW_STRIDE"));
+                "\"custom_bots_only\", \"custom_bots_manage\", \"bot_balance\"}"));
+        assertTrue(source.replaceAll("\\s+", " ").contains(
+                "settingsGameRows(content, firstY, 2, keys.length,"));
     }
 
     @Test

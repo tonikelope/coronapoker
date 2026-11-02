@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mod adults="false" fusion_sounds="false" fusion_cinematics="false">
+  <name>Example CoronaPoker MOD</name>
+  <version>1.0.0</version>
+  <!-- Optional update endpoint:
+  <updateurl>https://example.com/coronapoker-mod.zip</updateurl>
+  <updatepassword>change-me</updatepassword>
+  -->
+</mod>

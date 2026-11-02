@@ -216,8 +216,10 @@ public final class ModMediaCatalog {
     }
 
     /**
-     * Resolves one language-specific funny-sound category using the same
-     * replacement/fusion contract as the classic frontend.
+     * Resolves one language-specific funny-sound bank. Category and language
+     * directory names are fixed, but every directly contained WAV is accepted
+     * regardless of its filename. A non-empty external bank replaces the
+     * bundled bank unless {@code fusion_sounds=true} requests their union.
      */
     public Map.Entry<String, String[]> soundCategory(String language,
             String category, Map.Entry<String, String[]> bundled) {

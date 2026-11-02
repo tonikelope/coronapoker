@@ -36,6 +36,20 @@ final class GdxToggleMotion {
         return Math.abs(target - next) < SNAP_EPSILON ? target : next;
     }
 
+    static float atElapsed(float from, float target, float elapsedSeconds) {
+        float boundedFrom = bounded(from);
+        float boundedTarget = bounded(target);
+        float elapsed = Math.max(0f, elapsedSeconds);
+        float value = boundedTarget + (boundedFrom - boundedTarget)
+                * (float) Math.exp(-RESPONSE_RATE * elapsed);
+        return Math.abs(boundedTarget - value) < SNAP_EPSILON
+                ? boundedTarget : value;
+    }
+
+    static float bounded(float value) {
+        return MathUtils.clamp(value, 0f, 1f);
+    }
+
     /**
      * Disabled settings switches must immediately reflect their effective
      * value. An off-screen child can otherwise retain an old ON animation and

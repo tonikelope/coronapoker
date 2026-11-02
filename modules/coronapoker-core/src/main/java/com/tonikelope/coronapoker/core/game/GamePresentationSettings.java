@@ -8,6 +8,8 @@ package com.tonikelope.coronapoker.core.game;
  */
 public interface GamePresentationSettings {
 
+    String JOKE_SOUND_PREFERENCE_PREFIX = "sonido_chorra_archivo.";
+
     String language();
     String defaultLanguage();
     String deck();
@@ -17,6 +19,12 @@ public interface GamePresentationSettings {
     default String selectDeck(String deck) { return this.deck(); }
     boolean testMode();
     boolean sillySounds();
+    /** Whether one concrete joke sound remains enabled in its event bank. */
+    default boolean sillySoundEnabled(String resource) {
+        return sillySounds();
+    }
+    /** Optional audio bundled beside a cinematic asset. */
+    default boolean cinematicAudio() { return true; }
     boolean ambientMusic();
     /** Music played while an interrupted game state is being recovered. */
     default boolean recoveryMusic() { return true; }
@@ -56,6 +64,31 @@ public interface GamePresentationSettings {
     boolean swapAnimationArc();
     float zoomFactor();
     float dialogZoomFactor();
+
+    /** Stable, reversible preference key for one concrete joke WAV. */
+    static String jokeSoundPreferenceKey(String resource) {
+        String normalized = resource == null ? ""
+                : resource.replace('\\', '/').trim();
+        String encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(normalized.getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
+        return JOKE_SOUND_PREFERENCE_PREFIX + encoded;
+    }
+
+    static String jokeSoundResource(String preferenceKey) {
+        if (preferenceKey == null
+                || !preferenceKey.startsWith(JOKE_SOUND_PREFERENCE_PREFIX)) {
+            return null;
+        }
+        String encoded = preferenceKey.substring(
+                JOKE_SOUND_PREFERENCE_PREFIX.length());
+        try {
+            return new String(java.util.Base64.getUrlDecoder().decode(encoded),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
+    }
 
     static GamePresentationSettings defaults() {
         return DefaultSettings.INSTANCE;

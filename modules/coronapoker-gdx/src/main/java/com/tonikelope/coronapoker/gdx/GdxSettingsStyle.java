@@ -35,6 +35,10 @@ final class GdxSettingsStyle {
     static final int PANEL_LIGHT_RGBA = 0x111a2add;
     static final int CYAN_RGBA = 0x36d9ffff;
     static final int CYAN_DARK_RGBA = 0x176b83ff;
+    /** Accent reserved for values whose active media comes from a MOD. */
+    static final int MOD_OVERRIDE_RGBA = 0x36d9ffff;
+    /** Read-only/disabled variant of {@link #MOD_OVERRIDE_RGBA}. */
+    static final int MOD_OVERRIDE_DISABLED_RGBA = 0x176b83ff;
     static final int GOLD_RGBA = 0xffe07aff;
     static final int LINE_RGBA = 0x31445fff;
     static final int MUTED_RGBA = 0xdbe5f3ff;
@@ -201,6 +205,18 @@ final class GdxSettingsStyle {
         roundedRect(shapes, x, thumbY,
                 GdxSettingsLayout.SCROLLBAR_WIDTH, thumbHeight,
                 GdxSettingsLayout.SCROLLBAR_WIDTH / 2f);
+    }
+
+    /** Same border language as the settings content well, with no bevel. */
+    static void drawGroupFrame(ShapeRenderer shapes, Rectangle bounds,
+            float alpha) {
+        Color line = ROW_BORDER;
+        shapes.setColor(0.025f, 0.055f, 0.10f, 0.30f * alpha);
+        roundedRect(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
+                16f);
+        shapes.setColor(line.r, line.g, line.b, line.a * alpha);
+        roundedRectOutline(shapes, bounds.x + 1f, bounds.y + 1f,
+                bounds.width - 2f, bounds.height - 2f, 15f, 2f);
     }
 
     static void drawVolumeRow(ShapeRenderer shapes,

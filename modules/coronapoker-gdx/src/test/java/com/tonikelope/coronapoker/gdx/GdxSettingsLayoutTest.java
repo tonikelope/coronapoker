@@ -131,9 +131,12 @@ final class GdxSettingsLayoutTest {
         Rectangle clip = GdxSettingsLayout.contentClip(content);
 
         assertEquals(content.x, clip.x);
-        assertEquals(content.y + 14f, clip.y);
+        assertEquals(content.y + GdxSettingsLayout.CONTENT_VERTICAL_INSET,
+                clip.y);
         assertEquals(content.width, clip.width);
-        assertEquals(content.height - 38f, clip.height);
+        assertEquals(content.height
+                - GdxSettingsLayout.CONTENT_VERTICAL_INSET - 24f,
+                clip.height);
         assertEquals(content.x + content.width - 24f,
                 GdxSettingsLayout.rowScrollbarX(content));
         assertEquals(GdxSettingsLayout.rowScrollbarX(content),
@@ -307,6 +310,12 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void compactGamePagesDoNotAddRedundantFrames() {
+        assertTrue(GdxSettingsContract.visualGroups(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 4, 0)), 5).isEmpty());
+    }
+
+    @Test
     void newGameStyleSplitRowsKeepCompactSteppersInsideEachHalf() {
         Rectangle column = new Rectangle(100f, 400f, 740f,
                 GdxSettingsLayout.ROW_HEIGHT);
@@ -416,13 +425,15 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void dependentRowsKeepTheSameFullWidthGeometryAsTheirParents() {
+    void legacyDependentRowsUseTheCanonicalInnerMargin() {
         Rectangle parent = GdxSettingsLayout.optionRow(
                 100f, 500f, 1_000f, false);
         Rectangle child = GdxSettingsLayout.optionRow(
                 100f, 430f, 1_000f, true);
-        assertEquals(parent.x, child.x);
-        assertEquals(parent.width, child.width);
+        assertEquals(GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
+                child.x - parent.x);
+        assertEquals(GdxSettingsLayout.CONTENT_HORIZONTAL_INSET,
+                parent.x + parent.width - child.x - child.width);
         assertEquals(parent.y - GdxSettingsLayout.ROW_STRIDE, child.y);
     }
 
@@ -472,6 +483,66 @@ final class GdxSettingsLayoutTest {
         assertEquals(48f, scrolled.offset());
         assertEquals(648f, scrolled.rowY(0),
                 "a wheel tick must move rows by pixels, not one full row");
+    }
+
+    @Test
+    void contextualStatusBandStaysInsideTheClipAndAboveTheRows() {
+        float firstRowY = 600f;
+        float viewportTop = firstRowY + GdxSettingsLayout.ROW_HEIGHT;
+
+        GdxSettingsLayout.StatusBand visible =
+                GdxSettingsLayout.statusBand(firstRowY, viewportTop, true);
+
+        assertEquals(firstRowY - GdxSettingsLayout.STATUS_BAND_HEIGHT,
+                visible.firstRowY());
+        assertEquals(viewportTop - GdxSettingsLayout.STATUS_BAND_HEIGHT,
+                visible.viewportTop());
+        assertTrue(visible.textCenterY() > visible.viewportTop());
+        assertTrue(visible.textCenterY() < viewportTop,
+                "the status text must remain inside the content scissor");
+        assertTrue(visible.textCenterY() - visible.viewportTop() >= 40f,
+                "the notice needs clear air before the first setting row");
+        assertTrue(visible.scrolledTextCenterY(80f) > viewportTop,
+                "the notice must scroll out instead of floating over rows");
+
+        GdxSettingsLayout.StatusBand hidden =
+                GdxSettingsLayout.statusBand(firstRowY, viewportTop, false);
+        assertEquals(firstRowY, hidden.firstRowY());
+        assertEquals(viewportTop, hidden.viewportTop());
+    }
+
+    @Test
+    void parentGroupsUseTheSameOuterAndInnerMarginOnEverySide() {
+        GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
+                600f, 182f, 668f, 6, 0f, java.util.List.of(
+                        new GdxSettingsContract.RowGroup(0, 3, 0)));
+
+        assertEquals(GdxSettingsLayout.GROUP_GAP,
+                rows.rowY(3) - GdxSettingsLayout.GROUP_FRAME_PADDING
+                - (rows.rowY(4) + GdxSettingsLayout.ROW_HEIGHT));
+        Rectangle group = GdxSettingsLayout.groupBounds(100f, 1_120f,
+                rows, new GdxSettingsContract.RowGroup(0, 3, 0));
+        assertEquals(100f, group.x);
+        assertEquals(1_120f, group.width);
+        assertEquals(rows.rowY(3) - GdxSettingsLayout.GROUP_FRAME_PADDING,
+                group.y);
+        assertEquals(rows.rowY(0) + GdxSettingsLayout.ROW_HEIGHT
+                + GdxSettingsLayout.GROUP_FRAME_PADDING,
+                group.y + group.height);
+        Rectangle first = GdxSettingsLayout.groupedRow(100f, rows.rowY(0),
+                1_120f, 0, java.util.List.of(
+                        new GdxSettingsContract.RowGroup(0, 3, 0)), 6);
+        Rectangle last = GdxSettingsLayout.groupedRow(100f, rows.rowY(3),
+                1_120f, 3, java.util.List.of(
+                        new GdxSettingsContract.RowGroup(0, 3, 0)), 6);
+        assertEquals(GdxSettingsLayout.GROUP_FRAME_PADDING,
+                first.x - group.x);
+        assertEquals(GdxSettingsLayout.GROUP_FRAME_PADDING,
+                group.x + group.width - first.x - first.width);
+        assertEquals(GdxSettingsLayout.GROUP_FRAME_PADDING,
+                group.y + group.height - first.y - first.height);
+        assertEquals(GdxSettingsLayout.GROUP_FRAME_PADDING,
+                last.y - group.y);
     }
 
     @Test

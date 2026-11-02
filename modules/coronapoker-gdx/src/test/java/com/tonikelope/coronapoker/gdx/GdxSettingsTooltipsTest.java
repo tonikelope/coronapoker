@@ -146,6 +146,58 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
+    void jokeBankTooltipsExplainFreeFilenamesAndRealProvenance() {
+        String resource = "joke/es/allin/sonrie.wav";
+        String key = com.tonikelope.coronapoker.core.game
+                .GamePresentationSettings.jokeSoundPreferenceKey(resource);
+
+        String officialSpanish = GdxSettingsTooltips.content(key,
+                new Properties(),
+                new GdxGameText("es")).text();
+        String modSpanish = GdxSettingsTooltips.content(key,
+                new Properties(), new GdxGameText("es"), true).text();
+        String officialParent = GdxSettingsTooltips.content(
+                "sonido_chorra_allin", new Properties(),
+                new GdxGameText("es"), false,
+                GdxGameAudioResources.JokeBankMode.OFFICIAL).text();
+        String exclusiveParent = GdxSettingsTooltips.content(
+                "sonido_chorra_allin", new Properties(),
+                new GdxGameText("es"), true,
+                GdxGameAudioResources.JokeBankMode.MOD_ONLY).text();
+        String fusedParent = GdxSettingsTooltips.content(
+                "sonido_chorra_allin", new Properties(),
+                new GdxGameText("es"), true,
+                GdxGameAudioResources.JokeBankMode.FUSED).text();
+
+        assertTrue(officialSpanish.contains("sounds/joke/es/allin/"));
+        assertTrue(officialSpanish.contains("cualquier nombre"));
+        assertFalse(officialSpanish.contains("sustituirlo"));
+        assertTrue(modSpanish.contains("sounds/" + resource));
+        assertTrue(modSpanish.contains("nombre es libre"));
+        assertTrue(officialParent.contains("sounds/joke/es/allin/"));
+        assertTrue(officialParent.contains("banco oficial"));
+        assertTrue(exclusiveParent.contains("solo sus WAV"));
+        assertTrue(exclusiveParent.contains("fusion_sounds=false"));
+        assertTrue(fusedParent.contains("combina los WAV oficiales"));
+        assertTrue(fusedParent.contains("fusion_sounds=true"));
+        assertFalse(exclusiveParent.contains("MOD cargado"));
+    }
+
+    @Test
+    void audioTooltipsNameTheRealModFilesWithoutGenericFiller() {
+        String startup = GdxSettingsTooltips.content("sonido_arranque",
+                new Properties(), new GdxGameText("es")).text();
+        String switchSounds = GdxSettingsTooltips.content(
+                "sonido_interruptor", new Properties(),
+                new GdxGameText("es")).text();
+
+        assertTrue(startup.contains("sounds/misc/init.wav"));
+        assertTrue(startup.contains("Ruta exacta"));
+        assertTrue(switchSounds.contains("sounds/misc/button_on.wav"));
+        assertTrue(switchSounds.contains("sounds/misc/button_off.wav"));
+    }
+
+    @Test
     void allGameRowsHaveDedicatedDescriptions() {
         List<String> keys = List.of(
                 "structure", "initial_blinds", "ante", "straddle",

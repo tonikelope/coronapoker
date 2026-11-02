@@ -237,9 +237,11 @@ final class GdxFrontendSettingsWiringTest {
                 StandardCharsets.UTF_8);
 
         assertEquals(6, GdxSettingsContract.CONTROL_ROWS);
-        assertTrue(frontend.contains(
+        String normalizedFrontend = frontend.replaceAll("\\s+", " ");
+        String normalizedTable = table.replaceAll("\\s+", " ");
+        assertTrue(normalizedFrontend.contains(
                 "GdxSettingsContract.CONTROL_ROWS + entries.size()"));
-        assertTrue(table.contains(
+        assertTrue(normalizedTable.contains(
                 "GdxSettingsContract.CONTROL_ROWS + entries.size()"));
         for (String key : List.of("auto_action_buttons",
                 "auto_call_enabled", "auto_call_max",

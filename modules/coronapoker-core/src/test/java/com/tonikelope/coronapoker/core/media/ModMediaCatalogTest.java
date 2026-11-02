@@ -73,4 +73,29 @@ final class ModMediaCatalogTest {
         assertFalse(rejected.installed());
         assertTrue(rejected.decks().isEmpty());
     }
+
+    @Test
+    void nonFusedFunnySoundBankAcceptsArbitraryWavNamesOnly(
+            @TempDir Path installation) throws Exception {
+        Path mod = Files.createDirectories(installation.resolve("mod"));
+        Files.writeString(mod.resolve("mod.xml"),
+                "<mod fusion_sounds=\"false\"><name>Audio</name></mod>");
+        Path bank = Files.createDirectories(
+                mod.resolve("sounds/joke/es/allin"));
+        Files.writeString(bank.resolve("zeta.WAV"), "z");
+        Files.writeString(bank.resolve("nombre completamente libre.wav"),
+                "a");
+        Files.writeString(bank.resolve("ignore.mp3"), "no");
+        Files.createDirectories(bank.resolve("nested"));
+        Files.writeString(bank.resolve("nested/ignore.wav"), "no");
+
+        Map.Entry<String, String[]> selected = ModMediaCatalog
+                .discover(installation).soundCategory("es", "allin",
+                        Map.entry("joke/es/allin/",
+                                new String[]{"official.wav"}));
+
+        assertEquals("joke/es/allin/", selected.getKey());
+        assertEquals(java.util.List.of("nombre completamente libre.wav",
+                "zeta.WAV"), java.util.List.of(selected.getValue()));
+    }
 }

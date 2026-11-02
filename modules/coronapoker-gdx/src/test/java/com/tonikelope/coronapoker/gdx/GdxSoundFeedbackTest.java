@@ -100,4 +100,42 @@ class GdxSoundFeedbackTest {
         assertFalse(GdxSoundFeedback.funnyResource("misc/check.wav"));
         assertFalse(GdxSoundFeedback.funnyResource(null));
     }
+
+    @Test
+    void everyFunnyResourceResolvesToItsIndividualPreference() {
+        assertEquals("sonido_chorra_allin",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "joke/es/allin/maximo.wav"));
+        assertEquals("sonido_chorra_fold",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "joke/es/fold/mcfly.wav"));
+        assertEquals("sonido_chorra_showdown",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "joke/en/showdown/bond.wav"));
+        assertEquals("sonido_chorra_winner",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "joke/es/winner/vivarey.wav"));
+        assertEquals("sonido_chorra_loser",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "joke/es/loser/primo.wav"));
+        assertEquals("sonido_chorra_raise",
+                GdxSoundFeedback.funnyPreferenceKey("misc/raise.wav"));
+        assertEquals("sonido_chorra_badbeat",
+                GdxSoundFeedback.funnyPreferenceKey("misc/badbeat.wav"));
+        assertEquals("sonido_iwtsth",
+                GdxSoundFeedback.funnyPreferenceKey(
+                        "misc/showyourcards.wav"));
+    }
+
+    @Test
+    void cinematicCompanionNeverConfusesTheNormalAllInGunshot() {
+        assertTrue(GdxSoundFeedback.cinematicCompanionResource(
+                "allin/terminator.wav"));
+        assertTrue(GdxSoundFeedback.cinematicCompanionResource(
+                "allin\\terminator.WAV"));
+        assertFalse(GdxSoundFeedback.cinematicCompanionResource(
+                "misc/allin.wav"));
+        assertFalse(GdxSoundFeedback.cinematicCompanionResource(
+                "allin/terminator.gif"));
+    }
 }

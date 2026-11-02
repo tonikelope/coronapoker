@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import java.util.Properties;
 
 /** Shared explanatory text for every settings surface. */
@@ -15,12 +16,66 @@ final class GdxSettingsTooltips {
 
     static Content content(String settingKey, Properties properties,
             GdxGameText text) {
-        return content(settingKey, properties, text, false);
+        return content(settingKey, properties, text, false,
+                GdxGameAudioResources.JokeBankMode.OFFICIAL);
     }
 
     static Content content(String settingKey, Properties properties,
             GdxGameText text, boolean modOverride) {
-        String description = text.translate(descriptionKey(settingKey));
+        return content(settingKey, properties, text, modOverride,
+                modOverride
+                        && GdxGameAudioResources.jokeCategory(settingKey)
+                                != null
+                        ? GdxGameAudioResources.JokeBankMode.MOD_ONLY
+                        : GdxGameAudioResources.JokeBankMode.OFFICIAL);
+    }
+
+    static Content content(String settingKey, Properties properties,
+            GdxGameText text, boolean modOverride,
+            GdxGameAudioResources.JokeBankMode jokeBankMode) {
+        String jokeResource = GamePresentationSettings.jokeSoundResource(
+                settingKey);
+        String description;
+        boolean jokeBankSetting = false;
+        if (jokeResource == null) {
+            description = text.translate(descriptionKey(settingKey));
+            String jokeBank = GdxGameAudioResources.jokeBankFolder(
+                    settingKey, text.language());
+            if (jokeBank != null) {
+                jokeBankSetting = true;
+                description += " " + text.translate(
+                        switch (jokeBankMode) {
+                            case MOD_ONLY ->
+                                "gdx.settings.tooltip.joke_bank_mod_only";
+                            case FUSED ->
+                                "gdx.settings.tooltip.joke_bank_fused";
+                            case OFFICIAL ->
+                                "gdx.settings.tooltip.joke_bank_official";
+                        },
+                        jokeBank);
+            }
+        } else {
+            String resource = "sounds/" + jokeResource.replace('\\', '/');
+            String folder = GdxGameAudioResources.jokeBankFolderForResource(
+                    jokeResource);
+            description = text.translate(modOverride
+                    ? "gdx.settings.tooltip.joke_sound_item_mod"
+                    : "gdx.settings.tooltip.joke_sound_item_official",
+                    resource, folder);
+        }
+        if (jokeResource == null) {
+            java.util.List<String> resources =
+                    GdxGameAudioResources.settingResources(settingKey,
+                            text.language());
+            if (!resources.isEmpty()) {
+                String paths = resources.stream()
+                        .map(resource -> "sounds/"
+                                + resource.replace('\\', '/'))
+                        .collect(java.util.stream.Collectors.joining(", "));
+                description += " " + text.translate(
+                        "gdx.settings.tooltip.mod_replacement_path", paths);
+            }
+        }
         GdxSettingsContract.PerformanceImpact impact =
                 GdxSettingsContract.performanceImpact(settingKey,
                         properties);
@@ -28,7 +83,8 @@ final class GdxSettingsTooltips {
                 ? description
                 : text.translate("gdx.settings.tooltip.with_impact",
                         description, impact.label(text));
-        String displayed = modOverride
+        String displayed = modOverride && jokeResource == null
+                && !jokeBankSetting
                 ? complete + " " + text.translate(
                         "gdx.settings.tooltip.mod_audio_override")
                 : complete;
@@ -39,12 +95,41 @@ final class GdxSettingsTooltips {
         if (settingKey == null || settingKey.isBlank()) {
             return "gdx.settings.tooltip.generic";
         }
+        if (GamePresentationSettings.jokeSoundResource(settingKey) != null) {
+            return "gdx.settings.tooltip.joke_sound_item_official";
+        }
         return switch (settingKey) {
             case "master_volume" -> "tooltip.cfg.volume";
             case "sonidos" -> "tooltip.cfg.sound_master";
             case "musica" -> "tooltip.cfg.music_master";
             case "sonido_efectos" -> "tooltip.cfg.fx_master";
+            case "sonido_cinematicas" ->
+                "gdx.settings.tooltip.cinematic_audio";
             case "sonidos_chorra" -> "tooltip.cfg.silly_sounds";
+            case "sonido_chorra_allin" ->
+                "gdx.settings.tooltip.joke_allin";
+            case "sonido_chorra_fold" ->
+                "gdx.settings.tooltip.joke_fold";
+            case "sonido_chorra_showdown" ->
+                "gdx.settings.tooltip.joke_showdown";
+            case "sonido_chorra_winner" ->
+                "gdx.settings.tooltip.joke_winner";
+            case "sonido_chorra_loser" ->
+                "gdx.settings.tooltip.joke_loser";
+            case "sonido_chorra_raise" ->
+                "gdx.settings.tooltip.joke_raise";
+            case "sonido_chorra_norebuy" ->
+                "gdx.settings.tooltip.joke_norebuy";
+            case "sonido_chorra_indivisible" ->
+                "gdx.settings.tooltip.joke_indivisible";
+            case "sonido_chorra_lastcard" ->
+                "gdx.settings.tooltip.joke_lastcard";
+            case "sonido_chorra_badbeat" ->
+                "gdx.settings.tooltip.joke_badbeat";
+            case "sonido_chorra_lucky" ->
+                "gdx.settings.tooltip.joke_lucky";
+            case "sonido_chorra_special_card" ->
+                "gdx.settings.tooltip.joke_special_card";
             case "sonido_inicio" -> "tooltip.cfg.game_start_sound";
             case "musica_recuperacion" ->
                 "tooltip.cfg.recovery_music";

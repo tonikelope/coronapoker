@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
@@ -303,6 +304,44 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean sillySounds() {
         return effects() && bool("sonidos_chorra", false);
+    }
+    @Override public boolean sillySoundEnabled(String resource) {
+        if (!sillySounds() || resource == null || resource.isBlank()) {
+            return false;
+        }
+        String categoryPreference = GdxSoundFeedback.funnyPreferenceKey(
+                resource);
+        return (categoryPreference == null
+                || bool(categoryPreference, true))
+                && bool(GamePresentationSettings.jokeSoundPreferenceKey(
+                        resource), true);
+    }
+    @Override public boolean cinematicAudio() {
+        return effects() && bool("sonido_cinematicas", true);
+    }
+
+    /** Active language bank after applying the MOD replacement/fusion rules. */
+    List<String> jokeSoundResources(String category) {
+        String selectedLanguage = "en".equalsIgnoreCase(language())
+                ? "en" : "es";
+        Map.Entry<String, String[]> bundled = switch (category) {
+            case "allin" -> Crupier.ALLIN_SOUNDS.get(selectedLanguage);
+            case "fold" -> Crupier.FOLD_SOUNDS.get(selectedLanguage);
+            case "showdown" -> Crupier.SHOWDOWN_SOUNDS.get(selectedLanguage);
+            case "winner" -> Crupier.WINNER_SOUNDS.get(selectedLanguage);
+            case "loser" -> Crupier.LOSER_SOUNDS.get(selectedLanguage);
+            default -> null;
+        };
+        if (bundled == null) return List.of();
+        Map.Entry<String, String[]> selected = modMedia.soundCategory(
+                selectedLanguage, category, bundled);
+        return java.util.Arrays.stream(selected.getValue())
+                .filter(Objects::nonNull)
+                .filter(filename -> !filename.isBlank())
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .map(filename -> selected.getKey() + filename)
+                .distinct()
+                .toList();
     }
     @Override public boolean ambientMusic() { return bool("sonido_ascensor", true); }
     @Override public boolean recoveryMusic() {

@@ -14,6 +14,8 @@ final class GdxSoundFeedback {
     static final String ZOOM_OUT = "misc/zoom_out.wav";
     static final String FUNNY_RAISE = "misc/raise.wav";
     static final String FUNNY_NO_REBUY = "misc/norebuy.wav";
+    static final String FUNNY_SPECIAL_CARD_KEY =
+            "sonido_chorra_special_card";
 
     private GdxSoundFeedback() {
     }
@@ -56,5 +58,37 @@ final class GdxSoundFeedback {
                 || resource.equals("misc/lastcard.wav")
                 || resource.equals("misc/badbeat.wav")
                 || resource.equals("misc/youarelucky.wav");
+    }
+
+    /** Optional WAV paired with an ALL-IN cinematic, never the normal gunshot. */
+    static boolean cinematicCompanionResource(String resource) {
+        if (resource == null) return false;
+        String normalized = resource.replace('\\', '/');
+        return normalized.startsWith("allin/")
+                && normalized.toLowerCase(java.util.Locale.ROOT)
+                        .endsWith(".wav");
+    }
+
+    /** Individual preference governing one renderer-facing joke resource. */
+    static String funnyPreferenceKey(String resource) {
+        if (resource == null) return null;
+        String normalized = resource.replace('\\', '/');
+        if (normalized.contains("/allin/")) return "sonido_chorra_allin";
+        if (normalized.contains("/fold/")) return "sonido_chorra_fold";
+        if (normalized.contains("/showdown/")) {
+            return "sonido_chorra_showdown";
+        }
+        if (normalized.contains("/winner/")) return "sonido_chorra_winner";
+        if (normalized.contains("/loser/")) return "sonido_chorra_loser";
+        return switch (normalized) {
+            case FUNNY_RAISE -> "sonido_chorra_raise";
+            case FUNNY_NO_REBUY -> "sonido_chorra_norebuy";
+            case "misc/indivisible.wav" -> "sonido_chorra_indivisible";
+            case "misc/lastcard.wav" -> "sonido_chorra_lastcard";
+            case "misc/badbeat.wav" -> "sonido_chorra_badbeat";
+            case "misc/youarelucky.wav" -> "sonido_chorra_lucky";
+            case "misc/showyourcards.wav" -> "sonido_iwtsth";
+            default -> null;
+        };
     }
 }

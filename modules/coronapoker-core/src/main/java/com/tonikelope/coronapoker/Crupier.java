@@ -2056,6 +2056,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static final Map.Entry<String, String[]> WINNER_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/winner/",
             new String[]{
+                "applause.wav",
                 "ateam.wav",
                 "divertido.wav",
                 "dura.wav",
@@ -2067,7 +2068,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 "vivarey.wav"});
 
     public static final Map.Entry<String, String[]> WINNER_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/winner/",
-            new String[]{});
+            new String[]{"applause.wav"});
 
     public static final Map<String, Map.Entry<String, String[]>> WINNER_SOUNDS = new HashMap<>();
 
@@ -8567,11 +8568,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         getLock_apuestas().notifyAll();
                     }
 
-                    if (cinematic_assets.hasCompanionAudio(filename)) {
-
-                        game_audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
-                    }
-
                     return _cinematicAllin(localPlayer().getNickname(),
                             filename, pausa);
 
@@ -8670,6 +8666,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final String filename = chosen_filename;
         final long pausa = chosen_pausa;
 
+        boolean companionAudioPlayed = false;
+
         if (this.sincronizando_mano) {
             // Recovery replay: the cinematic is skipped, but the caller (RemotePlayer.allin /
             // local all-in button) already set PLAYING_CINEMATIC=true. It must be cleared here
@@ -8682,14 +8680,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             game_progress.indeterminate();
 
+            boolean cinematicAvailable = presentation_settings
+                    .allInCinematics()
+                    && cinematic_assets.hasCinematic(filename);
+            companionAudioPlayed = shouldPlayAllInCompanionAudio(
+                    cinematicAvailable,
+                    presentation_settings.cinematicAudio(),
+                    cinematic_assets.hasCompanionAudio(filename));
+            if (companionAudioPlayed) {
+                game_audio.playWavResource("allin/"
+                        + filename.replaceFirst("(?i)\\.gif$", ".wav"));
+            }
             playAllInCinematic(nickname, filename, pausa,
-                    presentation_settings.allInCinematics()
-                    && cinematic_assets.hasCinematic(filename));
+                    cinematicAvailable);
 
         }
 
-        return cinematic_assets.hasCompanionAudio(filename);
+        return companionAudioPlayed;
 
+    }
+
+    static boolean shouldPlayAllInCompanionAudio(boolean cinematicAvailable,
+            boolean cinematicAudioEnabled, boolean companionAudioAvailable) {
+        return cinematicAvailable && cinematicAudioEnabled
+                && companionAudioAvailable;
     }
 
     private Object[][] availableAllInCinematics() {
@@ -8705,12 +8719,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return legacy == null ? new Object[0][] : legacy.getValue();
     }
 
+    /**
+     * Removes disabled concrete joke sounds before random selection. Filtering
+     * after selection would make an enabled event fail silently whenever the
+     * random choice happened to land on a disabled WAV.
+     */
+    private Map<String, String[]> enabledFunnySounds(
+            Map<String, String[]> sounds) {
+        Map<String, String[]> enabled = new LinkedHashMap<>();
+        if (sounds == null) return enabled;
+        sounds.forEach((prefix, filenames) -> {
+            if (prefix == null || filenames == null) return;
+            String[] selected = Arrays.stream(filenames)
+                    .filter(filename -> filename != null
+                    && !filename.isBlank())
+                    .filter(filename -> presentation_settings
+                    .sillySoundEnabled(prefix + filename))
+                    .toArray(String[]::new);
+            if (selected.length > 0) enabled.put(prefix, selected);
+        });
+        return enabled;
+    }
+
+    private void playRandomFunnySound(Map<String, String[]> sounds) {
+        Map<String, String[]> enabled = enabledFunnySounds(sounds);
+        if (!enabled.isEmpty()) game_audio.playRandomWavResource(enabled);
+    }
+
+    private void playRandomFunnySoundAndWait(Map<String, String[]> sounds) {
+        Map<String, String[]> enabled = enabledFunnySounds(sounds);
+        if (!enabled.isEmpty()) {
+            game_audio.playRandomWavResourceAndWait(enabled);
+        }
+    }
+
     public void soundAllin() {
 
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            game_audio.playRandomWavResource(runtime_environment.modActive() ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
-                    : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(presentation_settings.language())));
+            playRandomFunnySound(runtime_environment.modActive()
+                    ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD)
+                    : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(
+                            presentation_settings.language())));
 
         }
 
@@ -8720,8 +8770,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
             this.fold_sound_playing = true;
             game_async.execute(() -> {
-                game_audio.playRandomWavResourceAndWait(runtime_environment.modActive() ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
-                        : Map.ofEntries(Crupier.FOLD_SOUNDS.get(presentation_settings.language())));
+                playRandomFunnySoundAndWait(runtime_environment.modActive()
+                        ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD)
+                        : Map.ofEntries(Crupier.FOLD_SOUNDS.get(
+                                presentation_settings.language())));
                 fold_sound_playing = false;
             });
         }
@@ -8730,7 +8782,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void soundShowdown() {
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            if (badbeat) {
+            if (badbeat && presentation_settings.sillySoundEnabled(
+                    "misc/badbeat.wav")) {
                 game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
@@ -8739,7 +8792,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada_ganadora >= GameHandResult.POKER && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+            } else if (jugada_ganadora >= GameHandResult.POKER
+                    && presentation_settings.language().equals(
+                            presentation_settings.defaultLanguage())
+                    && presentation_settings.sillySoundEnabled(
+                            "misc/youarelucky.wav")) {
 
                 game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
@@ -8751,7 +8808,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
 
             } else {
-                game_audio.playRandomWavResource(runtime_environment.modActive()
+                playRandomFunnySound(runtime_environment.modActive()
                         ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD,
                                 Crupier.LOSER_SOUNDS_MOD)
                         : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(presentation_settings.language()),
@@ -8764,7 +8821,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void soundWinner(int jugada, boolean ultima_carta) {
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            if ((jugada >= GameHandResult.POKER || badbeat) && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+            if ((jugada >= GameHandResult.POKER || badbeat)
+                    && presentation_settings.language().equals(
+                            presentation_settings.defaultLanguage())
+                    && presentation_settings.sillySoundEnabled(
+                            "misc/youarelucky.wav")) {
 
                 game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
@@ -8793,7 +8854,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             : Map.ofEntries(Crupier.WINNER_SOUNDS.get(presentation_settings.language()));
                 }
 
-                game_audio.playRandomWavResource(sonidos);
+                playRandomFunnySound(sonidos);
             }
         }
     }
@@ -8801,7 +8862,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void soundLoser(int jugada) {
         if (!this.sincronizando_mano && presentation_settings.sillySounds() && !fold_sound_playing) {
 
-            if (badbeat) {
+            if (badbeat && presentation_settings.sillySoundEnabled(
+                    "misc/badbeat.wav")) {
                 game_async.execute(() -> {
                     game_audio.muteAllLoopMp3();
                     try {
@@ -8810,17 +8872,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         game_audio.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada >= GameHandResult.FULL && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
-
-                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
-                    "encargado.wav",
-                    "matias.wav"});
-
-                game_audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
-
             } else {
-                game_audio.playRandomWavResource(runtime_environment.modActive() ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
-                        : Map.ofEntries(Crupier.LOSER_SOUNDS.get(presentation_settings.language())));
+                playRandomFunnySound(runtime_environment.modActive()
+                        ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD)
+                        : Map.ofEntries(Crupier.LOSER_SOUNDS.get(
+                                presentation_settings.language())));
             }
         }
     }
@@ -14153,7 +14209,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (getLock_contabilidad()) {
             if (MoneyMath.compare(0f, this.bote_sobrante) < 0) {
-                if (presentation_settings.sillySounds() && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
+                if (presentation_settings.sillySounds()
+                        && presentation_settings.language().equals(
+                                presentation_settings.defaultLanguage())
+                        && presentation_settings.sillySoundEnabled(
+                                "misc/indivisible.wav")) {
                     game_audio.playWavResource("misc/indivisible.wav");
                 }
                 if (presentation_settings.cashSound()) {
@@ -27928,11 +27988,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
                     if (presentation_settings.sillySounds() && isLocal) {
-                        if (jugador_actual.getDecision() == GamePlayerController.ALLIN) {
-                            game_audio.playWavResource("joke/" + presentation_settings.language() + "/winner/applause.wav");
-                        } else {
-                            this.soundWinner(jugada.getValue(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
-                        }
+                        this.soundWinner(jugada.getValue(),
+                                ganaPorUltimaCarta(jugador_actual, jugada,
+                                        Crupier.MIN_ULTIMA_CARTA_JUGADA));
                     }
 
                 } else {
@@ -27970,14 +28028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 
                     if (presentation_settings.sillySounds() && isLocal) {
-                        if (jugador_actual.getDecision() == GamePlayerController.ALLIN && presentation_settings.language().equals(presentation_settings.defaultLanguage())) {
-                            java.util.Map.Entry<String, String[]> WTF_SOUNDS = new java.util.HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
-                                "encargado.wav",
-                                "matias.wav"});
-                            game_audio.playRandomWavResource(java.util.Map.ofEntries(WTF_SOUNDS));
-                        } else {
-                            this.soundLoser(jugada.getValue());
-                        }
+                        this.soundLoser(jugada.getValue());
                     }
                 }
 

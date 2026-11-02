@@ -86,7 +86,7 @@ final class GdxAppearanceOptions {
         return parentKey(choice) != null;
     }
 
-    private static String parentKey(Choice choice) {
+    static String parentKey(Choice choice) {
         return switch (choice.key()) {
             case "reparto_velocidad" -> "animacion_reparto";
             case "card_flip_duration", "card_flip_direction",

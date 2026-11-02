@@ -27,6 +27,9 @@ final class GdxSettingsStyleTest {
                 "the content well must not compound the glass opacity");
         assertEquals(0x111a2add, GdxSettingsStyle.PANEL_LIGHT_RGBA);
         assertEquals(0x36d9ffff, GdxSettingsStyle.CYAN_RGBA);
+        assertEquals(0x36d9ffff, GdxSettingsStyle.MOD_OVERRIDE_RGBA);
+        assertEquals(0x176b83ff,
+                GdxSettingsStyle.MOD_OVERRIDE_DISABLED_RGBA);
         assertEquals(0xffe07aff, GdxSettingsStyle.GOLD_RGBA);
         assertEquals(0xffdf72ff, GdxSettingsStyle.SERVER_ONLY_RGBA);
         assertEquals(0xff6874ff, GdxSettingsStyle.LOCKED_RGBA);

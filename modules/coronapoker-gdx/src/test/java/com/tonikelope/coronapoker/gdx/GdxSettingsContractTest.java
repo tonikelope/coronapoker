@@ -206,6 +206,74 @@ final class GdxSettingsContractTest {
         assertTrue(music.options().stream().skip(1).allMatch(option ->
                 GdxSettingsContract.isChildOption(music, option)));
 
+        GdxSettingsContract.TogglePage funny =
+                GdxSettingsContract.AUDIO_PAGES.get(3);
+        assertEquals("sonidos_chorra", funny.options().get(0).key());
+        assertFalse(GdxSettingsContract.isChildOption(funny,
+                funny.options().get(0)));
+        assertTrue(funny.options().stream().skip(1).allMatch(option ->
+                GdxSettingsContract.isChildOption(funny, option)));
+
+    }
+
+    @Test
+    void nestedGroupsPreserveExplicitParentageAndSpacing() {
+        GdxSettingsContract.TogglePage page =
+                new GdxSettingsContract.TogglePage("JOKES", java.util.List.of(
+                        new GdxSettingsContract.ToggleOption("root", "ROOT",
+                                true, GdxSettingsContract.Gate.NONE, false,
+                                null),
+                        new GdxSettingsContract.ToggleOption("category",
+                                "LOSER", true,
+                                GdxSettingsContract.Gate.NONE, false,
+                                "root"),
+                        new GdxSettingsContract.ToggleOption("entry",
+                                "LOSER-1", true,
+                                GdxSettingsContract.Gate.NONE, false,
+                                "category"),
+                        new GdxSettingsContract.ToggleOption("standalone",
+                                "OTHER", true,
+                                GdxSettingsContract.Gate.NONE, false,
+                                null)));
+
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 2, 0),
+                new GdxSettingsContract.RowGroup(1, 2, 1)),
+                GdxSettingsContract.toggleGroups(page, index -> index));
+        assertEquals(java.util.Set.of(1, 3),
+                GdxSettingsContract.groupGapsBefore(
+                        GdxSettingsContract.toggleGroups(page,
+                                index -> index), 4));
+    }
+
+    @Test
+    void visualGroupsDropOnlyTheRedundantWholeSubpageFrame() {
+        assertEquals(java.util.List.of(), GdxSettingsContract.visualGroups(
+                java.util.List.of(
+                        new GdxSettingsContract.RowGroup(0, 4, 0)), 5));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(1, 3, 0)),
+                GdxSettingsContract.visualGroups(java.util.List.of(
+                        new GdxSettingsContract.RowGroup(0, 4, 0),
+                        new GdxSettingsContract.RowGroup(1, 3, 1)), 5));
+    }
+
+    @Test
+    void controlsExposeTheirParentGroupWithoutIndentingChildren() {
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 3, 0)),
+                GdxSettingsContract.controlGroups());
+    }
+
+    @Test
+    void gameParentBlocksAreSharedAcrossEverySettingsEntryPoint() {
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(2, 4, 0)),
+                GdxSettingsContract.gameGroups(2));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 1, 0),
+                new GdxSettingsContract.RowGroup(2, 3, 0)),
+                GdxSettingsContract.gameGroups(3));
     }
 
     @Test
@@ -326,15 +394,36 @@ final class GdxSettingsContractTest {
                 "audio_block_voice_messages", "audio_play_own_voice",
                 "audio_block_tts_local")));
         assertEquals(java.util.List.of("GENERAL", "MÚSICA", "EFECTOS",
-                "NOTAS Y CHAT DE VOZ", "DISPOSITIVOS"),
+                "SONIDOS DE COÑA", "NOTAS Y CHAT DE VOZ", "DISPOSITIVOS"),
                 GdxSettingsContract.AUDIO_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("sonido_vista_compacta"));
         assertEquals("sonido_efectos",
                 GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0).key());
+        assertFalse(GdxSettingsContract.AUDIO_PAGES.get(2).options().stream()
+                .anyMatch(option -> "sonidos_chorra".equals(option.key())));
         assertEquals("sonidos_chorra",
-                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(1).key());
+                GdxSettingsContract.AUDIO_PAGES.get(3).options().get(0).key());
+        assertEquals(13,
+                GdxSettingsContract.AUDIO_PAGES.get(3).options().size());
         assertTrue(keys.contains("sonido_entrar_sala"));
+    }
+
+    @Test
+    void funnySoundChildrenFollowBothAudioParents() {
+        GdxSettingsContract.TogglePage page =
+                GdxSettingsContract.AUDIO_PAGES.get(3);
+        GdxSettingsContract.ToggleOption parent = page.options().get(0);
+        GdxSettingsContract.ToggleOption child = page.options().get(1);
+        Properties properties = new Properties();
+
+        assertTrue(GdxSettingsContract.enabled(parent, properties, true));
+        assertFalse(GdxSettingsContract.enabled(child, properties, true));
+        properties.setProperty("sonidos_chorra", "true");
+        assertTrue(GdxSettingsContract.enabled(child, properties, true));
+        properties.setProperty("sonido_efectos", "false");
+        assertFalse(GdxSettingsContract.enabled(parent, properties, true));
+        assertFalse(GdxSettingsContract.enabled(child, properties, true));
     }
 
     @Test
@@ -437,7 +526,10 @@ final class GdxSettingsContractTest {
                     "/sounds/" + preview.resource()) != null
                     || getClass().getResource(
                             "/cinematics/" + preview.resource()) != null;
-            assertTrue(bundled, option.key() + " -> " + preview.resource());
+            boolean optionalModResource = "misc/lastcard.wav".equals(
+                    preview.resource());
+            assertTrue(bundled || optionalModResource,
+                    option.key() + " -> " + preview.resource());
         }
     }
 

@@ -2,6 +2,8 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.Rectangle;
+import java.util.List;
+import java.util.Set;
 
 /** Shared modal frame geometry used by menu and live-table settings. */
 final class GdxSettingsLayout {
@@ -9,6 +11,8 @@ final class GdxSettingsLayout {
     static final float HORIZONTAL_INSET = 44f;
     /** Breathing room between the content well and every settings row. */
     static final float CONTENT_HORIZONTAL_INSET = 34f;
+    /** Matching lower viewport inset for the same four-sided rhythm. */
+    static final float CONTENT_VERTICAL_INSET = CONTENT_HORIZONTAL_INSET;
     static final float TITLE_BASELINE_TOP_INSET = 48f;
     // There is one heading band only.  Settings used to reserve another band
     // for the redundant "Configuracion de CoronaPoker" subtitle, leaving a
@@ -35,6 +39,15 @@ final class GdxSettingsLayout {
     /** Common row geometry for menu, waiting-room and live-table settings. */
     static final float ROW_HEIGHT = 68f;
     static final float ROW_STRIDE = 70f;
+    /** Dedicated scrollable header band for contextual notices above a list. */
+    static final float STATUS_BAND_HEIGHT = 64f;
+    /** Keeps the notice high in its band and leaves air before the first row. */
+    static final float STATUS_BAND_TOP_INSET = 18f;
+    /** Extra breathing room between adjacent parent/child settings blocks. */
+    static final float GROUP_GAP = 12f;
+    /** One canonical margin outside and inside every useful group frame. */
+    static final float GROUP_FRAME_PADDING = CONTENT_HORIZONTAL_INSET;
+    static final float GROUP_DEPTH_INSET = CONTENT_HORIZONTAL_INSET;
     static final float SHORTCUT_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_GAP = 14f;
@@ -67,6 +80,23 @@ final class GdxSettingsLayout {
     static final float SHORTCUT_DESCRIPTION_BASELINE = 38f;
 
     private GdxSettingsLayout() {
+    }
+
+    /**
+     * Reserves a visible strip above a scrolling settings list without
+     * placing its notice outside the content scissor. The row origin and its
+     * viewport move together, so rendering, scrolling and hit testing share
+     * one coordinate contract. The notice itself scrolls with the rows and
+     * therefore cannot remain floating over later entries.
+     */
+    static StatusBand statusBand(float firstRowY, float viewportTop,
+            boolean visible) {
+        if (!visible) {
+            return new StatusBand(firstRowY, viewportTop, viewportTop);
+        }
+        return new StatusBand(firstRowY - STATUS_BAND_HEIGHT,
+                viewportTop - STATUS_BAND_HEIGHT,
+                viewportTop - STATUS_BAND_TOP_INSET);
     }
 
     static Rectangle panelBounds(float worldWidth, float worldHeight) {
@@ -157,12 +187,33 @@ final class GdxSettingsLayout {
     }
 
     /**
-     * Applies one full-width geometry to every setting. Parent-child
-     * relationships affect availability, never alignment or usable width.
+     * Applies the ordinary row geometry, or the canonical inner margin used
+     * by the few legacy parent/child layouts that do not draw a group frame.
      */
     static Rectangle optionRow(float x, float y, float width,
             boolean child) {
-        return new Rectangle(x, y, width, ROW_HEIGHT);
+        float inset = child ? CONTENT_HORIZONTAL_INSET : 0f;
+        return new Rectangle(x + inset, y,
+                Math.max(0f, width - 2f * inset), ROW_HEIGHT);
+    }
+
+    /**
+     * Row lane inside a visible parent/child group. A depth-zero frame is
+     * aligned with ordinary rows; its controls receive exactly the same
+     * margin that separates the frame from the subpage well.
+     */
+    static Rectangle groupedRow(float x, float y, float width, int row,
+            List<GdxSettingsContract.RowGroup> groups, int totalRows) {
+        int levels = 0;
+        for (GdxSettingsContract.RowGroup group
+                : GdxSettingsContract.visualGroups(groups, totalRows)) {
+            if (row >= group.parentRow() && row <= group.lastRow()) {
+                levels = Math.max(levels, group.depth() + 1);
+            }
+        }
+        float inset = levels * CONTENT_HORIZONTAL_INSET;
+        return new Rectangle(x + inset, y,
+                Math.max(0f, width - 2f * inset), ROW_HEIGHT);
     }
 
     /** Right-aligned value lane shared by compact choice rows. */
@@ -186,13 +237,17 @@ final class GdxSettingsLayout {
      * of the scissor edge at every viewport scale.
      */
     static Rectangle contentClip(Rectangle content) {
-        return new Rectangle(content.x, content.y + 14f, content.width,
-                Math.max(0f, content.height - 38f));
+        return new Rectangle(content.x,
+                content.y + CONTENT_VERTICAL_INSET, content.width,
+                Math.max(0f, content.height
+                        - CONTENT_VERTICAL_INSET - 24f));
     }
 
     static Rectangle contentClip(Rectangle content, Rectangle destination) {
-        return destination.set(content.x, content.y + 14f, content.width,
-                Math.max(0f, content.height - 38f));
+        return destination.set(content.x,
+                content.y + CONTENT_VERTICAL_INSET, content.width,
+                Math.max(0f, content.height
+                        - CONTENT_VERTICAL_INSET - 24f));
     }
 
     /** Canonical visible scrollbar position relative to the content well. */
@@ -412,17 +467,133 @@ final class GdxSettingsLayout {
      */
     static PixelRows pixelRows(float firstRowY, float viewportBottom,
             float viewportTop, int totalRows, float requestedOffset) {
+        return pixelRows(firstRowY, viewportBottom, viewportTop, totalRows,
+                requestedOffset, Set.of());
+    }
+
+    static PixelRows pixelRows(float firstRowY, float viewportBottom,
+            float viewportTop, int totalRows, float requestedOffset,
+            Set<Integer> gapsBefore) {
         float viewportHeight = Math.max(0f, viewportTop - viewportBottom);
+        float[] rowOffsets = new float[Math.max(0, totalRows)];
+        float position = 0f;
+        for (int row = 0; row < rowOffsets.length; row++) {
+            if (row > 0 && gapsBefore.contains(row)) position += GROUP_GAP;
+            rowOffsets[row] = position;
+            position += ROW_STRIDE;
+        }
         float contentHeight = totalRows <= 0 ? 0f
-                : ROW_HEIGHT + Math.max(0, totalRows - 1) * ROW_STRIDE;
+                : rowOffsets[totalRows - 1] + ROW_HEIGHT;
         float maximum = Math.max(0f, contentHeight - viewportHeight);
         float offset = Math.max(0f, Math.min(maximum, requestedOffset));
-        int first = totalRows <= 0 ? 0 : Math.max(0,
-                (int) Math.floor(offset / ROW_STRIDE));
-        int last = totalRows <= 0 ? 0 : Math.min(totalRows,
-                (int) Math.ceil((offset + viewportHeight) / ROW_STRIDE));
+        int first = totalRows;
+        int last = 0;
+        for (int row = 0; row < totalRows; row++) {
+            float screenY = firstRowY - rowOffsets[row] + offset;
+            if (screenY + ROW_HEIGHT >= viewportBottom
+                    && screenY <= viewportTop) {
+                first = Math.min(first, row);
+                last = row + 1;
+            }
+        }
+        if (first == totalRows) first = 0;
         return new PixelRows(firstRowY, viewportBottom, viewportTop,
-                totalRows, first, last, offset, maximum, contentHeight);
+                totalRows, first, last, offset, maximum, contentHeight,
+                rowOffsets);
+    }
+
+    /**
+     * Pixel layout that reserves real space for useful group frames. The
+     * legacy fixed gap could only separate rows; it could not protect the top
+     * and bottom borders or distinguish a group transition from an ordinary
+     * gap.
+     */
+    static PixelRows pixelRows(float firstRowY, float viewportBottom,
+            float viewportTop, int totalRows, float requestedOffset,
+            List<GdxSettingsContract.RowGroup> groups) {
+        List<GdxSettingsContract.RowGroup> visibleGroups =
+                GdxSettingsContract.visualGroups(groups, totalRows);
+        float viewportHeight = Math.max(0f, viewportTop - viewportBottom);
+        float[] rowOffsets = new float[Math.max(0, totalRows)];
+        float position = visibleGroups.stream().anyMatch(group ->
+                group.parentRow() == 0)
+                ? GROUP_FRAME_PADDING
+                        + Math.max(0f, CONTENT_HORIZONTAL_INSET
+                                - (CONTENT_ROW_TOP_INSET - ROW_HEIGHT))
+                : 0f;
+        for (int row = 0; row < rowOffsets.length; row++) {
+            if (row > 0) {
+                int opening = 0;
+                int closing = 0;
+                for (GdxSettingsContract.RowGroup group : visibleGroups) {
+                    if (group.parentRow() == row) opening++;
+                    if (group.lastRow() + 1 == row) closing++;
+                }
+                if (opening + closing > 0) {
+                    // ROW_STRIDE already contributes the ordinary two-pixel
+                    // row gap, so do not count it twice here.
+                    position += (opening + closing) * GROUP_FRAME_PADDING
+                            + GROUP_GAP - (ROW_STRIDE - ROW_HEIGHT);
+                }
+            }
+            rowOffsets[row] = position;
+            position += ROW_STRIDE;
+        }
+        int trailingFrames = 0;
+        for (GdxSettingsContract.RowGroup group : visibleGroups) {
+            if (group.lastRow() == totalRows - 1) trailingFrames++;
+        }
+        float contentHeight = totalRows <= 0 ? 0f
+                : rowOffsets[totalRows - 1] + ROW_HEIGHT
+                        + trailingFrames * GROUP_FRAME_PADDING;
+        float maximum = Math.max(0f, contentHeight - viewportHeight);
+        float offset = Math.max(0f, Math.min(maximum, requestedOffset));
+        int first = totalRows;
+        int last = 0;
+        for (int row = 0; row < totalRows; row++) {
+            float screenY = firstRowY - rowOffsets[row] + offset;
+            if (screenY + ROW_HEIGHT >= viewportBottom
+                    && screenY <= viewportTop) {
+                first = Math.min(first, row);
+                last = row + 1;
+            }
+        }
+        if (first == totalRows) first = 0;
+        return new PixelRows(firstRowY, viewportBottom, viewportTop,
+                totalRows, first, last, offset, maximum, contentHeight,
+                rowOffsets);
+    }
+
+    static Rectangle groupBounds(float rowX, float rowWidth, PixelRows rows,
+            GdxSettingsContract.RowGroup group) {
+        float inset = group.depth() * GROUP_DEPTH_INSET;
+        float bottom = rows.rowY(group.lastRow()) - GROUP_FRAME_PADDING;
+        float top = rows.rowY(group.parentRow()) + ROW_HEIGHT
+                + GROUP_FRAME_PADDING;
+        return new Rectangle(rowX + inset, bottom,
+                Math.max(0f, rowWidth - 2f * inset),
+                Math.max(1f, top - bottom));
+    }
+
+    static void drawGroups(com.badlogic.gdx.graphics.glutils.ShapeRenderer shapes,
+            float rowX, float rowWidth, PixelRows rows,
+            List<GdxSettingsContract.RowGroup> groups, float alpha) {
+        for (GdxSettingsContract.RowGroup group
+                : GdxSettingsContract.visualGroups(groups,
+                        rows.totalRows())) {
+            GdxSettingsStyle.drawGroupFrame(shapes,
+                    groupBounds(rowX, rowWidth, rows, group), alpha);
+        }
+    }
+
+    static void drawCompactGroups(
+            com.badlogic.gdx.graphics.glutils.ShapeRenderer shapes,
+            float rowX, float rowWidth, float firstRowY,
+            List<GdxSettingsContract.RowGroup> groups, float alpha) {
+        // Compact Game pages already divide related controls into independent
+        // columns. A second outline cannot provide the same inner/outer
+        // padding as a scrollable group without shrinking those controls, so
+        // it is redundant visual noise rather than useful hierarchy.
     }
 
     static float pixelScrollAfterWheel(float current, float maximum,
@@ -558,17 +729,25 @@ final class GdxSettingsLayout {
             float scrollbarX) {
     }
 
+    record StatusBand(float firstRowY, float viewportTop,
+            float textCenterY) {
+
+        float scrolledTextCenterY(float scrollOffset) {
+            return textCenterY + Math.max(0f, scrollOffset);
+        }
+    }
+
     record PixelRows(float firstRowY, float viewportBottom,
             float viewportTop, int totalRows, int firstIndex,
             int lastExclusive, float offset, float maximum,
-            float contentHeight) {
+            float contentHeight, float[] rowOffsets) {
 
         float viewportHeight() {
             return Math.max(0f, viewportTop - viewportBottom);
         }
 
         float rowY(int index) {
-            return firstRowY - index * ROW_STRIDE + offset;
+            return firstRowY - rowOffsets[index] + offset;
         }
 
         boolean scrollable() {

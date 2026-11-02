@@ -4343,11 +4343,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
-    // True between starting recovering.mp3 (background_music stopped) and the
-    // recovery-completion path that swaps it back. Tracking the actual swap state
-    // instead of re-reading presentation_settings.ambientMusic() at each end makes the
-    // start/stop symmetric even if that flag were toggled mid-recovery: recovering
-    // never outlives the recovery and background_music is never duplicated.
+    // True between starting recovering.mp3 and its matching completion path.
+    // The flag keeps every recovery exit symmetric even when preferences change.
     private volatile boolean recovering_music_active = false;
     private volatile GameDecisionSink.CloseHandle recover_dialog = null;
     private volatile String current_local_cinematic_b64 = null;
@@ -11888,8 +11885,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean recoveringOpenHand = shouldShowRecoveryPresentation(
                 getJugadoresActivos(), saltar_primera_mano);
         if (recoveringOpenHand) {
-            if (presentation_settings.ambientMusic()) {
-                game_audio.stopLoopMp3("misc/background_music.mp3");
+            if (presentation_settings.recoveryMusic()) {
+                if (presentation_settings.ambientMusic()) {
+                    game_audio.stopLoopMp3("misc/background_music.mp3");
+                }
                 game_audio.playLoopMp3Resource("misc/recovering.mp3");
                 recovering_music_active = true;
             }
@@ -11918,13 +11917,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 game_log.print(game_text.translate("game.timba_recuperada"));
 
-                if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
+                if (presentation_settings.startSound()) {
                     game_audio.playWavResource("misc/startplay.wav");
                 }
 
                 if (recovering_music_active) {
                     game_audio.stopLoopMp3("misc/recovering.mp3");
-                    game_audio.playLoopMp3Resource("misc/background_music.mp3");
+                    if (presentation_settings.ambientMusic()) {
+                        game_audio.playLoopMp3Resource(
+                                "misc/background_music.mp3");
+                    }
                     recovering_music_active = false;
                 }
                 game_ui.run(() -> {
@@ -11938,7 +11940,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } else {
             game_log.print(game_text.translate("game.timba_recuperada"));
-            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
+            if (presentation_settings.startSound()) {
                 game_audio.playWavResource("misc/startplay.wav");
             }
             game_ui.run(() -> {
@@ -21772,12 +21774,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         table_display.refresh();
                     });
                     game_log.print(game_text.translate("game.mano_recuperada"));
-                    if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
+                    if (presentation_settings.startSound()) {
                         game_audio.playWavResource("misc/startplay.wav");
                     }
                     if (recovering_music_active) {
                         game_audio.stopLoopMp3("misc/recovering.mp3");
-                        game_audio.playLoopMp3Resource("misc/background_music.mp3");
+                        if (presentation_settings.ambientMusic()) {
+                            game_audio.playLoopMp3Resource(
+                                    "misc/background_music.mp3");
+                        }
                         recovering_music_active = false;
                     }
                 }
@@ -25154,14 +25159,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             game_log.print(game_text.translate("game.timba_recuperada"));
 
-            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
+            if (presentation_settings.startSound()) {
 
                 game_audio.playWavResource("misc/startplay.wav");
             }
 
             if (recovering_music_active) {
                 game_audio.stopLoopMp3("misc/recovering.mp3");
-                game_audio.playLoopMp3Resource("misc/background_music.mp3");
+                if (presentation_settings.ambientMusic()) {
+                    game_audio.playLoopMp3Resource(
+                            "misc/background_music.mp3");
+                }
                 recovering_music_active = false;
             }
 
@@ -25277,7 +25285,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.acciones_locales_recuperadas.clear();
             if (recovering_music_active) {
                 game_audio.stopLoopMp3("misc/recovering.mp3");
-                game_audio.playLoopMp3Resource("misc/background_music.mp3");
+                if (presentation_settings.ambientMusic()) {
+                    game_audio.playLoopMp3Resource(
+                            "misc/background_music.mp3");
+                }
                 recovering_music_active = false;
             }
         }
@@ -28251,7 +28262,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         game_audio.stopLoopMp3("misc/waiting_room.mp3");
 
         if (!gameSession().isRecovering()
-                && presentation_settings.language().equals(presentation_settings.defaultLanguage())
                 && presentation_settings.startSound()) {
             game_audio.playWavResource("misc/startplay.wav");
         }
@@ -28354,13 +28364,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.setSincronizando_mano(false);
                             game_log.print(game_text.translate("game.timba_recuperada"));
 
-                            if (presentation_settings.language().equals(presentation_settings.defaultLanguage()) && presentation_settings.startSound()) {
+                            if (presentation_settings.startSound()) {
                                 game_audio.playWavResource("misc/startplay.wav");
                             }
 
                             if (recovering_music_active) {
                                 game_audio.stopLoopMp3("misc/recovering.mp3");
-                                game_audio.playLoopMp3Resource("misc/background_music.mp3");
+                                if (presentation_settings.ambientMusic()) {
+                                    game_audio.playLoopMp3Resource(
+                                            "misc/background_music.mp3");
+                                }
                                 recovering_music_active = false;
                             }
                         }

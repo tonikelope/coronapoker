@@ -18,6 +18,8 @@ public interface GamePresentationSettings {
     boolean testMode();
     boolean sillySounds();
     boolean ambientMusic();
+    /** Music played while an interrupted game state is being recovered. */
+    default boolean recoveryMusic() { return true; }
     boolean showCallCost();
     boolean autoActionButtons();
     boolean autoActionPersist();

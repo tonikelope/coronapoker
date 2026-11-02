@@ -107,7 +107,9 @@ final class GdxSettingsContract {
             case "sonido_ascensor" -> "misc/background_music.mp3";
             case "musica_sala_espera" -> "misc/waiting_room.mp3";
             case "musica_about" -> "misc/about_music.mp3";
+            case "musica_stats" -> "misc/stats_music.mp3";
             case "musica_gestor_bots" -> "misc/bots_manager.mp3";
+            case "musica_recuperacion" -> "misc/recovering.mp3";
             case "sonido_apostar" -> "misc/bet.wav";
             case "sonido_igualar" -> "misc/call.wav";
             case "sonido_pasar" -> "misc/check.wav";
@@ -150,7 +152,9 @@ final class GdxSettingsContract {
         float volume = switch (option.key()) {
             case "sonido_ascensor" -> 0.4f;
             case "musica_sala_espera", "musica_about" -> 0.9f;
+            case "musica_stats" -> 0.3f;
             case "musica_gestor_bots" -> 0.65f;
+            case "musica_recuperacion" -> 0.4f;
             default -> 1f;
         };
         float limit = "sonido_carga_stacks".equals(option.key())
@@ -336,19 +340,23 @@ final class GdxSettingsContract {
     private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
                     option("sonidos", "SONIDO", true, Gate.NONE),
-                    option("musica", "MÚSICA", true, Gate.NONE),
-                    option("sonido_efectos", "EFECTOS DE SONIDO", true,
-                            Gate.NONE),
-                    option("sonidos_chorra", "SONIDOS DE COÑA", false,
-                            Gate.NONE)),
+                    option("musica", "MÚSICA", true, Gate.NONE)),
             page("MÚSICA",
                     option("sonido_ascensor", "AMBIENTE", true, Gate.MUSIC),
                     option("musica_sala_espera", "SALA DE ESPERA", true,
                             Gate.MUSIC),
-                    option("musica_about", "ACERCA DE", true, Gate.MUSIC),
+                    option("musica_stats", "ESTADÍSTICAS", true,
+                            Gate.MUSIC),
                     option("musica_gestor_bots", "GESTOR DE BOTS", true,
-                            Gate.MUSIC)),
+                            Gate.MUSIC),
+                    option("musica_recuperacion", "RECUPERACIÓN DE TIMBAS",
+                            true, Gate.MUSIC),
+                    option("musica_about", "ACERCA DE", true, Gate.MUSIC)),
             page("ACCIONES",
+                    option("sonido_efectos", "USAR EFECTOS DE SONIDO", true,
+                            Gate.NONE),
+                    option("sonidos_chorra", "SONIDOS DE COÑA", false,
+                            Gate.EFFECTS),
                     option("sonido_apostar", "APOSTAR", true, Gate.EFFECTS),
                     option("sonido_igualar", "IGUALAR", true, Gate.EFFECTS),
                     option("sonido_pasar", "PASAR", true, Gate.EFFECTS),
@@ -468,7 +476,8 @@ final class GdxSettingsContract {
     static final List<String> PREFERENCE_KEYS = List.of(
             "sonidos", "master_volume", "musica",
             "sonido_ascensor", "musica_sala_espera", "musica_about",
-            "musica_stats", "musica_gestor_bots", "sonido_efectos",
+            "musica_stats", "musica_gestor_bots", "musica_recuperacion",
+            "sonido_efectos",
             "sonidos_chorra",
             "sonido_barajado", "sonido_reparto", "sonido_destape",
             "sonido_destape_mis_cartas", "sonido_apostar", "sonido_fold",

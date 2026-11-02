@@ -301,8 +301,13 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     @Override public boolean testMode() {
         return Boolean.getBoolean("coronapoker.testMode");
     }
-    @Override public boolean sillySounds() { return bool("sonidos_chorra", false); }
+    @Override public boolean sillySounds() {
+        return effects() && bool("sonidos_chorra", false);
+    }
     @Override public boolean ambientMusic() { return bool("sonido_ascensor", true); }
+    @Override public boolean recoveryMusic() {
+        return bool("musica_recuperacion", true);
+    }
     @Override public boolean showCallCost() { return bool("mostrar_coste_igualar", true); }
     @Override public boolean autoActionButtons() {
         return bool("auto_action_buttons", false) && !testMode();

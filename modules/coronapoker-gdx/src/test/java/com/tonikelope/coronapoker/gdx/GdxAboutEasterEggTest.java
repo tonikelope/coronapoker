@@ -48,8 +48,8 @@ final class GdxAboutEasterEggTest {
                 * GdxFrontendScreen.ABOUT_COPYRIGHT_LINE_HEIGHT;
         assertTrue(copyrightBottom - 226f >= 58f,
                 "copyright and handmade credits need breathing room");
-        assertEquals(5, GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT,
-                "all five music surfaces need an explicit credit");
+        assertEquals(6, GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT,
+                "all six music surfaces need an explicit credit");
     }
 
     @Test
@@ -114,6 +114,17 @@ final class GdxAboutEasterEggTest {
         assertTrue(spanish.contains("Brad Fiedel"));
         assertTrue(english.contains("The Terminator"));
         assertTrue(english.contains("Brad Fiedel"));
+    }
+
+    @Test
+    void creditsTheRecoveryDragonBallSoundtrackInBothLanguages() {
+        String spanish = new GdxGameText("es").translate(
+                "about.musica_recuperacion");
+        String english = new GdxGameText("en").translate(
+                "about.musica_recuperacion");
+
+        assertTrue(spanish.contains("Dragon Ball Z"));
+        assertTrue(english.contains("Dragon Ball Z"));
     }
 
     private static void assertImage(String path, int width, int height)

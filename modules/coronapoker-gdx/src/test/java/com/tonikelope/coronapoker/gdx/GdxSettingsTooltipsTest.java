@@ -121,6 +121,18 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
+    void jokeStartAndRecoveryAudioTooltipsExplainTheirRealEffect() {
+        GdxGameText spanish = new GdxGameText("es");
+
+        assertTrue(GdxSettingsTooltips.content("sonidos_chorra",
+                new Properties(), spanish).text().contains("broma"));
+        assertTrue(GdxSettingsTooltips.content("sonido_inicio",
+                new Properties(), spanish).text().contains("comienza"));
+        assertTrue(GdxSettingsTooltips.content("musica_recuperacion",
+                new Properties(), spanish).text().contains("recupera"));
+    }
+
+    @Test
     void allGameRowsHaveDedicatedDescriptions() {
         List<String> keys = List.of(
                 "structure", "initial_blinds", "ante", "straddle",

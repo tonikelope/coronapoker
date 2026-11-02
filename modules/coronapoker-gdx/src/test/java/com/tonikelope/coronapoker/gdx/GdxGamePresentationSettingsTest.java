@@ -273,10 +273,28 @@ final class GdxGamePresentationSettingsTest {
         preferences.properties().setProperty("sonidos_chorra", "true");
         assertTrue(settings.sillySounds());
         preferences.properties().setProperty("sonido_efectos", "false");
-        assertTrue(settings.sillySounds(),
-                "Swing keeps funny sounds independent from the effects family");
+        assertFalse(settings.sillySounds(),
+                "El padre de efectos debe silenciar también los sonidos de broma");
+        preferences.properties().setProperty("sonido_efectos", "true");
         preferences.properties().setProperty("sonidos_chorra", "false");
         assertFalse(settings.sillySounds());
+    }
+
+    @Test
+    void recoveryMusicAndStartSoundAreLiveAndLanguageIndependent(
+            @TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+
+        preferences.properties().setProperty("lenguaje", "en");
+        assertTrue(settings.recoveryMusic());
+        assertTrue(settings.startSound());
+        preferences.properties().setProperty("musica_recuperacion", "false");
+        preferences.properties().setProperty("sonido_inicio", "false");
+        assertFalse(settings.recoveryMusic());
+        assertFalse(settings.startSound());
     }
 
     @Test

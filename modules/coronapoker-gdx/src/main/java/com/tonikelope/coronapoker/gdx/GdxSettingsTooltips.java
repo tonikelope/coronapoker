@@ -35,6 +35,13 @@ final class GdxSettingsTooltips {
             case "sonidos" -> "tooltip.cfg.sound_master";
             case "musica" -> "tooltip.cfg.music_master";
             case "sonido_efectos" -> "tooltip.cfg.fx_master";
+            case "sonidos_chorra" -> "tooltip.cfg.silly_sounds";
+            case "sonido_inicio" -> "tooltip.cfg.game_start_sound";
+            case "musica_recuperacion" ->
+                "tooltip.cfg.recovery_music";
+            case "sonido_ascensor", "musica_sala_espera", "musica_about",
+                    "musica_stats", "musica_gestor_bots" ->
+                "tooltip.cfg.music_surface";
             case "voice_messages" -> "tooltip.cfg.voice_notes_rule";
             case "tts_server" -> "tooltip.cfg.tts";
             case "audio_block_voice_messages" -> "tooltip.cfg.notes_local";

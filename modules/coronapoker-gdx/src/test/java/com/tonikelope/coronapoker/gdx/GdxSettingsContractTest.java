@@ -238,8 +238,8 @@ final class GdxSettingsContractTest {
                         GdxSettingsContract.Section.GAME,
                         java.util.List.of("CIEGAS", "COMPRA", "BOTS", "REGLAS"),
                         0, 5, text));
-        assertEquals("SOUND EFFECTS",
-                GdxSettingsContract.AUDIO_PAGES.get(0).options().get(2)
+        assertEquals("USE SOUND EFFECTS",
+                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0)
                         .label(text));
         assertEquals("FOREVER",
                 GdxSettingsContract.voiceRetentionLabel(
@@ -314,8 +314,9 @@ final class GdxSettingsContractTest {
                 "sonido_aviso_tiempo", "sonido_fin_partida",
                 "sonido_entra", "sonido_entrar_sala", "sonido_sale",
                 "sonido_tapete", "sonido_visor", "sonido_zoom",
-                "sonido_arranque",
-                "musica_about", "musica_gestor_bots",
+                "sonido_arranque", "sonidos_chorra", "sonido_inicio",
+                "musica_about", "musica_stats", "musica_gestor_bots",
+                "musica_recuperacion",
                 "tts_server",
                 "voice_messages", "audio_mic_enabled",
                  GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
@@ -326,11 +327,10 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.AUDIO_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("sonido_vista_compacta"));
-        // Do not advertise settings for GDX surfaces/behaviour that do not
-        // exist yet. The persisted Swing values remain untouched in the
-        // transactional snapshot and can be exposed when their real GDX
-        // consumers land.
-        assertFalse(keys.contains("musica_stats"));
+        assertEquals("sonido_efectos",
+                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0).key());
+        assertEquals("sonidos_chorra",
+                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(1).key());
         assertTrue(keys.contains("sonido_entrar_sala"));
     }
 
@@ -363,7 +363,7 @@ final class GdxSettingsContractTest {
         GdxSettingsContract.TogglePage general =
                 GdxSettingsContract.AUDIO_PAGES.get(0);
         assertTrue(GdxSettingsContract.hasMasterVolume(general));
-        assertEquals(5, GdxSettingsContract.audioRowCount(general));
+        assertEquals(3, GdxSettingsContract.audioRowCount(general));
         assertEquals(0, GdxSettingsContract.audioOptionRow(general, 0));
         assertEquals(1, GdxSettingsContract.masterVolumeRow(general));
         assertEquals(2, GdxSettingsContract.audioOptionRow(general, 1));
@@ -413,6 +413,15 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.enabled(botManager, mutedProperties,
                 false),
                 "La prueba del gestor debe funcionar con SONIDO apagado");
+        GdxSettingsContract.ToggleOption recovery =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .filter(option -> option.key().equals(
+                        "musica_recuperacion"))
+                .findFirst().orElseThrow();
+        assertEquals(new GdxSettingsContract.AudioPreview(
+                "misc/recovering.mp3", 0.4f, 10f),
+                GdxSettingsContract.audioPreview(recovery, "en"));
         assertEquals(1f,
                 GdxSettingsContract.audioPreview(stacks, "es")
                         .limitSeconds());
@@ -472,11 +481,11 @@ final class GdxSettingsContractTest {
         GdxSettingsContract.ToggleOption musicMaster =
                 GdxSettingsContract.AUDIO_PAGES.get(0).options().get(1);
         GdxSettingsContract.ToggleOption effectsMaster =
-                GdxSettingsContract.AUDIO_PAGES.get(0).options().get(2);
+                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0);
         GdxSettingsContract.ToggleOption music =
                 GdxSettingsContract.AUDIO_PAGES.get(1).options().get(0);
         GdxSettingsContract.ToggleOption effect =
-                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0);
+                GdxSettingsContract.AUDIO_PAGES.get(2).options().get(2);
 
         assertTrue(GdxSettingsContract.enabled(musicMaster, properties, false));
         assertTrue(GdxSettingsContract.enabled(effectsMaster, properties,
@@ -682,6 +691,7 @@ final class GdxSettingsContractTest {
         properties.setProperty("master_volume", "0.25");
         properties.setProperty("musica_about", "false");
         properties.setProperty("musica_gestor_bots", "false");
+        properties.setProperty("musica_recuperacion", "false");
         properties.setProperty("sonido_apostar", "false");
 
         GdxSettingsContract.restoreAudioPageDefaults(properties, 1,
@@ -690,6 +700,7 @@ final class GdxSettingsContractTest {
         assertEquals("0.25", properties.getProperty("master_volume"));
         assertEquals("true", properties.getProperty("musica_about"));
         assertEquals("true", properties.getProperty("musica_gestor_bots"));
+        assertEquals("true", properties.getProperty("musica_recuperacion"));
         assertEquals("false", properties.getProperty("sonido_apostar"));
         assertTrue(GdxSettingsContract.audioPageAtDefaults(properties, 1,
                 true, true, true));

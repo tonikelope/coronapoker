@@ -2764,6 +2764,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     backgroundMusic.pause();
                 }
             }
+            if ("musica".equals(key)
+                    || "musica_recuperacion".equals(key)) {
+                refreshDealerLoopVolumes();
+            }
             if ("sonido_efectos".equals(key)) {
                 refreshDealerLoopVolumes();
                 if (!next) {
@@ -16440,7 +16444,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean funnySoundsEnabled() {
         boolean selected = presentationSettings == null
-                ? tablePreference("sonidos_chorra", false)
+                ? tablePreference("sonido_efectos", true)
+                        && tablePreference("sonidos_chorra", false)
                 : presentationSettings.sillySounds();
         return selected && audioControl.enabled();
     }
@@ -16711,14 +16716,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void refreshDealerLoopVolumes() {
-        float volume = audioOutputAvailable() && audioControl.enabled()
-                && !liveAudioLoopsMuted
-                && tablePreference("sonido_ascensor", true)
+        float baseVolume = audioOutputAvailable() && audioControl.enabled()
+                && tablePreference("musica", true) && !liveAudioLoopsMuted
                 ? musicVolume * (chatTextToSpeechDucking ? 0.30f : 1f) : 0f;
         try {
-            backgroundMusic.setVolume(volume);
-            for (Music loop : liveAudioCueLoops.values()) {
-                loop.setVolume(volume);
+            backgroundMusic.setVolume(tablePreference(
+                    "sonido_ascensor", true) ? baseVolume : 0f);
+            for (Map.Entry<String, Music> entry
+                    : liveAudioCueLoops.entrySet()) {
+                boolean enabled = !"misc/recovering.mp3".equals(
+                        entry.getKey()) || tablePreference(
+                                "musica_recuperacion", true);
+                entry.getValue().setVolume(enabled ? baseVolume : 0f);
             }
             for (LiveAudioPlayback active : liveAudioCueWaits) {
                 active.music.setVolume(audioOutputAvailable()

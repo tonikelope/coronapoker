@@ -321,9 +321,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float ABOUT_MEMORIAL_CENTER_Y = 542f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
     static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
-    static final float ABOUT_MUSIC_LINE_GAP = 25f;
-    static final int ABOUT_MUSIC_CREDIT_COUNT = 5;
-    static final float ABOUT_COPYRIGHT_Y = 312f;
+    static final float ABOUT_MUSIC_LINE_GAP = 22f;
+    static final int ABOUT_MUSIC_CREDIT_COUNT = 6;
+    static final float ABOUT_COPYRIGHT_Y = 306f;
     static final float ABOUT_COPYRIGHT_LINE_HEIGHT = 22f;
     static final int ABOUT_COPYRIGHT_MAX_LINES = 2;
     static final float ABOUT_CONTENT_WIDTH = 1060f;
@@ -5260,7 +5260,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String[] musicKeys = {
             "about.musica_juego", "about.musica_espera",
             "about.musica_stats", "about.musica_gestor_bots",
-            "about.musica_about"
+            "about.musica_recuperacion", "about.musica_about"
         };
         for (String key : musicKeys) {
             centeredWrappedText(smallFont, gameText.translate(key),
@@ -10192,6 +10192,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if ("musica".equals(key) || "sonido_ascensor".equals(key)
                 || "musica_sala_espera".equals(key)
                 || "musica_about".equals(key)
+                || "musica_stats".equals(key)
                 || "musica_gestor_bots".equals(key)) {
             syncMusicForSurface();
         }

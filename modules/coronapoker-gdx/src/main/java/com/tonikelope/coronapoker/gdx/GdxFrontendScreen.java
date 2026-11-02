@@ -8826,11 +8826,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxSettingsContract.AudioPreview preview =
                     GdxSettingsContract.audioPreview(option,
                             gameText.language());
+            boolean modOverride = GdxGameAudioResources.modOverridesSetting(
+                    presentationSettings, option, gameText.language());
+            String optionLabel = option.label(gameText)
+                    + (modOverride ? " (MOD)" : "");
             settingsBooleanToggle(row.x, row.y, row.width,
-                    option.label(gameText), value,
+                    optionLabel, value,
                     GdxSettingsContract.displayedFallback(option), action,
                     enabled, preview != null);
-            settingsTooltip(row, option.key());
+            settingsTooltip(row, option.key(), modOverride);
             if (preview != null) {
                 drawAudioPreviewControl(row, option.key(), preview);
             }
@@ -8939,7 +8943,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     x + 16f, y + 34f, x + 34f, y + 23f);
         }
         hit(x, y, size, size,
-                () -> audioPreview.toggle(key, preview, masterVolume()));
+                () -> audioPreview.toggle(key, preview, masterVolume(),
+                        GdxGameAudioResources.resolve(
+                                presentationSettings, preview.resource())));
     }
 
     private boolean frontendMayEditGlobalCommunicationRules() {
@@ -13201,8 +13207,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void settingsTooltip(Rectangle bounds, String settingKey) {
+        settingsTooltip(bounds, settingKey, false);
+    }
+
+    private void settingsTooltip(Rectangle bounds, String settingKey,
+            boolean modOverride) {
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
-                settingKey, initialProperties, gameText);
+                settingKey, initialProperties, gameText, modOverride);
         tooltipHits.add(new TooltipHit(new Rectangle(bounds),
                 "gdx.settings.tooltip.text",
                 new Object[]{content.text()}, content.performanceImpact()));
@@ -13357,7 +13368,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String animationKey = GdxToggleMotion.stableKey(
                 toggleAnimationContext(), label, x, y, w, wrapLabel);
         float animation = toggleAnimations.getOrDefault(animationKey, target);
-        animation = GdxToggleMotion.next(animation, target, frameDelta);
+        animation = GdxToggleMotion.nextForToggle(animation, value, enabled,
+                frameDelta);
         toggleAnimations.put(animationKey, animation);
         GdxSettingsStyle.drawToggle(shapes, x, y, w, animation, 1f);
         if (enabled) hit(x, y, w, GdxSettingsLayout.ROW_HEIGHT,

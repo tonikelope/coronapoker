@@ -200,8 +200,11 @@ final class GdxSettingsContractTest {
 
         GdxSettingsContract.TogglePage music =
                 GdxSettingsContract.AUDIO_PAGES.get(1);
-        assertTrue(GdxSettingsContract.isChildOption(music,
+        assertFalse(GdxSettingsContract.isChildOption(music,
                 music.options().get(0)));
+        assertEquals("musica", music.options().get(0).key());
+        assertTrue(music.options().stream().skip(1).allMatch(option ->
+                GdxSettingsContract.isChildOption(music, option)));
 
     }
 
@@ -363,10 +366,9 @@ final class GdxSettingsContractTest {
         GdxSettingsContract.TogglePage general =
                 GdxSettingsContract.AUDIO_PAGES.get(0);
         assertTrue(GdxSettingsContract.hasMasterVolume(general));
-        assertEquals(3, GdxSettingsContract.audioRowCount(general));
+        assertEquals(2, GdxSettingsContract.audioRowCount(general));
         assertEquals(0, GdxSettingsContract.audioOptionRow(general, 0));
         assertEquals(1, GdxSettingsContract.masterVolumeRow(general));
-        assertEquals(2, GdxSettingsContract.audioOptionRow(general, 1));
     }
 
     @Test
@@ -479,11 +481,11 @@ final class GdxSettingsContractTest {
     void audioFamiliesRemainEditableWhileMasterSoundIsMuted() {
         Properties properties = new Properties();
         GdxSettingsContract.ToggleOption musicMaster =
-                GdxSettingsContract.AUDIO_PAGES.get(0).options().get(1);
+                GdxSettingsContract.AUDIO_PAGES.get(1).options().get(0);
         GdxSettingsContract.ToggleOption effectsMaster =
                 GdxSettingsContract.AUDIO_PAGES.get(2).options().get(0);
         GdxSettingsContract.ToggleOption music =
-                GdxSettingsContract.AUDIO_PAGES.get(1).options().get(0);
+                GdxSettingsContract.AUDIO_PAGES.get(1).options().get(1);
         GdxSettingsContract.ToggleOption effect =
                 GdxSettingsContract.AUDIO_PAGES.get(2).options().get(2);
 

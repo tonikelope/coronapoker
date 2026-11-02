@@ -21055,7 +21055,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (preview != null && audioViewport.contains(x, y)
                         && previewBounds.contains(x, y)) {
                     audioPreview.toggle(option.key(), preview,
-                            effectsVolume);
+                            effectsVolume,
+                            GdxGameAudioResources.resolve(
+                                    presentationSettings,
+                                    preview.resource()));
                     return;
                 }
                 if (audioViewport.contains(x, y) && bounds.contains(x, y)
@@ -24608,7 +24611,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         rows.rowY(row), width,
                         GdxSettingsContract.isChildOption(page, option));
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        option.key(), viewportBounds, properties);
+                        option.key(), viewportBounds, properties,
+                        GdxGameAudioResources.modOverridesSetting(
+                                presentationSettings, option,
+                                gameText.language()));
                 if (hovered != null) return hovered;
             }
             if (GdxSettingsContract.hasVoiceRetention(page)) {
@@ -24788,11 +24794,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private SettingsTooltipHover settingsTooltipHover(
             Rectangle bounds, String key, Rectangle viewportBounds,
             Properties properties) {
+        return settingsTooltipHover(bounds, key, viewportBounds, properties,
+                false);
+    }
+
+    private SettingsTooltipHover settingsTooltipHover(
+            Rectangle bounds, String key, Rectangle viewportBounds,
+            Properties properties, boolean modOverride) {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
         return new SettingsTooltipHover(key, GdxSettingsTooltips.content(key,
-                properties, gameText));
+                properties, gameText, modOverride));
     }
 
     private record SettingsTooltipHover(String settingKey,
@@ -25599,14 +25612,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawCanonicalSettingsRow(x, y, width,
                 GdxSettingsLayout.ROW_HEIGHT, enabled, alpha);
         float animation = settingsToggleAnimation(x, y, width,
-                on && enabled, false);
+                on, enabled, false);
         GdxSettingsStyle.drawToggle(shapes, x, y, width, animation, alpha);
     }
 
     private void drawLiveSettingsToggleShape(float x, float y, float width,
             boolean on, SettingsRowAccess access, float alpha) {
         drawLiveSettingsRowShape(x, y, width, access, alpha);
-        float animation = settingsToggleAnimation(x, y, width, on, false);
+        float animation = settingsToggleAnimation(x, y, width, on,
+                access != SettingsRowAccess.DEPENDENCY_DISABLED, false);
         GdxSettingsStyle.drawToggle(shapes, x, y, width, animation, alpha);
     }
 
@@ -25641,15 +25655,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float settingsToggleAnimation(float x, float y, float width,
-            boolean on, boolean compact) {
+            boolean on, boolean dependencyEnabled, boolean compact) {
         String context = uiLayer == UI_SETTINGS
                 ? settingsSection().name() + ':' + settingsSubpageIndex()
                 : activeDialog == null ? "dialog"
                 : "dialog:" + activeDialog.kind().name();
         String key = GdxToggleMotion.stableKey(context, x, y, width, compact);
-        float target = on ? 1f : 0f;
+        float target = on && dependencyEnabled ? 1f : 0f;
         float animation = settingsToggleAnimations.getOrDefault(key, target);
-        animation = GdxToggleMotion.next(animation, target,
+        animation = GdxToggleMotion.nextForToggle(animation, on,
+                dependencyEnabled,
                 Math.min(Gdx.graphics.getDeltaTime(), 0.05f));
         settingsToggleAnimations.put(key, animation);
         return animation;
@@ -25823,13 +25838,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxSettingsContract.ToggleOption option =
                         page.options().get(optionIndex);
                 boolean enabled = settingsOptionEnabled(option);
+                boolean modOverride =
+                        GdxGameAudioResources.modOverridesSetting(
+                                presentationSettings, option,
+                                gameText.language());
                 Rectangle bounds = GdxSettingsLayout.optionRow(x,
                         rows.rowY(row),
                         width,
                         GdxSettingsContract.isChildOption(page, option));
                 boolean value = settingsOptionDisplayedValue(option);
                 drawSettingsToggleText(bounds.x, bounds.y, bounds.width,
-                        option.label(gameText),
+                        option.label(gameText)
+                                + (modOverride ? " (MOD)" : ""),
                         GdxSettingsContract.booleanStatusLabel(value,
                                 GdxSettingsContract.displayedFallback(option),
                                 gameText),

@@ -68,6 +68,43 @@ final class GdxGameAudioResourcesTest {
     }
 
     @Test
+    void settingsIdentifyOnlyAudioActuallySuppliedByTheMod(
+            @TempDir Path temporary) throws Exception {
+        Path installation = Files.createDirectories(temporary.resolve("app"));
+        Path music = Files.createDirectories(installation.resolve(
+                "mod/sounds/misc"));
+        Path jokes = Files.createDirectories(installation.resolve(
+                "mod/sounds/joke/es/winner"));
+        Files.writeString(installation.resolve("mod/mod.xml"),
+                "<mod><name>Audio test</name><version>1</version></mod>");
+        Files.writeString(music.resolve("background_music.mp3"), "music");
+        Files.writeString(jokes.resolve("custom.wav"), "joke");
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences,
+                            ModMediaCatalog.discover(installation));
+            GdxSettingsContract.ToggleOption background =
+                    option("sonido_ascensor");
+            GdxSettingsContract.ToggleOption jokesOption =
+                    option("sonidos_chorra");
+            GdxSettingsContract.ToggleOption shuffle =
+                    option("sonido_barajado");
+
+            assertTrue(GdxGameAudioResources.modOverridesSetting(
+                    settings, background, "es"));
+            assertTrue(GdxGameAudioResources.modOverridesSetting(
+                    settings, jokesOption, "es"));
+            assertFalse(GdxGameAudioResources.modOverridesSetting(
+                    settings, shuffle, "es"));
+        } finally {
+            preferences.close();
+        }
+    }
+
+    @Test
     void frontendAndTableShareTheModAwareResolver() throws Exception {
         Path sourceRoot = Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx");
@@ -86,5 +123,12 @@ final class GdxGameAudioResourcesTest {
                 + "presentationSettings, resource);"));
         assertFalse(frontend.contains(
                 "newMusic(Gdx.files.internal(path))"));
+    }
+
+    private static GdxSettingsContract.ToggleOption option(String key) {
+        return GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .filter(option -> key.equals(option.key()))
+                .findFirst().orElseThrow();
     }
 }

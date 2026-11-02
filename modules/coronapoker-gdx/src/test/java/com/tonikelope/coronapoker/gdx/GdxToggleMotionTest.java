@@ -37,6 +37,21 @@ class GdxToggleMotionTest {
         assertTrue(sixtyFps > 0.99f);
     }
 
+    @Test
+    void disabledChildSnapsOffWithoutADeferredScrollAnimation() {
+        assertEquals(0f, GdxToggleMotion.nextForToggle(
+                1f, true, false, 1f / 60f));
+    }
+
+    @Test
+    void enabledSwitchRetainsNormalAnimation() {
+        float position = GdxToggleMotion.nextForToggle(
+                0f, true, true, 1f / 60f);
+
+        assertTrue(position > 0f);
+        assertTrue(position < 0.2f);
+    }
+
     private static float advance(int frames, float delta) {
         float position = 0f;
         for (int frame = 0; frame < frames; frame++) {

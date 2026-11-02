@@ -121,6 +121,19 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
+    void modAudioTooltipExplainsWhichVersionIsUsed() {
+        GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
+                "sonidos_chorra", new Properties(), new GdxGameText("es"),
+                true);
+        GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
+                "sonidos_chorra", new Properties(), new GdxGameText("en"),
+                true);
+
+        assertTrue(spanish.text().contains("MOD cargado"));
+        assertTrue(english.text().contains("loaded MOD"));
+    }
+
+    @Test
     void jokeStartAndRecoveryAudioTooltipsExplainTheirRealEffect() {
         GdxGameText spanish = new GdxGameText("es");
 

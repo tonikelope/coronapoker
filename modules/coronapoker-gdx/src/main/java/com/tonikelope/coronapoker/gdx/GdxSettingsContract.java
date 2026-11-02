@@ -339,9 +339,9 @@ final class GdxSettingsContract {
 
     private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
-                    option("sonidos", "SONIDO", true, Gate.NONE),
-                    option("musica", "MÚSICA", true, Gate.NONE)),
+                    option("sonidos", "SONIDO", true, Gate.NONE)),
             page("MÚSICA",
+                    option("musica", "MÚSICA", true, Gate.NONE),
                     option("sonido_ascensor", "AMBIENTE", true, Gate.MUSIC),
                     option("musica_sala_espera", "SALA DE ESPERA", true,
                             Gate.MUSIC),
@@ -647,7 +647,7 @@ final class GdxSettingsContract {
                 + (hasMasterVolume(page) ? 1 : 0);
     }
 
-    /** General audio keeps the master switch immediately above its volume. */
+    /** General audio keeps the sound master immediately above its volume. */
     static boolean hasMasterVolume(TogglePage page) {
         return page == AUDIO_SOURCE_PAGES.get(0);
     }

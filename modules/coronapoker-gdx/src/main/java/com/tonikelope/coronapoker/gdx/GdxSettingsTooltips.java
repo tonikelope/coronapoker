@@ -15,6 +15,11 @@ final class GdxSettingsTooltips {
 
     static Content content(String settingKey, Properties properties,
             GdxGameText text) {
+        return content(settingKey, properties, text, false);
+    }
+
+    static Content content(String settingKey, Properties properties,
+            GdxGameText text, boolean modOverride) {
         String description = text.translate(descriptionKey(settingKey));
         GdxSettingsContract.PerformanceImpact impact =
                 GdxSettingsContract.performanceImpact(settingKey,
@@ -23,7 +28,11 @@ final class GdxSettingsTooltips {
                 ? description
                 : text.translate("gdx.settings.tooltip.with_impact",
                         description, impact.label(text));
-        return new Content(complete, impact);
+        String displayed = modOverride
+                ? complete + " " + text.translate(
+                        "gdx.settings.tooltip.mod_audio_override")
+                : complete;
+        return new Content(displayed, impact);
     }
 
     static String descriptionKey(String settingKey) {

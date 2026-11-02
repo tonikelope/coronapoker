@@ -35,4 +35,15 @@ final class GdxToggleMotion {
         float next = current + (target - current) * blend;
         return Math.abs(target - next) < SNAP_EPSILON ? target : next;
     }
+
+    /**
+     * Disabled settings switches must immediately reflect their effective
+     * value. An off-screen child can otherwise retain an old ON animation and
+     * appear to switch itself off only after scrolling it into view.
+     */
+    static float nextForToggle(float current, boolean value, boolean enabled,
+            float deltaSeconds) {
+        float target = value && enabled ? 1f : 0f;
+        return enabled ? next(current, target, deltaSeconds) : target;
+    }
 }

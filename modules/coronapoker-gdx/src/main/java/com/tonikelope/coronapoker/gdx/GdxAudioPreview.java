@@ -18,18 +18,14 @@ final class GdxAudioPreview {
     }
 
     void toggle(String key, GdxSettingsContract.AudioPreview preview,
-            float masterVolume) {
+            float masterVolume, FileHandle file) {
         if (active(key)) {
             stop();
             return;
         }
         stop();
-        if (preview == null || Gdx.audio == null) return;
-        FileHandle file = Gdx.files.internal("sounds/" + preview.resource());
-        if (!file.exists()) {
-            file = Gdx.files.internal("cinematics/" + preview.resource());
-        }
-        if (!file.exists()) return;
+        if (preview == null || Gdx.audio == null || file == null
+                || !file.exists()) return;
         Music music = Gdx.audio.newMusic(file);
         active = music;
         activeKey = key;

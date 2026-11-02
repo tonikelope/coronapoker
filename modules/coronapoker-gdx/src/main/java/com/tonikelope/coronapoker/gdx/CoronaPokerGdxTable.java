@@ -21208,72 +21208,56 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
             } else if (settingsAppearancePage == 1) {
-                float rowStride = GdxSettingsLayout.rowStride(content.height,
-                        GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-                if (contains(x, y, contentX, firstRowY, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    int direction = settingsStepperDirection(x, contentX,
-                            rowW);
-                    if (direction != 0) adjustTableWindowMode(direction);
-                    return;
-                }
-                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
-                        contentX, firstRowY - rowStride, rowW, true);
-                if (GdxWindowMode.allowsAutomaticFullscreen(
-                        tableSettingsProperties())
-                        && autoFullscreenRow.contains(x, y)) {
-                    toggleTablePreference("auto_fullscreen", true);
-                    return;
-                }
-                if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 2f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    toggleTablePreference("gdx_vsync",
-                            GdxSettingsContract.DEFAULT_VSYNC);
-                    return;
-                }
-                if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 3f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    int direction = settingsStepperDirection(x, contentX,
-                            rowW);
-                    if (direction < 0) {
-                        presentationSettings.selectPreviousFrameRateLimit(false);
-                    } else if (direction > 0) {
-                        presentationSettings.selectNextFrameRateLimit(false);
+                GdxSettingsLayout.PixelRows rows =
+                        settingsAppearanceGraphicsRows(content, firstRowY,
+                                settingsAppearanceScroll);
+                settingsAppearanceScroll = rows.offset();
+                Rectangle rowViewport = settingsRowsViewport(content,
+                        firstRowY);
+                for (int row = rows.firstIndex();
+                        row < rows.lastExclusive(); row++) {
+                    Rectangle bounds = settingsAppearanceGraphicsRowBounds(
+                            contentX, rowW, rows, row);
+                    if (!rowViewport.contains(x, y)
+                            || !bounds.contains(x, y)) continue;
+                    int direction = settingsStepperDirection(x, bounds.x,
+                            bounds.width);
+                    if (row == 0 && direction != 0) {
+                        adjustTableWindowMode(direction);
+                    } else if (row == 1
+                            && GdxWindowMode.allowsAutomaticFullscreen(
+                                    tableSettingsProperties())) {
+                        toggleTablePreference("auto_fullscreen", true);
+                    } else if (row == 2 && presentationSettings != null) {
+                        toggleTablePreference("gdx_vsync",
+                                GdxSettingsContract.DEFAULT_VSYNC);
+                    } else if (row == 3 && presentationSettings != null) {
+                        if (direction < 0) {
+                            presentationSettings
+                                    .selectPreviousFrameRateLimit(false);
+                        } else if (direction > 0) {
+                            presentationSettings
+                                    .selectNextFrameRateLimit(false);
+                        }
+                    } else if (row == 4 && presentationSettings != null) {
+                        if (direction < 0) {
+                            presentationSettings
+                                    .selectPreviousMsaaSamples(false);
+                        } else if (direction > 0) {
+                            presentationSettings
+                                    .selectNextMsaaSamples(false);
+                        }
+                    } else if (row == 5 && presentationSettings != null) {
+                        if (direction < 0) {
+                            presentationSettings
+                                    .selectPreviousCardRenderingMode(false);
+                        } else if (direction > 0) {
+                            presentationSettings
+                                    .selectNextCardRenderingMode(false);
+                        }
+                    } else if (row == 6) {
+                        toggleTablePreference("gdx_show_fps", false);
                     }
-                    return;
-                }
-                if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 4f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    int direction = settingsStepperDirection(x, contentX,
-                            rowW);
-                    if (direction < 0) {
-                        presentationSettings.selectPreviousMsaaSamples(false);
-                    } else if (direction > 0) {
-                        presentationSettings.selectNextMsaaSamples(false);
-                    }
-                    return;
-                }
-                if (presentationSettings != null && contains(x, y,
-                        contentX, firstRowY - 5f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    int direction = settingsStepperDirection(x, contentX,
-                            rowW);
-                    if (direction < 0) {
-                        presentationSettings
-                                .selectPreviousCardRenderingMode(false);
-                    } else if (direction > 0) {
-                        presentationSettings.selectNextCardRenderingMode(
-                                false);
-                    }
-                    return;
-                }
-                if (contains(x, y, contentX,
-                        firstRowY - 6f * rowStride, rowW,
-                        GdxSettingsLayout.ROW_HEIGHT)) {
-                    toggleTablePreference("gdx_show_fps", false);
                     return;
                 }
             } else {
@@ -21714,6 +21698,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 groups);
     }
 
+    private static GdxSettingsLayout.PixelRows settingsAppearanceGraphicsRows(
+            Rectangle content, float firstRowY, float scroll) {
+        return settingsPixelRows(content, firstRowY,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT, scroll,
+                GdxSettingsContract.appearanceGraphicsGroups());
+    }
+
+    private static Rectangle settingsAppearanceGraphicsRowBounds(float x,
+            float width, GdxSettingsLayout.PixelRows rows, int row) {
+        return GdxSettingsLayout.groupedRow(x, rows.rowY(row), width, row,
+                GdxSettingsContract.appearanceGraphicsGroups(),
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+    }
+
     private static GdxSettingsLayout.PixelRows settingsGameRows(
             Rectangle content, float firstRowY, int gamePage, int totalRows,
             float scroll) {
@@ -22074,14 +22072,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             offset = settingsAudioScroll;
             groups = audioRowGroups(page);
         } else if (settingsSection()
-                == GdxSettingsContract.Section.APPEARANCE
-                && settingsAppearancePage != 1) {
+                == GdxSettingsContract.Section.APPEARANCE) {
             total = settingsAppearancePage == 0
                     ? GdxSettingsContract.appearanceTableRowCount()
-                    : GdxSettingsContract.appearanceRowCount(
-                            settingsAppearanceTogglePage());
+                    : settingsAppearancePage == 1
+                            ? GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT
+                            : GdxSettingsContract.appearanceRowCount(
+                                    settingsAppearanceTogglePage());
             offset = settingsAppearanceScroll;
-            if (settingsAppearancePage >= 2) {
+            if (settingsAppearancePage == 1) {
+                groups = GdxSettingsContract.appearanceGraphicsGroups();
+            } else if (settingsAppearancePage >= 2) {
                 groups = GdxSettingsContract.appearanceGroups(
                         settingsAppearanceTogglePage());
             }
@@ -24809,18 +24810,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return null;
         }
         if (contentPage == 1 && settingsAppearancePage == 1) {
-            float rowStride = GdxSettingsLayout.rowStride(content.height,
-                    GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+            GdxSettingsLayout.PixelRows rows =
+                    settingsAppearanceGraphicsRows(content, firstY,
+                            settingsAppearanceScroll);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
                 "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
                 GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
-            for (int row = 0; row < keys.length; row++) {
-                Rectangle bounds = row == 1
-                        ? GdxSettingsLayout.optionRow(x,
-                                firstY - row * rowStride, width, true)
-                        : new Rectangle(x, firstY - row * rowStride, width,
-                                GdxSettingsLayout.ROW_HEIGHT);
+            for (int row = rows.firstIndex();
+                    row < rows.lastExclusive(); row++) {
+                Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
+                        width, rows, row);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
                         keys[row], viewportBounds, properties);
                 if (hovered != null) return hovered;
@@ -25469,34 +25469,47 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsLayout.rowScrollbarX(
                                 currentSettingsContent()), rows, alpha);
             } else if (settingsAppearancePage == 1) {
-                float rowStride = GdxSettingsLayout.rowStride(
-                        currentSettingsContent().height,
-                        GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-                drawSettingsStepperShape(x, firstY, width, alpha);
-                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
-                        x, firstY - rowStride, width, true);
-                boolean autoFullscreenEnabled =
-                        GdxWindowMode.allowsAutomaticFullscreen(
-                                tableSettingsProperties());
-                drawSettingsToggleShape(autoFullscreenRow.x,
-                        autoFullscreenRow.y, autoFullscreenRow.width,
-                        tablePreference("auto_fullscreen", true),
-                        autoFullscreenEnabled, alpha);
-                drawSettingsToggleShape(x, firstY - 2f * rowStride, width,
-                        presentationSettings != null
-                                && presentationSettings.vsyncEnabled(),
-                        presentationSettings != null, alpha);
-                drawSettingsStepperShape(x, firstY - 3f * rowStride, width,
-                        presentationSettings != null,
+                Rectangle content = currentSettingsContent();
+                List<GdxSettingsContract.RowGroup> groups =
+                        GdxSettingsContract.appearanceGraphicsGroups();
+                GdxSettingsLayout.PixelRows rows =
+                        settingsAppearanceGraphicsRows(content, firstY,
+                                settingsAppearanceScroll);
+                settingsAppearanceScroll = rows.offset();
+                GdxSettingsLayout.drawGroups(shapes, x, width, rows, groups,
                         alpha);
-                drawSettingsStepperShape(x, firstY - 4f * rowStride, width,
-                        presentationSettings != null, alpha);
-                drawSettingsStepperShape(x, firstY - 5f * rowStride, width,
-                        presentationSettings != null, alpha);
-                drawSettingsToggleShape(x, firstY - 6f * rowStride, width,
-                        tablePreference("gdx_show_fps", false), alpha);
-                drawSettingsInfoShape(x, firstY - 7f * rowStride, width,
-                        alpha);
+                for (int row = rows.firstIndex();
+                        row < rows.lastExclusive(); row++) {
+                    Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
+                            width, rows, row);
+                    if (row == 0 || row == 3 || row == 4 || row == 5) {
+                        drawSettingsStepperShape(bounds.x, bounds.y,
+                                bounds.width, row == 0
+                                        || presentationSettings != null,
+                                alpha);
+                    } else if (row == 1) {
+                        drawSettingsToggleShape(bounds.x, bounds.y,
+                                bounds.width,
+                                tablePreference("auto_fullscreen", true),
+                                GdxWindowMode.allowsAutomaticFullscreen(
+                                        tableSettingsProperties()), alpha);
+                    } else if (row == 2) {
+                        drawSettingsToggleShape(bounds.x, bounds.y,
+                                bounds.width, presentationSettings != null
+                                        && presentationSettings.vsyncEnabled(),
+                                presentationSettings != null, alpha);
+                    } else if (row == 6) {
+                        drawSettingsToggleShape(bounds.x, bounds.y,
+                                bounds.width,
+                                tablePreference("gdx_show_fps", false),
+                                alpha);
+                    } else {
+                        drawSettingsInfoShape(bounds.x, bounds.y,
+                                bounds.width, alpha);
+                    }
+                }
+                drawSettingsRowScrollbarShape(
+                        GdxSettingsLayout.rowScrollbarX(content), rows, alpha);
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();
@@ -26246,81 +26259,102 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                 }
             } else if (settingsAppearancePage == 1) {
-                float rowStride = GdxSettingsLayout.rowStride(
-                        currentSettingsContent().height,
-                        GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-                drawSettingsStepperText(x, firstY, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.window_mode")),
-                        GdxSettingsContract.markDefault(
-                                tableWindowModeSettingLabel(),
-                                GdxWindowMode.configured(
-                                        tableSettingsProperties())
-                                        == GdxWindowMode.BORDERLESS), alpha);
-                Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
-                        x, firstY - rowStride, width, true);
-                boolean autoFullscreenEnabled =
-                        GdxWindowMode.allowsAutomaticFullscreen(
-                                tableSettingsProperties());
-                boolean autoFullscreen = booleanPreference(
-                        tableSettingsProperties(), "auto_fullscreen", true);
-                drawSettingsToggleText(autoFullscreenRow.x,
-                        autoFullscreenRow.y, autoFullscreenRow.width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.option.auto_fullscreen")),
-                        GdxSettingsContract.booleanStatusLabel(
-                                autoFullscreen, true, gameText),
-                        autoFullscreenEnabled, alpha);
-                drawSettingsToggleText(x, firstY - 2f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.vsync")),
-                        presentationSettings == null ? ""
-                                : GdxSettingsContract.vsyncStatusLabel(
-                                        presentationSettings.vsyncEnabled(),
-                                        gameText),
-                        presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 3f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.fps_limit")),
-                        GdxSettingsContract.markDefault(
-                                tableFrameRateLimitSettingLabel(),
-                                GdxSettingsContract.isDefaultFrameRateLimit(
-                                        tableSettingsProperties())),
-                        presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 4f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.antialiasing_scene")),
-                        GdxSettingsContract.markDefault(tableMsaaSettingLabel(),
-                                "4".equals(tableSettingsProperties()
-                                        .getProperty("gdx_msaa_samples", "4"))),
-                        tableMsaaRestartStatus(),
-                        presentationSettings != null, alpha);
-                drawSettingsStepperText(x, firstY - 5f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.antialiasing_cards")),
-                        GdxSettingsContract.markDefault(
-                                tableCardRenderingSettingLabel(),
-                                Integer.toString(GdxSettingsContract
+                GdxSettingsLayout.PixelRows rows =
+                        settingsAppearanceGraphicsRows(
+                                currentSettingsContent(), firstY,
+                                settingsAppearanceScroll);
+                settingsAppearanceScroll = rows.offset();
+                for (int row = rows.firstIndex();
+                        row < rows.lastExclusive(); row++) {
+                    Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
+                            width, rows, row);
+                    if (row == 0) {
+                        drawSettingsStepperText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.window_mode")),
+                                GdxSettingsContract.markDefault(
+                                        tableWindowModeSettingLabel(),
+                                        GdxWindowMode.configured(
+                                                tableSettingsProperties())
+                                                == GdxWindowMode.BORDERLESS),
+                                alpha);
+                    } else if (row == 1) {
+                        boolean enabled = GdxWindowMode
+                                .allowsAutomaticFullscreen(
+                                        tableSettingsProperties());
+                        boolean value = booleanPreference(
+                                tableSettingsProperties(), "auto_fullscreen",
+                                true);
+                        drawSettingsToggleText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.option.auto_fullscreen")),
+                                GdxSettingsContract.booleanStatusLabel(value,
+                                        true, gameText), enabled, alpha);
+                    } else if (row == 2) {
+                        drawSettingsToggleText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.vsync")),
+                                presentationSettings == null ? ""
+                                        : GdxSettingsContract
+                                                .vsyncStatusLabel(
+                                                        presentationSettings
+                                                                .vsyncEnabled(),
+                                                        gameText),
+                                presentationSettings != null, alpha);
+                    } else if (row == 3) {
+                        drawSettingsStepperText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.fps_limit")),
+                                GdxSettingsContract.markDefault(
+                                        tableFrameRateLimitSettingLabel(),
+                                        GdxSettingsContract
+                                                .isDefaultFrameRateLimit(
+                                                        tableSettingsProperties())),
+                                presentationSettings != null, alpha);
+                    } else if (row == 4) {
+                        drawSettingsStepperText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.antialiasing_scene")),
+                                GdxSettingsContract.markDefault(
+                                        tableMsaaSettingLabel(),
+                                        "4".equals(tableSettingsProperties()
+                                                .getProperty(
+                                                        "gdx_msaa_samples",
+                                                        "4"))),
+                                tableMsaaRestartStatus(),
+                                presentationSettings != null, alpha);
+                    } else if (row == 5) {
+                        boolean isDefault = Integer.toString(
+                                GdxSettingsContract
                                         .DEFAULT_CARD_RENDERING_MODE).equals(
-                                        tableSettingsProperties().getProperty(
-                                                GdxSettingsContract
-                                                        .CARD_RENDERING_KEY,
-                                                Integer.toString(
-                                                        GdxSettingsContract
-                                                                .DEFAULT_CARD_RENDERING_MODE)))),
-                        tableCardRenderingRuntimeStatus(),
-                        presentationSettings != null, alpha);
-                boolean showFps = booleanPreference(
-                        tableSettingsProperties(), "gdx_show_fps", false);
-                drawSettingsToggleText(x, firstY - 6f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.option.gdx_show_fps")),
-                        GdxSettingsContract.booleanStatusLabel(showFps,
-                                false, gameText), true, alpha);
-                drawSettingsInfoText(x, firstY - 7f * rowStride, width,
-                        uppercase(gameText.translate(
-                                "gdx.settings.row.gpu_renderer")),
-                        GdxGraphicsInfo.displayValue(gameText), alpha);
+                                tableSettingsProperties().getProperty(
+                                        GdxSettingsContract.CARD_RENDERING_KEY,
+                                        Integer.toString(GdxSettingsContract
+                                                .DEFAULT_CARD_RENDERING_MODE)));
+                        drawSettingsStepperText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.antialiasing_cards")),
+                                GdxSettingsContract.markDefault(
+                                        tableCardRenderingSettingLabel(),
+                                        isDefault),
+                                tableCardRenderingRuntimeStatus(),
+                                presentationSettings != null, alpha);
+                    } else if (row == 6) {
+                        boolean showFps = booleanPreference(
+                                tableSettingsProperties(), "gdx_show_fps",
+                                false);
+                        drawSettingsToggleText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.option.gdx_show_fps")),
+                                GdxSettingsContract.booleanStatusLabel(showFps,
+                                        false, gameText), true, alpha);
+                    } else {
+                        drawSettingsInfoText(bounds.x, bounds.y, bounds.width,
+                                uppercase(gameText.translate(
+                                        "gdx.settings.row.gpu_renderer")),
+                                GdxGraphicsInfo.displayValue(gameText), alpha);
+                    }
+                }
             } else {
                 GdxSettingsContract.TogglePage page =
                         settingsAppearanceTogglePage();

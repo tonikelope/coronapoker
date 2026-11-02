@@ -9149,104 +9149,115 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         if (settingsAppearancePage == 1) {
-            float rowStride = GdxSettingsLayout.rowStride(h,
-                    GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-            settingsStepper(x + 34f, rowY, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    uppercase(gameText.translate(
-                            "gdx.settings.row.window_mode")),
-                    GdxSettingsContract.markDefault(windowModeSettingLabel(),
-                            GdxWindowMode.configured(initialProperties)
-                                    == GdxWindowMode.BORDERLESS),
-                    this::selectPreviousWindowMode,
-                    this::selectNextWindowMode);
-            settingsTooltip(new Rectangle(x + 34f, rowY, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT), "gdx_window_mode");
-            Rectangle autoFullscreenRow = GdxSettingsLayout.optionRow(
-                    x + 34f, rowY - rowStride, w - 68f, true);
-            boolean autoFullscreenEnabled =
-                    GdxWindowMode.allowsAutomaticFullscreen(
-                            initialProperties);
-            settingsBooleanToggle(autoFullscreenRow.x,
-                    autoFullscreenRow.y, autoFullscreenRow.width,
-                    uppercase(gameText.translate(
-                            "gdx.settings.option.auto_fullscreen")),
-                    preferenceBoolean("auto_fullscreen", true), true,
-                    () -> togglePreference("auto_fullscreen", true),
-                    autoFullscreenEnabled);
-            settingsTooltip(autoFullscreenRow, "auto_fullscreen");
-            settingsValueToggle(x + 34f, rowY - 2f * rowStride, w - 68f,
-                    uppercase(gameText.translate("gdx.settings.row.vsync")),
-                    GdxSettingsContract.vsyncStatusLabel(
-                            presentationSettings.vsyncEnabled(), gameText),
-                    presentationSettings.vsyncEnabled(),
-                    () -> presentationSettings.toggleVsync(false), true);
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 2f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT), "gdx_vsync");
-            settingsStepper(x + 34f, rowY - 3f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    uppercase(gameText.translate(
-                            "gdx.settings.row.fps_limit")),
-                    GdxSettingsContract.markDefault(frameRateLimitSettingLabel(),
-                            GdxSettingsContract.isDefaultFrameRateLimit(
-                                    initialProperties)),
-                    this::selectPreviousFrameRateLimit,
-                    this::selectNextFrameRateLimit);
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 3f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT),
-                    "gdx_fps_limit");
-            settingsStepperWithStatus(x + 34f,
-                    rowY - 4f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    uppercase(gameText.translate(
-                            "gdx.settings.row.antialiasing_scene")),
-                    GdxSettingsContract.markDefault(msaaSettingLabel(),
-                            "4".equals(initialProperties.getProperty(
-                                    "gdx_msaa_samples", "4"))),
-                    msaaRestartStatus(),
-                    this::selectPreviousMsaa, this::selectNextMsaa);
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 4f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT),
-                    "gdx_msaa_samples");
-            settingsStepper(x + 34f, rowY - 5f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    uppercase(gameText.translate(
-                            "gdx.settings.row.antialiasing_cards")),
-                    GdxSettingsContract.markDefault(cardRenderingSettingLabel(),
-                            Integer.toString(GdxSettingsContract
-                                    .DEFAULT_CARD_RENDERING_MODE).equals(
-                                    initialProperties.getProperty(
-                                            GdxSettingsContract
-                                                    .CARD_RENDERING_KEY,
-                                            Integer.toString(
-                                                    GdxSettingsContract
-                                                            .DEFAULT_CARD_RENDERING_MODE)))),
-                    this::selectPreviousCardRendering,
-                    this::selectNextCardRendering);
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 5f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT),
-                    GdxSettingsContract.CARD_RENDERING_KEY);
-            settingsBooleanToggle(x + 34f,
-                    rowY - 6f * rowStride, w - 68f,
-                    uppercase(gameText.translate(
-                            "gdx.settings.option.gdx_show_fps")),
-                    preferenceBoolean("gdx_show_fps", false), false,
-                    () -> togglePreference("gdx_show_fps", false), true);
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 6f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT), "gdx_show_fps");
-            settingsInfoRow(x + 34f, rowY - 7f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    uppercase(gameText.translate(
-                            "gdx.settings.row.gpu_renderer")),
-                    GdxGraphicsInfo.displayValue(gameText));
-            settingsTooltip(new Rectangle(x + 34f,
-                    rowY - 7f * rowStride, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT), "gpu_renderer");
+            float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+            float baseWidth = w - 2f
+                    * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+            List<GdxSettingsContract.RowGroup> groups =
+                    GdxSettingsContract.appearanceGraphicsGroups();
+            GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
+                    rowY, y + GdxSettingsLayout.CONTENT_VERTICAL_INSET,
+                    rowY + GdxSettingsLayout.ROW_HEIGHT,
+                    GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT,
+                    settingsAppearanceScroll, groups);
+            settingsAppearanceScroll = rows.offset();
+            GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
+                    groups, 1f);
+            String[] keys = {"gdx_window_mode", "auto_fullscreen",
+                "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
+                "gpu_renderer"};
+            for (int row = rows.firstIndex();
+                    row < rows.lastExclusive(); row++) {
+                Rectangle bounds = GdxSettingsLayout.groupedRow(baseX,
+                        rows.rowY(row), baseWidth, row, groups,
+                        GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+                if (row == 0) {
+                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                            bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.window_mode")),
+                            GdxSettingsContract.markDefault(
+                                    windowModeSettingLabel(),
+                                    GdxWindowMode.configured(initialProperties)
+                                            == GdxWindowMode.BORDERLESS),
+                            this::selectPreviousWindowMode,
+                            this::selectNextWindowMode);
+                } else if (row == 1) {
+                    boolean enabled = GdxWindowMode
+                            .allowsAutomaticFullscreen(initialProperties);
+                    settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.option.auto_fullscreen")),
+                            preferenceBoolean("auto_fullscreen", true), true,
+                            () -> togglePreference("auto_fullscreen", true),
+                            enabled);
+                } else if (row == 2) {
+                    settingsValueToggle(bounds.x, bounds.y, bounds.width,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.vsync")),
+                            GdxSettingsContract.vsyncStatusLabel(
+                                    presentationSettings.vsyncEnabled(),
+                                    gameText),
+                            presentationSettings.vsyncEnabled(),
+                            () -> presentationSettings.toggleVsync(false),
+                            true);
+                } else if (row == 3) {
+                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                            bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.fps_limit")),
+                            GdxSettingsContract.markDefault(
+                                    frameRateLimitSettingLabel(),
+                                    GdxSettingsContract.isDefaultFrameRateLimit(
+                                            initialProperties)),
+                            this::selectPreviousFrameRateLimit,
+                            this::selectNextFrameRateLimit);
+                } else if (row == 4) {
+                    settingsStepperWithStatus(bounds.x, bounds.y,
+                            bounds.width, bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.antialiasing_scene")),
+                            GdxSettingsContract.markDefault(msaaSettingLabel(),
+                                    "4".equals(initialProperties.getProperty(
+                                            "gdx_msaa_samples", "4"))),
+                            msaaRestartStatus(), this::selectPreviousMsaa,
+                            this::selectNextMsaa);
+                } else if (row == 5) {
+                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                            bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.antialiasing_cards")),
+                            GdxSettingsContract.markDefault(
+                                    cardRenderingSettingLabel(),
+                                    Integer.toString(GdxSettingsContract
+                                            .DEFAULT_CARD_RENDERING_MODE)
+                                            .equals(initialProperties
+                                                    .getProperty(
+                                                            GdxSettingsContract
+                                                                    .CARD_RENDERING_KEY,
+                                                            Integer.toString(
+                                                                    GdxSettingsContract
+                                                                            .DEFAULT_CARD_RENDERING_MODE)))),
+                            this::selectPreviousCardRendering,
+                            this::selectNextCardRendering);
+                } else if (row == 6) {
+                    settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.option.gdx_show_fps")),
+                            preferenceBoolean("gdx_show_fps", false), false,
+                            () -> togglePreference("gdx_show_fps", false),
+                            true);
+                } else {
+                    settingsInfoRow(bounds.x, bounds.y, bounds.width,
+                            bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.gpu_renderer")),
+                            GdxGraphicsInfo.displayValue(gameText));
+                }
+                settingsTooltip(bounds, keys[row]);
+            }
+            drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w),
+                    rows);
             return;
         }
         GdxSettingsContract.TogglePage page =
@@ -16690,10 +16701,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             optionIndex -> GdxSettingsContract.audioOptionRow(
                                     page, optionIndex));
             offset = settingsAudioScroll;
-        } else if (section == GdxSettingsContract.Section.APPEARANCE
-                && settingsAppearancePage != 1) {
+        } else if (section == GdxSettingsContract.Section.APPEARANCE) {
             if (settingsAppearancePage == 0) {
                 totalRows = GdxSettingsContract.appearanceTableRowCount();
+            } else if (settingsAppearancePage == 1) {
+                totalRows = GdxSettingsContract
+                        .APPEARANCE_GRAPHICS_ROW_COUNT;
+                groups = GdxSettingsContract.appearanceGraphicsGroups();
             } else {
                 GdxSettingsContract.TogglePage page =
                         GdxSettingsContract.APPEARANCE_PAGES.get(

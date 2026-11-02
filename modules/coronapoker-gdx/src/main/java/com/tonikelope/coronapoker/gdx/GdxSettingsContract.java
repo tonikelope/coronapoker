@@ -971,6 +971,15 @@ final class GdxSettingsContract {
                 List.copyOf(visualOptions)), index -> index);
     }
 
+    /**
+     * Window mode owns the automatic-fullscreen preference.  Keeping this
+     * relationship in the shared contract makes the menu, waiting room and
+     * live table use the same frame, insets, scrolling and hit geometry.
+     */
+    static List<RowGroup> appearanceGraphicsGroups() {
+        return List.of(new RowGroup(0, 1, 0));
+    }
+
     static List<RowGroup> controlGroups() {
         return List.of(new RowGroup(0, 3, 0));
     }

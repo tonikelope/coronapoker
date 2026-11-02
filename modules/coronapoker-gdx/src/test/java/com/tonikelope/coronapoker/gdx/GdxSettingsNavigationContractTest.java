@@ -27,15 +27,14 @@ final class GdxSettingsNavigationContractTest {
         String shapes = source.substring(start, end);
 
         assertTrue(shapes.contains(
-                "drawSettingsStepperShape(x, firstY - 5f * rowStride"));
+                "row == 0 || row == 3 || row == 4 || row == 5"));
+        assertTrue(shapes.contains("else if (row == 6)"));
         assertTrue(shapes.contains(
-                "drawSettingsToggleShape(x, firstY - 6f * rowStride"));
-        assertTrue(shapes.contains(
-                "drawSettingsInfoShape(x, firstY - 7f * rowStride"));
+                "drawSettingsInfoShape(bounds.x, bounds.y"));
         assertFalse(shapes.contains(
-                "drawSettingsToggleShape(x, firstY - 5f * rowStride"),
-                "the FPS toggle must never be painted over the SMAA plus "
-                + "button");
+                "row == 5 && drawSettingsToggleShape"),
+                "the FPS toggle must never be painted over the card-rendering "
+                + "stepper");
     }
 
     @Test

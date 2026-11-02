@@ -266,6 +266,13 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void graphicsWindowModeOwnsAutomaticFullscreenInEverySettingsSurface() {
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 1, 0)),
+                GdxSettingsContract.appearanceGraphicsGroups());
+    }
+
+    @Test
     void gameParentBlocksAreSharedAcrossEverySettingsEntryPoint() {
         assertEquals(java.util.List.of(
                 new GdxSettingsContract.RowGroup(2, 4, 0)),

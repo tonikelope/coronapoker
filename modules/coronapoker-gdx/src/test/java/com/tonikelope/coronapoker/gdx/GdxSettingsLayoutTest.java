@@ -546,6 +546,39 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void graphicsFullscreenGroupAlignsWithStandaloneGraphicsRows() {
+        java.util.List<GdxSettingsContract.RowGroup> groups =
+                GdxSettingsContract.appearanceGraphicsGroups();
+        GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
+                600f, 182f, 668f,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT, 0f,
+                groups);
+        Rectangle frame = GdxSettingsLayout.groupBounds(100f, 1_120f,
+                rows, groups.get(0));
+        Rectangle parent = GdxSettingsLayout.groupedRow(100f, rows.rowY(0),
+                1_120f, 0, groups,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+        Rectangle child = GdxSettingsLayout.groupedRow(100f, rows.rowY(1),
+                1_120f, 1, groups,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+        Rectangle standalone = GdxSettingsLayout.groupedRow(100f,
+                rows.rowY(2), 1_120f, 2, groups,
+                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+
+        assertEquals(GdxSettingsLayout.GROUP_FRAME_PADDING,
+                parent.x - frame.x);
+        assertEquals(parent.x, child.x,
+                "the fullscreen child uses the canonical unindented row");
+        assertEquals(parent.width, child.width);
+        assertEquals(100f, standalone.x,
+                "standalone graphics rows align with the group frame");
+        assertEquals(1_120f, standalone.width);
+        assertEquals(GdxSettingsLayout.GROUP_GAP,
+                rows.rowY(1) - GdxSettingsLayout.GROUP_FRAME_PADDING
+                - (rows.rowY(2) + GdxSettingsLayout.ROW_HEIGHT));
+    }
+
+    @Test
     void pixelScrollbarDragCoversTheWholeContinuousRange() {
         float trackY = 100f;
         float trackHeight = 486f;

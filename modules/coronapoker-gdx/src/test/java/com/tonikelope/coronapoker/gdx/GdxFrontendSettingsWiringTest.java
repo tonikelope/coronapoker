@@ -90,9 +90,11 @@ final class GdxFrontendSettingsWiringTest {
                 StandardCharsets.UTF_8);
 
         assertTrue(frontend.contains("GdxSettingsContract.vsyncStatusLabel("));
-        assertTrue(frontend.contains("GdxSettingsLayout.ROW_HEIGHT), \"gdx_vsync\")"));
-        assertTrue(table.contains("GdxSettingsContract.vsyncStatusLabel("));
-        assertTrue(table.contains("\"gdx_vsync\", \"gdx_fps_limit\""));
+        assertTrue(frontend.contains("\"gdx_vsync\", \"gdx_fps_limit\""));
+        assertTrue(frontend.contains("settingsTooltip(bounds, keys[row])"));
+        assertTrue(table.contains(".vsyncStatusLabel("));
+        assertTrue(table.contains("\"gdx_vsync\""));
+        assertTrue(table.contains("\"gdx_fps_limit\""));
         assertTrue(table.contains("GdxSettingsTooltips.content("));
         assertTrue(table.contains(
                 "GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));
@@ -181,6 +183,36 @@ final class GdxFrontendSettingsWiringTest {
                 "the live settings title must retain the master font path");
         assertFalse(table.contains(
                 "capturing ? settingsSmallFont\n                : settingsActionFont"));
+    }
+
+    @Test
+    void graphicsParentGroupDrivesPaintInputTooltipsAndScrollingEverywhere()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains(
+                "GdxSettingsContract.appearanceGraphicsGroups()"));
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth"));
+        String scrollMethod = methodSection(frontend,
+                "private GdxSettingsLayout.PixelRows currentSettingsPixelRows()");
+        assertTrue(scrollMethod.contains("APPEARANCE_GRAPHICS_ROW_COUNT"));
+        assertTrue(scrollMethod.contains("appearanceGraphicsGroups()"));
+        assertTrue(table.contains(
+                "GdxSettingsContract.appearanceGraphicsGroups()"));
+        assertTrue(table.contains(
+                "settingsAppearanceGraphicsRows(content, firstRowY"));
+        assertTrue(occurrences(table,
+                "settingsAppearanceGraphicsRowBounds(") >= 5,
+                "live settings must share the grouped geometry in input, "
+                + "tooltips, shape and text passes");
+        assertFalse(frontend.contains("Rectangle autoFullscreenRow"));
+        assertFalse(table.contains("Rectangle autoFullscreenRow"));
     }
 
     @Test

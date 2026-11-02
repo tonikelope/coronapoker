@@ -1058,8 +1058,8 @@ final class GdxSettingsContract {
     static String autoCallStatusLabel(boolean enabled, double maximum,
             String formattedMaximum, GdxGameText text) {
         if (!enabled) {
-            return translatedUpper(text, "gdx.settings.value.disabled",
-                    "DESACTIVADO");
+            return markDefault(translatedUpper(text,
+                    "gdx.settings.value.disabled", "DESACTIVADO"), true);
         }
         String enabledText = translatedUpper(text,
                 "gdx.settings.value.enabled", "ACTIVADO");

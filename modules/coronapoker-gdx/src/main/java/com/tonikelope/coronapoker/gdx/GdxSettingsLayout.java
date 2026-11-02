@@ -8,6 +8,19 @@ import java.util.Set;
 /** Shared modal frame geometry used by menu and live-table settings. */
 final class GdxSettingsLayout {
 
+    /** Canonical lane used by stepper values. */
+    private static final float STANDARD_VALUE_WIDTH = 286f;
+    /**
+     * Canonical lane used by every toggle state label. It is wide enough for
+     * "DESACTIVADO *" at the normal body size while preserving the shared
+     * stepper centre and a visible gap before the switch.
+     */
+    static final float TOGGLE_STATUS_WIDTH = 252f;
+    /** Geometric clearance; the centred text has additional optical space. */
+    private static final float TOGGLE_STATUS_GAP = 4f;
+    /** Audio rows also reserve a distinct preview-button lane. */
+    private static final float TOGGLE_PREVIEW_GAP = 20f;
+
     static final float HORIZONTAL_INSET = 44f;
     /** Breathing room between the content well and every settings row. */
     static final float CONTENT_HORIZONTAL_INSET = 34f;
@@ -305,7 +318,7 @@ final class GdxSettingsLayout {
         Rectangle minus = new Rectangle(x + width - 426f,
                 buttonY, 62f, 48f);
         Rectangle value = new Rectangle(x + width - 362f,
-                surfaceY, 286f, 54f);
+                surfaceY, STANDARD_VALUE_WIDTH, 54f);
         Rectangle plus = new Rectangle(x + width - 74f,
                 buttonY, 62f, 48f);
         Rectangle label = new Rectangle(x + 20f,
@@ -330,9 +343,13 @@ final class GdxSettingsLayout {
         float switchX = x + width - GdxSettingsStyle.TOGGLE_WIDTH
                 - GdxSettingsStyle.TOGGLE_RIGHT_INSET;
         float valueCenter = stepper.value().x + stepper.value().width / 2f;
-        float valueWidth = Math.min(220f, Math.max(150f, width * 0.16f));
+        float valueWidth = Math.min(TOGGLE_STATUS_WIDTH,
+                stepper.value().width);
+        float valueGap = trailingValueReserve > 0f
+                ? TOGGLE_PREVIEW_GAP : TOGGLE_STATUS_GAP;
         float valueX = Math.min(valueCenter - valueWidth / 2f,
-                switchX - 20f - Math.max(0f, trailingValueReserve)
+                switchX - valueGap
+                        - Math.max(0f, trailingValueReserve)
                         - valueWidth);
         Rectangle value = new Rectangle(valueX, y + 5f,
                 valueWidth, height - 10f);

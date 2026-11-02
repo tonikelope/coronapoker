@@ -231,6 +231,9 @@ final class GdxSettingsLayoutTest {
 
         assertEquals(stepper.value().x + stepper.value().width / 2f,
                 toggle.value().x + toggle.value().width / 2f);
+        assertEquals(GdxSettingsLayout.TOGGLE_STATUS_WIDTH,
+                toggle.value().width,
+                "toggle states need one canonical full-size text lane");
         assertTrue(toggle.label().x + toggle.label().width
                 < toggle.value().x);
         assertTrue(toggle.value().x + toggle.value().width
@@ -249,6 +252,9 @@ final class GdxSettingsLayoutTest {
                 "the status text must not sit below the audio preview button");
         assertTrue(previewX + 46f < toggle.toggle().x,
                 "the audio preview and switch need separate hit lanes");
+        assertEquals(GdxSettingsLayout.TOGGLE_STATUS_WIDTH,
+                toggle.value().width,
+                "preview rows must not shrink disabled state labels");
     }
 
     @Test

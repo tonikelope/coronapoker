@@ -111,7 +111,7 @@ final class GdxSettingsContractTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals("DESACTIVADO",
+        assertEquals("DESACTIVADO *",
                 GdxSettingsContract.autoCallStatusLabel(false, 0d,
                         "0.05", spanish));
         assertEquals("ACTIVADO (SIN LÍMITE)",

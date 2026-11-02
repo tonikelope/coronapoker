@@ -40,6 +40,19 @@ class GdxModalBackdropBlurContractTest {
                 "the Gaussian kernel must preserve backdrop luminance");
     }
 
+    @Test
+    void tableSettingsCannotBypassTheSharedModalBlurBySubpage()
+            throws Exception {
+        String source = Files.readString(source("CoronaPokerGdxTable.java"));
+
+        assertFalse(source.contains("sharpGraphicsPreview"));
+        assertFalse(source.contains("settingsUsesSharpTablePreview"));
+        assertTrue(source.contains(
+                "return preparationModal || uiLayerUsesBackdropBlur(uiLayer,")
+                && source.contains("chatImageMode)"),
+                "every settings subpage must use the same modal blur path");
+    }
+
     private static Path source(String fileName) {
         Path direct = Path.of("src/main/java/com/tonikelope/coronapoker/gdx",
                 fileName);

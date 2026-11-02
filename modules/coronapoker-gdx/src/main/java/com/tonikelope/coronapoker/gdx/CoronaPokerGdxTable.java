@@ -6291,7 +6291,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointerRepeatHits.clear();
         boolean preparationModal = !intro && preparationPhase
                 != TableVisualEvent.PreparationStatus.Phase.READY;
-        boolean sharpGraphicsPreview = usesSharpGraphicsSettingsPreview();
         boolean blockingBlur = hasBlurredTableModal(preparationModal);
         boolean nestedTableModal = hasNestedTableModal();
         boolean pausedBackdrop = finalSummary == null && !intro
@@ -6388,12 +6387,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (preparationModal) drawPreparationOverlay();
-        if (sharpGraphicsPreview && !blurModalBackdrop) {
-            // This is the only settings page whose effect must be judged on
-            // the live table. Keep the usual modal shade, but do not destroy
-            // card detail by first downsampling and blurring the cards.
-            drawUnifiedModalBackdrop();
-        }
         if (nestedTableModal) {
             renderNestedTableModal();
         } else {
@@ -6435,8 +6428,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean hasBlurredTableModal(boolean preparationModal) {
-        return preparationModal || (uiLayerUsesBackdropBlur(uiLayer,
-                chatImageMode) && !usesSharpGraphicsSettingsPreview())
+        return preparationModal || uiLayerUsesBackdropBlur(uiLayer,
+                chatImageMode)
                 || tableImageClearConfirmation
                 || blocksTableUtilities(activeDialog)
                 || chipCatalogVisible
@@ -6515,19 +6508,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || isClientTransportReconnecting()
                 || recoveryStopBarrier != null
                 || terminationRequested;
-    }
-
-    private boolean usesSharpGraphicsSettingsPreview() {
-        return uiLayer == UI_SETTINGS
-                && settingsUsesSharpTablePreview(uiLayer, settingsSection(),
-                        settingsAppearancePage);
-    }
-
-    static boolean settingsUsesSharpTablePreview(int layer,
-            GdxSettingsContract.Section section, int appearancePage) {
-        return layer == UI_SETTINGS
-                && section == GdxSettingsContract.Section.APPEARANCE
-                && appearancePage == 1;
     }
 
     static boolean pauseOverlayUsesSharpForeground(boolean paused,

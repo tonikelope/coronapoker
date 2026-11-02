@@ -344,16 +344,9 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
-    void graphicsSettingsKeepsTheLiveTableSharpForSmaaPreview() {
-        assertTrue(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
-                CoronaPokerGdxTable.UI_SETTINGS,
-                GdxSettingsContract.Section.APPEARANCE, 1));
-        assertFalse(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
-                CoronaPokerGdxTable.UI_SETTINGS,
-                GdxSettingsContract.Section.APPEARANCE, 0));
-        assertFalse(CoronaPokerGdxTable.settingsUsesSharpTablePreview(
-                CoronaPokerGdxTable.UI_NONE,
-                GdxSettingsContract.Section.APPEARANCE, 1));
+    void everySettingsSubpageUsesTheSharedBlurredTableBackdrop() {
+        assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
+                CoronaPokerGdxTable.UI_SETTINGS, false));
     }
 
     @Test

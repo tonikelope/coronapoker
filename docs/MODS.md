@@ -123,11 +123,4 @@ The bundled all-in filenames are `casinoroyale.gif`, `hulk.gif`, `joker.gif`,
 5. Distribute the complete `mod` directory. Recipients should place it beside
    CoronaPoker and restart the game.
 
-Custom bot names, avatars, difficulty and AI personality are configured by the
-host in **Game settings → Bots → Use custom bots → Manage custom bots**. They are stored in
-the user's CoronaPoker preferences rather than in a MOD pack. The manager can
-use the saved catalogue in its fixed order or shuffle it once for each new
-lobby without repeating profiles. See
-[`BOTS.md`](BOTS.md#13-custom-bot-profiles).
-
 </div>

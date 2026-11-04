@@ -80,7 +80,7 @@ final class GdxGameAudioResources {
                 options.add(new GdxSettingsContract.ToggleOption(
                         GamePresentationSettings.jokeSoundPreferenceKey(
                                 resource),
-                        childLabel + "-" + (index + 1) + " · "
+                        childLabel + "-" + (index + 1) + ": "
                                 + jokeFilename(resource), true,
                         GdxSettingsContract.Gate.FUNNY_SOUNDS, false,
                         categoryKey));
@@ -89,9 +89,21 @@ final class GdxGameAudioResources {
         base.options().stream()
                 .filter(option -> !"sonidos_chorra".equals(option.key()))
                 .filter(option -> !JOKE_CATEGORY_KEYS.contains(option.key()))
+                .map(GdxGameAudioResources::withConcreteFilename)
                 .forEach(options::add);
         return new GdxSettingsContract.TogglePage(base.title(),
                 List.copyOf(options));
+    }
+
+    /** Single-resource joke rows expose the concrete file just like banks. */
+    private static GdxSettingsContract.ToggleOption withConcreteFilename(
+            GdxSettingsContract.ToggleOption option) {
+        String resource = funnyMiscResource(option.key());
+        if (resource == null) return option;
+        return new GdxSettingsContract.ToggleOption(option.key(),
+                option.label() + ": " + jokeFilename(resource),
+                option.fallback(), option.gate(), option.inverted(),
+                option.parentKey());
     }
 
     private static String jokeCategoryLabel(String category,

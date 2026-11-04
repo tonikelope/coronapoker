@@ -260,19 +260,39 @@ final class GdxGameAudioResourcesTest {
                     .filter(item -> GdxGameAudioResources.jokeResource(item)
                             != null)
                     .allMatch(item -> item.label().matches(
-                            "[A-ZÁÉÍÓÚÑ-]+-\\d+ · [^/\\\\]+\\.wav")));
+                            "[A-ZÁÉÍÓÚÑ-]+-\\d+: [^/\\\\]+\\.wav")));
             assertTrue(page.options().stream()
                     .filter(item -> GdxGameAudioResources.jokeResource(item)
                             != null)
                     .allMatch(item -> item.parentKey() != null));
             String firstAllInFilename = GdxGameAudioResources.jokeFilename(
                     allIn.get(0));
-            assertEquals("ALL-IN-1 · " + firstAllInFilename,
+            assertEquals("ALL-IN-1: " + firstAllInFilename,
                     page.options().stream()
                     .filter(item -> allIn.get(0).equals(
                             GdxGameAudioResources.jokeResource(item)))
                     .findFirst().orElseThrow().label());
             assertFalse(firstAllInFilename.contains("/"));
+            assertEquals("SUBIDA: raise.wav", page.options().stream()
+                    .filter(item -> "sonido_chorra_raise".equals(item.key()))
+                    .findFirst().orElseThrow().label());
+            assertEquals("SIN RECOMPRA: norebuy.wav",
+                    page.options().stream()
+                            .filter(item -> "sonido_chorra_norebuy".equals(
+                                    item.key()))
+                            .findFirst().orElseThrow().label());
+            java.util.Map<String, String> individualFilenames = java.util.Map.of(
+                    "sonido_chorra_raise", "raise.wav",
+                    "sonido_chorra_norebuy", "norebuy.wav",
+                    "sonido_chorra_indivisible", "indivisible.wav",
+                    "sonido_chorra_lastcard", "lastcard.wav",
+                    "sonido_chorra_badbeat", "badbeat.wav",
+                    "sonido_chorra_lucky", "youarelucky.wav");
+            individualFilenames.forEach((key, filename) -> assertTrue(
+                    page.options().stream()
+                            .filter(item -> key.equals(item.key()))
+                            .findFirst().orElseThrow().label()
+                            .endsWith(": " + filename), key));
             assertEquals(allIn.get(0),
                     GamePresentationSettings.jokeSoundResource(
                             page.options().stream()

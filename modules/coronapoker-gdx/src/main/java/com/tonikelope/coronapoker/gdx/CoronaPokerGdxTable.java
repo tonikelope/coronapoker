@@ -25477,10 +25477,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsContract.TogglePage page = settingsAudioPage();
             int totalRows = GdxSettingsContract.audioRowCount(page);
             List<GdxSettingsContract.RowGroup> groups =
-                    GdxSettingsContract.toggleGroups(page,
-                            optionIndex ->
-                                    GdxSettingsContract.audioOptionRow(page,
-                                            optionIndex));
+                    GdxSettingsContract.audioGroups(page);
             GdxSettingsLayout.PixelRows rows = settingsAudioRows(
                     currentSettingsContent(), firstY, page,
                     settingsAudioScroll);
@@ -25759,7 +25756,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     straddle.width,
                     liveSettingsDraft != null && liveSettingsDraft.straddle(),
                     access, alpha);
-            drawLiveSettingsRowShape(manage.x, manage.y, manage.width,
+            drawLiveSettingsActionShape(manage.x, manage.y, manage.width,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean increasing = liveSettingsDraft != null
                     && liveSettingsDraft.blindsDouble() > 0;
@@ -25861,7 +25858,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     customOnly.width,
                     tableCustomBots && tableCustomBotsOnly,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
-            drawLiveSettingsRowShape(manageBots.x, manageBots.y,
+            drawLiveSettingsActionShape(manageBots.x, manageBots.y,
                     manageBots.width,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             drawLiveSettingsToggleShape(botBalance.x, botBalance.y,
@@ -26015,6 +26012,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case LIVE_LOCKED -> GdxSettingsStyle.drawLockedRow(shapes,
                     x, y, width, GdxSettingsLayout.ROW_HEIGHT, alpha);
         }
+    }
+
+    private void drawLiveSettingsActionShape(float x, float y, float width,
+            SettingsRowAccess access, float alpha) {
+        boolean enabled = access == SettingsRowAccess.EDITABLE;
+        boolean hovered = enabled && contains(pointer.x, pointer.y, x, y,
+                width, GdxSettingsLayout.ROW_HEIGHT);
+        GdxUiButtonStyle.draw(shapes, x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT,
+                GdxUiButtonStyle.Tone.NEUTRAL, enabled,
+                hovered ? 1f : 0f,
+                hovered && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                alpha);
     }
 
     private void drawCanonicalSettingsRow(float x, float y, float width,
@@ -26180,10 +26190,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsContract.TogglePage page = settingsAudioPage();
             int totalRows = GdxSettingsContract.audioRowCount(page);
             List<GdxSettingsContract.RowGroup> groups =
-                    GdxSettingsContract.toggleGroups(page,
-                            optionIndex ->
-                                    GdxSettingsContract.audioOptionRow(page,
-                                            optionIndex));
+                    GdxSettingsContract.audioGroups(page);
             GdxSettingsLayout.PixelRows rows = settingsAudioRows(
                     currentSettingsContent(), firstY, page,
                     settingsAudioScroll);
@@ -26675,8 +26682,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsStepperText(level.x, level.y, level.width,
                     settingsGameText("row.initial_blinds"),
                     liveSettingsDraft == null ? "-"
-                            : formatAmount(liveSettingsDraft.smallBlind())
-                            + " / " + formatAmount(
+                            : GdxSettingsContract.blindLevelLabel(
+                                    liveSettingsDraft.smallBlind(),
                                     liveSettingsDraft.bigBlind()),
                     access, alpha);
             boolean anteValue = liveSettingsDraft != null
@@ -26692,7 +26699,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsGameText("row.straddle"),
                     GdxSettingsContract.booleanStatusLabel(straddleValue,
                             false, gameText), access, alpha);
-            drawLiveSettingsRowText(manage.x, manage.y, manage.width,
+            drawLiveSettingsActionText(manage.x, manage.y, manage.width,
                     settingsGameText("row.manage_structures"),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean increasing = liveSettingsDraft != null
@@ -26849,7 +26856,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.booleanStatusLabel(
                             tableCustomBots && tableCustomBotsOnly, false,
                             gameText), SettingsRowAccess.LIVE_LOCKED, alpha);
-            drawLiveSettingsRowText(manageBots.x, manageBots.y,
+            drawLiveSettingsActionText(manageBots.x, manageBots.y,
                     manageBots.width,
                     uppercase(gameText.translate("gdx.custom_bots.manage")),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
@@ -27094,6 +27101,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedLeft(settingsSmallFont, uppercase(label), bounds.x,
                 GdxSettingsLayout.rowTextBaseline(y), bounds.width,
                 settingsAccessLabelColor(access), alpha);
+    }
+
+    private void drawLiveSettingsActionText(float x, float y, float width,
+            String label, SettingsRowAccess access, float alpha) {
+        boolean enabled = access == SettingsRowAccess.EDITABLE;
+        drawDialogButtonLabel(settingsBodyFont, uppercase(label), x, y,
+                width, GdxSettingsLayout.ROW_HEIGHT,
+                GdxUiButtonStyle.labelColor(
+                        GdxUiButtonStyle.Tone.NEUTRAL, enabled), alpha);
     }
 
     private void drawSettingsChoiceText(float x, float y, float width,
@@ -27346,7 +27362,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private List<DraftBlindStructure> availableDraftBlindStructures() {
         ArrayList<DraftBlindStructure> structures = new ArrayList<>();
-        structures.add(new DraftBlindStructure("PREDETERMINADA", List.of()));
+        structures.add(new DraftBlindStructure(
+                settingsGameText("value.default"), List.of()));
         for (BlindStructureCatalog.Entry entry : BlindStructureCatalog.read(
                 tableSettingsProperties())) {
             structures.add(new DraftBlindStructure(entry.name(),

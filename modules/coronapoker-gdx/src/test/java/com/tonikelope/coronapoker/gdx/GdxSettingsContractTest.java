@@ -857,6 +857,54 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void voiceAndTtsParentsDisableTheirLocalChildrenWithoutLosingValues() {
+        GdxSettingsContract.TogglePage page =
+                GdxSettingsContract.AUDIO_PAGES.stream()
+                        .filter(GdxSettingsContract::hasVoiceRetention)
+                        .findFirst().orElseThrow();
+        java.util.Map<String, GdxSettingsContract.ToggleOption> options =
+                page.options().stream().collect(
+                        java.util.stream.Collectors.toMap(
+                                GdxSettingsContract.ToggleOption::key,
+                                option -> option));
+        Properties properties = new Properties();
+        properties.setProperty("voice_messages", "false");
+        properties.setProperty("audio_block_voice_messages", "false");
+        properties.setProperty("audio_play_own_voice", "true");
+        properties.setProperty("tts_server", "false");
+        properties.setProperty("audio_block_tts_local", "false");
+
+        assertEquals("voice_messages",
+                options.get("audio_block_voice_messages").parentKey());
+        assertEquals("voice_messages",
+                options.get("audio_play_own_voice").parentKey());
+        assertEquals("tts_server",
+                options.get("audio_block_tts_local").parentKey());
+        assertFalse(GdxSettingsContract.enabled(
+                options.get("audio_block_voice_messages"), properties, true));
+        assertFalse(GdxSettingsContract.enabled(
+                options.get("audio_play_own_voice"), properties, true));
+        assertFalse(GdxSettingsContract.enabled(
+                options.get("audio_block_tts_local"), properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(
+                options.get("audio_block_voice_messages"), properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(
+                options.get("audio_play_own_voice"), properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(
+                options.get("audio_block_tts_local"), properties, true));
+    }
+
+    @Test
+    void blindLabelsAreIdenticalAcrossSettingsSurfaces() {
+        assertEquals("0.10", GdxSettingsContract.blindAmountLabel(0.1d));
+        assertEquals("0.20", GdxSettingsContract.blindAmountLabel(0.2d));
+        assertEquals("1", GdxSettingsContract.blindAmountLabel(1d));
+        assertEquals("1.5", GdxSettingsContract.blindAmountLabel(1.5d));
+        assertEquals("0.10 / 0.20",
+                GdxSettingsContract.blindLevelLabel(0.1d, 0.2d));
+    }
+
+    @Test
     void audioRestoreAndDirtyStateAreScopedToTheVisibleSubsection() {
         Properties properties = new Properties();
         properties.setProperty("master_volume", "0.25");

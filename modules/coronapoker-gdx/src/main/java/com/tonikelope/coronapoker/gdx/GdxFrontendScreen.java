@@ -10003,8 +10003,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String settingsBlindLevel() {
         NewGameTableDraft.BlindLevel level = settingsTable.blindLevel();
-        return formatBlind(level.smallBlind()) + " / "
-                + formatBlind(level.bigBlind());
+        return GdxSettingsContract.blindLevelLabel(level.smallBlind(),
+                level.bigBlind());
     }
 
     private void adjustSettingsBlindLevel(int direction) {
@@ -11561,16 +11561,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String formatBlindLevel() {
         NewGameTableDraft.BlindLevel level = table.blindLevel();
-        return formatBlind(level.smallBlind()) + " / " + formatBlind(level.bigBlind());
+        return GdxSettingsContract.blindLevelLabel(level.smallBlind(),
+                level.bigBlind());
     }
 
     private static String formatBlind(double value) {
-        if (value < 1d) {
-            return String.format(Locale.ROOT, "%.2f", value);
-        }
-        return value == Math.rint(value)
-                ? Long.toString((long) value)
-                : Double.toString(value);
+        return GdxSettingsContract.blindAmountLabel(value);
     }
 
     private void nextBlindLevel() {

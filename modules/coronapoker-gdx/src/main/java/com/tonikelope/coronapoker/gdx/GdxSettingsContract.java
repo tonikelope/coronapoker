@@ -321,12 +321,13 @@ final class GdxSettingsContract {
             option("voice_messages", "NOTAS DE VOZ", true,
                     Gate.NONE),
             invertedOption("audio_block_voice_messages",
-                    "NOTAS DE VOZ (LOCAL)", false, Gate.NONE),
+                    "NOTAS DE VOZ (LOCAL)", false, Gate.NONE,
+                    "voice_messages"),
             option("audio_play_own_voice", "REPRODUCIR MIS NOTAS", true,
-                    Gate.NONE),
+                    Gate.NONE, "voice_messages"),
             option("tts_server", "VOZ (TTS)", true, Gate.NONE),
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
-                    Gate.NONE));
+                    Gate.NONE, "tts_server"));
     private static final TogglePage APPEARANCE_TABLE_PAGE = page(
             "MESA",
             option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
@@ -717,6 +718,11 @@ final class GdxSettingsContract {
     private static ToggleOption invertedOption(String key, String label,
             boolean fallback, Gate gate) {
         return new ToggleOption(key, label, fallback, gate, true);
+    }
+
+    private static ToggleOption invertedOption(String key, String label,
+            boolean fallback, Gate gate, String parentKey) {
+        return new ToggleOption(key, label, fallback, gate, true, parentKey);
     }
 
     private static String defaultParentKey(Gate gate) {
@@ -1146,6 +1152,21 @@ final class GdxSettingsContract {
                 : translatedUpper(text, "gdx.settings.value.up_to", "HASTA")
                         + " " + formattedMaximum;
         return enabledText + " (" + detail + ")";
+    }
+
+    /** Decimal presentation shared by menu, lobby and live blind settings. */
+    static String blindAmountLabel(double value) {
+        if (value < 1d) {
+            return String.format(Locale.ROOT, "%.2f", value);
+        }
+        return value == Math.rint(value)
+                ? Long.toString((long) value)
+                : Double.toString(value);
+    }
+
+    static String blindLevelLabel(double smallBlind, double bigBlind) {
+        return blindAmountLabel(smallBlind) + " / "
+                + blindAmountLabel(bigBlind);
     }
 
     static String voiceRetentionLabel(Properties properties) {

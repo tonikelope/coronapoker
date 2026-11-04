@@ -186,6 +186,40 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void liveAudioUsesCanonicalGroupsInEveryRenderingPass()
+            throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+        String shapes = methodSection(table,
+                "private void drawSettingsContentShapes(");
+        String text = methodSection(table,
+                "private void drawSettingsContentText(");
+
+        assertTrue(shapes.contains("GdxSettingsContract.audioGroups(page)"));
+        assertTrue(text.contains("GdxSettingsContract.audioGroups(page)"));
+        assertFalse(shapes.contains("GdxSettingsContract.toggleGroups(page"));
+        assertFalse(text.contains("GdxSettingsContract.toggleGroups(page"));
+    }
+
+    @Test
+    void liveLockedManagerActionsKeepTheSharedCenteredButtonMaterial()
+            throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(table.contains("drawLiveSettingsActionShape(manage.x"));
+        assertTrue(table.contains("drawLiveSettingsActionText(manage.x"));
+        assertTrue(table.contains(
+                "GdxUiButtonStyle.Tone.NEUTRAL, enabled"));
+        assertFalse(table.contains(
+                "drawLiveSettingsRowShape(manage.x, manage.y"));
+        assertFalse(table.contains(
+                "drawLiveSettingsRowText(manage.x, manage.y"));
+    }
+
+    @Test
     void graphicsParentGroupDrivesPaintInputTooltipsAndScrollingEverywhere()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"

@@ -396,13 +396,55 @@ final class GdxFrontendSettingsWiringTest {
         assertFalse(frontend.contains("selectNextDeck"));
         assertFalse(frontend.contains("selectPreviousFelt"));
         assertTrue(frontend.contains("float thumbH = Math.max(34f,"));
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS"));
         assertTrue(table.contains(
                 "SettingsSelectionList.BLIND_STRUCTURE"));
         assertTrue(table.contains("SettingsSelectionList.DECK"));
         assertTrue(table.contains("SettingsSelectionList.FELT"));
         assertTrue(table.contains("drawSettingsSelectionList(alpha)"));
+        assertTrue(table.contains(
+                "GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS"));
+        assertTrue(frontend.contains("drawDropdownOverlay(false)"));
+        assertTrue(frontend.contains("drawDropdownOverlay(true)"));
+        int pageText = frontend.indexOf("for (TextItem item : texts)");
+        int popupTopLayer = frontend.indexOf("drawDropdownTopLayer();",
+                pageText);
+        assertTrue(pageText >= 0 && popupTopLayer > pageText,
+                "popup lists must be composited after covered page text");
+        assertTrue(frontend.contains("GdxSettingsLayout.popupListTop("));
+        assertTrue(table.contains("GdxSettingsLayout.popupListTop("));
+        assertTrue(frontend.contains(
+                "boolean shieldDropdownPointer = dropdown != Dropdown.NONE"));
+        assertTrue(table.contains(
+                "settingsSelectionList != SettingsSelectionList.NONE"));
+        assertTrue(frontend.contains(
+                "pointer.set(dropdownPointerX, dropdownPointerY)"));
+        assertTrue(table.contains(
+                "pointer.set(selectionPointerX, selectionPointerY)"));
         assertFalse(table.contains("adjustTableDeck(int direction)"));
         assertFalse(table.contains("adjustTableFelt(int direction)"));
+    }
+
+    @Test
+    void dropdownsRemainSharpPopupsInsteadOfBlurredChildModals()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String visibleModal = methodSection(frontend,
+                "private boolean hasVisibleFrontendModal()");
+        String rootModal = methodSection(frontend,
+                "private boolean isFrontendRootModal()");
+
+        assertFalse(visibleModal.contains("dropdown != Dropdown.NONE"),
+                "a dropdown must not request another blurred modal level");
+        assertFalse(rootModal.contains("dropdown == Dropdown.NONE"),
+                "opening a dropdown must preserve its sharp root surface");
+        String normalized = frontend.replaceAll("\\s+", " ");
+        assertTrue(normalized.contains(
+                "&& dropdown == Dropdown.NONE && (!blockingModal"),
+                "covered scrollbars must not start a drag through the popup");
     }
 
     @Test

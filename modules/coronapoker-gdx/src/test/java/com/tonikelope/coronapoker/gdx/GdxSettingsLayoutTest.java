@@ -9,6 +9,29 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsLayoutTest {
 
     @Test
+    void popupListStaysOffItsAnchorAndUsesAvailableSide() {
+        assertEquals(6, GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS);
+        assertEquals(56f, GdxSettingsLayout.POPUP_ROW_HEIGHT);
+        assertEquals(36f, GdxSettingsLayout.POPUP_TEXT_BASELINE);
+        Rectangle highAnchor = new Rectangle(100f, 600f, 300f, 68f);
+        assertEquals(596f, GdxSettingsLayout.popupListTop(
+                highAnchor, 280f, 100f, 900f));
+
+        Rectangle lowAnchor = new Rectangle(100f, 180f, 300f, 68f);
+        assertEquals(532f, GdxSettingsLayout.popupListTop(
+                lowAnchor, 280f, 100f, 900f));
+    }
+
+    @Test
+    void popupListRemainsBoundedWhenNeitherSideFits() {
+        Rectangle anchor = new Rectangle(100f, 260f, 300f, 68f);
+        float top = GdxSettingsLayout.popupListTop(
+                anchor, 300f, 100f, 600f);
+        assertEquals(600f, top);
+        assertTrue(top - 300f >= 100f);
+    }
+
+    @Test
     void debugPerformanceRowOwnsASeparateBandAboveTheConsole() {
         Rectangle content = new Rectangle(100f, 80f, 1400f, 720f);
         Rectangle row = GdxSettingsLayout.debugPerformanceRow(content);

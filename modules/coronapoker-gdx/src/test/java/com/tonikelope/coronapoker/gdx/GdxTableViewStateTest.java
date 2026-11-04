@@ -673,6 +673,8 @@ final class GdxTableViewStateTest {
 
         assertTrue(CoronaPokerGdxTable.localCenterLaneHasClearance(
                 officialAspect));
+        assertEquals(0f, CoronaPokerGdxTable.communityTimerHudGap(),
+                "the HUD border must touch without covering the timer");
         org.junit.jupiter.api.Assertions.assertFalse(
                 CoronaPokerGdxTable.localCenterLaneHasClearance(0f));
         org.junit.jupiter.api.Assertions.assertFalse(

@@ -437,8 +437,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float LAST_HAND_CARD_CLEARANCE = 3f;
     private static final float COMMUNITY_TIMER_HEIGHT = 14f;
     private static final float COMMUNITY_TIMER_Y_OFFSET = 18f;
-    private static final float COMMUNITY_HUD_Y_OFFSET = 48f;
     private static final float COMMUNITY_HUD_HEIGHT = 30f;
+    private static final float COMMUNITY_HUD_BORDER_OUTSET = 2f;
+    private static final float COMMUNITY_HUD_Y_OFFSET
+            = COMMUNITY_TIMER_Y_OFFSET + COMMUNITY_HUD_HEIGHT
+                    + COMMUNITY_HUD_BORDER_OUTSET;
     private static final float LOCAL_HUD_Y = 12f;
     private static final float LOCAL_HUD_HEIGHT = 126f;
     private static final float LOCAL_HUD_COUNTER_Y = LOCAL_HUD_Y;
@@ -1869,7 +1872,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (uiLayer == UI_SETTINGS && amountY != 0f) {
                 if (settingsSelectionList != SettingsSelectionList.NONE) {
                     int maximum = Math.max(0,
-                            settingsSelectionOptions().size() - 6);
+                            settingsSelectionOptions().size()
+                                    - GdxSettingsLayout
+                                            .POPUP_MAX_VISIBLE_ROWS);
                     settingsSelectionScroll = MathUtils.clamp(
                             settingsSelectionScroll
                                     + (amountY > 0f ? 1 : -1),
@@ -6261,6 +6266,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float boardBottom = BASE_HEIGHT * 0.52f
                 - boardCardHeight * 0.36f;
         float communityHudBottom = boardBottom - COMMUNITY_HUD_Y_OFFSET;
+        float communityHudOuterBottom = communityHudBottom
+                - COMMUNITY_HUD_BORDER_OUTSET;
         float communityHudTop = communityHudBottom + COMMUNITY_HUD_HEIGHT;
         float timerBottom = boardBottom - COMMUNITY_TIMER_Y_OFFSET;
 
@@ -6276,10 +6283,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float localCardTop = localCenter + rotatedHalfHeight;
         float localHudVisualTop = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 17f;
 
-        return communityHudBottom - localCardTop >= 7f
+        return communityHudOuterBottom - localCardTop >= 3.5f
                 && timerBottom - communityHudTop >= 0f
                 && boardBottom - (timerBottom + COMMUNITY_TIMER_HEIGHT) >= 4f
                 && localCardBottom - localHudVisualTop >= 4f;
+    }
+
+    /** Outer HUD border touches, but never covers, the turn timer. */
+    static float communityTimerHudGap() {
+        float timerBottom = -COMMUNITY_TIMER_Y_OFFSET;
+        float hudOuterTop = -COMMUNITY_HUD_Y_OFFSET + COMMUNITY_HUD_HEIGHT
+                + COMMUNITY_HUD_BORDER_OUTSET;
+        return timerBottom - hudOuterTop;
     }
 
     @Override
@@ -24483,6 +24498,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean restoreEnabled = restoreVisible
                 && !currentSettingsSubsectionAtDefaults();
         boolean saveEnabled = settingsHavePendingChanges();
+        boolean shieldSelectionPointer =
+                settingsSelectionList != SettingsSelectionList.NONE;
+        float selectionPointerX = pointer.x;
+        float selectionPointerY = pointer.y;
+        if (shieldSelectionPointer) {
+            pointer.set(-10_000f, -10_000f);
+        }
         GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
                 pointer, restoreVisible, restoreEnabled, saveEnabled, alpha);
@@ -24496,6 +24518,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle cancel = frame.cancelButton();
         Rectangle save = frame.saveButton();
         shapes.end();
+        if (shieldSelectionPointer) {
+            pointer.set(selectionPointerX, selectionPointerY);
+        }
 
         batch.begin();
         drawFittedLeft(settingsTitleFont,
@@ -27428,7 +27453,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         settingsSelectionScroll = MathUtils.clamp(
                 selectedSettingsSelectionOption() - 2, 0,
-                Math.max(0, options.size() - 6));
+                Math.max(0, options.size()
+                        - GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS));
     }
 
     private List<String> settingsSelectionOptions() {
@@ -27496,15 +27522,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private SettingsSelectionLayout settingsSelectionLayout(int optionCount) {
         Rectangle rowBounds = settingsSelectionRowBounds();
         if (rowBounds == null || optionCount <= 0) return null;
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSession.sections().size(),
+                settingsSubpageLabels().size());
+        Rectangle contentClip = GdxSettingsLayout.contentClip(
+                frame.content());
         GdxSettingsLayout.ChoiceRow choice = GdxSettingsLayout.choiceRow(
                 rowBounds.x, rowBounds.y, rowBounds.width,
                 rowBounds.height);
-        int visible = Math.min(6, optionCount);
+        int visible = Math.min(GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS,
+                optionCount);
         int maximum = Math.max(0, optionCount - visible);
-        float rowHeight = 56f;
+        float rowHeight = GdxSettingsLayout.POPUP_ROW_HEIGHT;
         float listHeight = visible * rowHeight;
-        float top = MathUtils.clamp(rowBounds.y + rowBounds.height,
-                listHeight + 20f, viewport.getWorldHeight() - 20f);
+        float lowerLimit = contentClip.y + 8f;
+        float upperLimit = contentClip.y + contentClip.height - 8f;
+        float top = GdxSettingsLayout.popupListTop(rowBounds, listHeight,
+                lowerLimit, upperLimit);
         float x = choice.value().x;
         float width = choice.arrow().x + choice.arrow().width - x;
         float y = top - listHeight;
@@ -27538,10 +27573,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float rowRightInset = scrollable ? 24f : 6f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b, alpha);
+        shapes.setColor(CYAN_DARK);
         roundedRect(layout.x(), layout.y(), layout.width(),
                 layout.visible() * layout.rowHeight(), 8f);
-        shapes.setColor(0.027f, 0.071f, 0.129f, alpha);
+        shapes.setColor(0.027f, 0.071f, 0.129f, 1f);
         roundedRect(layout.x() + 2f, layout.y() + 2f,
                 layout.width() - 4f,
                 layout.visible() * layout.rowHeight() - 4f, 7f);
@@ -27556,34 +27591,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Color fill = active ? new Color(0x153a52ff)
                     : over ? new Color(0x10283cff)
                             : new Color(0x091624ff);
-            shapes.setColor(fill.r, fill.g, fill.b, alpha);
+            shapes.setColor(fill);
             roundedRect(layout.x() + 6f, rowY + 3f,
                     layout.width() - 6f - rowRightInset,
                     layout.rowHeight() - 6f, 6f);
             if (active) {
-                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, alpha);
+                shapes.setColor(POT_GOLD);
                 roundedRect(layout.x() + 12f, rowY + 12f, 4f,
                         layout.rowHeight() - 24f, 2f);
             }
         }
         if (scrollable) {
-            shapes.setColor(0.11f, 0.20f, 0.31f, alpha);
+            shapes.setColor(0.11f, 0.20f, 0.31f, 1f);
             roundedRect(layout.track().x, layout.track().y,
                     layout.track().width, layout.track().height, 3.5f);
-            shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
+            shapes.setColor(CYAN);
             roundedRect(layout.track().x, layout.thumbY(),
                     layout.track().width, layout.thumbHeight(), 3.5f);
         }
         shapes.end();
         batch.begin();
+        batch.flush();
+        enableTableScissor(new Rectangle(layout.x(), layout.y(),
+                layout.width(), layout.visible() * layout.rowHeight()));
         for (int row = 0; row < layout.visible(); row++) {
             int option = settingsSelectionScroll + row;
             float rowY = layout.top() - (row + 1) * layout.rowHeight();
             drawFittedLeft(settingsSmallFont, options.get(option),
-                    layout.x() + 28f, rowY + 8f,
+                    layout.x() + 28f,
+                    rowY + GdxSettingsLayout.POPUP_TEXT_BASELINE,
                     layout.width() - 34f - rowRightInset,
-                    option == selected ? POT_GOLD : Color.WHITE, alpha);
+                    option == selected ? POT_GOLD : Color.WHITE, 1f);
         }
+        batch.flush();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
         batch.end();
     }
 

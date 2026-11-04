@@ -72,6 +72,10 @@ final class GdxSettingsLayout {
     static final float SCROLLBAR_WIDTH = 14f;
     /** Generous mouse target around the visible bar. */
     static final float SCROLLBAR_HIT_WIDTH = 28f;
+    /** All categorical popup lists scroll after this many visible choices. */
+    static final int POPUP_MAX_VISIBLE_ROWS = 6;
+    static final float POPUP_ROW_HEIGHT = 56f;
+    static final float POPUP_TEXT_BASELINE = 36f;
     /** Same measured wheel travel used by the lobby and quick-table chats. */
     static final float PIXEL_SCROLL_WHEEL_STEP = 48f;
     /** Matches the live game-log row rhythm and monospace baseline. */
@@ -250,6 +254,32 @@ final class GdxSettingsLayout {
                 Math.max(0f, value.x - x - 44f),
                 Math.max(0f, height - 10f));
         return new ChoiceRow(bounds, label, value, arrow);
+    }
+
+    /**
+     * Places a popup list wholly below or above its anchor whenever either
+     * side has enough room. The anchor itself is never used as the first list
+     * row, which prevents duplicate labels and preserves the selected value as
+     * the stable control that opened the popup.
+     */
+    static float popupListTop(Rectangle anchor, float listHeight,
+            float lowerLimit, float upperLimit) {
+        if (anchor == null || listHeight < 0f || upperLimit < lowerLimit) {
+            throw new IllegalArgumentException("Invalid popup geometry");
+        }
+        float gap = 4f;
+        float belowTop = anchor.y - gap;
+        float belowSpace = belowTop - lowerLimit;
+        if (belowSpace >= listHeight) return belowTop;
+
+        float aboveBottom = anchor.y + anchor.height + gap;
+        float aboveSpace = upperLimit - aboveBottom;
+        if (aboveSpace >= listHeight) return aboveBottom + listHeight;
+
+        // Very small viewports cannot fit the complete list on either side.
+        // Keep it inside the available region and use the roomier side.
+        return belowSpace >= aboveSpace
+                ? lowerLimit + listHeight : upperLimit;
     }
 
     /**

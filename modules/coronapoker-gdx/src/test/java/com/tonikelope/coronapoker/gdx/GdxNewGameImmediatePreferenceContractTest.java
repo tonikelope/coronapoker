@@ -29,9 +29,9 @@ final class GdxNewGameImmediatePreferenceContractTest {
                 "Path cropped = writeAvatarCrop(session);"));
         assertTrue(source.contains(
                 "\".coronapoker\", \"avatars\""));
-        assertTrue(source.contains(
-                "connection.setServer(options.get(selectedOption));\n"
-                + "                        connection.persistLocalHostEndpoint(preferences);"));
+        assertTrue(source.matches("(?s).*connection\\.setServer\\(options"
+                + "\\.get\\(selectedOption\\)\\);\\s+connection"
+                + "\\.persistLocalHostEndpoint\\(preferences\\);.*"));
         assertTrue(source.contains(
                 "connection.setPort(value);\n"
                 + "                connection.persistLocalHostEndpoint(preferences);"));

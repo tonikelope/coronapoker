@@ -126,8 +126,12 @@ final class GdxTableShortcutTest {
                         .contains("maybeExecuteQueuedPreAction("),
                 "AUTO must not depend on live-table pointer routing");
         assertTrue(source.contains(
-                "if (dialog == null || dialog.isAutoAction()) return;"),
-                "AUTO must remain underneath foreground utilities");
+                "private GdxTableDialog autoActionDialog;"));
+        assertTrue(source.contains(
+                "private GdxTableDialog activeDialog;"));
+        assertTrue(source.contains(
+                "autoActionDecisionInputReady = autoActionInputGate.accepts("),
+                "AUTO must remain independent from foreground modals");
     }
 
     @Test

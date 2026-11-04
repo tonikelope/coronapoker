@@ -111,7 +111,7 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
-    void exitImmediatelyCancelsAutoModeInsteadOfWaitingForItsTimer() {
+    void exitConfirmationDoesNotCancelAutoModeBeforeExitIsAccepted() {
         ArrayList<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = table(submitted);
         GdxTableDialog autoAction = GdxTableDialog.autoAction("IGUALAR");
@@ -119,17 +119,18 @@ final class GdxTableTerminationWiringTest {
 
         GdxTableDialog exit = table.requestExit();
 
-        assertTrue(autoAction.complete());
-        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertFalse(autoAction.complete());
         assertFalse(exit.complete());
         assertTrue(table.resolveActiveDialogChoice(true));
+        assertTrue(autoAction.complete());
+        assertFalse(autoAction.result().toCompletableFuture().join());
         assertTrue(exit.complete());
         assertEquals(1, submitted.size());
         assertInstanceOf(TableCommand.ExitGame.class, submitted.get(0));
     }
 
     @Test
-    void stopImmediatelyCancelsAutoModeInsteadOfWaitingForItsTimer() {
+    void stopConfirmationLeavesAutoModeRunningUnderneath() {
         CoronaPokerGdxTable table = table(new ArrayList<>());
         GdxTableDialog autoAction = GdxTableDialog.autoAction("IGUALAR");
         table.showDialog(autoAction);
@@ -137,15 +138,18 @@ final class GdxTableTerminationWiringTest {
         GdxTableDialog stop = table.newStopGameConfirmation();
         table.showDialog(stop);
 
-        assertTrue(autoAction.complete());
-        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertFalse(autoAction.complete());
         assertFalse(stop.complete());
         assertTrue(table.resolveActiveDialogChoice(false));
         assertTrue(stop.complete());
+        table.advanceDialogState();
+        assertFalse(autoAction.complete());
+        assertTrue(table.resolveActiveDialogChoice(false));
+        assertTrue(autoAction.complete());
     }
 
     @Test
-    void anyForegroundDialogImmediatelyPreemptsAutoMode() {
+    void foregroundDialogDoesNotOwnOrPauseAutoMode() throws Exception {
         CoronaPokerGdxTable table = table(new ArrayList<>());
         GdxTableDialog autoAction = GdxTableDialog.autoAction("PASAR");
         GdxTableDialog foreground = new GdxTableDialog(
@@ -156,10 +160,20 @@ final class GdxTableTerminationWiringTest {
 
         table.showDialog(foreground);
 
-        assertTrue(autoAction.complete());
-        assertFalse(autoAction.result().toCompletableFuture().join());
+        assertFalse(autoAction.complete());
         assertTrue(table.resolveActiveDialogChoice(true));
         assertTrue(foreground.complete());
+        table.advanceDialogState();
+        assertFalse(autoAction.complete());
+
+        java.lang.reflect.Field clock = CoronaPokerGdxTable.class
+                .getDeclaredField("totalTime");
+        clock.setAccessible(true);
+        clock.setFloat(table, 5.1f);
+        table.advanceDialogState();
+
+        assertTrue(autoAction.complete());
+        assertTrue(autoAction.result().toCompletableFuture().join());
     }
 
     @Test

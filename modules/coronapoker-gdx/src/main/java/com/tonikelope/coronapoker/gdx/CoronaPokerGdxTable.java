@@ -1083,6 +1083,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
     private final GdxDialogInputGate dialogInputGate =
             new GdxDialogInputGate();
+    private final GdxDialogInputGate autoActionInputGate =
+            new GdxDialogInputGate();
     private final Map<String, SeatChatNotice> seatChatNotices = new HashMap<>();
     private final ArrayDeque<SilentChatNotice> silentChatNotices =
             new ArrayDeque<>();
@@ -1092,6 +1094,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxChatGalleryMedia tableGalleryMedia =
             new GdxChatGalleryMedia();
     private GdxTableDialog activeDialog;
+    private GdxTableDialog autoActionDialog;
     private boolean chipCatalogVisible;
     private ChipCatalogTarget chipCatalogTarget;
     private boolean chipCatalogCloseArmed;
@@ -1675,7 +1678,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 // A real dialog owns the keyboard completely.  The render-loop
                 // handler still reads ESC/ENTER from Gdx.input, but the event
                 // must not continue to a control that happens to sit behind it.
@@ -1791,7 +1794,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 finishVoiceRecording(false);
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1808,7 +1811,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 handleAutoCallAmountTyped(character);
                 return true;
             }
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1844,7 +1847,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (tableImageClearConfirmation) return true;
             if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
@@ -1939,7 +1942,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 // Dialog buttons are resolved once per frame by
                 // handleDialogInput().  Consume the raw press here as well so
                 // an InputMultiplexer can never deliver it underneath.
@@ -2072,7 +2075,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 return true;
             }
             if (finalSummary != null && uiLayer == UI_NONE) {
@@ -2131,7 +2134,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (chipCatalogVisible) return true;
             if (tableImageClearConfirmation
                     || tableVoiceConfirmationVisible()) return true;
-            if (activeDialog != null && !activeDialog.isAutoAction()) {
+            if (activeDialog != null) {
                 chatPointerSelectionDragging = false;
                 clearTableScrollDrag();
                 gameLogSelectionDragging = false;
@@ -4867,6 +4870,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             recoverableTerminationRequested = false;
             terminationConfirmation = null;
             liveState.apply(event);
+            if (autoActionDialog != null) {
+                autoActionDialog.dismiss();
+                autoActionDialog = null;
+            }
             if (recoveryStopSkipsFinalSummary(close.summary().reason())) {
                 // Swing never opens BalanceScreen for force_recover. The host
                 // immediately rebuilds its recovery lobby; remote clients keep
@@ -5522,14 +5529,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                 }
             }
-            if (activeDialog != null && activeDialog.isAutoAction()
+            if (autoActionDialog != null
                     && (isClientTransportReconnecting()
                     || shouldDismissAutoActionDialog(event,
                             liveState.snapshot()))) {
                 // The queued decision became stale (manual action, timeout,
                 // disconnect or street advance). Do not leave its veto floating
                 // over another player's turn and never fire it later.
-                activeDialog.dismiss();
+                autoActionDialog.dismiss();
             }
             syncSeatsFromLiveState();
             if (event instanceof TableVisualEvent.RabbitResult result) {
@@ -6308,9 +6315,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateVoiceRecording();
         updateRecoveryStopTransition();
         updateAudioCueWaits();
+        boolean gamePaused = liveState.snapshot().paused();
         if (activeDialog != null) {
-            activeDialog.setTimerPaused(totalTime,
-                    liveState.snapshot().paused());
+            activeDialog.setTimerPaused(totalTime, gamePaused);
+        }
+        if (autoActionDialog != null) {
+            autoActionDialog.setTimerPaused(totalTime, gamePaused);
         }
         updateDialog();
         updateQueuedPreAction();
@@ -6477,7 +6487,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private boolean hasNestedTableModal() {
         return tableImageClearConfirmation
-                || activeDialog != null && !activeDialog.isAutoAction()
+                || activeDialog != null
                         && uiLayer != UI_NONE;
     }
 
@@ -6533,7 +6543,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || tableImageClearConfirmation
                 || tableIdentityDialog != null
                 || chipCatalogVisible
-                || activeDialog != null && !activeDialog.isAutoAction()
+                || activeDialog != null
                 || finalSummary != null && uiLayer != UI_GAME_LOG
                 || uiLayerUsesBackdropBlur(uiLayer, chatImageMode)
                 || isClientTransportReconnecting()
@@ -6696,6 +6706,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // particular, an OS close request from the final summary opens this
         // dialog; routing final-summary input first made its buttons visible
         // but permanently unreachable.
+        boolean autoDecisionInputHeld = Gdx.input.isButtonPressed(
+                Input.Buttons.LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.ESCAPE)
+                || Gdx.input.isKeyPressed(Input.Keys.SPACE);
+        autoActionDecisionInputReady = autoActionInputGate.accepts(
+                autoActionDialog, autoDecisionInputHeld);
         if (activeDialog != null) {
             boolean dialogDecisionInputHeld = Gdx.input.isButtonPressed(
                     Input.Buttons.LEFT)
@@ -6705,27 +6721,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || Gdx.input.isKeyPressed(Input.Keys.SPACE);
             boolean dialogDecisionInputReady = dialogInputGate.accepts(
                     activeDialog, dialogDecisionInputHeld);
-            if (activeDialog.isAutoAction()) {
-                // AUTO is a veto over poker actions, not an input modal. Its
-                // inherited-press gate may delay AUTO's own CANCEL/SPACE
-                // controls, but must never freeze shortcuts, the quick bar or
-                // any foreground table utility while the five-second strip is
-                // visible.
-                autoActionDecisionInputReady = dialogDecisionInputReady;
-            } else {
-                if (!dialogDecisionInputReady) return;
-                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                    primaryPointer.capturePressedGesture();
-                    if (beginPointerRepeat(RepeatOwner.DIALOG)) return;
-                }
-                handleDialogInput();
-                if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
-                        || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
-                        && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
-                    toggleFullscreen();
-                }
-                return;
+            if (!dialogDecisionInputReady) return;
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                primaryPointer.capturePressedGesture();
+                if (beginPointerRepeat(RepeatOwner.DIALOG)) return;
             }
+            handleDialogInput();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                    || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                    && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+                toggleFullscreen();
+            }
+            return;
         } else {
             dialogInputGate.accepts(null, false);
         }
@@ -7396,11 +7403,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        if (request.isAutoAction()) {
+            // AUTO owns neither the modal stack nor its input focus. It keeps
+            // counting down underneath settings, logs and confirmations, and
+            // only the authoritative game pause may suspend its timer.
+            if (autoActionDialog != null
+                    && !autoActionDialog.complete()) {
+                autoActionDialog.dismiss();
+            }
+            autoActionDialog = request;
+            request.opened(totalTime);
+            return;
+        }
         if (chipCatalogReturnAwaitingDialog) {
             if (chipCatalogReturnDialogCandidate(request)) {
                 chipCatalogReturnDialog = request;
                 chipCatalogReturnAwaitingDialog = false;
-            } else if (!request.isAutoAction()) {
+            } else {
                 // A higher-priority modal replaced the requested rebuy. Do not
                 // reopen an unrelated stack viewer when that dialog closes.
                 clearChipCatalogReturn();
@@ -7409,15 +7428,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
         closeChipCatalog();
-        // AUTO MODE is a cancelable veto, not a modal owner. A user request or
-        // a dealer/network dialog must replace it immediately instead of
-        // waiting behind its five-second timer. Dismissing it also guarantees
-        // that the queued poker action cannot fire after the new dialog opens.
-        if (activeDialog != null && activeDialog.isAutoAction()
-                && !request.isAutoAction()) {
-            activeDialog.dismiss();
-            activeDialog = null;
-        }
         if (activeDialog == null) {
             activeDialog = request;
             request.opened(totalTime);
@@ -7675,6 +7685,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         >= CHIP_CATALOG_REBUY_RETURN_TIMEOUT) {
             clearChipCatalogReturn();
         }
+        if (autoActionDialog != null && !autoActionDialog.complete()
+                && autoActionDialog.expired(totalTime)) {
+            autoActionDialog.timeout();
+        }
+        if (autoActionDialog != null
+                && autoActionDialog.readyToClose()) {
+            autoActionDialog = null;
+            autoActionInputGate.accepts(null, false);
+        }
         if (activeDialog != null && !activeDialog.complete()
                 && activeDialogDecisionExpired(activeDialog)) {
             activeDialog.timeout();
@@ -7764,7 +7783,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     boolean hasActiveDialog() {
-        return activeDialog != null;
+        return activeDialog != null || autoActionDialog != null;
     }
 
     private void handleDialogInput() {
@@ -8750,7 +8769,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * dealer decision future.
      */
     boolean resolveActiveDialogChoice(boolean accepted) {
-        GdxTableDialog dialog = activeDialog;
+        GdxTableDialog dialog = activeDialog != null
+                ? activeDialog : autoActionDialog;
         if (dialog == null || dialog.isExternallyControlled()
                 || dialog.waitingForExternalClose()) return false;
         if (accepted) {
@@ -8770,14 +8790,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * by one status surface and its cancel button until the veto resolves.
      */
     private boolean handleAutoActionDialogInput() {
-        if (activeDialog == null || !activeDialog.isAutoAction()) return false;
+        if (autoActionDialog == null) return false;
         if (liveState == null || liveState.snapshot().paused()) return false;
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            activeDialog.dismiss();
+            autoActionDialog.dismiss();
             return true;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-            activeDialog.accept();
+            autoActionDialog.accept();
             return true;
         }
         if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return false;
@@ -8792,7 +8812,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         primaryPointer.capturePressedGesture();
         if (layout.cancel().contains(pointer.x, pointer.y)) {
-            activeDialog.dismiss();
+            autoActionDialog.dismiss();
         }
         return true;
     }
@@ -8873,8 +8893,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         ActionControlState controls = liveState.actionControls();
-        boolean autoActionVeto = activeDialog != null
-                && activeDialog.isAutoAction();
+        boolean autoActionVeto = autoActionDialog != null;
         boolean localActionSubmissionPending
                 = hasPendingLocalActionSubmission();
         boolean localTurn = hasActiveLocalTurn()
@@ -9152,7 +9171,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void maybeExecuteQueuedPreAction(boolean localTurn,
             ActionControlState controls) {
         if (!localTurn || queuedPreAction == 0 || !autoActionControlsReady
-                || totalTime < autoActionEligibleAt || activeDialog != null) {
+                || totalTime < autoActionEligibleAt
+                || autoActionDialog != null) {
             return;
         }
         int selection = queuedPreAction;
@@ -10397,8 +10417,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Canonical voluntary reveal path shared by pointer, shortcut and tests. */
     boolean activateVoluntaryShowAction() {
-        boolean autoActionVeto = activeDialog != null
-                && activeDialog.isAutoAction();
+        boolean autoActionVeto = autoActionDialog != null;
         if (liveState == null || !showsVoluntaryShowButton(
                 liveState.actionControls(), autoActionVeto)) {
             return false;
@@ -10420,8 +10439,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean actionConfirmationPassed(int target) {
-        if (activeDialog != null && activeDialog.isAutoAction()) {
-            activeDialog.dismiss();
+        if (autoActionDialog != null) {
+            autoActionDialog.dismiss();
         }
         if (!requiresActionConfirmation(target, confirmActions, isTestMode())) {
             armedHudTarget = 0;
@@ -10733,6 +10752,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             activeDialog.dismiss();
         }
         activeDialog = null;
+        if (autoActionDialog != null && !autoActionDialog.complete()) {
+            autoActionDialog.dismiss();
+        }
+        autoActionDialog = null;
         while (!dialogQueue.isEmpty()) {
             GdxTableDialog queued = dialogQueue.removeFirst();
             if (!queued.complete()) queued.dismiss();
@@ -13430,9 +13453,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    /** AUTO MODE lives in the local HUD and must not modal-block table tools. */
+    /** Only foreground dialogs block table utilities; AUTO has separate state. */
     static boolean blocksTableUtilities(GdxTableDialog dialog) {
-        return dialog != null && !dialog.isAutoAction();
+        return dialog != null;
     }
 
     private void clearAvatarZoom() {
@@ -19865,8 +19888,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean localTurn = hasActiveLocalTurn()
                 && !localActionSubmissionPending;
         ActionControlState controls = liveState.actionControls();
-        boolean autoActionVeto = activeDialog != null
-                && activeDialog.isAutoAction();
+        boolean autoActionVeto = autoActionDialog != null;
         GdxTableDialogLayout.AutoActionHud autoHud = autoActionVeto
                 ? autoActionHudLayout(width) : null;
         TableSnapshot.PlayerSnapshot liveLocalPlayer = livePlayer(seats[0]);
@@ -20215,7 +20237,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(progress.x, progress.y, progress.width,
                     progress.height, progress.height / 2f);
             float remaining = progress.width
-                    * activeDialog.remainingFraction(totalTime);
+                    * autoActionDialog.remainingFraction(totalTime);
             if (remaining > 0f) {
                 shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.98f);
                 roundedRect(progress.x, progress.y, remaining,
@@ -20449,13 +20471,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     localHudStatusTextColor(false, null, localActionKind),
                     localSeatOpacity);
         } else if (autoActionVeto) {
-            String autoStatus = uppercase(activeDialog.title() + " ("
-                    + activeDialog.message() + ")");
+            String autoStatus = uppercase(autoActionDialog.title() + " ("
+                    + autoActionDialog.message() + ")");
             drawFittedCenteredInBox(actionFont, autoStatus,
                     autoHud.message().x + 12f, autoHud.message().y + 6f,
                     autoHud.message().width - 24f,
                     autoHud.message().height - 12f, POT_GOLD, 1f);
-            drawHudActionContent(uppercase(activeDialog.negativeLabel()),
+            drawHudActionContent(uppercase(autoActionDialog.negativeLabel()),
                     autoHud.cancel().x, autoHud.cancel().y,
                     autoHud.cancel().width, autoHud.cancel().height,
                     Color.WHITE, 1f);
@@ -23417,9 +23439,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawActiveDialog() {
         GdxTableDialog dialog = activeDialog;
-        // AUTO MODE is rendered inside the local HUD so it replaces the poker
-        // controls instead of behaving like a second floating window.
-        if (dialog == null || dialog.isAutoAction()) return;
+        if (dialog == null) return;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float width = viewport.getWorldWidth();
@@ -29729,6 +29749,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (activeDialog != null) {
             activeDialog.dismiss();
             activeDialog = null;
+        }
+        if (autoActionDialog != null) {
+            autoActionDialog.dismiss();
+            autoActionDialog = null;
         }
         while (!dialogQueue.isEmpty()) dialogQueue.removeFirst().dismiss();
         if (startupIntroOnly) {

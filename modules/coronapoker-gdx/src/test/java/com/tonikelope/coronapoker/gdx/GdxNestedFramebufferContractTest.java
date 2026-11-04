@@ -1,7 +1,6 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
@@ -108,17 +107,20 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
-    void everyRealTableDialogOwnsTheBackdropButAutoModeDoesNot() {
+    void everyForegroundDialogOwnsTheBackdropAndAutoUsesIndependentState()
+            throws IOException {
         for (GdxTableDialog.Kind kind : GdxTableDialog.Kind.values()) {
             GdxTableDialog dialog = new GdxTableDialog(kind, "TEST",
                     GameDialogSink.Icon.NONE, 720, 0);
-            if (kind == GdxTableDialog.Kind.AUTO_ACTION) {
-                assertFalse(CoronaPokerGdxTable.blocksTableUtilities(dialog));
-            } else {
-                assertTrue(CoronaPokerGdxTable.blocksTableUtilities(dialog),
-                        () -> kind + " must retain the blurred table backdrop");
-            }
+            assertTrue(CoronaPokerGdxTable.blocksTableUtilities(dialog),
+                    () -> kind + " must block utilities when used as a foreground dialog");
         }
+
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        assertTrue(table.contains("private GdxTableDialog activeDialog;"));
+        assertTrue(table.contains("private GdxTableDialog autoActionDialog;"));
+        assertTrue(table.contains("if (request.isAutoAction())"),
+                "AUTO must be routed to its independent state before foreground dialogs");
     }
 
     private static Path source(String filename) {

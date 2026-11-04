@@ -130,7 +130,7 @@ final class GdxRenderThreadBudgetWiringTest {
         String table = source("CoronaPokerGdxTable.java");
         String deckChanged = method(table,
                 "if (event instanceof TableVisualEvent.DeckChanged changed)",
-                "if (activeDialog != null && activeDialog.isAutoAction()");
+                "if (autoActionDialog != null");
         String deferred = method(table,
                 "private void deferShufflePreloadAfterDeckChange()",
                 "private void updateDeferredShufflePreload()");

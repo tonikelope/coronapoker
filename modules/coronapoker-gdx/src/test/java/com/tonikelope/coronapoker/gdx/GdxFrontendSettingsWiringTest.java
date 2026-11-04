@@ -181,6 +181,14 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains(
                 "drawFittedLeft(settingsTitleFont,"),
                 "the live settings title must retain the master font path");
+        String normalizedFrontend = frontend.replaceAll("\\s+", " ");
+        String normalizedTable = table.replaceAll("\\s+", " ");
+        assertTrue(normalizedFrontend.contains(
+                "nextAction = font(generator, "
+                + "GdxSettingsStyle.ACTION_FONT_SIZE,"));
+        assertTrue(normalizedTable.contains(
+                "settingsActionFont = font(creationFontGenerator, "
+                + "GdxSettingsStyle.ACTION_FONT_SIZE,"));
         assertFalse(table.contains(
                 "capturing ? settingsSmallFont\n                : settingsActionFont"));
     }
@@ -203,20 +211,38 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
-    void liveLockedManagerActionsKeepTheSharedCenteredButtonMaterial()
+    void liveManagerActionsKeepSharedTypographyAndAuthorityColors()
             throws Exception {
         String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/CoronaPokerGdxTable.java"),
                 StandardCharsets.UTF_8);
+        String shapes = methodSection(table,
+                "private void drawLiveSettingsActionShape(");
+        String text = methodSection(table,
+                "private void drawLiveSettingsActionText(");
 
         assertTrue(table.contains("drawLiveSettingsActionShape(manage.x"));
         assertTrue(table.contains("drawLiveSettingsActionText(manage.x"));
+        assertTrue(shapes.contains("GdxUiButtonStyle.Tone.NEUTRAL, enabled"));
+        assertTrue(shapes.contains("GdxSettingsStyle.drawServerOnlyRow"));
+        assertTrue(shapes.contains("GdxSettingsStyle.drawLockedRow"));
+        assertTrue(text.contains(
+                "drawDialogButtonLabel(settingsActionFont"));
+        assertTrue(text.contains("GdxSettingsStyle.serverOnlyText()"));
+        assertTrue(text.contains("GdxSettingsStyle.lockedText()"));
+        assertFalse(text.contains(
+                "drawDialogButtonLabel(settingsBodyFont"));
+    }
+
+    @Test
+    void liveBlindStructureDefaultUsesTheSharedTranslatedValue() throws Exception {
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
         assertTrue(table.contains(
-                "GdxUiButtonStyle.Tone.NEUTRAL, enabled"));
-        assertFalse(table.contains(
-                "drawLiveSettingsRowShape(manage.x, manage.y"));
-        assertFalse(table.contains(
-                "drawLiveSettingsRowText(manage.x, manage.y"));
+                "gameText.translate(\"gdx.settings.value.default\")"));
+        assertFalse(table.contains("settingsGameText(\"value.default\")"));
     }
 
     @Test

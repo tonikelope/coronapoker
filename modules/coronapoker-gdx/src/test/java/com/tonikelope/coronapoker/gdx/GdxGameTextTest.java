@@ -9,8 +9,12 @@ import com.tonikelope.coronapoker.core.UpdateService;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 final class GdxGameTextTest {
@@ -44,6 +48,28 @@ final class GdxGameTextTest {
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
             assertFalse(english.getProperty(key).isBlank(), key + " empty in en");
+        }
+    }
+
+    @Test
+    void everyStaticSettingsGameTextCallTargetsAnExistingKey()
+            throws Exception {
+        Properties spanish = messages("es");
+        Properties english = messages("en");
+        Pattern call = Pattern.compile("settingsGameText\\(\\\"([^\\\"]+)\\\"");
+        for (String source : java.util.List.of("GdxFrontendScreen.java",
+                "CoronaPokerGdxTable.java")) {
+            String contents = Files.readString(Path.of("src/main/java/com/"
+                    + "tonikelope/coronapoker/gdx/" + source),
+                    StandardCharsets.UTF_8);
+            Matcher matcher = call.matcher(contents);
+            while (matcher.find()) {
+                String key = "gdx.settings.game." + matcher.group(1);
+                assertTrue(spanish.containsKey(key), source + " -> " + key
+                        + " missing in es");
+                assertTrue(english.containsKey(key), source + " -> " + key
+                        + " missing in en");
+            }
         }
     }
 

@@ -26019,12 +26019,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean enabled = access == SettingsRowAccess.EDITABLE;
         boolean hovered = enabled && contains(pointer.x, pointer.y, x, y,
                 width, GdxSettingsLayout.ROW_HEIGHT);
-        GdxUiButtonStyle.draw(shapes, x, y, width,
-                GdxSettingsLayout.ROW_HEIGHT,
-                GdxUiButtonStyle.Tone.NEUTRAL, enabled,
-                hovered ? 1f : 0f,
-                hovered && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
-                alpha);
+        switch (access) {
+            case EDITABLE, DEPENDENCY_DISABLED -> GdxUiButtonStyle.draw(
+                    shapes, x, y, width, GdxSettingsLayout.ROW_HEIGHT,
+                    GdxUiButtonStyle.Tone.NEUTRAL, enabled,
+                    hovered ? 1f : 0f,
+                    hovered && Gdx.input.isButtonPressed(Input.Buttons.LEFT),
+                    alpha);
+            case SERVER_ONLY -> GdxSettingsStyle.drawServerOnlyRow(shapes,
+                    x, y, width, GdxSettingsLayout.ROW_HEIGHT, alpha);
+            case LIVE_LOCKED -> GdxSettingsStyle.drawLockedRow(shapes,
+                    x, y, width, GdxSettingsLayout.ROW_HEIGHT, alpha);
+        }
     }
 
     private void drawCanonicalSettingsRow(float x, float y, float width,
@@ -27105,11 +27111,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawLiveSettingsActionText(float x, float y, float width,
             String label, SettingsRowAccess access, float alpha) {
-        boolean enabled = access == SettingsRowAccess.EDITABLE;
-        drawDialogButtonLabel(settingsBodyFont, uppercase(label), x, y,
+        Color color = switch (access) {
+            case EDITABLE -> GdxUiButtonStyle.labelColor(
+                    GdxUiButtonStyle.Tone.NEUTRAL, true);
+            case DEPENDENCY_DISABLED -> GdxUiButtonStyle.labelColor(
+                    GdxUiButtonStyle.Tone.NEUTRAL, false);
+            case SERVER_ONLY -> GdxSettingsStyle.serverOnlyText();
+            case LIVE_LOCKED -> GdxSettingsStyle.lockedText();
+        };
+        drawDialogButtonLabel(settingsActionFont, uppercase(label), x, y,
                 width, GdxSettingsLayout.ROW_HEIGHT,
-                GdxUiButtonStyle.labelColor(
-                        GdxUiButtonStyle.Tone.NEUTRAL, enabled), alpha);
+                color, alpha);
     }
 
     private void drawSettingsChoiceText(float x, float y, float width,
@@ -27363,7 +27375,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<DraftBlindStructure> availableDraftBlindStructures() {
         ArrayList<DraftBlindStructure> structures = new ArrayList<>();
         structures.add(new DraftBlindStructure(
-                settingsGameText("value.default"), List.of()));
+                uppercase(gameText.translate("gdx.settings.value.default")),
+                List.of()));
         for (BlindStructureCatalog.Entry entry : BlindStructureCatalog.read(
                 tableSettingsProperties())) {
             structures.add(new DraftBlindStructure(entry.name(),

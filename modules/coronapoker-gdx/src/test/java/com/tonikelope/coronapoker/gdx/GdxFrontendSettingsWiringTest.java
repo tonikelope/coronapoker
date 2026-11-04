@@ -366,7 +366,7 @@ final class GdxFrontendSettingsWiringTest {
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
                 StandardCharsets.UTF_8);
         int start = frontend.indexOf("private void drawBlindsPage()");
-        int end = frontend.indexOf("private void nextBlindStructure()", start);
+        int end = frontend.indexOf("private void nextBlindLevel()", start);
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
@@ -376,6 +376,45 @@ final class GdxFrontendSettingsWiringTest {
         assertFalse(method.contains("row.default_structure"));
         assertTrue(method.contains(
                 "settingsGameText(\"row.increase_blinds\")"));
+    }
+
+    @Test
+    void blindStructuresDecksAndFeltsUseScrollableSelectionLists()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains("Dropdown.BLIND_STRUCTURE, enabled"));
+        assertTrue(frontend.contains("Dropdown.BLIND_STRUCTURE_EDITOR"));
+        assertTrue(frontend.contains("Dropdown.DECK, true"));
+        assertTrue(frontend.contains("Dropdown.FELT, true"));
+        assertFalse(frontend.contains("adjustSettingsBlindStructure("));
+        assertFalse(frontend.contains("selectNextDeck"));
+        assertFalse(frontend.contains("selectPreviousFelt"));
+        assertTrue(frontend.contains("float thumbH = Math.max(34f,"));
+        assertTrue(table.contains(
+                "SettingsSelectionList.BLIND_STRUCTURE"));
+        assertTrue(table.contains("SettingsSelectionList.DECK"));
+        assertTrue(table.contains("SettingsSelectionList.FELT"));
+        assertTrue(table.contains("drawSettingsSelectionList(alpha)"));
+        assertFalse(table.contains("adjustTableDeck(int direction)"));
+        assertFalse(table.contains("adjustTableFelt(int direction)"));
+    }
+
+    @Test
+    void selectionListScrollbarsMapTopAndBottomConsistently() {
+        assertEquals(0, GdxFrontendScreen.dropdownScrollFromTrack(
+                280f, 0f, 300f, 40f, 12));
+        assertEquals(12, GdxFrontendScreen.dropdownScrollFromTrack(
+                20f, 0f, 300f, 40f, 12));
+        assertEquals(0, CoronaPokerGdxTable.selectionScrollFromTrack(
+                280f, 0f, 300f, 40f, 12));
+        assertEquals(12, CoronaPokerGdxTable.selectionScrollFromTrack(
+                20f, 0f, 300f, 40f, 12));
     }
 
     @Test

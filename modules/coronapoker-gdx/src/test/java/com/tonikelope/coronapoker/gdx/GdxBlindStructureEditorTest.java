@@ -93,6 +93,23 @@ final class GdxBlindStructureEditorTest {
     }
 
     @Test
+    void structureListSelectsTheRequestedEntryDirectly() {
+        Properties properties = propertiesWith("Turbo", "0.1/0.2");
+        properties.setProperty("blind_structures.count", "2");
+        properties.setProperty("blind_structure.1.name", "Deep");
+        properties.setProperty("blind_structure.1.levels", "1/2,2/4");
+        GdxBlindStructureEditor editor = new GdxBlindStructureEditor();
+        editor.begin(properties, "Turbo");
+
+        editor.selectStructureIndex(1);
+
+        assertEquals("Deep", editor.selected().name());
+        assertEquals(0, editor.selectedLevelIndex());
+        editor.selectStructureIndex(99);
+        assertEquals("Deep", editor.selected().name());
+    }
+
+    @Test
     void defaultLadderCanGrowToFiftyLevelsWithoutExceedingMoneyLimits() {
         GdxBlindStructureEditor editor = new GdxBlindStructureEditor();
         Properties properties = new Properties();

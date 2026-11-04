@@ -1206,6 +1206,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float settingsAppearanceScroll;
     private int settingsAudioPage;
     private float settingsAudioScroll;
+    private SettingsSelectionList settingsSelectionList =
+            SettingsSelectionList.NONE;
+    private int settingsSelectionScroll;
     private final Map<String, Float> settingsToggleAnimations =
             new HashMap<>();
     private final GdxToggleTransitionStore settingsToggleTransitions =
@@ -1864,6 +1867,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (uiLayer == UI_SETTINGS && amountY != 0f) {
+                if (settingsSelectionList != SettingsSelectionList.NONE) {
+                    int maximum = Math.max(0,
+                            settingsSelectionOptions().size() - 6);
+                    settingsSelectionScroll = MathUtils.clamp(
+                            settingsSelectionScroll
+                                    + (amountY > 0f ? 1 : -1),
+                            0, maximum);
+                    return true;
+                }
                 if (settingsSection()
                         == GdxSettingsContract.Section.SHORTCUTS) {
                     SettingsRowScroll scroll = settingsRowScroll();
@@ -1993,7 +2005,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return true;
                 }
             }
-            if (uiLayer == UI_SETTINGS && button == Input.Buttons.LEFT) {
+            if (uiLayer == UI_SETTINGS
+                    && settingsSelectionList == SettingsSelectionList.NONE
+                    && button == Input.Buttons.LEFT) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (settingsRowScrollTrackContains(pointer.x, pointer.y)) {
@@ -2849,6 +2863,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsGameScroll = 0f;
         settingsAppearanceScroll = 0f;
         settingsAudioScroll = 0f;
+        settingsSelectionList = SettingsSelectionList.NONE;
+        settingsSelectionScroll = 0;
         settingsDebugScroll = 0;
         shortcutScroll = 0f;
         shortcutCaptureId = null;
@@ -2931,6 +2947,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void closeTableSettings(boolean save) {
         audioPreview.stop();
+        settingsSelectionList = SettingsSelectionList.NONE;
+        settingsSelectionScroll = 0;
         settingsPerformanceTooltipDelay.clear();
         settingsLockTooltipDelay.clear();
         boolean restartNotice = save && presentationSettings != null
@@ -6983,6 +7001,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
                 primaryPointer.capturePressedGesture();
                 if (uiLayer == UI_SETTINGS
+                        && settingsSelectionList == SettingsSelectionList.NONE
                         && beginPointerRepeat(RepeatOwner.SETTINGS)) {
                     return;
                 }
@@ -7026,7 +7045,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case UI_CARD_VIEWER -> closeCardViewer();
             case UI_SCREENSHOTS -> closeScreenshotViewer();
             case UI_SETTINGS -> {
-                if (voiceNotesOpen) {
+                if (settingsSelectionList != SettingsSelectionList.NONE) {
+                    settingsSelectionList = SettingsSelectionList.NONE;
+                } else if (voiceNotesOpen) {
                     if (voiceNoteDeleteConfirmation != null
                             || voiceNotesPurgeConfirmation) {
                         voiceNoteDeleteConfirmation = null;
@@ -21032,6 +21053,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             handleTableVoiceNotesClick(x, y);
             return;
         }
+        if (settingsSelectionList != SettingsSelectionList.NONE) {
+            handleSettingsSelectionListClick(x, y);
+            return;
+        }
         if (recoveryStopBarrier != null) {
             // Swing's timed stop notice is modal. The retired table cannot
             // accept actions while the client waits to reconnect.
@@ -21210,14 +21235,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (!rowViewport.contains(x, y)
                             || !bounds.contains(x, y)) continue;
                     if (row == 0) {
-                        adjustTableDeck(settingsStepperDirection(x,
-                                contentX, rowW));
+                        openSettingsSelectionList(SettingsSelectionList.DECK);
                     } else if (row == 1 && presentationSettings != null) {
                         adjustTableCardBack(settingsStepperDirection(x,
                                 contentX, rowW));
                     } else if (row == 2 && presentationSettings != null) {
-                        adjustTableFelt(settingsStepperDirection(x,
-                                contentX, rowW));
+                        openSettingsSelectionList(SettingsSelectionList.FELT);
                     } else if (row == 3) {
                         int direction = settingsStepperDirection(x, contentX,
                                 rowW);
@@ -21455,8 +21478,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle straddle = settingsGameRowBounds(contentX, rowW, rows,
                     0, 10, GdxSettingsContract.BLIND_STRADDLE_ROW);
             if (structure.contains(x, y)) {
-                selectDraftBlindStructure(settingsStepperDirection(x,
-                        structure.x, structure.width));
+                openSettingsSelectionList(
+                        SettingsSelectionList.BLIND_STRUCTURE);
                 return;
             }
             if (level.contains(x, y)) {
@@ -21829,24 +21852,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void adjustTableDeck(int direction) {
-        if (presentationSettings == null || direction == 0) return;
-        List<String> decks = presentationSettings.availableDecks();
-        if (decks.isEmpty()) return;
-        int current = decks.indexOf(liveDeck);
-        int target = current < 0 ? 0 : Math.floorMod(current
-                + Integer.signum(direction), decks.size());
-        String selected = presentationSettings.selectDeck(decks.get(target),
-                false);
-        if (!selected.equals(liveDeck)) {
-            liveDeck = selected;
-            if (tablePreference("sonido_efectos", true)
-                    && tablePreference("sonido_destape", true)) {
-                play(uncoverSound, 0.92f, 1f);
-            }
-        }
-    }
-
     private void adjustTableCardBack(int direction) {
         if (presentationSettings == null || direction == 0) return;
         String previous = presentationSettings.cardBack();
@@ -21858,14 +21863,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && tablePreference("sonido_destape", true)) {
             play(uncoverSound, 0.92f, 1f);
         }
-    }
-
-    private void adjustTableFelt(int direction) {
-        if (presentationSettings == null || direction == 0) return;
-        String selected = direction < 0
-                ? presentationSettings.selectPreviousFelt(false)
-                : presentationSettings.selectNextFelt(false);
-        replaceFeltTexture(selected, true);
     }
 
     private GdxSettingsContract.Section settingsSection() {
@@ -24557,8 +24554,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (settingsContentPage() == 9) {
             drawSettingsDebugTextLayer(contentX, firstRowY, contentW, alpha);
         }
-        drawSettingsTooltip(contentX, firstRowY, contentW, alpha);
-        drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
+        if (settingsSelectionList == SettingsSelectionList.NONE) {
+            drawSettingsTooltip(contentX, firstRowY, contentW, alpha);
+            drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
+        } else {
+            drawSettingsSelectionList(alpha);
+        }
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
     }
 
@@ -24732,6 +24733,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         DEPENDENCY_DISABLED,
         SERVER_ONLY,
         LIVE_LOCKED
+    }
+
+    private enum SettingsSelectionList {
+        NONE,
+        BLIND_STRUCTURE,
+        DECK,
+        FELT
     }
 
     private SettingsRowAccess liveGameRuleAccess() {
@@ -25559,10 +25567,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float rowY = rows.rowY(row);
                     if (row < GdxSettingsContract
                             .APPEARANCE_PRIMARY_ROW_COUNT) {
-                        boolean enabled = row != 1 && row != 2
+                        boolean enabled = row == 3
                                 || presentationSettings != null;
-                        drawSettingsStepperShape(x, rowY, width, enabled,
-                                alpha);
+                        if (row == 0 || row == 2) {
+                            drawSettingsDropdownShape(x, rowY, width,
+                                    enabled, alpha);
+                        } else {
+                            drawSettingsStepperShape(x, rowY, width, enabled,
+                                    alpha);
+                        }
                     } else {
                         GdxSettingsContract.ToggleOption option =
                                 GdxSettingsContract.appearanceTablePage()
@@ -25745,7 +25758,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.BLIND_ANTE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
                     10, GdxSettingsContract.BLIND_STRADDLE_ROW);
-            drawLiveSettingsStepperShape(structure.x, structure.y,
+            drawLiveSettingsDropdownShape(structure.x, structure.y,
                     structure.width, access, alpha);
             drawLiveSettingsStepperShape(level.x, level.y, level.width,
                     access, alpha);
@@ -26087,6 +26100,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 centerX - 6f, centerY + 10f, 3f);
     }
 
+    private void drawSettingsDropdownShape(float x, float y, float width,
+            boolean enabled, float alpha) {
+        drawCanonicalSettingsRow(x, y, width,
+                GdxSettingsLayout.ROW_HEIGHT, enabled, alpha);
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        Color color = enabled ? POT_GOLD : SETTINGS_DISABLED;
+        drawSettingsDropdownChevron(row.arrow(), color, alpha);
+    }
+
+    private void drawLiveSettingsDropdownShape(float x, float y,
+            float width, SettingsRowAccess access, float alpha) {
+        drawLiveSettingsRowShape(x, y, width, access, alpha);
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
+                x, y, width, GdxSettingsLayout.ROW_HEIGHT);
+        drawSettingsDropdownChevron(row.arrow(),
+                settingsAccessLabelColor(access), alpha);
+    }
+
+    private void drawSettingsDropdownChevron(Rectangle bounds, Color color,
+            float alpha) {
+        shapes.setColor(color.r, color.g, color.b, alpha);
+        float centerX = bounds.x + bounds.width / 2f;
+        float centerY = bounds.y + bounds.height / 2f;
+        shapes.rectLine(centerX - 10f, centerY + 6f,
+                centerX, centerY - 5f, 3f);
+        shapes.rectLine(centerX, centerY - 5f,
+                centerX + 10f, centerY + 6f, 3f);
+    }
+
     private void drawSettingsStepperShape(float x, float y, float width,
             float alpha) {
         drawSettingsStepperShape(x, y, width, true, alpha);
@@ -26352,7 +26395,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     float rowY = rows.rowY(row);
                     if (row == 0) {
-                        drawSettingsStepperText(x, rowY, width,
+                        drawSettingsChoiceText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.deck")),
                                 GdxSettingsContract.markDefault(
@@ -26363,7 +26406,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         presentationSettings,
                                                         liveDeck)),
                                         "goliat".equalsIgnoreCase(liveDeck)),
-                                alpha);
+                                presentationSettings != null, alpha);
                     } else if (row == 1) {
                         drawSettingsStepperText(x, rowY, width,
                                 uppercase(gameText.translate(
@@ -26388,7 +26431,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                                 .cardBack())),
                                 presentationSettings != null, alpha);
                     } else if (row == 2) {
-                        drawSettingsStepperText(x, rowY, width,
+                        drawSettingsChoiceText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.felt")),
                                 GdxSettingsContract.markDefault(
@@ -26681,7 +26724,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.BLIND_ANTE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
                     10, GdxSettingsContract.BLIND_STRADDLE_ROW);
-            drawLiveSettingsStepperText(structure.x, structure.y,
+            drawLiveSettingsDropdownText(structure.x, structure.y,
                     structure.width,
                     settingsGameText("row.structure"),
                     draftBlindStructureLabel(), access, alpha);
@@ -27139,6 +27182,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 valueColor, alpha);
     }
 
+    private void drawLiveSettingsDropdownText(float x, float y, float width,
+            String label, String value, SettingsRowAccess access,
+            float alpha) {
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(x, y,
+                width, GdxSettingsLayout.ROW_HEIGHT);
+        Color color = settingsAccessLabelColor(access);
+        drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
+                GdxSettingsLayout.rowTextBaseline(y), row.label().width,
+                color, alpha);
+        drawFittedCentered(settingsBodyFont, value,
+                row.value().x + row.value().width / 2f,
+                GdxSettingsLayout.rowTextBaseline(y), row.value().width,
+                color, alpha);
+    }
+
     private void drawSettingsToggleText(float x, float y, float width,
             String label, String value, boolean enabled, float alpha) {
         drawSettingsToggleText(x, y, width, label, value, enabled, alpha,
@@ -27361,6 +27419,249 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 autoCallMax, formatAmount(autoCallMax), gameText);
     }
 
+    private void openSettingsSelectionList(SettingsSelectionList target) {
+        settingsSelectionList = Objects.requireNonNull(target, "target");
+        List<String> options = settingsSelectionOptions();
+        if (target == SettingsSelectionList.NONE || options.isEmpty()) {
+            settingsSelectionList = SettingsSelectionList.NONE;
+            return;
+        }
+        settingsSelectionScroll = MathUtils.clamp(
+                selectedSettingsSelectionOption() - 2, 0,
+                Math.max(0, options.size() - 6));
+    }
+
+    private List<String> settingsSelectionOptions() {
+        return switch (settingsSelectionList) {
+            case BLIND_STRUCTURE -> availableDraftBlindStructures().stream()
+                    .map(DraftBlindStructure::label).toList();
+            case DECK -> presentationSettings == null ? List.of()
+                    : presentationSettings.availableDecks().stream()
+                            .map(deck -> GdxAppearanceOptions.deckLabel(deck,
+                                    gameText)).toList();
+            case FELT -> presentationSettings == null ? List.of()
+                    : GdxGamePresentationSettings.FELTS.stream()
+                            .map(felt -> GdxAppearanceOptions.feltLabel(felt,
+                                    gameText)).toList();
+            case NONE -> List.of();
+        };
+    }
+
+    private int selectedSettingsSelectionOption() {
+        return switch (settingsSelectionList) {
+            case BLIND_STRUCTURE -> draftBlindStructureIndex(
+                    availableDraftBlindStructures());
+            case DECK -> presentationSettings == null ? -1
+                    : presentationSettings.availableDecks().indexOf(liveDeck);
+            case FELT -> presentationSettings == null ? -1
+                    : GdxGamePresentationSettings.FELTS.indexOf(
+                            presentationSettings.felt());
+            case NONE -> -1;
+        };
+    }
+
+    private Rectangle settingsSelectionRowBounds() {
+        GdxSettingsLayout.Frame frame = GdxSettingsLayout.frame(
+                viewport.getWorldWidth(), viewport.getWorldHeight(),
+                settingsSession.sections().size(),
+                settingsSubpageLabels().size());
+        Rectangle content = frame.content();
+        float x = content.x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float width = content.width
+                - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        return switch (settingsSelectionList) {
+            case BLIND_STRUCTURE -> {
+                if (settingsContentPage() != 3) yield null;
+                GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
+                        frame.firstRowY(), 0, 10, settingsGameScroll);
+                yield settingsGameRowBounds(x, width, rows, 0, 10,
+                        GdxSettingsContract.BLIND_STRUCTURE_ROW);
+            }
+            case DECK, FELT -> {
+                if (settingsContentPage() != 1
+                        || settingsAppearancePage != 0) yield null;
+                GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
+                        frame.firstRowY(),
+                        GdxSettingsContract.appearanceTableRowCount(),
+                        settingsAppearanceScroll);
+                int row = settingsSelectionList == SettingsSelectionList.DECK
+                        ? 0 : 2;
+                yield new Rectangle(x, rows.rowY(row), width,
+                        GdxSettingsLayout.ROW_HEIGHT);
+            }
+            case NONE -> null;
+        };
+    }
+
+    private SettingsSelectionLayout settingsSelectionLayout(int optionCount) {
+        Rectangle rowBounds = settingsSelectionRowBounds();
+        if (rowBounds == null || optionCount <= 0) return null;
+        GdxSettingsLayout.ChoiceRow choice = GdxSettingsLayout.choiceRow(
+                rowBounds.x, rowBounds.y, rowBounds.width,
+                rowBounds.height);
+        int visible = Math.min(6, optionCount);
+        int maximum = Math.max(0, optionCount - visible);
+        float rowHeight = 56f;
+        float listHeight = visible * rowHeight;
+        float top = MathUtils.clamp(rowBounds.y + rowBounds.height,
+                listHeight + 20f, viewport.getWorldHeight() - 20f);
+        float x = choice.value().x;
+        float width = choice.arrow().x + choice.arrow().width - x;
+        float y = top - listHeight;
+        Rectangle track = maximum > 0
+                ? new Rectangle(x + width - 15f, y + 8f, 7f,
+                        listHeight - 16f)
+                : new Rectangle();
+        float thumbHeight = maximum > 0
+                ? Math.max(34f, track.height * visible / optionCount)
+                : 0f;
+        float thumbY = maximum > 0
+                ? track.y + (track.height - thumbHeight)
+                        * (1f - settingsSelectionScroll / (float) maximum)
+                : 0f;
+        return new SettingsSelectionLayout(x, y, width, top, rowHeight,
+                visible, maximum, track, thumbY, thumbHeight);
+    }
+
+    private void drawSettingsSelectionList(float alpha) {
+        List<String> options = settingsSelectionOptions();
+        SettingsSelectionLayout layout = settingsSelectionLayout(
+                options.size());
+        if (layout == null) {
+            settingsSelectionList = SettingsSelectionList.NONE;
+            return;
+        }
+        settingsSelectionScroll = MathUtils.clamp(settingsSelectionScroll,
+                0, layout.maximum());
+        int selected = selectedSettingsSelectionOption();
+        boolean scrollable = layout.maximum() > 0;
+        float rowRightInset = scrollable ? 24f : 6f;
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapes.setColor(CYAN_DARK.r, CYAN_DARK.g, CYAN_DARK.b, alpha);
+        roundedRect(layout.x(), layout.y(), layout.width(),
+                layout.visible() * layout.rowHeight(), 8f);
+        shapes.setColor(0.027f, 0.071f, 0.129f, alpha);
+        roundedRect(layout.x() + 2f, layout.y() + 2f,
+                layout.width() - 4f,
+                layout.visible() * layout.rowHeight() - 4f, 7f);
+        for (int row = 0; row < layout.visible(); row++) {
+            int option = settingsSelectionScroll + row;
+            float rowY = layout.top() - (row + 1) * layout.rowHeight();
+            boolean active = option == selected;
+            boolean over = contains(pointer.x, pointer.y,
+                    layout.x() + 6f, rowY + 3f,
+                    layout.width() - 6f - rowRightInset,
+                    layout.rowHeight() - 6f);
+            Color fill = active ? new Color(0x153a52ff)
+                    : over ? new Color(0x10283cff)
+                            : new Color(0x091624ff);
+            shapes.setColor(fill.r, fill.g, fill.b, alpha);
+            roundedRect(layout.x() + 6f, rowY + 3f,
+                    layout.width() - 6f - rowRightInset,
+                    layout.rowHeight() - 6f, 6f);
+            if (active) {
+                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, alpha);
+                roundedRect(layout.x() + 12f, rowY + 12f, 4f,
+                        layout.rowHeight() - 24f, 2f);
+            }
+        }
+        if (scrollable) {
+            shapes.setColor(0.11f, 0.20f, 0.31f, alpha);
+            roundedRect(layout.track().x, layout.track().y,
+                    layout.track().width, layout.track().height, 3.5f);
+            shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
+            roundedRect(layout.track().x, layout.thumbY(),
+                    layout.track().width, layout.thumbHeight(), 3.5f);
+        }
+        shapes.end();
+        batch.begin();
+        for (int row = 0; row < layout.visible(); row++) {
+            int option = settingsSelectionScroll + row;
+            float rowY = layout.top() - (row + 1) * layout.rowHeight();
+            drawFittedLeft(settingsSmallFont, options.get(option),
+                    layout.x() + 28f, rowY + 8f,
+                    layout.width() - 34f - rowRightInset,
+                    option == selected ? POT_GOLD : Color.WHITE, alpha);
+        }
+        batch.end();
+    }
+
+    private void handleSettingsSelectionListClick(float x, float y) {
+        List<String> options = settingsSelectionOptions();
+        SettingsSelectionLayout layout = settingsSelectionLayout(
+                options.size());
+        if (layout == null) {
+            settingsSelectionList = SettingsSelectionList.NONE;
+            return;
+        }
+        if (layout.maximum() > 0
+                && contains(x, y, layout.track().x - 8f,
+                        layout.track().y, layout.track().width + 16f,
+                        layout.track().height)) {
+            settingsSelectionScroll = selectionScrollFromTrack(y,
+                    layout.track().y, layout.track().height,
+                    layout.thumbHeight(), layout.maximum());
+            return;
+        }
+        float rowRightInset = layout.maximum() > 0 ? 24f : 6f;
+        for (int row = 0; row < layout.visible(); row++) {
+            int option = settingsSelectionScroll + row;
+            float rowY = layout.top() - (row + 1) * layout.rowHeight();
+            if (contains(x, y, layout.x() + 6f, rowY + 3f,
+                    layout.width() - 6f - rowRightInset,
+                    layout.rowHeight() - 6f)) {
+                selectSettingsSelectionOption(option);
+                settingsSelectionList = SettingsSelectionList.NONE;
+                return;
+            }
+        }
+        settingsSelectionList = SettingsSelectionList.NONE;
+    }
+
+    static int selectionScrollFromTrack(float pointerY, float trackY,
+            float trackHeight, float thumbHeight, int maximum) {
+        if (maximum <= 0) return 0;
+        float travel = Math.max(1f, trackHeight - thumbHeight);
+        float bottomRatio = MathUtils.clamp(
+                (pointerY - trackY - thumbHeight / 2f) / travel, 0f, 1f);
+        return Math.round((1f - bottomRatio) * maximum);
+    }
+
+    private void selectSettingsSelectionOption(int option) {
+        switch (settingsSelectionList) {
+            case BLIND_STRUCTURE -> selectDraftBlindStructureOption(option);
+            case DECK -> selectTableDeckOption(option);
+            case FELT -> selectTableFeltOption(option);
+            case NONE -> { }
+        }
+    }
+
+    private void selectTableDeckOption(int option) {
+        if (presentationSettings == null) return;
+        List<String> decks = presentationSettings.availableDecks();
+        if (option < 0 || option >= decks.size()) return;
+        String selected = presentationSettings.selectDeck(decks.get(option),
+                false);
+        if (!selected.equals(liveDeck)) {
+            liveDeck = selected;
+            if (tablePreference("sonido_efectos", true)
+                    && tablePreference("sonido_destape", true)) {
+                play(uncoverSound, 0.92f, 1f);
+            }
+        }
+    }
+
+    private void selectTableFeltOption(int option) {
+        if (presentationSettings == null || option < 0
+                || option >= GdxGamePresentationSettings.FELTS.size()) {
+            return;
+        }
+        String selected = presentationSettings.selectFelt(
+                GdxGamePresentationSettings.FELTS.get(option), false);
+        replaceFeltTexture(selected, true);
+    }
+
     private List<GameConfigCodecV1.BlindLevel> draftBlindLevels() {
         if (liveSettingsDraft == null) return List.of();
         if (!liveSettingsDraft.blindStructure().isEmpty()) {
@@ -27416,15 +27717,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return -1;
     }
 
-    private void selectDraftBlindStructure(int direction) {
-        if (liveSettingsDraft == null || direction == 0) return;
+    private void selectDraftBlindStructureOption(int selectedIndex) {
+        if (liveSettingsDraft == null) return;
         List<DraftBlindStructure> structures = availableDraftBlindStructures();
-        if (structures.isEmpty()) return;
+        if (selectedIndex < 0 || selectedIndex >= structures.size()) return;
         int oldLevel = Math.max(0, draftBlindLevelIndex());
-        int current = draftBlindStructureIndex(structures);
-        int selectedIndex = current < 0 ? 0
-                : Math.floorMod(current + Integer.signum(direction),
-                        structures.size());
         DraftBlindStructure selected = structures.get(selectedIndex);
         List<GameConfigCodecV1.BlindLevel> effective = selected.levels().isEmpty()
                 ? Arrays.stream(BlindStructureRules.defaultLevels())
@@ -27586,6 +27883,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             label = label == null || label.isBlank() ? "SIN NOMBRE" : label;
             levels = List.copyOf(levels);
         }
+    }
+
+    private record SettingsSelectionLayout(float x, float y, float width,
+            float top, float rowHeight, int visible, int maximum,
+            Rectangle track, float thumbY, float thumbHeight) {
     }
 
     private void drawSettingsShortcutText(float x, float y, float width,

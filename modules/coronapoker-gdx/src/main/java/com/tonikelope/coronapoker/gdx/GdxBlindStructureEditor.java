@@ -62,14 +62,9 @@ final class GdxBlindStructureEditor {
         return dirty;
     }
 
-    void selectStructure(int direction) {
-        if (entries.isEmpty()) {
-            selectedStructure = -1;
-            selectedLevel = 0;
-            return;
-        }
-        selectedStructure = adjacent(selectedStructure, entries.size(),
-                direction);
+    void selectStructureIndex(int index) {
+        if (index < 0 || index >= entries.size()) return;
+        selectedStructure = index;
         selectedLevel = 0;
     }
 

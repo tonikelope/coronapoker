@@ -19,7 +19,7 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
-<img width="2560" height="1440" alt="imagen" src="https://github.com/user-attachments/assets/c080c9bd-8bc6-489c-9d0d-58908a9b1246" />
+<img width="2560" height="1440" alt="CoronaPoker GDX table during a showdown" src="docs/screenshots/coronapoker-table-gdx.png" />
 
 
 
@@ -56,7 +56,7 @@ Peer-hosted, with no external central game server, accounts or third-party hand 
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
 - **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. Hand creation commits the hand row and its complete unique balance roster atomically and publishes the generated id only after commit. Normal close and MISDEAL likewise commit metadata and the exact final/refunded roster atomically. Any failed row rolls the operation back and prevents advancement. An interrupted hand keeps its durable hand number. If showdown had already completed, recovery advances to the following hand number on both the table and the game log.
 - **Live hot join**: enabled by default and adjustable by the host while the table is running. A human who connects after a hand has started enters the real table as **WARMING UP**, receives the authoritative current public scene and the same ordered public events as everyone else, but gets no private cards and cannot act in that hand. The seat becomes playable at the next hand boundary. Authenticated exit and reentry are supported, and a returning identity keeps its stack while never resuming a hand it already left.
-- **Recent-server list**: persisted history of past tables. Browse it with the up and down arrow keys in the Join dialog to reconnect to anyone you've played with before.
+- **Recent-server history**: past table addresses are persisted and exposed through a scrollable drop-down list in the Join dialog, so any saved host and port can be selected directly.
 - **Per-peer link telemetry**: host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
 - **Host-managed temporary network blocks**: repeated hostile or rejected pre-authentication attempts from one address are quarantined for a limited time. The host can inspect active blocks, their reason and remaining time from the waiting room or the in-game quick bar, then remove a block immediately if it belongs to a legitimate client. Normal per-address capacity control does not create a block by itself, so several invited players behind the same router remain supported.
 - **Anti-flood chat**: 0.5-second minimum between chat messages (client-side throttle on the sender's input).
@@ -83,7 +83,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable. If you also show your hole cards, hovering your displayed hand highlights the resulting Rabbit combination regardless of which action came first. |
 | **Run It Twice** | On a multi-way all-in, the involved players vote to deal the remaining board twice and split each (side)pot between the two run-outs. Unanimous (a single NORMAL vote, or a vote timeout, cancels it), host-toggleable. |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
-| **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, browsed with up/down keys |
+| **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, with Previous/Next controls and keyboard navigation |
 
 ### 📜 Robert's Rules of Poker compliance
 
@@ -196,13 +196,16 @@ can safely overlay the supported presentation assets:
 
 ## 🖥️ UX & display
 
-- **Four table layouts** (Normal, Compact, Super-Compact and Ultra-Compact) to fit anything from a 13" laptop to a 4K monitor.
-- **Global zoom** with keyboard shortcuts and an optional auto-zoom that fits the table to the window.
+- **One responsive GDX table layout** that scales and extends with the available window while preserving the same controls and presentation model.
+- **Three display modes**: exclusive fullscreen, borderless fullscreen (the default) and windowed, with optional automatic fullscreen when a table starts.
+- **Appearance controls** for the deck, card back, felt and table-light level, with live previews where applicable.
+- **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering.
+- **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only.
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.
-- **Cool animations** (optional).
+- **Optional table, card and cinematic animations**, with configurable animation behaviour.
 - **Action confirmation**: optional safety prompt before fold / all-in / raise.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.
-- **Keyboard shortcuts** for every common action with a built-in reference dialog.
+- **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.
 
 ---
 

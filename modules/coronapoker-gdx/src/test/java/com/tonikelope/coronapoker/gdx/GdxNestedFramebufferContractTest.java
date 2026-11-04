@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
@@ -112,8 +113,13 @@ final class GdxNestedFramebufferContractTest {
         for (GdxTableDialog.Kind kind : GdxTableDialog.Kind.values()) {
             GdxTableDialog dialog = new GdxTableDialog(kind, "TEST",
                     GameDialogSink.Icon.NONE, 720, 0);
-            assertTrue(CoronaPokerGdxTable.blocksTableUtilities(dialog),
-                    () -> kind + " must block utilities when used as a foreground dialog");
+            if (kind == GdxTableDialog.Kind.AUTO_ACTION) {
+                assertFalse(CoronaPokerGdxTable.blocksTableUtilities(dialog),
+                        "AUTO_ACTION uses independent state and must not block utilities");
+            } else {
+                assertTrue(CoronaPokerGdxTable.blocksTableUtilities(dialog),
+                        () -> kind + " must block utilities when used as a foreground dialog");
+            }
         }
 
         String table = Files.readString(source("CoronaPokerGdxTable.java"));

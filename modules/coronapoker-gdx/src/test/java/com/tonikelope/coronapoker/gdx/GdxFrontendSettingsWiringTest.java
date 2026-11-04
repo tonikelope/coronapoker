@@ -256,7 +256,7 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
-    void botSettingsRowsUseOneUniformVerticalRhythm() throws Exception {
+    void botSettingsRowsUseOneBalancedVerticalRhythm() throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
                 StandardCharsets.UTF_8);
@@ -265,14 +265,57 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
-        assertTrue(method.contains("float botOptionTopY = 507f;"));
-        assertTrue(method.contains("float botOptionStride = 105f;"));
+        assertTrue(method.contains("float botOptionTopY = 505f;"));
+        assertTrue(method.contains("float botOptionStride = 97f;"));
         assertTrue(method.contains(
                 "float customBotsOnlyY = botOptionTopY - botOptionStride;"));
         assertTrue(method.contains(
                 "float botRebuyY = botOptionTopY - botOptionStride * 2f;"));
         assertTrue(method.contains(
                 "float botBalanceY = botOptionTopY - botOptionStride * 3f;"));
+    }
+
+    @Test
+    void gameProfileUsesTheSameCompactPanelWidthAsBots() throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int profileStart = frontend.indexOf("private void drawProfilePage()");
+        int profileEnd = frontend.indexOf(
+                "private String selectedPresetLabel()", profileStart);
+        int botsStart = frontend.indexOf("private void drawBotsPage()");
+        int botsEnd = frontend.indexOf("private void nextBotDifficulty()",
+                botsStart);
+        assertTrue(profileStart >= 0 && profileEnd > profileStart);
+        assertTrue(botsStart >= 0 && botsEnd > botsStart);
+        String profile = frontend.substring(profileStart, profileEnd);
+        String bots = frontend.substring(botsStart, botsEnd);
+
+        String compactPanel = "panel(520f, 185f, 1230f, 625f,";
+        assertTrue(profile.contains(compactPanel));
+        assertTrue(bots.contains(compactPanel));
+        assertTrue(profile.contains("dropdownChoice(580f, 500f, 1110f"));
+        assertTrue(profile.contains("button(580f, 350f, 530f, 70f"));
+        assertTrue(profile.contains("button(1160f, 350f, 530f, 70f"));
+    }
+
+    @Test
+    void blindsPageUsesOneWideStructureActionAndUnifiedLabels()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        int start = frontend.indexOf("private void drawBlindsPage()");
+        int end = frontend.indexOf("private void nextBlindStructure()", start);
+        assertTrue(start >= 0 && end > start);
+        String method = frontend.substring(start, end);
+
+        assertTrue(method.contains("button(470f, 320f, 590f, 70f,"));
+        assertTrue(method.contains(
+                "settingsGameText(\"row.manage_structures\")"));
+        assertFalse(method.contains("row.default_structure"));
+        assertTrue(method.contains(
+                "settingsGameText(\"row.increase_blinds\")"));
     }
 
     @Test

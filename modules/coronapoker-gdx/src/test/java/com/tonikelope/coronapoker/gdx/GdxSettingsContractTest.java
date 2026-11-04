@@ -294,6 +294,14 @@ final class GdxSettingsContractTest {
     @Test
     void gameParentBlocksAreSharedAcrossEverySettingsEntryPoint() {
         assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 2, 0),
+                new GdxSettingsContract.RowGroup(3, 7, 0)),
+                GdxSettingsContract.gameGroups(0));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(2, 3, 0),
+                new GdxSettingsContract.RowGroup(4, 7, 0)),
+                GdxSettingsContract.gameGroups(1));
+        assertEquals(java.util.List.of(
                 new GdxSettingsContract.RowGroup(2, 4, 0)),
                 GdxSettingsContract.gameGroups(2));
         assertEquals(java.util.List.of(
@@ -304,7 +312,7 @@ final class GdxSettingsContractTest {
 
     @Test
     void bothSettingsEntryPointsUseTheSameSubpageCatalogueBuilder() {
-        assertEquals(java.util.List.of("MESA", "GRÁFICOS", "ANIMACIONES"),
+        assertEquals(java.util.List.of("MESA", "ANIMACIONES", "GRÁFICOS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5));
@@ -326,7 +334,7 @@ final class GdxSettingsContractTest {
     @Test
     void settingsContentAndSubpagesFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
-        assertEquals(java.util.List.of("TABLE", "GRAPHICS", "ANIMATIONS"),
+        assertEquals(java.util.List.of("TABLE", "ANIMATIONS", "GRAPHICS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5, text));
@@ -420,7 +428,7 @@ final class GdxSettingsContractTest {
                 "audio_block_voice_messages", "audio_play_own_voice",
                 "audio_block_tts_local")));
         assertEquals(java.util.List.of("GENERAL", "MÚSICA", "EFECTOS",
-                "SONIDOS DE COÑA", "NOTAS Y CHAT DE VOZ", "DISPOSITIVOS"),
+                "SONIDOS DE COÑA", "NOTAS Y CHAT DE VOZ"),
                 GdxSettingsContract.AUDIO_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("sonido_vista_compacta"));
@@ -465,23 +473,33 @@ final class GdxSettingsContractTest {
                                 page))
                         .findFirst().orElseThrow();
 
-        assertEquals(voice.options().size() + 2,
-                GdxSettingsContract.audioRowCount(voice));
-        assertEquals(voice.options().size(),
-                GdxSettingsContract.voiceRetentionRow(voice));
-        assertEquals(voice.options().size() + 1,
-                GdxSettingsContract.voiceActionsRow(voice));
+        assertEquals(7, GdxSettingsContract.audioRowCount(voice));
+        assertEquals(3, GdxSettingsContract.voiceRetentionRow(voice));
+        assertEquals(4, GdxSettingsContract.voiceActionsRow(voice));
+        assertEquals(5, GdxSettingsContract.audioOptionRow(voice, 3));
+        assertEquals(6, GdxSettingsContract.audioOptionRow(voice, 4));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(0, 4, 0),
+                new GdxSettingsContract.RowGroup(5, 6, 0)),
+                GdxSettingsContract.audioGroups(voice));
 
-        assertEquals(3, GdxSettingsContract.audioRowCount(devices));
-        assertEquals(2, GdxSettingsContract.audioLeadingRows(devices));
-        assertEquals(2, GdxSettingsContract.audioOptionRow(devices, 0));
+        assertEquals(6, GdxSettingsContract.audioRowCount(devices));
+        assertEquals(0, GdxSettingsContract.audioLeadingRows(devices));
+        assertEquals(2, GdxSettingsContract.audioOutputDeviceRow(devices));
+        assertEquals(4, GdxSettingsContract.audioCaptureDeviceRow(devices));
+        assertEquals(0, GdxSettingsContract.audioOptionRow(devices, 0));
+        assertEquals(3, GdxSettingsContract.audioOptionRow(devices, 1));
+        assertEquals(5, GdxSettingsContract.audioOptionRow(devices, 2));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(3, 5, 0)),
+                GdxSettingsContract.audioGroups(devices));
         assertEquals(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
-                devices.options().get(0).key());
+                devices.options().get(2).key());
 
         GdxSettingsContract.TogglePage general =
                 GdxSettingsContract.AUDIO_PAGES.get(0);
         assertTrue(GdxSettingsContract.hasMasterVolume(general));
-        assertEquals(2, GdxSettingsContract.audioRowCount(general));
+        assertEquals(6, GdxSettingsContract.audioRowCount(general));
         assertEquals(0, GdxSettingsContract.audioOptionRow(general, 0));
         assertEquals(1, GdxSettingsContract.masterVolumeRow(general));
     }
@@ -806,6 +824,39 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void microphoneDisablesItsChildrenWithoutLosingTheirStoredValues() {
+        GdxSettingsContract.TogglePage page =
+                GdxSettingsContract.AUDIO_PAGES.get(0);
+        GdxSettingsContract.ToggleOption microphone = page.options().stream()
+                .filter(option -> "audio_mic_enabled".equals(option.key()))
+                .findFirst().orElseThrow();
+        GdxSettingsContract.ToggleOption autoGain = page.options().stream()
+                .filter(option -> GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY
+                        .equals(option.key()))
+                .findFirst().orElseThrow();
+        Properties properties = new Properties();
+        properties.setProperty("audio_mic_enabled", "false");
+        properties.setProperty(GdxSettingsContract.AUDIO_MIC_AUTO_GAIN_KEY,
+                "true");
+
+        assertTrue(GdxSettingsContract.enabled(microphone, properties, true));
+        assertFalse(GdxSettingsContract.microphoneEnabled(properties));
+        assertEquals("audio_mic_enabled", autoGain.parentKey());
+        assertFalse(GdxSettingsContract.enabled(autoGain, properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(autoGain, properties,
+                true), "disabling the parent must preserve the child value");
+
+        properties.setProperty("audio_mic_enabled", "true");
+        assertTrue(GdxSettingsContract.microphoneEnabled(properties));
+        assertTrue(GdxSettingsContract.enabled(autoGain, properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(autoGain, properties,
+                true));
+        assertEquals(java.util.List.of(
+                new GdxSettingsContract.RowGroup(3, 5, 0)),
+                GdxSettingsContract.audioGroups(page));
+    }
+
+    @Test
     void audioRestoreAndDirtyStateAreScopedToTheVisibleSubsection() {
         Properties properties = new Properties();
         properties.setProperty("master_volume", "0.25");
@@ -908,18 +959,18 @@ final class GdxSettingsContractTest {
         properties.setProperty("gdx_fps_limit", "240");
         properties.setProperty("animaciones", "false");
 
-        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1,
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 2,
                 true);
 
         assertEquals("goliat4", properties.getProperty("baraja"));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
         assertEquals("false", properties.getProperty("animaciones"));
         assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties,
-                1, true));
+                2, true));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
                 0, true));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties,
-                2, true));
+                1, true));
     }
 
     @Test

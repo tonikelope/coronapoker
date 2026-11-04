@@ -39,7 +39,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(731, spanishKeys.size(),
+        assertEquals(734, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -57,9 +57,9 @@ final class GdxGameTextTest {
         assertEquals("English", text.translate("gdx.language_name"));
         assertEquals("Increase blinds",
                 text.translate("gdx.settings.game.row.increase_blinds"));
-        assertEquals("Minimum range (BB)",
+        assertEquals("Minimum buy-in range",
                 text.translate("gdx.settings.game.row.minimum_range_bb"));
-        assertEquals("Maximum range (BB)",
+        assertEquals("Maximum buy-in range",
                 text.translate("gdx.settings.game.row.maximum_range_bb"));
         assertEquals("Maximum rebuys",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
@@ -177,7 +177,7 @@ final class GdxGameTextTest {
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
         assertEquals("Aumentar ciegas",
                 text.translate("gdx.settings.game.row.increase_blinds"));
-        assertEquals("Rango mínimo (CG)",
+        assertEquals("Rango mínimo de compra",
                 text.translate("gdx.settings.game.row.minimum_range_bb"));
         assertEquals("Máximo de recompras",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
@@ -247,6 +247,19 @@ final class GdxGameTextTest {
         assertEquals("Sets the difficulty of standard bots. Custom bots "
                 + "keep the difficulty configured individually in the Bot "
                 + "Manager.", english.translate("tooltip.cfg.bots"));
+    }
+
+    @Test
+    void lobbyPasswordPromptDoesNotRepeatTheEmptyFieldExplanation() {
+        GdxGameText spanish = new GdxGameText("es");
+        GdxGameText english = new GdxGameText("en");
+
+        assertEquals("Introduce la nueva contraseña:",
+                spanish.translate("gdx.lobby.password_input"));
+        assertEquals("Enter the new password:",
+                english.translate("gdx.lobby.password_input"));
+        assertFalse(spanish.translate("gdx.lobby.password_input")
+                .contains("vacío ="));
     }
 
     @Test

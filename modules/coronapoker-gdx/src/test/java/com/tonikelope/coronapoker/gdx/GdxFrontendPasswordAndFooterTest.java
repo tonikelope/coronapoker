@@ -45,6 +45,13 @@ final class GdxFrontendPasswordAndFooterTest {
     }
 
     @Test
+    void lobbyPasswordRemovalHintIsCenteredAboveTheActions() {
+        assertEquals(470f, GdxFrontendScreen.LOBBY_PASSWORD_DIALOG_HINT_Y);
+        assertTrue(GdxFrontendScreen.LOBBY_PASSWORD_DIALOG_HINT_Y > 455f,
+                "the explanatory line must move away from the buttons");
+    }
+
+    @Test
     void mainMenuKeepsOnlyTheAudioControlInTheBottomRightCorner() {
         Rectangle bounds = GdxFrontendScreen.mainMenuSoundBounds();
         assertEquals(GdxFrontendScreen.MENU_SOUND_BOTTOM_MARGIN, bounds.y);

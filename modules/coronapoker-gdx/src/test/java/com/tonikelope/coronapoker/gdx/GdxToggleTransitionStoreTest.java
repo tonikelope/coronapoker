@@ -45,6 +45,21 @@ class GdxToggleTransitionStoreTest {
     }
 
     @Test
+    void reenabledChildInterpolatesBackToItsStoredState() {
+        GdxToggleTransitionStore store = new GdxToggleTransitionStore();
+        long started = 3L * SECOND;
+        store.begin("child", 1f, 0f, started);
+        long disabled = started + 2L * SECOND;
+        assertEquals(0f, store.sample("child", 0f, disabled));
+
+        store.begin("child", 0f, 1f, disabled);
+        assertEquals(0f, store.sample("child", 1f, disabled));
+        float interpolated = store.sample("child", 1f,
+                disabled + SECOND / 10L);
+        assertTrue(interpolated > 0f && interpolated < 1f);
+    }
+
+    @Test
     void reversingMidTransitionContinuesFromCurrentVisualPosition() {
         GdxToggleTransitionStore store = new GdxToggleTransitionStore();
         long started = 4L * SECOND;

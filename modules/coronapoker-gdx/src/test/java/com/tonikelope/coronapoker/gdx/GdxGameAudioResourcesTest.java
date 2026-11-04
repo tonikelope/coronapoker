@@ -260,15 +260,19 @@ final class GdxGameAudioResourcesTest {
                     .filter(item -> GdxGameAudioResources.jokeResource(item)
                             != null)
                     .allMatch(item -> item.label().matches(
-                            "[A-ZÁÉÍÓÚÑ-]+-\\d+")));
+                            "[A-ZÁÉÍÓÚÑ-]+-\\d+ · [^/\\\\]+\\.wav")));
             assertTrue(page.options().stream()
                     .filter(item -> GdxGameAudioResources.jokeResource(item)
                             != null)
                     .allMatch(item -> item.parentKey() != null));
-            assertEquals("ALL-IN-1", page.options().stream()
+            String firstAllInFilename = GdxGameAudioResources.jokeFilename(
+                    allIn.get(0));
+            assertEquals("ALL-IN-1 · " + firstAllInFilename,
+                    page.options().stream()
                     .filter(item -> allIn.get(0).equals(
                             GdxGameAudioResources.jokeResource(item)))
                     .findFirst().orElseThrow().label());
+            assertFalse(firstAllInFilename.contains("/"));
             assertEquals(allIn.get(0),
                     GamePresentationSettings.jokeSoundResource(
                             page.options().stream()

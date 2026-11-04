@@ -169,6 +169,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_CONNECTION_STATUS_GAP = 12f;
     static final float LOBBY_PASSWORD_Y = 608f;
     static final float LOBBY_PASSWORD_HEIGHT = 48f;
+    static final float LOBBY_PASSWORD_DIALOG_HINT_Y = 470f;
     static final float LOBBY_GAME_INFO_Y = 454f;
     static final float LOBBY_GAME_INFO_HEIGHT = 138f;
     static final float LOBBY_BOT_BUTTON_Y = 370f;
@@ -1157,6 +1158,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
+    /** Restores every shared renderer after a framebuffer blur pass. */
+    private void restoreDefaultFrontendRenderState() {
+        prepareFrontendGraphicsState();
+        viewport.apply();
+        viewport.getCamera().update();
+        shapes.setProjectionMatrix(viewport.getCamera().combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+    }
+
     /**
      * Surface-local hover animation must not leak into the next page even if
      * two buttons happen to share a label and geometry.
@@ -1370,19 +1382,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawStartupMenuReveal();
 
         if (blurModalBackdrop) {
-            if (lobbyLoadingOverlay) {
-                modalBackdropBlur.endCaptureAndCache(viewport, batch,
-                        viewport.getCamera().combined, BACKGROUND);
-                lobbyLoadingBackdropCached = true;
-            } else if (nestedFrontendModal) {
-                // Keep the first modal level as a reusable native-resolution
-                // image. The nested pass adds the parent dialog and applies a
-                // second Gaussian blur before the child popup is composited.
-                modalBackdropBlur.endCaptureAndCache(viewport, batch,
-                        viewport.getCamera().combined, BACKGROUND);
-            } else {
-                modalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                        viewport.getCamera().combined, BACKGROUND);
+            try {
+                if (lobbyLoadingOverlay) {
+                    modalBackdropBlur.endCaptureAndCache(viewport, batch,
+                            viewport.getCamera().combined, BACKGROUND);
+                    lobbyLoadingBackdropCached = true;
+                } else if (nestedFrontendModal) {
+                    // Keep the first modal level as a reusable
+                    // native-resolution image. The nested pass adds the
+                    // parent dialog and applies a second Gaussian blur before
+                    // the child popup is composited.
+                    modalBackdropBlur.endCaptureAndCache(viewport, batch,
+                            viewport.getCamera().combined, BACKGROUND);
+                } else {
+                    modalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                            viewport.getCamera().combined, BACKGROUND);
+                }
+            } finally {
+                // Keep the live backdrop, but never inherit framebuffer,
+                // viewport, shader or tint state from its blur passes. The
+                // table already applies this same restoration contract.
+                restoreDefaultFrontendRenderState();
             }
             drawUnifiedModalBackdrop();
         }
@@ -1706,8 +1726,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             pointer.set(parentPointerX, parentPointerY);
         }
 
-        nestedModalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                viewport.getCamera().combined, BACKGROUND);
+        try {
+            nestedModalBackdropBlur.endCaptureAndDraw(viewport, batch,
+                    viewport.getCamera().combined, BACKGROUND);
+        } finally {
+            restoreDefaultFrontendRenderState();
+        }
         drawUnifiedModalBackdrop();
         drawNestedModalChild();
     }
@@ -2344,9 +2368,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         mainMenuButton(595f, 205f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
-        mainMenuButton(975f, 205f, 350f, 82f,
-                gameText.translate("ui.salir"), 5, ButtonTone.DANGER,
-                Gdx.app::exit);
+        exitButton(975f, 205f, 350f, 82f,
+                gameText.translate("ui.salir"), Gdx.app::exit, true);
 
         Rectangle sound = mainMenuSoundBounds();
         drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
@@ -5806,9 +5829,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             participantY -= 57f;
         }
 
-        iconButton(35f, 55f, 220f, 70f,
-                uppercase(gameText.translate("ui.salir")), 5,
-                ButtonTone.DANGER,
+        exitButton(35f, 55f, 220f, 70f,
+                uppercase(gameText.translate("ui.salir")),
                 () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
                 !lobbyCommandPending);
         iconButton(285f, 55f, 360f, 70f,
@@ -6967,14 +6989,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 this::closeLobbyConfirmation, true);
-        themedButton(accept.x, accept.y, accept.width, accept.height,
-                uppercase(gameText.translate(switch (lobbyConfirmation) {
-                    case START -> "ui.a_jugar";
-                    case LEAVE -> "ui.salir";
-                })),
-                lobbyConfirmation == LobbyConfirmation.START
-                        ? ButtonTone.POSITIVE : ButtonTone.DANGER,
-                this::confirmLobbyAction, true);
+        if (lobbyConfirmation == LobbyConfirmation.LEAVE) {
+            exitButton(accept.x, accept.y, accept.width, accept.height,
+                    uppercase(gameText.translate("ui.salir")),
+                    this::confirmLobbyAction, true);
+        } else {
+            themedButton(accept.x, accept.y, accept.width, accept.height,
+                    uppercase(gameText.translate("ui.a_jugar")),
+                    ButtonTone.POSITIVE, this::confirmLobbyAction, true);
+        }
     }
 
     void showIdentityChangeNotice(String nickname) {
@@ -7025,10 +7048,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         ? "" : connection.password()))), 960f, 650f, GOLD,
                 true, 700f);
         field(660f, 490f, 600f,
-                gameText.translate("auth.input_nueva_password"),
+                gameText.translate("gdx.lobby.password_input"),
                 lobbyPasswordDraft, "lobbyPassword", true);
         textFit(tinyFont, gameText.translate("gdx.lobby.password_hint"),
-                960f, 455f, MUTED, true, 650f);
+                960f, LOBBY_PASSWORD_DIALOG_HINT_Y, MUTED, true, 650f);
         themedButton(590f, 370f, 165f, 64f,
                 gameText.translate("gdx.lobby.generate_password"),
                 ButtonTone.NEUTRAL, this::generateLobbyPassword,
@@ -8807,9 +8830,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         rowY = statusBand.firstRowY();
         int totalRows = GdxSettingsContract.audioRowCount(page);
         List<GdxSettingsContract.RowGroup> groups =
-                GdxSettingsContract.toggleGroups(page,
-                        optionIndex -> GdxSettingsContract.audioOptionRow(
-                                page, optionIndex));
+                GdxSettingsContract.audioGroups(page);
         GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                 rowY, y + GdxSettingsLayout.CONTENT_VERTICAL_INSET,
                 statusBand.viewportTop(),
@@ -8875,7 +8896,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (GdxSettingsContract.hasVoiceRetention(page)) {
             int retentionRow = GdxSettingsContract.voiceRetentionRow(page);
             rowY = rows.rowY(retentionRow);
-            settingsStepper(x + 34f, rowY, w - 68f,
+            Rectangle retention = GdxSettingsLayout.groupedRow(baseX, rowY,
+                    baseWidth, retentionRow, groups, totalRows);
+            settingsStepper(retention.x, retention.y, retention.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.keep_voice_notes")),
@@ -8891,12 +8914,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.adjustVoiceRetention(
                                 initialProperties, 1);
                     });
-            settingsTooltip(new Rectangle(x + 34f, rowY, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT),
+            settingsTooltip(retention,
                     "audio_voice_note_retention_days");
-            rowY = rows.rowY(GdxSettingsContract.voiceActionsRow(page));
+            int actionsRowIndex = GdxSettingsContract.voiceActionsRow(page);
+            rowY = rows.rowY(actionsRowIndex);
+            Rectangle actionsBounds = GdxSettingsLayout.groupedRow(baseX,
+                    rowY, baseWidth, actionsRowIndex, groups, totalRows);
             GdxSettingsLayout.SplitRow actions =
-                    GdxSettingsLayout.splitActionRow(baseX, rowY, baseWidth);
+                    GdxSettingsLayout.splitActionRow(actionsBounds.x,
+                            actionsBounds.y, actionsBounds.width);
             Rectangle view = actions.left();
             Rectangle purge = actions.right();
             themedButton(view.x, view.y, view.width, view.height,
@@ -8912,12 +8938,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsTooltip(purge, "voice_notes_purge");
         }
         if (GdxSettingsContract.hasAudioDevices(page)) {
-            float outputY = rows.rowY(0);
-            float microphoneY = rows.rowY(1);
-            settingsStepper(x + 34f, outputY, w - 68f,
+            boolean microphoneEnabled = GdxSettingsContract.microphoneEnabled(
+                    initialProperties);
+            int outputRow = GdxSettingsContract.audioOutputDeviceRow(page);
+            int captureRow = GdxSettingsContract.audioCaptureDeviceRow(page);
+            Rectangle output = GdxSettingsLayout.groupedRow(baseX,
+                    rows.rowY(outputRow), baseWidth, outputRow, groups,
+                    totalRows);
+            Rectangle capture = GdxSettingsLayout.groupedRow(baseX,
+                    rows.rowY(captureRow), baseWidth, captureRow, groups,
+                    totalRows);
+            settingsAudioDeviceStepper(output.x, output.y, output.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
-                            "gdx.settings.row.game_output")),
+                            "gdx.settings.row.output_device")),
                     GdxSettingsContract.markDefault(
                             GdxAudioDevices.outputLabel(initialProperties,
                                     gameText),
@@ -8926,11 +8960,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxAudioDevices.adjustOutput(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustOutput(initialProperties, 1);
-                    });
-            settingsStepper(x + 34f, microphoneY, w - 68f,
+                    }, true);
+            settingsAudioDeviceStepper(capture.x, capture.y, capture.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
-                            "gdx.settings.row.microphone")),
+                            "gdx.settings.row.input_device")),
                     GdxSettingsContract.markDefault(
                             GdxAudioDevices.captureLabel(initialProperties,
                                     gameText),
@@ -8939,12 +8973,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxAudioDevices.adjustCapture(initialProperties, -1);
                     }, () -> {
                         GdxAudioDevices.adjustCapture(initialProperties, 1);
-                    });
-            settingsTooltip(new Rectangle(x + 34f, outputY, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT),
-                    "gdx_audio_output_device");
-            settingsTooltip(new Rectangle(x + 34f, microphoneY, w - 68f,
-                    GdxSettingsLayout.ROW_HEIGHT), "audio_capture_device");
+                    }, microphoneEnabled);
+            settingsTooltip(output, "gdx_audio_output_device");
+            settingsTooltip(capture, "audio_capture_device");
         }
     }
 
@@ -8979,8 +9010,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float oldTarget = before.get(option.key());
             float newTarget = frontendSettingsOptionTarget(option);
             if (Float.compare(oldTarget, newTarget) != 0) {
-                settingsToggleTransitions.begin(
-                        settingsOptionAnimationKey(option.key()), oldTarget,
+                String key = settingsOptionAnimationKey(option.key());
+                settingsToggleTransitions.begin(key, oldTarget,
                         newTarget, changedAt);
             }
         }
@@ -9148,7 +9179,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     rows);
             return;
         }
-        if (settingsAppearancePage == 1) {
+        if (GdxSettingsContract.isAppearanceGraphicsPage(
+                settingsAppearancePage)) {
             float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
             float baseWidth = w - 2f
                     * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
@@ -9261,8 +9293,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         GdxSettingsContract.TogglePage page =
-                GdxSettingsContract.APPEARANCE_PAGES.get(
-                        settingsAppearancePage - 2);
+                GdxSettingsContract.appearanceTogglePage(
+                        settingsAppearancePage);
         int rowCount = GdxSettingsContract.appearanceRowCount(page);
         List<GdxSettingsContract.RowGroup> groups =
                 GdxSettingsContract.appearanceGroups(page);
@@ -9418,11 +9450,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 null, true);
     }
 
+    private void settingsAudioDeviceStepper(float x, float y, float w,
+            float h, String label, String value, Runnable minus,
+            Runnable plus, boolean enabled) {
+        settingsStepper(x, y, w, h, label, value, "", minus, plus,
+                null, enabled, true);
+    }
+
     private void settingsStepper(float x, float y, float w, float h,
             String label, String value, String status, Runnable minus,
             Runnable plus, Runnable valueAction, boolean enabled) {
-        GdxSettingsLayout.StepperRow row = GdxSettingsLayout.stepperRow(
-                x, y, w, h);
+        settingsStepper(x, y, w, h, label, value, status, minus, plus,
+                valueAction, enabled, false);
+    }
+
+    private void settingsStepper(float x, float y, float w, float h,
+            String label, String value, String status, Runnable minus,
+            Runnable plus, Runnable valueAction, boolean enabled,
+            boolean audioDevice) {
+        GdxSettingsLayout.StepperRow row = audioDevice
+                ? GdxSettingsLayout.audioDeviceStepperRow(x, y, w, h)
+                : GdxSettingsLayout.stepperRow(x, y, w, h);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
@@ -9536,14 +9584,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyBlindSettings(float x, float w, float y,
             boolean enabled, String lockKey) {
-        GdxSettingsLayout.GameColumns columns =
-                GdxSettingsLayout.gameColumns(x + 34f, w - 68f);
-        float columnWidth = columns.width();
-        float leftX = columns.leftX();
-        float rightX = columns.rightX();
-        GdxSettingsLayout.drawCompactGroups(shapes, rightX, columnWidth, y,
-                GdxSettingsContract.gameGroups(0), 1f);
-        settingsStepper(leftX, y, columnWidth, GdxSettingsLayout.ROW_HEIGHT,
+        float rowX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float rowWidth = w - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        List<GdxSettingsContract.RowGroup> groups =
+                GdxSettingsContract.gameGroups(0);
+        GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
+                y, settingsRowsClip.y, y + GdxSettingsLayout.ROW_HEIGHT,
+                10, settingsGameScroll, groups);
+        settingsGameScroll = rows.offset();
+        GdxSettingsLayout.drawGroups(shapes, rowX, rowWidth, rows, groups, 1f);
+        Rectangle row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(0),
+                rowWidth, 0, groups, 10);
+        settingsStepper(row.x, row.y, row.width,
+                GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.structure"),
                 settingsTable.structureName() == null
                         ? uppercase(gameText.translate(
@@ -9551,125 +9604,167 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : settingsTable.structureName(),
                 () -> adjustSettingsBlindStructure(-1),
                 () -> adjustSettingsBlindStructure(1), enabled);
-        settingsStepper(leftX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(1), rowWidth, 1,
+                groups, 10);
+        settingsStepper(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.initial_blinds"), settingsBlindLevel(),
                 () -> adjustSettingsBlindLevel(-1),
                 () -> adjustSettingsBlindLevel(1), enabled);
-        settingsBooleanToggle(leftX,
-                y - 2f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
-                settingsGameText("row.ante"),
-                settingsTable.ante(), false, () -> settingsTable
-                        .setAnte(!settingsTable.ante()), enabled);
-        settingsBooleanToggle(leftX,
-                y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
-                settingsGameText("row.straddle"),
-                settingsTable.straddle(), false, () -> settingsTable
-                        .setStraddle(!settingsTable.straddle()), enabled);
-        button(leftX, y - 4f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
-                GdxSettingsLayout.ROW_HEIGHT,
+        row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(2), rowWidth, 2,
+                groups, 10);
+        button(row.x, row.y, row.width, GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.manage_structures"), false,
                 this::openSettingsBlindStructureEditor, enabled);
-        settingsBooleanToggle(rightX, y, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_INCREASE_ROW), rowWidth,
+                GdxSettingsContract.BLIND_INCREASE_ROW, groups, 10);
+        settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.increase_blinds"),
                 settingsTable.increaseBlinds(), false, () -> settingsTable
                         .setIncreaseBlinds(!settingsTable.increaseBlinds()),
                 enabled);
-        settingsStepper(rightX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_UNIT_ROW), rowWidth,
+                GdxSettingsContract.BLIND_UNIT_ROW, groups, 10);
+        settingsStepper(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.unit"),
                 settingsBlindUnit(), this::toggleSettingsBlindIncreaseType,
                 this::toggleSettingsBlindIncreaseType,
                 enabled && settingsTable.increaseBlinds());
-        settingsStepper(rightX, y - 2f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth, GdxSettingsLayout.ROW_HEIGHT,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_INTERVAL_ROW), rowWidth,
+                GdxSettingsContract.BLIND_INTERVAL_ROW, groups, 10);
+        settingsStepper(row.x, row.y, row.width,
+                GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.interval"),
                 settingsBlindInterval(),
                 () -> adjustSettingsBlindInterval(-1),
                 () -> adjustSettingsBlindInterval(1),
                 enabled && settingsTable.increaseBlinds());
-        settingsBooleanToggle(rightX,
-                y - 3f * GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_CAP_TOGGLE_ROW), rowWidth,
+                GdxSettingsContract.BLIND_CAP_TOGGLE_ROW, groups, 10);
+        settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.blind_cap"),
                 settingsTable.blindCap(), false, () -> settingsTable
                         .setBlindCap(!settingsTable.blindCap()),
                 enabled && settingsTable.blindCapControlEnabled());
-        settingsStepper(rightX, y - 4f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth, GdxSettingsLayout.ROW_HEIGHT,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_CAP_ROW), rowWidth,
+                GdxSettingsContract.BLIND_CAP_ROW, groups, 10);
+        settingsStepper(row.x, row.y, row.width,
+                GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.cap"), settingsBlindCap(),
                 () -> adjustSettingsBlindCap(-1),
                 () -> adjustSettingsBlindCap(1),
                 enabled && settingsTable.blindCapRaisesEnabled());
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_ANTE_ROW), rowWidth,
+                GdxSettingsContract.BLIND_ANTE_ROW, groups, 10);
+        settingsBooleanToggle(row.x, row.y, row.width,
+                settingsGameText("row.ante"), settingsTable.ante(), false,
+                () -> settingsTable.setAnte(!settingsTable.ante()), enabled);
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BLIND_STRADDLE_ROW), rowWidth,
+                GdxSettingsContract.BLIND_STRADDLE_ROW, groups, 10);
+        settingsBooleanToggle(row.x, row.y, row.width,
+                settingsGameText("row.straddle"), settingsTable.straddle(),
+                false, () -> settingsTable.setStraddle(
+                        !settingsTable.straddle()), enabled);
         if (!enabled) {
-            for (int row = 0; row < 5; row++) {
-                tooltip(leftX, y - row * GdxSettingsLayout.ROW_STRIDE,
-                        columnWidth, GdxSettingsLayout.ROW_HEIGHT, lockKey);
-                tooltip(rightX, y - row * GdxSettingsLayout.ROW_STRIDE,
-                        columnWidth, GdxSettingsLayout.ROW_HEIGHT, lockKey);
+            for (int index = rows.firstIndex();
+                    index < rows.lastExclusive(); index++) {
+                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
+                        rows.rowY(index), rowWidth, index, groups, 10);
+                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
+                        lockKey);
             }
         }
+        drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
     private void drawLobbyPurchaseSettings(float x, float w, float y,
             boolean editable, boolean economyEditable, String serverLockKey,
             String economyLockKey) {
-        GdxSettingsLayout.GameColumns columns =
-                GdxSettingsLayout.gameColumns(x + 34f, w - 68f);
-        float leftX = columns.leftX();
-        float rightX = columns.rightX();
-        float columnWidth = columns.width();
-        GdxSettingsLayout.drawCompactGroups(shapes, leftX, columnWidth, y,
-                java.util.List.of(
-                        new GdxSettingsContract.RowGroup(0, 1, 0)), 1f);
-        GdxSettingsLayout.drawCompactGroups(shapes, rightX, columnWidth, y,
-                java.util.List.of(
-                        new GdxSettingsContract.RowGroup(0, 3, 0),
-                        new GdxSettingsContract.RowGroup(1, 2, 1)), 1f);
-        settingsBooleanToggle(leftX, y, columnWidth,
-                settingsGameText("row.fixed_buyin"),
-                settingsTable.fixedBuyin(), true, () -> settingsTable
-                        .setFixedBuyin(!settingsTable.fixedBuyin()),
-                economyEditable);
-        settingsStepper(leftX, y - GdxSettingsLayout.ROW_STRIDE, columnWidth,
-                settingsGameText("row.initial_buyin"),
-                settingsTable.buyin(),
-                () -> settingsTable.setBuyin(settingsTable.buyin() - 1),
-                () -> settingsTable.setBuyin(settingsTable.buyin() + 1),
-                economyEditable && settingsTable.fixedBuyin());
-        settingsStepper(leftX, y - 2f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth,
+        float rowX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        float rowWidth = w - 2f * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+        List<GdxSettingsContract.RowGroup> groups =
+                GdxSettingsContract.gameGroups(1);
+        GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
+                y, settingsRowsClip.y, y + GdxSettingsLayout.ROW_HEIGHT,
+                8, settingsGameScroll, groups);
+        settingsGameScroll = rows.offset();
+        GdxSettingsLayout.drawGroups(shapes, rowX, rowWidth, rows, groups, 1f);
+        Rectangle row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_MINIMUM_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_MINIMUM_ROW, groups, 8);
+        settingsStepper(row.x, row.y, row.width,
                 settingsGameText("row.minimum_range_bb"),
                 settingsTable.minBuyinBb(), () -> settingsTable
                         .setMinBuyinBb(settingsTable.minBuyinBb() - 5),
                 () -> settingsTable.setMinBuyinBb(
                         settingsTable.minBuyinBb() + 5), economyEditable);
-        settingsStepper(leftX, y - 3f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_MAXIMUM_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_MAXIMUM_ROW, groups, 8);
+        settingsStepper(row.x, row.y, row.width,
                 settingsGameText("row.maximum_range_bb"),
                 settingsTable.maxBuyinBb(), () -> settingsTable
                         .setMaxBuyinBb(settingsTable.maxBuyinBb() - 5),
                 () -> settingsTable.setMaxBuyinBb(
                         settingsTable.maxBuyinBb() + 5), economyEditable);
-        settingsBooleanToggle(rightX, y, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_FIXED_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_FIXED_ROW, groups, 8);
+        settingsBooleanToggle(row.x, row.y, row.width,
+                settingsGameText("row.fixed_buyin"),
+                settingsTable.fixedBuyin(), true, () -> settingsTable
+                        .setFixedBuyin(!settingsTable.fixedBuyin()),
+                economyEditable);
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_INITIAL_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_INITIAL_ROW, groups, 8);
+        settingsStepper(row.x, row.y, row.width,
+                settingsGameText("row.initial_buyin"),
+                settingsTable.buyin(),
+                () -> settingsTable.setBuyin(settingsTable.buyin() - 1),
+                () -> settingsTable.setBuyin(settingsTable.buyin() + 1),
+                economyEditable && settingsTable.fixedBuyin());
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_REBUY_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_REBUY_ROW, groups, 8);
+        settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.rebuy"), settingsTable.rebuy(), true,
                 () -> settingsTable.setRebuy(!settingsTable.rebuy()),
                 editable);
-        settingsBooleanToggle(rightX,
-                y - GdxSettingsLayout.ROW_STRIDE, columnWidth,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_PLAYER_LIMIT_ROW),
+                rowWidth, GdxSettingsContract.BUYIN_PLAYER_LIMIT_ROW,
+                groups, 8);
+        settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.player_limit"),
                 settingsTable.rebuyLimit(), false, () -> settingsTable
                         .setRebuyLimit(!settingsTable.rebuyLimit()),
                 editable && settingsTable.rebuy());
-        settingsStepper(rightX, y - 2f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth, settingsGameText("row.maximum_rebuys"),
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_MAXIMUM_REBUYS_ROW),
+                rowWidth, GdxSettingsContract.BUYIN_MAXIMUM_REBUYS_ROW,
+                groups, 8);
+        settingsStepper(row.x, row.y, row.width,
+                settingsGameText("row.maximum_rebuys"),
                 settingsTable.rebuyLimitCount(),
                 () -> settingsTable.setRebuyLimitCount(
                         settingsTable.rebuyLimitCount() - 1),
                 () -> settingsTable.setRebuyLimitCount(
                         settingsTable.rebuyLimitCount() + 1),
                 editable && settingsTable.rebuyLimitCountEnabled());
-        settingsStepper(rightX, y - 3f * GdxSettingsLayout.ROW_STRIDE,
-                columnWidth, GdxSettingsLayout.ROW_HEIGHT,
+        row = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(GdxSettingsContract.BUYIN_REBUY_CAP_ROW), rowWidth,
+                GdxSettingsContract.BUYIN_REBUY_CAP_ROW, groups, 8);
+        settingsStepper(row.x, row.y, row.width,
+                GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.rebuy_cap"),
                 settingsTable.rebuyCapPolicy()
                         == NewGameTableDraft.RebuyCapPolicy.BUY_IN
@@ -9679,16 +9774,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::cycleSettingsRebuyCap,
                 editable && settingsTable.rebuy());
         if (!economyEditable) {
-            for (int row = 0; row < 4; row++) {
-                tooltip(leftX,
-                        y - row * GdxSettingsLayout.ROW_STRIDE, columnWidth,
-                        GdxSettingsLayout.ROW_HEIGHT, economyLockKey);
+            for (int index = 0; index < 4; index++) {
+                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
+                        rows.rowY(index), rowWidth, index, groups, 8);
+                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
+                        economyLockKey);
             }
         }
         if (!editable) {
-            addLobbySettingsLockTooltips(rightX, y, columnWidth, 4,
-                    serverLockKey);
+            for (int index = 4; index < 8; index++) {
+                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
+                        rows.rowY(index), rowWidth, index, groups, 8);
+                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
+                        serverLockKey);
+            }
         }
+        drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
     private void drawLobbyBotSettings(float x, float w, float y,
@@ -10878,9 +10979,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float frameH = joining ? 820f : 990f;
         outerBox(frameX - 10f, frameY + 10f, frameW + 20f, frameH,
                 CYAN_DARK, PANEL);
-        shapes.setColor(new Color(0x36d9ffcc));
-        roundedRect(frameX + 12f, frameY + frameH - 3f,
-                frameW - 24f, 3f, 1.5f);
     }
 
     private void drawNewGameScreen() {
@@ -11020,24 +11118,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Global presets cover the complete table setup, never just networking. */
     private void drawProfilePage() {
-        panel(430f, 185f, 1425f, 625f,
+        panel(520f, 185f, 1230f, 625f,
                 uppercase(gameText.translate("gdx.newgame.profile_title")));
         textFit(actionFont, gameText.translate("gdx.newgame.profile_help"),
-                500f, 700f, MUTED, false, 1285f);
+                580f, 700f, MUTED, false, 1110f);
         boolean profileEditable = !connection.recoverRequested();
-        dropdownChoice(500f, 500f, 1285f, "",
+        dropdownChoice(580f, 500f, 1110f, "",
                 selectedPresetLabel(), () -> openDropdown(Dropdown.PROFILE),
                 profileEditable);
-        tooltip(500f, 500f, 1285f, 72f, "tooltip.cfg.preset");
-        button(500f, 350f, 615f, 70f,
+        tooltip(580f, 500f, 1110f, 72f, "tooltip.cfg.preset");
+        button(580f, 350f, 530f, 70f,
                 gameText.translate("newgame.preset_guardar"), false,
                 this::openPresetNameDialog, profileEditable);
-        tooltip(500f, 350f, 615f, 70f, "tooltip.cfg.preset_save");
-        button(1170f, 350f, 615f, 70f,
+        tooltip(580f, 350f, 530f, 70f, "tooltip.cfg.preset_save");
+        button(1160f, 350f, 530f, 70f,
                 gameText.translate("newgame.preset_borrar"), false,
                 this::requestDeletePreset,
                 profileEditable && selectedGamePreset >= 0);
-        tooltip(1170f, 350f, 615f, 70f, "tooltip.cfg.preset_delete");
+        tooltip(1160f, 350f, 530f, 70f, "tooltip.cfg.preset_delete");
     }
 
     private String selectedPresetLabel() {
@@ -11407,11 +11505,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 formatBlindLevel(), this::previousBlindLevel,
                 this::nextBlindLevel, !table.economyLocked());
         tooltip(470f, 460f, 590f, 72f, "tooltip.cfg.blinds_level");
-        button(470f, 320f, 285f, 70f,
-                settingsGameText("row.default_structure"), false,
-                this::selectDefaultBlindStructure, !table.economyLocked());
-        button(775f, 320f, 285f, 70f,
-                settingsGameText("row.manage"), false,
+        button(470f, 320f, 590f, 70f,
+                settingsGameText("row.manage_structures"), false,
                 this::openBlindStructureEditor, !table.economyLocked());
         toggle(470f, 205f, 280f, settingsGameText("row.ante"), table.ante(),
                 () -> table.setAnte(!table.ante()), !table.economyLocked());
@@ -11425,7 +11520,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "tooltip.cfg.straddle");
 
         toggle(1170f, 610f, 645f,
-                gameText.translate("gdx.settings.game.row.increase_blinds"),
+                settingsGameText("row.increase_blinds"),
                 table.increaseBlinds(),
                 () -> table.setIncreaseBlinds(!table.increaseBlinds()), !table.economyLocked());
         tooltip(1170f, 610f, 645f, GdxSettingsLayout.ROW_HEIGHT,
@@ -11558,8 +11653,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openSettingsBlindStructureEditor() {
-        if (settingsTable == null || settingsTable.economyLocked()
-                || lobby == null || !lobby.host()) return;
+        if (settingsTable == null || settingsTable.economyLocked()) return;
+        boolean menuDefaults = settingsSession.context()
+                == GdxSettingsSession.Context.MENU;
+        if (!menuDefaults && (lobby == null || !lobby.host())) return;
         blindStructureSettingsTarget = true;
         blindStructureEditor.begin(initialProperties,
                 settingsTable.structureName());
@@ -12012,8 +12109,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                         "gdx.settings.game.value.medium"),
                 this::previousBotDifficulty, this::nextBotDifficulty, true);
         tooltip(580f, 610f, 1110f, 102f, "tooltip.cfg.bots");
-        float botOptionTopY = 507f;
-        float botOptionStride = 105f;
+        // Four equal rows share the space below difficulty with comparable
+        // top and bottom breathing room inside the panel.
+        float botOptionTopY = 505f;
+        float botOptionStride = 97f;
         float customBotsY = botOptionTopY;
         float customBotsOnlyY = botOptionTopY - botOptionStride;
         float botRebuyY = botOptionTopY - botOptionStride * 2f;
@@ -14039,6 +14138,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String label, int icon, ButtonTone tone, Runnable action) {
         themedButton(x, y, w, h, label, tone, action, true);
         drawButtonIconColumn(x, y, w, h, icon, tone, true);
+    }
+
+    /**
+     * Every frontend exit action keeps its label centered on the complete
+     * button. The exit glyph remains in the leading icon column but never
+     * changes the label's centering bounds.
+     */
+    private void exitButton(float x, float y, float w, float h,
+            String label, Runnable action, boolean enabled) {
+        themedButton(x, y, w, h, label, ButtonTone.DANGER, action, enabled);
+        drawButtonIconColumn(x, y, w, h, 5, ButtonTone.DANGER, enabled);
     }
 
     /** Language is a menu action, so it uses the same glass material too. */
@@ -16695,31 +16805,31 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsContract.audioPage(pageIndex,
                             presentationSettings, gameText.language());
             totalRows = GdxSettingsContract.audioRowCount(page);
-            groups =
-                    GdxSettingsContract.toggleGroups(page,
-                            optionIndex -> GdxSettingsContract.audioOptionRow(
-                                    page, optionIndex));
+            groups = GdxSettingsContract.audioGroups(page);
             offset = settingsAudioScroll;
         } else if (section == GdxSettingsContract.Section.APPEARANCE) {
             if (settingsAppearancePage == 0) {
                 totalRows = GdxSettingsContract.appearanceTableRowCount();
-            } else if (settingsAppearancePage == 1) {
+            } else if (GdxSettingsContract.isAppearanceGraphicsPage(
+                    settingsAppearancePage)) {
                 totalRows = GdxSettingsContract
                         .APPEARANCE_GRAPHICS_ROW_COUNT;
                 groups = GdxSettingsContract.appearanceGraphicsGroups();
             } else {
                 GdxSettingsContract.TogglePage page =
-                        GdxSettingsContract.APPEARANCE_PAGES.get(
-                                MathUtils.clamp(settingsAppearancePage - 2,
-                                        0, GdxSettingsContract
-                                                .APPEARANCE_PAGES.size() - 1));
+                        GdxSettingsContract.appearanceTogglePage(
+                                settingsAppearancePage);
                 totalRows = GdxSettingsContract.appearanceRowCount(page);
                 groups = GdxSettingsContract.appearanceGroups(page);
             }
             offset = settingsAppearanceScroll;
-        } else if (section == GdxSettingsContract.Section.GAME
-                && (settingsGamePage == 2 || settingsGamePage == 3)) {
-            totalRows = settingsGamePage == 2 ? 6 : 9;
+        } else if (section == GdxSettingsContract.Section.GAME) {
+            totalRows = switch (settingsGamePage) {
+                case 0 -> 10;
+                case 1 -> 8;
+                case 2 -> 6;
+                default -> 9;
+            };
             groups = GdxSettingsContract.gameGroups(settingsGamePage);
             offset = settingsGameScroll;
         } else {

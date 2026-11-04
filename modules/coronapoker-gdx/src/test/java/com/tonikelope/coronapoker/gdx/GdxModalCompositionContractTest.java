@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -16,13 +17,17 @@ final class GdxModalCompositionContractTest {
             throws IOException {
         String source = source("GdxFrontendScreen.java");
         int blur = source.indexOf("modalBackdropBlur.endCaptureAndDraw(");
-        int shade = source.indexOf("drawUnifiedModalBackdrop();", blur);
+        int restore = source.indexOf(
+                "restoreDefaultFrontendRenderState();", blur);
+        int shade = source.indexOf("drawUnifiedModalBackdrop();", restore);
         int modal = source.indexOf("if (hasVisibleFrontendModal())", shade);
         int toast = source.indexOf("drawToastTopLayer();", modal);
         int signature = source.indexOf(
                 "drawFrontendVersionLabelTopLayer();", modal);
 
-        assertTrue(blur >= 0 && shade > blur);
+        assertTrue(blur >= 0 && restore > blur);
+        assertTrue(shade > restore,
+                "frontend blur must restore viewport and renderer state");
         assertTrue(modal > shade,
                 "the common shade must be ready before modal chrome");
         assertTrue(toast > modal,
@@ -33,6 +38,60 @@ final class GdxModalCompositionContractTest {
                 "frontend feedback needs one common top-layer pass");
         assertEquals(1, occurrences(source,
                 "GdxUiDialogStyle.drawBackdrop("));
+        assertEquals(2, occurrences(source,
+                "restoreDefaultFrontendRenderState();"),
+                "root and nested blur passes need the same restoration");
+    }
+
+    @Test
+    void everyExitConfirmationUsesTheSharedExitIcon() throws IOException {
+        String frontend = source("GdxFrontendScreen.java");
+        String table = source("CoronaPokerGdxTable.java");
+        int lobbyStart = frontend.indexOf(
+                "private void drawLobbyConfirmation()");
+        int lobbyEnd = frontend.indexOf(
+                "void showIdentityChangeNotice", lobbyStart);
+        String lobby = frontend.substring(lobbyStart, lobbyEnd);
+
+        assertTrue(lobby.contains(
+                "lobbyConfirmation == LobbyConfirmation.LEAVE"));
+        assertTrue(lobby.contains("exitButton(accept.x"),
+                "lobby exit must center its label like the main menu");
+        assertTrue(lobby.contains(
+                "uppercase(gameText.translate(\"ui.salir\")),"));
+        assertTrue(table.contains("drawDialogExitIcon(positive.x"),
+                "every canonical exit confirmation must use the exit icon");
+        assertFalse(table.contains("drawDialogChoiceLabel("),
+                "table exit labels must remain centered on the full button");
+        assertTrue(table.contains(
+                "GdxUiIconRenderer.Icon.EXIT"));
+        assertEquals(3, occurrences(table, ").exitChoice();"),
+                "all three table exit flows share the canonical renderer");
+    }
+
+    @Test
+    void everyFrontendExitButtonCentersItsLabelOnTheFullButton()
+            throws IOException {
+        String source = source("GdxFrontendScreen.java");
+        int helperStart = source.indexOf("private void exitButton(");
+        int helperEnd = source.indexOf(
+                "/** Language is a menu action", helperStart);
+        String helper = source.substring(helperStart, helperEnd);
+
+        assertEquals(4, occurrences(source, "exitButton("),
+                "menu, lobby footer and lobby confirmation share one helper");
+        assertTrue(source.contains("exitButton(975f, 205f, 350f, 82f,"),
+                "main-menu exit must use the shared composition");
+        assertTrue(source.contains("exitButton(35f, 55f, 220f, 70f,"),
+                "waiting-room exit must use the shared composition");
+        assertTrue(helper.contains(
+                "themedButton(x, y, w, h, label, ButtonTone.DANGER"),
+                "the label must be laid out against the full button bounds");
+        assertTrue(helper.contains(
+                "drawButtonIconColumn(x, y, w, h, 5, ButtonTone.DANGER"),
+                "the exit icon remains in its independent leading column");
+        assertFalse(helper.contains("labelX"),
+                "exit labels must never use the icon-reserved content area");
     }
 
     @Test

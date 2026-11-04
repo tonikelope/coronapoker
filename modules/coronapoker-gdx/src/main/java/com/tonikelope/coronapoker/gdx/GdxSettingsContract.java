@@ -35,6 +35,24 @@ final class GdxSettingsContract {
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
+    static final int BLIND_STRUCTURE_ROW = 0;
+    static final int BLIND_INITIAL_ROW = 1;
+    static final int BLIND_MANAGE_ROW = 2;
+    static final int BLIND_INCREASE_ROW = 3;
+    static final int BLIND_UNIT_ROW = 4;
+    static final int BLIND_INTERVAL_ROW = 5;
+    static final int BLIND_CAP_TOGGLE_ROW = 6;
+    static final int BLIND_CAP_ROW = 7;
+    static final int BLIND_ANTE_ROW = 8;
+    static final int BLIND_STRADDLE_ROW = 9;
+    static final int BUYIN_MINIMUM_ROW = 0;
+    static final int BUYIN_MAXIMUM_ROW = 1;
+    static final int BUYIN_FIXED_ROW = 2;
+    static final int BUYIN_INITIAL_ROW = 3;
+    static final int BUYIN_REBUY_ROW = 4;
+    static final int BUYIN_PLAYER_LIMIT_ROW = 5;
+    static final int BUYIN_MAXIMUM_REBUYS_ROW = 6;
+    static final int BUYIN_REBUY_CAP_ROW = 7;
     private static final List<String> CONTROL_SETTING_KEYS = List.of(
             "auto_action_buttons", "auto_call_enabled",
             "auto_action_persist", "modo_auto_confirm", "confirmar_todo",
@@ -259,10 +277,10 @@ final class GdxSettingsContract {
                 java.util.ArrayList<String> labels = new java.util.ArrayList<>();
                 labels.add(translatedUpper(text, "gdx.settings.page.table",
                         "MESA"));
-                labels.add(translatedUpper(text, "gdx.settings.page.graphics",
-                        "GRÁFICOS"));
                 APPEARANCE_PAGES.stream().map(page -> page.title(text))
                         .forEach(labels::add);
+                labels.add(translatedUpper(text, "gdx.settings.page.graphics",
+                        "GRÁFICOS"));
                 yield List.copyOf(labels);
             }
             case AUDIO -> AUDIO_PAGES.stream().map(page -> page.title(text))
@@ -302,19 +320,13 @@ final class GdxSettingsContract {
             "NOTAS Y CHAT DE VOZ",
             option("voice_messages", "NOTAS DE VOZ", true,
                     Gate.NONE),
-            option("tts_server", "VOZ (TTS)", true, Gate.NONE),
-            option("audio_mic_enabled", "MICRÓFONO", true, Gate.NONE),
             invertedOption("audio_block_voice_messages",
                     "NOTAS DE VOZ (LOCAL)", false, Gate.NONE),
             option("audio_play_own_voice", "REPRODUCIR MIS NOTAS", true,
                     Gate.NONE),
+            option("tts_server", "VOZ (TTS)", true, Gate.NONE),
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
                     Gate.NONE));
-
-    private static final TogglePage AUDIO_DEVICE_PAGE = page(
-            "DISPOSITIVOS",
-            option(AUDIO_MIC_AUTO_GAIN_KEY,
-                    "GANANCIA AUTOMÁTICA DEL MICRÓFONO", true, Gate.NONE));
     private static final TogglePage APPEARANCE_TABLE_PAGE = page(
             "MESA",
             option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
@@ -372,7 +384,12 @@ final class GdxSettingsContract {
 
     private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
-                    option("sonidos", "SONIDO", true, Gate.NONE)),
+                    option("sonidos", "SONIDO", true, Gate.NONE),
+                    option("audio_mic_enabled", "MICRÓFONO", true,
+                            Gate.NONE),
+                    option(AUDIO_MIC_AUTO_GAIN_KEY,
+                            "GANANCIA AUTOMÁTICA DEL MICRÓFONO", true,
+                            Gate.NONE, "audio_mic_enabled")),
             page("MÚSICA",
                     option("musica", "MÚSICA", true, Gate.NONE),
                     option("sonido_ascensor", "AMBIENTE", true, Gate.MUSIC),
@@ -452,8 +469,7 @@ final class GdxSettingsContract {
                             Gate.EFFECTS),
                     option("sonido_error_red", "ERROR DE RED", true,
                             Gate.EFFECTS)),
-            AUDIO_VOICE_CHAT_PAGE,
-            AUDIO_DEVICE_PAGE);
+            AUDIO_VOICE_CHAT_PAGE);
 
     private static final TogglePage AUDIO_FUNNY_SOUNDS_PAGE = page(
             "SONIDOS DE COÑA",
@@ -496,8 +512,7 @@ final class GdxSettingsContract {
             AUDIO_SOURCE_PAGES.get(1),
             AUDIO_EFFECTS_PAGE,
             AUDIO_FUNNY_SOUNDS_PAGE,
-            AUDIO_SOURCE_PAGES.get(9),
-            AUDIO_DEVICE_PAGE);
+            AUDIO_SOURCE_PAGES.get(9));
 
     static TogglePage audioPage(int pageIndex,
             GdxGamePresentationSettings settings, String language) {
@@ -512,6 +527,24 @@ final class GdxSettingsContract {
     /** Appearance switches shared with Swing; choice controls are separate. */
     static final List<TogglePage> APPEARANCE_PAGES = List.of(
             APPEARANCE_ANIMATIONS_PAGE);
+
+    static int appearanceGraphicsPageIndex() {
+        return APPEARANCE_PAGES.size() + 1;
+    }
+
+    static boolean isAppearanceGraphicsPage(int pageIndex) {
+        return pageIndex == appearanceGraphicsPageIndex();
+    }
+
+    static boolean isAppearanceTogglePage(int pageIndex) {
+        return pageIndex > 0 && !isAppearanceGraphicsPage(pageIndex);
+    }
+
+    static TogglePage appearanceTogglePage(int pageIndex) {
+        int index = Math.max(0, Math.min(pageIndex - 1,
+                APPEARANCE_PAGES.size() - 1));
+        return APPEARANCE_PAGES.get(index);
+    }
 
     /**
      * Product order: each animation's speed, direction or style follows the
@@ -676,6 +709,11 @@ final class GdxSettingsContract {
         return new ToggleOption(key, label, fallback, gate, false);
     }
 
+    private static ToggleOption option(String key, String label,
+            boolean fallback, Gate gate, String parentKey) {
+        return new ToggleOption(key, label, fallback, gate, false, parentKey);
+    }
+
     private static ToggleOption invertedOption(String key, String label,
             boolean fallback, Gate gate) {
         return new ToggleOption(key, label, fallback, gate, true);
@@ -824,6 +862,11 @@ final class GdxSettingsContract {
         return option.inverted() ? !stored : stored;
     }
 
+    static boolean microphoneEnabled(Properties properties) {
+        return Boolean.parseBoolean(properties.getProperty(
+                "audio_mic_enabled", "true"));
+    }
+
     static boolean displayedFallback(ToggleOption option) {
         return option.inverted() ? !option.fallback() : option.fallback();
     }
@@ -833,28 +876,35 @@ final class GdxSettingsContract {
     }
 
     static boolean hasAudioDevices(TogglePage page) {
-        return page == AUDIO_DEVICE_PAGE;
+        return page == AUDIO_SOURCE_PAGES.get(0);
     }
 
-    /**
-     * Rows placed before the page's normal switches. Device selectors are
-     * first so microphone gain remains directly below the microphone it
-     * affects, while still sharing the normal toggle renderer.
-     */
+    /** No audio page inserts anonymous rows before its declared controls. */
     static int audioLeadingRows(TogglePage page) {
-        return hasAudioDevices(page) ? 2 : 0;
+        return 0;
     }
 
     static int audioOptionRow(TogglePage page, int optionIndex) {
-        int row = audioLeadingRows(page) + optionIndex;
-        return hasMasterVolume(page) && optionIndex > 0 ? row + 1 : row;
+        if (hasMasterVolume(page)) {
+            return switch (optionIndex) {
+                case 0 -> 0;
+                case 1 -> 3;
+                case 2 -> 5;
+                default -> throw new IllegalArgumentException(
+                        "Unknown general audio option: " + optionIndex);
+            };
+        }
+        if (hasVoiceRetention(page)) {
+            return optionIndex < 3 ? optionIndex : optionIndex + 2;
+        }
+        return optionIndex;
     }
 
     /** Every painted audio row participates in the same scroll model. */
     static int audioRowCount(TogglePage page) {
-        return audioLeadingRows(page) + page.options().size()
-                + (hasVoiceRetention(page) ? 2 : 0)
-                + (hasMasterVolume(page) ? 1 : 0);
+        if (hasMasterVolume(page)) return 6;
+        if (hasVoiceRetention(page)) return 7;
+        return page.options().size();
     }
 
     /** General audio keeps the sound master immediately above its volume. */
@@ -871,12 +921,40 @@ final class GdxSettingsContract {
     }
 
     static int voiceRetentionRow(TogglePage page) {
-        return audioLeadingRows(page) + page.options().size()
-                + (hasMasterVolume(page) ? 1 : 0);
+        if (!hasVoiceRetention(page)) {
+            throw new IllegalArgumentException(
+                    "The audio page does not contain voice retention");
+        }
+        return 3;
     }
 
     static int voiceActionsRow(TogglePage page) {
-        return voiceRetentionRow(page) + 1;
+        return 4;
+    }
+
+    static int audioOutputDeviceRow(TogglePage page) {
+        if (!hasAudioDevices(page)) throw new IllegalArgumentException(
+                "The audio page does not contain device selectors");
+        return 2;
+    }
+
+    static int audioCaptureDeviceRow(TogglePage page) {
+        if (!hasAudioDevices(page)) throw new IllegalArgumentException(
+                "The audio page does not contain device selectors");
+        return 4;
+    }
+
+    static List<RowGroup> audioGroups(TogglePage page) {
+        if (hasMasterVolume(page)) {
+            return toggleGroups(page,
+                    optionIndex -> audioOptionRow(page, optionIndex));
+        }
+        if (hasVoiceRetention(page)) {
+            return List.of(new RowGroup(0, 4, 0),
+                    new RowGroup(5, 6, 0));
+        }
+        return toggleGroups(page,
+                optionIndex -> audioOptionRow(page, optionIndex));
     }
 
     /** One validated volume contract for the menu, lobby and live table. */
@@ -988,12 +1066,11 @@ final class GdxSettingsContract {
     static List<RowGroup> gameGroups(int gamePage) {
         return switch (gamePage) {
             case 0 -> List.of(
-                    new RowGroup(0, 4, 0),
-                    new RowGroup(3, 4, 1));
+                    new RowGroup(BLIND_STRUCTURE_ROW, BLIND_MANAGE_ROW, 0),
+                    new RowGroup(BLIND_INCREASE_ROW, BLIND_CAP_ROW, 0));
             case 1 -> List.of(
-                    new RowGroup(0, 1, 0),
-                    new RowGroup(0, 3, 0),
-                    new RowGroup(1, 2, 1));
+                    new RowGroup(BUYIN_FIXED_ROW, BUYIN_INITIAL_ROW, 0),
+                    new RowGroup(BUYIN_REBUY_ROW, BUYIN_REBUY_CAP_ROW, 0));
             case 2 -> List.of(new RowGroup(2, 4, 0));
             case 3 -> List.of(
                     new RowGroup(0, 1, 0),
@@ -1216,7 +1293,7 @@ final class GdxSettingsContract {
             }
             return;
         }
-        if (index == 1) {
+        if (isAppearanceGraphicsPage(index)) {
             properties.setProperty("gdx_vsync",
                     Boolean.toString(DEFAULT_VSYNC));
             properties.setProperty("gdx_fps_limit",
@@ -1231,7 +1308,7 @@ final class GdxSettingsContract {
             }
             return;
         }
-        TogglePage page = APPEARANCE_PAGES.get(index - 2);
+        TogglePage page = appearanceTogglePage(index);
         for (ToggleOption option : page.options()) {
             properties.setProperty(option.key(),
                     Boolean.toString(option.fallback()));
@@ -1263,7 +1340,7 @@ final class GdxSettingsContract {
             }
             return true;
         }
-        if (index == 1) {
+        if (isAppearanceGraphicsPage(index)) {
             boolean runtime = booleanAtDefault(properties, "gdx_vsync",
                     DEFAULT_VSYNC)
                     && stringAtDefault(properties, "gdx_fps_limit",
@@ -1277,7 +1354,7 @@ final class GdxSettingsContract {
                             GdxWindowMode.BORDERLESS.persistedValue())
                     && stringAtDefault(properties, "gdx_msaa_samples", "4"));
         }
-        TogglePage page = APPEARANCE_PAGES.get(index - 2);
+        TogglePage page = appearanceTogglePage(index);
         for (ToggleOption option : page.options()) {
             if (!booleanAtDefault(properties, option.key(),
                     option.fallback())) return false;
@@ -1378,6 +1455,10 @@ final class GdxSettingsContract {
             boolean soundEnabled, boolean mayEditGlobalCommunication) {
         if (isGlobalCommunicationOption(option)
                 && !mayEditGlobalCommunication) return false;
+        if (option.parentKey() != null && !Boolean.parseBoolean(
+                properties.getProperty(option.parentKey(), "true"))) {
+            return false;
+        }
         boolean music = Boolean.parseBoolean(properties.getProperty(
                 "musica", "true"));
         boolean effects = Boolean.parseBoolean(properties.getProperty(

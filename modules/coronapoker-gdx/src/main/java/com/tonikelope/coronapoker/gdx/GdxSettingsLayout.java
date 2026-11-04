@@ -10,6 +10,8 @@ final class GdxSettingsLayout {
 
     /** Canonical lane used by stepper values. */
     private static final float STANDARD_VALUE_WIDTH = 286f;
+    /** Wider value lane reserved for potentially long operating-system names. */
+    static final float AUDIO_DEVICE_VALUE_WIDTH = 760f;
     /**
      * Canonical lane used by every toggle state label. It is wide enough for
      * "DESACTIVADO *" at the normal body size while preserving the shared
@@ -59,8 +61,8 @@ final class GdxSettingsLayout {
     /** Extra breathing room between adjacent parent/child settings blocks. */
     static final float GROUP_GAP = 12f;
     /** One canonical margin outside and inside every useful group frame. */
-    static final float GROUP_FRAME_PADDING = CONTENT_HORIZONTAL_INSET;
-    static final float GROUP_DEPTH_INSET = CONTENT_HORIZONTAL_INSET;
+    static final float GROUP_FRAME_PADDING = 28f;
+    static final float GROUP_DEPTH_INSET = 28f;
     static final float SHORTCUT_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_HEIGHT = 62f;
     static final float ACTION_ROW_GAP = 14f;
@@ -224,7 +226,7 @@ final class GdxSettingsLayout {
                 levels = Math.max(levels, group.depth() + 1);
             }
         }
-        float inset = levels * CONTENT_HORIZONTAL_INSET;
+        float inset = levels * GROUP_FRAME_PADDING;
         return new Rectangle(x + inset, y,
                 Math.max(0f, width - 2f * inset), ROW_HEIGHT);
     }
@@ -292,6 +294,19 @@ final class GdxSettingsLayout {
      */
     static StepperRow stepperRow(float x, float y, float width,
             float height) {
+        return stepperRow(x, y, width, height, STANDARD_VALUE_WIDTH);
+    }
+
+    /** Device names need more room than ordinary numeric/choice values. */
+    static StepperRow audioDeviceStepperRow(float x, float y, float width,
+            float height) {
+        float valueWidth = Math.min(AUDIO_DEVICE_VALUE_WIDTH,
+                Math.max(STANDARD_VALUE_WIDTH, width - 520f));
+        return stepperRow(x, y, width, height, valueWidth);
+    }
+
+    private static StepperRow stepperRow(float x, float y, float width,
+            float height, float requestedValueWidth) {
         Rectangle bounds = new Rectangle(x, y, width, height);
         float surfaceY = y + (height - 54f) / 2f;
         float buttonY = y + (height - 48f) / 2f;
@@ -313,17 +328,21 @@ final class GdxSettingsLayout {
                     Math.max(0f, controlsX - x - 30f), 58f);
             return new StepperRow(bounds, label, controls, minus, value, plus);
         }
-        Rectangle controls = new Rectangle(x + width - 432f,
-                surfaceY, 420f, 54f);
-        Rectangle minus = new Rectangle(x + width - 426f,
+        float valueWidth = Math.max(STANDARD_VALUE_WIDTH,
+                requestedValueWidth);
+        float controlsWidth = valueWidth + 134f;
+        float controlsX = x + width - controlsWidth - 12f;
+        Rectangle controls = new Rectangle(controlsX,
+                surfaceY, controlsWidth, 54f);
+        Rectangle minus = new Rectangle(controlsX + 6f,
                 buttonY, 62f, 48f);
-        Rectangle value = new Rectangle(x + width - 362f,
-                surfaceY, STANDARD_VALUE_WIDTH, 54f);
-        Rectangle plus = new Rectangle(x + width - 74f,
+        Rectangle value = new Rectangle(controlsX + 70f,
+                surfaceY, valueWidth, 54f);
+        Rectangle plus = new Rectangle(value.x + value.width + 2f,
                 buttonY, 62f, 48f);
         Rectangle label = new Rectangle(x + 20f,
                 y + (height - 58f) / 2f,
-                Math.max(0f, width - 466f), 58f);
+                Math.max(0f, controlsX - x - 34f), 58f);
         return new StepperRow(bounds, label, controls, minus, value, plus);
     }
 

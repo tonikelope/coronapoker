@@ -223,6 +223,28 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void audioDeviceStepperWidensNamesWithoutOverlappingButtons() {
+        GdxSettingsLayout.StepperRow standard =
+                GdxSettingsLayout.stepperRow(100f, 200f, 1_500f,
+                        GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.StepperRow device =
+                GdxSettingsLayout.audioDeviceStepperRow(100f, 200f, 1_500f,
+                        GdxSettingsLayout.ROW_HEIGHT);
+
+        assertEquals(GdxSettingsLayout.AUDIO_DEVICE_VALUE_WIDTH,
+                device.value().width);
+        assertTrue(device.value().width > standard.value().width);
+        assertTrue(device.label().x + device.label().width
+                <= device.controls().x);
+        assertTrue(device.minusButton().x + device.minusButton().width
+                <= device.value().x);
+        assertTrue(device.value().x + device.value().width
+                <= device.plusButton().x);
+        assertTrue(device.plusButton().x + device.plusButton().width
+                <= device.bounds().x + device.bounds().width);
+    }
+
+    @Test
     void toggleStateAlignsWithStepperValuesWithoutTouchingTheSwitch() {
         GdxSettingsLayout.StepperRow stepper = GdxSettingsLayout.stepperRow(
                 100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);

@@ -80,7 +80,8 @@ final class GdxGameAudioResources {
                 options.add(new GdxSettingsContract.ToggleOption(
                         GamePresentationSettings.jokeSoundPreferenceKey(
                                 resource),
-                        childLabel + "-" + (index + 1), true,
+                        childLabel + "-" + (index + 1) + " · "
+                                + jokeFilename(resource), true,
                         GdxSettingsContract.Gate.FUNNY_SOUNDS, false,
                         categoryKey));
             }
@@ -109,6 +110,13 @@ final class GdxGameAudioResources {
     static String jokeResource(GdxSettingsContract.ToggleOption option) {
         return option == null ? null
                 : GamePresentationSettings.jokeSoundResource(option.key());
+    }
+
+    static String jokeFilename(String resource) {
+        String normalized = normalize(resource);
+        if (normalized == null) return "";
+        int separator = normalized.lastIndexOf('/');
+        return separator < 0 ? normalized : normalized.substring(separator + 1);
     }
 
     static String jokeBankFolder(String settingKey, String language) {

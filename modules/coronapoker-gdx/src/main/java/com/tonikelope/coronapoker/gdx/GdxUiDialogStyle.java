@@ -39,11 +39,11 @@ final class GdxUiDialogStyle {
         return new ConfirmationLayout(panel,
                 new Rectangle(panelX + 40f, panelY + 232f,
                         panelWidth - 80f, 48f),
-                new Rectangle(panelX + 50f, panelY + 132f,
-                        panelWidth - 100f, 78f),
-                new Rectangle(panelX + 75f, panelY + 55f, 300f, 75f),
+                new Rectangle(panelX + 50f, panelY + 146f,
+                        panelWidth - 100f, 64f),
+                new Rectangle(panelX + 75f, panelY + 43f, 300f, 75f),
                 new Rectangle(panelX + panelWidth - 375f,
-                        panelY + 55f, 300f, 75f));
+                        panelY + 43f, 300f, 75f));
     }
 
     record ConfirmationLayout(Rectangle panel, Rectangle title,

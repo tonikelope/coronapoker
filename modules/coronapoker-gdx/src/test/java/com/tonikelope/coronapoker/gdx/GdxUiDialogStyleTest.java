@@ -135,11 +135,13 @@ final class GdxUiDialogStyleTest {
                 layout.positiveButton().y);
         assertEquals(layout.negativeButton().width,
                 layout.positiveButton().width);
-        assertTrue(layout.message().y
-                > layout.negativeButton().y
-                        + layout.negativeButton().height);
-        assertTrue(layout.title().y
-                > layout.message().y + layout.message().height);
+        assertEquals(28f, layout.message().y
+                - layout.negativeButton().y
+                - layout.negativeButton().height, 0.001f,
+                "confirmation text needs breathing room above its buttons");
+        assertEquals(22f, layout.title().y
+                - layout.message().y - layout.message().height, 0.001f,
+                "moving the message must preserve the title separation");
     }
 
     @Test
@@ -176,8 +178,15 @@ final class GdxUiDialogStyleTest {
                 GdxTableDialog.Kind.CONFIRM, "DECIDE AHORA",
                 GameDialogSink.Icon.NONE, 760, 5);
         GdxTableDialog form = GdxTableDialog.autoCall(true, 1d);
+        GdxTableDialog pendingRebuy = new GdxTableDialog(
+                GdxTableDialog.Kind.CONFIRM, "CONFIRMACIÓN",
+                "Ya tienes una recompra programada.",
+                GameDialogSink.Icon.NONE, 700, 0, false,
+                "VOLVER", "ANULAR RECOMPRA");
 
         assertTrue(confirmation.usesCanonicalConfirmationLayout());
+        assertTrue(pendingRebuy.usesCanonicalConfirmationLayout(),
+                "the repeated-rebuy prompt must use the shared confirmation");
         assertTrue(error.usesCanonicalNoticeLayout());
         assertTrue(info.usesCanonicalNoticeLayout());
         assertFalse(timed.usesCanonicalConfirmationLayout(),

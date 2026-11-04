@@ -4463,8 +4463,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 finalDetailFont, finalButtonFont, finalCardFont);
         registerNativeTextFamily(finalAmountFont, finalTitleFont,
                 finalDetailFont, finalButtonFont, finalCardFont);
+        BitmapFont[] chipCatalogAmountFamily = new BitmapFont[
+                localOutcomeFamily.length + 1];
+        chipCatalogAmountFamily[0] = dialogAmountFont;
+        System.arraycopy(localOutcomeFamily, 0, chipCatalogAmountFamily, 1,
+                localOutcomeFamily.length);
         registerNativeTextFamily(chipCatalogAmountFont,
-                localOutcomeFontFamilyDescending());
+                chipCatalogAmountFamily);
         registerNativeTextFamily(fpsFont);
         registerNativeTextFamily(gameLogFont);
         registerNativeTextFamily(gameLogBoldFont);
@@ -8489,8 +8494,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? null : livePlayer(catalogSeat);
         boolean rebought = catalogPlayer != null
                 && catalogPlayer.rebuyCount() > 0;
-        Color stackSurface = rebought ? SWING_REBUY_CYAN : SWING_STACK_GREEN;
-        Color stackText = rebought ? Color.BLACK : Color.WHITE;
+        int pendingRebuy = potTarget || liveState == null ? 0
+                : Math.max(0, liveState.immediateRebuyAmount(
+                        chipCatalogTarget.nickname()));
+        Color stackSurface = stackCounterSurfaceColor(rebought,
+                pendingRebuy > 0);
+        Color stackText = stackCounterTextColor(false, rebought,
+                pendingRebuy > 0);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -8572,14 +8582,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     totalLabelY - 4f - totalAmountY);
         }
         if (chipCatalogCounterTitleVisible(potTarget)) {
-            drawFittedCenteredInBox(stackFont, uppercase(
+            drawFittedCenteredInBox(settingsHeadingFont, uppercase(
                     gameText.translate("gdx.table.stack_viewer.total")),
                     totalArea.x + 14f,
                     totalLabelY, totalArea.width - 28f,
                     totalLabelHeight, stackText, 1f);
         }
         drawFittedCenteredInBox(chipCatalogAmountFont,
-                formatAmount(stack.representedMinor() / 100d),
+                pendingRebuyStackText(
+                        formatAmount(stack.representedMinor() / 100d),
+                        pendingRebuy),
                 totalArea.x + 14f, totalAmountY,
                 totalArea.width - 28f, totalAmountHeight,
                 stackText, 1f);
@@ -8593,7 +8605,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float buyInLabelY = layout.buyInArea().y
                     + layout.buyInArea().height - buyInPad
                     - buyInLabelHeight;
-            drawFittedCenteredInBox(stackFont,
+            drawFittedCenteredInBox(settingsHeadingFont,
                     uppercase(gameText.translate("stats.buyin")),
                     layout.buyInArea().x + 14f, buyInLabelY,
                     layout.buyInArea().width - 28f, buyInLabelHeight,
@@ -20583,8 +20595,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return formatAmount(player.buyIn());
         }
         int pending = liveState.immediateRebuyAmount(seat.name);
-        return pending > 0 ? formatAmount(seat.displayedStackAmount)
-                + " + " + pending : seat.stackText;
+        return pendingRebuyStackText(pending > 0
+                ? formatAmount(seat.displayedStackAmount) : seat.stackText,
+                pending);
     }
 
     private Color playerStackSurface(Seat seat,
@@ -20595,10 +20608,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return Color.LIGHT_GRAY;
         }
         if (liveState.immediateRebuyAmount(seat.name) > 0) {
-            return POT_GOLD;
+            return stackCounterSurfaceColor(false, true);
         }
-        return player != null && player.rebuyCount() > 0
-                ? SWING_REBUY_CYAN : SWING_STACK_GREEN;
+        return stackCounterSurfaceColor(player != null
+                && player.rebuyCount() > 0, false);
     }
 
     private Color playerStackTextColor(Seat seat) {
@@ -20614,6 +20627,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean cyanRebuyStack, boolean pendingRebuy) {
         return showingBuyIn || cyanRebuyStack || pendingRebuy
                 ? Color.BLACK : Color.WHITE;
+    }
+
+    static Color stackCounterSurfaceColor(boolean rebought,
+            boolean pendingRebuy) {
+        if (pendingRebuy) return POT_GOLD;
+        return rebought ? SWING_REBUY_CYAN : SWING_STACK_GREEN;
+    }
+
+    static String pendingRebuyStackText(String displayedStack,
+            int pendingRebuy) {
+        return pendingRebuy > 0
+                ? displayedStack + " + " + pendingRebuy : displayedStack;
     }
 
     private void drawPendingRebuyTooltip(Rectangle namePlate, int amount) {

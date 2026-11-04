@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Rectangle;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -320,6 +321,21 @@ final class GdxChipCatalogTest {
                 "an open viewer must reflect the new counter immediately");
         assertEquals(1_000L, initial.representedMinor(),
                 "the viewer fallback must not mutate the HUD rack");
+    }
+
+    @Test
+    void pendingRebuyUsesHudSumAndGoldSurfaceInDetailedViewer() {
+        assertEquals("9.5 + 10", CoronaPokerGdxTable
+                .pendingRebuyStackText("9.5", 10));
+        assertEquals("9.5", CoronaPokerGdxTable
+                .pendingRebuyStackText("9.5", 0));
+        assertEquals(0xffe07aff, Color.rgba8888(CoronaPokerGdxTable
+                .stackCounterSurfaceColor(false, true)));
+        assertEquals(0xffe07aff, Color.rgba8888(CoronaPokerGdxTable
+                .stackCounterSurfaceColor(true, true)),
+                "a pending rebuy must override the completed-rebuy cyan");
+        assertEquals(Color.BLACK, CoronaPokerGdxTable.stackCounterTextColor(
+                false, false, true));
     }
 
     @Test

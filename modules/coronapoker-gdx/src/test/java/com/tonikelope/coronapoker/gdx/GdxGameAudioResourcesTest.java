@@ -28,6 +28,16 @@ final class GdxGameAudioResourcesTest {
     }
 
     @Test
+    void bundledLastCardPreviewIsAvailable() throws Exception {
+        try (InputStream input = getClass().getResourceAsStream(
+                "/sounds/misc/lastcard.wav")) {
+            assertNotNull(input, "last-card preview resource");
+            assertEquals("RIFF", new String(input.readNBytes(4),
+                    StandardCharsets.US_ASCII));
+        }
+    }
+
+    @Test
     void documentedMusicSlotsOverrideFrontendAndTableAudio(
             @TempDir Path temporary) throws Exception {
         Path installation = Files.createDirectories(temporary.resolve("app"));

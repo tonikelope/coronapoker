@@ -570,9 +570,7 @@ final class GdxSettingsContractTest {
                     "/sounds/" + preview.resource()) != null
                     || getClass().getResource(
                             "/cinematics/" + preview.resource()) != null;
-            boolean optionalModResource = "misc/lastcard.wav".equals(
-                    preview.resource());
-            assertTrue(bundled || optionalModResource,
+            assertTrue(bundled,
                     option.key() + " -> " + preview.resource());
         }
     }

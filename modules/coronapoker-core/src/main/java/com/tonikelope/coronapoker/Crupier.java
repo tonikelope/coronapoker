@@ -4405,6 +4405,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // phantom dealer button from the first deal uncleaned.
     private volatile boolean recovery_positions_set = false;
     private volatile Object[] ciegas_update = null;
+    private volatile GameConfigCodecV1.Configuration pending_blind_configuration_before;
+    private volatile GameConfigCodecV1.Configuration pending_blind_configuration_after;
     // Ante and straddle changes apply instantly (their real effect is on the next deal), but when they
     // change we set this deferred notice to reuse the SAME signaling as blinds: a yellow indicator on
     // the table while pending, and a popup on the next hand.
@@ -6579,10 +6581,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ante_straddle_update;
     }
 
-    // Flags that ante and/or straddle changed mid-game, so it's announced like the
-    // blinds. Doesn't apply the values (the caller does that immediately) — only
-    // arms the deferred notice. Under lock_ciegas to stay atomic with the cleanup in
-    // readyForNextHand; doesn't nest other locks, so it can't deadlock.
+    // Historical boundary flag for any deferred blind-configuration notice,
+    // including ante, straddle, cap and structure changes. It does not apply
+    // values; it only arms the next-hand notification. Under lock_ciegas to
+    // stay atomic with readyForNextHand cleanup and avoid nested locks.
     public void marcarCambioAnteStraddle() {
         synchronized (lock_ciegas) {
             this.ante_straddle_update = true;
@@ -7756,14 +7758,98 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void applyBlindConfigurationState(
             GameConfigCodecV1.Configuration update) {
         GameConfigCodecV1.Configuration current = configuration();
-        if (current.ante() != update.ante()
-                || current.straddle() != update.straddle()) {
+        boolean deferredChange = Double.compare(current.smallBlind(),
+                update.smallBlind()) != 0
+                || Double.compare(current.bigBlind(), update.bigBlind()) != 0
+                || current.blindsDouble() != update.blindsDouble()
+                || current.blindsDoubleType() != update.blindsDoubleType()
+                || current.ante() != update.ante()
+                || current.straddle() != update.straddle()
+                || Double.compare(current.blindCap(),
+                        update.blindCap()) != 0
+                || !current.blindStructure().equals(
+                        update.blindStructure());
+        if (deferredChange) {
+            synchronized (lock_ciegas) {
+                if (pending_blind_configuration_before == null) {
+                    pending_blind_configuration_before = current;
+                }
+                pending_blind_configuration_after = update;
+            }
+        }
+        if (deferredChange) {
             marcarCambioAnteStraddle();
         }
         actualizarCiegasManualmente(update.smallBlind(), update.bigBlind(),
                 update.blindsDouble(), update.blindsDoubleType());
         gameSession().applyBlindUpdate(update);
         publishGameConfigurationStatus();
+    }
+
+    private String blindConfigurationChangeMessage(
+            GameConfigCodecV1.Configuration before,
+            GameConfigCodecV1.Configuration after) {
+        String heading = game_text.translate(
+                "blinds.la_configuracion_de_la_partida");
+        if (before == null || after == null) {
+            return heading;
+        }
+        java.util.List<String> changes = new java.util.ArrayList<>();
+        if (Double.compare(before.smallBlind(), after.smallBlind()) != 0
+                || Double.compare(before.bigBlind(), after.bigBlind()) != 0) {
+            changes.add(game_text.translate("blinds.change.blinds",
+                    value_formatter.money(before.smallBlind()),
+                    value_formatter.money(before.bigBlind()),
+                    value_formatter.money(after.smallBlind()),
+                    value_formatter.money(after.bigBlind())));
+        }
+        if (before.blindsDouble() != after.blindsDouble()
+                || before.blindsDoubleType() != after.blindsDoubleType()) {
+            changes.add(game_text.translate("blinds.change.interval",
+                    blindIntervalText(before), blindIntervalText(after)));
+        }
+        if (before.ante() != after.ante()) {
+            changes.add(game_text.translate("blinds.change.ante",
+                    enabledText(before.ante()), enabledText(after.ante())));
+        }
+        if (before.straddle() != after.straddle()) {
+            changes.add(game_text.translate("blinds.change.straddle",
+                    enabledText(before.straddle()),
+                    enabledText(after.straddle())));
+        }
+        if (Double.compare(before.blindCap(), after.blindCap()) != 0) {
+            changes.add(game_text.translate("blinds.change.cap",
+                    blindCapText(before.blindCap()),
+                    blindCapText(after.blindCap())));
+        }
+        if (!before.blindStructure().equals(after.blindStructure())) {
+            changes.add(game_text.translate("blinds.change.structure",
+                    before.blindStructure().size(),
+                    after.blindStructure().size()));
+        }
+        return changes.isEmpty() ? heading
+                : heading + "\n\n" + String.join("\n", changes);
+    }
+
+    private String blindIntervalText(
+            GameConfigCodecV1.Configuration configuration) {
+        if (configuration.blindsDouble() <= 0) {
+            return game_text.translate("blinds.change.disabled");
+        }
+        String unit = game_text.translate(configuration.blindsDoubleType() == 2
+                ? "blinds.change.hands" : "blinds.change.minutes");
+        return game_text.translate("blinds.change.interval_value",
+                configuration.blindsDouble(), unit);
+    }
+
+    private String blindCapText(double cap) {
+        return cap > 0d ? value_formatter.money(cap)
+                : game_text.translate("blinds.change.no_limit");
+    }
+
+    private String enabledText(boolean enabled) {
+        return game_text.translate(enabled ? "blinds.change.enabled"
+                : "blinds.change.disabled");
     }
 
     private void applyBooleanLiveRule(String command, boolean value) {
@@ -13977,6 +14063,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (this.ciegas_update != null || this.ante_straddle_update) {
             synchronized (lock_ciegas) {
+                GameConfigCodecV1.Configuration before
+                        = pending_blind_configuration_before;
+                GameConfigCodecV1.Configuration after
+                        = pending_blind_configuration_after;
                 if (this.ciegas_update != null) {
                     state_mirror.blindSchedule(
                             (int) ciegas_update[2], (int) ciegas_update[3]);
@@ -13986,12 +14076,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sqlUpdateGameDoubleBlinds();
                 }
                 this.ante_straddle_update = false;
+                this.pending_blind_configuration_before = null;
+                this.pending_blind_configuration_after = null;
                 actualizarContadoresTapete();
-                game_log
-                        .print(game_text.translate("blinds.la_configuracion_de_la_partida"));
+                String changeMessage = blindConfigurationChangeMessage(before,
+                        after);
+                game_log.print(changeMessage);
                 game_async.execute(() -> {
                     awaitDialog(game_dialogs.showInfo(
-                            game_text.translate("blinds.la_configuracion_de_la_partida"),
+                            changeMessage,
                             GameDialogSink.Icon.BLINDS));
                 });
             }

@@ -2202,6 +2202,8 @@ final class GdxTableViewStateTest {
     @Test
     void projectsTheCompleteAuthoritativeLiveConfiguration() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
+        double activeSmallBlind = state.smallBlind();
+        double activeBigBlind = state.bigBlind();
         NewGameTableDraft draft = new NewGameTableDraft();
         draft.setBlindLevelIndex(2);
         draft.setHandLimit(true);
@@ -2216,8 +2218,10 @@ final class GdxTableViewStateTest {
                 1, configuration));
 
         assertEquals(configuration, state.gameConfiguration());
-        assertEquals(configuration.smallBlind(), state.smallBlind());
-        assertEquals(configuration.bigBlind(), state.bigBlind());
+        assertEquals(activeSmallBlind, state.smallBlind(),
+                "pending configuration must not change the active hand");
+        assertEquals(activeBigBlind, state.bigBlind(),
+                "pending configuration must not change the active hand");
         assertEquals(30, state.maximumHands());
         assertTrue(state.anteEnabled());
         assertTrue(state.straddleEnabled());

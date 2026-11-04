@@ -933,8 +933,6 @@ final class GdxTableViewState {
             maximumHands = status.maximumHands();
         } else if (event instanceof TableVisualEvent.GameConfigurationStatus status) {
             gameConfiguration = status.configuration();
-            smallBlind = gameConfiguration.smallBlind();
-            bigBlind = gameConfiguration.bigBlind();
             blindIncreaseInterval = gameConfiguration.blindsDouble();
             blindIncreaseType = gameConfiguration.blindsDoubleType();
             maximumHands = gameConfiguration.hands();

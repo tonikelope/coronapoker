@@ -623,6 +623,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle dropdownAnchor = new Rectangle();
     private final Rectangle dropdownClip = new Rectangle();
     private boolean dropdownAnchored;
+    private GdxAppearanceOptions.Choice dropdownAppearanceChoice;
     private List<String> hostAddressOptions =
             List.of(GdxLocalServerAddresses.LOOPBACK_NAME);
     private int hostAddressLoadGeneration;
@@ -2387,7 +2388,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::openSettings);
         mainMenuChoice(975f, 310f, 350f, 82f,
                 gameText.translate("gdx.language_name"),
-                this::toggleLanguage);
+                () -> openDropdown(Dropdown.LANGUAGE,
+                        975f, 310f, 350f, 82f));
         mainMenuButton(595f, 205f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
@@ -8971,7 +8973,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Rectangle capture = GdxSettingsLayout.groupedRow(baseX,
                     rows.rowY(captureRow), baseWidth, captureRow, groups,
                     totalRows);
-            settingsAudioDeviceStepper(output.x, output.y, output.width,
+            settingsAudioDeviceDropdownChoice(output.x, output.y,
+                    output.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.output_device")),
@@ -8979,12 +8982,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAudioDevices.outputLabel(initialProperties,
                                     gameText),
                             initialProperties.getProperty(
-                                    GdxAudioDevices.OUTPUT_KEY, "").isBlank()), () -> {
-                        GdxAudioDevices.adjustOutput(initialProperties, -1);
-                    }, () -> {
-                        GdxAudioDevices.adjustOutput(initialProperties, 1);
-                    }, true);
-            settingsAudioDeviceStepper(capture.x, capture.y, capture.width,
+                                    GdxAudioDevices.OUTPUT_KEY, "").isBlank()),
+                    Dropdown.AUDIO_OUTPUT, true);
+            settingsAudioDeviceDropdownChoice(capture.x, capture.y,
+                    capture.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.input_device")),
@@ -8992,11 +8993,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             GdxAudioDevices.captureLabel(initialProperties,
                                     gameText),
                             initialProperties.getProperty(
-                                    GdxAudioDevices.CAPTURE_KEY, "").isBlank()), () -> {
-                        GdxAudioDevices.adjustCapture(initialProperties, -1);
-                    }, () -> {
-                        GdxAudioDevices.adjustCapture(initialProperties, 1);
-                    }, microphoneEnabled);
+                                    GdxAudioDevices.CAPTURE_KEY, "").isBlank()),
+                    Dropdown.AUDIO_CAPTURE, microphoneEnabled);
             settingsTooltip(output, "gdx_audio_output_device");
             settingsTooltip(capture, "audio_capture_device");
         }
@@ -9136,7 +9134,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                             configuredDeck())),
                             Dropdown.DECK, true);
                 } else if (row == 1) {
-                    settingsStepper(baseX, currentY, baseWidth,
+                    settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
                             uppercase(gameText.translate(
                                     "gdx.settings.row.card_back")),
@@ -9149,7 +9147,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                     configuredBack())),
                                     "default".equalsIgnoreCase(
                                             configuredBack())),
-                            this::selectPreviousBack, this::selectNextBack);
+                            Dropdown.CARD_BACK, true);
                 } else if (row == 2) {
                     settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
@@ -9227,7 +9225,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         rows.rowY(row), baseWidth, row, groups,
                         GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
                 if (row == 0) {
-                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
                             uppercase(gameText.translate(
                                     "gdx.settings.row.window_mode")),
@@ -9235,8 +9233,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     windowModeSettingLabel(),
                                     GdxWindowMode.configured(initialProperties)
                                             == GdxWindowMode.BORDERLESS),
-                            this::selectPreviousWindowMode,
-                            this::selectNextWindowMode);
+                            Dropdown.WINDOW_MODE, true);
                 } else if (row == 1) {
                     boolean enabled = GdxWindowMode
                             .allowsAutomaticFullscreen(initialProperties);
@@ -9278,7 +9275,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             msaaRestartStatus(), this::selectPreviousMsaa,
                             this::selectNextMsaa);
                 } else if (row == 5) {
-                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
                             uppercase(gameText.translate(
                                     "gdx.settings.row.antialiasing_cards")),
@@ -9293,8 +9290,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                             Integer.toString(
                                                                     GdxSettingsContract
                                                                             .DEFAULT_CARD_RENDERING_MODE)))),
-                            this::selectPreviousCardRendering,
-                            this::selectNextCardRendering);
+                            Dropdown.CARD_RENDERING, true);
                 } else if (row == 6) {
                     settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
                             uppercase(gameText.translate(
@@ -9366,7 +9362,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         initialProperties);
                 Rectangle rowBounds = GdxSettingsLayout.groupedRow(baseX,
                         currentY, baseWidth, row, groups, rowCount);
-                settingsStepper(rowBounds.x, rowBounds.y, rowBounds.width,
+                Rectangle dropdownBounds = settingsDropdownAnchor(
+                        rowBounds.x, rowBounds.y, rowBounds.width,
+                        GdxSettingsLayout.ROW_HEIGHT);
+                settingsDropdownChoice(rowBounds.x, rowBounds.y,
+                        rowBounds.width,
                         GdxSettingsLayout.ROW_HEIGHT,
                         option.label(gameText),
                         GdxSettingsContract.markDefault(
@@ -9376,13 +9376,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                         GdxAppearanceOptions.selectedIndex(
                                                 option,
                                                 initialProperties)))),
-                        () -> {
-                            GdxAppearanceOptions.adjust(option,
-                                    initialProperties, -1);
-                        }, () -> {
-                            GdxAppearanceOptions.adjust(option,
-                                    initialProperties, 1);
-                        }, enabled);
+                        () -> openAppearanceChoiceDropdown(option,
+                                dropdownBounds), enabled);
                 settingsTooltip(rowBounds, option.key());
             }
         }
@@ -9443,6 +9438,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, Dropdown target, boolean enabled) {
+        settingsDropdownChoice(x, y, w, h, label, value,
+                () -> openDropdown(target, settingsDropdownAnchor(x, y, w, h)),
+                enabled);
+    }
+
+    private void settingsDropdownChoice(float x, float y, float w, float h,
+            String label, String value, Runnable action, boolean enabled) {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
                 x, y, w, h);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
@@ -9460,11 +9462,57 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float cy = row.arrow().y + row.arrow().height / 2f;
         shapes.rectLine(cx - 11f, cy + 6f, cx, cy - 5f, 3f);
         shapes.rectLine(cx, cy - 5f, cx + 11f, cy + 6f, 3f);
+        if (enabled) hit(x, y, w, h, action);
+    }
+
+    private void settingsAudioDeviceDropdownChoice(float x, float y, float w,
+            float h, String label, String value, Dropdown target,
+            boolean enabled) {
+        GdxSettingsLayout.ChoiceRow row =
+                GdxSettingsLayout.audioDeviceChoiceRow(x, y, w, h);
+        GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
+                enabled && hovered(x, y, w, h),
+                enabled && pressed(x, y, w, h), 1f);
+        textFit(smallFont, uppercase(label), row.label().x,
+                GdxSettingsLayout.rowTextBaseline(y),
+                enabled ? Color.WHITE : DISABLED, false, row.label().width);
+        textFit(uiFont, value,
+                row.value().x + row.value().width / 2f,
+                GdxSettingsLayout.rowTextBaseline(y),
+                enabled ? GOLD : DISABLED, true, row.value().width - 12f);
+        shapes.setColor(enabled ? GOLD : DISABLED);
+        float cx = row.arrow().x + row.arrow().width / 2f;
+        float cy = row.arrow().y + row.arrow().height / 2f;
+        shapes.rectLine(cx - 11f, cy + 6f, cx, cy - 5f, 3f);
+        shapes.rectLine(cx, cy - 5f, cx + 11f, cy + 6f, 3f);
         if (enabled) {
-            hit(x, y, w, h, () -> openDropdown(target,
-                    row.value().x, y,
-                    row.arrow().x + row.arrow().width - row.value().x, h));
+            Rectangle anchor = settingsDropdownAnchor(row);
+            hit(x, y, w, h, () -> openDropdown(target, anchor));
         }
+    }
+
+    private Rectangle settingsDropdownAnchor(float x, float y, float w,
+            float h) {
+        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
+                x, y, w, h);
+        return settingsDropdownAnchor(row);
+    }
+
+    private Rectangle settingsDropdownAnchor(
+            GdxSettingsLayout.ChoiceRow row) {
+        return new Rectangle(row.value().x, row.bounds().y,
+                row.arrow().x + row.arrow().width - row.value().x,
+                row.bounds().height);
+    }
+
+    private void openDropdown(Dropdown target, Rectangle anchor) {
+        openDropdown(target, anchor.x, anchor.y, anchor.width, anchor.height);
+    }
+
+    private void openAppearanceChoiceDropdown(
+            GdxAppearanceOptions.Choice choice, Rectangle anchor) {
+        dropdownAppearanceChoice = choice;
+        openDropdown(Dropdown.APPEARANCE_CHOICE, anchor);
     }
 
     private void settingsStepper(float x, float y, float w, float h,
@@ -9675,11 +9723,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_UNIT_ROW), rowWidth,
                 GdxSettingsContract.BLIND_UNIT_ROW, groups, 10);
-        settingsStepper(row.x, row.y, row.width,
+        settingsDropdownChoice(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
-                settingsGameText("row.unit"),
-                settingsBlindUnit(), this::toggleSettingsBlindIncreaseType,
-                this::toggleSettingsBlindIncreaseType,
+                settingsGameText("row.unit"), settingsBlindUnit(),
+                Dropdown.BLIND_UNIT,
                 enabled && settingsTable.increaseBlinds());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_INTERVAL_ROW), rowWidth,
@@ -9811,15 +9858,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_REBUY_CAP_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_REBUY_CAP_ROW, groups, 8);
-        settingsStepper(row.x, row.y, row.width,
+        settingsDropdownChoice(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.rebuy_cap"),
                 settingsTable.rebuyCapPolicy()
                         == NewGameTableDraft.RebuyCapPolicy.BUY_IN
                                 ? "BUY-IN"
                                 : settingsGameText("value.highest_stack"),
-                this::cycleSettingsRebuyCap,
-                this::cycleSettingsRebuyCap,
+                Dropdown.REBUY_CAP,
                 editable && settingsTable.rebuy());
         if (!economyEditable) {
             for (int index = 0; index < 4; index++) {
@@ -9855,12 +9901,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (rows.firstIndex() <= 0 && rows.lastExclusive() > 0) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
                     rows.rowY(0), rowWidth, 0, groups, 6);
-            settingsStepper(bounds.x, bounds.y, bounds.width,
+            settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     settingsGameText("row.bot_difficulty"),
-                    settingsBotDifficulty(),
-                    () -> adjustSettingsBotDifficulty(-1),
-                    () -> adjustSettingsBotDifficulty(1), editable);
+                    settingsBotDifficulty(), Dropdown.BOT_DIFFICULTY,
+                    editable);
             tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
                     "tooltip.cfg.bots");
         }
@@ -10016,11 +10061,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     editable);
         }
         if (rows.firstIndex() <= 8 && rows.lastExclusive() > 8) {
-            settingsStepper(rowX, rows.rowY(8), rowWidth,
+            settingsDropdownChoice(rowX, rows.rowY(8), rowWidth,
                     GdxSettingsLayout.ROW_HEIGHT,
                     settingsGameText("row.rabbit_hunting"),
-                    settingsRabbitText(), () -> adjustSettingsRabbit(-1),
-                    () -> adjustSettingsRabbit(1), editable);
+                    settingsRabbitText(), Dropdown.RABBIT, editable);
         }
         if (!editable) {
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
@@ -11127,9 +11171,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 ? gameText.translate("gdx.newgame.no_previous_servers")
                 : connection.serverHistory().get(historyIndex < 0
                         ? connection.serverHistory().size() - 1 : historyIndex);
-        bidirectionalChoice(985f, 445f, 595f,
+        dropdownChoice(985f, 445f, 595f,
                 gameText.translate("gdx.newgame.previous_servers"), history,
-                this::previousServerHistory, this::nextServerHistory,
+                () -> openDropdown(Dropdown.SERVER_HISTORY,
+                        985f, 445f, 595f, 72f),
                 !connection.serverHistory().isEmpty());
         field(985f, 315f, 595f,
                 gameText.translate("gdx.newgame.password_optional"),
@@ -11400,29 +11445,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 true);
     }
 
-    private void nextServerHistory() {
-        selectServerHistory(1);
-    }
-
-    private void previousServerHistory() {
-        selectServerHistory(-1);
-    }
-
-    private void selectServerHistory(int direction) {
-        List<String> history = connection.serverHistory();
-        if (history.isEmpty()) {
-            return;
-        }
-        int current = historyIndex < 0 ? history.size() - 1 : historyIndex;
-        historyIndex = adjacentIndex(current, history.size(), direction);
-        String endpoint = history.get(historyIndex);
-        int separator = endpoint.lastIndexOf(':');
-        if (separator > 0 && separator < endpoint.length() - 1) {
-            connection.setServer(endpoint.substring(0, separator));
-            connection.setPort(endpoint.substring(separator + 1));
-        }
-    }
-
     private void toggleRecover() {
         if (connection.recoverRequested()) {
             recoveryLoadGeneration++;
@@ -11547,19 +11569,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setIncreaseBlinds(!table.increaseBlinds()), !table.economyLocked());
         tooltip(1170f, 610f, 645f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.double_blinds");
-        bidirectionalChoice(1170f, 460f, 305f,
+        dropdownChoice(1170f, 460f, 305f,
                 settingsGameText("row.unit"),
                 table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
                         ? gameText.translate("gdx.settings.game.value.minutes")
                         : gameText.translate("gdx.settings.game.value.hands"),
-                () -> table.setBlindIncreaseType(
-                        table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
-                                ? NewGameTableDraft.BlindIncreaseType.HANDS
-                                : NewGameTableDraft.BlindIncreaseType.MINUTES),
-                () -> table.setBlindIncreaseType(
-                        table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
-                                ? NewGameTableDraft.BlindIncreaseType.HANDS
-                                : NewGameTableDraft.BlindIncreaseType.MINUTES),
+                () -> openDropdown(Dropdown.BLIND_UNIT,
+                        1170f, 460f, 305f, 72f),
                 table.increaseBlinds() && !table.economyLocked());
         stepper(1510f, 460f, 305f,
                 settingsGameText("row.interval"),
@@ -11623,6 +11639,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private NewGameTableDraft blindStructureDropdownTarget() {
+        return dropdownTableTarget();
+    }
+
+    private NewGameTableDraft dropdownTableTarget() {
         return surface == Surface.SETTINGS ? settingsTable : table;
     }
 
@@ -12005,19 +12025,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() - 1),
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() + 1),
                 table.rebuyLimitCountEnabled());
-        bidirectionalChoice(1170f, 225f, 645f,
+        dropdownChoice(1170f, 225f, 645f,
                 settingsGameText("row.rebuy_cap"),
                 table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
                         ? "BUY-IN"
                         : settingsGameText("value.highest_stack"),
-                () -> table.setRebuyCapPolicy(
-                        table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
-                                ? NewGameTableDraft.RebuyCapPolicy.HIGHEST_STACK
-                                : NewGameTableDraft.RebuyCapPolicy.BUY_IN),
-                () -> table.setRebuyCapPolicy(
-                        table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
-                                ? NewGameTableDraft.RebuyCapPolicy.HIGHEST_STACK
-                                : NewGameTableDraft.RebuyCapPolicy.BUY_IN),
+                () -> openDropdown(Dropdown.REBUY_CAP,
+                        1170f, 225f, 645f, 72f),
                 table.rebuy());
     }
 
@@ -12067,14 +12081,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setRunItTwice(!table.runItTwice()), true);
         tooltip(1170f, 495f, 645f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.rit");
-        bidirectionalChoice(1170f, 325f, 645f,
+        dropdownChoice(1170f, 325f, 645f,
                 settingsGameText("row.rabbit_hunting"),
-                rabbitText(), this::previousRabbit, this::nextRabbit, true);
+                rabbitText(), () -> openDropdown(Dropdown.RABBIT,
+                        1170f, 325f, 645f, 72f), true);
         tooltip(1170f, 325f, 645f, 102f, "tooltip.cfg.rabbit");
     }
 
     private String rabbitText() {
-        return switch (table.rabbitHunting()) {
+        return rabbitLabel(table.rabbitHunting());
+    }
+
+    private String rabbitLabel(NewGameTableDraft.RabbitHunting value) {
+        return switch (value) {
             case FREE -> gameText.translate("menu.free");
             case FREE_SMALL_BLIND -> gameText.translate("menu.free_sb");
             case FREE_SMALL_AND_BIG_BLIND -> gameText.translate("menu.free_sb_bb");
@@ -12101,7 +12120,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Keep the first control entirely below the panel heading and divider.
         // The generic choice label is drawn 99 px above its origin, so using
         // the same origin as a title-less panel makes it invade the heading.
-        bidirectionalChoice(580f, 610f, 1110f,
+        dropdownChoice(580f, 610f, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_difficulty"),
                 table.botDifficulty() == NewGameTableDraft.BotDifficulty.EASY
                         ? gameText.translate("gdx.settings.game.value.easy")
@@ -12110,7 +12129,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                         "gdx.settings.game.value.hard")
                                 : gameText.translate(
                                         "gdx.settings.game.value.medium"),
-                this::previousBotDifficulty, this::nextBotDifficulty, true);
+                () -> openDropdown(Dropdown.BOT_DIFFICULTY,
+                        580f, 610f, 1110f, 72f), true);
         tooltip(580f, 610f, 1110f, 102f, "tooltip.cfg.bots");
         // Four equal rows share the space below difficulty with comparable
         // top and bottom breathing room inside the panel.
@@ -12742,18 +12762,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(editX + 42f, 610f, editW - 84f, 70f,
                 "tooltip.cfg.custom_bots.name");
 
-        bidirectionalChoice(editX + 42f, 465f, editW - 84f,
+        dropdownChoice(editX + 42f, 465f, editW - 84f,
                 gameText.translate("gdx.custom_bots.difficulty"),
                 customBotDifficultyLabel(),
-                () -> adjustCustomBotDifficulty(-1),
-                () -> adjustCustomBotDifficulty(1), true);
+                () -> openDropdown(Dropdown.CUSTOM_BOT_DIFFICULTY,
+                        editX + 42f, 465f, editW - 84f, 72f), true);
         tooltip(editX + 42f, 465f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.difficulty");
-        bidirectionalChoice(editX + 42f, 340f, editW - 84f,
+        dropdownChoice(editX + 42f, 340f, editW - 84f,
                 gameText.translate("gdx.custom_bots.personality"),
                 customBotPersonalityLabel(customBotPersonalityDraft),
-                () -> adjustCustomBotPersonality(-1),
-                () -> adjustCustomBotPersonality(1), true);
+                () -> openDropdown(Dropdown.CUSTOM_BOT_PERSONALITY,
+                        editX + 42f, 340f, editW - 84f, 72f), true);
         tooltip(editX + 42f, 340f, editW - 84f, 102f,
                 "tooltip.cfg.custom_bots.personality");
 
@@ -13797,23 +13817,53 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void prepareDropdown(Dropdown target) {
         dropdown = Objects.requireNonNull(target, "target");
-        int selected = switch (target) {
+        int selected = selectedDropdownOption(target);
+        int count = dropdownOptions(target).size();
+        dropdownScroll = MathUtils.clamp(selected - 2, 0,
+                Math.max(0, count
+                        - GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS));
+        clearActiveField();
+    }
+
+    private int selectedDropdownOption(Dropdown target) {
+        return switch (target) {
             case PROFILE -> selectedGamePreset + 1;
             case BLIND_STRUCTURE -> selectedBlindStructureOption();
             case BLIND_STRUCTURE_EDITOR ->
                 blindStructureEditor.selectedStructureIndex();
             case DECK -> presentationSettings.availableDecks().indexOf(
                     presentationSettings.deck());
+            case CARD_BACK -> presentationSettings.availableCardBacks()
+                    .indexOf(presentationSettings.cardBack());
             case FELT -> GdxGamePresentationSettings.FELTS.indexOf(
                     presentationSettings.felt());
             case HOST_ADDRESS -> selectedHostAddressOption();
-            default -> 0;
+            case SERVER_HISTORY -> selectedServerHistoryOption();
+            case LANGUAGE -> "en".equalsIgnoreCase(
+                    presentationSettings.language()) ? 1 : 0;
+            case AUDIO_OUTPUT -> GdxAudioDevices.selectedOutputIndex(
+                    initialProperties);
+            case AUDIO_CAPTURE -> GdxAudioDevices.selectedCaptureIndex(
+                    initialProperties);
+            case WINDOW_MODE -> GdxWindowMode.configured(initialProperties)
+                    .ordinal();
+            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
+                    .indexOf(presentationSettings.requestedCardRenderingMode());
+            case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
+                    : GdxAppearanceOptions.selectedIndex(
+                            dropdownAppearanceChoice, initialProperties);
+            case BLIND_UNIT -> dropdownTableTarget().blindIncreaseType()
+                    .ordinal();
+            case REBUY_CAP -> dropdownTableTarget().rebuyCapPolicy().ordinal();
+            case BOT_DIFFICULTY -> dropdownTableTarget().botDifficulty()
+                    .ordinal();
+            case RABBIT -> dropdownTableTarget().rabbitHunting().ordinal();
+            case CUSTOM_BOT_DIFFICULTY ->
+                customBotDifficultyDraft.ordinal();
+            case CUSTOM_BOT_PERSONALITY ->
+                customBotPersonalityDraft.ordinal();
+            case NONE -> -1;
         };
-        int count = dropdownOptions(target).size();
-        dropdownScroll = MathUtils.clamp(selected - 2, 0,
-                Math.max(0, count
-                        - GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS));
-        clearActiveField();
     }
 
     private int selectedBlindStructureOption() {
@@ -13832,6 +13882,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int selectedHostAddressOption() {
         int selected = hostAddressOptions.indexOf(connection.server());
         return Math.max(0, selected);
+    }
+
+    private int selectedServerHistoryOption() {
+        List<String> history = connection == null
+                ? List.of() : connection.serverHistory();
+        if (history.isEmpty()) return -1;
+        return historyIndex < 0 ? history.size() - 1
+                : MathUtils.clamp(historyIndex, 0, history.size() - 1);
     }
 
     private void refreshHostAddressOptions() {
@@ -13864,31 +13922,209 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private List<String> dropdownOptions(Dropdown target) {
-        if (target == Dropdown.HOST_ADDRESS) return hostAddressOptions;
-        if (target == Dropdown.BLIND_STRUCTURE_EDITOR) {
-            return blindStructureEditor.entries().stream()
-                    .map(BlindStructureCatalog.Entry::name).toList();
-        }
-        if (target == Dropdown.DECK) {
-            return presentationSettings.availableDecks().stream()
+        return switch (target) {
+            case HOST_ADDRESS -> hostAddressOptions;
+            case SERVER_HISTORY -> connection == null ? List.of()
+                    : connection.serverHistory();
+            case BLIND_STRUCTURE_EDITOR -> blindStructureEditor.entries()
+                    .stream().map(BlindStructureCatalog.Entry::name).toList();
+            case DECK -> presentationSettings.availableDecks().stream()
                     .map(deck -> GdxAppearanceOptions.deckLabel(deck,
                             gameText)).toList();
-        }
-        if (target == Dropdown.FELT) {
-            return GdxGamePresentationSettings.FELTS.stream()
+            case CARD_BACK -> presentationSettings.availableCardBacks().stream()
+                    .map(back -> GdxModSettingsIndicator.label(
+                            GdxAppearanceOptions.cardBackLabel(back, gameText),
+                            GdxModSettingsIndicator.cardBack(
+                                    presentationSettings, back))).toList();
+            case FELT -> GdxGamePresentationSettings.FELTS.stream()
                     .map(felt -> GdxAppearanceOptions.feltLabel(felt,
                             gameText)).toList();
+            case LANGUAGE -> List.of("Español", "English");
+            case AUDIO_OUTPUT -> GdxAudioDevices.outputChoices().stream()
+                    .map(device -> GdxAudioDevices.deviceLabel(device,
+                            gameText)).toList();
+            case AUDIO_CAPTURE -> GdxAudioDevices.captureChoices().stream()
+                    .map(device -> GdxAudioDevices.deviceLabel(device,
+                            gameText)).toList();
+            case WINDOW_MODE -> Arrays.stream(GdxWindowMode.values())
+                    .map(mode -> mode.label(gameText)).toList();
+            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
+                    .stream().map(mode -> GdxSettingsContract
+                            .cardRenderingStatusLabel(mode, gameText)).toList();
+            case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null
+                    ? List.of() : java.util.stream.IntStream.range(0,
+                            dropdownAppearanceChoice.values().size())
+                            .mapToObj(index -> GdxAppearanceOptions.labelAt(
+                                    dropdownAppearanceChoice, index, gameText))
+                            .toList();
+            case BLIND_UNIT -> List.of(
+                    gameText.translate("gdx.settings.game.value.minutes"),
+                    gameText.translate("gdx.settings.game.value.hands"));
+            case REBUY_CAP -> List.of("BUY-IN",
+                    settingsGameText("value.highest_stack"));
+            case BOT_DIFFICULTY, CUSTOM_BOT_DIFFICULTY -> List.of(
+                    gameText.translate("gdx.settings.game.value.easy"),
+                    target == Dropdown.CUSTOM_BOT_DIFFICULTY
+                            ? gameText.translate(
+                                    "gdx.custom_bots.difficulty.normal")
+                            : gameText.translate(
+                                    "gdx.settings.game.value.medium"),
+                    gameText.translate("gdx.settings.game.value.hard"));
+            case RABBIT -> Arrays.stream(
+                    NewGameTableDraft.RabbitHunting.values())
+                    .map(this::rabbitLabel).toList();
+            case CUSTOM_BOT_PERSONALITY -> Arrays.stream(
+                    CustomBotProfile.Personality.values())
+                    .map(this::customBotPersonalityLabel).toList();
+            case PROFILE -> {
+                ArrayList<String> values = new ArrayList<>();
+                values.add(gameText.translate("newgame.preset_por_defecto"));
+                gamePresets.forEach(entry -> values.add(entry.name()));
+                yield List.copyOf(values);
+            }
+            case BLIND_STRUCTURE -> {
+                ArrayList<String> values = new ArrayList<>();
+                values.add(gameText.translate("gdx.settings.value.default"));
+                BlindStructureCatalog.read(initialProperties)
+                        .forEach(entry -> values.add(entry.name()));
+                yield List.copyOf(values);
+            }
+            case NONE -> List.of();
+        };
+    }
+
+    private void selectDropdownOption(Dropdown target, int option) {
+        switch (target) {
+            case PROFILE -> selectGamePresetOption(option);
+            case HOST_ADDRESS -> {
+                List<String> values = hostAddressOptions;
+                if (option >= 0 && option < values.size()) {
+                    connection.setServer(values.get(option));
+                    connection.persistLocalHostEndpoint(preferences);
+                }
+            }
+            case SERVER_HISTORY -> selectServerHistoryOption(option);
+            case BLIND_STRUCTURE -> selectBlindStructureOption(option);
+            case BLIND_STRUCTURE_EDITOR ->
+                selectBlindStructureEditorOption(option);
+            case DECK -> selectDeckOption(option);
+            case CARD_BACK -> selectCardBackOption(option);
+            case FELT -> selectFeltOption(option);
+            case LANGUAGE -> selectLanguageOption(option);
+            case AUDIO_OUTPUT -> {
+                List<String> values = GdxAudioDevices.outputChoices();
+                if (option >= 0 && option < values.size()) {
+                    GdxAudioDevices.selectOutput(initialProperties,
+                            values.get(option));
+                }
+            }
+            case AUDIO_CAPTURE -> {
+                List<String> values = GdxAudioDevices.captureChoices();
+                if (option >= 0 && option < values.size()) {
+                    GdxAudioDevices.selectCapture(initialProperties,
+                            values.get(option));
+                }
+            }
+            case WINDOW_MODE -> {
+                GdxWindowMode[] values = GdxWindowMode.values();
+                if (option >= 0 && option < values.length) {
+                    GdxDisplayModeController.apply(initialProperties,
+                            values[option]);
+                }
+            }
+            case CARD_RENDERING -> {
+                List<Integer> values = presentationSettings.cardRenderingModes();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectCardRenderingMode(
+                            values.get(option), false);
+                }
+            }
+            case APPEARANCE_CHOICE -> {
+                if (dropdownAppearanceChoice != null) {
+                    GdxAppearanceOptions.select(dropdownAppearanceChoice,
+                            initialProperties, option);
+                }
+            }
+            case BLIND_UNIT -> {
+                NewGameTableDraft.BlindIncreaseType[] values =
+                        NewGameTableDraft.BlindIncreaseType.values();
+                if (option >= 0 && option < values.length) {
+                    dropdownTableTarget().setBlindIncreaseType(values[option]);
+                }
+            }
+            case REBUY_CAP -> {
+                NewGameTableDraft.RebuyCapPolicy[] values =
+                        NewGameTableDraft.RebuyCapPolicy.values();
+                if (option >= 0 && option < values.length) {
+                    dropdownTableTarget().setRebuyCapPolicy(values[option]);
+                }
+            }
+            case BOT_DIFFICULTY -> {
+                NewGameTableDraft.BotDifficulty[] values =
+                        NewGameTableDraft.BotDifficulty.values();
+                if (option >= 0 && option < values.length) {
+                    dropdownTableTarget().setBotDifficulty(values[option]);
+                }
+            }
+            case RABBIT -> {
+                NewGameTableDraft.RabbitHunting[] values =
+                        NewGameTableDraft.RabbitHunting.values();
+                if (option >= 0 && option < values.length) {
+                    dropdownTableTarget().setRabbitHunting(values[option]);
+                }
+            }
+            case CUSTOM_BOT_DIFFICULTY -> {
+                NewGameTableDraft.BotDifficulty[] values =
+                        NewGameTableDraft.BotDifficulty.values();
+                if (option >= 0 && option < values.length) {
+                    customBotDifficultyDraft = values[option];
+                }
+            }
+            case CUSTOM_BOT_PERSONALITY -> {
+                CustomBotProfile.Personality[] values =
+                        CustomBotProfile.Personality.values();
+                if (option >= 0 && option < values.length) {
+                    customBotPersonalityDraft = values[option];
+                }
+            }
+            case NONE -> { }
         }
-        List<String> values = new ArrayList<>();
-        if (target == Dropdown.PROFILE) {
-            values.add(gameText.translate("newgame.preset_por_defecto"));
-            gamePresets.forEach(entry -> values.add(entry.name()));
-        } else if (target == Dropdown.BLIND_STRUCTURE) {
-            values.add(gameText.translate("gdx.settings.value.default"));
-            BlindStructureCatalog.read(initialProperties)
-                    .forEach(entry -> values.add(entry.name()));
+        dropdown = Dropdown.NONE;
+        dropdownAppearanceChoice = null;
+    }
+
+    private void selectCardBackOption(int option) {
+        List<String> backs = presentationSettings.availableCardBacks();
+        if (option < 0 || option >= backs.size()) return;
+        String previous = presentationSettings.cardBack();
+        String selected = presentationSettings.selectCardBack(
+                backs.get(option), false);
+        if (!Objects.equals(previous, selected)) {
+            playPreferenceSound("misc/uncover.wav", "sonido_destape", 0.92f);
         }
-        return List.copyOf(values);
+    }
+
+    private void selectLanguageOption(int option) {
+        if (option < 0 || option > 1) return;
+        String next = option == 0 ? "es" : "en";
+        if (next.equalsIgnoreCase(presentationSettings.language())) return;
+        initialProperties.setProperty("lenguaje", next);
+        languageChanged.accept(next);
+        if (preferences != null) preferences.saveDeferred();
+    }
+
+    private void selectServerHistoryOption(int option) {
+        List<String> history = connection == null
+                ? List.of() : connection.serverHistory();
+        if (option < 0 || option >= history.size()) return;
+        historyIndex = option;
+        String endpoint = history.get(option);
+        int separator = endpoint.lastIndexOf(':');
+        if (separator > 0 && separator < endpoint.length() - 1) {
+            connection.setServer(endpoint.substring(0, separator));
+            connection.setPort(endpoint.substring(separator + 1));
+            connection.persistLocalHostEndpoint(preferences);
+        }
     }
 
     private void drawDropdownOverlay(boolean interactive) {
@@ -13900,6 +14136,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int visible = Math.min(GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS,
                 options.size());
         int maximum = Math.max(0, options.size() - visible);
+        boolean scrollable = maximum > 0;
         dropdownScroll = MathUtils.clamp(dropdownScroll, 0, maximum);
         float x = dropdownAnchored ? dropdownAnchor.x : switch (dropdown) {
             case PROFILE -> 500f;
@@ -13911,6 +14148,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case HOST_ADDRESS -> 430f;
             default -> 590f;
         };
+        if (dropdownAnchored) {
+            float contentWidth = 0f;
+            for (String option : options) {
+                contentWidth = Math.max(contentWidth,
+                        textWidth(smallFont, option));
+            }
+            float desiredWidth = contentWidth + 40f
+                    + (scrollable ? 24f : 6f);
+            w = Math.min(WIDTH - 40f, Math.max(w, desiredWidth));
+            x = MathUtils.clamp(x, 20f, WIDTH - 20f - w);
+        }
         float top = dropdownAnchored ? dropdownAnchor.y : switch (dropdown) {
             case PROFILE -> 570f;
             case HOST_ADDRESS -> 700f;
@@ -13924,25 +14172,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         float y = top - visible * rowH;
         dropdownClip.set(x, y, w, visible * rowH);
-        boolean scrollable = maximum > 0;
         float rowRightInset = scrollable ? 24f : 6f;
         if (interactive) {
             hit(0f, 0f, WIDTH, HEIGHT, () -> dropdown = Dropdown.NONE);
         }
         outerBox(x, y, w, visible * rowH, CYAN_DARK,
                 new Color(0x071221ff));
-        int selected = switch (dropdown) {
-            case PROFILE -> selectedGamePreset + 1;
-            case HOST_ADDRESS -> selectedHostAddressOption();
-            case BLIND_STRUCTURE -> selectedBlindStructureOption();
-            case BLIND_STRUCTURE_EDITOR ->
-                blindStructureEditor.selectedStructureIndex();
-            case DECK -> presentationSettings.availableDecks().indexOf(
-                    presentationSettings.deck());
-            case FELT -> GdxGamePresentationSettings.FELTS.indexOf(
-                    presentationSettings.felt());
-            default -> -1;
-        };
+        int selected = selectedDropdownOption(dropdown);
         for (int row = 0; row < visible; row++) {
             int option = dropdownScroll + row;
             float rowY = top - (row + 1) * rowH;
@@ -13966,22 +14202,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 int selectedOption = option;
                 hit(x + 6f, rowY + 3f, w - 6f - rowRightInset,
                         rowH - 6f, () -> {
-                    switch (dropdown) {
-                        case PROFILE ->
-                            selectGamePresetOption(selectedOption);
-                        case HOST_ADDRESS -> {
-                            connection.setServer(options.get(selectedOption));
-                            connection.persistLocalHostEndpoint(preferences);
-                            dropdown = Dropdown.NONE;
-                        }
-                        case BLIND_STRUCTURE ->
-                            selectBlindStructureOption(selectedOption);
-                        case BLIND_STRUCTURE_EDITOR ->
-                            selectBlindStructureEditorOption(selectedOption);
-                        case DECK -> selectDeckOption(selectedOption);
-                        case FELT -> selectFeltOption(selectedOption);
-                        default -> { }
-                    }
+                    selectDropdownOption(dropdown, selectedOption);
                 });
             }
         }
@@ -14275,8 +14496,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.setColor(GOLD);
         float cx = x + w - 36f;
         float cy = y + h / 2f;
-        shapes.rectLine(cx - 9f, cy + 12f, cx + 3f, cy, 3f);
-        shapes.rectLine(cx + 3f, cy, cx - 9f, cy - 12f, 3f);
+        shapes.rectLine(cx - 11f, cy + 6f, cx, cy - 5f, 3f);
+        shapes.rectLine(cx, cy - 5f, cx + 11f, cy + 6f, 3f);
     }
 
     private void iconButton(float x, float y, float w, float h,
@@ -17129,7 +17350,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private enum Dropdown {
         NONE, PROFILE, BLIND_STRUCTURE, BLIND_STRUCTURE_EDITOR,
-        DECK, FELT, HOST_ADDRESS
+        DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
+        AUDIO_OUTPUT, AUDIO_CAPTURE, WINDOW_MODE, CARD_RENDERING,
+        APPEARANCE_CHOICE, BLIND_UNIT, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
+        CUSTOM_BOT_DIFFICULTY, CUSTOM_BOT_PERSONALITY
     }
 
     private enum ButtonTone {

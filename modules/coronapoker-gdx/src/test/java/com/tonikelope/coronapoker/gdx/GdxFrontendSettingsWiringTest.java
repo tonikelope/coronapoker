@@ -379,7 +379,7 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
-    void blindStructuresDecksAndFeltsUseScrollableSelectionLists()
+    void discreteChoicesUseScrollableSelectionListsAcrossAllSurfaces()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
@@ -392,6 +392,17 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("Dropdown.BLIND_STRUCTURE_EDITOR"));
         assertTrue(frontend.contains("Dropdown.DECK, true"));
         assertTrue(frontend.contains("Dropdown.FELT, true"));
+        assertTrue(frontend.contains("Dropdown.SERVER_HISTORY"));
+        assertTrue(frontend.contains("Dropdown.LANGUAGE"));
+        assertTrue(frontend.contains("Dropdown.AUDIO_OUTPUT"));
+        assertTrue(frontend.contains("Dropdown.AUDIO_CAPTURE"));
+        assertTrue(frontend.contains("Dropdown.WINDOW_MODE"));
+        assertTrue(frontend.contains("Dropdown.CARD_RENDERING"));
+        assertTrue(frontend.contains("Dropdown.APPEARANCE_CHOICE"));
+        assertTrue(frontend.contains("Dropdown.BLIND_UNIT"));
+        assertTrue(frontend.contains("Dropdown.REBUY_CAP"));
+        assertTrue(frontend.contains("Dropdown.BOT_DIFFICULTY"));
+        assertTrue(frontend.contains("Dropdown.RABBIT"));
         assertFalse(frontend.contains("adjustSettingsBlindStructure("));
         assertFalse(frontend.contains("selectNextDeck"));
         assertFalse(frontend.contains("selectPreviousFelt"));
@@ -401,7 +412,16 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains(
                 "SettingsSelectionList.BLIND_STRUCTURE"));
         assertTrue(table.contains("SettingsSelectionList.DECK"));
+        assertTrue(table.contains("SettingsSelectionList.CARD_BACK"));
         assertTrue(table.contains("SettingsSelectionList.FELT"));
+        assertTrue(table.contains("SettingsSelectionList.AUDIO_OUTPUT"));
+        assertTrue(table.contains("SettingsSelectionList.AUDIO_CAPTURE"));
+        assertTrue(table.contains("SettingsSelectionList.WINDOW_MODE"));
+        assertTrue(table.contains("SettingsSelectionList.CARD_RENDERING"));
+        assertTrue(table.contains("SettingsSelectionList.APPEARANCE_CHOICE"));
+        assertTrue(table.contains("SettingsSelectionList.BLIND_UNIT"));
+        assertTrue(table.contains("SettingsSelectionList.BOT_DIFFICULTY"));
+        assertTrue(table.contains("SettingsSelectionList.RABBIT"));
         assertTrue(table.contains("drawSettingsSelectionList(alpha)"));
         assertTrue(table.contains(
                 "GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS"));

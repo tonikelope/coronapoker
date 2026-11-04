@@ -392,6 +392,19 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return CARD_RENDERING_MODES.contains(configured) ? configured
                 : GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE;
     }
+
+    List<Integer> cardRenderingModes() {
+        return CARD_RENDERING_MODES;
+    }
+
+    int selectCardRenderingMode(int mode, boolean persist) {
+        int selected = CARD_RENDERING_MODES.contains(mode) ? mode
+                : requestedCardRenderingMode();
+        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY,
+                Integer.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
+    }
     int selectNextCardRenderingMode() {
         return selectNextCardRenderingMode(true);
     }
@@ -408,10 +421,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int current = CARD_RENDERING_MODES.indexOf(requestedCardRenderingMode());
         int selected = CARD_RENDERING_MODES.get(Math.floorMod(current
                 + Integer.signum(direction), CARD_RENDERING_MODES.size()));
-        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY,
-                Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
-        return selected;
+        return selectCardRenderingMode(selected, persist);
     }
     int requestedFrameRateLimit() {
         int configured = integer("gdx_fps_limit",

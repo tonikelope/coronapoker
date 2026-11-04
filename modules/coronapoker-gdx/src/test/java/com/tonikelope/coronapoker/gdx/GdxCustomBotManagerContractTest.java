@@ -123,9 +123,9 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains(
                 "field(editX + 42f, 610f, editW - 84f"));
         assertTrue(source.contains(
-                "bidirectionalChoice(editX + 42f, 465f, editW - 84f"));
+                "dropdownChoice(editX + 42f, 465f, editW - 84f"));
         assertTrue(source.contains(
-                "bidirectionalChoice(editX + 42f, 340f, editW - 84f"));
+                "dropdownChoice(editX + 42f, 340f, editW - 84f"));
         assertTrue(source.contains(
                 "gameText.translate(\"gdx.custom_bots.automatic_rebuy\")"));
         assertTrue(source.contains(

@@ -268,6 +268,24 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void audioDeviceChoiceReclaimsStepperSpaceForLongNamesAndPopup() {
+        GdxSettingsLayout.ChoiceRow standard =
+                GdxSettingsLayout.choiceRow(100f, 200f, 1_500f,
+                        GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.ChoiceRow device =
+                GdxSettingsLayout.audioDeviceChoiceRow(100f, 200f, 1_500f,
+                        GdxSettingsLayout.ROW_HEIGHT);
+
+        assertTrue(device.value().width > standard.value().width * 2f);
+        assertTrue(device.label().x + device.label().width
+                <= device.value().x);
+        assertTrue(device.value().x + device.value().width
+                <= device.arrow().x);
+        assertTrue(device.arrow().x + device.arrow().width
+                <= device.bounds().x + device.bounds().width);
+    }
+
+    @Test
     void toggleStateAlignsWithStepperValuesWithoutTouchingTheSwitch() {
         GdxSettingsLayout.StepperRow stepper = GdxSettingsLayout.stepperRow(
                 100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);

@@ -123,8 +123,17 @@ final class GdxAudioDevices {
     }
 
     static boolean adjustOutput(Properties properties, int direction) {
-        String next = adjacentDevice(availableOutputDevices(),
-                properties.getProperty(OUTPUT_KEY, DEFAULT), direction);
+        List<String> choices = outputChoices();
+        String current = properties.getProperty(OUTPUT_KEY, DEFAULT);
+        int selected = choices.indexOf(normalizeDevice(current));
+        String next = selected < 0 ? DEFAULT : choices.get(Math.floorMod(
+                selected + Integer.signum(direction), choices.size()));
+        return selectOutput(properties, next);
+    }
+
+    static boolean selectOutput(Properties properties, String device) {
+        String next = normalizeDevice(device);
+        if (!outputChoices().contains(next)) return false;
         try {
             if (Gdx.audio == null || !Gdx.audio.switchOutputDevice(
                     next.isEmpty() ? null : next)) return false;
@@ -186,8 +195,18 @@ final class GdxAudioDevices {
     }
 
     static void adjustCapture(Properties properties, int direction) {
-        properties.setProperty(CAPTURE_KEY, adjacentDevice(captureDevices,
-                properties.getProperty(CAPTURE_KEY, DEFAULT), direction));
+        List<String> choices = captureChoices();
+        String current = properties.getProperty(CAPTURE_KEY, DEFAULT);
+        int selected = choices.indexOf(normalizeDevice(current));
+        properties.setProperty(CAPTURE_KEY, selected < 0 ? DEFAULT
+                : choices.get(Math.floorMod(selected + Integer.signum(direction),
+                        choices.size())));
+    }
+
+    static void selectCapture(Properties properties, String device) {
+        String selected = normalizeDevice(device);
+        properties.setProperty(CAPTURE_KEY,
+                captureChoices().contains(selected) ? selected : DEFAULT);
     }
 
     static TargetDataLine openCapture(Properties properties,
@@ -213,14 +232,31 @@ final class GdxAudioDevices {
         return adjacentDevice(devices, current, 1);
     }
 
+    static List<String> outputChoices() {
+        return deviceChoices(availableOutputDevices());
+    }
+
+    static List<String> captureChoices() {
+        return deviceChoices(captureDevices);
+    }
+
+    static int selectedOutputIndex(Properties properties) {
+        return Math.max(0, outputChoices().indexOf(normalizeDevice(
+                properties.getProperty(OUTPUT_KEY, DEFAULT))));
+    }
+
+    static int selectedCaptureIndex(Properties properties) {
+        return Math.max(0, captureChoices().indexOf(normalizeDevice(
+                properties.getProperty(CAPTURE_KEY, DEFAULT))));
+    }
+
+    static String deviceLabel(String device, GdxGameText text) {
+        return label(device, text);
+    }
+
     static String adjacentDevice(List<String> devices, String current,
             int direction) {
-        List<String> safe = devices == null ? List.of() : devices;
-        ArrayList<String> choices = new ArrayList<>(safe.size() + 1);
-        choices.add(DEFAULT);
-        safe.stream().filter(Objects::nonNull).map(String::strip)
-                .filter(name -> !name.isEmpty()).distinct()
-                .forEach(choices::add);
+        List<String> choices = deviceChoices(devices);
         String selected = normalizeDevice(current);
         int index = choices.indexOf(selected);
         // A device may disappear while Settings is open. In that case always
@@ -228,6 +264,16 @@ final class GdxAudioDevices {
         if (index < 0) return DEFAULT;
         return choices.get(Math.floorMod(index + Integer.signum(direction),
                 choices.size()));
+    }
+
+    private static List<String> deviceChoices(List<String> devices) {
+        List<String> safe = devices == null ? List.of() : devices;
+        ArrayList<String> choices = new ArrayList<>(safe.size() + 1);
+        choices.add(DEFAULT);
+        safe.stream().filter(Objects::nonNull).map(String::strip)
+                .filter(name -> !name.isEmpty()).distinct()
+                .forEach(choices::add);
+        return List.copyOf(choices);
     }
 
     private static String normalizeDevice(String device) {

@@ -37,7 +37,7 @@ final class GdxNewGameIdentityLayoutTest {
         assertTrue(join.contains("panel(945f, 285f, 680f, 480f"));
         assertTrue(join.contains("hovered(315f, 422f, 130f, 135f)"));
         assertTrue(join.contains("field(470f, 452f, 400f"));
-        int history = join.indexOf("bidirectionalChoice(985f, 445f, 595f");
+        int history = join.indexOf("dropdownChoice(985f, 445f, 595f");
         int password = join.indexOf("field(985f, 315f, 595f");
         assertTrue(history >= 0 && password > history);
         assertFalse(join.contains("field(470f, 435f, 400f"));

@@ -257,6 +257,26 @@ final class GdxSettingsLayout {
     }
 
     /**
+     * Wider choice geometry for operating-system audio device names.  Reuse
+     * the dedicated audio lane, but reclaim the obsolete minus-button space
+     * now that categorical settings open a list instead of cycling values.
+     */
+    static ChoiceRow audioDeviceChoiceRow(float x, float y, float width,
+            float height) {
+        Rectangle bounds = new Rectangle(x, y, width, height);
+        StepperRow reference = audioDeviceStepperRow(x, y, width, height);
+        Rectangle arrow = new Rectangle(reference.plusButton());
+        float valueX = reference.minusButton().x;
+        float valueRight = Math.max(valueX, arrow.x - 10f);
+        Rectangle value = new Rectangle(valueX, y + 5f,
+                valueRight - valueX, Math.max(0f, height - 10f));
+        Rectangle label = new Rectangle(x + 22f, y + 5f,
+                Math.max(0f, value.x - x - 44f),
+                Math.max(0f, height - 10f));
+        return new ChoiceRow(bounds, label, value, arrow);
+    }
+
+    /**
      * Places a popup list wholly below or above its anchor whenever either
      * side has enough room. The anchor itself is never used as the first list
      * row, which prevents duplicate labels and preserves the selected value as

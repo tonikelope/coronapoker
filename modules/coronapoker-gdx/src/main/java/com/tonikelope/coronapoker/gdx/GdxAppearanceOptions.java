@@ -56,6 +56,11 @@ final class GdxAppearanceOptions {
     static String selectedLabel(Choice choice, Properties properties,
             GdxGameText text) {
         int index = selectedIndex(choice, properties);
+        return labelAt(choice, index, text);
+    }
+
+    static String labelAt(Choice choice, int index, GdxGameText text) {
+        if (index < 0 || index >= choice.values().size()) return "";
         return translatedUpper(text, "gdx.settings.choice." + choice.key()
                 + "." + choice.values().get(index),
                 choice.labels().get(index));
@@ -68,7 +73,12 @@ final class GdxAppearanceOptions {
     static void adjust(Choice choice, Properties properties, int direction) {
         int next = Math.floorMod(selectedIndex(choice, properties)
                 + Integer.signum(direction), choice.values().size());
-        properties.setProperty(choice.key(), choice.values().get(next));
+        select(choice, properties, next);
+    }
+
+    static void select(Choice choice, Properties properties, int index) {
+        if (index < 0 || index >= choice.values().size()) return;
+        properties.setProperty(choice.key(), choice.values().get(index));
     }
 
     /** A selector is editable only while the master and its owner are on. */

@@ -10991,11 +10991,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        int limit = presentationSettings.requestedFrameRateLimit();
-        return limit == 0
-                ? uppercase(gameText.translate(
-                        "gdx.settings.value.monitor_refresh"))
-                : limit + " FPS";
+        return GdxSettingsContract.frameRateLimitLabel(
+                presentationSettings.requestedFrameRateLimit(), gameText);
     }
 
     private void updateStars(float delta) {
@@ -21419,11 +21416,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle retention = settingsAudioRowBounds(contentX, rowW,
                         rows, page, retentionRow);
                 if (retention.contains(x, y)) {
-                    int direction = settingsStepperDirection(x, retention.x,
-                            retention.width);
-                    if (direction == 0) return;
-                    GdxSettingsContract.adjustVoiceRetention(
-                            tableSettingsProperties(), direction);
+                    openSettingsSelectionList(
+                            SettingsSelectionList.VOICE_RETENTION);
                     return;
                 }
             }
@@ -21522,8 +21516,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             contentX, rowW, rows, row);
                     if (!rowViewport.contains(x, y)
                             || !bounds.contains(x, y)) continue;
-                    int direction = settingsStepperDirection(x, bounds.x,
-                            bounds.width);
                     if (row == 0) {
                         openSettingsSelectionList(
                                 SettingsSelectionList.WINDOW_MODE);
@@ -21535,21 +21527,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         toggleTablePreference("gdx_vsync",
                                 GdxSettingsContract.DEFAULT_VSYNC);
                     } else if (row == 3 && presentationSettings != null) {
-                        if (direction < 0) {
-                            presentationSettings
-                                    .selectPreviousFrameRateLimit(false);
-                        } else if (direction > 0) {
-                            presentationSettings
-                                    .selectNextFrameRateLimit(false);
-                        }
+                        openSettingsSelectionList(
+                                SettingsSelectionList.FPS_LIMIT);
                     } else if (row == 4 && presentationSettings != null) {
-                        if (direction < 0) {
-                            presentationSettings
-                                    .selectPreviousMsaaSamples(false);
-                        } else if (direction > 0) {
-                            presentationSettings
-                                    .selectNextMsaaSamples(false);
-                        }
+                        openSettingsSelectionList(SettingsSelectionList.MSAA);
                     } else if (row == 5 && presentationSettings != null) {
                         openSettingsSelectionList(
                                 SettingsSelectionList.CARD_RENDERING);
@@ -24989,7 +24970,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         FELT,
         AUDIO_OUTPUT,
         AUDIO_CAPTURE,
+        VOICE_RETENTION,
         WINDOW_MODE,
+        FPS_LIMIT,
+        MSAA,
         CARD_RENDERING,
         APPEARANCE_CHOICE,
         BLIND_UNIT,
@@ -25780,8 +25764,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (GdxSettingsContract.hasVoiceRetention(page)) {
                 Rectangle retention = settingsAudioRowBounds(x, width, rows,
                         page, GdxSettingsContract.voiceRetentionRow(page));
-                drawSettingsStepperShape(retention.x, retention.y,
-                        retention.width, alpha);
+                drawSettingsDropdownShape(retention.x, retention.y,
+                        retention.width, true, alpha);
                 Rectangle actionBounds = settingsAudioRowBounds(x, width,
                         rows, page,
                         GdxSettingsContract.voiceActionsRow(page));
@@ -25860,14 +25844,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
                             width, rows, row);
-                    if (row == 0 || row == 5) {
+                    if (row == 0 || row == 3 || row == 4 || row == 5) {
                         drawSettingsDropdownShape(bounds.x, bounds.y,
                                 bounds.width, row == 0
                                         || presentationSettings != null,
-                                alpha);
-                    } else if (row == 3 || row == 4) {
-                        drawSettingsStepperShape(bounds.x, bounds.y,
-                                bounds.width, presentationSettings != null,
                                 alpha);
                     } else if (row == 1) {
                         drawSettingsToggleShape(bounds.x, bounds.y,
@@ -26585,7 +26565,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (GdxSettingsContract.hasVoiceRetention(page)) {
                 Rectangle retention = settingsAudioRowBounds(x, width, rows,
                         page, GdxSettingsContract.voiceRetentionRow(page));
-                drawSettingsStepperText(retention.x, retention.y,
+                drawSettingsChoiceText(retention.x, retention.y,
                         retention.width,
                         uppercase(gameText.translate(
                                 "gdx.settings.row.keep_voice_notes")),
@@ -26594,7 +26574,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         tableSettingsProperties(), gameText),
                                 GdxSettingsContract.voiceRetentionDays(
                                         tableSettingsProperties()) == 90),
-                        alpha);
+                        true, alpha);
                 Rectangle actionBounds = settingsAudioRowBounds(x, width,
                         rows, page,
                         GdxSettingsContract.voiceActionsRow(page));
@@ -26781,7 +26761,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         gameText),
                                 presentationSettings != null, alpha);
                     } else if (row == 3) {
-                        drawSettingsStepperText(bounds.x, bounds.y,
+                        drawSettingsChoiceText(bounds.x, bounds.y,
                                 bounds.width, uppercase(gameText.translate(
                                         "gdx.settings.row.fps_limit")),
                                 GdxSettingsContract.markDefault(
@@ -26791,7 +26771,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         tableSettingsProperties())),
                                 presentationSettings != null, alpha);
                     } else if (row == 4) {
-                        drawSettingsStepperText(bounds.x, bounds.y,
+                        drawSettingsChoiceText(bounds.x, bounds.y,
                                 bounds.width, uppercase(gameText.translate(
                                         "gdx.settings.row.antialiasing_scene")),
                                 GdxSettingsContract.markDefault(
@@ -27427,13 +27407,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsChoiceText(float x, float y, float width,
             String label, String value, boolean enabled, float alpha) {
+        drawSettingsChoiceText(x, y, width, label, value, "", enabled,
+                alpha);
+    }
+
+    private void drawSettingsChoiceText(float x, float y, float width,
+            String label, String value, String status, boolean enabled,
+            float alpha) {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(x, y,
                 width, GdxSettingsLayout.ROW_HEIGHT);
         Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
-        Color valueColor = enabled ? POT_GOLD : SETTINGS_DISABLED;
+        boolean modOverrideValue = GdxModSettingsIndicator.marked(value)
+                || GdxModSettingsIndicator.marked(status);
+        Color valueColor = modOverrideValue
+                ? enabled ? MOD_OVERRIDE : MOD_OVERRIDE_DISABLED
+                : enabled ? POT_GOLD : SETTINGS_DISABLED;
+        boolean hasStatus = status != null && !status.isBlank();
+        float labelWidth = hasStatus
+                ? row.label().width * 0.38f : row.label().width;
         drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
-                GdxSettingsLayout.rowTextBaseline(y), row.label().width,
+                GdxSettingsLayout.rowTextBaseline(y), labelWidth,
                 labelColor, alpha);
+        if (hasStatus) {
+            float statusWidth = row.label().width - labelWidth - 18f;
+            drawFittedCentered(settingsSmallFont, status,
+                    row.label().x + labelWidth + 18f + statusWidth / 2f,
+                    GdxSettingsLayout.rowTextBaseline(y), statusWidth,
+                    valueColor, alpha);
+        }
         drawFittedCentered(settingsBodyFont, value,
                 row.value().x + row.value().width / 2f,
                 GdxSettingsLayout.rowTextBaseline(y), row.value().width,
@@ -27751,8 +27752,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case AUDIO_CAPTURE -> GdxAudioDevices.captureChoices().stream()
                     .map(device -> GdxAudioDevices.deviceLabel(device,
                             gameText)).toList();
+            case VOICE_RETENTION -> GdxSettingsContract
+                    .voiceRetentionOptions().stream()
+                    .map(days -> GdxSettingsContract
+                            .voiceRetentionOptionLabel(days, gameText))
+                    .toList();
             case WINDOW_MODE -> java.util.Arrays.stream(GdxWindowMode.values())
                     .map(mode -> mode.label(gameText)).toList();
+            case FPS_LIMIT -> presentationSettings == null ? List.of()
+                    : presentationSettings.frameRateLimits().stream()
+                            .map(limit -> GdxSettingsContract
+                                    .frameRateLimitLabel(limit, gameText))
+                            .toList();
+            case MSAA -> presentationSettings == null ? List.of()
+                    : presentationSettings.msaaLevels().stream()
+                            .map(samples -> GdxSettingsContract
+                                    .msaaStatusLabel(samples, samples,
+                                            gameText))
+                            .toList();
             case CARD_RENDERING -> presentationSettings == null ? List.of()
                     : presentationSettings.cardRenderingModes().stream()
                             .map(mode -> GdxSettingsContract
@@ -27799,8 +27816,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     tableSettingsProperties());
             case AUDIO_CAPTURE -> GdxAudioDevices.selectedCaptureIndex(
                     tableSettingsProperties());
+            case VOICE_RETENTION -> GdxSettingsContract.voiceRetentionIndex(
+                    tableSettingsProperties());
             case WINDOW_MODE -> GdxWindowMode.configured(
                     tableSettingsProperties()).ordinal();
+            case FPS_LIMIT -> presentationSettings == null ? -1
+                    : presentationSettings.frameRateLimits().indexOf(
+                            presentationSettings.requestedFrameRateLimit());
+            case MSAA -> presentationSettings == null ? -1
+                    : presentationSettings.msaaLevels().indexOf(
+                            presentationSettings.requestedMsaaSamples());
             case CARD_RENDERING -> presentationSettings == null ? -1
                     : presentationSettings.cardRenderingModes().indexOf(
                             presentationSettings.requestedCardRenderingMode());
@@ -27855,16 +27880,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         frame.firstRowY(), 3, 9, settingsGameScroll);
                 yield settingsGameRowBounds(x, width, rows, 3, 9, 8);
             }
-            case AUDIO_OUTPUT, AUDIO_CAPTURE -> {
+            case AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION -> {
                 if (settingsContentPage() != 0) yield null;
                 GdxSettingsContract.TogglePage page = settingsAudioPage();
-                if (!GdxSettingsContract.hasAudioDevices(page)) yield null;
+                if (settingsSelectionList == SettingsSelectionList.VOICE_RETENTION
+                        && !GdxSettingsContract.hasVoiceRetention(page)) {
+                    yield null;
+                }
+                if (settingsSelectionList != SettingsSelectionList.VOICE_RETENTION
+                        && !GdxSettingsContract.hasAudioDevices(page)) {
+                    yield null;
+                }
                 GdxSettingsLayout.PixelRows rows = settingsAudioRows(content,
                         frame.firstRowY(), page, settingsAudioScroll);
-                int row = settingsSelectionList
-                        == SettingsSelectionList.AUDIO_OUTPUT
-                                ? GdxSettingsContract.audioOutputDeviceRow(page)
-                                : GdxSettingsContract.audioCaptureDeviceRow(page);
+                int row = switch (settingsSelectionList) {
+                    case AUDIO_OUTPUT ->
+                        GdxSettingsContract.audioOutputDeviceRow(page);
+                    case AUDIO_CAPTURE ->
+                        GdxSettingsContract.audioCaptureDeviceRow(page);
+                    default -> GdxSettingsContract.voiceRetentionRow(page);
+                };
                 yield settingsAudioRowBounds(x, width, rows, page, row);
             }
             case DECK, CARD_BACK, FELT -> {
@@ -27882,15 +27917,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 yield new Rectangle(x, rows.rowY(row), width,
                         GdxSettingsLayout.ROW_HEIGHT);
             }
-            case WINDOW_MODE, CARD_RENDERING -> {
+            case WINDOW_MODE, FPS_LIMIT, MSAA, CARD_RENDERING -> {
                 if (settingsContentPage() != 1
                         || !GdxSettingsContract.isAppearanceGraphicsPage(
                                 settingsAppearancePage)) yield null;
                 GdxSettingsLayout.PixelRows rows =
                         settingsAppearanceGraphicsRows(content,
                                 frame.firstRowY(), settingsAppearanceScroll);
-                int row = settingsSelectionList
-                        == SettingsSelectionList.WINDOW_MODE ? 0 : 5;
+                int row = switch (settingsSelectionList) {
+                    case WINDOW_MODE -> 0;
+                    case FPS_LIMIT -> 3;
+                    case MSAA -> 4;
+                    default -> 5;
+                };
                 yield settingsAppearanceGraphicsRowBounds(x, width, rows,
                         row);
             }
@@ -28113,11 +28152,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             values.get(option));
                 }
             }
+            case VOICE_RETENTION -> GdxSettingsContract
+                    .selectVoiceRetention(tableSettingsProperties(), option);
             case WINDOW_MODE -> {
                 GdxWindowMode[] values = GdxWindowMode.values();
                 if (option >= 0 && option < values.length) {
                     GdxDisplayModeController.apply(tableSettingsProperties(),
                             values[option]);
+                }
+            }
+            case FPS_LIMIT -> {
+                if (presentationSettings == null) break;
+                List<Integer> values = presentationSettings.frameRateLimits();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectFrameRateLimit(
+                            values.get(option), false);
+                }
+            }
+            case MSAA -> {
+                if (presentationSettings == null) break;
+                List<Integer> values = presentationSettings.msaaLevels();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectMsaaSamples(
+                            values.get(option), false);
                 }
             }
             case CARD_RENDERING -> {

@@ -403,6 +403,16 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int configured = integer("gdx_msaa_samples", 4);
         return MSAA_LEVELS.contains(configured) ? configured : 4;
     }
+    List<Integer> msaaLevels() {
+        return MSAA_LEVELS;
+    }
+    int selectMsaaSamples(int samples, boolean persist) {
+        int selected = MSAA_LEVELS.contains(samples) ? samples
+                : requestedMsaaSamples();
+        properties.setProperty("gdx_msaa_samples", Integer.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
+    }
     int selectNextMsaaSamples() {
         return selectNextMsaaSamples(true);
     }
@@ -419,9 +429,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int current = MSAA_LEVELS.indexOf(requestedMsaaSamples());
         int selected = MSAA_LEVELS.get(Math.floorMod(current
                 + Integer.signum(direction), MSAA_LEVELS.size()));
-        properties.setProperty("gdx_msaa_samples", Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
-        return selected;
+        return selectMsaaSamples(selected, persist);
     }
     int requestedCardRenderingMode() {
         int configured = integer(GdxSettingsContract.CARD_RENDERING_KEY,
@@ -465,6 +473,16 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT);
         return FRAME_RATE_LIMITS.contains(configured) ? configured
                 : GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT;
+    }
+    List<Integer> frameRateLimits() {
+        return FRAME_RATE_LIMITS;
+    }
+    int selectFrameRateLimit(int limit, boolean persist) {
+        int selected = FRAME_RATE_LIMITS.contains(limit) ? limit
+                : requestedFrameRateLimit();
+        properties.setProperty("gdx_fps_limit", Integer.toString(selected));
+        if (persist) preferences.saveDeferred();
+        return selected;
     }
     boolean vsyncEnabled() {
         return bool("gdx_vsync", GdxSettingsContract.DEFAULT_VSYNC);
@@ -510,9 +528,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int current = FRAME_RATE_LIMITS.indexOf(requestedFrameRateLimit());
         int selected = FRAME_RATE_LIMITS.get(Math.floorMod(current
                 + Integer.signum(direction), FRAME_RATE_LIMITS.size()));
-        properties.setProperty("gdx_fps_limit", Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
-        return selected;
+        return selectFrameRateLimit(selected, persist);
     }
     @Override public boolean autoFullscreen() {
         return GdxWindowMode.allowsAutomaticFullscreen(properties)

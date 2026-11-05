@@ -80,6 +80,27 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
+    void voiceRetentionUsesTheSharedDropdownOnBothSettingsSurfaces()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(frontend.contains(
+                "settingsDropdownChoice(retention.x, retention.y"));
+        assertTrue(frontend.contains("Dropdown.VOICE_RETENTION"));
+        assertTrue(table.contains(
+                "SettingsSelectionList.VOICE_RETENTION"));
+        assertTrue(table.contains(
+                "drawSettingsDropdownShape(retention.x, retention.y"));
+        assertTrue(table.contains(
+                "drawSettingsChoiceText(retention.x, retention.y"));
+    }
+
+    @Test
     void graphicsVsyncUsesTheSharedValueAndPerformanceContract()
             throws Exception {
         String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
@@ -397,6 +418,8 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("Dropdown.AUDIO_OUTPUT"));
         assertTrue(frontend.contains("Dropdown.AUDIO_CAPTURE"));
         assertTrue(frontend.contains("Dropdown.WINDOW_MODE"));
+        assertTrue(frontend.contains("Dropdown.FPS_LIMIT"));
+        assertTrue(frontend.contains("Dropdown.MSAA"));
         assertTrue(frontend.contains("Dropdown.CARD_RENDERING"));
         assertTrue(frontend.contains("Dropdown.APPEARANCE_CHOICE"));
         assertTrue(frontend.contains("Dropdown.BLIND_UNIT"));
@@ -406,6 +429,8 @@ final class GdxFrontendSettingsWiringTest {
         assertFalse(frontend.contains("adjustSettingsBlindStructure("));
         assertFalse(frontend.contains("selectNextDeck"));
         assertFalse(frontend.contains("selectPreviousFelt"));
+        assertFalse(frontend.contains("selectNextFrameRateLimit"));
+        assertFalse(frontend.contains("selectPreviousMsaa"));
         assertTrue(frontend.contains("float thumbH = Math.max(34f,"));
         assertTrue(frontend.contains(
                 "GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS"));
@@ -417,6 +442,8 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains("SettingsSelectionList.AUDIO_OUTPUT"));
         assertTrue(table.contains("SettingsSelectionList.AUDIO_CAPTURE"));
         assertTrue(table.contains("SettingsSelectionList.WINDOW_MODE"));
+        assertTrue(table.contains("SettingsSelectionList.FPS_LIMIT"));
+        assertTrue(table.contains("SettingsSelectionList.MSAA"));
         assertTrue(table.contains("SettingsSelectionList.CARD_RENDERING"));
         assertTrue(table.contains("SettingsSelectionList.APPEARANCE_CHOICE"));
         assertTrue(table.contains("SettingsSelectionList.BLIND_UNIT"));

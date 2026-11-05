@@ -8955,7 +8955,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             rowY = rows.rowY(retentionRow);
             Rectangle retention = GdxSettingsLayout.groupedRow(baseX, rowY,
                     baseWidth, retentionRow, groups, totalRows);
-            settingsStepper(retention.x, retention.y, retention.width,
+            settingsDropdownChoice(retention.x, retention.y, retention.width,
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.settings.row.keep_voice_notes")),
@@ -8964,13 +8964,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     initialProperties, gameText),
                             GdxSettingsContract.voiceRetentionDays(
                                     initialProperties) == 90),
-                    () -> {
-                        GdxSettingsContract.adjustVoiceRetention(
-                                initialProperties, -1);
-                    }, () -> {
-                        GdxSettingsContract.adjustVoiceRetention(
-                                initialProperties, 1);
-                    });
+                    Dropdown.VOICE_RETENTION, true);
             settingsTooltip(retention,
                     "audio_voice_note_retention_days");
             int actionsRowIndex = GdxSettingsContract.voiceActionsRow(page);
@@ -9286,7 +9280,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             () -> presentationSettings.toggleVsync(false),
                             true);
                 } else if (row == 3) {
-                    settingsStepper(bounds.x, bounds.y, bounds.width,
+                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
                             uppercase(gameText.translate(
                                     "gdx.settings.row.fps_limit")),
@@ -9294,18 +9288,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     frameRateLimitSettingLabel(),
                                     GdxSettingsContract.isDefaultFrameRateLimit(
                                             initialProperties)),
-                            this::selectPreviousFrameRateLimit,
-                            this::selectNextFrameRateLimit);
+                            Dropdown.FPS_LIMIT, true);
                 } else if (row == 4) {
-                    settingsStepperWithStatus(bounds.x, bounds.y,
+                    settingsDropdownChoice(bounds.x, bounds.y,
                             bounds.width, bounds.height,
                             uppercase(gameText.translate(
                                     "gdx.settings.row.antialiasing_scene")),
                             GdxSettingsContract.markDefault(msaaSettingLabel(),
                                     "4".equals(initialProperties.getProperty(
                                             "gdx_msaa_samples", "4"))),
-                            msaaRestartStatus(), this::selectPreviousMsaa,
-                            this::selectNextMsaa);
+                            msaaRestartStatus(), Dropdown.MSAA, true);
                 } else if (row == 5) {
                     settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
@@ -9470,25 +9462,55 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, Dropdown target, boolean enabled) {
-        settingsDropdownChoice(x, y, w, h, label, value,
+        settingsDropdownChoice(x, y, w, h, label, value, "",
+                () -> openDropdown(target, settingsDropdownAnchor(x, y, w, h)),
+                enabled);
+    }
+
+    private void settingsDropdownChoice(float x, float y, float w, float h,
+            String label, String value, String status, Dropdown target,
+            boolean enabled) {
+        settingsDropdownChoice(x, y, w, h, label, value, status,
                 () -> openDropdown(target, settingsDropdownAnchor(x, y, w, h)),
                 enabled);
     }
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, Runnable action, boolean enabled) {
+        settingsDropdownChoice(x, y, w, h, label, value, "", action,
+                enabled);
+    }
+
+    private void settingsDropdownChoice(float x, float y, float w, float h,
+            String label, String value, String status, Runnable action,
+            boolean enabled) {
         GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
                 x, y, w, h);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
+        boolean hasStatus = status != null && !status.isBlank();
+        float labelWidth = hasStatus
+                ? row.label().width * 0.38f : row.label().width;
         textFit(smallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y),
-                enabled ? Color.WHITE : DISABLED, false, row.label().width);
+                enabled ? Color.WHITE : DISABLED, false, labelWidth);
+        boolean modOverrideValue = GdxModSettingsIndicator.marked(value)
+                || GdxModSettingsIndicator.marked(status);
+        Color valueColor = modOverrideValue
+                ? enabled ? MOD_OVERRIDE : MOD_OVERRIDE_DISABLED
+                : enabled ? GOLD : DISABLED;
+        if (hasStatus) {
+            float statusWidth = row.label().width - labelWidth - 18f;
+            textFit(smallFont, status,
+                    row.label().x + labelWidth + 18f + statusWidth / 2f,
+                    GdxSettingsLayout.rowTextBaseline(y), valueColor, true,
+                    statusWidth);
+        }
         textFit(uiFont, value,
                 row.value().x + row.value().width / 2f,
                 GdxSettingsLayout.rowTextBaseline(y),
-                enabled ? GOLD : DISABLED, true, row.value().width - 12f);
+                valueColor, true, row.value().width - 12f);
         shapes.setColor(enabled ? GOLD : DISABLED);
         float cx = row.arrow().x + row.arrow().width / 2f;
         float cy = row.arrow().y + row.arrow().height / 2f;
@@ -10653,35 +10675,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String frameRateLimitSettingLabel() {
-        int limit = presentationSettings.requestedFrameRateLimit();
-        return limit == 0
-                ? uppercase(gameText.translate(
-                        "gdx.settings.value.monitor_refresh"))
-                : limit + " FPS";
-    }
-
-    private void selectNextFrameRateLimit() {
-        presentationSettings.selectNextFrameRateLimit(false);
-    }
-
-    private void selectPreviousFrameRateLimit() {
-        presentationSettings.selectPreviousFrameRateLimit(false);
-    }
-
-    private void selectNextMsaa() {
-        presentationSettings.selectNextMsaaSamples(false);
-    }
-
-    private void selectPreviousMsaa() {
-        presentationSettings.selectPreviousMsaaSamples(false);
-    }
-
-    private void selectNextCardRendering() {
-        presentationSettings.selectNextCardRenderingMode(false);
-    }
-
-    private void selectPreviousCardRendering() {
-        presentationSettings.selectPreviousCardRenderingMode(false);
+        return GdxSettingsContract.frameRateLimitLabel(
+                presentationSettings.requestedFrameRateLimit(), gameText);
     }
 
     private String windowModeSettingLabel() {
@@ -13879,8 +13874,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     initialProperties);
             case AUDIO_CAPTURE -> GdxAudioDevices.selectedCaptureIndex(
                     initialProperties);
+            case VOICE_RETENTION -> GdxSettingsContract.voiceRetentionIndex(
+                    initialProperties);
             case WINDOW_MODE -> GdxWindowMode.configured(initialProperties)
                     .ordinal();
+            case FPS_LIMIT -> presentationSettings.frameRateLimits().indexOf(
+                    presentationSettings.requestedFrameRateLimit());
+            case MSAA -> presentationSettings.msaaLevels().indexOf(
+                    presentationSettings.requestedMsaaSamples());
             case CARD_RENDERING -> presentationSettings.cardRenderingModes()
                     .indexOf(presentationSettings.requestedCardRenderingMode());
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
@@ -13980,8 +13981,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case AUDIO_CAPTURE -> GdxAudioDevices.captureChoices().stream()
                     .map(device -> GdxAudioDevices.deviceLabel(device,
                             gameText)).toList();
+            case VOICE_RETENTION -> GdxSettingsContract
+                    .voiceRetentionOptions().stream()
+                    .map(days -> GdxSettingsContract
+                            .voiceRetentionOptionLabel(days, gameText))
+                    .toList();
             case WINDOW_MODE -> Arrays.stream(GdxWindowMode.values())
                     .map(mode -> mode.label(gameText)).toList();
+            case FPS_LIMIT -> presentationSettings.frameRateLimits().stream()
+                    .map(limit -> GdxSettingsContract.frameRateLimitLabel(
+                            limit, gameText)).toList();
+            case MSAA -> presentationSettings.msaaLevels().stream()
+                    .map(samples -> GdxSettingsContract.msaaStatusLabel(
+                            samples, samples, gameText)).toList();
             case CARD_RENDERING -> presentationSettings.cardRenderingModes()
                     .stream().map(mode -> GdxSettingsContract
                             .cardRenderingStatusLabel(mode, gameText)).toList();
@@ -14059,11 +14071,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             values.get(option));
                 }
             }
+            case VOICE_RETENTION -> GdxSettingsContract
+                    .selectVoiceRetention(initialProperties, option);
             case WINDOW_MODE -> {
                 GdxWindowMode[] values = GdxWindowMode.values();
                 if (option >= 0 && option < values.length) {
                     GdxDisplayModeController.apply(initialProperties,
                             values[option]);
+                }
+            }
+            case FPS_LIMIT -> {
+                List<Integer> values = presentationSettings.frameRateLimits();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectFrameRateLimit(
+                            values.get(option), false);
+                }
+            }
+            case MSAA -> {
+                List<Integer> values = presentationSettings.msaaLevels();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectMsaaSamples(
+                            values.get(option), false);
                 }
             }
             case CARD_RENDERING -> {
@@ -17385,7 +17413,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private enum Dropdown {
         NONE, PROFILE, BLIND_STRUCTURE, BLIND_STRUCTURE_EDITOR,
         DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
-        AUDIO_OUTPUT, AUDIO_CAPTURE, WINDOW_MODE, CARD_RENDERING,
+        AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION, WINDOW_MODE, FPS_LIMIT,
+        MSAA, CARD_RENDERING,
         APPEARANCE_CHOICE, BLIND_UNIT, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
         CUSTOM_BOT_DIFFICULTY, CUSTOM_BOT_PERSONALITY
     }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -597,8 +598,18 @@ final class GdxSettingsContractTest {
     @Test
     void voiceRetentionCyclesOnlyThroughSwingSupportedValues() {
         Properties properties = new Properties();
+        assertEquals(List.of(7, 15, 30, 90, 0),
+                GdxSettingsContract.voiceRetentionOptions());
+        assertEquals(3, GdxSettingsContract.voiceRetentionIndex(properties));
         assertEquals("90 DÍAS",
                 GdxSettingsContract.voiceRetentionLabel(properties));
+        GdxSettingsContract.selectVoiceRetention(properties, 1);
+        assertEquals("15 DÍAS",
+                GdxSettingsContract.voiceRetentionLabel(properties));
+        GdxSettingsContract.selectVoiceRetention(properties, -1);
+        assertEquals("15 DÍAS",
+                GdxSettingsContract.voiceRetentionLabel(properties));
+        GdxSettingsContract.selectVoiceRetention(properties, 3);
         GdxSettingsContract.cycleVoiceRetention(properties);
         assertEquals("PARA SIEMPRE",
                 GdxSettingsContract.voiceRetentionLabel(properties));

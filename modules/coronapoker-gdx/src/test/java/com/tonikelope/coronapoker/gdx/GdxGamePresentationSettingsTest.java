@@ -10,6 +10,7 @@ import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -355,6 +356,28 @@ final class GdxGamePresentationSettingsTest {
             assertEquals(2, settings.selectNextMsaaSamples());
             preferences.properties().setProperty("gdx_msaa_samples", "17");
             assertEquals(4, settings.requestedMsaaSamples());
+        } finally {
+            preferences.close();
+        }
+    }
+
+    @Test
+    void graphicsDropdownsExposeCanonicalValuesAndRejectUnknownSelections(
+            @TempDir Path temporary) throws Exception {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.start();
+        try {
+            GdxGamePresentationSettings settings =
+                    new GdxGamePresentationSettings(preferences);
+
+            assertEquals(List.of(0, 2, 4, 8), settings.msaaLevels());
+            assertEquals(8, settings.selectMsaaSamples(8, false));
+            assertEquals(8, settings.selectMsaaSamples(16, false));
+            assertEquals(List.of(60, 120, 144, 240, 0),
+                    settings.frameRateLimits());
+            assertEquals(240, settings.selectFrameRateLimit(240, false));
+            assertEquals(240, settings.selectFrameRateLimit(165, false));
         } finally {
             preferences.close();
         }

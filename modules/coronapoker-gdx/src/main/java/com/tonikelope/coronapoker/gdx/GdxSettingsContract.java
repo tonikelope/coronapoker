@@ -390,7 +390,8 @@ final class GdxSettingsContract {
             option("animacion_apuestas", "FICHAS VOLADORAS", true,
                     Gate.ANIMATIONS));
 
-    private static final int[] VOICE_RETENTION_DAYS = {7, 15, 30, 90, 0};
+    private static final List<Integer> VOICE_RETENTION_DAYS = List.of(
+            7, 15, 30, 90, 0);
 
     private static final List<TogglePage> AUDIO_SOURCE_PAGES = List.of(
             page("GENERAL",
@@ -995,6 +996,13 @@ final class GdxSettingsContract {
         return antialiasingValue("MSAA", requested, text);
     }
 
+    static String frameRateLimitLabel(int limit, GdxGameText text) {
+        return limit == 0
+                ? translatedUpper(text, "gdx.settings.value.monitor_refresh",
+                        "FRECUENCIA DEL MONITOR")
+                : limit + " FPS";
+    }
+
     /**
      * Separate restart notice for the wide label lane of the MSAA row.
      * Keeping it out of the narrow value lane prevents illegible fitting.
@@ -1190,7 +1198,10 @@ final class GdxSettingsContract {
 
     static String voiceRetentionLabel(Properties properties,
             GdxGameText text) {
-        int days = voiceRetentionDays(properties);
+        return voiceRetentionOptionLabel(voiceRetentionDays(properties), text);
+    }
+
+    static String voiceRetentionOptionLabel(int days, GdxGameText text) {
         return days == 0
                 ? translatedUpper(text, "audio.retencion_siempre",
                         "PARA SIEMPRE")
@@ -1198,21 +1209,28 @@ final class GdxSettingsContract {
                         days + " DÍAS", days);
     }
 
+    static List<Integer> voiceRetentionOptions() {
+        return VOICE_RETENTION_DAYS;
+    }
+
+    static int voiceRetentionIndex(Properties properties) {
+        return VOICE_RETENTION_DAYS.indexOf(voiceRetentionDays(properties));
+    }
+
+    static void selectVoiceRetention(Properties properties, int option) {
+        if (option < 0 || option >= VOICE_RETENTION_DAYS.size()) return;
+        properties.setProperty("audio_voice_note_retention_days",
+                Integer.toString(VOICE_RETENTION_DAYS.get(option)));
+    }
+
     static void cycleVoiceRetention(Properties properties) {
         adjustVoiceRetention(properties, 1);
     }
 
     static void adjustVoiceRetention(Properties properties, int direction) {
-        int current = voiceRetentionDays(properties);
-        int index = 0;
-        for (int i = 0; i < VOICE_RETENTION_DAYS.length; i++) {
-            if (VOICE_RETENTION_DAYS[i] == current) {
-                index = i;
-                break;
-            }
-        }
-        int next = VOICE_RETENTION_DAYS[Math.floorMod(index
-                + Integer.signum(direction), VOICE_RETENTION_DAYS.length)];
+        int index = voiceRetentionIndex(properties);
+        int next = VOICE_RETENTION_DAYS.get(Math.floorMod(index
+                + Integer.signum(direction), VOICE_RETENTION_DAYS.size()));
         properties.setProperty("audio_voice_note_retention_days",
                 Integer.toString(next));
     }
@@ -1425,9 +1443,7 @@ final class GdxSettingsContract {
         try {
             int value = Integer.parseInt(properties.getProperty(
                     "audio_voice_note_retention_days", "90"));
-            for (int allowed : VOICE_RETENTION_DAYS) {
-                if (value == allowed) return value;
-            }
+            if (VOICE_RETENTION_DAYS.contains(value)) return value;
         } catch (NumberFormatException ignored) {
         }
         return 90;

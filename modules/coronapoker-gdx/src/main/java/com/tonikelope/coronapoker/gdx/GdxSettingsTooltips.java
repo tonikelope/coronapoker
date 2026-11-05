@@ -165,6 +165,12 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.chat_images";
             case "animaciones" ->
                 "gdx.settings.tooltip.animations_master";
+            case GdxSettingsContract.HALO_EFFECT_KEY ->
+                "gdx.settings.tooltip.halo_effects";
+            case GdxSettingsContract.MODAL_BLUR_KEY ->
+                "gdx.settings.tooltip.modal_blur";
+            case GdxSettingsContract.GLASS_EFFECT_KEY ->
+                "gdx.settings.tooltip.glass_effects";
             case "cinematicas", "cinematicas_accion" ->
                 "gdx.settings.tooltip.cinematics_master";
             case "cinematicas_allin" ->

@@ -22,17 +22,19 @@ import java.math.BigInteger;
  * Element of the prime field GF(2^255 - 19) — the base field of edwards25519,
  * underlying the Ristretto255 group.
  *
- * This is a correctness-first BigInteger implementation: every operation
- * reduces mod p, so it is correct by construction. It is validated against
- * algebraic properties and the RFC 9496 constants (see Fe25519Test). A radix-16
- * fast path can replace the internals later, with those tests as the safety
- * net.
+ * Field elements are stored as five canonical radix-2^51 limbs. The hot curve
+ * operations therefore stay entirely in primitive arithmetic; BigInteger is
+ * used only at API boundaries and for comparatively rare generic
+ * exponentiation operations. The limb kernel is differentially
+ * tested against BigInteger and the RFC 9496 vectors.
  *
  * Instances are immutable. Not constant-time — acceptable for this threat model
  * (the cascade is not real-time and no peer times another's field ops over the
  * wire); a constant-time backend can replace this without changing the API.
  */
 public final class Fe25519 {
+
+    private static final long MASK_51 = (1L << 51) - 1;
 
     /**
      * Field prime p = 2^255 - 19.
@@ -47,46 +49,56 @@ public final class Fe25519 {
     public static final BigInteger SQRT_M1 = new BigInteger(
             "19681161376707505956807079304988542015446066515923890162744021073123829784752");
 
-    public static final Fe25519 ZERO = new Fe25519(BigInteger.ZERO);
-    public static final Fe25519 ONE = new Fe25519(BigInteger.ONE);
+    public static final Fe25519 ZERO = new Fe25519(0, 0, 0, 0, 0, BigInteger.ZERO);
+    public static final Fe25519 ONE = new Fe25519(1, 0, 0, 0, 0, BigInteger.ONE);
 
     /**
      * sqrt(-1) as a Fe25519, cached ONCE. {@link #sqrtRatioM1} used to call
      * {@code of(SQRT_M1)} twice per invocation, and it runs on every
      * {@code encode}/{@code decode} (~104 times per deck lock): each
      * {@code of(SQRT_M1)} did a {@code new Fe25519} + {@code BigInteger.mod}
-     * and forced the next {@code mul} to re-decompose into limbs. As a shared
-     * constant, its {@code limbsCache} is populated once and reused. Same
+     * and decomposed the value again. The shared constant now remains in the
+     * primitive limb representation used directly by every multiply. Same
      * value, no change to the reduction.
      */
     private static final Fe25519 SQRT_M1_FE = of(SQRT_M1);
 
-    private static final BigInteger P_MINUS_2 = P.subtract(BigInteger.TWO);
+    /** Canonical radix-2^51 representative in [0, P). */
+    private final long l0;
+    private final long l1;
+    private final long l2;
+    private final long l3;
+    private final long l4;
 
-    /**
-     * Canonical representative in [0, P).
-     */
-    private final BigInteger v;
+    /** Lazily reconstructed only for API boundaries and generic modPow. */
+    private volatile BigInteger bigIntegerCache;
 
-    /**
-     * Lazily-memoized radix-2^51 limb form of {@code v}. The instance is
-     * immutable, so this is a pure cache: any operand reused across many
-     * multiplies (the curve constants {@code D2}/{@code D}, or a fixed field
-     * element) decomposes once instead of on every {@code mul}/{@code sqr}.
-     * {@code volatile} for safe publication of the array contents across
-     * threads (the background SRA verifiers).
-     */
-    private volatile long[] limbsCache;
+    /** Reused per thread by the 128-bit multiply accumulator. */
+    private static final ThreadLocal<long[]> ACCUMULATOR
+            = ThreadLocal.withInitial(() -> new long[2]);
 
     private Fe25519(BigInteger value) {
-        this.v = value.mod(P); // BigInteger.mod is always non-negative
+        BigInteger reduced = value.mod(P); // BigInteger.mod is always non-negative
+        long[] limbs = toLimbs(reduced);
+        this.l0 = limbs[0];
+        this.l1 = limbs[1];
+        this.l2 = limbs[2];
+        this.l3 = limbs[3];
+        this.l4 = limbs[4];
+        this.bigIntegerCache = reduced;
     }
 
-    /**
-     * Wraps an already-reduced value in [0, P) without the (expensive) mod.
-     */
-    private Fe25519(BigInteger reducedValue, boolean alreadyReduced) {
-        this.v = reducedValue;
+    private Fe25519(long l0, long l1, long l2, long l3, long l4) {
+        this(l0, l1, l2, l3, l4, null);
+    }
+
+    private Fe25519(long l0, long l1, long l2, long l3, long l4, BigInteger cachedValue) {
+        this.l0 = l0;
+        this.l1 = l1;
+        this.l2 = l2;
+        this.l3 = l3;
+        this.l4 = l4;
+        this.bigIntegerCache = cachedValue;
     }
 
     public static Fe25519 of(BigInteger value) {
@@ -140,64 +152,44 @@ public final class Fe25519 {
      * Encodes to 32 canonical little-endian bytes (value in [0, P)).
      */
     public byte[] toBytes() {
-        byte[] be = v.toByteArray(); // big-endian, two's complement (v >= 0)
         byte[] le = new byte[32];
-        for (int i = 0; i < be.length; i++) {
-            int idx = be.length - 1 - i; // walk from least-significant byte up
-            if (i < 32) {
-                le[i] = be[idx];
-            }
-        }
+        long w0 = l0 | (l1 << 51);
+        long w1 = (l1 >>> 13) | (l2 << 38);
+        long w2 = (l2 >>> 26) | (l3 << 25);
+        long w3 = (l3 >>> 39) | (l4 << 12);
+        putLe64(le, 0, w0);
+        putLe64(le, 8, w1);
+        putLe64(le, 16, w2);
+        putLe64(le, 24, w3);
         return le;
     }
 
-    // Both operands hold canonical values in [0, P) (the class invariant: every constructor path
-    // reduces), so add/sub stay within (-P, 2P) and one conditional subtraction/addition replaces
-    // the BigInteger division inside mod() — the dominant cost of the curve formulas' add chains.
     public Fe25519 add(Fe25519 o) {
-        BigInteger r = v.add(o.v); // < 2P
-        if (r.compareTo(P) >= 0) {
-            r = r.subtract(P);
-        }
-        return new Fe25519(r, true);
+        return carryNormalizeFe(l0 + o.l0, 0, l1 + o.l1, 0, l2 + o.l2, 0,
+                l3 + o.l3, 0, l4 + o.l4, 0);
     }
 
     public Fe25519 sub(Fe25519 o) {
-        BigInteger r = v.subtract(o.v); // > -P
-        if (r.signum() < 0) {
-            r = r.add(P);
-        }
-        return new Fe25519(r, true);
+        // Add 2p first so every limb remains non-negative before reduction.
+        return carryNormalizeFe(l0 + 2 * (MASK_51 - 18) - o.l0, 0,
+                l1 + 2 * MASK_51 - o.l1, 0,
+                l2 + 2 * MASK_51 - o.l2, 0,
+                l3 + 2 * MASK_51 - o.l3, 0,
+                l4 + 2 * MASK_51 - o.l4, 0);
     }
 
     public Fe25519 mul(Fe25519 o) {
-        return fromCanonicalLimbs(mulLimbs(limbs(), o.limbs()));
+        return mulLimbs(this, o);
     }
 
     public Fe25519 sqr() {
-        return fromCanonicalLimbs(sqrLimbs(limbs()));
-    }
-
-    /**
-     * The memoized limb form of {@code v} (see {@link #limbsCache}).
-     * {@code mulLimbs} only reads its operands, never mutates them, so handing
-     * out the cached array is safe.
-     */
-    private long[] limbs() {
-        long[] l = limbsCache;
-        if (l == null) {
-            l = toLimbs(v);
-            limbsCache = l;
-        }
-        return l;
+        return sqrLimbs(this);
     }
 
     // ---- Fast field multiply: radix 2^51 limbs (5 × 64-bit), 128-bit accumulation via
-    // Math.multiplyHigh, reduction mod p=2^255-19 (2^255 ≡ 19). ~max practical speed in Java.
-    // BigInteger stays as canonical storage; mul/sqr convert in/out via 32 LE bytes (cheap). The
-    // Fe25519FastReduceTest fuzz (200k mul/sqr vs BigInteger) + RFC 9496 vectors gate correctness.
-    private static final long MASK_51 = (1L << 51) - 1;
-
+    // Math.multiplyHigh, reduction mod p=2^255-19 (2^255 ≡ 19). The canonical limbs remain the
+    // instance storage across chained operations. Fe25519FastReduceTest fuzz (200k operations vs
+    // BigInteger) plus the RFC 9496 vectors gate correctness.
     /**
      * v in [0, 2^255) → 5 radix-2^51 limbs (each < 2^51).
      */
@@ -225,17 +217,23 @@ public final class Fe25519 {
         return r;
     }
 
+    private static void putLe64(byte[] b, int off, long value) {
+        for (int i = 0; i < 8; i++) {
+            b[off + i] = (byte) (value >>> (8 * i));
+        }
+    }
+
     /**
      * Multiply two limb arrays mod p, returning CANONICAL limbs (each < 2^51,
      * value in [0, P)).
      */
-    private static long[] mulLimbs(long[] f, long[] g) {
-        long f0 = f[0], f1 = f[1], f2 = f[2], f3 = f[3], f4 = f[4];
-        long g0 = g[0], g1 = g[1], g2 = g[2], g3 = g[3], g4 = g[4];
+    private static Fe25519 mulLimbs(Fe25519 f, Fe25519 g) {
+        long f0 = f.l0, f1 = f.l1, f2 = f.l2, f3 = f.l3, f4 = f.l4;
+        long g0 = g.l0, g1 = g.l1, g2 = g.l2, g3 = g.l3, g4 = g.l4;
         long g1_19 = 19 * g1, g2_19 = 19 * g2, g3_19 = 19 * g3, g4_19 = 19 * g4;
 
         // Each h_i accumulated as an unsigned 128-bit value (hi:lo).
-        long[] acc = new long[2];
+        long[] acc = ACCUMULATOR.get();
         long h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi;
 
         acc[0] = 0;
@@ -284,7 +282,7 @@ public final class Fe25519 {
         h4lo = acc[0];
         h4hi = acc[1];
 
-        return carryNormalize(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
+        return carryNormalizeFe(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
     }
 
     /**
@@ -295,14 +293,14 @@ public final class Fe25519 {
      * the scalar ladders (4 squarings per point doubling), so this is the
      * hottest field path of all.
      */
-    private static long[] sqrLimbs(long[] f) {
-        long f0 = f[0], f1 = f[1], f2 = f[2], f3 = f[3], f4 = f[4];
+    private static Fe25519 sqrLimbs(Fe25519 f) {
+        long f0 = f.l0, f1 = f.l1, f2 = f.l2, f3 = f.l3, f4 = f.l4;
         long f0_2 = 2 * f0, f1_2 = 2 * f1, f2_2 = 2 * f2, f3_2 = 2 * f3;
         long f3_19 = 19 * f3, f4_19 = 19 * f4;
 
         // Same operand magnitudes as mulLimbs (2f < 2^52, 19f < 2^56), so the unsigned 128-bit
         // accumulation bounds are unchanged.
-        long[] acc = new long[2];
+        long[] acc = ACCUMULATOR.get();
         long h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi;
 
         acc[0] = 0;
@@ -341,7 +339,7 @@ public final class Fe25519 {
         h4lo = acc[0];
         h4hi = acc[1];
 
-        return carryNormalize(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
+        return carryNormalizeFe(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
     }
 
     /**
@@ -361,23 +359,35 @@ public final class Fe25519 {
      * {@code l0 ≤ 18}, so every limb is strictly below 2^51 by construction.
      * Package-private for the white-box corner test that pins this exact case.
      */
-    static long[] carryNormalize(long h0lo, long h0hi, long h1lo, long h1hi, long h2lo, long h2hi,
-            long h3lo, long h3hi, long h4lo, long h4hi) {
+    private static Fe25519 carryNormalizeFe(long h0lo, long h0hi, long h1lo, long h1hi,
+            long h2lo, long h2hi, long h3lo, long h3hi, long h4lo, long h4hi) {
         long c;
         long l0 = h0lo & MASK_51;
         c = sh(h0hi, h0lo, 51);
-        long[] s1 = addc(h1lo, h1hi, c);
-        long l1 = s1[0] & MASK_51;
-        c = sh(s1[1], s1[0], 51);
-        long[] s2 = addc(h2lo, h2hi, c);
-        long l2 = s2[0] & MASK_51;
-        c = sh(s2[1], s2[0], 51);
-        long[] s3 = addc(h3lo, h3hi, c);
-        long l3 = s3[0] & MASK_51;
-        c = sh(s3[1], s3[0], 51);
-        long[] s4 = addc(h4lo, h4hi, c);
-        long l4 = s4[0] & MASK_51;
-        c = sh(s4[1], s4[0], 51);
+        long t = h1lo + c;
+        if (Long.compareUnsigned(t, h1lo) < 0) {
+            h1hi++;
+        }
+        long l1 = t & MASK_51;
+        c = sh(h1hi, t, 51);
+        t = h2lo + c;
+        if (Long.compareUnsigned(t, h2lo) < 0) {
+            h2hi++;
+        }
+        long l2 = t & MASK_51;
+        c = sh(h2hi, t, 51);
+        t = h3lo + c;
+        if (Long.compareUnsigned(t, h3lo) < 0) {
+            h3hi++;
+        }
+        long l3 = t & MASK_51;
+        c = sh(h3hi, t, 51);
+        t = h4lo + c;
+        if (Long.compareUnsigned(t, h4lo) < 0) {
+            h4hi++;
+        }
+        long l4 = t & MASK_51;
+        c = sh(h4hi, t, 51);
         // wrap top carry into l0 (c < 2^58, so l0 < 2^63: no overflow)
         l0 += 19 * c;
         // first light pass: settle the big wrapped carry
@@ -421,30 +431,18 @@ public final class Fe25519 {
             l3 = 0;
             l4 = 0;
         }
-        return new long[]{l0, l1, l2, l3, l4};
+        return new Fe25519(l0, l1, l2, l3, l4);
     }
 
     /**
-     * Wraps the canonical limbs of a mul/sqr result: rebuilds the BigInteger
-     * (the canonical storage) and seeds {@link #limbsCache} with them, so a
-     * chained multiply never re-decomposes the value it has just assembled —
-     * curve formulas are exactly such chains.
+     * White-box hook for the adversarial carry test. Production arithmetic
+     * consumes the allocation-free {@link #carryNormalizeFe} result directly.
      */
-    private static Fe25519 fromCanonicalLimbs(long[] l) {
-        long w0 = l[0] | (l[1] << 51);
-        long w1 = (l[1] >>> 13) | (l[2] << 38);
-        long w2 = (l[2] >>> 26) | (l[3] << 25);
-        long w3 = (l[3] >>> 39) | (l[4] << 12);
-        byte[] be = new byte[32];
-        for (int i = 0; i < 8; i++) {
-            be[31 - i] = (byte) (w0 >>> (8 * i));
-            be[23 - i] = (byte) (w1 >>> (8 * i));
-            be[15 - i] = (byte) (w2 >>> (8 * i));
-            be[7 - i] = (byte) (w3 >>> (8 * i));
-        }
-        Fe25519 r = new Fe25519(new BigInteger(1, be), true);
-        r.limbsCache = l;
-        return r;
+    static long[] carryNormalize(long h0lo, long h0hi, long h1lo, long h1hi, long h2lo, long h2hi,
+            long h3lo, long h3hi, long h4lo, long h4hi) {
+        Fe25519 r = carryNormalizeFe(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi,
+                h3lo, h3hi, h4lo, h4hi);
+        return new long[]{r.l0, r.l1, r.l2, r.l3, r.l4};
     }
 
     /**
@@ -469,23 +467,12 @@ public final class Fe25519 {
         return (lo >>> s) | (hi << (64 - s));
     }
 
-    /**
-     * (hi:lo) + c (c small, >=0) → new unsigned 128-bit as [lo, hi].
-     */
-    private static long[] addc(long lo, long hi, long c) {
-        long t = lo + c;
-        if (Long.compareUnsigned(t, lo) < 0) {
-            hi++;
-        }
-        return new long[]{t, hi};
-    }
-
     public Fe25519 negate() {
-        return v.signum() == 0 ? ZERO : new Fe25519(P.subtract(v), true);
+        return isZero() ? ZERO : ZERO.sub(this);
     }
 
     public Fe25519 pow(BigInteger e) {
-        return new Fe25519(v.modPow(e, P), true); // modPow result already in [0, P)
+        return new Fe25519(toBigInteger().modPow(e, P));
     }
 
     /**
@@ -549,11 +536,17 @@ public final class Fe25519 {
      * Multiplicative inverse via Fermat's little theorem (a^(p-2)).
      */
     public Fe25519 inv() {
-        return new Fe25519(v.modPow(P_MINUS_2, P), true);
+        if (isZero()) return ZERO;
+        // pow22523() = x^(2^252 - 3). Therefore
+        // (pow22523(x))^8 * x^3 = x^(2^255 - 21) = x^(p - 2).
+        // This reuses the audited fixed addition chain and keeps the complete
+        // inverse in the primitive 5x51 backend.
+        Fe25519 t = pow22523().sqr().sqr().sqr();
+        return t.mul(sqr().mul(this));
     }
 
     public boolean isZero() {
-        return v.signum() == 0;
+        return (l0 | l1 | l2 | l3 | l4) == 0;
     }
 
     /**
@@ -561,7 +554,7 @@ public final class Fe25519 {
      * encoding.
      */
     public boolean isNegative() {
-        return v.testBit(0);
+        return (l0 & 1) != 0;
     }
 
     /**
@@ -575,26 +568,37 @@ public final class Fe25519 {
      * Constant-value equality (not timing-relevant here).
      */
     public boolean ctEq(Fe25519 o) {
-        return v.equals(o.v);
+        return (l0 ^ o.l0) == 0 && (l1 ^ o.l1) == 0 && (l2 ^ o.l2) == 0
+                && (l3 ^ o.l3) == 0 && (l4 ^ o.l4) == 0;
     }
 
     public BigInteger toBigInteger() {
-        return v;
+        BigInteger value = bigIntegerCache;
+        if (value == null) {
+            byte[] le = toBytes();
+            byte[] be = new byte[32];
+            for (int i = 0; i < 32; i++) {
+                be[i] = le[31 - i];
+            }
+            value = new BigInteger(1, be);
+            bigIntegerCache = value;
+        }
+        return value;
     }
 
     @Override
     public boolean equals(Object o) {
-        return (o instanceof Fe25519) && v.equals(((Fe25519) o).v);
+        return (o instanceof Fe25519) && ctEq((Fe25519) o);
     }
 
     @Override
     public int hashCode() {
-        return v.hashCode();
+        return toBigInteger().hashCode();
     }
 
     @Override
     public String toString() {
-        return "Fe25519(" + v.toString(16) + ")";
+        return "Fe25519(" + toBigInteger().toString(16) + ")";
     }
 
     /**

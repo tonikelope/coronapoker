@@ -202,7 +202,7 @@ can safely overlay the supported presentation assets:
 - **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering.
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only.
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.
-- **Optional table, card and cinematic animations**, with configurable animation behaviour.
+- **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
 - **Action confirmation**: optional safety prompt before fold / all-in / raise.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.
 - **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.

@@ -28,6 +28,9 @@ final class GdxSettingsContract {
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
     static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
+    static final String HALO_EFFECT_KEY = "efecto_halos";
+    static final String MODAL_BLUR_KEY = "efecto_desenfoque";
+    static final String GLASS_EFFECT_KEY = "efecto_relieve";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
@@ -348,9 +351,15 @@ final class GdxSettingsContract {
             option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
                     Gate.NONE));
     private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
-            "ANIMACIONES",
-            option("animaciones", "USAR ANIMACIONES", true,
+            "ANIMACIONES Y EFECTOS",
+            option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
+            option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
+                    Gate.ANIMATIONS),
+            option(MODAL_BLUR_KEY, "DESENFOQUE DE DIÁLOGOS", true,
+                    Gate.ANIMATIONS),
+            option(GLASS_EFFECT_KEY, "BRILLO Y RELIEVE", true,
+                    Gate.ANIMATIONS),
             option("cinematicas_allin", "CINEMÁTICA ALL-IN", true,
                     Gate.ANIMATIONS),
             option("cinematicas_gameover", "CINEMÁTICA GAME OVER", true,
@@ -554,6 +563,9 @@ final class GdxSettingsContract {
     private static final List<AppearanceAnimationRow>
             APPEARANCE_ANIMATION_ROWS = List.of(
                     animationToggle("animaciones"),
+                    animationToggle(HALO_EFFECT_KEY),
+                    animationToggle(MODAL_BLUR_KEY),
+                    animationToggle(GLASS_EFFECT_KEY),
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
@@ -621,6 +633,7 @@ final class GdxSettingsContract {
             "screenshot_fin_timba", ANTI_DOS_WARNINGS_KEY,
             "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
+            HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
             "animaciones", "cinematicas", "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_barajado_precarga",
@@ -662,11 +675,12 @@ final class GdxSettingsContract {
         Properties values = properties == null ? new Properties() : properties;
         return switch (key) {
             case "animaciones", "animacion_barajado", "gdx_vsync",
-                    "animacion_fuego_allin" -> PerformanceImpact.HIGH;
+                    "animacion_fuego_allin", MODAL_BLUR_KEY -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_allin",
                     "animacion_reparto", "animacion_destape",
                     "animacion_apuestas", "animacion_contador_final",
-                    "animacion_efecto_ganador" -> PerformanceImpact.MEDIUM;
+                    "animacion_efecto_ganador", HALO_EFFECT_KEY,
+                    GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
             case "cinematicas_gameover", "animacion_ciegas_dealer",
                     "animacion_contadores", "animacion_entrada_asientos",
                     "animacion_swap" ->
@@ -1439,6 +1453,8 @@ final class GdxSettingsContract {
             case "DISPOSITIVOS" -> "gdx.settings.page.devices";
             case "CINEMÁTICAS" -> "gdx.settings.page.cinematics";
             case "ANIMACIONES" -> "gdx.settings.page.animations";
+            case "ANIMACIONES Y EFECTOS" ->
+                "gdx.settings.page.animations_and_effects";
             case "MOVIMIENTO" -> "gdx.settings.page.movement";
             case "INFORMACIÓN" -> "gdx.settings.page.information";
             default -> "gdx.settings.page." + title;
@@ -1486,8 +1502,8 @@ final class GdxSettingsContract {
                 "sonido_efectos", "true"));
         boolean funnySounds = effects && Boolean.parseBoolean(
                 properties.getProperty("sonidos_chorra", "false"));
-        boolean animations = Boolean.parseBoolean(properties.getProperty(
-                "animaciones", "true"));
+        boolean animations = Boolean.parseBoolean(
+                properties.getProperty("animaciones", "true"));
         boolean shuffleAnimation = animations && Boolean.parseBoolean(
                 properties.getProperty("animacion_barajado", "true"));
         String concreteJoke = GamePresentationSettings.jokeSoundResource(

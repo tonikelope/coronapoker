@@ -62,6 +62,33 @@ public final class VerifiableUnlock {
     }
 
     /**
+     * Per-hand values derived from one lock scalar and reused for every point
+     * unlocked with that key.  Inverting the scalar and multiplying the base
+     * point are substantially more expensive than the small wrapper itself,
+     * so doing both once avoids repeating identical work for every card.
+     */
+    public static final class KeyContext {
+
+        private final BigInteger scalar;
+        private final BigInteger inverse;
+        private final EdwardsPoint commitment;
+
+        private KeyContext(BigInteger scalar, BigInteger inverse,
+                EdwardsPoint commitment) {
+            this.scalar = scalar;
+            this.inverse = inverse;
+            this.commitment = commitment;
+        }
+    }
+
+    public static KeyContext keyContext(byte[] lockScalar) {
+        BigInteger scalar = RistrettoSRA.bytesToScalar(lockScalar);
+        return new KeyContext(scalar,
+                scalar.modInverse(EdwardsPoint.L),
+                EdwardsPoint.BASE.scalarMul(scalar));
+    }
+
+    /**
      * Peer side: strip our lock from {@code residualBefore} and prove we used
      * our committed key. Returns null if the input point is off-group
      * (zero-trust reject).
@@ -70,16 +97,19 @@ public final class VerifiableUnlock {
      * @param lockScalar our per-hand lock scalar k (we derive k^-1 and K = k*B)
      */
     public static Step unlockWithProof(byte[] residualBefore, byte[] lockScalar) {
+        return unlockWithProof(residualBefore, keyContext(lockScalar));
+    }
+
+    public static Step unlockWithProof(byte[] residualBefore,
+            KeyContext keyContext) {
         EdwardsPoint x = Ristretto255.decode(residualBefore);
         if (x == null) {
             return null; // off-group / non-canonical input
         }
-        BigInteger k = RistrettoSRA.bytesToScalar(lockScalar);
-        BigInteger kInv = k.modInverse(EdwardsPoint.L);
-        EdwardsPoint xPrime = x.scalarMul(kInv);       // X' = k^-1 * X
-        EdwardsPoint commitK = EdwardsPoint.BASE.scalarMul(k); // K = k*B
+        EdwardsPoint xPrime = x.scalarMul(keyContext.inverse); // X' = k^-1 * X
         // Prove log_B(K) = log_{X'}(X) = k, i.e. X = k * X'.
-        byte[] proof = Dleq.prove(k, EdwardsPoint.BASE, commitK, xPrime, x);
+        byte[] proof = Dleq.prove(keyContext.scalar, EdwardsPoint.BASE,
+                keyContext.commitment, xPrime, x);
         return new Step(Ristretto255.encode(xPrime), proof);
     }
 

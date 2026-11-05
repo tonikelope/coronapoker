@@ -1062,6 +1062,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private double visualChipSmallBlind;
     private final Star[] stars = new Star[STAR_COUNT];
     private final Seat[] seats = new Seat[SEAT_COUNT];
+    private final LiveCardPlacement[][] cachedHolePlacements
+            = new LiveCardPlacement[SEAT_COUNT][2];
+    private final LiveCardPlacement[] cachedCommunityPlacements
+            = new LiveCardPlacement[5];
+    private float cachedCommunityFirstX = Float.NaN;
+    private float cachedCommunityCardY = Float.NaN;
+    private float cachedCommunityCardWidth = Float.NaN;
+    private float cachedCommunityCardHeight = Float.NaN;
+    private float cachedCommunityGap = Float.NaN;
     private final LivePlayerIndex livePlayers = new LivePlayerIndex();
     private final Map<String, Seat> seatsByNickname = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
@@ -1332,6 +1341,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean nestedModalParentCaptureActive;
     private final GdxCardSmaaRenderer cardSmaaRenderer
             = new GdxCardSmaaRenderer();
+    private float cachedLocalHudWorldWidth = Float.NaN;
+    private LocalHudLayout cachedLocalHudLayout;
+    private LocalActionLayout cachedLocalActionLayout;
+    private PreActionHudLayout cachedPreActionHudLayout;
+    private float cachedSeatLayoutWidth = Float.NaN;
+    private float cachedSeatLayoutHeight = Float.NaN;
+    private float cachedSeatCardAspect = Float.NaN;
+    private int cachedSeatPlayerCount = -1;
+    private boolean cachedSeatLayoutValid;
+    private String cachedCommunityTextLanguage;
+    private double cachedCommunitySmallBlind = Double.NaN;
+    private double cachedCommunityBigBlind = Double.NaN;
+    private boolean cachedCommunityAnte;
+    private int cachedCommunityBlindInterval = Integer.MIN_VALUE;
+    private int cachedCommunityBlindType = Integer.MIN_VALUE;
+    private int cachedCommunityBlindCount = Integer.MIN_VALUE;
+    private String cachedCommunityBlindsText = "";
+    private String cachedCommunityHandLanguage;
+    private int cachedCommunityHandNumber = Integer.MIN_VALUE;
+    private int cachedCommunityMaximumHands = Integer.MIN_VALUE;
+    private boolean cachedCommunityLastHand;
+    private String cachedCommunityHandText = "";
     private FrameBuffer disabledHoleCardsLayer;
     private FrameBuffer chipRackCompositeLayer;
     private final Matrix4 chipRackCompositeProjection = new Matrix4();
@@ -2784,6 +2815,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         tableProperties.setProperty(key, Boolean.toString(value));
+        GdxVisualEffects.synchronize(tableProperties);
+        if (presentationSettings != null) {
+            presentationSettings.refreshRuntimePreferences();
+        }
         if (uiLayer != UI_SETTINGS) preferences.saveDeferred();
     }
 
@@ -2973,6 +3008,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String previewOutput = properties.getProperty(
                     GdxAudioDevices.OUTPUT_KEY, "");
             settingsSession.restore(properties);
+            GdxVisualEffects.synchronize(properties);
+            if (presentationSettings != null) {
+                presentationSettings.refreshRuntimePreferences();
+            }
             if (settingsOpenedWindowMode != null
                     && GdxDisplayModeController.activeMode()
                     != settingsOpenedWindowMode) {
@@ -3195,6 +3234,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Properties properties = tableSettingsProperties();
         GdxSettingsContract.restoreAppearancePageDefaults(properties,
                 settingsAppearancePage, true);
+        GdxVisualEffects.synchronize(properties);
+        if (presentationSettings != null) {
+            presentationSettings.refreshRuntimePreferences();
+        }
         GdxDisplayModeController.apply(GdxWindowMode.configured(properties));
         if (presentationSettings != null) {
             liveDeck = availableDeck(presentationSettings.deck());
@@ -3329,7 +3372,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport = new ExtendViewport(BASE_WIDTH, BASE_HEIGHT,
                         2560f, 1440f, camera);
             }
-            case 1 -> shapes = new ShapeRenderer();
+            // A single 24-layer seat halo emits 16,560 vertices.  The
+            // ShapeRenderer default (5,000) flushed that stable geometry at
+            // least four times per frame even with animations disabled.
+            case 1 -> shapes = new ShapeRenderer(65_536);
             case 2 -> batch = new SpriteBatch(2000);
             case 3 -> {
                 roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER,
@@ -6369,6 +6415,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
+        // Rendering consumers share one world-space pointer snapshot.  Input
+        // handlers still unproject on discrete clicks, but the table, board
+        // HUD and local HUD no longer repeat the same conversion every frame.
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
         pointerRepeatHits.clear();
         boolean preparationModal = !intro && preparationPhase
                 != TableVisualEvent.PreparationStatus.Phase.READY;
@@ -6382,7 +6433,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // that dialog's blurred backdrop instead.
         boolean pauseForeground = pauseOverlayUsesSharpForeground(
                 pausedBackdrop, blockingBlur);
-        boolean blurModalBackdrop = blockingBlur || pausedBackdrop;
+        boolean wantsModalBackdrop = blockingBlur || pausedBackdrop;
+        boolean blurModalBackdrop = wantsModalBackdrop
+                && GdxVisualEffects.blurActive();
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
                     Gdx.graphics.getBackBufferHeight());
@@ -6455,6 +6508,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 modalBackdropCaptureActive = false;
                 restoreDefaultTableRenderState();
             }
+            drawUnifiedModalBackdrop();
+        } else if (wantsModalBackdrop) {
             drawUnifiedModalBackdrop();
         }
         if (shieldBackgroundPointer) {
@@ -6538,6 +6593,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void renderNestedTableModal() {
+        if (!GdxVisualEffects.blurActive()) {
+            float livePointerX = pointer.x;
+            float livePointerY = pointer.y;
+            nestedModalParentCaptureActive = true;
+            pointer.set(-10_000f, -10_000f);
+            try {
+                if (tableImageClearConfirmation) {
+                    tableImageClearConfirmation = false;
+                    try {
+                        drawUiLayer();
+                    } finally {
+                        tableImageClearConfirmation = true;
+                    }
+                } else {
+                    drawUiLayer();
+                }
+            } finally {
+                nestedModalParentCaptureActive = false;
+                pointer.set(livePointerX, livePointerY);
+            }
+            drawUnifiedModalBackdrop();
+            if (tableImageClearConfirmation) {
+                drawTableImageClearConfirmation();
+            } else {
+                drawActiveDialog();
+            }
+            return;
+        }
         nestedModalBackdropBlur.beginCapture(
                 Gdx.graphics.getBackBufferWidth(),
                 Gdx.graphics.getBackBufferHeight());
@@ -7171,9 +7254,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.CardSnapshot card = board.get(slot);
             if (!restingCommunityCardOwnsPointer(card, liveShuffle != null,
                     hasActiveCommunityPresentation(slot))) continue;
-            LiveCardPlacement placement = new LiveCardPlacement(
-                    firstX + slot * gap + cardW / 2f,
-                    cardY + cardH / 2f, cardW, cardH, 0f);
+            LiveCardPlacement placement = communityCardPlacement(slot,
+                    firstX, cardY, cardW, cardH, gap);
             if (placementContains(placement, x, y)) return viewedCard(card);
         }
         return null;
@@ -7219,9 +7301,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableSnapshot.CardSnapshot card = board.get(slot);
             if (!card.visible() || card.faceUp()
                     || !liveState.isRabbitCard(slot)) continue;
-            LiveCardPlacement placement = new LiveCardPlacement(
-                    firstX + slot * gap + cardW / 2f,
-                    cardY + cardH / 2f, cardW, cardH, 0f);
+            LiveCardPlacement placement = communityCardPlacement(slot,
+                    firstX, cardY, cardW, cardH, gap);
             if (placementContains(placement, x, y)) return true;
         }
         return false;
@@ -7265,7 +7346,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         float width = viewport.getWorldWidth();
-        LocalHudLayout hud = localHudLayout(width);
+        LocalHudLayout hud = cachedLocalHudLayout(width);
         if (contains(x, y, hud.x() - 12f, hud.y() - 12f,
                 hud.width() + 24f, hud.height() + 42f)
                 || localNamePlateBounds(seats[0], width).contains(x, y)
@@ -7302,7 +7383,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (avatarZoomNickname != null && avatarZoomBounds.contains(x, y)) {
             return true;
         }
-        LocalHudLayout hud = localHudLayout(worldWidth);
+        LocalHudLayout hud = cachedLocalHudLayout(worldWidth);
         if (contains(x, y, hud.x() - 8f, hud.y() - 8f,
                 hud.width() + 16f, hud.height() + 25f)
                 || localNamePlateBounds(seats[0], worldWidth).contains(x, y)
@@ -8073,7 +8154,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private ChipCatalogTarget chipCatalogTargetAt(float x, float y,
             float worldWidth) {
-        LocalHudLayout localHud = localHudLayout(worldWidth);
+        LocalHudLayout localHud = cachedLocalHudLayout(worldWidth);
         Seat local = seats[0];
         if (playerStackViewerAvailable(seatPresenceAlpha(0),
                 local.displayedStackAmount)
@@ -9119,7 +9200,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean regularHudActionsVisible = !localShownHand
                 && !localMonteCarlo && !localActionMemory && localTurn;
         int localHudTarget = preActions
-                ? preActionHudLayout(viewport.getWorldWidth())
+                ? cachedPreActionHudLayout(viewport.getWorldWidth())
                         .targetAt(pointer.x, pointer.y)
                 : voluntaryShow ? voluntaryShowTarget(pointer.x, pointer.y,
                         viewport.getWorldWidth())
@@ -10659,6 +10740,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return new PreActionHudLayout(bounds, fold, status, call);
     }
 
+    private void refreshLocalHudLayoutCache(float worldWidth) {
+        if (Float.compare(cachedLocalHudWorldWidth, worldWidth) == 0
+                && cachedLocalHudLayout != null) return;
+        cachedLocalHudWorldWidth = worldWidth;
+        cachedLocalHudLayout = localHudLayout(worldWidth);
+        cachedLocalActionLayout = localActionLayout(worldWidth);
+        cachedPreActionHudLayout = preActionHudLayout(worldWidth);
+    }
+
+    private LocalHudLayout cachedLocalHudLayout(float worldWidth) {
+        refreshLocalHudLayoutCache(worldWidth);
+        return cachedLocalHudLayout;
+    }
+
+    private LocalActionLayout cachedLocalActionLayout(float worldWidth) {
+        refreshLocalHudLayoutCache(worldWidth);
+        return cachedLocalActionLayout;
+    }
+
+    private PreActionHudLayout cachedPreActionHudLayout(float worldWidth) {
+        refreshLocalHudLayoutCache(worldWidth);
+        return cachedPreActionHudLayout;
+    }
+
     static GdxTableDialogLayout.AutoActionHud autoActionHudLayout(
             float worldWidth) {
         LocalHudLayout layout = localHudLayout(worldWidth);
@@ -11173,8 +11278,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         potCenterY = boardTopY + POT_BOARD_GAP + POT_PANEL_HEIGHT / 2f;
 
         updateSeatPositions(width, height);
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
         // Active-turn and winner backlights belong to the table plane, beneath
@@ -11541,10 +11644,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Same visual language as CoronaPoker's DynamicTablePanel: seats are
         // distributed around the felt, not arranged around a casino oval. Every
         // rival is one fixed unit: avatar left, private cards right, HUD below.
-        LocalHudLayout localHud = localHudLayout(width);
+        Texture cardBack = activeCardBack();
+        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        int visibleCount = livePlayerCount();
+        boolean stableLayout = !liveSeatEntryAnimationEnabled();
+        if (stableLayout && cachedSeatLayoutValid
+                && Float.compare(cachedSeatLayoutWidth, width) == 0
+                && Float.compare(cachedSeatLayoutHeight, height) == 0
+                && Float.compare(cachedSeatCardAspect, cardAspect) == 0
+                && cachedSeatPlayerCount == visibleCount) {
+            updateDealerSource(width, height);
+            return;
+        }
+        LocalHudLayout localHud = cachedLocalHudLayout(width);
         for (int i = 0; i < seats.length; i++) {
-            float anchorX = seatAnchor(i, 0) * width;
-            seats[i].y = seatAnchor(i, 1) * height;
+            float anchorX = seatAnchor(i, 0, visibleCount) * width;
+            seats[i].y = seatAnchor(i, 1, visibleCount) * height;
             if (i == 0) {
                 seats[i].x = anchorX;
                 // Local money physically lives in the left HUD counter. Bets
@@ -11567,8 +11682,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                  * its avatar/pod and made one card appear to float over another
                  * seat. Raise the whole unit by the same constraint instead.
                  */
-                float cardAspect = activeCardBack().getHeight()
-                        / (float) activeCardBack().getWidth();
                 seats[i].y = adjustedRivalSeatY(seats[i].y, height,
                         cardAspect);
                 float podCenterX = centeredRivalX(anchorX / width, width);
@@ -11594,6 +11707,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             seats[i].geometryReady = true;
         }
+        cachedSeatLayoutValid = stableLayout;
+        cachedSeatLayoutWidth = width;
+        cachedSeatLayoutHeight = height;
+        cachedSeatCardAspect = cardAspect;
+        cachedSeatPlayerCount = visibleCount;
+        if (stableLayout) refreshCachedHolePlacements(cardAspect);
+        updateDealerSource(width, height);
+    }
+
+    private void refreshCachedHolePlacements(float cardAspect) {
+        for (Seat seat : seats) {
+            for (int slot = 0; slot < 2; slot++) {
+                cachedHolePlacements[seat.index][slot]
+                        = computeLiveHolePlacement(seat, slot, cardAspect);
+            }
+        }
+    }
+
+    private void updateDealerSource(float width, float height) {
         int dealerIndex = dealerSeat();
         Seat dealer = dealerIndex < 0 ? null : seats[dealerIndex];
         // Cards originate under the dealer avatar itself. There is no artificial
@@ -11604,7 +11736,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float seatAnchor(int seat, int component) {
-        int visibleCount = livePlayerCount();
+        return seatAnchor(seat, component, livePlayerCount());
+    }
+
+    private static float seatAnchor(int seat, int component,
+            int visibleCount) {
         int layoutCount = Math.max(2, visibleCount);
         return seat < visibleCount
                 ? SEAT_LAYOUTS[layoutCount][seat][component] : 0.5f;
@@ -13098,6 +13234,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawSeatBackEffects() {
+        if (!liveHaloEffectsEnabled()) return;
         drawActiveSeatGlows();
         drawWinnerSeatGlows();
     }
@@ -13157,7 +13294,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRemoteSeatHalo(seat, color, strength);
             return;
         }
-        LocalHudLayout hud = localHudLayout(viewport.getWorldWidth());
+        LocalHudLayout hud = cachedLocalHudLayout(
+                viewport.getWorldWidth());
         // The local HUD uses the very same feathered light as a rival pod.
         // Only its bounds differ: anchor the glow to the visible outer frame
         // so no inner bright band can leak over the HUD surface.
@@ -14512,6 +14650,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveCardPlacement liveHolePlacement(Seat seat, int slot) {
         Texture cardBack = activeCardBack();
         float aspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        if (cachedSeatLayoutValid && slot >= 0 && slot < 2) {
+            LiveCardPlacement cached = cachedHolePlacements[seat.index][slot];
+            if (cached != null) return cached;
+        }
+        return computeLiveHolePlacement(seat, slot, aspect);
+    }
+
+    private LiveCardPlacement computeLiveHolePlacement(Seat seat, int slot,
+            float aspect) {
         float width = seat.index == 0 ? LOCAL_HOLE_CARD_WIDTH
                 : rivalHoleCardWidth(aspect);
         float height = width * aspect;
@@ -14542,6 +14689,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return new LiveCardPlacement(centerX + sideX * side,
                 centerY + sideY * side, width, height,
                 slot == 0 ? LOCAL_CARD_FAN_ANGLE : -LOCAL_CARD_FAN_ANGLE);
+    }
+
+    private LiveCardPlacement communityCardPlacement(int slot, float firstX,
+            float cardY, float cardW, float cardH, float gap) {
+        if (Float.compare(cachedCommunityFirstX, firstX) != 0
+                || Float.compare(cachedCommunityCardY, cardY) != 0
+                || Float.compare(cachedCommunityCardWidth, cardW) != 0
+                || Float.compare(cachedCommunityCardHeight, cardH) != 0
+                || Float.compare(cachedCommunityGap, gap) != 0) {
+            cachedCommunityFirstX = firstX;
+            cachedCommunityCardY = cardY;
+            cachedCommunityCardWidth = cardW;
+            cachedCommunityCardHeight = cardH;
+            cachedCommunityGap = gap;
+            for (int index = 0; index < cachedCommunityPlacements.length;
+                    index++) {
+                cachedCommunityPlacements[index] = new LiveCardPlacement(
+                        firstX + index * gap + cardW / 2f,
+                        cardY + cardH / 2f, cardW, cardH, 0f);
+            }
+        }
+        return cachedCommunityPlacements[slot];
     }
 
     private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
@@ -15061,10 +15230,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int visibleSlots = Math.min(5,
                 Math.max(Math.max(presentedBoardEnd, revealEnd), flightEnd));
         for (int slot = 0; slot < visibleSlots; slot++) {
-            float x = firstX + slot * gap + cardW / 2f;
-            float y = cardY + cardH / 2f;
-            LiveCardPlacement placement = new LiveCardPlacement(
-                    x, y, cardW, cardH, 0f);
+            LiveCardPlacement placement = communityCardPlacement(slot,
+                    firstX, cardY, cardW, cardH, gap);
             if (liveRabbitReveal != null
                     && liveRabbitReveal.containsSlot(slot)) {
                 drawLiveRabbitRevealCard(slot, placement);
@@ -15807,8 +15974,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communitySoundY = y;
         communitySoundWidth = soundWidth;
         communitySoundHeight = height;
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
         boolean pauseHover = contains(pointer.x, pointer.y,
                 communityPauseX, communityPauseY,
                 communityPauseWidth, communityPauseHeight);
@@ -15865,13 +16030,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.end();
 
-        String blinds = communityBlindsText(gameText,
-                liveState.smallBlind(), liveState.bigBlind(),
-                liveState.anteEnabled(), liveState.blindIncreaseInterval(),
-                liveState.blindIncreaseType(),
-                liveState.blindIncreaseCount());
-        String hand = communityHandText(gameText, liveState.handNumber(),
-                liveState.maximumHands(), liveState.lastHand());
+        String blinds = cachedCommunityBlindsText();
+        String hand = cachedCommunityHandText();
         batch.begin();
         drawFittedCenteredInBox(actionFont, blinds,
                 x + 10f, y + 5f,
@@ -15938,6 +16098,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         return label.toString();
+    }
+
+    private String cachedCommunityBlindsText() {
+        String language = gameText.language();
+        double smallBlind = liveState.smallBlind();
+        double bigBlind = liveState.bigBlind();
+        boolean ante = liveState.anteEnabled();
+        int interval = liveState.blindIncreaseInterval();
+        int type = liveState.blindIncreaseType();
+        int count = liveState.blindIncreaseCount();
+        if (!Objects.equals(language, cachedCommunityTextLanguage)
+                || Double.compare(smallBlind,
+                        cachedCommunitySmallBlind) != 0
+                || Double.compare(bigBlind, cachedCommunityBigBlind) != 0
+                || ante != cachedCommunityAnte
+                || interval != cachedCommunityBlindInterval
+                || type != cachedCommunityBlindType
+                || count != cachedCommunityBlindCount) {
+            cachedCommunityTextLanguage = language;
+            cachedCommunitySmallBlind = smallBlind;
+            cachedCommunityBigBlind = bigBlind;
+            cachedCommunityAnte = ante;
+            cachedCommunityBlindInterval = interval;
+            cachedCommunityBlindType = type;
+            cachedCommunityBlindCount = count;
+            cachedCommunityBlindsText = communityBlindsText(gameText,
+                    smallBlind, bigBlind, ante, interval, type, count);
+        }
+        return cachedCommunityBlindsText;
+    }
+
+    private String cachedCommunityHandText() {
+        String language = gameText.language();
+        int handNumber = liveState.handNumber();
+        int maximumHands = liveState.maximumHands();
+        boolean lastHand = liveState.lastHand();
+        if (!Objects.equals(language, cachedCommunityHandLanguage)
+                || handNumber != cachedCommunityHandNumber
+                || maximumHands != cachedCommunityMaximumHands
+                || lastHand != cachedCommunityLastHand) {
+            cachedCommunityHandLanguage = language;
+            cachedCommunityHandNumber = handNumber;
+            cachedCommunityMaximumHands = maximumHands;
+            cachedCommunityLastHand = lastHand;
+            cachedCommunityHandText = communityHandText(gameText, handNumber,
+                    maximumHands, lastHand);
+        }
+        return cachedCommunityHandText;
     }
 
     static String communityPotText(GdxGameText text,
@@ -16953,6 +17161,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return presentationSettings == null
                 ? tablePreference("animaciones", true)
                 : presentationSettings.animations();
+    }
+
+    private boolean liveHaloEffectsEnabled() {
+        return presentationSettings == null
+                ? liveAnimationsEnabled() && tablePreference(
+                        GdxSettingsContract.HALO_EFFECT_KEY, true)
+                : presentationSettings.haloEffects();
     }
 
     private boolean liveSeatEntryAnimationEnabled() {
@@ -19712,12 +19927,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawChipTrails() {
+        if (!liveBetAnimationEnabled()) return;
         Objects.requireNonNull(liveState,
                 "Chip trails require authoritative live state");
         drawLiveChipTrails();
     }
 
     private void drawFlyingChips() {
+        if (!liveBetAnimationEnabled()) return;
         Objects.requireNonNull(liveState,
                 "Flying chips require authoritative live state");
         drawLiveFlyingChips();
@@ -19911,8 +20128,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Keep the committing IR/PASAR action at the far right of the row so
         // it is visually separated from NO IR and matches the requested action
         // flow: NO IR, amount, ALL IN, IR.
-        LocalHudLayout layout = localHudLayout(width);
-        LocalActionLayout actions = localActionLayout(width);
+        LocalHudLayout layout = cachedLocalHudLayout(width);
+        LocalActionLayout actions = cachedLocalActionLayout(width);
         float hudWidth = layout.width();
         float hudX = layout.x();
         float hudY = layout.y();
@@ -19932,7 +20149,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float betX = actions.bet().x;
         float plusX = actions.plus().x;
         float allInX = actions.allIn().x;
-        PreActionHudLayout preActionHud = preActionHudLayout(width);
+        PreActionHudLayout preActionHud = cachedPreActionHudLayout(width);
         boolean localActionSubmissionPending
                 = hasPendingLocalActionSubmission();
         boolean localTurn = hasActiveLocalTurn()
@@ -20082,8 +20299,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : betTextColor;
         Color allInVisualText = armedHudTarget == 6 ? ARMED_ACTION_TEXT
                 : Color.WHITE;
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
         boolean hudOwnsPointer = !fastAccessSurfaceContains(pointer.x,
                 pointer.y);
 
@@ -20573,7 +20788,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Seat stackSeatAt(float x, float y, float worldWidth) {
-        Rectangle localStack = localHudLayout(worldWidth).stackBounds();
+        Rectangle localStack = cachedLocalHudLayout(worldWidth).stackBounds();
         if (seatPresenceAlpha(0) > 0f && localStack.contains(x, y)) {
             return seats[0];
         }
@@ -24515,7 +24730,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
                 pointer, restoreVisible, restoreEnabled, saveEnabled, alpha);
-
         Rectangle settingsContentClip = GdxSettingsLayout.contentClip(content);
         shapes.flush();
         enableTableScissor(settingsContentClip);
@@ -30858,9 +31072,79 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float x, float width) {
     }
 
-    static record LocalHudLayout(float x, float y, float width,
-            float height, float stackWidth, float investedWidth,
-            float actionX, float actionWidth) {
+    static final class LocalHudLayout {
+
+        private final float x;
+        private final float y;
+        private final float width;
+        private final float height;
+        private final float stackWidth;
+        private final float investedWidth;
+        private final float actionX;
+        private final float actionWidth;
+        private final Rectangle stackBounds;
+        private final Rectangle investedBounds;
+        private final Rectangle stackChipVisualBounds;
+        private final Rectangle stackCaptionBounds;
+        private final Rectangle stackValueWithRackBounds;
+        private final Rectangle stackValueWithoutRackBounds;
+        private final Rectangle investedCaptionBounds;
+        private final Rectangle investedValueBounds;
+        private final Rectangle bounds;
+
+        LocalHudLayout(float x, float y, float width, float height,
+                float stackWidth, float investedWidth, float actionX,
+                float actionWidth) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.stackWidth = stackWidth;
+            this.investedWidth = investedWidth;
+            this.actionX = actionX;
+            this.actionWidth = actionWidth;
+            stackBounds = new Rectangle(x, LOCAL_HUD_COUNTER_Y, stackWidth,
+                    LOCAL_HUD_COUNTER_HEIGHT);
+            investedBounds = new Rectangle(actionX + actionWidth
+                    + LOCAL_HUD_COUNTER_GAP, LOCAL_HUD_COUNTER_Y,
+                    investedWidth, LOCAL_HUD_COUNTER_HEIGHT);
+            StackChipRackGeometry geometry = stackChipRackGeometry(true);
+            float centerX = stackBounds.x + 43f;
+            float edgeDepth = stackChipPhysicalThickness(
+                    geometry.chipSize());
+            float visualHeight = geometry.maximumHeight() + edgeDepth;
+            float left = centerX + geometry.firstColumnOffset()
+                    - geometry.chipSize() / 2f;
+            stackChipVisualBounds = new Rectangle(left,
+                    stackBounds.y + (stackBounds.height - visualHeight) / 2f,
+                    geometry.rackWidth(), visualHeight);
+            stackCaptionBounds = new Rectangle(stackBounds.x + 8f,
+                    stackBounds.y + stackBounds.height - 32f,
+                    stackBounds.width - 16f, 24f);
+            stackValueWithoutRackBounds = new Rectangle(stackBounds.x + 10f,
+                    stackBounds.y + 8f, stackBounds.width - 20f,
+                    stackBounds.height - 43f);
+            stackValueWithRackBounds = new Rectangle(stackBounds.x + 82f
+                    + LOCAL_HUD_VALUE_CHIP_GAP, stackBounds.y + 8f,
+                    stackBounds.width - 92f - LOCAL_HUD_VALUE_CHIP_GAP,
+                    stackBounds.height - 43f);
+            investedCaptionBounds = new Rectangle(investedBounds.x + 8f,
+                    investedBounds.y + investedBounds.height - 32f,
+                    investedBounds.width - 16f, 24f);
+            investedValueBounds = new Rectangle(investedBounds.x + 10f,
+                    investedBounds.y + 8f, investedBounds.width - 20f,
+                    investedBounds.height - 43f);
+            bounds = new Rectangle(x, y, width, height);
+        }
+
+        float x() { return x; }
+        float y() { return y; }
+        float width() { return width; }
+        float height() { return height; }
+        float stackWidth() { return stackWidth; }
+        float investedWidth() { return investedWidth; }
+        float actionX() { return actionX; }
+        float actionWidth() { return actionWidth; }
 
         float actionY() {
             return y + 24f;
@@ -30871,14 +31155,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle stackBounds() {
-            return new Rectangle(x, LOCAL_HUD_COUNTER_Y, stackWidth,
-                    LOCAL_HUD_COUNTER_HEIGHT);
+            return stackBounds;
         }
 
         Rectangle investedBounds() {
-            return new Rectangle(actionX + actionWidth
-                    + LOCAL_HUD_COUNTER_GAP, LOCAL_HUD_COUNTER_Y,
-                    investedWidth, LOCAL_HUD_COUNTER_HEIGHT);
+            return investedBounds;
         }
 
         float stackChipCenterX() {
@@ -30896,27 +31177,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle stackChipVisualBounds() {
-            return localCounterChipVisualBounds(stackChipCenterX());
-        }
-
-        private Rectangle localCounterChipVisualBounds(float centerX) {
-            StackChipRackGeometry geometry = stackChipRackGeometry(true);
-            float edgeDepth = stackChipPhysicalThickness(
-                    geometry.chipSize());
-            float height = geometry.maximumHeight() + edgeDepth;
-            Rectangle stack = stackBounds();
-            float left = centerX + geometry.firstColumnOffset()
-                    - geometry.chipSize() / 2f;
-            return new Rectangle(left,
-                    stack.y + (stack.height - height) / 2f,
-                    geometry.rackWidth(), height);
+            return stackChipVisualBounds;
         }
 
         Rectangle stackCaptionBounds() {
-            Rectangle stack = stackBounds();
-            return new Rectangle(stack.x + 8f,
-                    stack.y + stack.height - 32f,
-                    stack.width - 16f, 24f);
+            return stackCaptionBounds;
         }
 
         Rectangle stackValueBounds() {
@@ -30924,32 +31189,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         Rectangle stackValueBounds(boolean reserveChipRack) {
-            Rectangle stack = stackBounds();
-            if (!reserveChipRack) {
-                return new Rectangle(stack.x + 10f, stack.y + 8f,
-                        stack.width - 20f, stack.height - 43f);
-            }
-            return new Rectangle(stack.x + 82f + LOCAL_HUD_VALUE_CHIP_GAP,
-                    stack.y + 8f,
-                    stack.width - 92f - LOCAL_HUD_VALUE_CHIP_GAP,
-                    stack.height - 43f);
+            return reserveChipRack ? stackValueWithRackBounds
+                    : stackValueWithoutRackBounds;
         }
 
         Rectangle investedCaptionBounds() {
-            Rectangle invested = investedBounds();
-            return new Rectangle(invested.x + 8f,
-                    invested.y + invested.height - 32f,
-                    invested.width - 16f, 24f);
+            return investedCaptionBounds;
         }
 
         Rectangle investedValueBounds() {
-            Rectangle invested = investedBounds();
-            return new Rectangle(invested.x + 10f, invested.y + 8f,
-                    invested.width - 20f, invested.height - 43f);
+            return investedValueBounds;
         }
 
         Rectangle bounds() {
-            return new Rectangle(x, y, width, height);
+            return bounds;
         }
     }
 

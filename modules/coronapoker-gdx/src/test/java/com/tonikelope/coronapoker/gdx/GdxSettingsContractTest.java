@@ -312,7 +312,8 @@ final class GdxSettingsContractTest {
 
     @Test
     void bothSettingsEntryPointsUseTheSameSubpageCatalogueBuilder() {
-        assertEquals(java.util.List.of("MESA", "ANIMACIONES", "GRÁFICOS"),
+        assertEquals(java.util.List.of("MESA", "ANIMACIONES Y EFECTOS",
+                "GRÁFICOS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5));
@@ -334,7 +335,8 @@ final class GdxSettingsContractTest {
     @Test
     void settingsContentAndSubpagesFollowTheLiveLanguage() {
         GdxGameText text = new GdxGameText("en");
-        assertEquals(java.util.List.of("TABLE", "ANIMATIONS", "GRAPHICS"),
+        assertEquals(java.util.List.of("TABLE", "ANIMATIONS AND EFFECTS",
+                "GRAPHICS"),
                 GdxSettingsContract.subpageLabels(
                         GdxSettingsContract.Section.APPEARANCE,
                         java.util.List.of(), 0, 5, text));
@@ -667,7 +669,7 @@ final class GdxSettingsContractTest {
         assertFalse(keys.contains("cinematicas"));
         assertEquals(8,
                 GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-        assertEquals(java.util.List.of("ANIMACIONES"),
+        assertEquals(java.util.List.of("ANIMACIONES Y EFECTOS"),
                 GdxSettingsContract.APPEARANCE_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());
         assertFalse(keys.contains("auto_zoom"));
@@ -688,11 +690,14 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(15, page.options().size());
+        assertEquals(18, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(21, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(24, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
+                "efecto_halos",
+                "efecto_desenfoque",
+                "efecto_relieve",
                 "cinematicas_allin",
                 "cinematicas_gameover",
                 "animacion_barajado",
@@ -746,7 +751,10 @@ final class GdxSettingsContractTest {
     void cinematicsAndAnimationsShareTheAnimationMaster() {
         Properties properties = new Properties();
         GdxSettingsContract.ToggleOption cinematic =
-                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().get(2);
+                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                        .filter(option -> "cinematicas_allin".equals(
+                                option.key()))
+                        .findFirst().orElseThrow();
         GdxSettingsContract.ToggleOption deal =
                 GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
                         .filter(option -> "animacion_reparto".equals(

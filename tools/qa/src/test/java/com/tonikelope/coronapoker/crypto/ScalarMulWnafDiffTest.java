@@ -56,12 +56,19 @@ public class ScalarMulWnafDiffTest {
     @Test
     public void wnafEdgeCases() {
         EdwardsPoint[] pts = {
-            EdwardsPoint.IDENTITY, EdwardsPoint.BASE, naive(EdwardsPoint.BASE, BigInteger.valueOf(7))
+            EdwardsPoint.IDENTITY,
+            EdwardsPoint.BASE,
+            naive(EdwardsPoint.BASE, BigInteger.valueOf(7)),
+            // Order-two Edwards torsion point. This makes the test detect an
+            // accidental scalar reduction modulo the odd prime order L.
+            EdwardsPoint.fromAffine(Fe25519.ZERO, Fe25519.ONE.negate())
         };
         BigInteger[] scalars = {
             BigInteger.ZERO, BigInteger.ONE, BigInteger.TWO, BigInteger.valueOf(15), BigInteger.valueOf(16),
             BigInteger.valueOf(17), BigInteger.valueOf(31), BigInteger.valueOf(32), BigInteger.valueOf(33),
-            L.subtract(BigInteger.ONE), L, L.add(BigInteger.ONE)
+            L.subtract(BigInteger.ONE), L, L.add(BigInteger.ONE),
+            BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE),
+            BigInteger.ONE.shiftLeft(300).add(BigInteger.valueOf(17))
         };
         for (EdwardsPoint p : pts) {
             for (BigInteger s : scalars) {

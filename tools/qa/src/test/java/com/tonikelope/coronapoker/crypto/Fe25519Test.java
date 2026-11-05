@@ -53,6 +53,20 @@ public class Fe25519Test {
     }
 
     @Test
+    public void inverseMatchesBigIntegerReference() {
+        java.util.Random random = new java.util.Random(0x5eed1a55L);
+        for (int i = 0; i < 2_000; i++) {
+            BigInteger value;
+            do {
+                value = new BigInteger(255, random).mod(P);
+            } while (value.signum() == 0);
+            assertEquals(value.modInverse(P),
+                    Fe25519.of(value).inv().toBigInteger(),
+                    "inverse mismatch at iteration " + i);
+        }
+    }
+
+    @Test
     public void squareEqualsSelfMultiply() {
         Random rnd = new Random(42);
         for (int k = 0; k < 100; k++) {

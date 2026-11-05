@@ -91,6 +91,8 @@ final class GdxGamePresentationSettingsTest {
         preferences.properties().setProperty("animacion_reparto", "false");
         preferences.properties().setProperty("animacion_destape", "false");
         preferences.properties().setProperty("animacion_swap", "false");
+        preferences.properties().setProperty(
+                GdxSettingsContract.HALO_EFFECT_KEY, "false");
 
         GdxGamePresentationSettings settings =
                 new GdxGamePresentationSettings(preferences);
@@ -103,6 +105,7 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.dealAnimation());
         assertFalse(settings.flipAnimation());
         assertFalse(settings.swapAnimation());
+        assertFalse(settings.haloEffects());
         assertFalse(settings.allInFireAnimation());
         assertFalse(settings.winnerEffectAnimation());
 
@@ -111,9 +114,13 @@ final class GdxGamePresentationSettingsTest {
         preferences.properties().setProperty("cinematicas_allin", "true");
         preferences.properties().setProperty("cinematicas_gameover", "true");
         preferences.properties().setProperty("animacion_reparto", "true");
+        preferences.properties().setProperty(
+                GdxSettingsContract.HALO_EFFECT_KEY, "true");
         preferences.properties().setProperty("animacion_fuego_allin", "true");
         preferences.properties().setProperty("animacion_efecto_ganador", "true");
+        settings.refreshRuntimePreferences();
         assertTrue(settings.dealAnimation());
+        assertTrue(settings.haloEffects());
         assertTrue(settings.allInFireAnimation());
         assertTrue(settings.winnerEffectAnimation());
         assertFalse(settings.flipAnimation());
@@ -123,14 +130,18 @@ final class GdxGamePresentationSettingsTest {
         assertTrue(settings.gameOverCinematics());
 
         preferences.properties().setProperty("animacion_barajado", "true");
+        settings.refreshRuntimePreferences();
         assertTrue(settings.shufflePreload(),
                 "full preload must default on when shuffle animation is on");
         preferences.properties().setProperty(
                 "animacion_barajado_precarga", "false");
+        settings.refreshRuntimePreferences();
         assertFalse(settings.shufflePreload());
 
         preferences.properties().setProperty("animaciones", "false");
+        settings.refreshRuntimePreferences();
         assertFalse(settings.dealAnimation());
+        assertFalse(settings.haloEffects());
         assertFalse(settings.allInFireAnimation());
         assertFalse(settings.winnerEffectAnimation());
         assertFalse(settings.cinematics());

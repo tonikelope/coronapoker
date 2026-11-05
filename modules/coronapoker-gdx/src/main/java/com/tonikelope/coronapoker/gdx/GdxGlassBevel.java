@@ -29,6 +29,7 @@ final class GdxGlassBevel {
      */
     static void draw(ShapeRenderer shapes, float x, float y, float width,
             float height, float radius, float topAlpha, float alpha) {
+        if (!GdxVisualEffects.bevelActive()) return;
         if (shapes == null || !Float.isFinite(x) || !Float.isFinite(y)
                 || !Float.isFinite(width) || width <= 0f
                 || !Float.isFinite(height) || height <= 0f

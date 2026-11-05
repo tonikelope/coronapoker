@@ -187,6 +187,21 @@ public final class DealChain {
      */
     public static Extended extend(byte[] megapacketPoint, String incomingWire,
             Map<String, byte[]> commitments, String myNick, byte[] myLock) {
+        return extendInternal(megapacketPoint, incomingWire, commitments,
+                myNick, myLock, null);
+    }
+
+    public static Extended extend(byte[] megapacketPoint, String incomingWire,
+            Map<String, byte[]> commitments, String myNick,
+            VerifiableUnlock.KeyContext keyContext) {
+        return extendInternal(megapacketPoint, incomingWire, commitments,
+                myNick, null, keyContext);
+    }
+
+    private static Extended extendInternal(byte[] megapacketPoint,
+            String incomingWire, Map<String, byte[]> commitments,
+            String myNick, byte[] myLock,
+            VerifiableUnlock.KeyContext keyContext) {
         List<Entry> chain = parse(incomingWire);
         if (chain == null) {
             return null; // malformed incoming chain
@@ -195,7 +210,10 @@ public final class DealChain {
             return null; // not anchored to the committed point / bad proof / uncommitted key
         }
         byte[] currentResidual = tail(megapacketPoint, chain);
-        VerifiableUnlock.Step step = VerifiableUnlock.unlockWithProof(currentResidual, myLock);
+        VerifiableUnlock.Step step = keyContext == null
+                ? VerifiableUnlock.unlockWithProof(currentResidual, myLock)
+                : VerifiableUnlock.unlockWithProof(currentResidual,
+                        keyContext);
         if (step == null) {
             return null; // off-group residual
         }

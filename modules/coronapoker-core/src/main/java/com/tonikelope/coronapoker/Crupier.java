@@ -33,6 +33,7 @@ import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
+import com.tonikelope.coronapoker.crypto.VerifiableUnlock;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSnapshotMapper;
@@ -3827,6 +3828,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             int blindStraddlerSlot = blindStraddlerSlot();
+            VerifiableUnlock.KeyContext unlockContext
+                    = VerifiableUnlock.keyContext(lock);
             java.util.List<UnlockChainWire.RespItem> response
                     = new java.util.ArrayList<>();
             for (UnlockChainWire.ReqItem item : items) {
@@ -3882,7 +3885,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             (int) ((pointIndex + 1L) * 32L));
                     DealChain.Extended extended = DealChain.extend(point,
                             item.chains.get(index), commitments, localNick,
-                            lock);
+                            unlockContext);
                     if (extended == null) {
                         throw securityViolation(
                                 "zero_trust.host_pocket_extraction",
@@ -5097,6 +5100,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // decision). skipSlot2 = -1 when there's no deferred straddler.
     private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot, int skipSlot2,
             String signerNick, byte[] signerLock) {
+        VerifiableUnlock.KeyContext unlockContext
+                = VerifiableUnlock.keyContext(signerLock);
         for (int i = 0; i < ring.length; i++) {
             if (i == skipSlot || i == skipSlot2) {
                 continue;
@@ -5104,7 +5109,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (int j = 0; j < 2; j++) {
                 int pointIdx = i * 2 + j;
                 byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
-                DealChain.Extended ext = DealChain.extend(point, chains[i][j], peer_k_pocket, signerNick, signerLock);
+                DealChain.Extended ext = DealChain.extend(point, chains[i][j],
+                        peer_k_pocket, signerNick, unlockContext);
                 if (ext == null) {
                     return false;
                 }
@@ -5125,6 +5131,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private boolean extendCommunityChainsForSigner(java.util.Map<String, String[]> chains,
             int offset, int numCards, String skipRecipient, String signerNick, byte[] signerLock) {
+        VerifiableUnlock.KeyContext unlockContext
+                = VerifiableUnlock.keyContext(signerLock);
         for (java.util.Map.Entry<String, String[]> e : chains.entrySet()) {
             if (e.getKey().equals(skipRecipient)) {
                 continue;
@@ -5133,7 +5141,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (int j = 0; j < numCards; j++) {
                 int pointIdx = offset + j;
                 byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
-                DealChain.Extended ext = DealChain.extend(point, recipientChains[j], peer_k_community, signerNick, signerLock);
+                DealChain.Extended ext = DealChain.extend(point,
+                        recipientChains[j], peer_k_community, signerNick,
+                        unlockContext);
                 if (ext == null) {
                     return false;
                 }
@@ -19885,10 +19895,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Extends (with a DLEQ proof) the straddler slot's 2 points, stripping signerNick's lock.
     private boolean extendStraddlerChain(String[] chainS, int straddlerSlot, String signerNick, byte[] signerLock) {
+        VerifiableUnlock.KeyContext unlockContext
+                = VerifiableUnlock.keyContext(signerLock);
         for (int j = 0; j < 2; j++) {
             int pointIdx = straddlerSlot * 2 + j;
             byte[] point = Arrays.copyOfRange(this.local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
-            DealChain.Extended ext = DealChain.extend(point, chainS[j], this.peer_k_pocket, signerNick, signerLock);
+            DealChain.Extended ext = DealChain.extend(point, chainS[j],
+                    this.peer_k_pocket, signerNick, unlockContext);
             if (ext == null) {
                 return false;
             }

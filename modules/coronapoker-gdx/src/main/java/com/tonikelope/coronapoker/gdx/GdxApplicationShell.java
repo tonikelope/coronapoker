@@ -123,6 +123,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
         preferences = application.service(PreferencesService.class);
+        GdxVisualEffects.synchronize(preferences.properties());
         deadlockWatchdog = new JvmDeadlockWatchdog(5_000L,
                 JvmDeadlockWatchdog::detectJvmDeadlock,
                 this::handleFatalDeadlock);

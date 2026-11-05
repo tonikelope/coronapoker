@@ -1266,9 +1266,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
-        if (!lobbyLoadingOverlay) {
+        boolean backdropBlurActive = GdxVisualEffects.blurActive();
+        if (!lobbyLoadingOverlay || !backdropBlurActive) {
             lobbyLoadingBackdropCached = false;
-        } else if (lobbyLoadingBackdropCached
+        } else if (backdropBlurActive && lobbyLoadingBackdropCached
                 && modalBackdropBlur.hasCachedFrame(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
@@ -1282,7 +1283,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && settingsReturnSurface == Surface.LOBBY
                     || surface == Surface.SCREENSHOTS
                         && screenshotReturnSurface == Surface.LOBBY);
-        boolean blurModalBackdrop = hasVisibleFrontendModal();
+        boolean wantsModalBackdrop = hasVisibleFrontendModal();
+        boolean blurModalBackdrop = wantsModalBackdrop
+                && backdropBlurActive;
         boolean nestedFrontendModal = hasNestedFrontendModal();
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
@@ -1408,6 +1411,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 // table already applies this same restoration contract.
                 restoreDefaultFrontendRenderState();
             }
+            drawUnifiedModalBackdrop();
+        } else if (wantsModalBackdrop) {
             drawUnifiedModalBackdrop();
         }
 
@@ -1724,6 +1729,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * wheel and click input cannot leak through the popup.</p>
      */
     private void renderNestedFrontendModal() {
+        if (!GdxVisualEffects.blurActive()) {
+            clearModalCompositionState();
+            float parentPointerX = pointer.x;
+            float parentPointerY = pointer.y;
+            pointer.set(-10_000f, -10_000f);
+            try {
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
+                        GL20.GL_ONE_MINUS_SRC_ALPHA);
+                shapes.begin(ShapeRenderer.ShapeType.Filled);
+                drawNestedModalParent();
+                shapes.end();
+                batch.begin();
+                if (customBotManagerOpen) drawCustomBotManagerImages();
+                for (TextItem item : texts) drawTextItem(item);
+                batch.end();
+                if (customBotManagerOpen) drawCustomBotManagerListLayer();
+            } finally {
+                pointer.set(parentPointerX, parentPointerY);
+            }
+            drawUnifiedModalBackdrop();
+            drawNestedModalChild();
+            return;
+        }
         nestedModalBackdropBlur.beginCapture(
                 Gdx.graphics.getBackBufferWidth(),
                 Gdx.graphics.getBackBufferHeight());
@@ -8532,6 +8561,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String previewOutput = initialProperties.getProperty(
                     GdxAudioDevices.OUTPUT_KEY, "");
             settingsSession.restore(initialProperties);
+            GdxVisualEffects.synchronize(initialProperties);
+            presentationSettings.refreshRuntimePreferences();
             if (settingsOpenedWindowMode != null
                     && GdxDisplayModeController.activeMode()
                     != settingsOpenedWindowMode) {
@@ -8614,6 +8645,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void restoreFrontendAppearanceDefaults() {
         GdxSettingsContract.restoreAppearancePageDefaults(initialProperties,
                 settingsAppearancePage, true);
+        GdxVisualEffects.synchronize(initialProperties);
+        presentationSettings.refreshRuntimePreferences();
         GdxDisplayModeController.apply(GdxWindowMode.configured(
                 initialProperties));
         refreshFeltFromSettings();
@@ -8732,7 +8765,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsChrome.draw(shapes, frame, sections,
                 subpages.size(), settingsSession.tabIndex(), activeSubpage,
                 pointer, restoreVisible, restoreEnabled, saveEnabled, 1f);
-
         // Keep title and subtitle in independent vertical bands. Their fonts
         // have different ascenders, so baseline-only spacing can overlap even
         // when the numeric coordinates appear separated.
@@ -10497,6 +10529,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void togglePreference(String key, boolean fallback) {
         boolean next = !preferenceBoolean(key, fallback);
         initialProperties.setProperty(key, Boolean.toString(next));
+        GdxVisualEffects.synchronize(initialProperties);
+        presentationSettings.refreshRuntimePreferences();
         if ("musica".equals(key) || "sonido_ascensor".equals(key)
                 || "musica_sala_espera".equals(key)
                 || "musica_about".equals(key)

@@ -85,7 +85,7 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(remoteGlow.contains("PLAYER_POD_HEIGHT + 12f"));
         assertTrue(remoteGlow.contains("17f, 24f, color, strength"));
         assertTrue(sharedGlow.contains("drawRemoteSeatHalo("));
-        assertTrue(sharedGlow.contains("localHudLayout("));
+        assertTrue(sharedGlow.contains("cachedLocalHudLayout("));
         assertTrue(sharedGlow.contains("hud.x() - 8f"));
         assertTrue(sharedGlow.contains("hud.width() + 16f"));
         assertTrue(sharedGlow.contains("19f, 24f, color, strength"));

@@ -90,6 +90,31 @@ public class VerifiableDealingTest {
     }
 
     @Test
+    public void oneKeyContextSafelyUnlocksMultipleCommittedPoints() {
+        byte[] lock = RistrettoSRA.generateLockScalar();
+        byte[] commitment = RistrettoSRA.commitment(lock);
+        VerifiableUnlock.KeyContext context
+                = VerifiableUnlock.keyContext(lock);
+        byte[] genesis = RistrettoSRA.getGenesisDeck();
+
+        for (int cardIdx : new int[]{0, 17, 51}) {
+            byte[] point = new byte[CARD_BYTES];
+            System.arraycopy(genesis, cardIdx * CARD_BYTES, point, 0,
+                    CARD_BYTES);
+            byte[] locked = RistrettoSRA.applyCommutativeLock(point, lock);
+
+            VerifiableUnlock.Step step
+                    = VerifiableUnlock.unlockWithProof(locked, context);
+
+            assertNotNull(step);
+            assertEquals(cardIdx,
+                    RistrettoSRA.resolveCardIndex(step.residual));
+            assertTrue(VerifiableUnlock.verifyStep(locked, step.residual,
+                    commitment, step.proof));
+        }
+    }
+
+    @Test
     public void blindedStartIsRejected() {
         // THE FIX. Models the PoC: a malicious host blinds the committed slot by r and
         // tries to use a peer as an oracle. Each peer's unlock is still honestly proven,

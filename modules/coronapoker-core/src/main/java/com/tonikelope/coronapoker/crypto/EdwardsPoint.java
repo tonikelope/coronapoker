@@ -92,6 +92,7 @@ public final class EdwardsPoint {
      * background SRA verifier threads.
      */
     private volatile EdwardsPoint[] nafTable;
+    private volatile EdwardsPoint[] negativeNafTable;
 
     /**
      * Lazily-memoized canonical Ristretto255 encoding of this point (see
@@ -204,22 +205,32 @@ public final class EdwardsPoint {
         // the ladder averages ~1 addition per 6 bits (vs the fixed 4-bit window's 1 per 4) and needs only
         // the 8 odd multiples 1,3,…,15·P. The table depends only on `this`, so it is memoized (nafTable):
         // a point reused across many scalarMuls (BASE above all) builds it once, not per call.
-        EdwardsPoint[] odd = nafTable();
-        int[] naf = new int[s.bitLength() + 2];
-        int len = 0;
-        BigInteger k = s;
-        while (k.signum() > 0) {
-            int digit = 0;
-            if (k.testBit(0)) {
-                digit = k.intValue() & 31; // low 5 bits; k odd -> digit odd in [1, 31]
-                if (digit >= 16) {
-                    digit -= 32; // fold to the signed odd digit in [-15, -1]
+        int[] naf;
+        int len;
+        if (s.bitLength() <= 256) {
+            Scalar25519.Wnaf wnaf = Scalar25519.fromUnreduced(s).wnaf5();
+            naf = wnaf.digits();
+            len = wnaf.length();
+        } else {
+            // Preserve scalarMul's exact public semantics for unusually large
+            // Edwards scalars. Protocol scalars take the allocation-free
+            // fixed-width branch above.
+            naf = new int[s.bitLength() + 2];
+            len = 0;
+            BigInteger k = s;
+            while (k.signum() > 0) {
+                int digit = 0;
+                if (k.testBit(0)) {
+                    digit = k.intValue() & 31;
+                    if (digit >= 16) digit -= 32;
+                    k = k.subtract(BigInteger.valueOf(digit));
                 }
-                k = k.subtract(BigInteger.valueOf(digit)); // clears the low 5 bits
+                naf[len++] = digit;
+                k = k.shiftRight(1);
             }
-            naf[len++] = digit;
-            k = k.shiftRight(1);
         }
+        EdwardsPoint[] odd = nafTable();
+        EdwardsPoint[] negativeOdd = negativeNafTable();
         EdwardsPoint result = IDENTITY;
         for (int i = len - 1; i >= 0; i--) {
             result = result.dbl();
@@ -227,7 +238,7 @@ public final class EdwardsPoint {
             if (d > 0) {
                 result = result.add(odd[(d - 1) >> 1]);
             } else if (d < 0) {
-                result = result.add(odd[(-d - 1) >> 1].negate());
+                result = result.add(negativeOdd[(-d - 1) >> 1]);
             }
         }
         return result;
@@ -269,6 +280,19 @@ public final class EdwardsPoint {
         return t;
     }
 
+    private EdwardsPoint[] negativeNafTable() {
+        EdwardsPoint[] t = negativeNafTable;
+        if (t == null) {
+            EdwardsPoint[] positive = nafTable();
+            t = new EdwardsPoint[positive.length];
+            for (int i = 0; i < positive.length; i++) {
+                t[i] = positive[i].negate();
+            }
+            negativeNafTable = t;
+        }
+        return t;
+    }
+
     /**
      * Multi-scalar multiplication {@code Σ scalars[i]·points[i]} via Straus'
      * method: ONE shared doubling ladder over all points (4-bit windows),
@@ -286,10 +310,10 @@ public final class EdwardsPoint {
         if (n == 0) {
             return IDENTITY;
         }
-        BigInteger[] s = new BigInteger[n];
+        Scalar25519[] s = new Scalar25519[n];
         int maxBits = 0;
         for (int i = 0; i < n; i++) {
-            s[i] = scalars[i].mod(L);
+            s[i] = Scalar25519.fromReduced(scalars[i]);
             int b = s[i].bitLength();
             if (b > maxBits) {
                 maxBits = b;
@@ -311,9 +335,7 @@ public final class EdwardsPoint {
         for (int pos = top; pos >= 0; pos -= 4) {
             result = result.dbl().dbl().dbl().dbl(); // shared across all points
             for (int i = 0; i < n; i++) {
-                BigInteger si = s[i];
-                int window = (si.testBit(pos + 3) ? 8 : 0) | (si.testBit(pos + 2) ? 4 : 0)
-                        | (si.testBit(pos + 1) ? 2 : 0) | (si.testBit(pos) ? 1 : 0);
+                int window = s[i].window4(pos);
                 if (window != 0) {
                     result = result.add(table[i][window]);
                 }

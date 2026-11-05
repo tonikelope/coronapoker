@@ -39,6 +39,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private final Map<String, String> normalizedDecks;
     private volatile boolean autoRebuyOnBroke;
     private volatile int actualMsaaSamples;
+    private volatile AnimationFlags animationFlags;
     private String secretFeltFirst = "";
     private String secretFeltSecond = "";
     private int secretFeltSwitches;
@@ -62,6 +63,36 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         normalizedDecks = Map.copyOf(decks);
         availableDecks = List.copyOf(new ArrayList<>(decks.values()));
         autoRebuyOnBroke = bool(GdxSettingsContract.AUTO_REBUY_KEY, false);
+        refreshRuntimePreferences();
+    }
+
+    private record AnimationFlags(boolean master, boolean halo,
+            boolean allInCinematics, boolean gameOverCinematics,
+            boolean blindDealer, boolean bets, boolean counters,
+            boolean seatEntry, boolean shuffle, boolean shufflePreload,
+            boolean deal, boolean flip, boolean swap, boolean allInFire,
+            boolean winnerEffect) {
+    }
+
+    /** Refreshes the immutable flags read by the render loop after an edit. */
+    void refreshRuntimePreferences() {
+        boolean master = bool("animaciones", true);
+        boolean shuffle = master && bool("animacion_barajado", true);
+        animationFlags = new AnimationFlags(master,
+                master && bool(GdxSettingsContract.HALO_EFFECT_KEY, true),
+                master && bool("cinematicas_allin", true),
+                master && bool("cinematicas_gameover", true),
+                master && bool("animacion_ciegas_dealer", true),
+                master && bool("animacion_apuestas", true),
+                master && bool("animacion_contadores", true),
+                master && bool("animacion_entrada_asientos", true),
+                shuffle,
+                shuffle && bool("animacion_barajado_precarga", true),
+                master && bool("animacion_reparto", true),
+                master && bool("animacion_destape", true),
+                master && bool("animacion_swap", true),
+                master && bool("animacion_fuego_allin", true),
+                master && bool("animacion_efecto_ganador", true));
     }
 
     static ModMediaCatalog discoverInstalledMod() {
@@ -99,7 +130,13 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     private boolean effects() { return bool("sonido_efectos", true); }
     /** Master switch shared by every semantic table animation. */
-    boolean animations() { return bool("animaciones", true); }
+    boolean animations() {
+        return animationFlags.master();
+    }
+
+    boolean haloEffects() {
+        return animationFlags.halo();
+    }
 
     @Override public String language() {
         return properties.getProperty("lenguaje", "es").toLowerCase(Locale.ROOT);
@@ -485,44 +522,43 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return animations();
     }
     @Override public boolean allInCinematics() {
-        return cinematics() && bool("cinematicas_allin", true);
+        return animationFlags.allInCinematics();
     }
     @Override public boolean gameOverCinematics() {
-        return cinematics() && bool("cinematicas_gameover", true);
+        return animationFlags.gameOverCinematics();
     }
     @Override public boolean blindDealerAnimation() {
-        return animations() && bool("animacion_ciegas_dealer", true);
+        return animationFlags.blindDealer();
     }
     @Override public boolean betAnimation() {
-        return animations() && bool("animacion_apuestas", true);
+        return animationFlags.bets();
     }
     @Override public boolean counterAnimation() {
-        return animations() && bool("animacion_contadores", true);
+        return animationFlags.counters();
     }
     boolean seatEntryAnimation() {
-        return animations() && bool("animacion_entrada_asientos", true);
+        return animationFlags.seatEntry();
     }
     @Override public boolean shuffleAnimation() {
-        return animations() && bool("animacion_barajado", true);
+        return animationFlags.shuffle();
     }
     boolean shufflePreload() {
-        return shuffleAnimation()
-                && bool("animacion_barajado_precarga", true);
+        return animationFlags.shufflePreload();
     }
     @Override public boolean dealAnimation() {
-        return animations() && bool("animacion_reparto", true);
+        return animationFlags.deal();
     }
     @Override public boolean flipAnimation() {
-        return animations() && bool("animacion_destape", true);
+        return animationFlags.flip();
     }
     @Override public boolean swapAnimation() {
-        return animations() && bool("animacion_swap", true);
+        return animationFlags.swap();
     }
     boolean allInFireAnimation() {
-        return animations() && bool("animacion_fuego_allin", true);
+        return animationFlags.allInFire();
     }
     boolean winnerEffectAnimation() {
-        return animations() && bool("animacion_efecto_ganador", true);
+        return animationFlags.winnerEffect();
     }
     @Override public boolean callSound() { return effects() && bool("sonido_igualar", true); }
     @Override public boolean betSound() { return effects() && bool("sonido_apostar", true); }

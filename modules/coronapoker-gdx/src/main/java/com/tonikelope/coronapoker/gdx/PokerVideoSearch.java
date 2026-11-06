@@ -21,11 +21,11 @@ import java.util.regex.Pattern;
 final class PokerVideoSearch {
 
     static final URI SEARCH_URI = URI.create(
-            "https://www.youtube.com/results?search_query=best+poker+videos");
+            "https://www.youtube.com/results?search_query=poker+shorts");
     static final int MAX_RESULTS = 40;
     private static final int MAX_RESPONSE_CHARS = 12 * 1024 * 1024;
-    private static final Pattern FALLBACK_VIDEO_ID = Pattern.compile(
-            "\\\"videoId\\\"\\s*:\\s*\\\"([A-Za-z0-9_-]{11})\\\"");
+    private static final Pattern FALLBACK_SHORT_ID = Pattern.compile(
+            "\\\"url\\\"\\s*:\\s*\\\"/shorts/([A-Za-z0-9_-]{11})");
 
     record Video(String id, String title) {
 
@@ -34,7 +34,7 @@ final class PokerVideoSearch {
                 throw new IllegalArgumentException("Invalid YouTube video id");
             }
             title = title == null || title.isBlank()
-                    ? "Vídeo de póker" : title.strip();
+                    ? "Short de póker" : title.strip();
         }
     }
 
@@ -80,59 +80,85 @@ final class PokerVideoSearch {
         String initialData = extractInitialData(html);
         if (initialData != null) {
             try {
-                collectRenderers(new JsonReader().parse(initialData), ordered);
+                collectShorts(new JsonReader().parse(initialData), ordered);
             } catch (RuntimeException ignored) {
                 // YouTube changes this non-public document periodically. The
                 // conservative ID-only fallback still preserves document order.
             }
         }
         if (ordered.isEmpty()) {
-            Matcher matcher = FALLBACK_VIDEO_ID.matcher(html);
+            Matcher matcher = FALLBACK_SHORT_ID.matcher(html);
             while (matcher.find() && ordered.size() < MAX_RESULTS) {
                 String id = matcher.group(1);
-                ordered.putIfAbsent(id, new Video(id, "Vídeo de póker"));
+                ordered.putIfAbsent(id, new Video(id, "Short de póker"));
             }
         }
         return List.copyOf(ordered.values());
     }
 
-    private static void collectRenderers(JsonValue value,
+    private static void collectShorts(JsonValue value,
             Map<String, Video> ordered) {
         if (value == null || ordered.size() >= MAX_RESULTS) return;
         if (value.isObject()) {
-            JsonValue renderer = value.get("videoRenderer");
-            if (renderer == null) renderer = value.get("reelItemRenderer");
-            if (renderer != null) addRenderer(renderer, ordered);
+            JsonValue lockup = value.get("shortsLockupViewModel");
+            if (lockup != null) addLockup(lockup, ordered);
+            JsonValue legacy = value.get("reelItemRenderer");
+            if (legacy != null) addLegacyRenderer(legacy, ordered);
         }
         for (JsonValue child = value.child; child != null
                 && ordered.size() < MAX_RESULTS; child = child.next) {
-            collectRenderers(child, ordered);
+            collectShorts(child, ordered);
         }
     }
 
-    private static void addRenderer(JsonValue renderer,
+    private static void addLockup(JsonValue lockup,
+            Map<String, Video> ordered) {
+        JsonValue endpoint = nested(lockup, "onTap", "innertubeCommand",
+                "reelWatchEndpoint");
+        String id = endpoint == null ? ""
+                : endpoint.getString("videoId", "");
+        if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
+            return;
+        }
+        JsonValue primaryText = nested(lockup, "overlayMetadata",
+                "primaryText");
+        String title = primaryText == null ? ""
+                : primaryText.getString("content", "");
+        ordered.put(id, new Video(id, title));
+    }
+
+    private static void addLegacyRenderer(JsonValue renderer,
             Map<String, Video> ordered) {
         String id = renderer.getString("videoId", "");
         if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
             return;
         }
-        ordered.put(id, new Video(id, rendererTitle(renderer)));
+        ordered.put(id, new Video(id, legacyRendererTitle(renderer)));
     }
 
-    private static String rendererTitle(JsonValue renderer) {
+    private static String legacyRendererTitle(JsonValue renderer) {
         JsonValue title = renderer.get("title");
-        if (title == null) return "Vídeo de póker";
+        if (title == null) return "Short de póker";
         String simple = title.getString("simpleText", "");
         if (!simple.isBlank()) return simple;
         JsonValue runs = title.get("runs");
-        if (runs == null) return "Vídeo de póker";
+        if (runs == null) return "Short de póker";
         ArrayList<String> fragments = new ArrayList<>();
         for (JsonValue run = runs.child; run != null; run = run.next) {
             String text = run.getString("text", "");
             if (!text.isBlank()) fragments.add(text);
         }
         String joined = String.join("", fragments).strip();
-        return joined.isBlank() ? "Vídeo de póker" : joined;
+        return joined.isBlank() ? "Short de póker" : joined;
+    }
+
+    private static JsonValue nested(JsonValue root, String... names) {
+        JsonValue value = root;
+        for (String name : names) {
+            if (value == null) return null;
+            value = value.get(name);
+        }
+        return value;
     }
 
     private static String extractInitialData(String html) {
@@ -141,7 +167,8 @@ final class PokerVideoSearch {
             int brace = html.indexOf('{', marker + "ytInitialData".length());
             if (brace < 0) return null;
             String json = balancedObject(html, brace);
-            if (json != null && json.contains("videoRenderer")) return json;
+            if (json != null && (json.contains("shortsLockupViewModel")
+                    || json.contains("reelItemRenderer"))) return json;
             marker = html.indexOf("ytInitialData", brace + 1);
         }
         return null;

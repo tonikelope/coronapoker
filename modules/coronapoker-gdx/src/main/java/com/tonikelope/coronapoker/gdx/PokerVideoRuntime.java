@@ -52,6 +52,8 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean active = true;
     private volatile int currentIndex;
     private volatile int resumeSeconds;
+    private volatile boolean resumeMuted = true;
+    private volatile int resumeVolume = 100;
     private volatile String pageUrl;
     private volatile String refererOrigin;
 
@@ -62,10 +64,12 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     static PokerVideoRuntime initialize(List<PokerVideoSearch.Video> videos,
-            PokerVideoFrameBuffer frameBuffer, Path dataDirectory) {
+            PokerVideoFrameBuffer frameBuffer, Path dataDirectory,
+            int width, int height, double scaleFactor) {
         PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer);
         try {
-            runtime.initializeInternal(dataDirectory);
+            runtime.initializeInternal(dataDirectory, width, height,
+                    scaleFactor);
         } catch (Throwable failure) {
             runtime.initializationError = failure.getClass().getSimpleName()
                     + ": " + (failure.getMessage() == null
@@ -75,14 +79,14 @@ final class PokerVideoRuntime implements AutoCloseable {
         return runtime;
     }
 
-    private void initializeInternal(Path dataDirectory) throws Exception {
+    private void initializeInternal(Path dataDirectory, int width, int height,
+            double scaleFactor) throws Exception {
         Files.createDirectories(dataDirectory);
         Path nativeDirectory = dataDirectory.resolve(
                 "jcef-" + JCEF_MAVEN_VERSION);
         Path cacheRoot = dataDirectory.resolve("cache");
-        Path cacheProfile = cacheRoot.resolve("poker-videos");
         Path logDirectory = dataDirectory.resolve("logs");
-        Files.createDirectories(cacheProfile);
+        Files.createDirectories(cacheRoot);
         Files.createDirectories(logDirectory);
 
         CefAppBuilder builder = new CefAppBuilder();
@@ -91,7 +95,10 @@ final class PokerVideoRuntime implements AutoCloseable {
         CefSettings settings = builder.getCefSettings();
         settings.windowless_rendering_enabled = true;
         settings.root_cache_path = cacheRoot.toAbsolutePath().toString();
-        settings.cache_path = cacheProfile.toAbsolutePath().toString();
+        // Keep the anonymous video profile in memory. This prevents an old
+        // YouTube caption preference from turning subtitles on by default in
+        // a later CoronaPoker run.
+        settings.cache_path = "";
         settings.log_file = logDirectory.resolve("poker-video-cef.log")
                 .toAbsolutePath().toString();
         settings.log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING;
@@ -108,14 +115,14 @@ final class PokerVideoRuntime implements AutoCloseable {
         cefApp = builder.build();
         client = cefApp.createClient();
         installHandlers();
-        openBrowserSession(640, 360, 1.0);
+        openBrowserSession(width, height, scaleFactor);
     }
 
     private synchronized void openBrowserSession(int width, int height,
             double scaleFactor) throws Exception {
         if (browser != null || browserClosing || closed.get()) return;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds);
+                resumeSeconds, resumeMuted, resumeVolume);
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
         CefBrowserSettings browserSettings = new CefBrowserSettings();
@@ -264,6 +271,20 @@ final class PokerVideoRuntime implements AutoCloseable {
                     currentIndex = index;
                     resumeSeconds = Math.max(0, seconds);
                 }
+            } catch (NumberFormatException ignored) {
+            }
+            return true;
+        }
+        if (request.startsWith("AUDIO|")) {
+            String[] parts = request.substring("AUDIO|".length())
+                    .split(":", 2);
+            try {
+                resumeMuted = parts.length == 0
+                        || !"0".equals(parts[0]);
+                resumeVolume = parts.length > 1
+                        ? Math.max(0, Math.min(100,
+                                Integer.parseInt(parts[1])))
+                        : resumeVolume;
             } catch (NumberFormatException ignored) {
             }
             return true;

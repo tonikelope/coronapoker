@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>CoronaPoker — vídeos de póker</title>
+  <title>CoronaPoker — Shorts de póker</title>
   <style>
     html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
     body { font-family: system-ui, sans-serif; color: #fff; }
@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <div id="status">Buscando vídeos de póker…</div>
+  <div id="status">Buscando Shorts de póker…</div>
   <div id="player"></div>
   <script>
     'use strict';
@@ -26,6 +26,11 @@
     let ready = false;
     let currentIndex = @@INITIAL_INDEX@@;
     const START_SECONDS = @@START_SECONDS@@;
+    const INITIAL_MUTED = @@INITIAL_MUTED@@;
+    const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
+    let restoredAudioPending = true;
+    let desiredMuted = INITIAL_MUTED;
+    let desiredVolume = INITIAL_VOLUME;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -43,10 +48,35 @@
     function selectVideo(index) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
       currentIndex = ((Number(index) % VIDEO_IDS.length) + VIDEO_IDS.length) % VIDEO_IDS.length;
-      const wasMuted = player.isMuted ? player.isMuted() : true;
+      desiredMuted = player.isMuted ? player.isMuted() : desiredMuted;
+      desiredVolume = player.getVolume ? player.getVolume() : desiredVolume;
+      restoredAudioPending = true;
       player.loadVideoById(VIDEO_IDS[currentIndex]);
-      if (wasMuted && player.mute) player.mute();
+      restoreAudioState(player);
       report('INDEX', currentIndex);
+    }
+
+    function restoreAudioState(target) {
+      if (!target) return;
+      if (target.setVolume) target.setVolume(desiredVolume);
+      if (desiredMuted) {
+        if (target.mute) target.mute();
+      } else if (target.unMute) {
+        target.unMute();
+      }
+    }
+
+    function reportAudio() {
+      if (!player || !ready) return;
+      const muted = player.isMuted && player.isMuted() ? 1 : 0;
+      const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
+      desiredMuted = muted !== 0;
+      desiredVolume = Math.max(0, Math.min(100, volume));
+      report('AUDIO', muted + ':' + desiredVolume);
+    }
+
+    function reportDesiredAudio() {
+      report('AUDIO', (desiredMuted ? 1 : 0) + ':' + desiredVolume);
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -67,7 +97,7 @@
           enablejsapi: 1,
           playsinline: 1,
           rel: 0,
-          mute: 1,
+          mute: INITIAL_MUTED ? 1 : 0,
           cc_load_policy: 0,
           iv_load_policy: 3,
           fs: 0,
@@ -79,13 +109,20 @@
           onReady: event => {
             ready = true;
             statusBox.className = 'hidden';
-            event.target.mute();
+            restoreAudioState(event.target);
             event.target.playVideo();
             report('INDEX', currentIndex);
+            reportDesiredAudio();
             report('READY', '1');
-            report('STATE', 'REPRODUCIENDO EN SILENCIO');
+            report('STATE', desiredMuted
+              ? 'REPRODUCIENDO EN SILENCIO' : 'REPRODUCIENDO CON AUDIO');
           },
           onStateChange: event => {
+            if (event.data === 1 && restoredAudioPending) {
+              restoreAudioState(event.target);
+              restoredAudioPending = false;
+              setTimeout(reportAudio, 150);
+            }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
             report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
@@ -109,9 +146,10 @@
     function reportPosition() {
       if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
       report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
+      reportAudio();
     }
     window.coronaReportPosition = reportPosition;
-    setInterval(reportPosition, 1500);
+    setInterval(reportPosition, 750);
 
     setTimeout(() => {
       if (!ready) showError('No se pudo inicializar el reproductor. Comprueba la conexión.');

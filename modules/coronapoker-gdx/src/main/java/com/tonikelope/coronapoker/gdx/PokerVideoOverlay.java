@@ -4,6 +4,7 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -25,20 +26,23 @@ import org.cef.browser.LibGdxCefBrowser;
 /** Floating, draggable video window shown only by the menu and waiting room. */
 final class PokerVideoOverlay implements AutoCloseable {
 
-    static final float INITIAL_WIDTH = 640f;
-    static final float MIN_WIDTH = 480f;
-    static final float MAX_WIDTH = 960f;
-    static final float HEADER_HEIGHT = 50f;
-    static final float ICON_SIZE = 62f;
-    private static final float ASPECT = 16f / 9f;
+    static final float INITIAL_WIDTH = 320f;
+    static final float MIN_WIDTH = 260f;
+    static final float MAX_WIDTH = 520f;
+    static final float HEADER_HEIGHT = 52f;
+    static final float ICON_SIZE = 58f;
+    private static final float ASPECT = 9f / 16f;
     private static final Color SHADOW = new Color(0x00000088);
-    private static final Color FRAME = new Color(0x071016ff);
-    private static final Color HEADER = new Color(0x102a32ff);
-    private static final Color BUTTON = new Color(0x17414aff);
-    private static final Color BUTTON_HOVER = new Color(0x237066ff);
-    private static final Color BORDER = new Color(0x38c6a4ff);
-    private static final Color TEXT = new Color(0xe9fffaff);
-    private static final Color MUTED = new Color(0x9cb9b4ff);
+    private static final Color FRAME = new Color(
+            GdxUiDialogStyle.PANEL_RGBA);
+    private static final Color HEADER = new Color(
+            GdxSettingsStyle.PANEL_LIGHT_RGBA);
+    private static final Color CYAN = new Color(
+            GdxSettingsStyle.CYAN_RGBA);
+    private static final Color GOLD = new Color(
+            GdxSettingsStyle.GOLD_RGBA);
+    private static final Color MUTED = new Color(
+            GdxSettingsStyle.MUTED_RGBA);
 
     private final PokerVideoFrameBuffer frameBuffer =
             new PokerVideoFrameBuffer();
@@ -60,7 +64,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle closeBounds = new Rectangle();
     private final Rectangle resizeBounds = new Rectangle();
     private volatile PokerVideoRuntime runtime;
-    private volatile String loadingState = "BUSCANDO VÍDEOS DE PÓKER";
+    private volatile String loadingState = "BUSCANDO SHORTS DE PÓKER";
     private volatile String loadingError;
     private boolean initializationStarted;
     private volatile boolean featureEnabled;
@@ -86,6 +90,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float startWindowY;
     private float startWidth;
     private float fixedTop;
+    private float fixedRight;
     private int pressedButtons;
 
     void update(boolean enabled, boolean visible, String language,
@@ -121,12 +126,13 @@ final class PokerVideoOverlay implements AutoCloseable {
         initializationStarted = true;
         initializer.submit(() -> {
             try {
-                loadingState = "BUSCANDO VÍDEOS DE PÓKER";
+                loadingState = "BUSCANDO SHORTS DE PÓKER";
                 var videos = PokerVideoSearch.fetch(language);
                 if (closed.get()) return;
                 loadingState = "INICIALIZANDO REPRODUCTOR";
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
-                        frameBuffer, dataDirectory());
+                        frameBuffer, dataDirectory(), Math.round(videoWidth),
+                        Math.round(videoHeight), displayScale());
                 if (closed.get()) {
                     created.close();
                     return;
@@ -179,24 +185,24 @@ final class PokerVideoOverlay implements AutoCloseable {
             clampWindow();
             return;
         }
-        x = Math.max(8f, worldWidth - videoWidth - 46f);
-        y = 116f;
+        x = Math.max(8f, worldWidth - videoWidth - 24f);
+        y = 104f;
         positioned = true;
         clampWindow();
     }
 
     private void updateBounds() {
         float totalHeight = videoHeight + HEADER_HEIGHT;
-        iconBounds.set(worldWidth - ICON_SIZE - 26f, 82f,
+        iconBounds.set(worldWidth - ICON_SIZE - 24f, 92f,
                 ICON_SIZE, ICON_SIZE);
         panelBounds.set(x, y, videoWidth, totalHeight);
         videoBounds.set(x, y, videoWidth, videoHeight);
         headerBounds.set(x, y + videoHeight, videoWidth, HEADER_HEIGHT);
-        previousBounds.set(x + 7f, y + videoHeight + 7f, 38f, 36f);
-        nextBounds.set(x + 50f, y + videoHeight + 7f, 38f, 36f);
-        closeBounds.set(x + videoWidth - 45f, y + videoHeight + 7f,
-                38f, 36f);
-        resizeBounds.set(x + videoWidth - 22f, y, 22f, 22f);
+        previousBounds.set(x + 8f, y + videoHeight + 7f, 40f, 38f);
+        nextBounds.set(x + 53f, y + videoHeight + 7f, 40f, 38f);
+        closeBounds.set(x + videoWidth - 48f, y + videoHeight + 7f,
+                40f, 38f);
+        resizeBounds.set(x, y, 32f, 32f);
     }
 
     void prepareFrame() {
@@ -207,55 +213,90 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (!hostVisible) return;
         if (minimized) {
             shapes.setColor(SHADOW);
-            GdxAntialiasedRoundedRect.fillCircle(shapes,
-                    iconBounds.x + ICON_SIZE / 2f - 3f,
-                    iconBounds.y + ICON_SIZE / 2f - 4f,
-                    ICON_SIZE / 2f + 5f);
-            shapes.setColor(HEADER);
-            GdxAntialiasedRoundedRect.fillCircle(shapes,
-                    iconBounds.x + ICON_SIZE / 2f,
-                    iconBounds.y + ICON_SIZE / 2f,
-                    ICON_SIZE / 2f);
-            shapes.setColor(BORDER);
-            shapes.triangle(iconBounds.x + 23f, iconBounds.y + 17f,
-                    iconBounds.x + 23f, iconBounds.y + 45f,
-                    iconBounds.x + 46f, iconBounds.y + 31f);
+            GdxAntialiasedRoundedRect.fill(shapes, iconBounds.x - 5f,
+                    iconBounds.y - 6f, iconBounds.width + 10f,
+                    iconBounds.height + 12f, 18f);
+            boolean hovered = iconBounds.contains(pointer);
+            GdxUiButtonStyle.draw(shapes, iconBounds.x, iconBounds.y,
+                    iconBounds.width, iconBounds.height,
+                    GdxUiButtonStyle.Tone.FEATURED, true,
+                    hovered ? 1f : 0f, capture == Capture.ICON, 1f);
+            GdxUiIconRenderer.draw(shapes,
+                    GdxUiIconRenderer.Icon.CONTINUE,
+                    iconBounds.x + iconBounds.width / 2f,
+                    iconBounds.y + iconBounds.height / 2f,
+                    ICON_SIZE * 0.52f,
+                    GdxUiButtonStyle.labelColor(
+                            GdxUiButtonStyle.Tone.FEATURED, true), 1f);
             return;
         }
         shapes.setColor(SHADOW);
-        shapes.rect(x - 7f, y - 8f, videoWidth + 14f,
-                videoHeight + HEADER_HEIGHT + 15f);
-        shapes.setColor(FRAME);
-        shapes.rect(panelBounds.x, panelBounds.y,
-                panelBounds.width, panelBounds.height);
+        GdxAntialiasedRoundedRect.fill(shapes, x - 7f, y - 8f,
+                videoWidth + 14f, videoHeight + HEADER_HEIGHT + 15f, 22f);
+        GdxUiDialogStyle.drawPanel(shapes, panelBounds.x, panelBounds.y,
+                panelBounds.width, panelBounds.height, FRAME, CYAN, 1f);
         shapes.setColor(Color.BLACK);
         shapes.rect(videoBounds.x, videoBounds.y,
                 videoBounds.width, videoBounds.height);
         shapes.setColor(HEADER);
-        shapes.rect(headerBounds.x, headerBounds.y,
-                headerBounds.width, headerBounds.height);
-        drawHeaderButton(shapes, pointer, previousBounds, true);
-        drawHeaderButton(shapes, pointer, nextBounds, true);
-        drawHeaderButton(shapes, pointer, closeBounds, true);
-        shapes.setColor(BORDER);
-        shapes.rect(x, y, videoWidth, 2f);
-        shapes.rect(x, y + videoHeight + HEADER_HEIGHT - 2f,
-                videoWidth, 2f);
-        shapes.rect(x, y, 2f, videoHeight + HEADER_HEIGHT);
-        shapes.rect(x + videoWidth - 2f, y, 2f,
-                videoHeight + HEADER_HEIGHT);
-        shapes.triangle(resizeBounds.x + resizeBounds.width,
-                resizeBounds.y,
-                resizeBounds.x + resizeBounds.width,
-                resizeBounds.y + resizeBounds.height,
-                resizeBounds.x, resizeBounds.y);
+        GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x + 2f,
+                headerBounds.y + 2f, headerBounds.width - 4f,
+                headerBounds.height - 4f, 15f);
+        shapes.rect(headerBounds.x + 2f, headerBounds.y + 2f,
+                headerBounds.width - 4f, headerBounds.height / 2f);
+        drawHeaderButton(shapes, pointer, previousBounds,
+                GdxUiButtonStyle.Tone.NEUTRAL, Capture.PREVIOUS, false);
+        drawHeaderButton(shapes, pointer, nextBounds,
+                GdxUiButtonStyle.Tone.NEUTRAL, Capture.NEXT, true);
+        drawHeaderButton(shapes, pointer, closeBounds,
+                GdxUiButtonStyle.Tone.DANGER, Capture.CLOSE, false);
+        shapes.setColor(CYAN);
+        GdxAntialiasedRoundedRect.outline(shapes, panelBounds.x + 1f,
+                panelBounds.y + 1f, panelBounds.width - 2f,
+                panelBounds.height - 2f, 17f, 2f);
+        drawResizeGrip(shapes, pointer);
     }
 
-    private static void drawHeaderButton(ShapeRenderer shapes, Vector2 pointer,
-            Rectangle bounds, boolean enabled) {
-        shapes.setColor(enabled && bounds.contains(pointer)
-                ? BUTTON_HOVER : BUTTON);
-        shapes.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+    private void drawHeaderButton(ShapeRenderer shapes, Vector2 pointer,
+            Rectangle bounds, GdxUiButtonStyle.Tone tone,
+            Capture action, boolean pointsRight) {
+        boolean hovered = bounds.contains(pointer);
+        GdxUiButtonStyle.drawBorderless(shapes, bounds.x, bounds.y,
+                bounds.width, bounds.height, tone, true,
+                hovered ? 1f : 0f, capture == action, 1f);
+        Color iconColor = GdxUiButtonStyle.labelColor(tone, true);
+        if (action == Capture.CLOSE) {
+            GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CLOSE,
+                    bounds.x + bounds.width / 2f,
+                    bounds.y + bounds.height / 2f,
+                    Math.min(bounds.width, bounds.height) * 0.44f,
+                    iconColor, 1f);
+        } else {
+            drawChevron(shapes, bounds, pointsRight, iconColor);
+        }
+    }
+
+    private static void drawChevron(ShapeRenderer shapes, Rectangle bounds,
+            boolean pointsRight, Color color) {
+        float centerX = bounds.x + bounds.width / 2f;
+        float centerY = bounds.y + bounds.height / 2f;
+        float direction = pointsRight ? 1f : -1f;
+        float outerX = centerX + direction * 6f;
+        float innerX = centerX - direction * 5f;
+        shapes.setColor(color);
+        shapes.rectLine(innerX, centerY + 8f, outerX, centerY, 3.2f);
+        shapes.rectLine(outerX, centerY, innerX, centerY - 8f, 3.2f);
+    }
+
+    private void drawResizeGrip(ShapeRenderer shapes, Vector2 pointer) {
+        boolean highlighted = capture == Capture.RESIZE
+                || resizeBounds.contains(pointer);
+        shapes.setColor(highlighted ? Color.WHITE : CYAN);
+        float left = resizeBounds.x + 5f;
+        float bottom = resizeBounds.y + 5f;
+        shapes.rectLine(left, bottom + 9f, left + 9f, bottom, 2.2f);
+        shapes.rectLine(left, bottom + 16f, left + 16f, bottom, 2.2f);
+        shapes.rectLine(left, bottom + 23f, left + 23f, bottom, 2.2f);
     }
 
     void drawContent(SpriteBatch batch, BitmapFont font, BitmapFont tinyFont,
@@ -275,18 +316,14 @@ final class PokerVideoOverlay implements AutoCloseable {
                     videoBounds.width - 60f, Align.center, true, viewport);
         }
         PokerVideoRuntime current = runtime;
-        String title = current == null ? "VÍDEOS DE PÓKER"
+        String title = current == null ? "SHORTS DE PÓKER"
                 : current.position() + "  ·  " + current.title();
         float titleWidth = closeBounds.x - nextBounds.x - nextBounds.width
                 - 20f;
-        font.setColor(TEXT);
+        font.setColor(GOLD);
         GdxPixelText.draw(font, batch, ellipsize(font, title, titleWidth),
                 nextBounds.x + nextBounds.width + 12f,
                 headerBounds.y + 33f, viewport);
-        font.setColor(TEXT);
-        drawCentered(batch, font, "<", previousBounds, viewport);
-        drawCentered(batch, font, ">", nextBounds, viewport);
-        drawCentered(batch, font, "X", closeBounds, viewport);
     }
 
     private String ellipsize(BitmapFont font, String value, float maximum) {
@@ -302,14 +339,6 @@ final class PokerVideoOverlay implements AutoCloseable {
             if (glyph.width <= maximum) return candidate;
         }
         return suffix;
-    }
-
-    private static void drawCentered(SpriteBatch batch, BitmapFont font,
-            String value, Rectangle bounds, Viewport viewport) {
-        GlyphLayout layout = new GlyphLayout(font, value);
-        GdxPixelText.draw(font, batch, value,
-                bounds.x + (bounds.width - layout.width) / 2f,
-                bounds.y + (bounds.height + layout.height) / 2f, viewport);
     }
 
     boolean touchDown(float pointerX, float pointerY, int pointerIndex,
@@ -349,6 +378,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                         pointerX, pointerY);
                 startWidth = videoWidth;
                 fixedTop = y + videoHeight + HEADER_HEIGHT;
+                fixedRight = x + videoWidth;
                 return true;
             }
             Rectangle draggable = new Rectangle(headerBounds);
@@ -483,15 +513,18 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private void resizeFrom(float pointerX, float pointerY) {
-        float horizontal = startWidth + pointerX - captureStartX;
+        float horizontal = startWidth - (pointerX - captureStartX);
         float startHeight = startWidth / ASPECT;
         float vertical = (startHeight - (pointerY - captureStartY)) * ASPECT;
         float candidate = Math.abs(horizontal - startWidth)
                 >= Math.abs(vertical - startWidth) ? horizontal : vertical;
-        float maximum = Math.min(MAX_WIDTH, worldWidth - x - 8f);
+        float maximum = Math.min(MAX_WIDTH, Math.min(fixedRight - 8f,
+                Math.max(MIN_WIDTH, (worldHeight - HEADER_HEIGHT - 16f)
+                        * ASPECT)));
         videoWidth = MathUtils.clamp(candidate, MIN_WIDTH,
                 Math.max(MIN_WIDTH, maximum));
         videoHeight = videoWidth / ASPECT;
+        x = fixedRight - videoWidth;
         y = fixedTop - videoHeight - HEADER_HEIGHT;
         clampWindow();
         updateBounds();
@@ -622,6 +655,15 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     boolean hostVisible() {
         return hostVisible;
+    }
+
+    Cursor.SystemCursor systemCursor(float pointerX, float pointerY) {
+        if (hostVisible && !minimized
+                && (capture == Capture.RESIZE
+                        || resizeBounds.contains(pointerX, pointerY))) {
+            return Cursor.SystemCursor.NESWResize;
+        }
+        return Cursor.SystemCursor.Arrow;
     }
 
     @Override

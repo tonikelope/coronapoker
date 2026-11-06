@@ -356,7 +356,7 @@ final class GdxSettingsContract {
             option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
             option(POKER_VIDEOS_KEY,
-                    "MOSTRAR VÍDEOS DE PÓKER EN PRINCIPAL Y SALA DE ESPERA",
+                    "MOSTRAR SHORTS DE PÓKER EN PRINCIPAL Y SALA DE ESPERA",
                     true, Gate.ANIMATIONS),
             option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
                     Gate.ANIMATIONS),

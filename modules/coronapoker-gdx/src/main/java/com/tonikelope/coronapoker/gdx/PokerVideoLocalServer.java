@@ -28,7 +28,8 @@ final class PokerVideoLocalServer implements AutoCloseable {
     }
 
     static PokerVideoLocalServer start(List<PokerVideoSearch.Video> videos,
-            int initialIndex, int startSeconds) throws IOException {
+            int initialIndex, int startSeconds, boolean initialMuted,
+            int initialVolume) throws IOException {
         if (videos == null || videos.isEmpty()) {
             throw new IllegalArgumentException("At least one video is required");
         }
@@ -49,9 +50,14 @@ final class PokerVideoLocalServer implements AutoCloseable {
         int safeIndex = Math.max(0, Math.min(initialIndex,
                 videos.size() - 1));
         int safeSeconds = Math.max(0, startSeconds);
+        int safeVolume = Math.max(0, Math.min(100, initialVolume));
         byte[] html = template.replace("@@VIDEO_IDS@@", ids)
                 .replace("@@INITIAL_INDEX@@", Integer.toString(safeIndex))
                 .replace("@@START_SECONDS@@", Integer.toString(safeSeconds))
+                .replace("@@INITIAL_MUTED@@",
+                        Boolean.toString(initialMuted))
+                .replace("@@INITIAL_VOLUME@@",
+                        Integer.toString(safeVolume))
                 .replace("@@ORIGIN@@", javascriptString(origin))
                 .getBytes(StandardCharsets.UTF_8);
         PokerVideoLocalServer local = new PokerVideoLocalServer(server,

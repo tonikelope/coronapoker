@@ -1218,7 +1218,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         refreshFontQualityIfDue();
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         refreshPointerFromDevice();
-        updateAvatarCropSystemCursor();
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
         if (networkBlockCache != null) {
@@ -1282,6 +1281,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && !lobbyLoadingOverlay
                         && !hasBlockingFrontendModal(),
                 gameText.language(), WIDTH, HEIGHT);
+        updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {
             lobbyLoadingBackdropCached = false;
@@ -15042,6 +15042,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NESWResize;
                 case NONE -> Cursor.SystemCursor.Arrow;
             };
+        } else {
+            desired = pokerVideoOverlay.systemCursor(pointer.x, pointer.y);
         }
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);

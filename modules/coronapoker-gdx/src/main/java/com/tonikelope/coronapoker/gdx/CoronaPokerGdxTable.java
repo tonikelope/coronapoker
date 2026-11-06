@@ -1913,48 +1913,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             0, maximum);
                     return true;
                 }
-                if (settingsSection()
-                        == GdxSettingsContract.Section.SHORTCUTS) {
-                    SettingsRowScroll scroll = settingsRowScroll();
-                    if (scroll != null) {
-                        shortcutScroll = GdxSettingsLayout
-                                .pixelScrollAfterWheel(shortcutScroll,
-                                        scroll.rows().maximum(), amountY);
-                    }
-                    return true;
-                }
-                if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
-                    SettingsRowScroll scroll = settingsRowScroll();
-                    if (scroll != null) {
-                        settingsAudioScroll = GdxSettingsLayout
-                                .pixelScrollAfterWheel(settingsAudioScroll,
-                                        scroll.rows().maximum(), amountY);
-                    }
-                    return true;
-                }
-                if (settingsSection()
-                        == GdxSettingsContract.Section.APPEARANCE
-                        && !GdxSettingsContract.isAppearanceGraphicsPage(
-                                settingsAppearancePage)) {
-                    SettingsRowScroll scroll = settingsRowScroll();
-                    if (scroll != null) {
-                        settingsAppearanceScroll = GdxSettingsLayout
-                                .pixelScrollAfterWheel(
-                                        settingsAppearanceScroll,
-                                        scroll.rows().maximum(), amountY);
-                    }
-                    return true;
-                }
-                if (settingsSection() == GdxSettingsContract.Section.GAME
-                        && settingsContentPage() == 7) {
-                    SettingsRowScroll scroll = settingsRowScroll();
-                    if (scroll != null) {
-                        settingsGameScroll = GdxSettingsLayout
-                                .pixelScrollAfterWheel(settingsGameScroll,
-                                        scroll.rows().maximum(), amountY);
-                    }
-                    return true;
-                }
+                if (scrollActiveSettingsRows(amountY)) return true;
                 if (settingsSection() == GdxSettingsContract.Section.DEBUG) {
                     float viewportHeight = settingsDebugArea()
                             .viewport().height;
@@ -2038,6 +1997,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport.unproject(pointer);
                 if (networkBlocksScrollTrackContains(pointer.x, pointer.y)
                         && beginTableScrollDrag(TableScrollDrag.NETWORK_BLOCKS,
+                                pointer.y, pointerIndex, button)) {
+                    return true;
+                }
+            }
+            if (uiLayer == UI_SETTINGS
+                    && settingsSelectionList != SettingsSelectionList.NONE
+                    && button == Input.Buttons.LEFT) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                SettingsSelectionLayout layout = settingsSelectionLayout(
+                        settingsSelectionOptions());
+                if (layout != null && layout.maximum() > 0
+                        && GdxSettingsLayout.verticalScrollbarContains(
+                                layout.track(), pointer.x, pointer.y)
+                        && beginTableScrollDrag(
+                                TableScrollDrag.SETTINGS_SELECTION,
                                 pointer.y, pointerIndex, button)) {
                     return true;
                 }
@@ -9894,8 +9869,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
         Rectangle track = layout.scrollbar();
-        return contains(x, y, track.x - 9f, track.y,
-                track.width + 18f, track.height);
+        return GdxSettingsLayout.verticalScrollbarContains(track, x, y);
     }
 
     private void drawNetworkBlocksDialog() {
@@ -22164,8 +22138,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean gameLogTrackContains(float x, float y) {
         Rectangle track = gameLogLayout().scrollbarTrack();
-        return contains(x, y, track.x - 7f, track.y,
-                track.width + 14f, track.height);
+        return GdxSettingsLayout.verticalScrollbarContains(track, x, y);
     }
 
     private boolean beginTableScrollDrag(TableScrollDrag type,
@@ -22224,6 +22197,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 yield new TableScrollGeometry(rows.viewportBottom(),
                         rows.viewportHeight(), thumb, rows.maximum(), true);
             }
+            case SETTINGS_SELECTION -> {
+                SettingsSelectionLayout layout = settingsSelectionLayout(
+                        settingsSelectionOptions());
+                if (layout == null || layout.maximum() <= 0) yield null;
+                yield new TableScrollGeometry(layout.track().y,
+                        layout.track().height, layout.thumbHeight(),
+                        layout.maximum(), true);
+            }
             case SETTINGS_DEBUG -> {
                 int lineCount = settingsDebugVisualLines().size();
                 GdxSettingsLayout.DebugArea debug = settingsDebugArea();
@@ -22236,10 +22217,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         maximum, false);
             }
             case QUICK_CHAT -> {
-                Rectangle history = quickChatHistoryBounds();
-                float trackHeight = history.height - 16f;
-                yield new TableScrollGeometry(history.y + 8f, trackHeight,
-                        quickChatScrollThumbHeight(trackHeight),
+                Rectangle track = quickChatScrollbarTrack();
+                yield new TableScrollGeometry(track.y, track.height,
+                        quickChatScrollThumbHeight(track.height),
                         quickChatScrollMaximum, false);
             }
             case NETWORK_BLOCKS -> {
@@ -22263,6 +22243,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return switch (type) {
             case GAME_LOG -> gameLogScroll;
             case SETTINGS_ROWS -> settingsRowScrollValue();
+            case SETTINGS_SELECTION -> settingsSelectionScroll;
             case SETTINGS_DEBUG -> settingsDebugScroll;
             case QUICK_CHAT -> quickChatScroll;
             case NETWORK_BLOCKS -> networkBlocksScroll;
@@ -22274,20 +22255,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float value = MathUtils.clamp(ratio, 0f, 1f) * maximum;
         switch (tableScrollDrag) {
             case GAME_LOG -> gameLogScroll = value;
-            case SETTINGS_ROWS -> {
-                if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
-                    settingsAudioScroll = value;
-                } else if (settingsSection()
-                        == GdxSettingsContract.Section.GAME) {
-                    settingsGameScroll = value;
-                } else if (settingsSection()
-                        == GdxSettingsContract.Section.SHORTCUTS) {
-                    shortcutScroll = value;
-                } else if (settingsSection()
-                        == GdxSettingsContract.Section.APPEARANCE) {
-                    settingsAppearanceScroll = value;
-                }
-            }
+            case SETTINGS_ROWS -> setSettingsRowScroll(value);
+            case SETTINGS_SELECTION -> settingsSelectionScroll =
+                    MathUtils.clamp(Math.round(value), 0,
+                            Math.round(maximum));
             case SETTINGS_DEBUG -> settingsDebugScroll = value;
             case QUICK_CHAT -> quickChatScroll = value;
             case NETWORK_BLOCKS -> networkBlocksScroll = value;
@@ -22311,6 +22282,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return 0f;
     }
 
+    private boolean scrollActiveSettingsRows(float amountY) {
+        SettingsRowScroll scroll = settingsRowScroll();
+        if (scroll == null) return false;
+        setSettingsRowScroll(GdxSettingsLayout.pixelScrollAfterWheel(
+                settingsRowScrollValue(), scroll.rows().maximum(), amountY));
+        return true;
+    }
+
+    private void setSettingsRowScroll(float value) {
+        if (settingsSection() == GdxSettingsContract.Section.AUDIO) {
+            settingsAudioScroll = value;
+        } else if (settingsSection() == GdxSettingsContract.Section.GAME) {
+            settingsGameScroll = value;
+        } else if (settingsSection()
+                == GdxSettingsContract.Section.SHORTCUTS) {
+            shortcutScroll = value;
+        } else if (settingsSection()
+                == GdxSettingsContract.Section.APPEARANCE) {
+            settingsAppearanceScroll = value;
+        }
+    }
+
     private void clearTableScrollDrag() {
         tableScrollDrag = TableScrollDrag.NONE;
         tableScrollGrabOffset = 0f;
@@ -22322,12 +22315,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
         GdxSettingsLayout.DebugArea debug = settingsDebugArea();
-        return contains(x, y, debug.scrollbarX()
-                - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
-                - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f,
-                debug.viewport().y,
-                GdxSettingsLayout.SCROLLBAR_HIT_WIDTH,
-                debug.viewport().height);
+        return GdxSettingsLayout.verticalScrollbarContains(new Rectangle(
+                debug.scrollbarX(), debug.viewport().y,
+                GdxSettingsLayout.SCROLLBAR_WIDTH,
+                debug.viewport().height), x, y);
     }
 
     private SettingsRowScroll settingsRowScroll() {
@@ -22405,12 +22396,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean settingsRowScrollTrackContains(float x, float y) {
         SettingsRowScroll scroll = settingsRowScroll();
-        return scroll != null && scroll.rows().scrollable() && contains(x, y,
-                scroll.x() - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
-                - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f,
-                scroll.rows().viewportBottom(),
-                GdxSettingsLayout.SCROLLBAR_HIT_WIDTH,
-                scroll.rows().viewportHeight());
+        return scroll != null && scroll.rows().scrollable()
+                && GdxSettingsLayout.verticalScrollbarContains(new Rectangle(
+                        scroll.x(), scroll.rows().viewportBottom(),
+                        GdxSettingsLayout.SCROLLBAR_WIDTH,
+                        scroll.rows().viewportHeight()), x, y);
     }
 
     private void handleChatClick(float x, float y) {
@@ -22656,9 +22646,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean quickChatScrollTrackContains(float x, float y) {
         if (quickChatScrollMaximum <= 0f) return false;
+        return GdxSettingsLayout.verticalScrollbarContains(
+                quickChatScrollbarTrack(), x, y);
+    }
+
+    private Rectangle quickChatScrollbarTrack() {
         Rectangle history = quickChatHistoryBounds();
-        return contains(x, y, history.x + history.width - 26f,
-                history.y + 8f, 24f, history.height - 16f);
+        return new Rectangle(history.x + history.width - 20f,
+                history.y + 8f, 14f, history.height - 16f);
     }
 
     private float quickChatScrollThumbHeight(float trackHeight) {
@@ -28098,9 +28093,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (layout.maximum() > 0
-                && contains(x, y, layout.track().x - 8f,
-                        layout.track().y, layout.track().width + 16f,
-                        layout.track().height)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        layout.track(), x, y)) {
             settingsSelectionScroll = selectionScrollFromTrack(y,
                     layout.track().y, layout.track().height,
                     layout.thumbHeight(), layout.maximum());
@@ -29073,6 +29067,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float historyY = panelY + 100f;
         float historyW = panelW - 28f;
         float historyH = panelH - 114f;
+        Rectangle scrollTrack = quickChatScrollbarTrack();
         float inputY = panelY + 14f;
         List<LobbyChatMessage> messages = visibleTableChatMessages();
         float historyViewportH = Math.max(0f, historyH - 16f);
@@ -29123,18 +29118,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 quickChatAutoClose ? switchX + 28f : switchX + 10f,
                 switchY + 10f, 7f);
         if (quickChatScrollMaximum > 0f) {
-            float trackY = historyY + 8f;
-            float trackH = historyH - 16f;
+            float trackY = scrollTrack.y;
+            float trackH = scrollTrack.height;
             float thumbH = quickChatScrollThumbHeight(trackH);
             float thumbTravel = Math.max(1f, trackH - thumbH);
             float thumbY = trackY + thumbTravel * quickChatScroll
                     / quickChatScrollMaximum;
             shapes.setColor(0.08f, 0.14f, 0.24f, 0.96f * alpha);
-            roundedRect(historyX + historyW - 20f, trackY,
-                    14f, trackH, 7f);
+            roundedRect(scrollTrack.x, trackY,
+                    scrollTrack.width, trackH, 7f);
             shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.96f * alpha);
-            roundedRect(historyX + historyW - 20f, thumbY,
-                    14f, thumbH, 7f);
+            roundedRect(scrollTrack.x, thumbY,
+                    scrollTrack.width, thumbH, 7f);
         }
         for (int line = 0; line < messages.size(); line++) {
             LobbyChatMessage message = messages.get(line);
@@ -31283,8 +31278,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private enum TableScrollDrag {
-        NONE, GAME_LOG, SETTINGS_ROWS, SETTINGS_DEBUG, QUICK_CHAT,
-        NETWORK_BLOCKS
+        NONE, GAME_LOG, SETTINGS_ROWS, SETTINGS_SELECTION, SETTINGS_DEBUG,
+        QUICK_CHAT, NETWORK_BLOCKS
     }
 
     private enum GameLogWindowDrag {

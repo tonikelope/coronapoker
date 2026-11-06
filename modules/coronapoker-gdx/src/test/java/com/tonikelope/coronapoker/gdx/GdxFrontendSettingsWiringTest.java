@@ -292,8 +292,73 @@ final class GdxFrontendSettingsWiringTest {
                 "settingsAppearanceGraphicsRowBounds(") >= 5,
                 "live settings must share the grouped geometry in input, "
                 + "tooltips, shape and text passes");
+        String tableWheel = methodSection(table,
+                "public boolean scrolled(float amountX, float amountY)");
+        assertTrue(tableWheel.contains("scrollActiveSettingsRows(amountY)"),
+                "every live settings page must use the active row geometry");
+        assertFalse(tableWheel.contains(
+                "!GdxSettingsContract.isAppearanceGraphicsPage"),
+                "Graphics must not be excluded from wheel scrolling");
+        assertFalse(tableWheel.contains("settingsContentPage() == 7"),
+                "Game wheel scrolling must not be limited to one subpage");
+        String activeRows = methodSection(table,
+                "private boolean scrollActiveSettingsRows(float amountY)");
+        assertTrue(activeRows.contains("settingsRowScroll()"));
+        assertTrue(activeRows.contains("settingsRowScrollValue()"));
+        assertTrue(activeRows.contains("setSettingsRowScroll("));
         assertFalse(frontend.contains("Rectangle autoFullscreenRow"));
         assertFalse(table.contains("Rectangle autoFullscreenRow"));
+    }
+
+    @Test
+    void everyProductScrollbarUsesSharedClickAndContinuousDragGeometry()
+            throws Exception {
+        String frontend = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/GdxFrontendScreen.java"),
+                StandardCharsets.UTF_8);
+        String table = Files.readString(Path.of("src/main/java/com/tonikelope/"
+                + "coronapoker/gdx/CoronaPokerGdxTable.java"),
+                StandardCharsets.UTF_8);
+
+        String[] frontendBars = {"DROPDOWN", "LOBBY_CHAT", "SETTINGS_ROWS",
+            "SETTINGS_DEBUG", "STATS_PICKER", "STATS_EVIDENCE",
+            "STATS_RESULTS", "STATS_SUMMARY_PLAYERS",
+            "STATS_CHART_HORIZONTAL", "STATS_CHART_VERTICAL",
+            "NETWORK_BLOCKS", "CUSTOM_BOTS"};
+        for (String bar : frontendBars) {
+            assertTrue(occurrences(frontend, "ScrollDrag." + bar) >= 3,
+                    bar + " must support capture, continuous drag and apply");
+        }
+
+        String tableGeometry = methodSection(table,
+                "private TableScrollGeometry tableScrollGeometry(");
+        String tableValue = methodSection(table,
+                "private float tableScrollValue(TableScrollDrag type)");
+        String tableApply = methodSection(table,
+                "private void applyTableScrollRatio(float ratio, float maximum)");
+        String[] tableBars = {"GAME_LOG", "SETTINGS_ROWS",
+            "SETTINGS_SELECTION", "SETTINGS_DEBUG", "QUICK_CHAT",
+            "NETWORK_BLOCKS"};
+        for (String bar : tableBars) {
+            String route = "case " + bar + " ->";
+            assertTrue(tableGeometry.contains(route),
+                    bar + " must expose exact visual track geometry");
+            assertTrue(tableValue.contains(route),
+                    bar + " must expose its current value");
+            assertTrue(tableApply.contains(route),
+                    bar + " must apply continuous pointer movement");
+        }
+
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.verticalScrollbarContains("));
+        assertTrue(frontend.contains(
+                "GdxSettingsLayout.horizontalScrollbarContains("));
+        assertTrue(table.contains(
+                "GdxSettingsLayout.verticalScrollbarContains("));
+        assertTrue(frontend.contains("ScrollDrag.DROPDOWN"),
+                "frontend popup lists must drag, not only jump on click");
+        assertTrue(table.contains("TableScrollDrag.SETTINGS_SELECTION"),
+                "live popup lists must drag, not only jump on click");
     }
 
     @Test

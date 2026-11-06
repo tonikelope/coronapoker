@@ -622,6 +622,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int dropdownScroll;
     private final Rectangle dropdownAnchor = new Rectangle();
     private final Rectangle dropdownClip = new Rectangle();
+    private final Rectangle dropdownScrollTrack = new Rectangle();
+    private float dropdownScrollThumbHeight;
+    private int dropdownScrollMaximum;
     private boolean dropdownAnchored;
     private GdxAppearanceOptions.Choice dropdownAppearanceChoice;
     private List<String> hostAddressOptions =
@@ -4359,8 +4362,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float trackX = x + width - 10f;
             float trackY = bottom + 6f;
             float trackHeight = viewportHeight - 12f;
-            statsSummaryPlayersScrollTrack.set(trackX - 8f, trackY,
-                    21f, trackHeight);
+            statsSummaryPlayersScrollTrack.set(trackX, trackY,
+                    5f, trackHeight);
             shapes.setColor(new Color(0x18304cff));
             roundedRect(trackX, trackY, 5f, trackHeight, 2.5f);
             float thumb = Math.max(18f,
@@ -6311,7 +6314,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyChatScrollbar(float x, float y, float height,
             float contentHeight, float maximumScroll) {
-        lobbyChatScrollTrack.set(x - 6f, y, 28f, height);
+        lobbyChatScrollTrack.set(x, y, 16f, height);
         lobbyChatScrollMaximum = maximumScroll;
         if (maximumScroll <= 0f || contentHeight <= 0f) {
             lobbyChatScrollThumbHeight = height;
@@ -9420,9 +9423,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float trackWidth = GdxSettingsLayout.SCROLLBAR_WIDTH;
         float thumbHeight = GdxSettingsLayout.pixelScrollbarThumbHeight(
                 height, rows.viewportHeight(), rows.contentHeight());
-        settingsRowScrollTrack.set(x - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
-                - trackWidth) / 2f, y,
-                GdxSettingsLayout.SCROLLBAR_HIT_WIDTH, height);
+        settingsRowScrollTrack.set(x, y, trackWidth, height);
         settingsRowScrollThumbHeight = thumbHeight;
         float thumbY = y + (height - thumbHeight)
                 * (1f - rows.offset() / rows.maximum());
@@ -10469,11 +10470,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugViewport.set(viewportBounds);
 
         float trackX = debug.scrollbarX();
-        settingsDebugScrollTrack.set(trackX
-                - (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
-                - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f,
-                viewportBounds.y, GdxSettingsLayout.SCROLLBAR_HIT_WIDTH,
-                viewportHeight);
+        settingsDebugScrollTrack.set(trackX, viewportBounds.y,
+                GdxSettingsLayout.SCROLLBAR_WIDTH, viewportHeight);
         settingsDebugScrollMaximum = maximum;
         float thumbH = maximum == 0 ? viewportHeight
                 : Math.max(32f, viewportHeight
@@ -14200,6 +14198,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int maximum = Math.max(0, options.size() - visible);
         boolean scrollable = maximum > 0;
         dropdownScroll = MathUtils.clamp(dropdownScroll, 0, maximum);
+        dropdownScrollMaximum = maximum;
+        if (!scrollable) {
+            dropdownScrollTrack.set(0f, 0f, 0f, 0f);
+            dropdownScrollThumbHeight = 0f;
+        }
         float x = dropdownAnchored ? dropdownAnchor.x : switch (dropdown) {
             case PROFILE -> 500f;
             case HOST_ADDRESS -> 1170f;
@@ -14274,6 +14277,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float trackH = visible * rowH - 16f;
             float thumbH = Math.max(34f,
                     trackH * visible / (float) options.size());
+            dropdownScrollTrack.set(trackX, trackY, 7f, trackH);
+            dropdownScrollThumbHeight = thumbH;
             float thumbY = trackY + (trackH - thumbH)
                     * (1f - dropdownScroll / (float) maximum);
             shapes.setColor(new Color(0x1c3450ff));
@@ -14281,9 +14286,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(CYAN);
             roundedRect(trackX, thumbY, 7f, thumbH, 3.5f);
             if (interactive) {
-                hit(trackX - 8f, trackY, 23f, trackH, () ->
-                        dropdownScroll = dropdownScrollFromTrack(pointer.y,
-                                trackY, trackH, thumbH, maximum));
                 textFit(tinyFont, (dropdownScroll + 1) + " - "
                         + (dropdownScroll + visible) + " / "
                         + options.size(), x + w - 18f, y - 12f,
@@ -15630,6 +15632,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
+        if (avatarCropSession == null && dropdown != Dropdown.NONE
+                && button == Input.Buttons.LEFT
+                && beginScrollDrag(pointer.x, pointer.y,
+                        pointerIndex, button)) {
+            return true;
+        }
         if (avatarCropSession == null
                 && !hasNestedFrontendModal()
                 && dropdown == Dropdown.NONE
@@ -15809,11 +15817,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean beginScrollDrag(float x, float y, int pointerIndex,
             int button) {
+        if (dropdown != Dropdown.NONE) {
+            if (dropdownScrollMaximum > 0
+                    && GdxSettingsLayout.verticalScrollbarContains(
+                            dropdownScrollTrack, x, y)) {
+                return captureScrollDrag(ScrollDrag.DROPDOWN,
+                        pointerIndex, button, y, dropdownScrollTrack.y,
+                        dropdownScrollTrack.height,
+                        dropdownScrollThumbHeight,
+                        dropdownScroll / (float) dropdownScrollMaximum, true);
+            }
+            return false;
+        }
         if (statsEvidenceOpen) {
             GdxFloatingGameLogLayout.Layout layout = statsEvidenceLayout();
             Rectangle track = layout.scrollbarTrack();
             if (statsEvidenceScrollMaximum > 0f
-                    && containsExpandedHorizontally(track, x, y, 8f)) {
+                    && GdxSettingsLayout.verticalScrollbarContains(
+                            track, x, y)) {
                 return captureScrollDrag(ScrollDrag.STATS_EVIDENCE,
                         pointerIndex, button, y, track.y, track.height,
                         statsEvidenceScrollThumbHeight,
@@ -15826,10 +15847,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (customBotDeleteConfirmation) return false;
             float maximum = customBotMaximumPixelScroll(
                     customBotDisplayRowCount());
-            if (maximum > 0f && containsExpandedHorizontally(
-                    customBotScrollTrack, x, y,
-                    (GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
-                            - GdxSettingsLayout.SCROLLBAR_WIDTH) / 2f)) {
+            if (maximum > 0f
+                    && GdxSettingsLayout.verticalScrollbarContains(
+                            customBotScrollTrack, x, y)) {
                 float thumb = GdxSettingsLayout.pixelScrollbarThumbHeight(
                         customBotScrollTrack.height,
                         customBotRowsViewport.height,
@@ -15850,8 +15870,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     activeNetworkBlocks().size(), layout.rows());
             float thumb = networkBlocksThumbHeight(layout,
                     activeNetworkBlocks().size());
-            if (maximum > 0f && containsExpandedHorizontally(
-                    track, x, y, 9f)) {
+            if (maximum > 0f
+                    && GdxSettingsLayout.verticalScrollbarContains(
+                            track, x, y)) {
                 return captureScrollDrag(ScrollDrag.NETWORK_BLOCKS,
                         pointerIndex, button, y, track.y, track.height, thumb,
                         networkBlocksScroll / maximum, true);
@@ -15860,7 +15881,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.STATS && statsPicker != StatsPicker.NONE
                 && statsPickerScrollMaximum > 0f
-                && statsPickerScrollTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        statsPickerScrollTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.STATS_PICKER,
                     pointerIndex, button, y, statsPickerScrollTrack.y,
                     statsPickerScrollTrack.height,
@@ -15869,7 +15891,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsChartZoom > 1f
-                && statsChartHorizontalTrack.contains(x, y)) {
+                && GdxSettingsLayout.horizontalScrollbarContains(
+                        statsChartHorizontalTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.STATS_CHART_HORIZONTAL,
                     pointerIndex, button, x, statsChartHorizontalTrack.x,
                     statsChartHorizontalTrack.width,
@@ -15877,7 +15900,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsChartZoom > 1f
-                && statsChartVerticalTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        statsChartVerticalTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.STATS_CHART_VERTICAL,
                     pointerIndex, button, y, statsChartVerticalTrack.y,
                     statsChartVerticalTrack.height,
@@ -15885,7 +15909,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsResultScrollMaximum > 0f
-                && statsResultScrollTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        statsResultScrollTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.STATS_RESULTS,
                     pointerIndex, button, y, statsResultScrollTrack.y,
                     statsResultScrollTrack.height,
@@ -15894,7 +15919,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.STATS && statsPicker == StatsPicker.NONE
                 && statsSummaryPlayersScrollMaximum > 0f
-                && statsSummaryPlayersScrollTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        statsSummaryPlayersScrollTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.STATS_SUMMARY_PLAYERS,
                     pointerIndex, button, y,
                     statsSummaryPlayersScrollTrack.y,
@@ -15905,7 +15931,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.LOBBY && !lobbyImageMode
                 && !lobbyEmojiPickerOpen && lobbyChatScrollMaximum > 0
-                && lobbyChatScrollTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        lobbyChatScrollTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.LOBBY_CHAT,
                     pointerIndex, button, y, lobbyChatScrollTrack.y,
                     lobbyChatScrollTrack.height, lobbyChatScrollThumbHeight,
@@ -15913,7 +15940,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (surface == Surface.SETTINGS
                 && settingsRowScrollMaximum > 0
-                && settingsRowScrollTrack.contains(x, y)
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        settingsRowScrollTrack, x, y)
                 && (settingsSession.section()
                         == GdxSettingsContract.Section.APPEARANCE
                     || settingsSession.section()
@@ -15933,7 +15961,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && settingsSession.section()
                         == GdxSettingsContract.Section.DEBUG
                 && settingsDebugScrollMaximum > 0
-                && settingsDebugScrollTrack.contains(x, y)) {
+                && GdxSettingsLayout.verticalScrollbarContains(
+                        settingsDebugScrollTrack, x, y)) {
             return captureScrollDrag(ScrollDrag.SETTINGS_DEBUG,
                     pointerIndex, button, y, settingsDebugScrollTrack.y,
                     settingsDebugScrollTrack.height,
@@ -15957,7 +15986,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void updateScrollDrag(float x, float y) {
         float progress;
-        if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
+        if (scrollDrag == ScrollDrag.DROPDOWN) {
+            progress = GdxScrollbarDrag.ratio(y,
+                    dropdownScrollTrack.y, dropdownScrollTrack.height,
+                    dropdownScrollThumbHeight,
+                    scrollDragGrabOffset, true);
+        } else if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
             Rectangle track = statsEvidenceLayout().scrollbarTrack();
             progress = GdxScrollbarDrag.ratio(y, track.y, track.height,
                     statsEvidenceScrollThumbHeight,
@@ -16029,7 +16063,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void applyScrollRatio(float progress) {
-        if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
+        if (scrollDrag == ScrollDrag.DROPDOWN) {
+            dropdownScroll = MathUtils.clamp(Math.round(progress
+                    * dropdownScrollMaximum), 0, dropdownScrollMaximum);
+        } else if (scrollDrag == ScrollDrag.STATS_EVIDENCE) {
             statsEvidenceScrollTarget = progress
                     * statsEvidenceScrollMaximum;
             statsEvidenceScroll = statsEvidenceScrollTarget;
@@ -16089,13 +16126,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case SHORTCUTS -> settingsShortcutScroll;
             default -> 0f;
         };
-    }
-
-    private static boolean containsExpandedHorizontally(Rectangle track,
-            float x, float y, float horizontalPadding) {
-        return x >= track.x - horizontalPadding
-                && x <= track.x + track.width + horizontalPadding
-                && y >= track.y && y <= track.y + track.height;
     }
 
     private static float networkBlocksThumbHeight(
@@ -17337,7 +17367,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum ScrollDrag {
-        NONE, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
+        NONE, DROPDOWN, LOBBY_CHAT, SETTINGS_ROWS, SETTINGS_DEBUG, STATS_PICKER,
         STATS_EVIDENCE, STATS_RESULTS, STATS_SUMMARY_PLAYERS, STATS_CHART_HORIZONTAL,
         STATS_CHART_VERTICAL, NETWORK_BLOCKS, CUSTOM_BOTS
     }

@@ -78,6 +78,22 @@ final class GdxSettingsLayout {
     static final float POPUP_TEXT_BASELINE = 36f;
     /** Same measured wheel travel used by the lobby and quick-table chats. */
     static final float PIXEL_SCROLL_WHEEL_STEP = 48f;
+
+    static boolean verticalScrollbarContains(Rectangle track, float x,
+            float y) {
+        float hitWidth = Math.max(track.width, SCROLLBAR_HIT_WIDTH);
+        float hitX = track.x - (hitWidth - track.width) / 2f;
+        return x >= hitX && x <= hitX + hitWidth
+                && y >= track.y && y <= track.y + track.height;
+    }
+
+    static boolean horizontalScrollbarContains(Rectangle track, float x,
+            float y) {
+        float hitHeight = Math.max(track.height, SCROLLBAR_HIT_WIDTH);
+        float hitY = track.y - (hitHeight - track.height) / 2f;
+        return x >= track.x && x <= track.x + track.width
+                && y >= hitY && y <= hitY + hitHeight;
+    }
     /** Matches the live game-log row rhythm and monospace baseline. */
     static final float DEBUG_LINE_HEIGHT = 31f;
     static final float DEBUG_TEXT_BASELINE = 23f;

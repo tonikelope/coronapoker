@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
@@ -536,6 +537,29 @@ final class GdxSettingsLayoutTest {
         assertEquals(14f, GdxSettingsLayout.SCROLLBAR_WIDTH);
         assertTrue(GdxSettingsLayout.SCROLLBAR_HIT_WIDTH
                 > GdxSettingsLayout.SCROLLBAR_WIDTH);
+    }
+
+    @Test
+    void everyScrollbarGetsTheSameMinimumMouseHitThickness() {
+        Rectangle vertical = new Rectangle(100f, 200f, 7f, 300f);
+        assertTrue(GdxSettingsLayout.verticalScrollbarContains(
+                vertical, 89.5f, 200f));
+        assertTrue(GdxSettingsLayout.verticalScrollbarContains(
+                vertical, 117.5f, 500f));
+        assertFalse(GdxSettingsLayout.verticalScrollbarContains(
+                vertical, 89.4f, 350f));
+        assertFalse(GdxSettingsLayout.verticalScrollbarContains(
+                vertical, 103f, 500.1f));
+
+        Rectangle horizontal = new Rectangle(40f, 80f, 320f, 8f);
+        assertTrue(GdxSettingsLayout.horizontalScrollbarContains(
+                horizontal, 40f, 70f));
+        assertTrue(GdxSettingsLayout.horizontalScrollbarContains(
+                horizontal, 360f, 98f));
+        assertFalse(GdxSettingsLayout.horizontalScrollbarContains(
+                horizontal, 39.9f, 84f));
+        assertFalse(GdxSettingsLayout.horizontalScrollbarContains(
+                horizontal, 200f, 98.1f));
     }
 
     @Test

@@ -37,6 +37,16 @@ final class GdxScrollbarDragTest {
     }
 
     @Test
+    void pressingEmptyInvertedTrackRecentresWithoutChangingDirection() {
+        var capture = GdxScrollbarDrag.begin(25f, 10f, 100f,
+                20f, 0.10f, true);
+        assertEquals(10f, capture.grabOffset(), 0.0001f);
+        assertEquals(0.9375f, capture.ratio(), 0.0001f);
+        assertEquals(0.8125f, GdxScrollbarDrag.ratio(35f, 10f, 100f,
+                20f, capture.grabOffset(), true), 0.0001f);
+    }
+
+    @Test
     void invertedScrollbarKeepsLogicalDirection() {
         var capture = GdxScrollbarDrag.begin(75f, 10f, 100f,
                 20f, 0.25f, true);

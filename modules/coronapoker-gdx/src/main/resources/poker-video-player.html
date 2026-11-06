@@ -31,12 +31,8 @@
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
-    // Fresh icon openings are supplied as muted. Only a table-transition
-    // restoration may supply the stable state reported by the prior session.
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
-    let audioStateTrusted = false;
-    let muteConfirmationPending = true;
     let audioObservationArmed = false;
     let lastReportedMuted = null;
     let lastReportedVolume = null;
@@ -71,13 +67,12 @@
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
       captureStableAudioState();
-      audioStateTrusted = false;
-      muteConfirmationPending = true;
       audioObservationArmed = false;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
+      applyDesiredAudio(player);
       player.loadVideoById(VIDEO_IDS[currentIndex]);
       playVideo(player);
       reportIndex();
@@ -146,19 +141,18 @@
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      if (desiredMuted && target.mute) target.mute();
+      applyDesiredAudio(target);
       if (target.playVideo) target.playVideo();
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
-        if (desiredMuted && target.mute) target.mute();
+        applyDesiredAudio(target);
         if (target.playVideo) target.playVideo();
       }, 400);
     }
 
     function captureStableAudioState() {
-      if (!player || !ready || !audioStateTrusted
-          || !audioObservationArmed
+      if (!player || !ready || !audioObservationArmed
           || typeof player.isMuted !== 'function') return;
       desiredMuted = player.isMuted();
       if (typeof player.getVolume === 'function') {
@@ -169,7 +163,6 @@
     }
 
     function reportAudioState() {
-      if (!audioStateTrusted) return;
       const muted = desiredMuted ? 1 : 0;
       if (muted === lastReportedMuted
           && desiredVolume === lastReportedVolume) return;
@@ -178,20 +171,14 @@
       report('AUDIO', muted + ':' + desiredVolume);
     }
 
-    function confirmAudioAfterPlayback(target) {
-      if (!muteConfirmationPending || !target) return;
+    function applyDesiredAudio(target) {
+      if (!target) return;
+      if (target.setVolume) target.setVolume(desiredVolume);
       if (desiredMuted) {
         if (target.mute) target.mute();
-        if (target.isMuted && !target.isMuted()) return;
-      } else {
-        if (target.unMute) target.unMute();
-        if (target.setVolume) target.setVolume(desiredVolume);
-        if (target.isMuted && target.isMuted()) return;
+      } else if (target.unMute) {
+        target.unMute();
       }
-      muteConfirmationPending = false;
-      audioStateTrusted = true;
-      reportAudioState();
-      statusBox.className = 'hidden';
     }
 
     function enforceDesiredAudio(target) {
@@ -208,18 +195,9 @@
 
     function monitorAudioState() {
       if (!player || !ready) return;
-      if (muteConfirmationPending && player.getPlayerState
-          && player.getPlayerState() === 1) {
-        confirmAudioAfterPlayback(player);
-        return;
-      }
-      // YouTube may publish a late internal unmuted state during its first
-      // cold load. It is not a user choice. Do not adopt any player state
-      // until CoronaPoker has actually forwarded a click into the iframe.
       if (audioObservationArmed) {
         captureStableAudioState();
         audioObservationArmed = false;
-        return;
       }
       enforceDesiredAudio(player);
     }
@@ -245,12 +223,11 @@
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
       if (active) {
-        audioStateTrusted = false;
-        muteConfirmationPending = true;
         audioObservationArmed = false;
         playVideo(player);
       } else {
         captureStableAudioState();
+        reportAudioState();
         player.pauseVideo();
       }
     };
@@ -261,13 +238,14 @@
         height: '100%',
         videoId: VIDEO_IDS[currentIndex],
         playerVars: {
-          autoplay: 1,
+          // Never let YouTube start the cold iframe before CoronaPoker has
+          // applied the real mute state through the supported Player API.
+          autoplay: 0,
           controls: 0,
           disablekb: 1,
           enablejsapi: 1,
           playsinline: 1,
           rel: 0,
-          mute: 1,
           hl: PLAYER_LANGUAGE,
           cc_load_policy: 0,
           cc_lang_pref: PLAYER_LANGUAGE,
@@ -282,12 +260,9 @@
             ready = true;
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
-            audioStateTrusted = false;
-            muteConfirmationPending = true;
             audioObservationArmed = false;
-            // The video is already ready here. Apply the requested state last,
-            // after YouTube has finished constructing its Shorts controls.
-            if (event.target.mute) event.target.mute();
+            // playVideo applies mute before the first play. This keeps the
+            // player's state and its native speaker icon on one transition.
             playVideo(event.target);
             reportIndex();
             report('READY', '1');
@@ -300,7 +275,9 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              confirmAudioAfterPlayback(event.target);
+              applyDesiredAudio(event.target);
+              reportAudioState();
+              statusBox.className = 'hidden';
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };

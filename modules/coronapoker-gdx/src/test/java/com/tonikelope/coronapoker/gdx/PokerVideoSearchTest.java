@@ -143,20 +143,17 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains("disablekb: 1"));
             assertTrue(response.body().contains(
                     "function playVideo(target)"));
+            assertTrue(response.body().contains("autoplay: 0"));
+            assertFalse(response.body().contains("autoplay: 1"));
+            assertFalse(response.body().contains("mute: 1"));
             assertTrue(response.body().contains(
-                    "mute: 1"));
-            assertTrue(response.body().contains(
-                    "if (event.target.mute) event.target.mute();"));
-            assertTrue(response.body().contains(
-                    "function confirmAudioAfterPlayback(target)"));
+                    "function applyDesiredAudio(target)"));
             assertTrue(response.body().contains(
                     "function monitorAudioState()"));
             assertTrue(response.body().contains(
                     "function captureStableAudioState()"));
             assertTrue(response.body().contains(
-                    "!audioStateTrusted"));
-            assertTrue(response.body().contains(
-                    "|| !audioObservationArmed"));
+                    "!audioObservationArmed"));
             assertTrue(response.body().contains(
                     "function enforceDesiredAudio(target)"));
             assertTrue(response.body().contains(
@@ -164,12 +161,19 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "captureStableAudioState();\n"
                     + "        audioObservationArmed = false;"));
+            assertTrue(response.body().contains(
+                    "applyDesiredAudio(target);\n"
+                    + "      if (target.playVideo) target.playVideo();"));
             assertFalse(response.body().contains(
                     "RECOVER_AUDIO_PIPELINE"));
             assertFalse(response.body().contains("scheduleAudioSync("));
             assertFalse(response.body().contains("settleAudioAfterPlayback("));
+            assertFalse(response.body().contains(
+                    "scheduleMutedVisualConfirmation("));
+            assertFalse(response.body().contains("audioStateTrusted"));
+            assertFalse(response.body().contains("muteConfirmationPending"));
             assertTrue(response.body().contains(
-                    "if (target.unMute) target.unMute();"));
+                    "target.unMute();"));
             assertTrue(response.body().contains(
                     "if (target.setVolume) target.setVolume(desiredVolume);"));
             assertTrue(response.body().contains(
@@ -207,12 +211,11 @@ class PokerVideoSearchTest {
 
             assertTrue(body.contains("const INITIAL_MUTED = true"));
             assertTrue(body.contains("let desiredMuted = INITIAL_MUTED"));
-            assertTrue(body.contains("let audioStateTrusted = false"));
-            assertTrue(body.contains("let muteConfirmationPending = true"));
             assertTrue(body.contains("let audioObservationArmed = false"));
-            assertTrue(body.contains("mute: 1"));
+            assertTrue(body.contains("autoplay: 0"));
+            assertFalse(body.contains("mute: 1"));
             assertTrue(body.contains(
-                    "if (desiredMuted && target.mute) target.mute();"));
+                    "if (target.mute) target.mute();"));
             assertTrue(body.contains(
                     "setInterval(monitorAudioState, 250)"));
             assertFalse(body.contains("RECOVER_AUDIO_PIPELINE"));
@@ -237,6 +240,8 @@ class PokerVideoSearchTest {
         assertTrue(overlaySource.contains("releaseBrowserSession(false);"));
         assertTrue(overlaySource.contains(
                 "releaseBrowserSession(restoreWindowAfterTable);"));
+        assertTrue(overlaySource.contains(
+                "hostVisible = visible && enabled && !releasedForTable;"));
         assertTrue(overlaySource.contains(
                 "current.notifyVideoInteraction();"));
         assertTrue(runtimeSource.contains(
@@ -310,7 +315,7 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void disabledOverlayKeepsAnIconThatPersistsEnableAndCloseActions() {
+    void disabledOverlayShowsNothingAndAcceptsNoInput() {
         List<Boolean> preferenceChanges = new ArrayList<>();
         try (PokerVideoOverlay overlay =
                 new PokerVideoOverlay(preferenceChanges::add)) {
@@ -318,19 +323,15 @@ class PokerVideoSearchTest {
                     PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
-            assertTrue(overlay.hostVisible());
-            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
-            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
-            assertEquals(List.of(true), preferenceChanges);
-
-            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
-            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
-            assertEquals(List.of(true, false), preferenceChanges);
+            assertFalse(overlay.hostVisible());
+            assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
+            assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
+            assertTrue(preferenceChanges.isEmpty());
         }
     }
 
     @Test
-    void minimizedStateSurvivesACompleteTableRoundTrip() {
+    void disabledStateSurvivesACompleteTableRoundTrip() {
         List<Boolean> preferenceChanges = new ArrayList<>();
         try (PokerVideoOverlay overlay =
                 new PokerVideoOverlay(preferenceChanges::add)) {
@@ -343,10 +344,10 @@ class PokerVideoSearchTest {
                     PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
-            assertTrue(overlay.hostVisible());
-            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
-            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
-            assertEquals(List.of(true), preferenceChanges);
+            assertFalse(overlay.hostVisible());
+            assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
+            assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
+            assertTrue(preferenceChanges.isEmpty());
         }
     }
 

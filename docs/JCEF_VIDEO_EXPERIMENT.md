@@ -48,25 +48,22 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   modal continúa desde el mismo punto.
 - Cerrar guarda periódicamente el vídeo y el segundo aproximado; después
   cierra el navegador, libera la textura y
-  persiste el ajuste como desactivado. Cuando el ajuste está desactivado solo
-  queda el icono flotante de la esquina inferior derecha. Pulsarlo reactiva y
-  guarda el ajuste, vuelve a crear la sesión desde ese punto y reanuda
-  automáticamente la reproducción, siempre silenciada en la nueva sesión.
+  persiste el ajuste como desactivado. Cuando el ajuste está desactivado no se
+  muestra ni el reproductor ni su icono y no se crea una sesión JCEF. El vídeo
+  puede volver a habilitarse desde Ajustes.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
-- Una apertura nueva desde el icono empieza realmente silenciada. Los cambios
+- Una apertura nueva empieza realmente silenciada. Los cambios
   entre principal, modal y sala de espera conservan la misma sesión, posición
   y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
-  estable se restaura al volver; una sesión audible se desmutea una sola vez,
-  después de que el vídeo ya esté en `PLAYING`. En la primera sesión se espera
-  a que YouTube haya construido el vídeo y sus controles antes de confirmar el
-  mute. Los cambios internos tardíos del reproductor no se aceptan como una
-  preferencia: cada clic real que CoronaPoker envía al iframe habilita una
-  única lectura posterior del audio; fuera de esa lectura se conserva y se
-  refuerza el último estado estable. Los vídeos fallidos y los cambios rápidos
-  tampoco pueden sobrescribirlo con valores transitorios.
+  estable se restaura al volver. El iframe se crea con reproducción automática
+  desactivada; al recibir `onReady`, CoronaPoker aplica primero el mute real
+  mediante la API soportada de YouTube y solo después inicia la reproducción.
+  Así el audio y el icono nativo parten de una única transición. Cada clic real
+  que CoronaPoker envía al iframe habilita una única lectura posterior del
+  audio; fuera de esa lectura se conserva y refuerza el último estado estable.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

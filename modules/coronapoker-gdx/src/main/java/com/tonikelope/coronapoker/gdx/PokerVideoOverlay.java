@@ -188,7 +188,10 @@ final class PokerVideoOverlay implements AutoCloseable {
             minimized = false;
         }
         ensurePosition();
-        hostVisible = visible && !releasedForTable;
+        // A disabled feature is fully absent. "Minimized" is only a runtime
+        // window state while the feature remains enabled; it must not turn a
+        // disabled preference back into a floating activation icon.
+        hostVisible = visible && enabled && !releasedForTable;
         String normalizedType = PokerVideoSearch.videoType(videoType);
         updateVideoAspect(normalizedType);
         String catalogKey = PokerVideoSearch.languageCode(language) + ":"

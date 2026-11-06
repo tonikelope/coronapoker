@@ -701,11 +701,12 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(18, page.options().size());
+        assertEquals(19, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(24, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(25, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
+                "mostrar_videos_poker",
                 "efecto_halos",
                 "efecto_desenfoque",
                 "efecto_relieve",

@@ -31,6 +31,7 @@ final class GdxSettingsContract {
     static final String HALO_EFFECT_KEY = "efecto_halos";
     static final String MODAL_BLUR_KEY = "efecto_desenfoque";
     static final String GLASS_EFFECT_KEY = "efecto_relieve";
+    static final String POKER_VIDEOS_KEY = "mostrar_videos_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
@@ -354,6 +355,9 @@ final class GdxSettingsContract {
             "ANIMACIONES Y EFECTOS",
             option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
+            option(POKER_VIDEOS_KEY,
+                    "MOSTRAR VÍDEOS DE PÓKER EN PRINCIPAL Y SALA DE ESPERA",
+                    true, Gate.ANIMATIONS),
             option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
                     Gate.ANIMATIONS),
             option(MODAL_BLUR_KEY, "DESENFOQUE DE DIÁLOGOS", true,
@@ -564,6 +568,7 @@ final class GdxSettingsContract {
     private static final List<AppearanceAnimationRow>
             APPEARANCE_ANIMATION_ROWS = List.of(
                     animationToggle("animaciones"),
+                    animationToggle(POKER_VIDEOS_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
                     animationToggle(GLASS_EFFECT_KEY),
@@ -635,7 +640,8 @@ final class GdxSettingsContract {
             "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
-            "animaciones", "cinematicas", "cinematicas_accion",
+            "animaciones", POKER_VIDEOS_KEY, "cinematicas",
+            "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_barajado_precarga",
             "animacion_reparto",
@@ -675,7 +681,8 @@ final class GdxSettingsContract {
         if (key == null || key.isBlank()) return PerformanceImpact.NONE;
         Properties values = properties == null ? new Properties() : properties;
         return switch (key) {
-            case "animaciones", "animacion_barajado", "gdx_vsync",
+            case "animaciones", POKER_VIDEOS_KEY,
+                    "animacion_barajado", "gdx_vsync",
                     "animacion_fuego_allin", MODAL_BLUR_KEY -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_allin",
                     "animacion_reparto", "animacion_destape",

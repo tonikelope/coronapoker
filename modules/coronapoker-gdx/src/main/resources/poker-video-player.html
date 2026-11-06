@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>CoronaPoker — vídeos de póker</title>
+  <style>
+    html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
+    body { font-family: system-ui, sans-serif; color: #fff; }
+    #status { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
+      box-sizing: border-box; text-align: center; background: #101820; z-index: 2; }
+    #status.hidden { display: none; }
+    #status.error { background: #2a1014; }
+  </style>
+</head>
+<body>
+  <div id="status">Buscando vídeos de póker…</div>
+  <div id="player"></div>
+  <script>
+    'use strict';
+    const VIDEO_IDS = [@@VIDEO_IDS@@];
+    const ORIGIN = '@@ORIGIN@@';
+    const statusBox = document.getElementById('status');
+    let player = null;
+    let ready = false;
+    let currentIndex = @@INITIAL_INDEX@@;
+    const START_SECONDS = @@START_SECONDS@@;
+
+    function report(kind, detail) {
+      const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
+      if (typeof window.cefQuery === 'function') {
+        window.cefQuery({ request, onFailure: () => {} });
+      }
+    }
+
+    function showError(message) {
+      statusBox.className = 'error';
+      statusBox.textContent = message;
+      report('ERROR', message);
+    }
+
+    function selectVideo(index) {
+      if (!player || !ready || VIDEO_IDS.length === 0) return;
+      currentIndex = ((Number(index) % VIDEO_IDS.length) + VIDEO_IDS.length) % VIDEO_IDS.length;
+      const wasMuted = player.isMuted ? player.isMuted() : true;
+      player.loadVideoById(VIDEO_IDS[currentIndex]);
+      if (wasMuted && player.mute) player.mute();
+      report('INDEX', currentIndex);
+    }
+
+    window.coronaSelectVideo = selectVideo;
+    window.coronaSetActive = function (active) {
+      if (!player || !ready) return;
+      if (active) player.playVideo();
+      else player.pauseVideo();
+    };
+
+    window.onYouTubeIframeAPIReady = function () {
+      player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        videoId: VIDEO_IDS[currentIndex],
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          enablejsapi: 1,
+          playsinline: 1,
+          rel: 0,
+          mute: 1,
+          cc_load_policy: 0,
+          iv_load_policy: 3,
+          fs: 0,
+          origin: ORIGIN,
+          widget_referrer: ORIGIN,
+          start: START_SECONDS
+        },
+        events: {
+          onReady: event => {
+            ready = true;
+            statusBox.className = 'hidden';
+            event.target.mute();
+            event.target.playVideo();
+            report('INDEX', currentIndex);
+            report('READY', '1');
+            report('STATE', 'REPRODUCIENDO EN SILENCIO');
+          },
+          onStateChange: event => {
+            const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
+              '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
+            report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
+          },
+          onError: event => {
+            const errors = {
+              2: 'Solicitud de vídeo no válida (error 2).',
+              5: 'El contenido no puede reproducirse en HTML5 (error 5).',
+              100: 'El vídeo no existe, es privado o fue retirado (error 100).',
+              101: 'El propietario no permite reproducción embebida (error 101).',
+              150: 'El propietario no permite reproducción embebida (error 150).',
+              153: 'El reproductor no recibió una identificación Referer válida (error 153).'
+            };
+            showError(errors[event.data] || ('El reproductor devolvió el error ' + event.data + '.'));
+          },
+          onAutoplayBlocked: () => report('STATE', 'AUTOPLAY BLOQUEADO; PULSA PLAY')
+        }
+      });
+    };
+
+    function reportPosition() {
+      if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
+      report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
+    }
+    window.coronaReportPosition = reportPosition;
+    setInterval(reportPosition, 1500);
+
+    setTimeout(() => {
+      if (!ready) showError('No se pudo inicializar el reproductor. Comprueba la conexión.');
+    }, 20000);
+
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = () => showError('No se pudo descargar la API del reproductor.');
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>

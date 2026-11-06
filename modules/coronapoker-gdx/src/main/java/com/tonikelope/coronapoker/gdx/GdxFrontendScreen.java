@@ -421,6 +421,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxAudioControl audioControl;
     private final GdxShortcutBindings shortcutBindings;
     private final GdxGamePresentationSettings presentationSettings;
+    private final PokerVideoOverlay pokerVideoOverlay;
     private final GdxGameText gameText;
     private final Consumer<String> languageChanged;
     private final UpdateService updateService;
@@ -810,6 +811,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "secureRandom");
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
+        pokerVideoOverlay = new PokerVideoOverlay();
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
         customBotRandomSelection = CustomBotProfileCatalog
@@ -1274,6 +1276,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
+        pokerVideoOverlay.update(
+                preferenceBoolean(GdxSettingsContract.POKER_VIDEOS_KEY, true),
+                (surface == Surface.MENU || surface == Surface.LOBBY)
+                        && !lobbyLoadingOverlay
+                        && !hasBlockingFrontendModal(),
+                gameText.language(), WIDTH, HEIGHT);
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {
             lobbyLoadingBackdropCached = false;
@@ -1394,6 +1402,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawStatsChartTextLayer();
         drawLobbyChatLayer(lobbyRootBackdrop);
         drawSettingsDebugLayer();
+        drawPokerVideoTopLayer();
 
         drawStartupMenuReveal();
 
@@ -1893,6 +1902,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (preferenceBoolean("gdx_show_cpu_memory", false)) {
             drawFrontendPerformanceCounter();
         }
+    }
+
+    private void drawPokerVideoTopLayer() {
+        if (!pokerVideoOverlay.hostVisible()) return;
+        pokerVideoOverlay.prepareFrame();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        pokerVideoOverlay.drawShapes(shapes, pointer);
+        shapes.end();
+        batch.begin();
+        pokerVideoOverlay.drawContent(batch, buttonTinyFont, tinyFont,
+                viewport);
+        batch.end();
+    }
+
+    /** Releases the browser/video surface before the table owns the GPU. */
+    void releasePokerVideoForTable() {
+        pokerVideoOverlay.releaseForTable();
+    }
+
+    /** Allows the previous menu player state to return after the table closes. */
+    void restorePokerVideoAfterTable() {
+        pokerVideoOverlay.restoreAfterTable();
     }
 
     /** Draws deferred circular avatars in whichever composition pass owns them. */
@@ -15622,6 +15655,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         viewport.unproject(pointer);
         pressedHit = null;
         boolean blockingModal = hasBlockingFrontendModal();
+        if (!blockingModal && pokerVideoOverlay.touchDown(pointer.x,
+                pointer.y, pointerIndex, button)) {
+            return true;
+        }
         if (avatarCropSession != null && button == Input.Buttons.LEFT) {
             AvatarCropSession session = avatarCropSession;
             updateAvatarCropScreenGeometry(session);
@@ -15773,6 +15810,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (pokerVideoOverlay.touchDragged(pointer.x, pointer.y,
+                pointerIndex)) return true;
         if (avatarCropSession != null
                 && avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == pointerIndex) {
@@ -15829,6 +15868,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (pokerVideoOverlay.touchUp(pointer.x, pointer.y, pointerIndex,
+                button)) return true;
         if (avatarCropSession != null
                 && avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == pointerIndex
@@ -17008,6 +17049,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void dispose() {
         disposed = true;
+        pokerVideoOverlay.close();
         cancelAndReleaseUpnp();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
@@ -17105,6 +17147,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (pokerVideoOverlay.cancelTouch(p, b)) return true;
         if (avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == p) {
             avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
@@ -17140,10 +17183,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
+        if (pokerVideoOverlay.mouseMoved(pointer.x, pointer.y)) return true;
         return hasBlockingFrontendModal();
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(pointer);
+        if (!hasBlockingFrontendModal()
+                && pokerVideoOverlay.scrolled(pointer.x, pointer.y, amountY)) {
+            return true;
+        }
         if (avatarCropSession != null) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);

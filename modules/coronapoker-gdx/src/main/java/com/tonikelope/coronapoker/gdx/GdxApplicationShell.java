@@ -407,6 +407,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             CoronaPokerGdxTable candidate = null;
             try {
+                menu.releasePokerVideoForTable();
                 gameLog.reset();
                 LobbySnapshot lobbyState = lobby == null
                         ? null : lobby.snapshot();
@@ -435,6 +436,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 }
                 table = null;
                 restoreFrontendInput();
+                menu.restorePokerVideoAfterTable();
                 menu.showSessionError(gameText.translate(
                         "gdx.table.open_failed_detail", rootMessage(error)));
                 openingBarrier.completeExceptionally(error);
@@ -484,6 +486,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             table = null;
             restoreFrontendInput();
+            menu.restorePokerVideoAfterTable();
             menu.resumeMusic();
             menu.showSessionError(gameText.translate(
                     "gdx.table.open_failed_detail", rootMessage(error)));
@@ -524,6 +527,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 table = null;
                 menu.refreshFeltFromSettings();
                 restoreFrontendInput();
+                menu.restorePokerVideoAfterTable();
                 long menuReady = System.nanoTime();
                 LobbySession completedLobby = lobby;
                 if (statsRequested && completedLobby != null) {
@@ -597,6 +601,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         table = null;
         suspendedFinalTable = null;
         restoreFrontendInput();
+        menu.restorePokerVideoAfterTable();
         LobbySession completedLobby = lobby;
         if (completedLobby != null) {
             if (continueRequested) {

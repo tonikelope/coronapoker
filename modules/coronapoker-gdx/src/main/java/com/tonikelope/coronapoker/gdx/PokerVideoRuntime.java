@@ -53,8 +53,6 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean active = true;
     private volatile int currentIndex;
     private volatile int resumeSeconds;
-    private volatile boolean resumeMuted = true;
-    private volatile int resumeVolume = 100;
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
     private volatile String pageUrl;
@@ -137,7 +135,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             double scaleFactor) throws Exception {
         if (browser != null || browserClosing || closed.get()) return;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds, resumeMuted, resumeVolume, playerLanguage);
+                resumeSeconds, true, 100, playerLanguage);
         browserPlaylistRevision = playlistRevision;
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
@@ -258,8 +256,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (request.startsWith("READY|")) {
             playerReady = true;
             synchronizeBrowserPlaylist();
-            state = resumeMuted ? "REPRODUCIENDO EN SILENCIO"
-                    : "REPRODUCIENDO CON AUDIO";
+            state = "REPRODUCIENDO EN SILENCIO";
             return true;
         }
         if (request.startsWith("STATE|")) {
@@ -293,20 +290,6 @@ final class PokerVideoRuntime implements AutoCloseable {
                     currentIndex = index;
                     resumeSeconds = Math.max(0, seconds);
                 }
-            } catch (NumberFormatException ignored) {
-            }
-            return true;
-        }
-        if (request.startsWith("AUDIO|")) {
-            String[] parts = request.substring("AUDIO|".length())
-                    .split(":", 2);
-            try {
-                resumeMuted = parts.length == 0
-                        || !"0".equals(parts[0]);
-                resumeVolume = parts.length > 1
-                        ? Math.max(0, Math.min(100,
-                                Integer.parseInt(parts[1])))
-                        : resumeVolume;
             } catch (NumberFormatException ignored) {
             }
             return true;
@@ -437,9 +420,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             browserClosing = true;
             try {
                 current.executeJavaScript("window.coronaReportPosition && "
-                        + "window.coronaReportPosition();"
-                        + "window.coronaReportAudio && "
-                        + "window.coronaReportAudio();", pageUrl, 0);
+                        + "window.coronaReportPosition();", pageUrl, 0);
                 current.setWindowVisibility(false);
                 current.setCloseAllowed();
                 current.close(true);

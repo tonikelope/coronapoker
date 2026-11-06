@@ -46,23 +46,21 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   sitúa inmediatamente a su izquierda.
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
-- Cerrar guarda periódicamente el vídeo, el segundo aproximado, el estado de
-  silencio y el volumen; después cierra el navegador, libera la textura y
+- Cerrar guarda periódicamente el vídeo y el segundo aproximado; después
+  cierra el navegador, libera la textura y
   persiste el ajuste como desactivado. Cuando el ajuste está desactivado solo
   queda el icono flotante de la esquina inferior derecha. Pulsarlo reactiva y
   guarda el ajuste, vuelve a crear la sesión desde ese punto y reanuda
-  automáticamente la reproducción, reaplicando el estado de audio después de
-  que el vídeo haya comenzado.
+  automáticamente la reproducción, siempre silenciada en la nueva sesión.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
-- Cada ejecución nueva empieza silenciada. El estado elegido se conserva
-  durante la sesión. Cuando un vídeo que debía sonar alcanza realmente el
-  estado `PLAYING`, se rearma una sola vez su canal OSR con una transición
-  cancelable mute/espera/desmute. La espera evita el falso estado de YouTube
-  donde el icono aparece con sonido pero Chromium todavía no emite audio; al
-  cambiar rápidamente, la transición anterior queda anulada.
+- Cada sesión nueva del navegador empieza realmente silenciada; no se restaura
+  un estado audible anterior. El usuario activa el sonido mediante el control
+  real de YouTube, cuyo gesto abre el canal de audio de Chromium. Mientras el
+  navegador siga abierto, cambiar de vídeo o pausar/reanudar no ejecuta ningún
+  mute/desmute automático y YouTube conserva naturalmente el estado elegido.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

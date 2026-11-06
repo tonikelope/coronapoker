@@ -31,19 +31,9 @@
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
-    const AUDIO_REOPEN_DELAY_MS = 600;
-    let audioTransitionPending = true;
-    let desiredMuted = INITIAL_MUTED;
-    let desiredVolume = INITIAL_VOLUME;
-    let lastReportedMuted = null;
-    let lastReportedVolume = null;
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
-    let audioTransitionTimer = null;
-    let audioTransitionGeneration = 0;
-    let playbackGeneration = 0;
-    let settledPlaybackGeneration = -1;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -71,17 +61,14 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      reportAudio();
-      playbackGeneration += 1;
-      settledPlaybackGeneration = -1;
-      cancelAudioTransition();
-      audioTransitionPending = true;
+      const keepMuted = player.isMuted ? player.isMuted() : true;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
       player.loadVideoById(VIDEO_IDS[currentIndex]);
-      playWithDesiredAudio(player);
+      if (keepMuted && player.mute) player.mute();
+      playVideo(player);
       reportIndex();
     }
 
@@ -142,95 +129,16 @@
       }, 100);
     }
 
-    function applyDesiredAudio(target) {
-      if (!target) return;
-      if (target.setVolume) target.setVolume(desiredVolume);
-      if (desiredMuted) {
-        if (target.mute) target.mute();
-      } else {
-        if (target.unMute) target.unMute();
-        if (target.setVolume) target.setVolume(desiredVolume);
-      }
-    }
-
-    function cancelAudioTransition() {
-      audioTransitionGeneration += 1;
-      if (audioTransitionTimer !== null) {
-        clearTimeout(audioTransitionTimer);
-        audioTransitionTimer = null;
-      }
-    }
-
-    function settleAudioAfterPlayback(target) {
-      if (!target || settledPlaybackGeneration === playbackGeneration) return;
-      settledPlaybackGeneration = playbackGeneration;
-      cancelAudioTransition();
-      audioTransitionPending = true;
-      const generation = audioTransitionGeneration;
-      const playback = playbackGeneration;
-      const expectedVideoId = VIDEO_IDS[currentIndex];
-      if (desiredMuted) {
-        applyDesiredAudio(target);
-        audioTransitionPending = false;
-        reportDesiredAudio();
-        return;
-      }
-
-      // Chromium can leave the YouTube icon unmuted while its OSR audio
-      // channel is still closed. Reopen that channel only after PLAYING, using
-      // the exact mute -> wait -> unmute transition that repairs it manually.
-      if (target.mute) target.mute();
-      audioTransitionTimer = setTimeout(() => {
-        audioTransitionTimer = null;
-        if (generation !== audioTransitionGeneration
-            || playback !== playbackGeneration
-            || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
-        const data = target.getVideoData ? target.getVideoData() : null;
-        if (data && data.video_id && data.video_id !== expectedVideoId) {
-          settledPlaybackGeneration = -1;
-          audioTransitionPending = false;
-          return;
-        }
-        if (target.unMute) target.unMute();
-        if (target.setVolume) target.setVolume(desiredVolume);
-        audioTransitionPending = false;
-        reportDesiredAudio();
-      }, AUDIO_REOPEN_DELAY_MS);
-    }
-
-    function reportAudio() {
-      if (!player || !ready || audioTransitionPending) return;
-      const muted = player.isMuted && player.isMuted() ? 1 : 0;
-      const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
-      desiredMuted = muted !== 0;
-      desiredVolume = Math.max(0, Math.min(100, volume));
-      reportAudioState(muted, desiredVolume);
-    }
-
-    function reportDesiredAudio() {
-      reportAudioState(desiredMuted ? 1 : 0, desiredVolume);
-    }
-
-    function reportAudioState(muted, volume) {
-      if (muted === lastReportedMuted && volume === lastReportedVolume) return;
-      lastReportedMuted = muted;
-      lastReportedVolume = volume;
-      report('AUDIO', muted + ':' + volume);
-    }
-
-    function playWithDesiredAudio(target) {
+    function playVideo(target) {
       if (!target) return;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      audioTransitionPending = settledPlaybackGeneration !== playbackGeneration;
-      applyDesiredAudio(target);
       if (target.playVideo) target.playVideo();
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
-        applyDesiredAudio(target);
         if (target.playVideo) target.playVideo();
       }, 400);
     }
@@ -252,11 +160,8 @@
     };
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
-      if (active) playWithDesiredAudio(player);
-      else {
-        reportAudio();
-        player.pauseVideo();
-      }
+      if (active) playVideo(player);
+      else player.pauseVideo();
     };
 
     window.onYouTubeIframeAPIReady = function () {
@@ -285,11 +190,12 @@
           onReady: event => {
             ready = true;
             statusBox.className = 'hidden';
-            playWithDesiredAudio(event.target);
+            if (event.target.setVolume) event.target.setVolume(INITIAL_VOLUME);
+            if (INITIAL_MUTED && event.target.mute) event.target.mute();
+            playVideo(event.target);
             reportIndex();
-            reportDesiredAudio();
             report('READY', '1');
-            report('STATE', desiredMuted
+            report('STATE', INITIAL_MUTED
               ? 'REPRODUCIENDO EN SILENCIO' : 'REPRODUCIENDO CON AUDIO');
           },
           onStateChange: event => {
@@ -299,7 +205,6 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              settleAudioAfterPlayback(event.target);
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
@@ -328,8 +233,6 @@
       report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
     }
     window.coronaReportPosition = reportPosition;
-    window.coronaReportAudio = reportAudio;
-    setInterval(reportAudio, 250);
     setInterval(reportPosition, 750);
 
     setTimeout(() => {

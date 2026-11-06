@@ -60,11 +60,13 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   entre principal, modal y sala de espera conservan la misma sesión, posición
   y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
   estable se restaura al volver; una sesión audible se desmutea una sola vez,
-  después de que el vídeo ya esté en `PLAYING`. En la primera sesión JCEF se
-  crea el reproductor vacío, se confirma el mute y solo entonces se carga y se
-  muestra el vídeo, de modo que la interfaz de Shorts nace también silenciada.
-  Los vídeos fallidos y los cambios rápidos no pueden sobrescribir el estado
-  con valores transitorios.
+  después de que el vídeo ya esté en `PLAYING`. En la primera sesión se espera
+  a que YouTube haya construido el vídeo y sus controles antes de confirmar el
+  mute. Los cambios internos tardíos del reproductor no se aceptan como una
+  preferencia: cada clic real que CoronaPoker envía al iframe habilita una
+  única lectura posterior del audio; fuera de esa lectura se conserva y se
+  refuerza el último estado estable. Los vídeos fallidos y los cambios rápidos
+  tampoco pueden sobrescribirlo con valores transitorios.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

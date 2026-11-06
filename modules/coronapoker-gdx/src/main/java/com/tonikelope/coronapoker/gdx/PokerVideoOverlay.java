@@ -608,6 +608,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                 dispatchMouse(MouseEvent.MOUSE_RELEASED, pointerX, pointerY,
                         awtButton(button), 1);
                 pressedButtons &= ~(1 << button);
+                PokerVideoRuntime current = runtime;
+                if (current != null) current.notifyVideoInteraction();
             }
             default -> { }
         }

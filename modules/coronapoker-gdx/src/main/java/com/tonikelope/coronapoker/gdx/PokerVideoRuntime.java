@@ -409,6 +409,13 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (browser != null && browserCreated) browser.setFocus(focused);
     }
 
+    void notifyVideoInteraction() {
+        LibGdxCefBrowser current = browser;
+        if (current == null || !browserCreated || !playerReady) return;
+        current.executeJavaScript("window.coronaUserInteracted && "
+                + "window.coronaUserInteracted();", pageUrl, 0);
+    }
+
     LibGdxCefBrowser browser() {
         return browser;
     }

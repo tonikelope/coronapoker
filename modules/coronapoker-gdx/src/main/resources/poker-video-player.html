@@ -37,6 +37,7 @@
     let desiredVolume = INITIAL_VOLUME;
     let audioStateTrusted = false;
     let muteConfirmationPending = true;
+    let audioObservationArmed = false;
     let lastReportedMuted = null;
     let lastReportedVolume = null;
     const failedVideoIds = new Set();
@@ -72,6 +73,7 @@
       captureStableAudioState();
       audioStateTrusted = false;
       muteConfirmationPending = true;
+      audioObservationArmed = false;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
@@ -156,6 +158,7 @@
 
     function captureStableAudioState() {
       if (!player || !ready || !audioStateTrusted
+          || !audioObservationArmed
           || typeof player.isMuted !== 'function') return;
       desiredMuted = player.isMuted();
       if (typeof player.getVolume === 'function') {
@@ -191,6 +194,18 @@
       statusBox.className = 'hidden';
     }
 
+    function enforceDesiredAudio(target) {
+      if (!target) return;
+      const muted = typeof target.isMuted === 'function'
+        ? target.isMuted() : null;
+      if (desiredMuted) {
+        if (muted !== true && target.mute) target.mute();
+      } else {
+        if (muted !== false && target.unMute) target.unMute();
+        if (target.setVolume) target.setVolume(desiredVolume);
+      }
+    }
+
     function monitorAudioState() {
       if (!player || !ready) return;
       if (muteConfirmationPending && player.getPlayerState
@@ -198,7 +213,15 @@
         confirmAudioAfterPlayback(player);
         return;
       }
-      captureStableAudioState();
+      // YouTube may publish a late internal unmuted state during its first
+      // cold load. It is not a user choice. Do not adopt any player state
+      // until CoronaPoker has actually forwarded a click into the iframe.
+      if (audioObservationArmed) {
+        captureStableAudioState();
+        audioObservationArmed = false;
+        return;
+      }
+      enforceDesiredAudio(player);
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -216,11 +239,15 @@
       if (player && ready) selectOrderPosition(0);
       else reportIndex();
     };
+    window.coronaUserInteracted = function () {
+      audioObservationArmed = true;
+    };
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
       if (active) {
         audioStateTrusted = false;
         muteConfirmationPending = true;
+        audioObservationArmed = false;
         playVideo(player);
       } else {
         captureStableAudioState();
@@ -232,6 +259,7 @@
       player = new YT.Player('player', {
         width: '100%',
         height: '100%',
+        videoId: VIDEO_IDS[currentIndex],
         playerVars: {
           autoplay: 1,
           controls: 0,
@@ -246,7 +274,8 @@
           iv_load_policy: 3,
           fs: 0,
           origin: ORIGIN,
-          widget_referrer: ORIGIN
+          widget_referrer: ORIGIN,
+          start: START_SECONDS
         },
         events: {
           onReady: event => {
@@ -255,14 +284,10 @@
             desiredVolume = INITIAL_VOLUME;
             audioStateTrusted = false;
             muteConfirmationPending = true;
-            // Mute the empty player before the first video is loaded. Loading
-            // it in the constructor lets Shorts paint an unmuted icon even
-            // though Chromium blocks its audio on the first JCEF session.
+            audioObservationArmed = false;
+            // The video is already ready here. Apply the requested state last,
+            // after YouTube has finished constructing its Shorts controls.
             if (event.target.mute) event.target.mute();
-            event.target.loadVideoById({
-              videoId: VIDEO_IDS[currentIndex],
-              startSeconds: START_SECONDS
-            });
             playVideo(event.target);
             reportIndex();
             report('READY', '1');

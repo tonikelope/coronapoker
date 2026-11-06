@@ -36,7 +36,8 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   arrastrable y redimensionable manteniendo el formato del vídeo; los cuatro
   bordes y las cuatro esquinas aceptan el gesto y muestran el cursor adecuado,
   aunque las zonas son invisibles. No se dibujan marco, sombra ni tirador de
-  esquina. Su tamaño inicial compacto corresponde al mínimo de la ventana
+  esquina; la cabecera y las dos esquinas inferiores del vídeo quedan
+  redondeadas. Su tamaño inicial compacto corresponde al mínimo de la ventana
   y escala con el `FitViewport` 1920x1080, por lo que conserva la misma
   proporción visual en 1080p, 1440p y 2160p. En la sala el icono queda elevado
   por encima
@@ -56,10 +57,12 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
-- Los cambios rápidos con anterior/siguiente conservan el último estado de
-  audio elegido. Tras cada carga, el reproductor reconcilia varias veces
-  volumen y mute; si YouTube muestra sonido activo con la tubería todavía muda,
-  fuerza una única secuencia mute/desmute para recuperar la salida real.
+- Cada ejecución nueva empieza silenciada. Los cambios de vídeo nunca fuerzan
+  un mute intermedio: volumen y silencio se aplican de forma idempotente al
+  preparar y empezar la reproducción. El estado elegido se conserva durante la
+  sesión. Solo al recrear el navegador con audio previamente activo se ejecuta
+  una única recuperación mute/desmute de 45 ms para rearmar la salida de
+  Chromium, sin repetirla en el arranque ni en cada vídeo.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

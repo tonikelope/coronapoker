@@ -116,7 +116,7 @@ class PokerVideoSearchTest {
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"),
                 new PokerVideoSearch.Video("LMNOPQRSTUV", "Second"));
         try (PokerVideoLocalServer server = PokerVideoLocalServer.start(videos,
-                1, 73, false, 64, "en")) {
+                1, 73, false, 64, "en", true)) {
             HttpResponse<String> response = HttpClient.newHttpClient().send(
                     HttpRequest.newBuilder(URI.create(server.playerUrl())).GET()
                             .build(),
@@ -132,6 +132,8 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "const INITIAL_VOLUME = 64"));
             assertTrue(response.body().contains(
+                    "const RECOVER_AUDIO_PIPELINE = true"));
+            assertTrue(response.body().contains(
                     "const PLAYER_LANGUAGE = 'en'"));
             assertTrue(response.body().contains(
                     "function skipUnavailable(errorCode)"));
@@ -142,11 +144,12 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "function playWithDesiredAudio(target)"));
             assertTrue(response.body().contains(
-                    "function cancelAudioRestore()"));
+                    "function cancelAudioSync()"));
             assertTrue(response.body().contains(
-                    "const delays = [60, 220, 650, 1500]"));
+                    "const delays = [0, 250]"));
             assertTrue(response.body().contains(
-                    "restoreAudioState(target, !pipelineReset && !desiredMuted)"));
+                    "function recoverRestoredAudioPipeline(target)"));
+            assertFalse(response.body().contains("restoreAudioState("));
             assertTrue(response.body().contains(
                     "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
                     + "      playWithDesiredAudio(player);"));
@@ -163,6 +166,24 @@ class PokerVideoSearchTest {
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());
+        }
+    }
+
+    @Test
+    void firstBrowserSessionNeverRunsTheRestorationAudioCycle()
+            throws Exception {
+        List<PokerVideoSearch.Video> videos = List.of(
+                new PokerVideoSearch.Video("ABCDEFGHIJK", "First"));
+        try (PokerVideoLocalServer server = PokerVideoLocalServer.start(videos,
+                0, 0, true, 100, "es")) {
+            String body = HttpClient.newHttpClient().send(
+                    HttpRequest.newBuilder(URI.create(server.playerUrl())).GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()).body();
+
+            assertTrue(body.contains(
+                    "const RECOVER_AUDIO_PIPELINE = false"));
+            assertTrue(body.contains("const INITIAL_MUTED = true"));
         }
     }
 

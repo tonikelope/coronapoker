@@ -31,15 +31,18 @@
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
-    let restoredAudioPending = true;
+    const RECOVER_AUDIO_PIPELINE = @@RECOVER_AUDIO_PIPELINE@@;
+    let audioSyncPending = true;
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
+    let lastReportedMuted = null;
+    let lastReportedVolume = null;
+    let pipelineRecoveryPending = RECOVER_AUDIO_PIPELINE && !INITIAL_MUTED;
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
-    let audioRestoreTimers = [];
-    let audioRestoreGeneration = 0;
-    let audioGuardUntil = 0;
+    let audioSyncTimers = [];
+    let audioSyncGeneration = 0;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -67,12 +70,11 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      // Capture only a stable user-selected state. A blocked-autoplay fallback
-      // may be muted temporarily; that transient state must never overwrite
-      // the desired audio during rapid Next/Previous requests.
+      // Capture the user's stable choice before loading another result. Loads
+      // never change mute state, so rapid requests cannot create an audio race.
       reportAudio();
-      cancelAudioRestore();
-      restoredAudioPending = true;
+      cancelAudioSync();
+      audioSyncPending = true;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
@@ -139,80 +141,88 @@
       }, 100);
     }
 
-    function restoreAudioState(target, resetPipeline) {
+    function applyDesiredAudio(target) {
       if (!target) return;
       if (target.setVolume) target.setVolume(desiredVolume);
       if (desiredMuted) {
         if (target.mute) target.mute();
       } else {
-        // YouTube can expose the unmuted icon while Chromium's media pipeline
-        // is still silent after a load/visibility change. Cycling mute once is
-        // the programmatic equivalent of the manual mute/unmute workaround.
-        if (resetPipeline && target.mute) {
-          target.mute();
-          setTimeout(() => {
-            if (desiredMuted) return;
-            if (target.setVolume) target.setVolume(desiredVolume);
-            if (target.unMute) target.unMute();
-            if (target.setVolume) target.setVolume(desiredVolume);
-          }, 45);
-          return;
-        }
         if (target.unMute) target.unMute();
         if (target.setVolume) target.setVolume(desiredVolume);
       }
     }
 
-    function cancelAudioRestore() {
-      audioRestoreGeneration += 1;
-      audioRestoreTimers.forEach(timer => clearTimeout(timer));
-      audioRestoreTimers = [];
+    function cancelAudioSync() {
+      audioSyncGeneration += 1;
+      audioSyncTimers.forEach(timer => clearTimeout(timer));
+      audioSyncTimers = [];
     }
 
-    function scheduleAudioRestore(target) {
+    function scheduleAudioSync(target) {
       if (!target) return;
-      cancelAudioRestore();
-      restoredAudioPending = true;
-      audioGuardUntil = Date.now() + 2600;
-      const generation = audioRestoreGeneration;
+      cancelAudioSync();
+      audioSyncPending = true;
+      const generation = audioSyncGeneration;
       const expectedVideoId = VIDEO_IDS[currentIndex];
-      let pipelineReset = false;
-      const delays = [60, 220, 650, 1500];
+      const delays = [0, 250];
       delays.forEach((delay, index) => {
         const timer = setTimeout(() => {
-          if (generation !== audioRestoreGeneration
+          if (generation !== audioSyncGeneration
               || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
           const data = target.getVideoData ? target.getVideoData() : null;
-          if (data && data.video_id && data.video_id !== expectedVideoId) return;
-          restoreAudioState(target, !pipelineReset && !desiredMuted);
-          pipelineReset = true;
+          if (data && data.video_id && data.video_id !== expectedVideoId) {
+            if (index === delays.length - 1) {
+              audioSyncPending = false;
+              reportDesiredAudio();
+            }
+            return;
+          }
+          applyDesiredAudio(target);
           if (index === delays.length - 1) {
-            restoredAudioPending = false;
+            audioSyncPending = false;
             reportDesiredAudio();
-            setTimeout(reportAudio, 180);
           }
         }, delay);
-        audioRestoreTimers.push(timer);
+        audioSyncTimers.push(timer);
       });
     }
 
+    function recoverRestoredAudioPipeline(target) {
+      if (!pipelineRecoveryPending || desiredMuted || !target) return false;
+      pipelineRecoveryPending = false;
+      cancelAudioSync();
+      audioSyncPending = true;
+      const generation = audioSyncGeneration;
+      const expectedVideoId = VIDEO_IDS[currentIndex];
+      if (target.mute) target.mute();
+      const timer = setTimeout(() => {
+        if (generation !== audioSyncGeneration
+            || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
+        applyDesiredAudio(target);
+        scheduleAudioSync(target);
+      }, 45);
+      audioSyncTimers.push(timer);
+      return true;
+    }
+
     function reportAudio() {
-      if (!player || !ready || restoredAudioPending) return;
+      if (!player || !ready || audioSyncPending) return;
       const muted = player.isMuted && player.isMuted() ? 1 : 0;
       const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
-      if (Date.now() < audioGuardUntil
-          && ((muted !== 0) !== desiredMuted || volume !== desiredVolume)) {
-        restoreAudioState(player, !desiredMuted && muted !== 0);
-        reportDesiredAudio();
-        return;
-      }
       desiredMuted = muted !== 0;
       desiredVolume = Math.max(0, Math.min(100, volume));
-      report('AUDIO', muted + ':' + desiredVolume);
+      reportAudioState(muted, desiredVolume);
     }
 
     function reportDesiredAudio() {
-      report('AUDIO', (desiredMuted ? 1 : 0) + ':' + desiredVolume);
+      reportAudioState(desiredMuted ? 1 : 0, desiredVolume);
+    }
+
+    function reportAudioState(muted, volume) {
+      if (muted === lastReportedMuted && volume === lastReportedVolume) return;
+      lastReportedMuted = muted;
+      lastReportedVolume = volume;
+      report('AUDIO', muted + ':' + volume);
     }
 
     function playWithDesiredAudio(target) {
@@ -221,19 +231,17 @@
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      restoredAudioPending = true;
-      restoreAudioState(target, false);
+      audioSyncPending = true;
+      applyDesiredAudio(target);
       if (target.playVideo) target.playVideo();
-      scheduleAudioRestore(target);
+      scheduleAudioSync(target);
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
-        // Only the blocked-autoplay fallback is started muted. As soon as it
-        // plays, the convergence pass restores the user's intended state.
-        if (target.mute) target.mute();
+        applyDesiredAudio(target);
         if (target.playVideo) target.playVideo();
-        scheduleAudioRestore(target);
-      }, 350);
+        scheduleAudioSync(target);
+      }, 400);
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -254,7 +262,10 @@
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
       if (active) playWithDesiredAudio(player);
-      else player.pauseVideo();
+      else {
+        reportAudio();
+        player.pauseVideo();
+      }
     };
 
     window.onYouTubeIframeAPIReady = function () {
@@ -292,12 +303,14 @@
           },
           onStateChange: event => {
             if (event.data === 1) statusBox.className = 'hidden';
-            if (event.data === 1 && restoredAudioPending) {
+            if (event.data === 1) {
               if (autoplayRetryTimer !== null) {
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              scheduleAudioRestore(event.target);
+              if (!recoverRestoredAudioPipeline(event.target)) {
+                scheduleAudioSync(event.target);
+              }
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
@@ -324,9 +337,10 @@
     function reportPosition() {
       if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
       report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
-      reportAudio();
     }
     window.coronaReportPosition = reportPosition;
+    window.coronaReportAudio = reportAudio;
+    setInterval(reportAudio, 250);
     setInterval(reportPosition, 750);
 
     setTimeout(() => {

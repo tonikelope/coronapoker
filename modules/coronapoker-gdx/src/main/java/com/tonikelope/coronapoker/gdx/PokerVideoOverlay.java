@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -36,8 +37,53 @@ final class PokerVideoOverlay implements AutoCloseable {
     static final float HEADER_HEIGHT = 52f;
     private static final float RESIZE_EDGE_HIT = 11f;
     private static final float RESIZE_CORNER_HIT = 22f;
+    private static final float VIDEO_CORNER_RADIUS = 15f;
     private static final float SHORT_ASPECT = 9f / 16f;
     private static final float NORMAL_ASPECT = 16f / 9f;
+    private static final String VIDEO_VERTEX_SHADER = "attribute vec4 a_position;\n"
+            + "attribute vec4 a_color;\n"
+            + "attribute vec2 a_texCoord0;\n"
+            + "uniform mat4 u_projTrans;\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "void main() {\n"
+            + "    v_color = a_color;\n"
+            + "    v_color.a = v_color.a * (255.0 / 254.0);\n"
+            + "    v_texCoords = a_texCoord0;\n"
+            + "    gl_Position = u_projTrans * a_position;\n"
+            + "}\n";
+    private static final String VIDEO_BOTTOM_CORNERS_FRAGMENT_SHADER =
+            "#ifdef GL_ES\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "varying vec4 v_color;\n"
+            + "varying vec2 v_texCoords;\n"
+            + "uniform sampler2D u_texture;\n"
+            + "uniform vec2 u_size;\n"
+            + "uniform float u_bottomCornerRadius;\n"
+            + "uniform float u_edgeSoftness;\n"
+            + "void main() {\n"
+            + "    vec2 p = vec2(v_texCoords.x * u_size.x,\n"
+            + "            (1.0 - v_texCoords.y) * u_size.y);\n"
+            + "    float edge = -u_bottomCornerRadius;\n"
+            + "    if (p.y < u_bottomCornerRadius) {\n"
+            + "        if (p.x < u_bottomCornerRadius) {\n"
+            + "            edge = length(p - vec2(u_bottomCornerRadius))\n"
+            + "                    - u_bottomCornerRadius;\n"
+            + "        } else if (p.x > u_size.x - u_bottomCornerRadius) {\n"
+            + "            edge = length(p - vec2(u_size.x\n"
+            + "                    - u_bottomCornerRadius,\n"
+            + "                    u_bottomCornerRadius))\n"
+            + "                    - u_bottomCornerRadius;\n"
+            + "        }\n"
+            + "    }\n"
+            + "    float mask = 1.0 - smoothstep(-u_edgeSoftness,\n"
+            + "            u_edgeSoftness, edge);\n"
+            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    pixel.a *= mask;\n"
+            + "    if (pixel.a <= 0.001) discard;\n"
+            + "    gl_FragColor = pixel;\n"
+            + "}\n";
     private static final Color HEADER = new Color(
             GdxSettingsStyle.PANEL_LIGHT_RGBA);
     private static final Color GOLD = new Color(
@@ -67,6 +113,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle closeBounds = new Rectangle();
     private volatile PokerVideoRuntime runtime;
     private Texture loadingSpade;
+    private ShaderProgram bottomCornerShader;
+    private boolean bottomCornerShaderUnavailable;
     private volatile String loadingState = "BUSCANDO SHORTS DE PÓKER";
     private volatile String loadingError;
     private boolean initializationStarted;
@@ -295,8 +343,12 @@ final class PokerVideoOverlay implements AutoCloseable {
             return;
         }
         shapes.setColor(Color.BLACK);
-        shapes.rect(videoBounds.x, videoBounds.y,
-                videoBounds.width, videoBounds.height);
+        GdxAntialiasedRoundedRect.fill(shapes, videoBounds.x, videoBounds.y,
+                videoBounds.width, videoBounds.height, VIDEO_CORNER_RADIUS);
+        shapes.rect(videoBounds.x,
+                videoBounds.y + VIDEO_CORNER_RADIUS,
+                videoBounds.width,
+                Math.max(0f, videoBounds.height - VIDEO_CORNER_RADIUS));
         shapes.setColor(HEADER);
         GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x,
                 headerBounds.y, headerBounds.width,
@@ -353,8 +405,19 @@ final class PokerVideoOverlay implements AutoCloseable {
         Texture texture = frameBuffer.texture();
         if (texture != null) {
             batch.setColor(Color.WHITE);
+            ShaderProgram previous = batch.getShader();
+            ShaderProgram corners = bottomCornerShader();
+            if (corners != null) {
+                batch.setShader(corners);
+                corners.setUniformf("u_size", videoBounds.width,
+                        videoBounds.height);
+                corners.setUniformf("u_bottomCornerRadius",
+                        VIDEO_CORNER_RADIUS);
+                corners.setUniformf("u_edgeSoftness", 1.15f);
+            }
             batch.draw(texture, videoBounds.x, videoBounds.y,
                     videoBounds.width, videoBounds.height);
+            if (corners != null) batch.setShader(previous);
         } else {
             tinyFont.setColor(loadingError == null ? MUTED : Color.SALMON);
             String message = loadingError == null ? loadingState
@@ -406,6 +469,21 @@ final class PokerVideoOverlay implements AutoCloseable {
                     Texture.TextureFilter.Linear);
         }
         return loadingSpade;
+    }
+
+    private ShaderProgram bottomCornerShader() {
+        if (bottomCornerShader != null || bottomCornerShaderUnavailable) {
+            return bottomCornerShader;
+        }
+        ShaderProgram candidate = new ShaderProgram(VIDEO_VERTEX_SHADER,
+                VIDEO_BOTTOM_CORNERS_FRAGMENT_SHADER);
+        if (!candidate.isCompiled()) {
+            candidate.dispose();
+            bottomCornerShaderUnavailable = true;
+            return null;
+        }
+        bottomCornerShader = candidate;
+        return bottomCornerShader;
     }
 
     boolean touchDown(float pointerX, float pointerY, int pointerIndex,
@@ -815,6 +893,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         PokerVideoRuntime current = runtime;
         if (current != null) current.close();
         if (loadingSpade != null) loadingSpade.dispose();
+        if (bottomCornerShader != null) bottomCornerShader.dispose();
         frameBuffer.dispose();
     }
 

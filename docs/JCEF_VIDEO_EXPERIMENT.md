@@ -56,11 +56,12 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
-- Cada sesión nueva del navegador empieza realmente silenciada; no se restaura
-  un estado audible anterior. El usuario activa el sonido mediante el control
-  real de YouTube, cuyo gesto abre el canal de audio de Chromium. Mientras el
-  navegador siga abierto, cambiar de vídeo o pausar/reanudar no ejecuta ningún
-  mute/desmute automático y YouTube conserva naturalmente el estado elegido.
+- Una apertura nueva desde el icono empieza realmente silenciada. Los cambios
+  entre principal, modal y sala de espera conservan la misma sesión, posición
+  y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
+  estable se restaura al volver; una sesión audible se desmutea una sola vez,
+  después de que el vídeo ya esté en `PLAYING`. Los vídeos fallidos y los
+  cambios rápidos no pueden sobrescribir el estado con valores transitorios.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

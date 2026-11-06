@@ -53,6 +53,9 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean active = true;
     private volatile int currentIndex;
     private volatile int resumeSeconds;
+    private volatile boolean resumeMuted = true;
+    private volatile int resumeVolume = 100;
+    private volatile boolean restoreAudioOnNextSession;
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
     private volatile String pageUrl;
@@ -102,8 +105,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         builder.setInstallDir(nativeDirectory.toFile());
         builder.addJcefArgs("--use-alloy-style");
         // This isolated browser exists only for the user-enabled poker-video
-        // overlay. Allow it to resume after its resources have been released
-        // while minimized, even when the saved audio state was unmuted.
+        // overlay. The player itself decides whether a recreated browser is a
+        // fresh muted opening or a table-transition restoration.
         builder.addJcefArgs("--autoplay-policy=no-user-gesture-required");
         CefSettings settings = builder.getCefSettings();
         settings.windowless_rendering_enabled = true;
@@ -134,8 +137,12 @@ final class PokerVideoRuntime implements AutoCloseable {
     private synchronized void openBrowserSession(int width, int height,
             double scaleFactor) throws Exception {
         if (browser != null || browserClosing || closed.get()) return;
+        boolean restoreAudio = restoreAudioOnNextSession;
+        boolean initialMuted = restoreAudio ? resumeMuted : true;
+        int initialVolume = restoreAudio ? resumeVolume : 100;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds, true, 100, playerLanguage);
+                resumeSeconds, initialMuted, initialVolume, playerLanguage);
+        restoreAudioOnNextSession = false;
         browserPlaylistRevision = playlistRevision;
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
@@ -294,6 +301,20 @@ final class PokerVideoRuntime implements AutoCloseable {
             }
             return true;
         }
+        if (request.startsWith("AUDIO|")) {
+            String[] parts = request.substring("AUDIO|".length())
+                    .split(":", 2);
+            try {
+                resumeMuted = parts.length == 0
+                        || !"0".equals(parts[0]);
+                resumeVolume = parts.length > 1
+                        ? Math.max(0, Math.min(100,
+                                Integer.parseInt(parts[1])))
+                        : 100;
+            } catch (NumberFormatException ignored) {
+            }
+            return true;
+        }
         if (request.startsWith("FAILED|")) {
             state = "VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE";
             return true;
@@ -409,9 +430,14 @@ final class PokerVideoRuntime implements AutoCloseable {
         return initializationError;
     }
 
-    synchronized void releaseBrowserSession() {
+    synchronized void releaseBrowserSession(boolean preserveAudioForResume) {
         frameBuffer.setAcceptingFrames(false);
         LibGdxCefBrowser current = browser;
+        restoreAudioOnNextSession = preserveAudioForResume && current != null;
+        if (!restoreAudioOnNextSession) {
+            resumeMuted = true;
+            resumeVolume = 100;
+        }
         browser = null;
         browserCreated = false;
         playerReady = false;
@@ -419,8 +445,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (current != null) {
             browserClosing = true;
             try {
-                current.executeJavaScript("window.coronaReportPosition && "
-                        + "window.coronaReportPosition();", pageUrl, 0);
+                current.executeJavaScript("window.coronaReportSession && "
+                        + "window.coronaReportSession();", pageUrl, 0);
                 current.setWindowVisibility(false);
                 current.setCloseAllowed();
                 current.close(true);

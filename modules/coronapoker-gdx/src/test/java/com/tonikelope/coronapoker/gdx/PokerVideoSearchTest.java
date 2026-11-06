@@ -144,22 +144,30 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "function playVideo(target)"));
             assertTrue(response.body().contains(
-                    "if (INITIAL_MUTED && event.target.mute) "
-                    + "event.target.mute();"));
+                    "mute: 1"));
+            assertTrue(response.body().contains(
+                    "if (event.target.mute) event.target.mute();"));
+            assertTrue(response.body().contains(
+                    "function confirmAudioAfterPlayback(target)"));
+            assertTrue(response.body().contains(
+                    "function captureStableAudioState()"));
+            assertTrue(response.body().contains(
+                    "!audioStateTrusted"));
             assertFalse(response.body().contains(
                     "RECOVER_AUDIO_PIPELINE"));
             assertFalse(response.body().contains("scheduleAudioSync("));
             assertFalse(response.body().contains("settleAudioAfterPlayback("));
-            assertFalse(response.body().contains("target.unMute()"));
+            assertTrue(response.body().contains(
+                    "if (target.unMute) target.unMute();"));
+            assertTrue(response.body().contains(
+                    "if (target.setVolume) target.setVolume(desiredVolume);"));
             assertTrue(response.body().contains(
                     "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
-                    + "      if (keepMuted && player.mute) player.mute();\n"
                     + "      playVideo(player);"));
             assertTrue(response.body().contains(
                     "window.coronaSelectRelative = selectRelative"));
             assertTrue(response.body().contains(
                     "window.coronaReplaceVideos = function (ids)"));
-            assertFalse(response.body().contains("reportAudio();"));
             assertTrue(response.body().contains(
                     "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",
@@ -181,6 +189,12 @@ class PokerVideoSearchTest {
                     HttpResponse.BodyHandlers.ofString()).body();
 
             assertTrue(body.contains("const INITIAL_MUTED = true"));
+            assertTrue(body.contains("let desiredMuted = INITIAL_MUTED"));
+            assertTrue(body.contains("let audioStateTrusted = false"));
+            assertTrue(body.contains("let muteConfirmationPending = true"));
+            assertTrue(body.contains("mute: 1"));
+            assertTrue(body.contains(
+                    "if (desiredMuted && target.mute) target.mute();"));
             assertFalse(body.contains("RECOVER_AUDIO_PIPELINE"));
         }
 
@@ -188,9 +202,21 @@ class PokerVideoSearchTest {
                 "src/main/java/com/tonikelope/coronapoker/gdx/"
                 + "PokerVideoRuntime.java"));
         assertTrue(runtimeSource.contains(
-                "resumeSeconds, true, 100, playerLanguage"));
-        assertFalse(runtimeSource.contains("resumeMuted"));
-        assertFalse(runtimeSource.contains("request.startsWith(\"AUDIO|\")"));
+                "resumeSeconds, initialMuted, initialVolume, playerLanguage"));
+        assertTrue(runtimeSource.contains("restoreAudioOnNextSession"));
+        assertTrue(runtimeSource.contains(
+                "boolean initialMuted = restoreAudio ? resumeMuted : true"));
+        assertTrue(runtimeSource.contains(
+                "restoreAudioOnNextSession = preserveAudioForResume "
+                + "&& current != null"));
+        assertTrue(runtimeSource.contains("request.startsWith(\"AUDIO|\")"));
+
+        String overlaySource = Files.readString(Path.of(
+                "src/main/java/com/tonikelope/coronapoker/gdx/"
+                + "PokerVideoOverlay.java"));
+        assertTrue(overlaySource.contains("releaseBrowserSession(false);"));
+        assertTrue(overlaySource.contains(
+                "releaseBrowserSession(restoreWindowAfterTable);"));
     }
 
     @Test

@@ -173,7 +173,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             hostVisible = false;
             PokerVideoRuntime current = runtime;
             if (current != null && current.browser() != null) {
-                releaseBrowserSession();
+                releaseBrowserSession(false);
             }
             cancelHiddenCapture();
             browserFocused = false;
@@ -201,7 +201,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 && !releasedForTable;
         PokerVideoRuntime current = runtime;
         if (current != null && !enabled && current.browser() != null) {
-            releaseBrowserSession();
+            releaseBrowserSession(false);
         }
         if (current != null && shouldRun && current.browser() == null) {
             current.resumeBrowserSession(Math.round(videoWidth),
@@ -268,7 +268,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 runtimeActive = true;
                 if (!featureEnabled || minimized || releasedForTable) {
                     runtimeActive = false;
-                    created.releaseBrowserSession();
+                    created.releaseBrowserSession(false);
                 } else if (!hostVisible) {
                     runtimeActive = false;
                     created.setActive(false);
@@ -593,7 +593,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                     minimized = true;
                     featurePreferenceChanged.accept(false);
                     blurBrowser();
-                    releaseBrowserSession();
+                    releaseBrowserSession(false);
                 }
             }
             case PREVIOUS -> {
@@ -734,10 +734,12 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (current != null) current.setActive(next);
     }
 
-    private void releaseBrowserSession() {
+    private void releaseBrowserSession(boolean preserveAudioForResume) {
         runtimeActive = false;
         PokerVideoRuntime current = runtime;
-        if (current != null) current.releaseBrowserSession();
+        if (current != null) {
+            current.releaseBrowserSession(preserveAudioForResume);
+        }
         frameBuffer.dispose();
     }
 
@@ -754,7 +756,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         releasedForTable = true;
         hostVisible = false;
         blurBrowser();
-        releaseBrowserSession();
+        releaseBrowserSession(restoreWindowAfterTable);
     }
 
     void restoreAfterTable() {

@@ -31,6 +31,14 @@
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
+    // Fresh icon openings are supplied as muted. Only a table-transition
+    // restoration may supply the stable state reported by the prior session.
+    let desiredMuted = INITIAL_MUTED;
+    let desiredVolume = INITIAL_VOLUME;
+    let audioStateTrusted = false;
+    let muteConfirmationPending = true;
+    let lastReportedMuted = null;
+    let lastReportedVolume = null;
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
@@ -61,13 +69,14 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      const keepMuted = player.isMuted ? player.isMuted() : true;
+      captureStableAudioState();
+      audioStateTrusted = false;
+      muteConfirmationPending = true;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
       player.loadVideoById(VIDEO_IDS[currentIndex]);
-      if (keepMuted && player.mute) player.mute();
       playVideo(player);
       reportIndex();
     }
@@ -135,12 +144,48 @@
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
+      if (desiredMuted && target.mute) target.mute();
       if (target.playVideo) target.playVideo();
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
+        if (desiredMuted && target.mute) target.mute();
         if (target.playVideo) target.playVideo();
       }, 400);
+    }
+
+    function captureStableAudioState() {
+      if (!player || !ready || !audioStateTrusted
+          || typeof player.isMuted !== 'function') return;
+      desiredMuted = player.isMuted();
+      if (typeof player.getVolume === 'function') {
+        desiredVolume = Math.max(0, Math.min(100,
+          Math.round(player.getVolume())));
+      }
+      reportAudioState();
+    }
+
+    function reportAudioState() {
+      if (!audioStateTrusted) return;
+      const muted = desiredMuted ? 1 : 0;
+      if (muted === lastReportedMuted
+          && desiredVolume === lastReportedVolume) return;
+      lastReportedMuted = muted;
+      lastReportedVolume = desiredVolume;
+      report('AUDIO', muted + ':' + desiredVolume);
+    }
+
+    function confirmAudioAfterPlayback(target) {
+      if (!muteConfirmationPending || !target) return;
+      if (desiredMuted) {
+        if (target.mute) target.mute();
+      } else {
+        if (target.unMute) target.unMute();
+        if (target.setVolume) target.setVolume(desiredVolume);
+      }
+      muteConfirmationPending = false;
+      audioStateTrusted = true;
+      reportAudioState();
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -160,8 +205,14 @@
     };
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
-      if (active) playVideo(player);
-      else player.pauseVideo();
+      if (active) {
+        audioStateTrusted = false;
+        muteConfirmationPending = true;
+        playVideo(player);
+      } else {
+        captureStableAudioState();
+        player.pauseVideo();
+      }
     };
 
     window.onYouTubeIframeAPIReady = function () {
@@ -176,7 +227,7 @@
           enablejsapi: 1,
           playsinline: 1,
           rel: 0,
-          mute: INITIAL_MUTED ? 1 : 0,
+          mute: 1,
           hl: PLAYER_LANGUAGE,
           cc_load_policy: 0,
           cc_lang_pref: PLAYER_LANGUAGE,
@@ -190,13 +241,18 @@
           onReady: event => {
             ready = true;
             statusBox.className = 'hidden';
-            if (event.target.setVolume) event.target.setVolume(INITIAL_VOLUME);
-            if (INITIAL_MUTED && event.target.mute) event.target.mute();
+            desiredMuted = INITIAL_MUTED;
+            desiredVolume = INITIAL_VOLUME;
+            audioStateTrusted = false;
+            muteConfirmationPending = true;
+            // Playback always enters Chromium muted. If this is a restoration
+            // of an audible session, it is unmuted exactly once after PLAYING.
+            if (event.target.mute) event.target.mute();
             playVideo(event.target);
             reportIndex();
             report('READY', '1');
             report('STATE', INITIAL_MUTED
-              ? 'REPRODUCIENDO EN SILENCIO' : 'REPRODUCIENDO CON AUDIO');
+              ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
           },
           onStateChange: event => {
             if (event.data === 1) statusBox.className = 'hidden';
@@ -205,6 +261,7 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
+              confirmAudioAfterPlayback(event.target);
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
@@ -232,8 +289,14 @@
       if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
       report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
     }
+    function reportSession() {
+      captureStableAudioState();
+      reportPosition();
+    }
     window.coronaReportPosition = reportPosition;
+    window.coronaReportSession = reportSession;
     setInterval(reportPosition, 750);
+    setInterval(captureStableAudioState, 250);
 
     setTimeout(() => {
       if (!ready) showError('No se pudo inicializar el reproductor. Comprueba la conexión.');

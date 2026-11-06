@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>CoronaPoker JCEF PoC</title>
+  <style>
+    html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
+    body { font-family: system-ui, sans-serif; color: #fff; }
+    #status { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
+      box-sizing: border-box; text-align: center; background: #101820; z-index: 2; }
+    #status.hidden { display: none; }
+    #status.error { background: #2a1014; }
+  </style>
+</head>
+<body>
+  <div id="status">Inicializando el reproductor oficial de YouTube…</div>
+  <div id="player"></div>
+  <script>
+    'use strict';
+    const VIDEO_ID = '@@VIDEO_ID@@';
+    const ORIGIN = '@@ORIGIN@@';
+    const statusBox = document.getElementById('status');
+    let player = null;
+    let ready = false;
+
+    function report(kind, detail) {
+      const request = kind + '|' + String(detail || '').replace(/[|\r\n]/g, ' ');
+      if (typeof window.cefQuery === 'function') {
+        window.cefQuery({ request, onFailure: () => {} });
+      }
+      console.log('[CoronaPoker JCEF PoC] ' + request);
+    }
+
+    function showError(message) {
+      statusBox.className = 'error';
+      statusBox.textContent = message;
+      report('ERROR', message);
+    }
+
+    window.onYouTubeIframeAPIReady = function () {
+      player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        videoId: VIDEO_ID,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          enablejsapi: 1,
+          playsinline: 1,
+          rel: 0,
+          mute: 1,
+          origin: ORIGIN,
+          widget_referrer: ORIGIN
+        },
+        events: {
+          onReady: event => {
+            ready = true;
+            statusBox.className = 'hidden';
+            event.target.mute();
+            event.target.playVideo();
+            report('STATE', 'LISTO / AUTOPLAY SILENCIADO');
+          },
+          onStateChange: event => {
+            const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
+              '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
+            report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
+          },
+          onError: event => {
+            const errors = {
+              2: 'Solicitud de vídeo no válida (error 2).',
+              5: 'El contenido no puede reproducirse en HTML5 (error 5).',
+              100: 'El vídeo no existe, es privado o fue retirado (error 100).',
+              101: 'El propietario no permite reproducción embebida (error 101).',
+              150: 'El propietario no permite reproducción embebida (error 150).',
+              153: 'YouTube no recibió una identificación Referer válida (error 153).'
+            };
+            showError(errors[event.data] || ('YouTube devolvió el error ' + event.data + '.'));
+          },
+          onAutoplayBlocked: () => {
+            report('AUTOPLAY', 'BLOQUEADO; usa el botón Play');
+          }
+        }
+      });
+      window.coronaPlayer = player;
+    };
+
+    window.pocSetActive = function (active) {
+      if (!player || !ready) return;
+      if (active) {
+        player.playVideo();
+      } else {
+        player.pauseVideo();
+      }
+    };
+
+    setTimeout(() => {
+      if (!ready) showError('No se pudo inicializar YouTube. Comprueba la conexión y el registro de CEF.');
+    }, 20000);
+
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = () => showError('No se pudo descargar la API IFrame de YouTube.');
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>

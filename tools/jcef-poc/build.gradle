@@ -1,0 +1,133 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.tonikelope'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+def gdxVersion = '1.14.2'
+def lwjglVersion = '3.4.1'
+def jcefMavenVersion = '152.0.6'
+def jcefNativeVersion = 'jcef-17e805a+cef-152.0.6+g708dc14+chromium-152.0.7977.83'
+
+def platformDefinitions = [
+    'windows-x86_64': [jcef: 'windows-amd64', lwjgl: 'natives-windows'],
+    'linux-x86_64'  : [jcef: 'linux-amd64', lwjgl: 'natives-linux'],
+    'macos-x86_64'  : [jcef: 'macosx-amd64', lwjgl: 'natives-macos'],
+    'macos-aarch64' : [jcef: 'macosx-arm64', lwjgl: 'natives-macos-arm64']
+]
+
+def detectedPlatform = {
+    def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    def arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    if (os.contains('win') && (arch == 'amd64' || arch == 'x86_64')) return 'windows-x86_64'
+    if (os.contains('linux') && (arch == 'amd64' || arch == 'x86_64')) return 'linux-x86_64'
+    if (os.contains('mac') && (arch == 'aarch64' || arch == 'arm64')) return 'macos-aarch64'
+    if (os.contains('mac') && (arch == 'amd64' || arch == 'x86_64')) return 'macos-x86_64'
+    throw new GradleException("Unsupported build host: ${os}/${arch}. Set -PtargetPlatform explicitly if appropriate.")
+}.call()
+
+def targetPlatform = providers.gradleProperty('targetPlatform').getOrElse(detectedPlatform)
+if (!platformDefinitions.containsKey(targetPlatform)) {
+    throw new GradleException("Unsupported targetPlatform '${targetPlatform}'. Supported values: ${platformDefinitions.keySet().join(', ')}")
+}
+def platform = platformDefinitions[targetPlatform]
+
+configurations.configureEach {
+    resolutionStrategy {
+        force "org.lwjgl:lwjgl:${lwjglVersion}"
+        force "org.lwjgl:lwjgl-glfw:${lwjglVersion}"
+        force "org.lwjgl:lwjgl-jemalloc:${lwjglVersion}"
+        force "org.lwjgl:lwjgl-openal:${lwjglVersion}"
+        force "org.lwjgl:lwjgl-opengl:${lwjglVersion}"
+        force "org.lwjgl:lwjgl-stb:${lwjglVersion}"
+    }
+}
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:${gdxVersion}"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:${gdxVersion}"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${gdxVersion}:natives-desktop"
+
+    implementation "me.friwi:jcefmaven:${jcefMavenVersion}"
+    runtimeOnly "me.friwi:jcef-natives-${platform.jcef}:${jcefNativeVersion}"
+
+    ['lwjgl', 'lwjgl-glfw', 'lwjgl-jemalloc', 'lwjgl-openal', 'lwjgl-opengl', 'lwjgl-stb'].each { module ->
+        runtimeOnly "org.lwjgl:${module}:${lwjglVersion}:${platform.lwjgl}"
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['--add-modules', 'jdk.httpserver']
+}
+
+application {
+    mainClass = 'com.tonikelope.jcefpoc.DesktopLauncher'
+    applicationDefaultJvmArgs = [
+        '--add-modules=jdk.httpserver',
+        '--add-exports=java.base/java.lang=ALL-UNNAMED',
+        '--add-exports=java.desktop/sun.awt=ALL-UNNAMED',
+        '--add-exports=java.desktop/sun.java2d=ALL-UNNAMED'
+    ]
+}
+
+tasks.named('jar', Jar) {
+    archiveBaseName = 'coronapoker-jcef-poc'
+    archiveClassifier = targetPlatform
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    zip64 = true
+
+    manifest {
+        attributes(
+            'Main-Class': application.mainClass.get(),
+            'Implementation-Title': 'CoronaPoker JCEF OSR PoC',
+            'Implementation-Version': project.version,
+            'JCEF-Version': jcefMavenVersion,
+            'Target-Platform': targetPlatform,
+            'Add-Exports': 'java.base/java.lang java.desktop/sun.awt java.desktop/sun.java2d'
+        )
+    }
+
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    exclude 'META-INF/INDEX.LIST'
+}
+
+tasks.register('selfTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs dependency-free parser and local HTTP server smoke tests.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.tonikelope.jcefpoc.PocSelfTest'
+    jvmArgs '--add-modules=jdk.httpserver'
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('selfTest')
+}
+
+tasks.named('wrapper') {
+    gradleVersion = '9.8.2'
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+tasks.named('distZip') { enabled = false }
+tasks.named('distTar') { enabled = false }
+
+tasks.register('printBuildInfo') {
+    doLast {
+        println "targetPlatform=${targetPlatform}"
+        println "jcefMaven=${jcefMavenVersion}"
+        println "jcefNative=${jcefNativeVersion}"
+        println "libGDX=${gdxVersion}"
+        println "LWJGL=${lwjglVersion}"
+    }
+}

@@ -1,0 +1,14 @@
+# A YouTube URL or 11-character video identifier.
+video=M7lc1UVf-VE
+
+# Optional externally hosted HTTPS page. It must implement the same YouTube
+# IFrame API integration and accept a "video" query parameter. Leave blank to
+# use the built-in loopback HTTP server (the normal PoC mode).
+pageUrl=
+
+# Optional absolute directory for the extracted JCEF native bundle and cache.
+# jcefDir=C:\\path\\to\\jcef-poc-data
+
+# Initial browser texture size. The UI keeps a 16:9 ratio when resized.
+browserWidth=640
+browserHeight=360

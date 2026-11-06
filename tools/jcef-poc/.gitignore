@@ -1,0 +1,4 @@
+.gradle/
+build/
+jcef-poc.properties
+!gradle/wrapper/gradle-wrapper.jar

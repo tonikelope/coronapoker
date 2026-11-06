@@ -179,13 +179,26 @@
       if (!muteConfirmationPending || !target) return;
       if (desiredMuted) {
         if (target.mute) target.mute();
+        if (target.isMuted && !target.isMuted()) return;
       } else {
         if (target.unMute) target.unMute();
         if (target.setVolume) target.setVolume(desiredVolume);
+        if (target.isMuted && target.isMuted()) return;
       }
       muteConfirmationPending = false;
       audioStateTrusted = true;
       reportAudioState();
+      statusBox.className = 'hidden';
+    }
+
+    function monitorAudioState() {
+      if (!player || !ready) return;
+      if (muteConfirmationPending && player.getPlayerState
+          && player.getPlayerState() === 1) {
+        confirmAudioAfterPlayback(player);
+        return;
+      }
+      captureStableAudioState();
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -219,7 +232,6 @@
       player = new YT.Player('player', {
         width: '100%',
         height: '100%',
-        videoId: VIDEO_IDS[currentIndex],
         playerVars: {
           autoplay: 1,
           controls: 0,
@@ -234,20 +246,23 @@
           iv_load_policy: 3,
           fs: 0,
           origin: ORIGIN,
-          widget_referrer: ORIGIN,
-          start: START_SECONDS
+          widget_referrer: ORIGIN
         },
         events: {
           onReady: event => {
             ready = true;
-            statusBox.className = 'hidden';
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
             audioStateTrusted = false;
             muteConfirmationPending = true;
-            // Playback always enters Chromium muted. If this is a restoration
-            // of an audible session, it is unmuted exactly once after PLAYING.
+            // Mute the empty player before the first video is loaded. Loading
+            // it in the constructor lets Shorts paint an unmuted icon even
+            // though Chromium blocks its audio on the first JCEF session.
             if (event.target.mute) event.target.mute();
+            event.target.loadVideoById({
+              videoId: VIDEO_IDS[currentIndex],
+              startSeconds: START_SECONDS
+            });
             playVideo(event.target);
             reportIndex();
             report('READY', '1');
@@ -255,7 +270,6 @@
               ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
           },
           onStateChange: event => {
-            if (event.data === 1) statusBox.className = 'hidden';
             if (event.data === 1) {
               if (autoplayRetryTimer !== null) {
                 clearTimeout(autoplayRetryTimer);
@@ -296,7 +310,7 @@
     window.coronaReportPosition = reportPosition;
     window.coronaReportSession = reportSession;
     setInterval(reportPosition, 750);
-    setInterval(captureStableAudioState, 250);
+    setInterval(monitorAudioState, 250);
 
     setTimeout(() => {
       if (!ready) showError('No se pudo inicializar el reproductor. Comprueba la conexión.');

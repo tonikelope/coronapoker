@@ -150,6 +150,8 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "function confirmAudioAfterPlayback(target)"));
             assertTrue(response.body().contains(
+                    "function monitorAudioState()"));
+            assertTrue(response.body().contains(
                     "function captureStableAudioState()"));
             assertTrue(response.body().contains(
                     "!audioStateTrusted"));
@@ -161,6 +163,15 @@ class PokerVideoSearchTest {
                     "if (target.unMute) target.unMute();"));
             assertTrue(response.body().contains(
                     "if (target.setVolume) target.setVolume(desiredVolume);"));
+            int readyMute = response.body().indexOf(
+                    "if (event.target.mute) event.target.mute();");
+            int initialLoad = response.body().indexOf(
+                    "event.target.loadVideoById({");
+            assertTrue(readyMute >= 0 && initialLoad > readyMute,
+                    "The empty player must be muted before its first video");
+            assertFalse(response.body().contains(
+                    "videoId: VIDEO_IDS[currentIndex],\n"
+                    + "        playerVars:"));
             assertTrue(response.body().contains(
                     "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
                     + "      playVideo(player);"));
@@ -195,6 +206,8 @@ class PokerVideoSearchTest {
             assertTrue(body.contains("mute: 1"));
             assertTrue(body.contains(
                     "if (desiredMuted && target.mute) target.mute();"));
+            assertTrue(body.contains(
+                    "setInterval(monitorAudioState, 250)"));
             assertFalse(body.contains("RECOVER_AUDIO_PIPELINE"));
         }
 

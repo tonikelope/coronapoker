@@ -34,15 +34,12 @@ final class PokerVideoOverlay implements AutoCloseable {
     static final float INITIAL_WIDTH = MIN_WIDTH;
     static final float MAX_WIDTH = 520f;
     static final float HEADER_HEIGHT = 52f;
+    private static final float RESIZE_EDGE_HIT = 11f;
+    private static final float RESIZE_CORNER_HIT = 22f;
     private static final float SHORT_ASPECT = 9f / 16f;
     private static final float NORMAL_ASPECT = 16f / 9f;
-    private static final Color SHADOW = new Color(0x00000088);
-    private static final Color FRAME = new Color(
-            GdxUiDialogStyle.PANEL_RGBA);
     private static final Color HEADER = new Color(
             GdxSettingsStyle.PANEL_LIGHT_RGBA);
-    private static final Color LINE = new Color(
-            GdxSettingsStyle.LINE_RGBA);
     private static final Color GOLD = new Color(
             GdxSettingsStyle.GOLD_RGBA);
     private static final Color MUTED = new Color(
@@ -68,7 +65,6 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle previousBounds = new Rectangle();
     private final Rectangle nextBounds = new Rectangle();
     private final Rectangle closeBounds = new Rectangle();
-    private final Rectangle resizeBounds = new Rectangle();
     private volatile PokerVideoRuntime runtime;
     private Texture loadingSpade;
     private volatile String loadingState = "BUSCANDO SHORTS DE PÓKER";
@@ -100,8 +96,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float startWindowX;
     private float startWindowY;
     private float startWidth;
-    private float fixedTop;
-    private float fixedRight;
+    private ResizeHandle resizeHandle = ResizeHandle.NONE;
     private int pressedButtons;
     private PokerVideoIcon.Placement iconPlacement =
             PokerVideoIcon.Placement.MENU;
@@ -286,7 +281,6 @@ final class PokerVideoOverlay implements AutoCloseable {
         nextBounds.set(x + 53f, y + videoHeight + 7f, 40f, 38f);
         closeBounds.set(x + videoWidth - 48f, y + videoHeight + 7f,
                 40f, 38f);
-        resizeBounds.set(x, y, 44f, 44f);
     }
 
     void prepareFrame() {
@@ -300,20 +294,15 @@ final class PokerVideoOverlay implements AutoCloseable {
                     capture == Capture.ICON, 1f);
             return;
         }
-        shapes.setColor(SHADOW);
-        GdxAntialiasedRoundedRect.fill(shapes, x - 7f, y - 8f,
-                videoWidth + 14f, videoHeight + HEADER_HEIGHT + 15f, 22f);
-        GdxUiDialogStyle.drawPanel(shapes, panelBounds.x, panelBounds.y,
-                panelBounds.width, panelBounds.height, FRAME, LINE, 1f);
         shapes.setColor(Color.BLACK);
         shapes.rect(videoBounds.x, videoBounds.y,
                 videoBounds.width, videoBounds.height);
         shapes.setColor(HEADER);
-        GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x + 2f,
-                headerBounds.y + 2f, headerBounds.width - 4f,
-                headerBounds.height - 4f, 15f);
-        shapes.rect(headerBounds.x + 2f, headerBounds.y + 2f,
-                headerBounds.width - 4f, headerBounds.height / 2f);
+        GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x,
+                headerBounds.y, headerBounds.width,
+                headerBounds.height, 15f);
+        shapes.rect(headerBounds.x, headerBounds.y,
+                headerBounds.width, headerBounds.height / 2f);
         drawHeaderButton(shapes, pointer, previousBounds,
                 GdxUiButtonStyle.Tone.NEUTRAL, Capture.PREVIOUS, false);
         drawHeaderButton(shapes, pointer, nextBounds,
@@ -323,12 +312,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void drawForegroundShapes(ShapeRenderer shapes, Vector2 pointer) {
-        if (!hostVisible || minimized) return;
-        shapes.setColor(LINE);
-        GdxAntialiasedRoundedRect.outline(shapes, panelBounds.x + 1f,
-                panelBounds.y + 1f, panelBounds.width - 2f,
-                panelBounds.height - 2f, 17f, 2f);
-        drawResizeGrip(shapes, pointer);
+        // Resize hit areas are intentionally invisible. The system cursor is
+        // the only affordance, keeping the player free of frames and grips.
     }
 
     private void drawHeaderButton(ShapeRenderer shapes, Vector2 pointer,
@@ -360,21 +345,6 @@ final class PokerVideoOverlay implements AutoCloseable {
         shapes.setColor(color);
         shapes.rectLine(innerX, centerY + 8f, outerX, centerY, 3.2f);
         shapes.rectLine(outerX, centerY, innerX, centerY - 8f, 3.2f);
-    }
-
-    private void drawResizeGrip(ShapeRenderer shapes, Vector2 pointer) {
-        boolean highlighted = capture == Capture.RESIZE
-                || resizeBounds.contains(pointer);
-        shapes.setColor(HEADER);
-        shapes.triangle(resizeBounds.x, resizeBounds.y,
-                resizeBounds.x + 38f, resizeBounds.y,
-                resizeBounds.x, resizeBounds.y + 38f);
-        shapes.setColor(highlighted ? Color.WHITE : GOLD);
-        float left = resizeBounds.x + 5f;
-        float bottom = resizeBounds.y + 5f;
-        shapes.rectLine(left, bottom + 10f, left + 10f, bottom, 2.4f);
-        shapes.rectLine(left, bottom + 19f, left + 19f, bottom, 2.4f);
-        shapes.rectLine(left, bottom + 28f, left + 28f, bottom, 2.4f);
     }
 
     void drawContent(SpriteBatch batch, BitmapFont font, BitmapFont tinyFont,
@@ -455,6 +425,16 @@ final class PokerVideoOverlay implements AutoCloseable {
             return false;
         }
         if (button == Input.Buttons.LEFT) {
+            ResizeHandle hit = resizeHandleAt(panelBounds, pointerX, pointerY);
+            if (hit != ResizeHandle.NONE) {
+                capture(Capture.RESIZE, pointerIndex, button,
+                        pointerX, pointerY);
+                resizeHandle = hit;
+                startWindowX = x;
+                startWindowY = y;
+                startWidth = videoWidth;
+                return true;
+            }
             if (closeBounds.contains(pointerX, pointerY)) {
                 capture(Capture.CLOSE, pointerIndex, button,
                         pointerX, pointerY);
@@ -468,14 +448,6 @@ final class PokerVideoOverlay implements AutoCloseable {
             if (nextBounds.contains(pointerX, pointerY)) {
                 capture(Capture.NEXT, pointerIndex, button,
                         pointerX, pointerY);
-                return true;
-            }
-            if (resizeBounds.contains(pointerX, pointerY)) {
-                capture(Capture.RESIZE, pointerIndex, button,
-                        pointerX, pointerY);
-                startWidth = videoWidth;
-                fixedTop = y + videoHeight + HEADER_HEIGHT;
-                fixedRight = x + videoWidth;
                 return true;
             }
             Rectangle draggable = new Rectangle(headerBounds);
@@ -563,6 +535,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
             default -> { }
         }
+        resizeHandle = ResizeHandle.NONE;
         updateBounds();
         return true;
     }
@@ -575,6 +548,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             pressedButtons &= ~(1 << button);
         }
         capture = Capture.NONE;
+        resizeHandle = ResizeHandle.NONE;
         capturedPointer = -1;
         capturedButton = -1;
         return true;
@@ -586,14 +560,18 @@ final class PokerVideoOverlay implements AutoCloseable {
                     captureStartY, awtButton(capturedButton), 1);
         }
         capture = Capture.NONE;
+        resizeHandle = ResizeHandle.NONE;
         capturedPointer = -1;
         capturedButton = -1;
         pressedButtons = 0;
     }
 
     boolean mouseMoved(float pointerX, float pointerY) {
-        if (!hostVisible || minimized || !videoBounds.contains(pointerX,
-                pointerY)) return false;
+        if (!hostVisible || minimized) return false;
+        updateBounds();
+        if (resizeHandleAt(panelBounds, pointerX, pointerY)
+                != ResizeHandle.NONE) return true;
+        if (!videoBounds.contains(pointerX, pointerY)) return false;
         dispatchMouse(MouseEvent.MOUSE_MOVED, pointerX, pointerY,
                 MouseEvent.NOBUTTON, 0);
         return true;
@@ -612,20 +590,44 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private void resizeFrom(float pointerX, float pointerY) {
-        float horizontal = startWidth - (pointerX - captureStartX);
+        if (resizeHandle == ResizeHandle.NONE) return;
+        float deltaX = pointerX - captureStartX;
+        float deltaY = pointerY - captureStartY;
         float startHeight = startWidth / videoAspect;
-        float vertical = (startHeight - (pointerY - captureStartY))
-                * videoAspect;
-        float candidate = Math.abs(horizontal - startWidth)
-                >= Math.abs(vertical - startWidth) ? horizontal : vertical;
-        float maximum = Math.min(MAX_WIDTH, Math.min(fixedRight - 8f,
-                Math.max(MIN_WIDTH, (worldHeight - HEADER_HEIGHT - 16f)
-                        * videoAspect)));
+        float horizontal = resizeHandle.left() ? startWidth - deltaX
+                : resizeHandle.right() ? startWidth + deltaX : startWidth;
+        float vertical = resizeHandle.bottom()
+                ? (startHeight - deltaY) * videoAspect
+                : resizeHandle.top()
+                        ? (startHeight + deltaY) * videoAspect : startWidth;
+        float candidate;
+        if (resizeHandle.horizontal() && resizeHandle.vertical()) {
+            candidate = Math.abs(horizontal - startWidth)
+                    >= Math.abs(vertical - startWidth)
+                            ? horizontal : vertical;
+        } else {
+            candidate = resizeHandle.horizontal() ? horizontal : vertical;
+        }
+        float maximum = Math.min(MAX_WIDTH,
+                Math.min(Math.max(MIN_WIDTH, worldWidth - 16f),
+                        Math.max(MIN_WIDTH,
+                                (worldHeight - HEADER_HEIGHT - 16f)
+                                        * videoAspect)));
         videoWidth = MathUtils.clamp(candidate, MIN_WIDTH,
                 Math.max(MIN_WIDTH, maximum));
         videoHeight = videoWidth / videoAspect;
-        x = fixedRight - videoWidth;
-        y = fixedTop - videoHeight - HEADER_HEIGHT;
+        float startRight = startWindowX + startWidth;
+        float startTop = startWindowY + startHeight + HEADER_HEIGHT;
+        float startCenterX = startWindowX + startWidth / 2f;
+        float startCenterY = startWindowY
+                + (startHeight + HEADER_HEIGHT) / 2f;
+        float totalHeight = videoHeight + HEADER_HEIGHT;
+        x = resizeHandle.left() ? startRight - videoWidth
+                : resizeHandle.right() ? startWindowX
+                        : startCenterX - videoWidth / 2f;
+        y = resizeHandle.bottom() ? startTop - totalHeight
+                : resizeHandle.top() ? startWindowY
+                        : startCenterY - totalHeight / 2f;
         clampWindow();
         updateBounds();
         PokerVideoRuntime current = runtime;
@@ -757,13 +759,53 @@ final class PokerVideoOverlay implements AutoCloseable {
         return hostVisible;
     }
 
-    Cursor.SystemCursor systemCursor(float pointerX, float pointerY) {
-        if (hostVisible && !minimized
-                && (capture == Capture.RESIZE
-                        || resizeBounds.contains(pointerX, pointerY))) {
-            return Cursor.SystemCursor.NESWResize;
+    static ResizeHandle resizeHandleAt(Rectangle bounds, float pointerX,
+            float pointerY) {
+        if (bounds == null || !bounds.contains(pointerX, pointerY)) {
+            return ResizeHandle.NONE;
         }
-        return Cursor.SystemCursor.Arrow;
+        float left = pointerX - bounds.x;
+        float right = bounds.x + bounds.width - pointerX;
+        float bottom = pointerY - bounds.y;
+        float top = bounds.y + bounds.height - pointerY;
+        boolean nearLeft = left <= RESIZE_EDGE_HIT;
+        boolean nearRight = right <= RESIZE_EDGE_HIT;
+        boolean nearBottom = bottom <= RESIZE_EDGE_HIT;
+        boolean nearTop = top <= RESIZE_EDGE_HIT;
+        if ((nearLeft && bottom <= RESIZE_CORNER_HIT)
+                || (nearBottom && left <= RESIZE_CORNER_HIT)) {
+            return ResizeHandle.BOTTOM_LEFT;
+        }
+        if ((nearRight && bottom <= RESIZE_CORNER_HIT)
+                || (nearBottom && right <= RESIZE_CORNER_HIT)) {
+            return ResizeHandle.BOTTOM_RIGHT;
+        }
+        if ((nearLeft && top <= RESIZE_CORNER_HIT)
+                || (nearTop && left <= RESIZE_CORNER_HIT)) {
+            return ResizeHandle.TOP_LEFT;
+        }
+        if ((nearRight && top <= RESIZE_CORNER_HIT)
+                || (nearTop && right <= RESIZE_CORNER_HIT)) {
+            return ResizeHandle.TOP_RIGHT;
+        }
+        if (nearLeft) return ResizeHandle.LEFT;
+        if (nearRight) return ResizeHandle.RIGHT;
+        if (nearBottom) return ResizeHandle.BOTTOM;
+        if (nearTop) return ResizeHandle.TOP;
+        return ResizeHandle.NONE;
+    }
+
+    Cursor.SystemCursor systemCursor(float pointerX, float pointerY) {
+        if (!hostVisible || minimized) return Cursor.SystemCursor.Arrow;
+        ResizeHandle hovered = capture == Capture.RESIZE ? resizeHandle
+                : resizeHandleAt(panelBounds, pointerX, pointerY);
+        return switch (hovered) {
+            case LEFT, RIGHT -> Cursor.SystemCursor.HorizontalResize;
+            case TOP, BOTTOM -> Cursor.SystemCursor.VerticalResize;
+            case BOTTOM_LEFT, TOP_RIGHT -> Cursor.SystemCursor.NESWResize;
+            case TOP_LEFT, BOTTOM_RIGHT -> Cursor.SystemCursor.NWSEResize;
+            case NONE -> Cursor.SystemCursor.Arrow;
+        };
     }
 
     @Override
@@ -778,5 +820,54 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private enum Capture {
         NONE, ICON, CLOSE, PREVIOUS, NEXT, MOVE, RESIZE, VIDEO
+    }
+
+    enum ResizeHandle {
+        NONE(false, false, false, false),
+        LEFT(true, false, false, false),
+        RIGHT(false, true, false, false),
+        BOTTOM(false, false, true, false),
+        TOP(false, false, false, true),
+        BOTTOM_LEFT(true, false, true, false),
+        BOTTOM_RIGHT(false, true, true, false),
+        TOP_LEFT(true, false, false, true),
+        TOP_RIGHT(false, true, false, true);
+
+        private final boolean left;
+        private final boolean right;
+        private final boolean bottom;
+        private final boolean top;
+
+        ResizeHandle(boolean left, boolean right, boolean bottom,
+                boolean top) {
+            this.left = left;
+            this.right = right;
+            this.bottom = bottom;
+            this.top = top;
+        }
+
+        boolean left() {
+            return left;
+        }
+
+        boolean right() {
+            return right;
+        }
+
+        boolean bottom() {
+            return bottom;
+        }
+
+        boolean top() {
+            return top;
+        }
+
+        boolean horizontal() {
+            return left || right;
+        }
+
+        boolean vertical() {
+            return bottom || top;
+        }
     }
 }

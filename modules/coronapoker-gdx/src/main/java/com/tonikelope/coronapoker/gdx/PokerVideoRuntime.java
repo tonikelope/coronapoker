@@ -258,7 +258,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (request.startsWith("READY|")) {
             playerReady = true;
             synchronizeBrowserPlaylist();
-            state = "REPRODUCIENDO EN SILENCIO";
+            state = resumeMuted ? "REPRODUCIENDO EN SILENCIO"
+                    : "REPRODUCIENDO CON AUDIO";
             return true;
         }
         if (request.startsWith("STATE|")) {

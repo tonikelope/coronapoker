@@ -142,6 +142,15 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "function playWithDesiredAudio(target)"));
             assertTrue(response.body().contains(
+                    "function cancelAudioRestore()"));
+            assertTrue(response.body().contains(
+                    "const delays = [60, 220, 650, 1500]"));
+            assertTrue(response.body().contains(
+                    "restoreAudioState(target, !pipelineReset && !desiredMuted)"));
+            assertTrue(response.body().contains(
+                    "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
+                    + "      playWithDesiredAudio(player);"));
+            assertTrue(response.body().contains(
                     "window.coronaSelectRelative = selectRelative"));
             assertTrue(response.body().contains(
                     "window.coronaReplaceVideos = function (ids)"));
@@ -188,6 +197,30 @@ class PokerVideoSearchTest {
         assertEquals(1478.5f, lobby.x);
         assertEquals(61f, lobby.y);
         assertEquals(60f, lobby.width);
+    }
+
+    @Test
+    void everyVideoWindowEdgeAndCornerIsAResizeHandle() {
+        Rectangle frame = new Rectangle(100f, 100f, 300f, 500f);
+
+        assertEquals(PokerVideoOverlay.ResizeHandle.LEFT,
+                PokerVideoOverlay.resizeHandleAt(frame, 105f, 300f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.RIGHT,
+                PokerVideoOverlay.resizeHandleAt(frame, 395f, 300f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.BOTTOM,
+                PokerVideoOverlay.resizeHandleAt(frame, 250f, 105f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.TOP,
+                PokerVideoOverlay.resizeHandleAt(frame, 250f, 595f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.BOTTOM_LEFT,
+                PokerVideoOverlay.resizeHandleAt(frame, 105f, 105f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.BOTTOM_RIGHT,
+                PokerVideoOverlay.resizeHandleAt(frame, 395f, 105f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.TOP_LEFT,
+                PokerVideoOverlay.resizeHandleAt(frame, 105f, 595f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.TOP_RIGHT,
+                PokerVideoOverlay.resizeHandleAt(frame, 395f, 595f));
+        assertEquals(PokerVideoOverlay.ResizeHandle.NONE,
+                PokerVideoOverlay.resizeHandleAt(frame, 250f, 300f));
     }
 
     @Test

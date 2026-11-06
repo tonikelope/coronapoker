@@ -37,7 +37,9 @@
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
-    let audioRestoreTimer = null;
+    let audioRestoreTimers = [];
+    let audioRestoreGeneration = 0;
+    let audioGuardUntil = 0;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -65,21 +67,18 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      // Capture only a stable user-selected state. During a previous load the
-      // player is muted temporarily; reading that transient mute here made a
-      // rapid second Next/Previous permanently overwrite the desired audio.
+      // Capture only a stable user-selected state. A blocked-autoplay fallback
+      // may be muted temporarily; that transient state must never overwrite
+      // the desired audio during rapid Next/Previous requests.
       reportAudio();
+      cancelAudioRestore();
       restoredAudioPending = true;
-      if (audioRestoreTimer !== null) {
-        clearTimeout(audioRestoreTimer);
-        audioRestoreTimer = null;
-      }
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      if (player.mute) player.mute();
       player.loadVideoById(VIDEO_IDS[currentIndex]);
+      playWithDesiredAudio(player);
       reportIndex();
     }
 
@@ -140,35 +139,73 @@
       }, 100);
     }
 
-    function restoreAudioState(target) {
+    function restoreAudioState(target, resetPipeline) {
       if (!target) return;
       if (target.setVolume) target.setVolume(desiredVolume);
       if (desiredMuted) {
         if (target.mute) target.mute();
-      } else if (target.unMute) {
-        target.unMute();
+      } else {
+        // YouTube can expose the unmuted icon while Chromium's media pipeline
+        // is still silent after a load/visibility change. Cycling mute once is
+        // the programmatic equivalent of the manual mute/unmute workaround.
+        if (resetPipeline && target.mute) {
+          target.mute();
+          setTimeout(() => {
+            if (desiredMuted) return;
+            if (target.setVolume) target.setVolume(desiredVolume);
+            if (target.unMute) target.unMute();
+            if (target.setVolume) target.setVolume(desiredVolume);
+          }, 45);
+          return;
+        }
+        if (target.unMute) target.unMute();
+        if (target.setVolume) target.setVolume(desiredVolume);
       }
     }
 
+    function cancelAudioRestore() {
+      audioRestoreGeneration += 1;
+      audioRestoreTimers.forEach(timer => clearTimeout(timer));
+      audioRestoreTimers = [];
+    }
+
     function scheduleAudioRestore(target) {
-      if (!restoredAudioPending || !target) return;
-      if (audioRestoreTimer !== null) clearTimeout(audioRestoreTimer);
+      if (!target) return;
+      cancelAudioRestore();
+      restoredAudioPending = true;
+      audioGuardUntil = Date.now() + 2600;
+      const generation = audioRestoreGeneration;
       const expectedVideoId = VIDEO_IDS[currentIndex];
-      audioRestoreTimer = setTimeout(() => {
-        audioRestoreTimer = null;
-        if (!restoredAudioPending || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
-        const data = target.getVideoData ? target.getVideoData() : null;
-        if (data && data.video_id && data.video_id !== expectedVideoId) return;
-        restoreAudioState(target);
-        restoredAudioPending = false;
-        setTimeout(reportAudio, 150);
-      }, 80);
+      let pipelineReset = false;
+      const delays = [60, 220, 650, 1500];
+      delays.forEach((delay, index) => {
+        const timer = setTimeout(() => {
+          if (generation !== audioRestoreGeneration
+              || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
+          const data = target.getVideoData ? target.getVideoData() : null;
+          if (data && data.video_id && data.video_id !== expectedVideoId) return;
+          restoreAudioState(target, !pipelineReset && !desiredMuted);
+          pipelineReset = true;
+          if (index === delays.length - 1) {
+            restoredAudioPending = false;
+            reportDesiredAudio();
+            setTimeout(reportAudio, 180);
+          }
+        }, delay);
+        audioRestoreTimers.push(timer);
+      });
     }
 
     function reportAudio() {
       if (!player || !ready || restoredAudioPending) return;
       const muted = player.isMuted && player.isMuted() ? 1 : 0;
       const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
+      if (Date.now() < audioGuardUntil
+          && ((muted !== 0) !== desiredMuted || volume !== desiredVolume)) {
+        restoreAudioState(player, !desiredMuted && muted !== 0);
+        reportDesiredAudio();
+        return;
+      }
       desiredMuted = muted !== 0;
       desiredVolume = Math.max(0, Math.min(100, volume));
       report('AUDIO', muted + ':' + desiredVolume);
@@ -185,13 +222,17 @@
         autoplayRetryTimer = null;
       }
       restoredAudioPending = true;
-      if (target.mute) target.mute();
+      restoreAudioState(target, false);
       if (target.playVideo) target.playVideo();
+      scheduleAudioRestore(target);
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
+        // Only the blocked-autoplay fallback is started muted. As soon as it
+        // plays, the convergence pass restores the user's intended state.
         if (target.mute) target.mute();
         if (target.playVideo) target.playVideo();
+        scheduleAudioRestore(target);
       }, 350);
     }
 

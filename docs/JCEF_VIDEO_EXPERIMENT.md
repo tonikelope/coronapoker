@@ -33,12 +33,13 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   barra propia de CoronaPoker muestra el título del resultado, anterior,
   siguiente y cerrar.
 - La ventana conserva posición y tamaño entre Principal y Sala de espera. Es
-  arrastrable y redimensionable en formato vertical 9:16; el tirador inferior
-  se pinta por encima del vídeo y cambia el cursor para hacer visible esa
-  posibilidad. Su tamaño inicial compacto corresponde al mínimo de la ventana
+  arrastrable y redimensionable manteniendo el formato del vídeo; los cuatro
+  bordes y las cuatro esquinas aceptan el gesto y muestran el cursor adecuado,
+  aunque las zonas son invisibles. No se dibujan marco, sombra ni tirador de
+  esquina. Su tamaño inicial compacto corresponde al mínimo de la ventana
   y escala con el `FitViewport` 1920x1080, por lo que conserva la misma
-  proporción visual en 1080p, 1440p y 2160p. El marco usa un borde oscuro
-  discreto, sin la franja cian. En la sala el icono queda elevado por encima
+  proporción visual en 1080p, 1440p y 2160p. En la sala el icono queda elevado
+  por encima
   de los controles inferiores y su hover está recortado al propio botón. En
   principal y sala el icono tiene el mismo tamaño que el botón de sonido y se
   sitúa inmediatamente a su izquierda.
@@ -56,8 +57,9 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
 - Los cambios rápidos con anterior/siguiente conservan el último estado de
-  audio elegido: el mute temporal de carga no puede sobrescribirlo y solo el
-  último vídeo solicitado puede restaurar volumen y silencio.
+  audio elegido. Tras cada carga, el reproductor reconcilia varias veces
+  volumen y mute; si YouTube muestra sonido activo con la tubería todavía muda,
+  fuerza una única secuencia mute/desmute para recuperar la salida real.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

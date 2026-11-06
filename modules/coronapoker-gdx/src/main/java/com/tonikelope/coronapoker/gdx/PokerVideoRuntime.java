@@ -73,6 +73,12 @@ final class PokerVideoRuntime implements AutoCloseable {
             String language, int width, int height, double scaleFactor) {
         PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer,
                 language);
+        if (!PokerVideoPlatformSupport.isAvailable()) {
+            runtime.initializationError = "JCEF no está disponible para "
+                    + "esta plataforma o este artefacto";
+            runtime.state = "REPRODUCTOR NO DISPONIBLE";
+            return runtime;
+        }
         try {
             runtime.initializeInternal(dataDirectory, width, height,
                     scaleFactor);
@@ -98,6 +104,10 @@ final class PokerVideoRuntime implements AutoCloseable {
         CefAppBuilder builder = new CefAppBuilder();
         builder.setInstallDir(nativeDirectory.toFile());
         builder.addJcefArgs("--use-alloy-style");
+        // This isolated browser exists only for the user-enabled poker-video
+        // overlay. Allow it to resume after its resources have been released
+        // while minimized, even when the saved audio state was unmuted.
+        builder.addJcefArgs("--autoplay-policy=no-user-gesture-required");
         CefSettings settings = builder.getCefSettings();
         settings.windowless_rendering_enabled = true;
         settings.root_cache_path = cacheRoot.toAbsolutePath().toString();

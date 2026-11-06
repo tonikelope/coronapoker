@@ -18,16 +18,18 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.cef.browser.LibGdxCefBrowser;
 
 /** Floating, draggable video window shown only by the menu and waiting room. */
 final class PokerVideoOverlay implements AutoCloseable {
 
-    static final float INITIAL_WIDTH = 320f;
     static final float MIN_WIDTH = 260f;
+    static final float INITIAL_WIDTH = MIN_WIDTH;
     static final float MAX_WIDTH = 520f;
     static final float HEADER_HEIGHT = 52f;
     static final float ICON_SIZE = 58f;
@@ -44,6 +46,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private static final Color MUTED = new Color(
             GdxSettingsStyle.MUTED_RGBA);
 
+    private final Consumer<Boolean> featurePreferenceChanged;
     private final PokerVideoFrameBuffer frameBuffer =
             new PokerVideoFrameBuffer();
     private final ExecutorService initializer =
@@ -93,15 +96,41 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float fixedRight;
     private int pressedButtons;
 
-    void update(boolean enabled, boolean visible, String language,
+    PokerVideoOverlay(Consumer<Boolean> featurePreferenceChanged) {
+        this.featurePreferenceChanged = Objects.requireNonNull(
+                featurePreferenceChanged, "featurePreferenceChanged");
+    }
+
+    void update(boolean available, boolean enabled, boolean visible,
+            String language,
             float width, float height) {
         worldWidth = width;
         worldHeight = height;
+        if (!available) {
+            featureEnabled = false;
+            minimized = true;
+            hostVisible = false;
+            PokerVideoRuntime current = runtime;
+            if (current != null && current.browser() != null) {
+                releaseBrowserSession();
+            }
+            cancelHiddenCapture();
+            browserFocused = false;
+            updateBounds();
+            return;
+        }
+        boolean wasEnabled = featureEnabled;
         featureEnabled = enabled;
+        if (!enabled) {
+            minimized = true;
+        } else if (!wasEnabled) {
+            minimized = false;
+        }
         ensurePosition();
-        hostVisible = enabled && visible && !releasedForTable;
-        if (hostVisible && !initializationStarted) start(language);
-        boolean shouldRun = hostVisible && !minimized && !releasedForTable;
+        hostVisible = visible && !releasedForTable;
+        if (hostVisible && enabled && !initializationStarted) start(language);
+        boolean shouldRun = hostVisible && enabled && !minimized
+                && !releasedForTable;
         PokerVideoRuntime current = runtime;
         if (current != null && !enabled && current.browser() != null) {
             releaseBrowserSession();
@@ -447,6 +476,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             case ICON -> {
                 if (iconBounds.contains(pointerX, pointerY)) {
                     minimized = false;
+                    featurePreferenceChanged.accept(true);
                     clampWindow();
                     restoreBrowserSession();
                 }
@@ -454,6 +484,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             case CLOSE -> {
                 if (closeBounds.contains(pointerX, pointerY)) {
                     minimized = true;
+                    featurePreferenceChanged.accept(false);
                     blurBrowser();
                     releaseBrowserSession();
                 }

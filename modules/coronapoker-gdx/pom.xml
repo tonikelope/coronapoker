@@ -15,9 +15,6 @@
         <coronapoker.gdx.excludedGroups>certification</coronapoker.gdx.excludedGroups>
         <jcefmaven.version>152.0.6</jcefmaven.version>
         <jcef.natives.version>jcef-17e805a+cef-152.0.6+g708dc14+chromium-152.0.7977.83</jcef.natives.version>
-        <!-- Overridden by the host profiles below. The experimental Windows
-        build remains deterministic when Maven cannot identify an OS profile. -->
-        <jcef.natives.artifact>jcef-natives-windows-amd64</jcef.natives.artifact>
     </properties>
 
     <dependencies>
@@ -41,12 +38,6 @@
             <groupId>me.friwi</groupId>
             <artifactId>jcefmaven</artifactId>
             <version>${jcefmaven.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>me.friwi</groupId>
-            <artifactId>${jcef.natives.artifact}</artifactId>
-            <version>${jcef.natives.version}</version>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.badlogicgames.gdx</groupId>
@@ -149,6 +140,7 @@
                                         <SplashScreen-Image>images/splash.gif</SplashScreen-Image>
                                         <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                                         <Add-Exports>java.base/java.lang java.desktop/sun.awt java.desktop/sun.java2d</Add-Exports>
+                                        <Add-Opens>java.desktop/sun.awt java.desktop/sun.lwawt java.desktop/sun.lwawt.macosx</Add-Opens>
                                         <CoronaPoker-Visual-Reference>627c71e4f</CoronaPoker-Visual-Reference>
                                     </manifestEntries>
                                 </transformer>
@@ -195,36 +187,70 @@
             <activation>
                 <os><family>Windows</family><arch>amd64</arch></os>
             </activation>
-            <properties>
-                <jcef.natives.artifact>jcef-natives-windows-amd64</jcef.natives.artifact>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>me.friwi</groupId>
+                    <artifactId>jcef-natives-windows-amd64</artifactId>
+                    <version>${jcef.natives.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>jcef-linux-amd64</id>
             <activation>
                 <os><name>Linux</name><arch>amd64</arch></os>
             </activation>
-            <properties>
-                <jcef.natives.artifact>jcef-natives-linux-amd64</jcef.natives.artifact>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>me.friwi</groupId>
+                    <artifactId>jcef-natives-linux-amd64</artifactId>
+                    <version>${jcef.natives.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>jcef-linux-arm64</id>
+            <activation>
+                <os><name>Linux</name><arch>aarch64</arch></os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>me.friwi</groupId>
+                    <artifactId>jcef-natives-linux-arm64</artifactId>
+                    <version>${jcef.natives.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>jcef-macos-amd64</id>
             <activation>
                 <os><family>mac</family><arch>amd64</arch></os>
             </activation>
-            <properties>
-                <jcef.natives.artifact>jcef-natives-macosx-amd64</jcef.natives.artifact>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>me.friwi</groupId>
+                    <artifactId>jcef-natives-macosx-amd64</artifactId>
+                    <version>${jcef.natives.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>jcef-macos-arm64</id>
             <activation>
                 <os><family>mac</family><arch>aarch64</arch></os>
             </activation>
-            <properties>
-                <jcef.natives.artifact>jcef-natives-macosx-arm64</jcef.natives.artifact>
-            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>me.friwi</groupId>
+                    <artifactId>jcef-natives-macosx-arm64</artifactId>
+                    <version>${jcef.natives.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>card-render-lab</id>

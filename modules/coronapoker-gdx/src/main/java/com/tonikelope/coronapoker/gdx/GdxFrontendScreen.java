@@ -811,7 +811,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "secureRandom");
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
-        pokerVideoOverlay = new PokerVideoOverlay();
+        pokerVideoOverlay = new PokerVideoOverlay(
+                this::setPokerVideoPreference);
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
         customBotRandomSelection = CustomBotProfileCatalog
@@ -1275,8 +1276,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
-        pokerVideoOverlay.update(
-                preferenceBoolean(GdxSettingsContract.POKER_VIDEOS_KEY, true),
+        boolean pokerVideosAvailable =
+                PokerVideoPlatformSupport.isAvailable();
+        pokerVideoOverlay.update(pokerVideosAvailable,
+                pokerVideosAvailable && preferenceBoolean(
+                        GdxSettingsContract.POKER_VIDEOS_KEY, true),
                 (surface == Surface.MENU || surface == Surface.LOBBY)
                         && !lobbyLoadingOverlay
                         && !hasBlockingFrontendModal(),
@@ -10617,6 +10621,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean preferenceBoolean(String key, boolean fallback) {
         return Boolean.parseBoolean(initialProperties.getProperty(key,
                 Boolean.toString(fallback)));
+    }
+
+    private void setPokerVideoPreference(boolean enabled) {
+        String value = Boolean.toString(enabled);
+        if (value.equals(initialProperties.getProperty(
+                GdxSettingsContract.POKER_VIDEOS_KEY))) return;
+        initialProperties.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY,
+                value);
+        presentationSettings.refreshRuntimePreferences();
+        preferences.saveDeferred();
     }
 
     private double preferenceDouble(String key, double fallback) {

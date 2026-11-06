@@ -351,7 +351,8 @@ final class GdxSettingsContract {
                     Gate.NONE),
             option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
                     Gate.NONE));
-    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
+    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE =
+            withoutUnavailablePokerVideo(page(
             "ANIMACIONES Y EFECTOS",
             option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
@@ -392,7 +393,7 @@ final class GdxSettingsContract {
             option("animacion_efecto_ganador", "EFECTO DE GANADOR", true,
                     Gate.ANIMATIONS),
             option("animacion_apuestas", "FICHAS VOLADORAS", true,
-                    Gate.ANIMATIONS));
+                    Gate.ANIMATIONS)));
 
     private static final List<Integer> VOICE_RETENTION_DAYS = List.of(
             7, 15, 30, 90, 0);
@@ -566,7 +567,8 @@ final class GdxSettingsContract {
      * switch that owns it instead of being collected in a detached block.
      */
     private static final List<AppearanceAnimationRow>
-            APPEARANCE_ANIMATION_ROWS = List.of(
+            APPEARANCE_ANIMATION_ROWS = withoutUnavailablePokerVideoRows(
+                    List.of(
                     animationToggle("animaciones"),
                     animationToggle(POKER_VIDEOS_KEY),
                     animationToggle(HALO_EFFECT_KEY),
@@ -591,7 +593,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_contador_final"),
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
-                    animationToggle("animacion_apuestas"));
+                    animationToggle("animacion_apuestas")));
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -664,6 +666,23 @@ final class GdxSettingsContract {
             AUTO_REBUY_KEY);
 
     private GdxSettingsContract() {
+    }
+
+    private static TogglePage withoutUnavailablePokerVideo(TogglePage page) {
+        if (PokerVideoPlatformSupport.isAvailable()) return page;
+        return new TogglePage(page.title(), page.options().stream()
+                .filter(option -> !POKER_VIDEOS_KEY.equals(option.key()))
+                .toList());
+    }
+
+    private static List<AppearanceAnimationRow>
+            withoutUnavailablePokerVideoRows(
+                    List<AppearanceAnimationRow> rows) {
+        if (PokerVideoPlatformSupport.isAvailable()) return rows;
+        return rows.stream()
+                .filter(row -> row.toggle() == null
+                        || !POKER_VIDEOS_KEY.equals(row.toggle().key()))
+                .toList();
     }
 
     static String controlSettingKey(int row) {

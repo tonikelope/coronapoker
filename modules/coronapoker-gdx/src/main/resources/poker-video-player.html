@@ -34,6 +34,7 @@
     let desiredVolume = INITIAL_VOLUME;
     const failedVideoIds = new Set();
     let skipTimer = null;
+    let autoplayRetryTimer = null;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -59,8 +60,8 @@
       desiredMuted = player.isMuted ? player.isMuted() : desiredMuted;
       desiredVolume = player.getVolume ? player.getVolume() : desiredVolume;
       restoredAudioPending = true;
+      if (player.mute) player.mute();
       player.loadVideoById(VIDEO_IDS[currentIndex]);
-      restoreAudioState(player);
       report('INDEX', currentIndex);
     }
 
@@ -100,7 +101,7 @@
     }
 
     function reportAudio() {
-      if (!player || !ready) return;
+      if (!player || !ready || restoredAudioPending) return;
       const muted = player.isMuted && player.isMuted() ? 1 : 0;
       const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
       desiredMuted = muted !== 0;
@@ -112,10 +113,27 @@
       report('AUDIO', (desiredMuted ? 1 : 0) + ':' + desiredVolume);
     }
 
+    function playWithDesiredAudio(target) {
+      if (!target) return;
+      if (autoplayRetryTimer !== null) {
+        clearTimeout(autoplayRetryTimer);
+        autoplayRetryTimer = null;
+      }
+      restoredAudioPending = true;
+      if (target.mute) target.mute();
+      if (target.playVideo) target.playVideo();
+      autoplayRetryTimer = setTimeout(() => {
+        autoplayRetryTimer = null;
+        if (target.getPlayerState && target.getPlayerState() === 1) return;
+        if (target.mute) target.mute();
+        if (target.playVideo) target.playVideo();
+      }, 350);
+    }
+
     window.coronaSelectVideo = selectVideo;
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
-      if (active) player.playVideo();
+      if (active) playWithDesiredAudio(player);
       else player.pauseVideo();
     };
 
@@ -126,7 +144,8 @@
         videoId: VIDEO_IDS[currentIndex],
         playerVars: {
           autoplay: 1,
-          controls: 1,
+          controls: 0,
+          disablekb: 1,
           enablejsapi: 1,
           playsinline: 1,
           rel: 0,
@@ -144,8 +163,7 @@
           onReady: event => {
             ready = true;
             statusBox.className = 'hidden';
-            restoreAudioState(event.target);
-            event.target.playVideo();
+            playWithDesiredAudio(event.target);
             report('INDEX', currentIndex);
             reportDesiredAudio();
             report('READY', '1');
@@ -155,6 +173,10 @@
           onStateChange: event => {
             if (event.data === 1) statusBox.className = 'hidden';
             if (event.data === 1 && restoredAudioPending) {
+              if (autoplayRetryTimer !== null) {
+                clearTimeout(autoplayRetryTimer);
+                autoplayRetryTimer = null;
+              }
               restoreAudioState(event.target);
               restoredAudioPending = false;
               setTimeout(reportAudio, 150);
@@ -173,7 +195,9 @@
             };
             showError(errors[event.data] || ('El reproductor devolvió el error ' + event.data + '.'));
           },
-          onAutoplayBlocked: () => report('STATE', 'AUTOPLAY BLOQUEADO; PULSA PLAY')
+          onAutoplayBlocked: () => {
+            report('STATE', 'REPRODUCCIÓN AUTOMÁTICA BLOQUEADA');
+          }
         }
       });
     };

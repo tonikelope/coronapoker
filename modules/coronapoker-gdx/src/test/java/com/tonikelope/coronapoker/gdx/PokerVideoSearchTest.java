@@ -2,12 +2,14 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -87,6 +89,10 @@ class PokerVideoSearchTest {
                     "function skipUnavailable(errorCode)"));
             assertTrue(response.body().contains(
                     "[2, 5, 100, 101, 150]"));
+            assertTrue(response.body().contains("controls: 0"));
+            assertTrue(response.body().contains("disablekb: 1"));
+            assertTrue(response.body().contains(
+                    "function playWithDesiredAudio(target)"));
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());
@@ -94,15 +100,54 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void pokerVideoPreferenceIsVisibleAndDefaultsOn() {
+    void pokerVideoPreferenceTracksPlatformAvailabilityAndDefaultsOn() {
         var page = GdxSettingsContract.appearanceTogglePage(1);
         var option = page.options().stream()
                 .filter(candidate -> GdxSettingsContract.POKER_VIDEOS_KEY
                         .equals(candidate.key()))
-                .findFirst().orElseThrow();
+                .findFirst();
 
-        assertTrue(option.fallback());
+        assertEquals(PokerVideoPlatformSupport.isAvailable(),
+                option.isPresent());
+        option.ifPresent(candidate -> assertTrue(candidate.fallback()));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 GdxSettingsContract.POKER_VIDEOS_KEY));
+    }
+
+    @Test
+    void overlayStartsAtItsCompactProportionalSize() {
+        assertEquals(PokerVideoOverlay.MIN_WIDTH,
+                PokerVideoOverlay.INITIAL_WIDTH);
+    }
+
+    @Test
+    void disabledOverlayKeepsAnIconThatPersistsEnableAndCloseActions() {
+        List<Boolean> preferenceChanges = new ArrayList<>();
+        try (PokerVideoOverlay overlay =
+                new PokerVideoOverlay(preferenceChanges::add)) {
+            overlay.update(true, false, true, "es", 1920f, 1080f);
+
+            assertTrue(overlay.hostVisible());
+            assertTrue(overlay.touchDown(1867f, 121f, 0, 0));
+            assertTrue(overlay.touchUp(1867f, 121f, 0, 0));
+            assertEquals(List.of(true), preferenceChanges);
+
+            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
+            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
+            assertEquals(List.of(true, false), preferenceChanges);
+        }
+    }
+
+    @Test
+    void unavailablePlatformShowsNothingAndAcceptsNoIconInput() {
+        List<Boolean> preferenceChanges = new ArrayList<>();
+        try (PokerVideoOverlay overlay =
+                new PokerVideoOverlay(preferenceChanges::add)) {
+            overlay.update(false, true, true, "es", 1920f, 1080f);
+
+            assertFalse(overlay.hostVisible());
+            assertFalse(overlay.touchDown(1867f, 121f, 0, 0));
+            assertTrue(preferenceChanges.isEmpty());
+        }
     }
 }

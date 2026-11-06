@@ -57,7 +57,6 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile int resumeVolume = 100;
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
-    private int openedBrowserSessions;
     private volatile String pageUrl;
     private volatile String refererOrigin;
 
@@ -137,11 +136,8 @@ final class PokerVideoRuntime implements AutoCloseable {
     private synchronized void openBrowserSession(int width, int height,
             double scaleFactor) throws Exception {
         if (browser != null || browserClosing || closed.get()) return;
-        boolean recoverAudioPipeline = openedBrowserSessions > 0
-                && !resumeMuted;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds, resumeMuted, resumeVolume, playerLanguage,
-                recoverAudioPipeline);
+                resumeSeconds, resumeMuted, resumeVolume, playerLanguage);
         browserPlaylistRevision = playlistRevision;
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
@@ -152,7 +148,6 @@ final class PokerVideoRuntime implements AutoCloseable {
         frameBuffer.setAcceptingFrames(true);
         browser.createImmediately();
         browser.resizeBrowser(width, height, scaleFactor);
-        openedBrowserSessions++;
         active = true;
     }
 

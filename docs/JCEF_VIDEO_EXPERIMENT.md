@@ -57,12 +57,12 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
   correspondía.
-- Cada ejecución nueva empieza silenciada. Los cambios de vídeo nunca fuerzan
-  un mute intermedio: volumen y silencio se aplican de forma idempotente al
-  preparar y empezar la reproducción. El estado elegido se conserva durante la
-  sesión. Solo al recrear el navegador con audio previamente activo se ejecuta
-  una única recuperación mute/desmute de 45 ms para rearmar la salida de
-  Chromium, sin repetirla en el arranque ni en cada vídeo.
+- Cada ejecución nueva empieza silenciada. El estado elegido se conserva
+  durante la sesión. Cuando un vídeo que debía sonar alcanza realmente el
+  estado `PLAYING`, se rearma una sola vez su canal OSR con una transición
+  cancelable mute/espera/desmute. La espera evita el falso estado de YouTube
+  donde el icono aparece con sonido pero Chromium todavía no emite audio; al
+  cambiar rápidamente, la transición anterior queda anulada.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

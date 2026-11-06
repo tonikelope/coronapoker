@@ -115,7 +115,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private Texture loadingSpade;
     private ShaderProgram bottomCornerShader;
     private boolean bottomCornerShaderUnavailable;
-    private volatile String loadingState = "BUSCANDO SHORTS DE PÓKER";
+    private volatile String loadingState = "BUSCANDO VÍDEOS";
     private volatile String loadingError;
     private boolean initializationStarted;
     private volatile boolean featureEnabled;
@@ -239,9 +239,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         long generation = initializationGeneration.incrementAndGet();
         initializer.submit(() -> {
             try {
-                loadingState = PokerVideoSearch.TYPE_SHORTS.equals(videoType)
-                        ? "BUSCANDO SHORTS DE PÓKER"
-                        : "BUSCANDO VÍDEOS DE PÓKER";
+                loadingState = "BUSCANDO VÍDEOS";
                 var videos = PokerVideoSearch.shuffled(
                         PokerVideoSearch.fetch(language, videoType),
                         ThreadLocalRandom.current());

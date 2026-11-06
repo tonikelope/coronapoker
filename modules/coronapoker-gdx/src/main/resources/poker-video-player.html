@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <div id="status">Buscando vídeos de póker…</div>
+  <div id="status">Buscando vídeos…</div>
   <div id="player"></div>
   <script>
     'use strict';
@@ -31,18 +31,19 @@
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
-    const RECOVER_AUDIO_PIPELINE = @@RECOVER_AUDIO_PIPELINE@@;
-    let audioSyncPending = true;
+    const AUDIO_REOPEN_DELAY_MS = 600;
+    let audioTransitionPending = true;
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
     let lastReportedMuted = null;
     let lastReportedVolume = null;
-    let pipelineRecoveryPending = RECOVER_AUDIO_PIPELINE && !INITIAL_MUTED;
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
-    let audioSyncTimers = [];
-    let audioSyncGeneration = 0;
+    let audioTransitionTimer = null;
+    let audioTransitionGeneration = 0;
+    let playbackGeneration = 0;
+    let settledPlaybackGeneration = -1;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -70,11 +71,11 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      // Capture the user's stable choice before loading another result. Loads
-      // never change mute state, so rapid requests cannot create an audio race.
       reportAudio();
-      cancelAudioSync();
-      audioSyncPending = true;
+      playbackGeneration += 1;
+      settledPlaybackGeneration = -1;
+      cancelAudioTransition();
+      audioTransitionPending = true;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
@@ -152,61 +153,53 @@
       }
     }
 
-    function cancelAudioSync() {
-      audioSyncGeneration += 1;
-      audioSyncTimers.forEach(timer => clearTimeout(timer));
-      audioSyncTimers = [];
+    function cancelAudioTransition() {
+      audioTransitionGeneration += 1;
+      if (audioTransitionTimer !== null) {
+        clearTimeout(audioTransitionTimer);
+        audioTransitionTimer = null;
+      }
     }
 
-    function scheduleAudioSync(target) {
-      if (!target) return;
-      cancelAudioSync();
-      audioSyncPending = true;
-      const generation = audioSyncGeneration;
+    function settleAudioAfterPlayback(target) {
+      if (!target || settledPlaybackGeneration === playbackGeneration) return;
+      settledPlaybackGeneration = playbackGeneration;
+      cancelAudioTransition();
+      audioTransitionPending = true;
+      const generation = audioTransitionGeneration;
+      const playback = playbackGeneration;
       const expectedVideoId = VIDEO_IDS[currentIndex];
-      const delays = [0, 250];
-      delays.forEach((delay, index) => {
-        const timer = setTimeout(() => {
-          if (generation !== audioSyncGeneration
-              || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
-          const data = target.getVideoData ? target.getVideoData() : null;
-          if (data && data.video_id && data.video_id !== expectedVideoId) {
-            if (index === delays.length - 1) {
-              audioSyncPending = false;
-              reportDesiredAudio();
-            }
-            return;
-          }
-          applyDesiredAudio(target);
-          if (index === delays.length - 1) {
-            audioSyncPending = false;
-            reportDesiredAudio();
-          }
-        }, delay);
-        audioSyncTimers.push(timer);
-      });
-    }
-
-    function recoverRestoredAudioPipeline(target) {
-      if (!pipelineRecoveryPending || desiredMuted || !target) return false;
-      pipelineRecoveryPending = false;
-      cancelAudioSync();
-      audioSyncPending = true;
-      const generation = audioSyncGeneration;
-      const expectedVideoId = VIDEO_IDS[currentIndex];
-      if (target.mute) target.mute();
-      const timer = setTimeout(() => {
-        if (generation !== audioSyncGeneration
-            || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
+      if (desiredMuted) {
         applyDesiredAudio(target);
-        scheduleAudioSync(target);
-      }, 45);
-      audioSyncTimers.push(timer);
-      return true;
+        audioTransitionPending = false;
+        reportDesiredAudio();
+        return;
+      }
+
+      // Chromium can leave the YouTube icon unmuted while its OSR audio
+      // channel is still closed. Reopen that channel only after PLAYING, using
+      // the exact mute -> wait -> unmute transition that repairs it manually.
+      if (target.mute) target.mute();
+      audioTransitionTimer = setTimeout(() => {
+        audioTransitionTimer = null;
+        if (generation !== audioTransitionGeneration
+            || playback !== playbackGeneration
+            || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
+        const data = target.getVideoData ? target.getVideoData() : null;
+        if (data && data.video_id && data.video_id !== expectedVideoId) {
+          settledPlaybackGeneration = -1;
+          audioTransitionPending = false;
+          return;
+        }
+        if (target.unMute) target.unMute();
+        if (target.setVolume) target.setVolume(desiredVolume);
+        audioTransitionPending = false;
+        reportDesiredAudio();
+      }, AUDIO_REOPEN_DELAY_MS);
     }
 
     function reportAudio() {
-      if (!player || !ready || audioSyncPending) return;
+      if (!player || !ready || audioTransitionPending) return;
       const muted = player.isMuted && player.isMuted() ? 1 : 0;
       const volume = player.getVolume ? Math.round(player.getVolume()) : 100;
       desiredMuted = muted !== 0;
@@ -231,16 +224,14 @@
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      audioSyncPending = true;
+      audioTransitionPending = settledPlaybackGeneration !== playbackGeneration;
       applyDesiredAudio(target);
       if (target.playVideo) target.playVideo();
-      scheduleAudioSync(target);
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
         if (target.getPlayerState && target.getPlayerState() === 1) return;
         applyDesiredAudio(target);
         if (target.playVideo) target.playVideo();
-        scheduleAudioSync(target);
       }, 400);
     }
 
@@ -308,9 +299,7 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              if (!recoverRestoredAudioPipeline(event.target)) {
-                scheduleAudioSync(event.target);
-              }
+              settleAudioAfterPlayback(event.target);
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };

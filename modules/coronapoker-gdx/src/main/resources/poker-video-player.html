@@ -201,6 +201,9 @@
 
     window.coronaSelectVideo = selectVideo;
     window.coronaSelectRelative = selectRelative;
+    window.coronaRefreshMutedControl = function () {
+      if (player && ready && player.isMuted()) player.mute();
+    };
     window.coronaReplaceVideos = function (ids) {
       if (!Array.isArray(ids)) return;
       const valid = ids.filter(id => typeof id === 'string'

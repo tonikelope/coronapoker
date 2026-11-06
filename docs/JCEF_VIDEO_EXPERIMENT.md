@@ -77,6 +77,14 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   CoronaPoker solo observa el audio elegido en los controles nativos y lo
   conserva entre vídeos y transiciones; nunca sobreescribe un clic de usuario
   con una lectura antigua.
+- Los cambios de vídeo siguen usando `loadVideoById`, sin recrear iframe ni
+  navegador. Shorts puede reconstruir su botón de audio con el icono audible
+  aunque el elemento de vídeo siga muteado. Un observador de solo lectura
+  detecta esa discrepancia concreta al cambiar el control y avisa al documento
+  principal; este vuelve a emitir `mute()` únicamente si la API sigue muteada.
+  No se inyectan clics ni se modifica el icono: el propio reproductor lo
+  sincroniza. La detección responde a cambios del control y del audio, sin
+  temporizadores adicionales ni recargas por vídeo.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

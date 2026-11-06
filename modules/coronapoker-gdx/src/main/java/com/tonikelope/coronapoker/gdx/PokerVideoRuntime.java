@@ -36,6 +36,43 @@ import org.cef.network.CefRequest;
 final class PokerVideoRuntime implements AutoCloseable {
 
     static final String JCEF_MAVEN_VERSION = "152.0.6";
+    // Read-only observer of the native control: Shorts may recreate it after
+    // loadVideoById without reflecting an already-muted media element. Signal
+    // that concrete mismatch, then refresh through the public outer Player API.
+    // No control clicks, DOM changes, reloads or repeated audio toggles.
+    private static final String MUTED_CONTROL_OBSERVER = """
+        (() => {
+          if (window.coronaMutedControlObserver) return;
+          window.coronaMutedControlObserver = true;
+          let scheduled = false;
+          let inFlight = false;
+          function check() {
+            scheduled = false;
+            const video = document.querySelector('video');
+            if (!video || !video.muted || inFlight) return;
+            const stale = [...document.querySelectorAll('button')].some(button => {
+              if (!button.getClientRects().length) return false;
+              const label = button.getAttribute('aria-label') || button.title || '';
+              return /^(Silenciar|Mute)(?:\\b|\\s|$)/i.test(label);
+            });
+            if (!stale || typeof window.cefQuery !== 'function') return;
+            inFlight = true;
+            window.cefQuery({ request: 'SYNC_MUTED_CONTROL',
+              onSuccess: () => { inFlight = false; },
+              onFailure: () => { inFlight = false; } });
+          }
+          function schedule() {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(check);
+          }
+          new MutationObserver(schedule).observe(document.documentElement, {
+            childList: true, subtree: true, attributes: true,
+            attributeFilter: ['aria-label', 'title'] });
+          document.addEventListener('volumechange', schedule, true);
+          schedule();
+        })();
+        """;
     private volatile List<PokerVideoSearch.Video> videos;
     private final PokerVideoFrameBuffer frameBuffer;
     private final String playerLanguage;
@@ -193,6 +230,12 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onLoadEnd(CefBrowser loaded, CefFrame frame,
                     int statusCode) {
+                if (loaded == browser && frame != null && !frame.isMain()
+                        && isYouTubeHost(frame.getURL())
+                        && frame.getURL().contains("/embed/")) {
+                    frame.executeJavaScript(MUTED_CONTROL_OBSERVER,
+                            frame.getURL(), 0);
+                }
                 if (loaded == browser && frame != null && frame.isMain()) {
                     loaded.executeJavaScript("window.coronaSetActive && "
                             + "window.coronaSetActive(" + active + ");",
@@ -262,7 +305,18 @@ final class PokerVideoRuntime implements AutoCloseable {
                     CefQueryCallback callback) {
                 // A closing session may still deliver queued audio/position
                 // messages. They must never overwrite a new muted opening.
-                if (source != browser || frame == null || !frame.isMain()) {
+                if (source != browser || frame == null) return false;
+                if (!frame.isMain()
+                        && "SYNC_MUTED_CONTROL".equals(request)
+                        && isYouTubeHost(frame.getURL())
+                        && frame.getURL().contains("/embed/")) {
+                    source.executeJavaScript("window.coronaRefreshMutedControl"
+                            + " && window.coronaRefreshMutedControl();",
+                            pageUrl, 0);
+                    callback.success("ok");
+                    return true;
+                }
+                if (!frame.isMain()) {
                     return false;
                 }
                 if (request.startsWith("READY|")

@@ -25,6 +25,7 @@
     const statusBox = document.getElementById('status');
     let player = null;
     let ready = false;
+    let playbackAllowed = false;
     let currentIndex = @@INITIAL_INDEX@@;
     let playOrder = VIDEO_IDS.map((ignored, index) => index);
     let orderPosition = Math.max(0, playOrder.indexOf(currentIndex));
@@ -33,20 +34,20 @@
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
-    let audioObservationArmed = false;
-    let audioTransitionGeneration = 0;
-    let mutedVisualSyncPending = INITIAL_MUTED;
-    let audioTransitioning = false;
+    let active = true;
+    let audioRestorePending = true;
     let lastReportedMuted = null;
     let lastReportedVolume = null;
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
 
-    function report(kind, detail) {
+    function report(kind, detail, onSuccess) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
       if (typeof window.cefQuery === 'function') {
-        window.cefQuery({ request, onFailure: () => {} });
+        window.cefQuery({ request, onSuccess: onSuccess || (() => {}), onFailure: () => {} });
+      } else if (onSuccess) {
+        onSuccess('ok');
       }
     }
 
@@ -71,10 +72,7 @@
       statusBox.className = '';
       statusBox.textContent = 'Cargando vídeo…';
       captureStableAudioState();
-      audioObservationArmed = false;
-      audioTransitionGeneration += 1;
-      audioTransitioning = false;
-      mutedVisualSyncPending = desiredMuted;
+      audioRestorePending = true;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
@@ -144,23 +142,21 @@
     }
 
     function playVideo(target) {
-      if (!target) return;
+      if (!target || !active || !playbackAllowed) return;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
       }
-      applyDesiredAudio(target);
       if (target.playVideo) target.playVideo();
       autoplayRetryTimer = setTimeout(() => {
         autoplayRetryTimer = null;
-        if (target.getPlayerState && target.getPlayerState() === 1) return;
-        applyDesiredAudio(target);
+        if (!active || target.getPlayerState && target.getPlayerState() === 1) return;
         if (target.playVideo) target.playVideo();
       }, 400);
     }
 
     function captureStableAudioState() {
-      if (!player || !ready || !audioObservationArmed
+      if (!player || !ready || audioRestorePending
           || typeof player.isMuted !== 'function') return;
       desiredMuted = player.isMuted();
       if (typeof player.getVolume === 'function') {
@@ -189,69 +185,18 @@
       }
     }
 
-    function afterPaint(callback) {
-      requestAnimationFrame(() => requestAnimationFrame(callback));
-    }
-
-    function revealPlayer(target) {
-      applyDesiredAudio(target);
-      reportAudioState();
-      statusBox.className = 'hidden';
-    }
-
-    function synchronizeMutedVisualState(target) {
-      if (!target || audioTransitioning || !mutedVisualSyncPending
-          || !desiredMuted) return;
-      audioTransitioning = true;
-      const generation = ++audioTransitionGeneration;
-      const restoreVolume = desiredVolume;
-
-      // Shorts can paint its cold-start speaker before reflecting an API mute.
-      // Force two distinct, paintable states while volume is zero. Keeping the
-      // status layer visible means the transient unmuted glyph is never shown.
-      if (target.setVolume) target.setVolume(0);
-      if (target.unMute) target.unMute();
-      afterPaint(() => {
-        if (generation !== audioTransitionGeneration || !desiredMuted) return;
-        if (target.mute) target.mute();
-        if (target.setVolume) target.setVolume(restoreVolume);
-        afterPaint(() => {
-          if (generation !== audioTransitionGeneration || !desiredMuted) {
-            return;
-          }
-          audioTransitioning = false;
-          if (target.isMuted && !target.isMuted()) return;
-          mutedVisualSyncPending = false;
-          revealPlayer(target);
-        });
-      });
-    }
-
-    function enforceDesiredAudio(target) {
-      if (!target) return;
-      const muted = typeof target.isMuted === 'function'
-        ? target.isMuted() : null;
-      if (desiredMuted) {
-        if (muted !== true && target.mute) target.mute();
-      } else {
-        if (muted !== false && target.unMute) target.unMute();
-        if (target.setVolume) target.setVolume(desiredVolume);
-      }
-    }
-
     function monitorAudioState() {
       if (!player || !ready) return;
-      if (audioTransitioning) return;
-      if (mutedVisualSyncPending && desiredMuted
-          && player.getPlayerState && player.getPlayerState() === 1) {
-        synchronizeMutedVisualState(player);
+      if (audioRestorePending) {
+        if (player.isMuted() !== desiredMuted
+            || Math.round(player.getVolume()) !== desiredVolume) return;
+        audioRestorePending = false;
+        reportAudioState();
         return;
       }
-      if (audioObservationArmed) {
-        captureStableAudioState();
-        audioObservationArmed = false;
-      }
-      enforceDesiredAudio(player);
+      // Native controls own subsequent audio changes. Observe them; never
+      // reapply an older snapshot over a real mute/unmute click.
+      captureStableAudioState();
     }
 
     window.coronaSelectVideo = selectVideo;
@@ -269,27 +214,12 @@
       if (player && ready) selectOrderPosition(0);
       else reportIndex();
     };
-    window.coronaUserInteracted = function () {
-      audioObservationArmed = true;
-      // Java calls this after forwarding the real mouse release. Observe on
-      // the next composition frame so a native speaker click is persisted
-      // before another video, a minimize, or a screen transition can occur.
-      requestAnimationFrame(() => {
-        if (!audioObservationArmed || audioTransitioning) return;
-        captureStableAudioState();
-        audioObservationArmed = false;
-        enforceDesiredAudio(player);
-      });
-    };
-    window.coronaSetActive = function (active) {
+    window.coronaSetActive = function (enabled) {
+      active = Boolean(enabled);
       if (!player || !ready) return;
       if (active) {
-        audioObservationArmed = false;
         playVideo(player);
       } else {
-        audioTransitionGeneration += 1;
-        if (audioTransitioning) mutedVisualSyncPending = desiredMuted;
-        audioTransitioning = false;
         captureStableAudioState();
         reportAudioState();
         player.pauseVideo();
@@ -305,7 +235,13 @@
           // Never let YouTube start the cold iframe before CoronaPoker has
           // applied the real mute state through the supported Player API.
           autoplay: 0,
-          controls: 0,
+          // Shorts leaves a detached speaker glyph with controls=0. Keeping
+          // native controls enabled binds the glyph to the real audio state.
+          controls: 1,
+          // Shorts also initializes its native control model from the embed
+          // URL. API-only muting can precede that model on a cold process.
+          // Supply the same initial state here and still apply the API mute.
+          mute: INITIAL_MUTED ? 1 : 0,
           disablekb: 1,
           enablejsapi: 1,
           playsinline: 1,
@@ -324,17 +260,19 @@
             ready = true;
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
-            audioObservationArmed = false;
-            audioTransitionGeneration += 1;
-            audioTransitioning = false;
-            mutedVisualSyncPending = desiredMuted;
-            // playVideo applies the safe initial mute before playback. Once
-            // PLAYING, the visual synchronization runs behind the status.
-            playVideo(event.target);
-            reportIndex();
-            report('READY', '1');
-            report('STATE', INITIAL_MUTED
-              ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
+            audioRestorePending = true;
+            applyDesiredAudio(event.target);
+            report('READY', '1', response => {
+              if (response === 'reload') {
+                window.location.reload();
+                return;
+              }
+              playbackAllowed = true;
+              playVideo(event.target);
+              reportIndex();
+              report('STATE', INITIAL_MUTED
+                ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
+            });
           },
           onStateChange: event => {
             if (event.data === 1) {
@@ -342,11 +280,8 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              if (desiredMuted && mutedVisualSyncPending) {
-                synchronizeMutedVisualState(event.target);
-              } else {
-                revealPlayer(event.target);
-              }
+              statusBox.className = 'hidden';
+              if (!active) event.target.pauseVideo();
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };

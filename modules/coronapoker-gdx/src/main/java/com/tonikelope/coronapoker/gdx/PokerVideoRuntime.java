@@ -50,6 +50,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean browserCreated;
     private volatile boolean browserClosing;
     private volatile boolean playerReady;
+    private boolean coldPlayerBootstrapPending = true;
     private volatile boolean active = true;
     private volatile int currentIndex;
     private volatile int resumeSeconds;
@@ -167,6 +168,7 @@ final class PokerVideoRuntime implements AutoCloseable {
 
             @Override
             public void onAfterCreated(CefBrowser created) {
+                if (created != browser) return;
                 browserCreated = true;
                 created.setWindowlessFrameRate(30);
             }
@@ -174,8 +176,10 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onBeforeClose(CefBrowser closing) {
                 browserClosing = false;
-                browserCreated = false;
-                playerReady = false;
+                if (closing == browser) {
+                    browserCreated = false;
+                    playerReady = false;
+                }
             }
         });
         client.addContextMenuHandler(new CefContextMenuHandlerAdapter() {
@@ -189,6 +193,11 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onLoadEnd(CefBrowser loaded, CefFrame frame,
                     int statusCode) {
+                if (loaded == browser && frame != null && frame.isMain()) {
+                    loaded.executeJavaScript("window.coronaSetActive && "
+                            + "window.coronaSetActive(" + active + ");",
+                            pageUrl, 0);
+                }
                 if (frame != null && frame.isMain() && statusCode >= 400) {
                     state = "ERROR HTTP " + statusCode;
                 }
@@ -251,6 +260,22 @@ final class PokerVideoRuntime implements AutoCloseable {
             public boolean onQuery(CefBrowser source, CefFrame frame,
                     long queryId, String request, boolean persistent,
                     CefQueryCallback callback) {
+                // A closing session may still deliver queued audio/position
+                // messages. They must never overwrite a new muted opening.
+                if (source != browser || frame == null || !frame.isMain()) {
+                    return false;
+                }
+                if (request.startsWith("READY|")
+                        && coldPlayerBootstrapPending) {
+                    // CEF's first Shorts document can initialize its native
+                    // control model after the API model. Prime that document
+                    // without playing, then reload exactly once before the
+                    // game considers the player ready. Subsequent sessions
+                    // use the already initialized renderer directly.
+                    coldPlayerBootstrapPending = false;
+                    callback.success("reload");
+                    return true;
+                }
                 boolean handled = handlePlayerMessage(request);
                 if (handled) callback.success("ok");
                 return handled;
@@ -407,13 +432,6 @@ final class PokerVideoRuntime implements AutoCloseable {
 
     void requestFocus(boolean focused) {
         if (browser != null && browserCreated) browser.setFocus(focused);
-    }
-
-    void notifyVideoInteraction() {
-        LibGdxCefBrowser current = browser;
-        if (current == null || !browserCreated || !playerReady) return;
-        current.executeJavaScript("window.coronaUserInteracted && "
-                + "window.coronaUserInteracted();", pageUrl, 0);
     }
 
     LibGdxCefBrowser browser() {

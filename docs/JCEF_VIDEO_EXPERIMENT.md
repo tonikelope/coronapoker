@@ -27,7 +27,8 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
 - La barra de título muestra solo el título del vídeo, sin contador ni total
   de resultados.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
-  controles propios de YouTube están ocultos; la navegación y el cierre se
+  controles nativos de YouTube están habilitados para mantener el icono de
+  audio enlazado con el mute real; la navegación y el cierre se
   realizan desde la barra de CoronaPoker. El
   perfil anónimo del reproductor vive solo en memoria para no heredar una
   preferencia antigua de subtítulos. La
@@ -48,9 +49,9 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
 - Cerrar minimiza la ventana al icono sin modificar el ajuste. Conserva en
-  memoria el vídeo, el segundo aproximado y el estado de audio; después cierra
+  memoria el vídeo y el segundo aproximado; después cierra
   la sesión de navegador y libera la textura. Pulsar el icono recrea la sesión
-  desde ese estado. Desactivar el ajuste es una acción distinta: oculta tanto
+  desde ese punto, siempre silenciada al abrir desde el icono. Desactivar el ajuste oculta tanto
   ventana como icono y cancela cualquier inicialización pendiente.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
@@ -61,14 +62,21 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
   estable se restaura al volver. El iframe se crea con reproducción automática
   desactivada; al recibir `onReady`, CoronaPoker aplica primero el mute real y
-  después inicia la reproducción. En una sesión muteada mantiene la imagen
-  tapada y el volumen a cero mientras fuerza dos estados separados por
-  fotogramas de composición (`unMute` y después `mute`). Solo descubre el
-  reproductor cuando YouTube ha podido pintar el segundo estado, evitando que
-  la primera carga muestre el altavoz activo aunque el audio esté silenciado.
-  Cada clic real que CoronaPoker envía al iframe habilita una única lectura
-  posterior del audio; fuera de esa lectura se conserva y refuerza el último
-  estado estable.
+  después inicia la reproducción. No se fuerzan ciclos de mute/desmute ni
+  cambios de volumen para intentar repintar el altavoz. Con `controls: 0`, el
+  reproductor de Shorts dejaba un botón visible cuyo icono no seguía los
+  cambios de la API; el diagnóstico con CEF real reprodujo la contradicción.
+  El mute se suministra también en la URL del iframe. La primera inicialización
+  de Shorts en un proceso CEF frío podía dejar incoherente el modelo visual
+  incluso con ese valor: el diagnóstico real reprodujo el fallo y comprobó que
+  desaparecía al recargar el documento. El primer `READY` prepara el renderer
+  sin permitir reproducción y pide una única recarga; solo el siguiente
+  `READY` permite reproducir. Esta preparación no se repite al minimizar,
+  restaurar ni cambiar de pantalla. Se conservan los controles nativos para que
+  sus cambios de mute se reflejen en la API. Tras restaurar el estado inicial,
+  CoronaPoker solo observa el audio elegido en los controles nativos y lo
+  conserva entre vídeos y transiciones; nunca sobreescribe un clic de usuario
+  con una lectura antigua.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

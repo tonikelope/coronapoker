@@ -138,7 +138,7 @@ class PokerVideoSearchTest {
                     "function skipUnavailable(errorCode)"));
             assertTrue(response.body().contains(
                     "[2, 5, 100, 101, 150]"));
-            assertTrue(response.body().contains("controls: 0"));
+            assertTrue(response.body().contains("controls: 1"));
             assertTrue(response.body().contains("disablekb: 1"));
             assertTrue(response.body().contains(
                     "function playVideo(target)"));
@@ -151,20 +151,6 @@ class PokerVideoSearchTest {
                     "function monitorAudioState()"));
             assertTrue(response.body().contains(
                     "function captureStableAudioState()"));
-            assertTrue(response.body().contains(
-                    "!audioObservationArmed"));
-            assertTrue(response.body().contains(
-                    "function enforceDesiredAudio(target)"));
-            assertTrue(response.body().contains(
-                    "function synchronizeMutedVisualState(target)"));
-            assertTrue(response.body().contains(
-                    "window.coronaUserInteracted = function ()"));
-            assertTrue(response.body().contains(
-                    "captureStableAudioState();\n"
-                    + "        audioObservationArmed = false;"));
-            assertTrue(response.body().contains(
-                    "applyDesiredAudio(target);\n"
-                    + "      if (target.playVideo) target.playVideo();"));
             assertFalse(response.body().contains(
                     "RECOVER_AUDIO_PIPELINE"));
             assertFalse(response.body().contains("scheduleAudioSync("));
@@ -192,17 +178,6 @@ class PokerVideoSearchTest {
                     "window.coronaReplaceVideos = function (ids)"));
             assertTrue(response.body().contains(
                     "if (event.data === 0) selectRelative(1)"));
-            int syncStart = response.body().indexOf(
-                    "function synchronizeMutedVisualState(target)");
-            int syncEnd = response.body().indexOf(
-                    "function enforceDesiredAudio(target)", syncStart);
-            String sync = response.body().substring(syncStart, syncEnd);
-            int unmute = sync.indexOf("target.unMute();");
-            int firstPaint = sync.indexOf("afterPaint(() =>", unmute);
-            int mute = sync.indexOf("target.mute();", firstPaint);
-            int secondPaint = sync.indexOf("afterPaint(() =>", mute);
-            assertTrue(unmute >= 0 && firstPaint > unmute);
-            assertTrue(mute > firstPaint && secondPaint > mute);
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());
@@ -210,7 +185,7 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void browserSessionsUseInjectedAudioAndMinimizePreservesIt()
+    void browserSessionsUseInjectedAudioAndNativeControls()
             throws Exception {
         List<PokerVideoSearch.Video> videos = List.of(
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"));
@@ -223,9 +198,11 @@ class PokerVideoSearchTest {
 
             assertTrue(body.contains("const INITIAL_MUTED = true"));
             assertTrue(body.contains("let desiredMuted = INITIAL_MUTED"));
-            assertTrue(body.contains("let audioObservationArmed = false"));
-            assertTrue(body.contains("let mutedVisualSyncPending = "
-                    + "INITIAL_MUTED"));
+            assertTrue(body.contains("controls: 1"));
+            assertTrue(body.contains("mute: INITIAL_MUTED ? 1 : 0"));
+            assertFalse(body.contains("synchronizeMutedVisualState"));
+            assertFalse(body.contains("enforceDesiredAudio"));
+            assertFalse(body.contains("audioObservationArmed"));
             assertTrue(body.contains("autoplay: 0"));
             assertFalse(body.contains("mute: 1"));
             assertTrue(body.contains(
@@ -257,14 +234,8 @@ class PokerVideoSearchTest {
         assertTrue(overlaySource.contains(
                 "hostVisible = visible && enabled && !releasedForTable;"));
         assertTrue(overlaySource.contains("case CLOSE ->"));
-        assertTrue(overlaySource.contains("releaseBrowserSession(true);"));
         assertFalse(overlaySource.contains("featurePreferenceChanged"));
-        assertTrue(overlaySource.contains(
-                "current.notifyVideoInteraction();"));
-        assertTrue(runtimeSource.contains(
-                "void notifyVideoInteraction()"));
-        assertTrue(runtimeSource.contains(
-                "window.coronaUserInteracted();"));
+        assertFalse(runtimeSource.contains("notifyVideoInteraction"));
     }
 
     @Test
@@ -341,6 +312,41 @@ class PokerVideoSearchTest {
             assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
             assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
+        }
+    }
+
+    @Test
+    void minimizeSurvivesScreenAndTableTransitionsUntilIconIsClicked()
+            throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            // Stand in for an already-fetched catalogue without starting a
+            // network request or native browser in this input/lifecycle test.
+            var started = PokerVideoOverlay.class.getDeclaredField(
+                    "initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField(
+                    "requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:shorts");
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
+            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
+            overlay.update(true, true, true, PokerVideoIcon.Placement.LOBBY,
+                    "es", "shorts", 1920f, 1080f);
+            assertFalse(started.getBoolean(overlay));
+            overlay.releaseForTable();
+            overlay.restoreAfterTable();
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertFalse(started.getBoolean(overlay));
+            assertTrue(overlay.hostVisible());
+            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
+            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
+            // Restored window receives its close button, not another icon.
+            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
+            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
         }
     }
 

@@ -46,6 +46,13 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   de los controles inferiores y su hover está recortado al propio botón. En
   principal y sala el icono tiene el mismo tamaño que el botón de sonido y se
   sitúa inmediatamente a su izquierda.
+- El tamaño máximo solo depende del espacio disponible en pantalla, incluidos
+  la cabecera y un margen de ocho unidades por lado. No existe un ancho máximo
+  fijo; al cambiar de formato se ajusta el tamaño para que siga cabiendo.
+  La superficie JCEF recibe la escala real del viewport, también en 4K y al
+  redimensionar la ventana del juego. YouTube mantiene su selección automática
+  de calidad según tamaño y conexión; la API no permite forzar una resolución
+  máxima (`setPlaybackQuality` ya no tiene efecto).
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
 - Cerrar minimiza la ventana al icono sin modificar el ajuste. Conserva en

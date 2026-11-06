@@ -296,6 +296,45 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void landscapeCanFillTheScreenAndStillFitsAfterSwitchingToShorts()
+            throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            var started = PokerVideoOverlay.class.getDeclaredField(
+                    "initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField(
+                    "requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:normal");
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "normal", 1920f, 1080f);
+            var boundsField = PokerVideoOverlay.class.getDeclaredField(
+                    "panelBounds");
+            boundsField.setAccessible(true);
+            Rectangle panel = (Rectangle) boundsField.get(overlay);
+            float left = panel.x + 2f;
+            float middle = panel.y + panel.height / 2f;
+            assertTrue(overlay.touchDown(left, middle, 0, 0));
+            assertTrue(overlay.touchDragged(left - 10000f, middle, 0));
+            assertTrue(overlay.touchUp(left - 10000f, middle, 0, 0));
+            assertTrue(panel.width > 1700f);
+            assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
+            assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
+            assertEquals(16f / 9f, panel.width
+                    / (panel.height - PokerVideoOverlay.HEADER_HEIGHT), 0.001f);
+
+            key.set(overlay, "es:shorts");
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
+            assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
+            assertEquals(9f / 16f, panel.width
+                    / (panel.height - PokerVideoOverlay.HEADER_HEIGHT), 0.001f);
+        }
+    }
+
+    @Test
     void masterAnimationsGateEveryPokerVideoSurface() {
         assertTrue(PokerVideoIcon.systemEnabled(true, true));
         assertFalse(PokerVideoIcon.systemEnabled(true, false));

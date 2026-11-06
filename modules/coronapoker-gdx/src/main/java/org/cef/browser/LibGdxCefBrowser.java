@@ -81,7 +81,11 @@ public final class LibGdxCefBrowser extends CefBrowser_N implements CefRenderHan
     public void resizeBrowser(int width, int height, double scaleFactor) {
         int safeWidth = Math.max(1, width);
         int safeHeight = Math.max(1, height);
-        deviceScaleFactor = Math.max(1.0, scaleFactor);
+        double safeScale = Math.max(1.0, scaleFactor);
+        Rectangle current = viewRect;
+        if (current.width == safeWidth && current.height == safeHeight
+                && Double.compare(deviceScaleFactor, safeScale) == 0) return;
+        deviceScaleFactor = safeScale;
         viewRect = new Rectangle(0, 0, safeWidth, safeHeight);
         wasResized(safeWidth, safeHeight);
     }

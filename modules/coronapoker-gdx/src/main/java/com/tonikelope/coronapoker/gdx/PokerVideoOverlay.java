@@ -32,7 +32,6 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     static final float MIN_WIDTH = 260f;
     static final float INITIAL_WIDTH = MIN_WIDTH;
-    static final float MAX_WIDTH = 520f;
     static final float HEADER_HEIGHT = 52f;
     private static final float RESIZE_EDGE_HIT = 11f;
     private static final float RESIZE_CORNER_HIT = 22f;
@@ -212,6 +211,10 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (current != null && shouldRun != runtimeActive) {
             runtimeActive = shouldRun;
             current.setActive(shouldRun);
+        }
+        if (current != null && shouldRun) {
+            current.resize(Math.round(videoWidth), Math.round(videoHeight),
+                    displayScale());
         }
         if (!hostVisible) {
             cancelHiddenCapture();
@@ -688,13 +691,8 @@ final class PokerVideoOverlay implements AutoCloseable {
         } else {
             candidate = resizeHandle.horizontal() ? horizontal : vertical;
         }
-        float maximum = Math.min(MAX_WIDTH,
-                Math.min(Math.max(MIN_WIDTH, worldWidth - 16f),
-                        Math.max(MIN_WIDTH,
-                                (worldHeight - HEADER_HEIGHT - 16f)
-                                        * videoAspect)));
         videoWidth = MathUtils.clamp(candidate, MIN_WIDTH,
-                Math.max(MIN_WIDTH, maximum));
+                maximumVideoWidth());
         videoHeight = videoWidth / videoAspect;
         float startRight = startWindowX + startWidth;
         float startTop = startWindowY + startHeight + HEADER_HEIGHT;
@@ -825,14 +823,23 @@ final class PokerVideoOverlay implements AutoCloseable {
         return MouseEvent.NOBUTTON;
     }
 
-    private static double displayScale() {
+    private double displayScale() {
         if (Gdx.graphics == null) return 1.0;
-        int logicalWidth = Math.max(1, Gdx.graphics.getWidth());
         return Math.max(1.0,
-                Gdx.graphics.getBackBufferWidth() / (double) logicalWidth);
+                Math.min(Gdx.graphics.getBackBufferWidth()
+                                / (double) Math.max(1f, worldWidth),
+                        Gdx.graphics.getBackBufferHeight()
+                                / (double) Math.max(1f, worldHeight)));
+    }
+
+    private float maximumVideoWidth() {
+        return Math.max(MIN_WIDTH, Math.min(worldWidth - 16f,
+                (worldHeight - HEADER_HEIGHT - 16f) * videoAspect));
     }
 
     private void clampWindow() {
+        videoWidth = Math.min(videoWidth, maximumVideoWidth());
+        videoHeight = videoWidth / videoAspect;
         float totalHeight = videoHeight + HEADER_HEIGHT;
         x = MathUtils.clamp(x, 8f,
                 Math.max(8f, worldWidth - videoWidth - 8f));

@@ -10,7 +10,8 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   activado por defecto e incluye `Tipos de vídeos`, con `Shorts` como valor
   inicial y `Normales` como alternativa. El interruptor maestro `Usar animaciones y
   efectos` domina todo el sistema: si está apagado no aparecen ventana ni
-  icono y no se inician búsqueda, servidor ni navegador.
+  icono y no se inician búsqueda, servidor ni navegador. Lo mismo ocurre si
+  se desactiva específicamente `Vídeos de póker`.
 - La lista contiene Shorts o vídeos normales según el selector. La búsqueda
   añade español o inglés según el idioma del juego para priorizar contenido en ese idioma. El
   lote anónimo que entrega YouTube se baraja al iniciar y se vuelve a barajar
@@ -46,11 +47,11 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   sitúa inmediatamente a su izquierda.
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
-- Cerrar guarda periódicamente el vídeo y el segundo aproximado; después
-  cierra el navegador, libera la textura y
-  persiste el ajuste como desactivado. Cuando el ajuste está desactivado no se
-  muestra ni el reproductor ni su icono y no se crea una sesión JCEF. El vídeo
-  puede volver a habilitarse desde Ajustes.
+- Cerrar minimiza la ventana al icono sin modificar el ajuste. Conserva en
+  memoria el vídeo, el segundo aproximado y el estado de audio; después cierra
+  la sesión de navegador y libera la textura. Pulsar el icono recrea la sesión
+  desde ese estado. Desactivar el ajuste es una acción distinta: oculta tanto
+  ventana como icono y cancela cualquier inicialización pendiente.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
   textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
   volver de la timba se restaura exactamente el estado de ventana o icono que
@@ -59,11 +60,15 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   entre principal, modal y sala de espera conservan la misma sesión, posición
   y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
   estable se restaura al volver. El iframe se crea con reproducción automática
-  desactivada; al recibir `onReady`, CoronaPoker aplica primero el mute real
-  mediante la API soportada de YouTube y solo después inicia la reproducción.
-  Así el audio y el icono nativo parten de una única transición. Cada clic real
-  que CoronaPoker envía al iframe habilita una única lectura posterior del
-  audio; fuera de esa lectura se conserva y refuerza el último estado estable.
+  desactivada; al recibir `onReady`, CoronaPoker aplica primero el mute real y
+  después inicia la reproducción. En una sesión muteada mantiene la imagen
+  tapada y el volumen a cero mientras fuerza dos estados separados por
+  fotogramas de composición (`unMute` y después `mute`). Solo descubre el
+  reproductor cuando YouTube ha podido pintar el segundo estado, evitando que
+  la primera carga muestre el altavoz activo aunque el audio esté silenciado.
+  Cada clic real que CoronaPoker envía al iframe habilita una única lectura
+  posterior del audio; fuera de esa lectura se conserva y refuerza el último
+  estado estable.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

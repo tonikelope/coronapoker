@@ -34,6 +34,9 @@
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
     let audioObservationArmed = false;
+    let audioTransitionGeneration = 0;
+    let mutedVisualSyncPending = INITIAL_MUTED;
+    let audioTransitioning = false;
     let lastReportedMuted = null;
     let lastReportedVolume = null;
     const failedVideoIds = new Set();
@@ -65,9 +68,13 @@
       }
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
-      statusBox.className = 'hidden';
+      statusBox.className = '';
+      statusBox.textContent = 'Cargando vídeo…';
       captureStableAudioState();
       audioObservationArmed = false;
+      audioTransitionGeneration += 1;
+      audioTransitioning = false;
+      mutedVisualSyncPending = desiredMuted;
       if (autoplayRetryTimer !== null) {
         clearTimeout(autoplayRetryTimer);
         autoplayRetryTimer = null;
@@ -127,7 +134,8 @@
         showError('No se han encontrado vídeos reproducibles.');
         return;
       }
-      statusBox.className = 'hidden';
+      statusBox.className = '';
+      statusBox.textContent = 'Cargando vídeo…';
       report('STATE', 'VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
@@ -181,6 +189,44 @@
       }
     }
 
+    function afterPaint(callback) {
+      requestAnimationFrame(() => requestAnimationFrame(callback));
+    }
+
+    function revealPlayer(target) {
+      applyDesiredAudio(target);
+      reportAudioState();
+      statusBox.className = 'hidden';
+    }
+
+    function synchronizeMutedVisualState(target) {
+      if (!target || audioTransitioning || !mutedVisualSyncPending
+          || !desiredMuted) return;
+      audioTransitioning = true;
+      const generation = ++audioTransitionGeneration;
+      const restoreVolume = desiredVolume;
+
+      // Shorts can paint its cold-start speaker before reflecting an API mute.
+      // Force two distinct, paintable states while volume is zero. Keeping the
+      // status layer visible means the transient unmuted glyph is never shown.
+      if (target.setVolume) target.setVolume(0);
+      if (target.unMute) target.unMute();
+      afterPaint(() => {
+        if (generation !== audioTransitionGeneration || !desiredMuted) return;
+        if (target.mute) target.mute();
+        if (target.setVolume) target.setVolume(restoreVolume);
+        afterPaint(() => {
+          if (generation !== audioTransitionGeneration || !desiredMuted) {
+            return;
+          }
+          audioTransitioning = false;
+          if (target.isMuted && !target.isMuted()) return;
+          mutedVisualSyncPending = false;
+          revealPlayer(target);
+        });
+      });
+    }
+
     function enforceDesiredAudio(target) {
       if (!target) return;
       const muted = typeof target.isMuted === 'function'
@@ -195,6 +241,12 @@
 
     function monitorAudioState() {
       if (!player || !ready) return;
+      if (audioTransitioning) return;
+      if (mutedVisualSyncPending && desiredMuted
+          && player.getPlayerState && player.getPlayerState() === 1) {
+        synchronizeMutedVisualState(player);
+        return;
+      }
       if (audioObservationArmed) {
         captureStableAudioState();
         audioObservationArmed = false;
@@ -219,6 +271,15 @@
     };
     window.coronaUserInteracted = function () {
       audioObservationArmed = true;
+      // Java calls this after forwarding the real mouse release. Observe on
+      // the next composition frame so a native speaker click is persisted
+      // before another video, a minimize, or a screen transition can occur.
+      requestAnimationFrame(() => {
+        if (!audioObservationArmed || audioTransitioning) return;
+        captureStableAudioState();
+        audioObservationArmed = false;
+        enforceDesiredAudio(player);
+      });
     };
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
@@ -226,6 +287,9 @@
         audioObservationArmed = false;
         playVideo(player);
       } else {
+        audioTransitionGeneration += 1;
+        if (audioTransitioning) mutedVisualSyncPending = desiredMuted;
+        audioTransitioning = false;
         captureStableAudioState();
         reportAudioState();
         player.pauseVideo();
@@ -261,8 +325,11 @@
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
             audioObservationArmed = false;
-            // playVideo applies mute before the first play. This keeps the
-            // player's state and its native speaker icon on one transition.
+            audioTransitionGeneration += 1;
+            audioTransitioning = false;
+            mutedVisualSyncPending = desiredMuted;
+            // playVideo applies the safe initial mute before playback. Once
+            // PLAYING, the visual synchronization runs behind the status.
             playVideo(event.target);
             reportIndex();
             report('READY', '1');
@@ -275,9 +342,11 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              applyDesiredAudio(event.target);
-              reportAudioState();
-              statusBox.className = 'hidden';
+              if (desiredMuted && mutedVisualSyncPending) {
+                synchronizeMutedVisualState(event.target);
+              } else {
+                revealPlayer(event.target);
+              }
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };

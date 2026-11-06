@@ -25,7 +25,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import org.cef.browser.LibGdxCefBrowser;
 
 /** Floating, draggable video window shown only by the menu and waiting room. */
@@ -91,7 +90,6 @@ final class PokerVideoOverlay implements AutoCloseable {
     private static final Color MUTED = new Color(
             GdxSettingsStyle.MUTED_RGBA);
 
-    private final Consumer<Boolean> featurePreferenceChanged;
     private final PokerVideoFrameBuffer frameBuffer =
             new PokerVideoFrameBuffer();
     private final ExecutorService initializer =
@@ -149,11 +147,6 @@ final class PokerVideoOverlay implements AutoCloseable {
     private PokerVideoIcon.Placement iconPlacement =
             PokerVideoIcon.Placement.MENU;
 
-    PokerVideoOverlay(Consumer<Boolean> featurePreferenceChanged) {
-        this.featurePreferenceChanged = Objects.requireNonNull(
-                featurePreferenceChanged, "featurePreferenceChanged");
-    }
-
     void update(boolean available, boolean enabled, boolean visible,
             PokerVideoIcon.Placement placement, String language,
             String videoType,
@@ -183,6 +176,11 @@ final class PokerVideoOverlay implements AutoCloseable {
         boolean wasEnabled = featureEnabled;
         featureEnabled = enabled;
         if (!enabled) {
+            if (wasEnabled) {
+                initializationGeneration.incrementAndGet();
+                initializationStarted = false;
+                requestedCatalogKey = null;
+            }
             minimized = true;
         } else if (!wasEnabled) {
             minimized = false;
@@ -196,7 +194,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         updateVideoAspect(normalizedType);
         String catalogKey = PokerVideoSearch.languageCode(language) + ":"
                 + normalizedType;
-        if (hostVisible && enabled && (!initializationStarted
+        if (hostVisible && (!initializationStarted
                 || !catalogKey.equals(requestedCatalogKey))) {
             start(language, normalizedType, catalogKey);
         }
@@ -246,7 +244,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 var videos = PokerVideoSearch.shuffled(
                         PokerVideoSearch.fetch(language, videoType),
                         ThreadLocalRandom.current());
-                if (closed.get() || !systemAvailable
+                if (closed.get() || !systemAvailable || !featureEnabled
                         || generation != initializationGeneration.get()) {
                     return;
                 }
@@ -261,7 +259,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                         frameBuffer, dataDirectory(), language,
                         Math.round(videoWidth), Math.round(videoHeight),
                         displayScale());
-                if (closed.get() || !systemAvailable
+                if (closed.get() || !systemAvailable || !featureEnabled
                         || generation != initializationGeneration.get()) {
                     created.close();
                     return;
@@ -586,7 +584,6 @@ final class PokerVideoOverlay implements AutoCloseable {
             case ICON -> {
                 if (iconBounds.contains(pointerX, pointerY)) {
                     minimized = false;
-                    featurePreferenceChanged.accept(true);
                     clampWindow();
                     restoreBrowserSession();
                 }
@@ -594,9 +591,9 @@ final class PokerVideoOverlay implements AutoCloseable {
             case CLOSE -> {
                 if (closeBounds.contains(pointerX, pointerY)) {
                     minimized = true;
-                    featurePreferenceChanged.accept(false);
+                    cancelPendingInitialization();
                     blurBrowser();
-                    releaseBrowserSession(false);
+                    releaseBrowserSession(true);
                 }
             }
             case PREVIOUS -> {
@@ -746,6 +743,13 @@ final class PokerVideoOverlay implements AutoCloseable {
             current.releaseBrowserSession(preserveAudioForResume);
         }
         frameBuffer.dispose();
+    }
+
+    private void cancelPendingInitialization() {
+        if (runtime != null || !initializationStarted) return;
+        initializationGeneration.incrementAndGet();
+        initializationStarted = false;
+        requestedCatalogKey = null;
     }
 
     private void restoreBrowserSession() {

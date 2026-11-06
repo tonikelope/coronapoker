@@ -13,7 +13,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -157,6 +156,8 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains(
                     "function enforceDesiredAudio(target)"));
             assertTrue(response.body().contains(
+                    "function synchronizeMutedVisualState(target)"));
+            assertTrue(response.body().contains(
                     "window.coronaUserInteracted = function ()"));
             assertTrue(response.body().contains(
                     "captureStableAudioState();\n"
@@ -191,6 +192,17 @@ class PokerVideoSearchTest {
                     "window.coronaReplaceVideos = function (ids)"));
             assertTrue(response.body().contains(
                     "if (event.data === 0) selectRelative(1)"));
+            int syncStart = response.body().indexOf(
+                    "function synchronizeMutedVisualState(target)");
+            int syncEnd = response.body().indexOf(
+                    "function enforceDesiredAudio(target)", syncStart);
+            String sync = response.body().substring(syncStart, syncEnd);
+            int unmute = sync.indexOf("target.unMute();");
+            int firstPaint = sync.indexOf("afterPaint(() =>", unmute);
+            int mute = sync.indexOf("target.mute();", firstPaint);
+            int secondPaint = sync.indexOf("afterPaint(() =>", mute);
+            assertTrue(unmute >= 0 && firstPaint > unmute);
+            assertTrue(mute > firstPaint && secondPaint > mute);
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());
@@ -198,7 +210,7 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void everyNewBrowserSessionStartsMutedWithoutAudioRestoration()
+    void browserSessionsUseInjectedAudioAndMinimizePreservesIt()
             throws Exception {
         List<PokerVideoSearch.Video> videos = List.of(
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"));
@@ -212,6 +224,8 @@ class PokerVideoSearchTest {
             assertTrue(body.contains("const INITIAL_MUTED = true"));
             assertTrue(body.contains("let desiredMuted = INITIAL_MUTED"));
             assertTrue(body.contains("let audioObservationArmed = false"));
+            assertTrue(body.contains("let mutedVisualSyncPending = "
+                    + "INITIAL_MUTED"));
             assertTrue(body.contains("autoplay: 0"));
             assertFalse(body.contains("mute: 1"));
             assertTrue(body.contains(
@@ -242,6 +256,9 @@ class PokerVideoSearchTest {
                 "releaseBrowserSession(restoreWindowAfterTable);"));
         assertTrue(overlaySource.contains(
                 "hostVisible = visible && enabled && !releasedForTable;"));
+        assertTrue(overlaySource.contains("case CLOSE ->"));
+        assertTrue(overlaySource.contains("releaseBrowserSession(true);"));
+        assertFalse(overlaySource.contains("featurePreferenceChanged"));
         assertTrue(overlaySource.contains(
                 "current.notifyVideoInteraction();"));
         assertTrue(runtimeSource.contains(
@@ -316,9 +333,7 @@ class PokerVideoSearchTest {
 
     @Test
     void disabledOverlayShowsNothingAndAcceptsNoInput() {
-        List<Boolean> preferenceChanges = new ArrayList<>();
-        try (PokerVideoOverlay overlay =
-                new PokerVideoOverlay(preferenceChanges::add)) {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, false, true,
                     PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
@@ -326,15 +341,12 @@ class PokerVideoSearchTest {
             assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
             assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
-            assertTrue(preferenceChanges.isEmpty());
         }
     }
 
     @Test
     void disabledStateSurvivesACompleteTableRoundTrip() {
-        List<Boolean> preferenceChanges = new ArrayList<>();
-        try (PokerVideoOverlay overlay =
-                new PokerVideoOverlay(preferenceChanges::add)) {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, false, true,
                     PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
@@ -347,22 +359,18 @@ class PokerVideoSearchTest {
             assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
             assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
-            assertTrue(preferenceChanges.isEmpty());
         }
     }
 
     @Test
     void unavailablePlatformShowsNothingAndAcceptsNoIconInput() {
-        List<Boolean> preferenceChanges = new ArrayList<>();
-        try (PokerVideoOverlay overlay =
-                new PokerVideoOverlay(preferenceChanges::add)) {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(false, true, true,
                     PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
-            assertTrue(preferenceChanges.isEmpty());
         }
     }
 }

@@ -26,6 +26,17 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   anterior y siguiente también evitan los resultados ya descartados.
 - La barra de título muestra solo el título del vídeo, sin contador ni total
   de resultados.
+- La cabecera tiene un fondo opaco uniforme, con anterior, siguiente y cerrar.
+  Una barra inferior separada contiene la estrella de favorito, el botón para
+  ver favoritos o volver al carrusel normal, y el selector rápido Shorts/Normales.
+  Este selector guarda el mismo ajuste de formato que el menú de apariencia.
+- La estrella hueca guarda el vídeo y pasa a estar rellena; pulsarla otra vez
+  lo quita de favoritos. La lista se guarda en
+  `~/.coronapoker/poker-video-favorites.properties` y sobrevive a reinicios.
+  Los favoritos se separan por formato para mantener la proporción correcta.
+  El modo favoritos usa esa lista en el carrusel; al volver a normal recupera
+  el catálogo aleatorio de la sesión. Si no hay favoritos del tipo elegido,
+  se pausa el vídeo y se muestra un mensaje que permite volver al modo normal.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
   controles nativos de YouTube están habilitados para mantener el icono de
   audio enlazado con el mute real; la navegación y el cierre se
@@ -38,7 +49,7 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   arrastrable y redimensionable manteniendo el formato del vídeo; los cuatro
   bordes y las cuatro esquinas aceptan el gesto y muestran el cursor adecuado,
   aunque las zonas son invisibles. No se dibujan marco, sombra ni tirador de
-  esquina; la cabecera y las dos esquinas inferiores del vídeo quedan
+  esquina; la cabecera y las dos esquinas inferiores de la barra de controles quedan
   redondeadas. Su tamaño inicial compacto corresponde al mínimo de la ventana
   y escala con el `FitViewport` 1920x1080, por lo que conserva la misma
   proporción visual en 1080p, 1440p y 2160p. En la sala el icono queda elevado
@@ -47,7 +58,7 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   principal y sala el icono tiene el mismo tamaño que el botón de sonido y se
   sitúa inmediatamente a su izquierda.
 - El tamaño máximo solo depende del espacio disponible en pantalla, incluidos
-  la cabecera y un margen de ocho unidades por lado. No existe un ancho máximo
+  la cabecera, el pie de controles y un margen de ocho unidades por lado. No existe un ancho máximo
   fijo; al cambiar de formato se ajusta el tamaño para que siga cabiendo.
   La superficie JCEF recibe la escala real del viewport, también en 4K y al
   redimensionar la ventana del juego. YouTube mantiene su selección automática

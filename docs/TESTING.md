@@ -416,7 +416,7 @@ the gameplay scenario schedule:
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am `
-  '-Dtest=PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
+  '-Dtest=PokerVideoFavoritesTest,PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
   '-Dsurefire.failIfNoSpecifiedTests=false' test
 mvn -f coronaupdater/pom.xml test
 ```

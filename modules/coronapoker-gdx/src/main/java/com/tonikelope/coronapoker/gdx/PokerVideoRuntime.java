@@ -516,8 +516,13 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     String title() {
-        return videos.get(Math.max(0, Math.min(currentIndex,
-                videos.size() - 1))).title();
+        return video().title();
+    }
+
+    PokerVideoSearch.Video video() {
+        List<PokerVideoSearch.Video> snapshot = videos;
+        return snapshot.get(Math.max(0, Math.min(currentIndex,
+                snapshot.size() - 1)));
     }
 
     String initializationError() {

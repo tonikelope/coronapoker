@@ -811,7 +811,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "secureRandom");
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
-        pokerVideoOverlay = new PokerVideoOverlay();
+        pokerVideoOverlay = new PokerVideoOverlay(type -> {
+            initialProperties.setProperty(GdxSettingsContract.POKER_VIDEO_TYPE_KEY, type);
+            this.preferences.saveDeferred();
+        });
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
         customBotRandomSelection = CustomBotProfileCatalog
@@ -1915,6 +1918,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawPokerVideoTopLayer() {
         if (!pokerVideoOverlay.hostVisible()) return;
+        pokerVideoOverlay.addTooltips((bounds, key) ->
+                tooltip(bounds.x, bounds.y, bounds.width, bounds.height, key));
         pokerVideoOverlay.prepareFrame();
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);

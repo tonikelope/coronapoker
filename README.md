@@ -342,6 +342,9 @@ completely. Modals pause the current session, and entering a table releases
 the browser and video texture. The feature is hidden when the JAR has no JCEF
 payload for the running platform. Video quality is selected automatically by
 YouTube for the actual displayed resolution and connection.
+The lower toolbar saves favorites across sessions, switches between the saved
+and random carousels, and changes Shorts/normal format using the appearance
+setting. Favorites are grouped by format to preserve the video proportions.
 See the [video integration guide](docs/JCEF_VIDEO_EXPERIMENT.md) for window,
 audio and session behavior, platform support and YouTube limitations.
 

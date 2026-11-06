@@ -409,7 +409,7 @@ class PokerVideoSearchTest {
             assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
             assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
             assertEquals(16f / 9f, panel.width
-                    / (panel.height - PokerVideoOverlay.HEADER_HEIGHT), 0.001f);
+                    / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
 
             key.set(overlay, "es:shorts");
             overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
@@ -417,7 +417,7 @@ class PokerVideoSearchTest {
             assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
             assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
             assertEquals(9f / 16f, panel.width
-                    / (panel.height - PokerVideoOverlay.HEADER_HEIGHT), 0.001f);
+                    / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
         }
     }
 
@@ -457,8 +457,13 @@ class PokerVideoSearchTest {
             key.set(overlay, "es:shorts");
             overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
-            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
-            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
+            var closeField = PokerVideoOverlay.class.getDeclaredField("closeBounds");
+            closeField.setAccessible(true);
+            Rectangle close = (Rectangle) closeField.get(overlay);
+            float closeX = close.x + close.width / 2f;
+            float closeY = close.y + close.height / 2f;
+            assertTrue(overlay.touchDown(closeX, closeY, 0, 0));
+            assertTrue(overlay.touchUp(closeX, closeY, 0, 0));
             overlay.update(true, true, true, PokerVideoIcon.Placement.LOBBY,
                     "es", "shorts", 1920f, 1080f);
             assertFalse(started.getBoolean(overlay));
@@ -471,8 +476,8 @@ class PokerVideoSearchTest {
             assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
             assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
             // Restored window receives its close button, not another icon.
-            assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
-            assertTrue(overlay.touchUp(1868f, 592f, 0, 0));
+            assertTrue(overlay.touchDown(closeX, closeY, 0, 0));
+            assertTrue(overlay.touchUp(closeX, closeY, 0, 0));
         }
     }
 

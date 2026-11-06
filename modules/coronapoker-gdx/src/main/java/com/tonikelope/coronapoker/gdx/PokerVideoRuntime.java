@@ -6,8 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import me.friwi.jcefmaven.CefAppBuilder;
 import me.friwi.jcefmaven.MavenCefAppHandlerAdapter;
@@ -41,7 +39,6 @@ final class PokerVideoRuntime implements AutoCloseable {
     private final List<PokerVideoSearch.Video> videos;
     private final PokerVideoFrameBuffer frameBuffer;
     private final String playerLanguage;
-    private final Set<Integer> failedIndices = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private PokerVideoLocalServer localServer;
     private CefApp cefApp;
@@ -55,6 +52,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean playerReady;
     private volatile boolean active = true;
     private volatile int currentIndex;
+    private volatile int currentPosition;
     private volatile int resumeSeconds;
     private volatile boolean resumeMuted = true;
     private volatile int resumeVolume = 100;
@@ -269,9 +267,17 @@ final class PokerVideoRuntime implements AutoCloseable {
             return true;
         }
         if (request.startsWith("INDEX|")) {
+            String[] parts = request.substring("INDEX|".length())
+                    .split(":", 2);
             try {
-                int next = Integer.parseInt(request.substring("INDEX|".length()));
-                if (next >= 0 && next < videos.size()) currentIndex = next;
+                int next = Integer.parseInt(parts[0]);
+                int position = parts.length > 1
+                        ? Integer.parseInt(parts[1]) : next;
+                if (next >= 0 && next < videos.size()) {
+                    currentIndex = next;
+                    currentPosition = Math.max(0,
+                            Math.min(position, videos.size() - 1));
+                }
             } catch (NumberFormatException ignored) {
             }
             return true;
@@ -306,16 +312,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             return true;
         }
         if (request.startsWith("FAILED|")) {
-            String[] parts = request.substring("FAILED|".length())
-                    .split(":", 2);
-            try {
-                int failed = Integer.parseInt(parts[0]);
-                if (failed >= 0 && failed < videos.size()) {
-                    failedIndices.add(failed);
-                    state = "SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE";
-                }
-            } catch (NumberFormatException ignored) {
-            }
+            state = "SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE";
             return true;
         }
         return false;
@@ -369,20 +366,11 @@ final class PokerVideoRuntime implements AutoCloseable {
     void selectRelative(int delta) {
         if (!playerReady || videos.isEmpty() || browser == null) return;
         int direction = delta < 0 ? -1 : 1;
-        int next = currentIndex;
-        for (int attempts = 0; attempts < videos.size(); attempts++) {
-            next = Math.floorMod(next + direction, videos.size());
-            if (!failedIndices.contains(next)) break;
-        }
-        if (failedIndices.contains(next)) {
-            state = "NO HAY SHORTS REPRODUCIBLES";
-            return;
-        }
-        currentIndex = next;
         resumeSeconds = 0;
         state = "CARGANDO";
-        browser.executeJavaScript("window.coronaSelectVideo && "
-                + "window.coronaSelectVideo(" + next + ");", pageUrl, 0);
+        browser.executeJavaScript("window.coronaSelectRelative && "
+                + "window.coronaSelectRelative(" + direction + ");",
+                pageUrl, 0);
     }
 
     void requestFocus(boolean focused) {
@@ -407,7 +395,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     String position() {
-        return (currentIndex + 1) + " / " + videos.size();
+        return (currentPosition + 1) + " / " + videos.size();
     }
 
     String initializationError() {

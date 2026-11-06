@@ -26,6 +26,8 @@
     let player = null;
     let ready = false;
     let currentIndex = @@INITIAL_INDEX@@;
+    let playOrder = VIDEO_IDS.map((ignored, index) => index);
+    let orderPosition = Math.max(0, playOrder.indexOf(currentIndex));
     const START_SECONDS = @@START_SECONDS@@;
     const INITIAL_MUTED = @@INITIAL_MUTED@@;
     const INITIAL_VOLUME = @@INITIAL_VOLUME@@;
@@ -49,36 +51,73 @@
       report('ERROR', message);
     }
 
-    function selectVideo(index) {
+    function reportIndex() {
+      report('INDEX', currentIndex + ':' + orderPosition);
+    }
+
+    function selectOrderPosition(position) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
       if (skipTimer !== null) {
         clearTimeout(skipTimer);
         skipTimer = null;
       }
-      currentIndex = ((Number(index) % VIDEO_IDS.length) + VIDEO_IDS.length) % VIDEO_IDS.length;
+      orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
+      currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
       desiredMuted = player.isMuted ? player.isMuted() : desiredMuted;
       desiredVolume = player.getVolume ? player.getVolume() : desiredVolume;
       restoredAudioPending = true;
       if (player.mute) player.mute();
       player.loadVideoById(VIDEO_IDS[currentIndex]);
-      report('INDEX', currentIndex);
+      reportIndex();
     }
 
-    function nextPlayableIndex(startIndex) {
+    function selectVideo(index) {
+      const normalized = ((Number(index) % VIDEO_IDS.length) + VIDEO_IDS.length) % VIDEO_IDS.length;
+      const position = playOrder.indexOf(normalized);
+      selectOrderPosition(position < 0 ? 0 : position);
+    }
+
+    function shuffleForNextCycle() {
+      for (let index = playOrder.length - 1; index > 0; index -= 1) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [playOrder[index], playOrder[swap]] = [playOrder[swap], playOrder[index]];
+      }
+      if (playOrder.length > 1 && playOrder[0] === currentIndex) {
+        [playOrder[0], playOrder[1]] = [playOrder[1], playOrder[0]];
+      }
+      orderPosition = -1;
+    }
+
+    function nextPlayableOrderPosition(direction) {
+      const step = direction < 0 ? -1 : 1;
+      if (step > 0 && orderPosition >= playOrder.length - 1) {
+        shuffleForNextCycle();
+      }
       for (let offset = 1; offset <= VIDEO_IDS.length; offset += 1) {
-        const candidate = (startIndex + offset) % VIDEO_IDS.length;
-        if (!failedVideoIds.has(VIDEO_IDS[candidate])) return candidate;
+        const candidatePosition = ((orderPosition + step * offset)
+          % playOrder.length + playOrder.length) % playOrder.length;
+        const candidateIndex = playOrder[candidatePosition];
+        if (!failedVideoIds.has(VIDEO_IDS[candidateIndex])) return candidatePosition;
       }
       return -1;
+    }
+
+    function selectRelative(delta) {
+      const nextPosition = nextPlayableOrderPosition(delta);
+      if (nextPosition < 0) {
+        showError('No se han encontrado Shorts reproducibles.');
+        return;
+      }
+      selectOrderPosition(nextPosition);
     }
 
     function skipUnavailable(errorCode) {
       if (skipTimer !== null || VIDEO_IDS.length === 0) return;
       failedVideoIds.add(VIDEO_IDS[currentIndex]);
       report('FAILED', currentIndex + ':' + errorCode);
-      const nextIndex = nextPlayableIndex(currentIndex);
-      if (nextIndex < 0) {
+      const nextPosition = nextPlayableOrderPosition(1);
+      if (nextPosition < 0) {
         showError('No se han encontrado Shorts reproducibles.');
         return;
       }
@@ -86,7 +125,7 @@
       report('STATE', 'SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
-        selectVideo(nextIndex);
+        selectOrderPosition(nextPosition);
       }, 100);
     }
 
@@ -131,6 +170,7 @@
     }
 
     window.coronaSelectVideo = selectVideo;
+    window.coronaSelectRelative = selectRelative;
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
       if (active) playWithDesiredAudio(player);
@@ -164,7 +204,7 @@
             ready = true;
             statusBox.className = 'hidden';
             playWithDesiredAudio(event.target);
-            report('INDEX', currentIndex);
+            reportIndex();
             reportDesiredAudio();
             report('READY', '1');
             report('STATE', desiredMuted
@@ -184,6 +224,7 @@
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
             report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
+            if (event.data === 0) selectRelative(1);
           },
           onError: event => {
             if ([2, 5, 100, 101, 150].includes(Number(event.data))) {

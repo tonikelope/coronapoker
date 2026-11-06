@@ -12,10 +12,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -112,6 +115,15 @@ final class PokerVideoSearch {
             }
         }
         return List.copyOf(ordered.values());
+    }
+
+    /** Randomizes one session without mutating the ordered search results. */
+    static List<Video> shuffled(List<Video> videos, Random random) {
+        Objects.requireNonNull(videos, "videos");
+        Objects.requireNonNull(random, "random");
+        ArrayList<Video> shuffled = new ArrayList<>(videos);
+        Collections.shuffle(shuffled, random);
+        return List.copyOf(shuffled);
     }
 
     private static void collectShorts(JsonValue value,

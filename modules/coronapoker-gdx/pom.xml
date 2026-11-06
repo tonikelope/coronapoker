@@ -15,6 +15,16 @@
         <coronapoker.gdx.excludedGroups>certification</coronapoker.gdx.excludedGroups>
         <jcefmaven.version>152.0.6</jcefmaven.version>
         <jcef.natives.version>jcef-17e805a+cef-152.0.6+g708dc14+chromium-152.0.7977.83</jcef.natives.version>
+        <!-- Profiles replace these non-matching placeholders with the native
+        filenames that must be removed from the platform-specific fat JAR. -->
+        <gdx.native.exclude.1>META-INF/coronapoker-keep-native-1</gdx.native.exclude.1>
+        <gdx.native.exclude.2>META-INF/coronapoker-keep-native-2</gdx.native.exclude.2>
+        <gdx.native.exclude.3>META-INF/coronapoker-keep-native-3</gdx.native.exclude.3>
+        <gdx.native.exclude.4>META-INF/coronapoker-keep-native-4</gdx.native.exclude.4>
+        <gdx.native.exclude.5>META-INF/coronapoker-keep-native-5</gdx.native.exclude.5>
+        <gdx.native.exclude.6>META-INF/coronapoker-keep-native-6</gdx.native.exclude.6>
+        <gdx.native.exclude.7>META-INF/coronapoker-keep-native-7</gdx.native.exclude.7>
+        <gdx.native.exclude.8>META-INF/coronapoker-keep-native-8</gdx.native.exclude.8>
     </properties>
 
     <dependencies>
@@ -56,47 +66,11 @@
         <dependency><groupId>com.badlogicgames.gdx</groupId><artifactId>gdx-freetype</artifactId><version>${libgdx.version}</version></dependency>
         <dependency><groupId>com.badlogicgames.gdx</groupId><artifactId>gdx-freetype-platform</artifactId><version>${libgdx.version}</version><classifier>natives-desktop</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-windows</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-windows-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-linux-arm64</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-macos</classifier></dependency>
-        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>natives-macos-arm64</classifier></dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -154,6 +128,32 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
+                                <filter>
+                                    <artifact>com.badlogicgames.gdx:gdx-platform</artifact>
+                                    <excludes>
+                                        <exclude>${gdx.native.exclude.1}</exclude>
+                                        <exclude>${gdx.native.exclude.2}</exclude>
+                                        <exclude>${gdx.native.exclude.3}</exclude>
+                                        <exclude>${gdx.native.exclude.4}</exclude>
+                                        <exclude>${gdx.native.exclude.5}</exclude>
+                                        <exclude>${gdx.native.exclude.6}</exclude>
+                                        <exclude>${gdx.native.exclude.7}</exclude>
+                                        <exclude>${gdx.native.exclude.8}</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.badlogicgames.gdx:gdx-freetype-platform</artifact>
+                                    <excludes>
+                                        <exclude>${gdx.native.exclude.1}</exclude>
+                                        <exclude>${gdx.native.exclude.2}</exclude>
+                                        <exclude>${gdx.native.exclude.3}</exclude>
+                                        <exclude>${gdx.native.exclude.4}</exclude>
+                                        <exclude>${gdx.native.exclude.5}</exclude>
+                                        <exclude>${gdx.native.exclude.6}</exclude>
+                                        <exclude>${gdx.native.exclude.7}</exclude>
+                                        <exclude>${gdx.native.exclude.8}</exclude>
+                                    </excludes>
+                                </filter>
                             </filters>
                         </configuration>
                     </execution>
@@ -187,6 +187,13 @@
             <activation>
                 <os><family>Windows</family><arch>amd64</arch></os>
             </activation>
+            <properties>
+                <lwjgl.natives>natives-windows</lwjgl.natives>
+                <gdx.native.exclude.1>*.so</gdx.native.exclude.1>
+                <gdx.native.exclude.2>*.dylib</gdx.native.exclude.2>
+                <gdx.native.exclude.3>gdx.dll</gdx.native.exclude.3>
+                <gdx.native.exclude.4>gdx-freetype.dll</gdx.native.exclude.4>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>me.friwi</groupId>
@@ -194,6 +201,12 @@
                     <version>${jcef.natives.version}</version>
                     <scope>runtime</scope>
                 </dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
         </profile>
         <profile>
@@ -201,6 +214,17 @@
             <activation>
                 <os><name>Linux</name><arch>amd64</arch></os>
             </activation>
+            <properties>
+                <lwjgl.natives>natives-linux</lwjgl.natives>
+                <gdx.native.exclude.1>*.dll</gdx.native.exclude.1>
+                <gdx.native.exclude.2>*.dylib</gdx.native.exclude.2>
+                <gdx.native.exclude.3>libgdxarm.so</gdx.native.exclude.3>
+                <gdx.native.exclude.4>libgdxarm64.so</gdx.native.exclude.4>
+                <gdx.native.exclude.5>libgdxriscv64.so</gdx.native.exclude.5>
+                <gdx.native.exclude.6>libgdx-freetypearm.so</gdx.native.exclude.6>
+                <gdx.native.exclude.7>libgdx-freetypearm64.so</gdx.native.exclude.7>
+                <gdx.native.exclude.8>libgdx-freetyperiscv64.so</gdx.native.exclude.8>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>me.friwi</groupId>
@@ -208,6 +232,12 @@
                     <version>${jcef.natives.version}</version>
                     <scope>runtime</scope>
                 </dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
         </profile>
         <profile>
@@ -215,6 +245,17 @@
             <activation>
                 <os><name>Linux</name><arch>aarch64</arch></os>
             </activation>
+            <properties>
+                <lwjgl.natives>natives-linux-arm64</lwjgl.natives>
+                <gdx.native.exclude.1>*.dll</gdx.native.exclude.1>
+                <gdx.native.exclude.2>*.dylib</gdx.native.exclude.2>
+                <gdx.native.exclude.3>libgdx64.so</gdx.native.exclude.3>
+                <gdx.native.exclude.4>libgdxarm.so</gdx.native.exclude.4>
+                <gdx.native.exclude.5>libgdxriscv64.so</gdx.native.exclude.5>
+                <gdx.native.exclude.6>libgdx-freetype64.so</gdx.native.exclude.6>
+                <gdx.native.exclude.7>libgdx-freetypearm.so</gdx.native.exclude.7>
+                <gdx.native.exclude.8>libgdx-freetyperiscv64.so</gdx.native.exclude.8>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>me.friwi</groupId>
@@ -222,6 +263,12 @@
                     <version>${jcef.natives.version}</version>
                     <scope>runtime</scope>
                 </dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
         </profile>
         <profile>
@@ -229,6 +276,13 @@
             <activation>
                 <os><family>mac</family><arch>amd64</arch></os>
             </activation>
+            <properties>
+                <lwjgl.natives>natives-macos</lwjgl.natives>
+                <gdx.native.exclude.1>*.dll</gdx.native.exclude.1>
+                <gdx.native.exclude.2>*.so</gdx.native.exclude.2>
+                <gdx.native.exclude.3>libgdxarm64.dylib</gdx.native.exclude.3>
+                <gdx.native.exclude.4>libgdx-freetypearm64.dylib</gdx.native.exclude.4>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>me.friwi</groupId>
@@ -236,6 +290,12 @@
                     <version>${jcef.natives.version}</version>
                     <scope>runtime</scope>
                 </dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
         </profile>
         <profile>
@@ -243,6 +303,13 @@
             <activation>
                 <os><family>mac</family><arch>aarch64</arch></os>
             </activation>
+            <properties>
+                <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
+                <gdx.native.exclude.1>*.dll</gdx.native.exclude.1>
+                <gdx.native.exclude.2>*.so</gdx.native.exclude.2>
+                <gdx.native.exclude.3>libgdx64.dylib</gdx.native.exclude.3>
+                <gdx.native.exclude.4>libgdx-freetype64.dylib</gdx.native.exclude.4>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>me.friwi</groupId>
@@ -250,6 +317,12 @@
                     <version>${jcef.natives.version}</version>
                     <scope>runtime</scope>
                 </dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-jemalloc</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
+                <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
         </profile>
         <profile>

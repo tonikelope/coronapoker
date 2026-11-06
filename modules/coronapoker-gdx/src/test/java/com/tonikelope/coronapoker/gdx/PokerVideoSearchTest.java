@@ -3,14 +3,18 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.math.Rectangle;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 class PokerVideoSearchTest {
@@ -62,6 +66,22 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void shufflesOneSessionWithoutMutatingSearchOrder() {
+        List<PokerVideoSearch.Video> ordered = List.of(
+                new PokerVideoSearch.Video("ABCDEFGHIJK", "One"),
+                new PokerVideoSearch.Video("LMNOPQRSTUV", "Two"),
+                new PokerVideoSearch.Video("WXYZ0123456", "Three"),
+                new PokerVideoSearch.Video("ZXCVBNMASDF", "Four"));
+
+        List<PokerVideoSearch.Video> shuffled = PokerVideoSearch.shuffled(
+                ordered, new Random(42L));
+
+        assertNotEquals(ordered, shuffled);
+        assertEquals(new HashSet<>(ordered), new HashSet<>(shuffled));
+        assertEquals("ABCDEFGHIJK", ordered.get(0).id());
+    }
+
+    @Test
     void localPlayerUsesRequestedIndexPositionAndSecurityHeaders()
             throws Exception {
         List<PokerVideoSearch.Video> videos = List.of(
@@ -93,6 +113,10 @@ class PokerVideoSearchTest {
             assertTrue(response.body().contains("disablekb: 1"));
             assertTrue(response.body().contains(
                     "function playWithDesiredAudio(target)"));
+            assertTrue(response.body().contains(
+                    "window.coronaSelectRelative = selectRelative"));
+            assertTrue(response.body().contains(
+                    "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());
@@ -118,6 +142,28 @@ class PokerVideoSearchTest {
     void overlayStartsAtItsCompactProportionalSize() {
         assertEquals(PokerVideoOverlay.MIN_WIDTH,
                 PokerVideoOverlay.INITIAL_WIDTH);
+        Rectangle menu = PokerVideoIcon.bounds(1920f,
+                PokerVideoIcon.Placement.MENU, new Rectangle());
+        Rectangle lobby = PokerVideoIcon.bounds(1920f,
+                PokerVideoIcon.Placement.LOBBY, new Rectangle());
+        assertEquals(92f, menu.y);
+        assertEquals(154f, lobby.y);
+        assertTrue(lobby.y > menu.y + PokerVideoIcon.SIZE / 2f);
+    }
+
+    @Test
+    void masterAnimationsGateEveryPokerVideoSurface() {
+        assertTrue(PokerVideoIcon.systemEnabled(true, true));
+        assertFalse(PokerVideoIcon.systemEnabled(true, false));
+        assertFalse(PokerVideoIcon.systemEnabled(false, true));
+        assertTrue(PokerVideoIcon.visibleOnTable(
+                true, true, true, true, false));
+        assertFalse(PokerVideoIcon.visibleOnTable(
+                true, false, true, true, false));
+        assertFalse(PokerVideoIcon.visibleOnTable(
+                true, true, true, false, false));
+        assertFalse(PokerVideoIcon.visibleOnTable(
+                true, true, true, true, true));
     }
 
     @Test
@@ -125,7 +171,9 @@ class PokerVideoSearchTest {
         List<Boolean> preferenceChanges = new ArrayList<>();
         try (PokerVideoOverlay overlay =
                 new PokerVideoOverlay(preferenceChanges::add)) {
-            overlay.update(true, false, true, "es", 1920f, 1080f);
+            overlay.update(true, false, true,
+                    PokerVideoIcon.Placement.MENU,
+                    "es", 1920f, 1080f);
 
             assertTrue(overlay.hostVisible());
             assertTrue(overlay.touchDown(1867f, 121f, 0, 0));
@@ -139,11 +187,34 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void minimizedStateSurvivesACompleteTableRoundTrip() {
+        List<Boolean> preferenceChanges = new ArrayList<>();
+        try (PokerVideoOverlay overlay =
+                new PokerVideoOverlay(preferenceChanges::add)) {
+            overlay.update(true, false, true,
+                    PokerVideoIcon.Placement.MENU,
+                    "es", 1920f, 1080f);
+            overlay.releaseForTable();
+            overlay.restoreAfterTable();
+            overlay.update(true, false, true,
+                    PokerVideoIcon.Placement.MENU,
+                    "es", 1920f, 1080f);
+
+            assertTrue(overlay.hostVisible());
+            assertTrue(overlay.touchDown(1867f, 121f, 0, 0));
+            assertTrue(overlay.touchUp(1867f, 121f, 0, 0));
+            assertEquals(List.of(true), preferenceChanges);
+        }
+    }
+
+    @Test
     void unavailablePlatformShowsNothingAndAcceptsNoIconInput() {
         List<Boolean> preferenceChanges = new ArrayList<>();
         try (PokerVideoOverlay overlay =
                 new PokerVideoOverlay(preferenceChanges::add)) {
-            overlay.update(false, true, true, "es", 1920f, 1080f);
+            overlay.update(false, true, true,
+                    PokerVideoIcon.Placement.MENU,
+                    "es", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1867f, 121f, 0, 0));

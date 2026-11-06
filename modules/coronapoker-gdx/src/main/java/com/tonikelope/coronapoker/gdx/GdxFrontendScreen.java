@@ -1276,14 +1276,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
-        boolean pokerVideosAvailable =
-                PokerVideoPlatformSupport.isAvailable();
+        boolean pokerVideosAvailable = PokerVideoIcon.systemEnabled(
+                PokerVideoPlatformSupport.isAvailable(),
+                preferenceBoolean("animaciones", true));
         pokerVideoOverlay.update(pokerVideosAvailable,
                 pokerVideosAvailable && preferenceBoolean(
                         GdxSettingsContract.POKER_VIDEOS_KEY, true),
                 (surface == Surface.MENU || surface == Surface.LOBBY)
                         && !lobbyLoadingOverlay
                         && !hasBlockingFrontendModal(),
+                surface == Surface.LOBBY
+                        ? PokerVideoIcon.Placement.LOBBY
+                        : PokerVideoIcon.Placement.MENU,
                 gameText.language(), WIDTH, HEIGHT);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();

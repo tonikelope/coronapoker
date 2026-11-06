@@ -21,7 +21,9 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.cef.browser.LibGdxCefBrowser;
 
@@ -32,7 +34,6 @@ final class PokerVideoOverlay implements AutoCloseable {
     static final float INITIAL_WIDTH = MIN_WIDTH;
     static final float MAX_WIDTH = 520f;
     static final float HEADER_HEIGHT = 52f;
-    static final float ICON_SIZE = 58f;
     private static final float ASPECT = 9f / 16f;
     private static final Color SHADOW = new Color(0x00000088);
     private static final Color FRAME = new Color(
@@ -57,6 +58,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 return thread;
             });
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicLong initializationGeneration = new AtomicLong();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Rectangle iconBounds = new Rectangle();
     private final Rectangle panelBounds = new Rectangle();
@@ -67,10 +69,12 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle closeBounds = new Rectangle();
     private final Rectangle resizeBounds = new Rectangle();
     private volatile PokerVideoRuntime runtime;
+    private Texture loadingSpade;
     private volatile String loadingState = "BUSCANDO SHORTS DE PÓKER";
     private volatile String loadingError;
     private boolean initializationStarted;
     private volatile boolean featureEnabled;
+    private volatile boolean systemAvailable;
     private volatile boolean hostVisible;
     private volatile boolean minimized;
     private boolean positioned;
@@ -95,6 +99,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float fixedTop;
     private float fixedRight;
     private int pressedButtons;
+    private PokerVideoIcon.Placement iconPlacement =
+            PokerVideoIcon.Placement.MENU;
 
     PokerVideoOverlay(Consumer<Boolean> featurePreferenceChanged) {
         this.featurePreferenceChanged = Objects.requireNonNull(
@@ -102,11 +108,18 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void update(boolean available, boolean enabled, boolean visible,
-            String language,
+            PokerVideoIcon.Placement placement, String language,
             float width, float height) {
         worldWidth = width;
         worldHeight = height;
+        iconPlacement = Objects.requireNonNull(placement, "placement");
+        boolean wasAvailable = systemAvailable;
+        systemAvailable = available;
         if (!available) {
+            if (wasAvailable) {
+                initializationGeneration.incrementAndGet();
+                if (runtime == null) initializationStarted = false;
+            }
             featureEnabled = false;
             minimized = true;
             hostVisible = false;
@@ -153,17 +166,24 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void start(String language) {
         initializationStarted = true;
+        long generation = initializationGeneration.incrementAndGet();
         initializer.submit(() -> {
             try {
                 loadingState = "BUSCANDO SHORTS DE PÓKER";
-                var videos = PokerVideoSearch.fetch(language);
-                if (closed.get()) return;
+                var videos = PokerVideoSearch.shuffled(
+                        PokerVideoSearch.fetch(language),
+                        ThreadLocalRandom.current());
+                if (closed.get() || !systemAvailable
+                        || generation != initializationGeneration.get()) {
+                    return;
+                }
                 loadingState = "INICIALIZANDO REPRODUCTOR";
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
                         frameBuffer, dataDirectory(), language,
                         Math.round(videoWidth), Math.round(videoHeight),
                         displayScale());
-                if (closed.get()) {
+                if (closed.get() || !systemAvailable
+                        || generation != initializationGeneration.get()) {
                     created.close();
                     return;
                 }
@@ -223,8 +243,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void updateBounds() {
         float totalHeight = videoHeight + HEADER_HEIGHT;
-        iconBounds.set(worldWidth - ICON_SIZE - 24f, 92f,
-                ICON_SIZE, ICON_SIZE);
+        PokerVideoIcon.bounds(worldWidth, iconPlacement, iconBounds);
         panelBounds.set(x, y, videoWidth, totalHeight);
         videoBounds.set(x, y, videoWidth, videoHeight);
         headerBounds.set(x, y + videoHeight, videoWidth, HEADER_HEIGHT);
@@ -242,22 +261,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     void drawShapes(ShapeRenderer shapes, Vector2 pointer) {
         if (!hostVisible) return;
         if (minimized) {
-            shapes.setColor(SHADOW);
-            GdxAntialiasedRoundedRect.fill(shapes, iconBounds.x - 5f,
-                    iconBounds.y - 6f, iconBounds.width + 10f,
-                    iconBounds.height + 12f, 18f);
-            boolean hovered = iconBounds.contains(pointer);
-            GdxUiButtonStyle.draw(shapes, iconBounds.x, iconBounds.y,
-                    iconBounds.width, iconBounds.height,
-                    GdxUiButtonStyle.Tone.FEATURED, true,
-                    hovered ? 1f : 0f, capture == Capture.ICON, 1f);
-            GdxUiIconRenderer.draw(shapes,
-                    GdxUiIconRenderer.Icon.CONTINUE,
-                    iconBounds.x + iconBounds.width / 2f,
-                    iconBounds.y + iconBounds.height / 2f,
-                    ICON_SIZE * 0.52f,
-                    GdxUiButtonStyle.labelColor(
-                            GdxUiButtonStyle.Tone.FEATURED, true), 1f);
+            PokerVideoIcon.draw(shapes, iconBounds, pointer,
+                    capture == Capture.ICON, 1f);
             return;
         }
         shapes.setColor(SHADOW);
@@ -349,8 +354,17 @@ final class PokerVideoOverlay implements AutoCloseable {
             tinyFont.setColor(loadingError == null ? MUTED : Color.SALMON);
             String message = loadingError == null ? loadingState
                     : "REPRODUCTOR NO DISPONIBLE\n" + loadingError;
+            if (loadingError == null) {
+                Texture spade = loadingSpade();
+                float size = 34f;
+                batch.setColor(Color.WHITE);
+                batch.draw(spade,
+                        videoBounds.x + (videoBounds.width - size) / 2f,
+                        videoBounds.y + videoBounds.height / 2f + 30f,
+                        size, size);
+            }
             GdxPixelText.draw(tinyFont, batch, message, videoBounds.x + 30f,
-                    videoBounds.y + videoBounds.height / 2f + 16f,
+                    videoBounds.y + videoBounds.height / 2f + 2f,
                     videoBounds.width - 60f, Align.center, true, viewport);
         }
         PokerVideoRuntime current = runtime;
@@ -377,6 +391,16 @@ final class PokerVideoOverlay implements AutoCloseable {
             if (glyph.width <= maximum) return candidate;
         }
         return suffix;
+    }
+
+    private Texture loadingSpade() {
+        if (loadingSpade == null) {
+            loadingSpade = new Texture(Gdx.files.internal(
+                    "images/menu/pica_roja.png"));
+            loadingSpade.setFilter(Texture.TextureFilter.Linear,
+                    Texture.TextureFilter.Linear);
+        }
+        return loadingSpade;
     }
 
     boolean touchDown(float pointerX, float pointerY, int pointerIndex,
@@ -712,6 +736,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         initializer.shutdownNow();
         PokerVideoRuntime current = runtime;
         if (current != null) current.close();
+        if (loadingSpade != null) loadingSpade.dispose();
         frameBuffer.dispose();
     }
 

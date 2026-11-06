@@ -21,6 +21,7 @@
     'use strict';
     const VIDEO_IDS = [@@VIDEO_IDS@@];
     const ORIGIN = '@@ORIGIN@@';
+    const PLAYER_LANGUAGE = '@@PLAYER_LANGUAGE@@';
     const statusBox = document.getElementById('status');
     let player = null;
     let ready = false;
@@ -31,6 +32,8 @@
     let restoredAudioPending = true;
     let desiredMuted = INITIAL_MUTED;
     let desiredVolume = INITIAL_VOLUME;
+    const failedVideoIds = new Set();
+    let skipTimer = null;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -47,13 +50,43 @@
 
     function selectVideo(index) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
+      if (skipTimer !== null) {
+        clearTimeout(skipTimer);
+        skipTimer = null;
+      }
       currentIndex = ((Number(index) % VIDEO_IDS.length) + VIDEO_IDS.length) % VIDEO_IDS.length;
+      statusBox.className = 'hidden';
       desiredMuted = player.isMuted ? player.isMuted() : desiredMuted;
       desiredVolume = player.getVolume ? player.getVolume() : desiredVolume;
       restoredAudioPending = true;
       player.loadVideoById(VIDEO_IDS[currentIndex]);
       restoreAudioState(player);
       report('INDEX', currentIndex);
+    }
+
+    function nextPlayableIndex(startIndex) {
+      for (let offset = 1; offset <= VIDEO_IDS.length; offset += 1) {
+        const candidate = (startIndex + offset) % VIDEO_IDS.length;
+        if (!failedVideoIds.has(VIDEO_IDS[candidate])) return candidate;
+      }
+      return -1;
+    }
+
+    function skipUnavailable(errorCode) {
+      if (skipTimer !== null || VIDEO_IDS.length === 0) return;
+      failedVideoIds.add(VIDEO_IDS[currentIndex]);
+      report('FAILED', currentIndex + ':' + errorCode);
+      const nextIndex = nextPlayableIndex(currentIndex);
+      if (nextIndex < 0) {
+        showError('No se han encontrado Shorts reproducibles.');
+        return;
+      }
+      statusBox.className = 'hidden';
+      report('STATE', 'SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
+      skipTimer = setTimeout(() => {
+        skipTimer = null;
+        selectVideo(nextIndex);
+      }, 100);
     }
 
     function restoreAudioState(target) {
@@ -98,7 +131,9 @@
           playsinline: 1,
           rel: 0,
           mute: INITIAL_MUTED ? 1 : 0,
+          hl: PLAYER_LANGUAGE,
           cc_load_policy: 0,
+          cc_lang_pref: PLAYER_LANGUAGE,
           iv_load_policy: 3,
           fs: 0,
           origin: ORIGIN,
@@ -118,6 +153,7 @@
               ? 'REPRODUCIENDO EN SILENCIO' : 'REPRODUCIENDO CON AUDIO');
           },
           onStateChange: event => {
+            if (event.data === 1) statusBox.className = 'hidden';
             if (event.data === 1 && restoredAudioPending) {
               restoreAudioState(event.target);
               restoredAudioPending = false;
@@ -128,12 +164,11 @@
             report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
           },
           onError: event => {
+            if ([2, 5, 100, 101, 150].includes(Number(event.data))) {
+              skipUnavailable(event.data);
+              return;
+            }
             const errors = {
-              2: 'Solicitud de vídeo no válida (error 2).',
-              5: 'El contenido no puede reproducirse en HTML5 (error 5).',
-              100: 'El vídeo no existe, es privado o fue retirado (error 100).',
-              101: 'El propietario no permite reproducción embebida (error 101).',
-              150: 'El propietario no permite reproducción embebida (error 150).',
               153: 'El reproductor no recibió una identificación Referer válida (error 153).'
             };
             showError(errors[event.data] || ('El reproductor devolvió el error ' + event.data + '.'));

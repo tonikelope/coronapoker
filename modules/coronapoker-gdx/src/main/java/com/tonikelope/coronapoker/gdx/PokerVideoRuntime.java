@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import me.friwi.jcefmaven.CefAppBuilder;
 import me.friwi.jcefmaven.MavenCefAppHandlerAdapter;
@@ -38,6 +40,8 @@ final class PokerVideoRuntime implements AutoCloseable {
     static final String JCEF_MAVEN_VERSION = "152.0.6";
     private final List<PokerVideoSearch.Video> videos;
     private final PokerVideoFrameBuffer frameBuffer;
+    private final String playerLanguage;
+    private final Set<Integer> failedIndices = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private PokerVideoLocalServer localServer;
     private CefApp cefApp;
@@ -58,15 +62,17 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile String refererOrigin;
 
     private PokerVideoRuntime(List<PokerVideoSearch.Video> videos,
-            PokerVideoFrameBuffer frameBuffer) {
+            PokerVideoFrameBuffer frameBuffer, String language) {
         this.videos = List.copyOf(videos);
         this.frameBuffer = frameBuffer;
+        playerLanguage = PokerVideoSearch.languageCode(language);
     }
 
     static PokerVideoRuntime initialize(List<PokerVideoSearch.Video> videos,
             PokerVideoFrameBuffer frameBuffer, Path dataDirectory,
-            int width, int height, double scaleFactor) {
-        PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer);
+            String language, int width, int height, double scaleFactor) {
+        PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer,
+                language);
         try {
             runtime.initializeInternal(dataDirectory, width, height,
                     scaleFactor);
@@ -122,7 +128,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             double scaleFactor) throws Exception {
         if (browser != null || browserClosing || closed.get()) return;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds, resumeMuted, resumeVolume);
+                resumeSeconds, resumeMuted, resumeVolume, playerLanguage);
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
         CefBrowserSettings browserSettings = new CefBrowserSettings();
@@ -289,6 +295,19 @@ final class PokerVideoRuntime implements AutoCloseable {
             }
             return true;
         }
+        if (request.startsWith("FAILED|")) {
+            String[] parts = request.substring("FAILED|".length())
+                    .split(":", 2);
+            try {
+                int failed = Integer.parseInt(parts[0]);
+                if (failed >= 0 && failed < videos.size()) {
+                    failedIndices.add(failed);
+                    state = "SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE";
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            return true;
+        }
         return false;
     }
 
@@ -339,8 +358,16 @@ final class PokerVideoRuntime implements AutoCloseable {
 
     void selectRelative(int delta) {
         if (!playerReady || videos.isEmpty() || browser == null) return;
-        int next = Math.floorMod(currentIndex + (delta < 0 ? -1 : 1),
-                videos.size());
+        int direction = delta < 0 ? -1 : 1;
+        int next = currentIndex;
+        for (int attempts = 0; attempts < videos.size(); attempts++) {
+            next = Math.floorMod(next + direction, videos.size());
+            if (!failedIndices.contains(next)) break;
+        }
+        if (failedIndices.contains(next)) {
+            state = "NO HAY SHORTS REPRODUCIBLES";
+            return;
+        }
         currentIndex = next;
         resumeSeconds = 0;
         state = "CARGANDO";

@@ -8,10 +8,13 @@ reproductor aparece únicamente en la pantalla principal y en la sala de espera.
 - El ajuste `Apariencia > Animaciones y efectos > Mostrar Shorts de póker en
   principal y sala de espera` está activado por defecto.
 - La lista contiene únicamente resultados Shorts y conserva el orden anónimo
-  de relevancia devuelto por
-  `https://www.youtube.com/results?search_query=poker+shorts`. Comienza por el
+  de relevancia devuelto por YouTube. La búsqueda añade español o inglés según
+  el idioma del juego para priorizar contenido en ese idioma. Comienza por el
   primer Short reproducible; YouTube decide la combinación de popularidad y
   actualidad de ese orden.
+- Los resultados retirados, privados, incompatibles o que prohíben la
+  reproducción embebida se marcan y se saltan automáticamente. Los botones
+  anterior y siguiente también evitan los resultados ya descartados.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. El
   perfil anónimo del reproductor vive solo en memoria para no heredar una
   preferencia antigua de subtítulos. La
@@ -19,11 +22,12 @@ reproductor aparece únicamente en la pantalla principal y en la sala de espera.
   siguiente y cerrar/minimizar.
 - La ventana conserva posición y tamaño entre Principal y Sala de espera. Es
   arrastrable y redimensionable en formato vertical 9:16; el tirador inferior
-  cambia el cursor para hacer visible esa posibilidad.
+  se pinta por encima del vídeo y cambia el cursor para hacer visible esa
+  posibilidad. El marco usa un borde oscuro discreto, sin la franja cian.
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
-- Minimizar guarda periódicamente el vídeo y el segundo aproximado, cierra el
-  estado de silencio y el volumen, cierra el navegador y libera la textura. El
+- Minimizar guarda periódicamente el vídeo, el segundo aproximado, el estado de
+  silencio y el volumen; después cierra el navegador y libera la textura. El
   icono flotante de la esquina inferior derecha vuelve a crear la sesión desde
   ese punto y reaplica el estado de audio cuando el reproductor empieza.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de

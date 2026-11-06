@@ -5,9 +5,11 @@ import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,8 +22,8 @@ import java.util.regex.Pattern;
 /** Loads the anonymous, ordered video results from the configured poker search. */
 final class PokerVideoSearch {
 
-    static final URI SEARCH_URI = URI.create(
-            "https://www.youtube.com/results?search_query=poker+shorts");
+    private static final String SEARCH_BASE =
+            "https://www.youtube.com/results?search_query=";
     static final int MAX_RESULTS = 40;
     private static final int MAX_RESPONSE_CHARS = 12 * 1024 * 1024;
     private static final Pattern FALLBACK_SHORT_ID = Pattern.compile(
@@ -43,18 +45,20 @@ final class PokerVideoSearch {
 
     static List<Video> fetch(String language) throws IOException,
             InterruptedException {
-        String acceptedLanguage = language == null || language.isBlank()
-                ? "es" : language.toLowerCase(Locale.ROOT);
+        String acceptedLanguage = languageCode(language);
+        String fallbackLanguage = "es".equals(acceptedLanguage)
+                ? "en" : "es";
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(8))
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
-        HttpRequest request = HttpRequest.newBuilder(SEARCH_URI)
+        HttpRequest request = HttpRequest.newBuilder(searchUri(language))
                 .timeout(Duration.ofSeconds(15))
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         + "AppleWebKit/537.36 (KHTML, like Gecko) "
                         + "Chrome/152.0.0.0 Safari/537.36")
-                .header("Accept-Language", acceptedLanguage + ",en;q=0.8")
+                .header("Accept-Language", acceptedLanguage + ","
+                        + fallbackLanguage + ";q=0.8")
                 .header("Accept", "text/html,application/xhtml+xml")
                 .GET()
                 .build();
@@ -72,6 +76,20 @@ final class PokerVideoSearch {
             throw new IOException("YouTube search did not expose playable videos");
         }
         return videos;
+    }
+
+    static URI searchUri(String language) {
+        String code = languageCode(language);
+        String query = "es".equals(code)
+                ? "póker shorts español" : "poker shorts english";
+        return URI.create(SEARCH_BASE + URLEncoder.encode(query,
+                StandardCharsets.UTF_8) + "&hl=" + code);
+    }
+
+    static String languageCode(String language) {
+        String normalized = language == null ? ""
+                : language.strip().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("en") ? "en" : "es";
     }
 
     static List<Video> parse(String html) {

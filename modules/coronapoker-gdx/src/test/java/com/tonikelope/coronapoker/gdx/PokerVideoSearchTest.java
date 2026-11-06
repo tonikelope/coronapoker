@@ -14,10 +14,16 @@ import org.junit.jupiter.api.Test;
 class PokerVideoSearchTest {
 
     @Test
-    void searchTargetsPokerShortsResults() {
+    void searchTargetsPokerShortsInTheGameLanguage() {
         assertEquals(URI.create(
-                "https://www.youtube.com/results?search_query=poker+shorts"),
-                PokerVideoSearch.SEARCH_URI);
+                "https://www.youtube.com/results?search_query="
+                + "p%C3%B3ker+shorts+espa%C3%B1ol&hl=es"),
+                PokerVideoSearch.searchUri("es"));
+        assertEquals(URI.create(
+                "https://www.youtube.com/results?search_query="
+                + "poker+shorts+english&hl=en"),
+                PokerVideoSearch.searchUri("en"));
+        assertEquals("es", PokerVideoSearch.languageCode(null));
     }
 
     @Test
@@ -60,7 +66,7 @@ class PokerVideoSearchTest {
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"),
                 new PokerVideoSearch.Video("LMNOPQRSTUV", "Second"));
         try (PokerVideoLocalServer server = PokerVideoLocalServer.start(videos,
-                1, 73, false, 64)) {
+                1, 73, false, 64, "en")) {
             HttpResponse<String> response = HttpClient.newHttpClient().send(
                     HttpRequest.newBuilder(URI.create(server.playerUrl())).GET()
                             .build(),
@@ -75,6 +81,12 @@ class PokerVideoSearchTest {
                     "const INITIAL_MUTED = false"));
             assertTrue(response.body().contains(
                     "const INITIAL_VOLUME = 64"));
+            assertTrue(response.body().contains(
+                    "const PLAYER_LANGUAGE = 'en'"));
+            assertTrue(response.body().contains(
+                    "function skipUnavailable(errorCode)"));
+            assertTrue(response.body().contains(
+                    "[2, 5, 100, 101, 150]"));
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")
                             .orElseThrow());

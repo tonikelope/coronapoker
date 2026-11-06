@@ -1916,6 +1916,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pokerVideoOverlay.drawContent(batch, buttonTinyFont, tinyFont,
                 viewport);
         batch.end();
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        pokerVideoOverlay.drawForegroundShapes(shapes, pointer);
+        shapes.end();
     }
 
     /** Releases the browser/video surface before the table owns the GPU. */

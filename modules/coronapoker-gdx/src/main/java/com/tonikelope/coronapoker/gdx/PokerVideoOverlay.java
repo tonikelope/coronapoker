@@ -37,8 +37,8 @@ final class PokerVideoOverlay implements AutoCloseable {
             GdxUiDialogStyle.PANEL_RGBA);
     private static final Color HEADER = new Color(
             GdxSettingsStyle.PANEL_LIGHT_RGBA);
-    private static final Color CYAN = new Color(
-            GdxSettingsStyle.CYAN_RGBA);
+    private static final Color LINE = new Color(
+            GdxSettingsStyle.LINE_RGBA);
     private static final Color GOLD = new Color(
             GdxSettingsStyle.GOLD_RGBA);
     private static final Color MUTED = new Color(
@@ -131,8 +131,9 @@ final class PokerVideoOverlay implements AutoCloseable {
                 if (closed.get()) return;
                 loadingState = "INICIALIZANDO REPRODUCTOR";
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
-                        frameBuffer, dataDirectory(), Math.round(videoWidth),
-                        Math.round(videoHeight), displayScale());
+                        frameBuffer, dataDirectory(), language,
+                        Math.round(videoWidth), Math.round(videoHeight),
+                        displayScale());
                 if (closed.get()) {
                     created.close();
                     return;
@@ -202,7 +203,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         nextBounds.set(x + 53f, y + videoHeight + 7f, 40f, 38f);
         closeBounds.set(x + videoWidth - 48f, y + videoHeight + 7f,
                 40f, 38f);
-        resizeBounds.set(x, y, 32f, 32f);
+        resizeBounds.set(x, y, 44f, 44f);
     }
 
     void prepareFrame() {
@@ -234,7 +235,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         GdxAntialiasedRoundedRect.fill(shapes, x - 7f, y - 8f,
                 videoWidth + 14f, videoHeight + HEADER_HEIGHT + 15f, 22f);
         GdxUiDialogStyle.drawPanel(shapes, panelBounds.x, panelBounds.y,
-                panelBounds.width, panelBounds.height, FRAME, CYAN, 1f);
+                panelBounds.width, panelBounds.height, FRAME, LINE, 1f);
         shapes.setColor(Color.BLACK);
         shapes.rect(videoBounds.x, videoBounds.y,
                 videoBounds.width, videoBounds.height);
@@ -250,7 +251,11 @@ final class PokerVideoOverlay implements AutoCloseable {
                 GdxUiButtonStyle.Tone.NEUTRAL, Capture.NEXT, true);
         drawHeaderButton(shapes, pointer, closeBounds,
                 GdxUiButtonStyle.Tone.DANGER, Capture.CLOSE, false);
-        shapes.setColor(CYAN);
+    }
+
+    void drawForegroundShapes(ShapeRenderer shapes, Vector2 pointer) {
+        if (!hostVisible || minimized) return;
+        shapes.setColor(LINE);
         GdxAntialiasedRoundedRect.outline(shapes, panelBounds.x + 1f,
                 panelBounds.y + 1f, panelBounds.width - 2f,
                 panelBounds.height - 2f, 17f, 2f);
@@ -291,12 +296,16 @@ final class PokerVideoOverlay implements AutoCloseable {
     private void drawResizeGrip(ShapeRenderer shapes, Vector2 pointer) {
         boolean highlighted = capture == Capture.RESIZE
                 || resizeBounds.contains(pointer);
-        shapes.setColor(highlighted ? Color.WHITE : CYAN);
+        shapes.setColor(HEADER);
+        shapes.triangle(resizeBounds.x, resizeBounds.y,
+                resizeBounds.x + 38f, resizeBounds.y,
+                resizeBounds.x, resizeBounds.y + 38f);
+        shapes.setColor(highlighted ? Color.WHITE : GOLD);
         float left = resizeBounds.x + 5f;
         float bottom = resizeBounds.y + 5f;
-        shapes.rectLine(left, bottom + 9f, left + 9f, bottom, 2.2f);
-        shapes.rectLine(left, bottom + 16f, left + 16f, bottom, 2.2f);
-        shapes.rectLine(left, bottom + 23f, left + 23f, bottom, 2.2f);
+        shapes.rectLine(left, bottom + 10f, left + 10f, bottom, 2.4f);
+        shapes.rectLine(left, bottom + 19f, left + 19f, bottom, 2.4f);
+        shapes.rectLine(left, bottom + 28f, left + 28f, bottom, 2.4f);
     }
 
     void drawContent(SpriteBatch batch, BitmapFont font, BitmapFont tinyFont,

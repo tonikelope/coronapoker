@@ -1076,7 +1076,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
     private final Vector2 systemCursorPointer = new Vector2();
-    private final Rectangle pokerVideoIconBounds = new Rectangle();
     private Cursor.SystemCursor appliedSystemCursor;
     private final Color callCostPulseTint = new Color();
     private final GdxTooltipDelay latencyTooltipDelay =
@@ -1684,7 +1683,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float communityHudHeight;
     private boolean userLightsOff;
     private boolean leftButtonReleasedThisFrame;
-    private boolean pokerVideoIconPressPending;
     private final GdxPointerCapture primaryPointer = new GdxPointerCapture();
     private boolean feltClickCandidate;
     private float feltClickDownX;
@@ -1958,16 +1956,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // handleDialogInput().  Consume the raw press here as well so
                 // an InputMultiplexer can never deliver it underneath.
                 return true;
-            }
-            if (button == Input.Buttons.LEFT && pokerVideoIconVisible()) {
-                pointer.set(screenX, screenY);
-                viewport.unproject(pointer);
-                updatePokerVideoIconBounds();
-                if (pokerVideoIconBounds.contains(pointer)) {
-                    pokerVideoIconPressPending = true;
-                    enablePokerVideosAfterTable();
-                    return true;
-                }
             }
             if (tableScrollPointer.active()
                     || gameLogWindowPointer.active()) return true;
@@ -2643,29 +2631,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean tablePreference(String key, boolean fallback) {
         return preferences == null ? fallback : booleanPreference(
                 tableProperties, key, fallback);
-    }
-
-    private boolean pokerVideoIconVisible() {
-        return PokerVideoIcon.visibleOnTable(
-                PokerVideoPlatformSupport.isAvailable(),
-                tablePreference("animaciones", true), !startupIntroOnly,
-                uiLayer == UI_NONE, blockingTablePointerSurface());
-    }
-
-    private void updatePokerVideoIconBounds() {
-        PokerVideoIcon.bounds(viewport.getWorldWidth(),
-                PokerVideoIcon.Placement.TABLE, pokerVideoIconBounds);
-    }
-
-    private void enablePokerVideosAfterTable() {
-        if (preferences == null || tablePreference(
-                GdxSettingsContract.POKER_VIDEOS_KEY, true)) return;
-        tableProperties.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY,
-                Boolean.TRUE.toString());
-        if (presentationSettings != null) {
-            presentationSettings.refreshRuntimePreferences();
-        }
-        preferences.saveDeferred();
     }
 
     private boolean globalTextToSpeechEnabled() {
@@ -6554,7 +6519,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawPerformanceCounter(viewport.getWorldWidth(),
                     viewport.getWorldHeight());
         }
-        drawPokerVideoTableIcon();
         if (screenshotRequested) {
             screenshotRequested = false;
             captureScreenshot();
@@ -6807,11 +6771,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleInput() {
-        if (pokerVideoIconPressPending) {
-            pokerVideoIconPressPending = false;
-            primaryPointer.capturePressedGesture();
-            return;
-        }
         boolean autoActionDecisionInputReady = true;
         boolean screenshotAlt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
@@ -21258,14 +21217,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             : gameLogResizeHandleUnderPointer();
             desired = systemCursorFor(handle);
         }
-        if (pokerVideoIconVisible()) {
-            systemCursorPointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(systemCursorPointer);
-            updatePokerVideoIconBounds();
-            if (pokerVideoIconBounds.contains(systemCursorPointer)) {
-                desired = Cursor.SystemCursor.Hand;
-            }
-        }
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);
             appliedSystemCursor = desired;
@@ -21290,17 +21241,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case TOP_RIGHT, BOTTOM_LEFT -> Cursor.SystemCursor.NESWResize;
             case NONE -> Cursor.SystemCursor.Arrow;
         };
-    }
-
-    private void drawPokerVideoTableIcon() {
-        if (!pokerVideoIconVisible()) return;
-        updatePokerVideoIconBounds();
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        PokerVideoIcon.draw(shapes, pokerVideoIconBounds, pointer,
-                false, 1f);
-        shapes.end();
     }
 
     static List<String> settingsGamePageLabels() {

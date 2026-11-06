@@ -1288,7 +1288,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 surface == Surface.LOBBY
                         ? PokerVideoIcon.Placement.LOBBY
                         : PokerVideoIcon.Placement.MENU,
-                gameText.language(), WIDTH, HEIGHT);
+                gameText.language(), initialProperties.getProperty(
+                        GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
+                        PokerVideoSearch.TYPE_SHORTS), WIDTH, HEIGHT);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {

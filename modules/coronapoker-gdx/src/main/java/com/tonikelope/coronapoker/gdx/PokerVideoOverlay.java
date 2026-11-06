@@ -34,7 +34,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     static final float INITIAL_WIDTH = MIN_WIDTH;
     static final float MAX_WIDTH = 520f;
     static final float HEADER_HEIGHT = 52f;
-    private static final float ASPECT = 9f / 16f;
+    private static final float SHORT_ASPECT = 9f / 16f;
+    private static final float NORMAL_ASPECT = 16f / 9f;
     private static final Color SHADOW = new Color(0x00000088);
     private static final Color FRAME = new Color(
             GdxUiDialogStyle.PANEL_RGBA);
@@ -82,12 +83,15 @@ final class PokerVideoOverlay implements AutoCloseable {
     private boolean browserFocused;
     private volatile boolean releasedForTable;
     private boolean restoreWindowAfterTable;
+    private volatile String requestedCatalogKey;
+    private String selectedVideoType = PokerVideoSearch.TYPE_SHORTS;
+    private float videoAspect = SHORT_ASPECT;
     private float worldWidth;
     private float worldHeight;
     private float x;
     private float y;
     private float videoWidth = INITIAL_WIDTH;
-    private float videoHeight = INITIAL_WIDTH / ASPECT;
+    private float videoHeight = INITIAL_WIDTH / SHORT_ASPECT;
     private Capture capture = Capture.NONE;
     private int capturedPointer = -1;
     private int capturedButton = -1;
@@ -109,6 +113,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     void update(boolean available, boolean enabled, boolean visible,
             PokerVideoIcon.Placement placement, String language,
+            String videoType,
             float width, float height) {
         worldWidth = width;
         worldHeight = height;
@@ -141,7 +146,14 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         ensurePosition();
         hostVisible = visible && !releasedForTable;
-        if (hostVisible && enabled && !initializationStarted) start(language);
+        String normalizedType = PokerVideoSearch.videoType(videoType);
+        updateVideoAspect(normalizedType);
+        String catalogKey = PokerVideoSearch.languageCode(language) + ":"
+                + normalizedType;
+        if (hostVisible && enabled && (!initializationStarted
+                || !catalogKey.equals(requestedCatalogKey))) {
+            start(language, normalizedType, catalogKey);
+        }
         boolean shouldRun = hostVisible && enabled && !minimized
                 && !releasedForTable;
         PokerVideoRuntime current = runtime;
@@ -164,20 +176,43 @@ final class PokerVideoOverlay implements AutoCloseable {
         updateBounds();
     }
 
-    private void start(String language) {
+    private void updateVideoAspect(String videoType) {
+        if (videoType.equals(selectedVideoType)) return;
+        float top = y + videoHeight + HEADER_HEIGHT;
+        selectedVideoType = videoType;
+        videoAspect = PokerVideoSearch.TYPE_NORMAL.equals(videoType)
+                ? NORMAL_ASPECT : SHORT_ASPECT;
+        videoHeight = videoWidth / videoAspect;
+        if (positioned) {
+            y = top - videoHeight - HEADER_HEIGHT;
+            clampWindow();
+        }
+    }
+
+    private void start(String language, String videoType,
+            String catalogKey) {
         initializationStarted = true;
+        requestedCatalogKey = catalogKey;
         long generation = initializationGeneration.incrementAndGet();
         initializer.submit(() -> {
             try {
-                loadingState = "BUSCANDO SHORTS DE PÓKER";
+                loadingState = PokerVideoSearch.TYPE_SHORTS.equals(videoType)
+                        ? "BUSCANDO SHORTS DE PÓKER"
+                        : "BUSCANDO VÍDEOS DE PÓKER";
                 var videos = PokerVideoSearch.shuffled(
-                        PokerVideoSearch.fetch(language),
+                        PokerVideoSearch.fetch(language, videoType),
                         ThreadLocalRandom.current());
                 if (closed.get() || !systemAvailable
                         || generation != initializationGeneration.get()) {
                     return;
                 }
                 loadingState = "INICIALIZANDO REPRODUCTOR";
+                PokerVideoRuntime current = runtime;
+                if (current != null) {
+                    current.replaceVideos(videos);
+                    loadingError = null;
+                    return;
+                }
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
                         frameBuffer, dataDirectory(), language,
                         Math.round(videoWidth), Math.round(videoHeight),
@@ -368,8 +403,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                     videoBounds.width - 60f, Align.center, true, viewport);
         }
         PokerVideoRuntime current = runtime;
-        String title = current == null ? "SHORTS DE PÓKER"
-                : current.position() + "  ·  " + current.title();
+        String title = current == null ? "VÍDEOS DE PÓKER"
+                : current.title();
         float titleWidth = closeBounds.x - nextBounds.x - nextBounds.width
                 - 20f;
         font.setColor(GOLD);
@@ -578,16 +613,17 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void resizeFrom(float pointerX, float pointerY) {
         float horizontal = startWidth - (pointerX - captureStartX);
-        float startHeight = startWidth / ASPECT;
-        float vertical = (startHeight - (pointerY - captureStartY)) * ASPECT;
+        float startHeight = startWidth / videoAspect;
+        float vertical = (startHeight - (pointerY - captureStartY))
+                * videoAspect;
         float candidate = Math.abs(horizontal - startWidth)
                 >= Math.abs(vertical - startWidth) ? horizontal : vertical;
         float maximum = Math.min(MAX_WIDTH, Math.min(fixedRight - 8f,
                 Math.max(MIN_WIDTH, (worldHeight - HEADER_HEIGHT - 16f)
-                        * ASPECT)));
+                        * videoAspect)));
         videoWidth = MathUtils.clamp(candidate, MIN_WIDTH,
                 Math.max(MIN_WIDTH, maximum));
-        videoHeight = videoWidth / ASPECT;
+        videoHeight = videoWidth / videoAspect;
         x = fixedRight - videoWidth;
         y = fixedTop - videoHeight - HEADER_HEIGHT;
         clampWindow();

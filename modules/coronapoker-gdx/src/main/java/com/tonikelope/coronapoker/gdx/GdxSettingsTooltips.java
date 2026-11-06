@@ -167,6 +167,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animations_master";
             case GdxSettingsContract.POKER_VIDEOS_KEY ->
                 "gdx.settings.tooltip.poker_videos";
+            case GdxSettingsContract.POKER_VIDEO_TYPE_KEY ->
+                "gdx.settings.tooltip.poker_video_type";
             case GdxSettingsContract.HALO_EFFECT_KEY ->
                 "gdx.settings.tooltip.halo_effects";
             case GdxSettingsContract.MODAL_BLUR_KEY ->

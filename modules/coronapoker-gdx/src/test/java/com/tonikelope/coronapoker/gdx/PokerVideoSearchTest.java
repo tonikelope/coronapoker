@@ -29,7 +29,17 @@ class PokerVideoSearchTest {
                 "https://www.youtube.com/results?search_query="
                 + "poker+shorts+english&hl=en"),
                 PokerVideoSearch.searchUri("en"));
+        assertEquals(URI.create(
+                "https://www.youtube.com/results?search_query="
+                + "v%C3%ADdeos+de+p%C3%B3ker+espa%C3%B1ol&hl=es"),
+                PokerVideoSearch.searchUri("es", "normal"));
+        assertEquals(URI.create(
+                "https://www.youtube.com/results?search_query="
+                + "poker+videos+english&hl=en"),
+                PokerVideoSearch.searchUri("en", "normal"));
         assertEquals("es", PokerVideoSearch.languageCode(null));
+        assertEquals(PokerVideoSearch.TYPE_SHORTS,
+                PokerVideoSearch.videoType("unexpected"));
     }
 
     @Test
@@ -66,6 +76,24 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void extractsNormalVideosWithoutMixingShorts() {
+        String html = "<script>var ytInitialData = {\"contents\":["
+                + "{\"videoRenderer\":{\"videoId\":\"ABCDEFGHIJK\","
+                + "\"title\":{\"runs\":[{\"text\":\"Normal poker video\"}]}}},"
+                + "{\"shortsLockupViewModel\":{"
+                + "\"onTap\":{\"innertubeCommand\":{\"reelWatchEndpoint\":{"
+                + "\"videoId\":\"LMNOPQRSTUV\"}}}}}"
+                + "]};</script>";
+
+        List<PokerVideoSearch.Video> videos = PokerVideoSearch.parse(
+                html, PokerVideoSearch.TYPE_NORMAL);
+
+        assertEquals(List.of("ABCDEFGHIJK"),
+                videos.stream().map(PokerVideoSearch.Video::id).toList());
+        assertEquals("Normal poker video", videos.get(0).title());
+    }
+
+    @Test
     void shufflesOneSessionWithoutMutatingSearchOrder() {
         List<PokerVideoSearch.Video> ordered = List.of(
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "One"),
@@ -96,7 +124,7 @@ class PokerVideoSearchTest {
 
             assertEquals(200, response.statusCode());
             assertTrue(response.body().contains(
-                    "const VIDEO_IDS = ['ABCDEFGHIJK','LMNOPQRSTUV']"));
+                    "let VIDEO_IDS = ['ABCDEFGHIJK','LMNOPQRSTUV']"));
             assertTrue(response.body().contains("let currentIndex = 1"));
             assertTrue(response.body().contains("const START_SECONDS = 73"));
             assertTrue(response.body().contains(
@@ -115,6 +143,12 @@ class PokerVideoSearchTest {
                     "function playWithDesiredAudio(target)"));
             assertTrue(response.body().contains(
                     "window.coronaSelectRelative = selectRelative"));
+            assertTrue(response.body().contains(
+                    "window.coronaReplaceVideos = function (ids)"));
+            assertTrue(response.body().contains(
+                    "reportAudio();"));
+            assertFalse(response.body().contains(
+                    "desiredMuted = player.isMuted ?"));
             assertTrue(response.body().contains(
                     "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",
@@ -136,6 +170,8 @@ class PokerVideoSearchTest {
         option.ifPresent(candidate -> assertTrue(candidate.fallback()));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 GdxSettingsContract.POKER_VIDEOS_KEY));
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
+                GdxSettingsContract.POKER_VIDEO_TYPE_KEY));
     }
 
     @Test
@@ -146,9 +182,12 @@ class PokerVideoSearchTest {
                 PokerVideoIcon.Placement.MENU, new Rectangle());
         Rectangle lobby = PokerVideoIcon.bounds(1920f,
                 PokerVideoIcon.Placement.LOBBY, new Rectangle());
-        assertEquals(92f, menu.y);
-        assertEquals(154f, lobby.y);
-        assertTrue(lobby.y > menu.y + PokerVideoIcon.SIZE / 2f);
+        assertEquals(1781f, menu.x);
+        assertEquals(16f, menu.y);
+        assertEquals(48f, menu.width);
+        assertEquals(1478.5f, lobby.x);
+        assertEquals(61f, lobby.y);
+        assertEquals(60f, lobby.width);
     }
 
     @Test
@@ -156,14 +195,6 @@ class PokerVideoSearchTest {
         assertTrue(PokerVideoIcon.systemEnabled(true, true));
         assertFalse(PokerVideoIcon.systemEnabled(true, false));
         assertFalse(PokerVideoIcon.systemEnabled(false, true));
-        assertTrue(PokerVideoIcon.visibleOnTable(
-                true, true, true, true, false));
-        assertFalse(PokerVideoIcon.visibleOnTable(
-                true, false, true, true, false));
-        assertFalse(PokerVideoIcon.visibleOnTable(
-                true, true, true, false, false));
-        assertFalse(PokerVideoIcon.visibleOnTable(
-                true, true, true, true, true));
     }
 
     @Test
@@ -173,11 +204,11 @@ class PokerVideoSearchTest {
                 new PokerVideoOverlay(preferenceChanges::add)) {
             overlay.update(true, false, true,
                     PokerVideoIcon.Placement.MENU,
-                    "es", 1920f, 1080f);
+                    "es", "shorts", 1920f, 1080f);
 
             assertTrue(overlay.hostVisible());
-            assertTrue(overlay.touchDown(1867f, 121f, 0, 0));
-            assertTrue(overlay.touchUp(1867f, 121f, 0, 0));
+            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
+            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
             assertEquals(List.of(true), preferenceChanges);
 
             assertTrue(overlay.touchDown(1868f, 592f, 0, 0));
@@ -193,16 +224,16 @@ class PokerVideoSearchTest {
                 new PokerVideoOverlay(preferenceChanges::add)) {
             overlay.update(true, false, true,
                     PokerVideoIcon.Placement.MENU,
-                    "es", 1920f, 1080f);
+                    "es", "shorts", 1920f, 1080f);
             overlay.releaseForTable();
             overlay.restoreAfterTable();
             overlay.update(true, false, true,
                     PokerVideoIcon.Placement.MENU,
-                    "es", 1920f, 1080f);
+                    "es", "shorts", 1920f, 1080f);
 
             assertTrue(overlay.hostVisible());
-            assertTrue(overlay.touchDown(1867f, 121f, 0, 0));
-            assertTrue(overlay.touchUp(1867f, 121f, 0, 0));
+            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
+            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
             assertEquals(List.of(true), preferenceChanges);
         }
     }
@@ -214,10 +245,10 @@ class PokerVideoSearchTest {
                 new PokerVideoOverlay(preferenceChanges::add)) {
             overlay.update(false, true, true,
                     PokerVideoIcon.Placement.MENU,
-                    "es", 1920f, 1080f);
+                    "es", "shorts", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());
-            assertFalse(overlay.touchDown(1867f, 121f, 0, 0));
+            assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
             assertTrue(preferenceChanges.isEmpty());
         }
     }

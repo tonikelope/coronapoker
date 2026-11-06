@@ -702,11 +702,12 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(19, page.options().size());
-        assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(25, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "mostrar_videos_poker",
+                "tipo_videos_poker",
                 "efecto_halos",
                 "efecto_desenfoque",
                 "efecto_relieve",
@@ -733,6 +734,12 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+        assertTrue(GdxSettingsContract.visualGroups(
+                GdxSettingsContract.appearanceGroups(page),
+                GdxSettingsContract.appearanceRowCount(page)).stream()
+                .anyMatch(group -> group.parentRow() == 1
+                        && group.lastRow() == 2),
+                "the poker video switch and type selector must share a group");
     }
 
     @Test

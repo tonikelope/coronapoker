@@ -42,6 +42,22 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
+    void pokerVideoTypeDefaultsToShortsAndBelongsToTheVideoSwitch() {
+        Properties properties = new Properties();
+        GdxAppearanceOptions.Choice videoType = choice(
+                GdxSettingsContract.POKER_VIDEO_TYPE_KEY);
+
+        assertEquals("SHORTS",
+                GdxAppearanceOptions.selectedLabel(videoType, properties));
+        assertEquals(GdxSettingsContract.POKER_VIDEOS_KEY,
+                GdxAppearanceOptions.parentKey(videoType));
+        assertTrue(GdxAppearanceOptions.enabled(videoType, properties));
+        properties.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY,
+                "false");
+        assertFalse(GdxAppearanceOptions.enabled(videoType, properties));
+    }
+
+    @Test
     void nonCanonicalNumericValuesSelectTheNearestSwingPreset() {
         Properties properties = new Properties();
         GdxAppearanceOptions.Choice flip = choice("card_flip_duration");

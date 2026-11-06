@@ -32,6 +32,7 @@ final class GdxSettingsContract {
     static final String MODAL_BLUR_KEY = "efecto_desenfoque";
     static final String GLASS_EFFECT_KEY = "efecto_relieve";
     static final String POKER_VIDEOS_KEY = "mostrar_videos_poker";
+    static final String POKER_VIDEO_TYPE_KEY = "tipo_videos_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
@@ -571,6 +572,7 @@ final class GdxSettingsContract {
                     List.of(
                     animationToggle("animaciones"),
                     animationToggle(POKER_VIDEOS_KEY),
+                    animationChoice(POKER_VIDEO_TYPE_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
                     animationToggle(GLASS_EFFECT_KEY),
@@ -642,7 +644,8 @@ final class GdxSettingsContract {
             "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
-            "animaciones", POKER_VIDEOS_KEY, "cinematicas",
+            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_TYPE_KEY,
+            "cinematicas",
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_barajado_precarga",
@@ -680,8 +683,8 @@ final class GdxSettingsContract {
                     List<AppearanceAnimationRow> rows) {
         if (PokerVideoPlatformSupport.isAvailable()) return rows;
         return rows.stream()
-                .filter(row -> row.toggle() == null
-                        || !POKER_VIDEOS_KEY.equals(row.toggle().key()))
+                .filter(row -> !POKER_VIDEOS_KEY.equals(row.key())
+                        && !POKER_VIDEO_TYPE_KEY.equals(row.key()))
                 .toList();
     }
 

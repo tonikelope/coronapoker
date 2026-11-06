@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>CoronaPoker — Shorts de póker</title>
+  <title>CoronaPoker — Vídeos de póker</title>
   <style>
     html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
     body { font-family: system-ui, sans-serif; color: #fff; }
@@ -15,11 +15,11 @@
   </style>
 </head>
 <body>
-  <div id="status">Buscando Shorts de póker…</div>
+  <div id="status">Buscando vídeos de póker…</div>
   <div id="player"></div>
   <script>
     'use strict';
-    const VIDEO_IDS = [@@VIDEO_IDS@@];
+    let VIDEO_IDS = [@@VIDEO_IDS@@];
     const ORIGIN = '@@ORIGIN@@';
     const PLAYER_LANGUAGE = '@@PLAYER_LANGUAGE@@';
     const statusBox = document.getElementById('status');
@@ -37,6 +37,7 @@
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
+    let audioRestoreTimer = null;
 
     function report(kind, detail) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
@@ -64,9 +65,19 @@
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
       statusBox.className = 'hidden';
-      desiredMuted = player.isMuted ? player.isMuted() : desiredMuted;
-      desiredVolume = player.getVolume ? player.getVolume() : desiredVolume;
+      // Capture only a stable user-selected state. During a previous load the
+      // player is muted temporarily; reading that transient mute here made a
+      // rapid second Next/Previous permanently overwrite the desired audio.
+      reportAudio();
       restoredAudioPending = true;
+      if (audioRestoreTimer !== null) {
+        clearTimeout(audioRestoreTimer);
+        audioRestoreTimer = null;
+      }
+      if (autoplayRetryTimer !== null) {
+        clearTimeout(autoplayRetryTimer);
+        autoplayRetryTimer = null;
+      }
       if (player.mute) player.mute();
       player.loadVideoById(VIDEO_IDS[currentIndex]);
       reportIndex();
@@ -106,7 +117,7 @@
     function selectRelative(delta) {
       const nextPosition = nextPlayableOrderPosition(delta);
       if (nextPosition < 0) {
-        showError('No se han encontrado Shorts reproducibles.');
+        showError('No se han encontrado vídeos reproducibles.');
         return;
       }
       selectOrderPosition(nextPosition);
@@ -118,11 +129,11 @@
       report('FAILED', currentIndex + ':' + errorCode);
       const nextPosition = nextPlayableOrderPosition(1);
       if (nextPosition < 0) {
-        showError('No se han encontrado Shorts reproducibles.');
+        showError('No se han encontrado vídeos reproducibles.');
         return;
       }
       statusBox.className = 'hidden';
-      report('STATE', 'SHORT NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
+      report('STATE', 'VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
         selectOrderPosition(nextPosition);
@@ -137,6 +148,21 @@
       } else if (target.unMute) {
         target.unMute();
       }
+    }
+
+    function scheduleAudioRestore(target) {
+      if (!restoredAudioPending || !target) return;
+      if (audioRestoreTimer !== null) clearTimeout(audioRestoreTimer);
+      const expectedVideoId = VIDEO_IDS[currentIndex];
+      audioRestoreTimer = setTimeout(() => {
+        audioRestoreTimer = null;
+        if (!restoredAudioPending || expectedVideoId !== VIDEO_IDS[currentIndex]) return;
+        const data = target.getVideoData ? target.getVideoData() : null;
+        if (data && data.video_id && data.video_id !== expectedVideoId) return;
+        restoreAudioState(target);
+        restoredAudioPending = false;
+        setTimeout(reportAudio, 150);
+      }, 80);
     }
 
     function reportAudio() {
@@ -171,6 +197,19 @@
 
     window.coronaSelectVideo = selectVideo;
     window.coronaSelectRelative = selectRelative;
+    window.coronaReplaceVideos = function (ids) {
+      if (!Array.isArray(ids)) return;
+      const valid = ids.filter(id => typeof id === 'string'
+        && /^[A-Za-z0-9_-]{11}$/.test(id));
+      if (valid.length === 0) return;
+      VIDEO_IDS = valid;
+      failedVideoIds.clear();
+      playOrder = VIDEO_IDS.map((ignored, index) => index);
+      orderPosition = 0;
+      currentIndex = 0;
+      if (player && ready) selectOrderPosition(0);
+      else reportIndex();
+    };
     window.coronaSetActive = function (active) {
       if (!player || !ready) return;
       if (active) playWithDesiredAudio(player);
@@ -217,9 +256,7 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              restoreAudioState(event.target);
-              restoredAudioPending = false;
-              setTimeout(reportAudio, 150);
+              scheduleAudioRestore(event.target);
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };

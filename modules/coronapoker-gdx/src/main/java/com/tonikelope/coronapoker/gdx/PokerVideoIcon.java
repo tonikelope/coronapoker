@@ -5,21 +5,26 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
-/** Shared, resource-free poker-video affordance for every game surface. */
+/** Shared, resource-free poker-video affordance for the menu and waiting room. */
 final class PokerVideoIcon {
 
-    static final float SIZE = 58f;
-    private static final float RIGHT_MARGIN = 24f;
+    private static final float SOUND_GAP = 12f;
 
     enum Placement {
-        MENU(92f),
-        LOBBY(154f),
-        TABLE(92f);
+        // These are the exact painted sound-button dimensions, not just its
+        // texture bounds. The video affordance therefore has the same visual
+        // weight and sits immediately to its left on both surfaces.
+        MENU(48f, 16f, 31f),
+        LOBBY(60f, 61f, 309.5f);
 
+        private final float size;
         private final float bottom;
+        private final float soundRightMargin;
 
-        Placement(float bottom) {
+        Placement(float size, float bottom, float soundRightMargin) {
+            this.size = size;
             this.bottom = bottom;
+            this.soundRightMargin = soundRightMargin;
         }
     }
 
@@ -31,17 +36,12 @@ final class PokerVideoIcon {
         return platformAvailable && animationsEnabled;
     }
 
-    static boolean visibleOnTable(boolean platformAvailable,
-            boolean animationsEnabled, boolean productTable,
-            boolean rootSurface, boolean blocked) {
-        return systemEnabled(platformAvailable, animationsEnabled)
-                && productTable && rootSurface && !blocked;
-    }
-
     static Rectangle bounds(float worldWidth, Placement placement,
             Rectangle result) {
-        return result.set(worldWidth - SIZE - RIGHT_MARGIN,
-                placement.bottom, SIZE, SIZE);
+        float soundLeft = worldWidth - placement.soundRightMargin
+                - placement.size;
+        return result.set(soundLeft - SOUND_GAP - placement.size,
+                placement.bottom, placement.size, placement.size);
     }
 
     static void draw(ShapeRenderer shapes, Rectangle bounds, Vector2 pointer,
@@ -57,7 +57,7 @@ final class PokerVideoIcon {
                 GdxUiIconRenderer.Icon.CONTINUE,
                 bounds.x + bounds.width / 2f,
                 bounds.y + bounds.height / 2f,
-                SIZE * 0.52f,
+                Math.max(12f, bounds.width - 8f),
                 GdxUiButtonStyle.labelColor(
                         GdxUiButtonStyle.Tone.FEATURED, true), alpha);
     }

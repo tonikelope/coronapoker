@@ -1,27 +1,30 @@
 # Experimento de Shorts de póker (JCEF OSR)
 
 Esta rama integra el prototipo JCEF sin modificar la lógica de la partida. El
-reproductor aparece únicamente en la pantalla principal y en la sala de espera;
-durante la partida solo puede aparecer su icono sin navegador ni textura.
+reproductor y su icono aparecen únicamente en la pantalla principal y en la
+sala de espera. Durante la partida no aparece ninguno de los dos.
 
 ## Comportamiento
 
-- El ajuste `Apariencia > Animaciones y efectos > Mostrar vídeos de póker`
-  está activado por defecto. El interruptor maestro `Usar animaciones y
+- El grupo `Apariencia > Animaciones y efectos > Vídeos de póker` está
+  activado por defecto e incluye `Tipos de vídeos`, con `Shorts` como valor
+  inicial y `Normales` como alternativa. El interruptor maestro `Usar animaciones y
   efectos` domina todo el sistema: si está apagado no aparecen ventana ni
   icono y no se inician búsqueda, servidor ni navegador.
-- La lista contiene únicamente resultados Shorts. La búsqueda añade español o
-  inglés según el idioma del juego para priorizar contenido en ese idioma. El
+- La lista contiene Shorts o vídeos normales según el selector. La búsqueda
+  añade español o inglés según el idioma del juego para priorizar contenido en ese idioma. El
   lote anónimo que entrega YouTube se baraja al iniciar y se vuelve a barajar
   al completar cada vuelta; al terminar un Short avanza automáticamente. La
-  reproducción es continua aunque el contador muestre el número de resultados
-  únicos obtenidos en esa consulta.
+  reproducción continúa recorriendo y reordenando los resultados únicos
+  obtenidos en esa consulta.
 - La lista no se cachea entre ejecuciones de CoronaPoker: cada arranque vuelve
   a consultar YouTube para poder incorporar resultados nuevos. Dentro de una
   misma ejecución sí se conserva en memoria al minimizar o pasar por la mesa.
 - Los resultados retirados, privados, incompatibles o que prohíben la
   reproducción embebida se marcan y se saltan automáticamente. Los botones
   anterior y siguiente también evitan los resultados ya descartados.
+- La barra de título muestra solo el título del vídeo, sin contador ni total
+  de resultados.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
   controles propios de YouTube están ocultos; la navegación y el cierre se
   realizan desde la barra de CoronaPoker. El
@@ -36,7 +39,9 @@ durante la partida solo puede aparecer su icono sin navegador ni textura.
   y escala con el `FitViewport` 1920x1080, por lo que conserva la misma
   proporción visual en 1080p, 1440p y 2160p. El marco usa un borde oscuro
   discreto, sin la franja cian. En la sala el icono queda elevado por encima
-  de los controles inferiores y su hover está recortado al propio botón.
+  de los controles inferiores y su hover está recortado al propio botón. En
+  principal y sala el icono tiene el mismo tamaño que el botón de sonido y se
+  sitúa inmediatamente a su izquierda.
 - Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
   modal continúa desde el mismo punto.
 - Cerrar guarda periódicamente el vídeo, el segundo aproximado, el estado de
@@ -47,10 +52,12 @@ durante la partida solo puede aparecer su icono sin navegador ni textura.
   automáticamente la reproducción, reaplicando el estado de audio después de
   que el vídeo haya comenzado.
 - Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
-  textura. La mesa muestra solo el icono si la plataforma y las animaciones lo
-  permiten; activarlo prepara la preferencia para abrir el reproductor al
-  regresar, pero nunca crea JCEF durante la partida. Al volver de la timba se
-  restaura exactamente el estado de ventana o icono que correspondía.
+  textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
+  volver de la timba se restaura exactamente el estado de ventana o icono que
+  correspondía.
+- Los cambios rápidos con anterior/siguiente conservan el último estado de
+  audio elegido: el mute temporal de carga no puede sobrescribirlo y solo el
+  último vídeo solicitado puede restaurar volumen y silencio.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 

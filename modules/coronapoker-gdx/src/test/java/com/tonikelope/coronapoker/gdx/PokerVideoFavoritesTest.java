@@ -96,6 +96,12 @@ class PokerVideoFavoritesTest {
                     previous = button;
                 }
                 assertTrue(header.contains(bounds(overlay, "closeBounds")));
+                Rectangle star = bounds(overlay, "favoriteBounds");
+                Rectangle favorites = bounds(overlay, "favoritesModeBounds");
+                Rectangle format = bounds(overlay, "videoTypeBounds");
+                assertEquals(footer.x + 8f, star.x, 0.01f);
+                assertEquals(star.x + star.width + 5f, favorites.x, 0.01f);
+                assertEquals(footer.x + footer.width - 8f, format.x + format.width, 0.01f);
             }
         }
     }
@@ -107,6 +113,9 @@ class PokerVideoFavoritesTest {
             prepare(overlay, 260f);
             click(overlay, "videoTypeBounds");
             assertEquals("normal", requested.get());
+            prepare(overlay, 900f);
+            click(overlay, "videoTypeBounds");
+            assertEquals("shorts", requested.get());
             var field = PokerVideoOverlay.class.getDeclaredField("catalog");
             field.setAccessible(true);
             PokerVideoCatalog model = (PokerVideoCatalog) field.get(overlay);

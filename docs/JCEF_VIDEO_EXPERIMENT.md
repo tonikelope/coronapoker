@@ -30,6 +30,8 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   Una barra inferior separada contiene la estrella de favorito, el botón para
   ver favoritos o volver al carrusel normal, y el selector rápido Shorts/Normales.
   Este selector guarda el mismo ajuste de formato que el menú de apariencia.
+  Estrella y favoritos se alinean a la izquierda; el selector de formato queda
+  a la derecha y muestra el destino del cambio, tanto en su texto como en su icono.
 - La estrella hueca guarda el vídeo y pasa a estar rellena; pulsarla otra vez
   lo quita de favoritos. La lista se guarda en
   `~/.coronapoker/poker-video-favorites.properties` y sobrevive a reinicios.

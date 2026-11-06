@@ -343,10 +343,10 @@ final class PokerVideoOverlay implements AutoCloseable {
         float available = videoWidth - 26f - starWidth;
         float modeWidth = Math.min(156f, available * 0.55f);
         float typeWidth = Math.min(124f, available - modeWidth);
-        float left = x + (videoWidth - starWidth - modeWidth - typeWidth - 10f) / 2f;
+        float left = x + 8f;
         favoriteBounds.set(left, y + 5f, starWidth, 38f);
         favoritesModeBounds.set(left + starWidth + 5f, y + 5f, modeWidth, 38f);
-        videoTypeBounds.set(favoritesModeBounds.x + modeWidth + 5f, y + 5f, typeWidth, 38f);
+        videoTypeBounds.set(x + videoWidth - 8f - typeWidth, y + 5f, typeWidth, 38f);
     }
 
     void prepareFrame() {
@@ -425,7 +425,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
         } else if (action == Capture.VIDEO_TYPE) {
             if (bounds.width < 110f) return;
-            boolean shorts = PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType);
+            boolean shorts = !PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType);
             float cx = bounds.x + (bounds.width > 40f ? 20f : bounds.width / 2f);
             float cy = bounds.y + bounds.height / 2f;
             float w = shorts ? 12f : 21f;
@@ -506,8 +506,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                             ? "gdx.video.normal.label" : "gdx.video.favorites.label"));
         drawButtonLabel(batch, tinyFont, viewport, videoTypeBounds,
                     text.translate(PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType)
-                            ? "gdx.settings.choice.tipo_videos_poker.shorts"
-                            : "gdx.settings.choice.tipo_videos_poker.normal"));
+                            ? "gdx.settings.choice.tipo_videos_poker.normal"
+                            : "gdx.settings.choice.tipo_videos_poker.shorts"));
     }
 
     private void drawButtonLabel(SpriteBatch batch, BitmapFont font,

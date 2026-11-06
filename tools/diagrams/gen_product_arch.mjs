@@ -48,7 +48,7 @@ function moduleMap() {
   cells.push(vertex("subtitle", "Runtime responsibilities, renderer-neutral boundary, Maven modules and verification.", `${textStyle}fontSize=16;fontColor=#52627A;`, 47, 65, 1400, 28));
 
   cells.push(vertex("releaseLane", "RELEASE ARTIFACT", laneStyle("#294A79", "#294A79", "#FFFFFF"), 20, 110, 1860, 155));
-  cells.push(vertex("jar", "<b>CoronaPoker_&lt;version&gt;.jar</b><br><font size=\"2\">Main class: com.tonikelope.coronapoker.gdx.GdxLauncher<br>One shaded cross-platform desktop application with core, GDX and resources</font>", boxStyle("#FFFFFF", "#25A9D6"), 500, 165, 900, 78));
+  cells.push(vertex("jar", "<b>CoronaPoker_&lt;version&gt;[platform].jar</b><br><font size=\"2\">Main class: com.tonikelope.coronapoker.gdx.GdxLauncher<br>One shaded JAR per OS/architecture: core, GDX, resources and matching JCEF natives</font>", boxStyle("#FFFFFF", "#25A9D6"), 500, 165, 900, 78));
 
   cells.push(vertex("runtimeLane", "RUNTIME ARCHITECTURE", laneStyle("#70499B", "#70499B", "#FFFFFF"), 20, 300, 1860, 440));
   cells.push(vertex("gdx", "<b>GDX PRESENTATION</b><br><br>GdxApplicationShell<br>GdxFrontendScreen<br>GdxTableRenderer<br>CoronaPokerGdxTable<br><br><font size=\"2\">Window lifecycle, input, GPU rendering and desktop media</font>", boxStyle("#E8F7FC", "#25A9D6"), 60, 405, 430, 230));

@@ -535,7 +535,15 @@ public class Init extends javax.swing.JFrame {
 
         try {
 
-            URL url_api = new URL("https://github.com/tonikelope/coronapoker/releases/download/v" + version + "/CoronaPoker_" + version + ".jar");
+            String asset;
+            try {
+                asset = ReleaseArtifact.jarName(version,
+                        System.getProperty("os.name", ""),
+                        System.getProperty("os.arch", ""));
+            } catch (IllegalArgumentException unsupported) {
+                throw new IOException(unsupported.getMessage(), unsupported);
+            }
+            URL url_api = new URL("https://github.com/tonikelope/coronapoker/releases/download/v" + version + "/" + asset);
 
             con = (HttpURLConnection) url_api.openConnection();
 

@@ -187,7 +187,7 @@ if ([string]::IsNullOrWhiteSpace($dependencyLine)) {
 $requiredModules = @(
     "java.desktop", "java.logging", "java.management", "java.naming",
     "java.net.http", "java.prefs", "java.sql", "jdk.charsets",
-    "jdk.crypto.ec", "jdk.localedata", "jdk.unsupported", "jdk.zipfs"
+    "jdk.crypto.ec", "jdk.httpserver", "jdk.localedata", "jdk.unsupported", "jdk.zipfs"
 )
 $modules = ((@($dependencyLine -split ',') + $requiredModules) |
         Sort-Object -Unique) -join ','
@@ -264,9 +264,9 @@ if ((Get-Content -LiteralPath $installedConfig -Raw) -match 'user\.home') {
 $runtimeModules = @(& $installedJava --list-modules | ForEach-Object {
         ($_ -split '@')[0]
     })
-foreach ($updaterModule in @("java.base", "java.desktop", "java.logging")) {
-    if ($updaterModule -notin $runtimeModules) {
-        throw "Updater-compatible runtime is missing module $updaterModule."
+foreach ($requiredModule in $requiredModules) {
+    if ($requiredModule -notin $runtimeModules) {
+        throw "Private runtime is missing module $requiredModule."
     }
 }
 Invoke-Sign $nativeLauncher
@@ -335,6 +335,8 @@ try {
         Path = $finalPath
         Size = (Get-Item -LiteralPath $finalPath).Length
         Sha256 = $hash
+        JarSha256 = (Get-FileHash -LiteralPath $installedJar -Algorithm SHA256).Hash
+        LauncherVersion = (Get-Item -LiteralPath $nativeLauncher).VersionInfo.ProductVersion
         PerUser = $true
         PrivateRuntime = $true
         UpdaterCompatible = $true

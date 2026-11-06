@@ -409,6 +409,31 @@ Use `mvn clean` for product output and
 `mvn -f tools/reactor/pom.xml clean` for extended QA output. Do not remove
 reports while a build, certification run or game process is using them.
 
+## Poker-video integration checks
+
+The video overlay is presentation-only; its focused regressions can run without
+the gameplay scenario schedule:
+
+```powershell
+mvn -f modules/pom.xml -pl coronapoker-gdx -am `
+  '-Dtest=PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
+  '-Dsurefire.failIfNoSpecifiedTests=false' test
+mvn -f coronaupdater/pom.xml test
+```
+
+These cover search extraction, shuffling, bounded/timeout HTTP reception,
+local serving, navigation rules, lifecycle flags, platform detection, native
+packaging and settings. They do not exercise a real YouTube renderer or prove
+speaker output. Native verification must separately check a cold muted open,
+muted/audible rapid video changes, modal pause/resume, minimized reopening and
+table release/return, comparing the real media mute state with the native
+control. The [integration guide](JCEF_VIDEO_EXPERIMENT.md) describes the expected
+behavior and remaining platform limitations.
+
+At release time, `tools/build/build-platform-jars.ps1` also opens every final
+archive and verifies its JCEF payload and libGDX/LWJGL native family. Linux/macOS
+archive validation on Windows is not a graphical test on those systems.
+
 ## Extending the scenario catalogue
 
 Do not infer the authoring workflow from the runner. The separate

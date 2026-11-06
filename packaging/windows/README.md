@@ -1,6 +1,6 @@
 # Windows installer
 
-CoronaPoker keeps the portable cross-platform JAR and additionally publishes a
+CoronaPoker publishes a portable JAR per supported platform and additionally a
 native Windows installer. The installer is built with the JDK's native
 `jpackage` launcher and contains a reduced private Java runtime made by
 `jlink`; Inno Setup supplies the branded, bilingual installation wizard.
@@ -92,14 +92,18 @@ future releases upgrade the existing installation cleanly.
 `polishfinish` treats the Windows installer as a required release artifact,
 not as a replacement for the portable package. For every release:
 
-1. Build the canonical `CoronaPoker_<version>.jar` and `chilean_mod.zip`.
+1. Run `tools/build/build-platform-jars.ps1` to build and verify the five
+   platform JARs in `target/release-<version>/`. The Windows x64 build also
+   remains at `target/CoronaPoker_<version>.jar`. Prepare `chilean_mod.zip`
+   (carry forward the verified official asset when the MOD is unchanged).
 2. Run `tools/windows/build-release-installer.ps1` to download and verify the
    current JDK 25 when the verified local `.toolchains` cache is absent or
    stale, and build
    `CoronaPoker_<version>_Windows_x64_Setup.exe` from that exact JAR.
 3. Verify the embedded JAR hash, Java 25 runtime, native icon and metadata,
    updater layout, language resources, installer hash and signing status.
-4. Publish and remotely verify all three assets before deleting local build
-   output.
+4. Publish and remotely verify all platform JARs, the installer and the MOD
+   before deleting local build output.
 5. Remove downloaded JDK archives, extracted toolchains, staging images,
    previews, logs and obsolete experimental installers during final cleanup.
+   Keep the canonical Windows JAR in `target` when requested for local testing.

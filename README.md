@@ -221,7 +221,7 @@ can safely overlay the supported presentation assets:
 - **Java 17+** for both building and running
 - **Single-version protocol**: Every participant in a game must run the exact same CoronaPoker version. The host refuses mismatched versions instead of enabling compatibility modes.
 - **LibGDX** desktop UI with an LWJGL3 backend
-- **Maven** multi-module build producing one self-contained application JAR
+- **Maven** multi-module build producing a self-contained application JAR per platform
   from the game core, assets and GDX frontend
 - **Alberta** poker hand evaluator for true equity computation
 - **SQLite** (via `sqlite-jdbc`) for local hand history
@@ -312,8 +312,9 @@ target/CoronaPoker_<version>.jar
 The application is shaded into a module-local staging JAR and published to
 `target/` only after that archive is complete. This prevents a running table
 from reading a partially rewritten JAR.
-The same JAR carries the LWJGL desktop natives for Windows, Linux and macOS on
-x64 and ARM64. A matching JDK 17 or newer is still required on the target
+Each JAR selects the JCEF payload and LWJGL/libGDX native families for its own platform:
+Windows x64, Linux x64/ARM64, or macOS Intel/Apple Silicon. A matching JDK 17
+or newer is still required on the target
 machine. On macOS the launcher transparently restarts itself on Cocoa's first
 thread, so the normal `java -jar` command remains valid. In exclusive
 fullscreen GLFW owns display-sleep inhibition. In windowed and borderless
@@ -324,10 +325,25 @@ simulates keyboard or mouse input.
 The root `pom.xml` is the canonical product entry point and delegates to the
 module reactor.
 
-The local distribution and the GitHub release asset use the historical name
-`target/CoronaPoker_<version>.jar`. The updater downloads that versioned asset
+The Windows local distribution and release asset keep the historical name
+`target/CoronaPoker_<version>.jar`. Linux releases append `_Linux_x64` or
+`_Linux_arm64`; macOS releases append `_macOS_x64` or `_macOS_arm64` before
+`.jar`. `tools/build/build-platform-jars.ps1` creates and verifies the five
+release payloads under `target/release-<version>/`; ordinary local builds only
+produce the current host's JAR. The updater selects the correct platform asset
 and installs it beside the running application as `CoronaPoker.jar`, then
 relaunches that stable filename. No manual rename is required.
+
+The main menu and waiting room can show a resizable floating poker-video
+player, powered by JCEF. It starts muted, offers Shorts or landscape videos,
+prioritizes the game language and skips unavailable embeds. Closing minimizes
+it to the play icon; disabling poker videos or the animations master hides it
+completely. Modals pause the current session, and entering a table releases
+the browser and video texture. The feature is hidden when the JAR has no JCEF
+payload for the running platform. Video quality is selected automatically by
+YouTube for the actual displayed resolution and connection.
+See the [video integration guide](docs/JCEF_VIDEO_EXPERIMENT.md) for window,
+audio and session behavior, platform support and YouTube limitations.
 
 Windows releases additionally provide
 `CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user

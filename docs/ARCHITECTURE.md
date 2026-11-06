@@ -168,11 +168,28 @@ The editable source is
 | `tools/qa` | Opt-in extended protocol, recovery, security, bot and headless simulation tests |
 
 Each code module has its own source tree. The modules are internal build units,
-not separate products. The distribution contains one executable:
+not separate products. A local build produces one executable for its host:
 
 ```text
 target/CoronaPoker_<version>.jar
 ```
+
+Release builds contain separate JARs for Windows x64, Linux x64/ARM64 and
+macOS Intel/Apple Silicon. Each contains the same product code and resources,
+with its own JCEF payload and LWJGL/libGDX native family. See the
+[build and distribution instructions](../README.md#build-and-certify-from-source).
+
+The optional poker-video player belongs entirely to the GDX presentation.
+`PokerVideoOverlay` owns its window, input and GPU texture;
+`PokerVideoRuntime` owns the JCEF browser session and loopback HTTP server.
+CEF callbacks copy pixels into `PokerVideoFrameBuffer`; only the render
+thread uploads them. Modals pause the session. Starting a table destroys the
+browser and texture, while retaining the playback snapshot for the return.
+The initialized native CEF engine stays idle until process exit, because it
+cannot safely be terminated and initialized again. Unsupported platform
+payloads and disabled animation/video settings never initialize the feature.
+The [video integration guide](JCEF_VIDEO_EXPERIMENT.md) records its lifecycle,
+audio behavior, platform matrix and external YouTube dependencies.
 
 The root build runs the module tests and `coronapoker-qa`. The separate
 `tools/qa` reactor runs only when explicitly requested for extended validation.

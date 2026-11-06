@@ -4,21 +4,77 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class PokerVideoSearchTest {
+
+    @Test
+    void boundedSearchResponseKeepsUtf8SizeLimitAndWholeRequestTimeout()
+            throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        CountDownLatch releaseStalledResponse = new CountDownLatch(1);
+        byte[] text = "Póker en español".getBytes(StandardCharsets.UTF_8);
+        server.createContext("/ok", exchange -> {
+            try (exchange) {
+                exchange.sendResponseHeaders(200, text.length);
+                exchange.getResponseBody().write(text);
+            }
+        });
+        server.createContext("/large", exchange -> {
+            try (exchange) {
+                exchange.sendResponseHeaders(200, 4096);
+                exchange.getResponseBody().write(new byte[4096]);
+            }
+        });
+        server.createContext("/stall", exchange -> {
+            try (exchange) {
+                exchange.sendResponseHeaders(200, 1);
+                exchange.getResponseBody().flush();
+                try {
+                    releaseStalledResponse.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        server.start();
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            assertEquals("Póker en español", PokerVideoSearch.fetchBody(client,
+                    HttpRequest.newBuilder(URI.create(base + "/ok")).GET().build(),
+                    text.length));
+            assertThrows(IOException.class, () -> PokerVideoSearch.fetchBody(client,
+                    HttpRequest.newBuilder(URI.create(base + "/large")).GET().build(), 64));
+            assertThrows(java.net.http.HttpTimeoutException.class,
+                    () -> PokerVideoSearch.fetchBody(client,
+                            HttpRequest.newBuilder(URI.create(base + "/stall"))
+                                    .timeout(Duration.ofSeconds(2)).GET().build(), 64));
+        } finally {
+            releaseStalledResponse.countDown();
+            server.stop(0);
+        }
+    }
 
     @Test
     void searchTargetsPokerShortsInTheGameLanguage() {
@@ -405,6 +461,37 @@ class PokerVideoSearchTest {
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
             assertFalse(overlay.touchUp(1805f, 40f, 0, 0));
         }
+    }
+
+    @Test
+    void hiddenOpenWindowStillPreservesItsSessionForTheTableReturn()
+            throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            overlay.update(true, true, false, PokerVideoIcon.Placement.LOBBY,
+                    "es", "shorts", 1920f, 1080f);
+            assertFalse(overlay.hostVisible());
+            overlay.releaseForTable();
+            var restore = PokerVideoOverlay.class.getDeclaredField(
+                    "restoreWindowAfterTable");
+            restore.setAccessible(true);
+            assertTrue(restore.getBoolean(overlay));
+            overlay.restoreAfterTable();
+            overlay.update(true, true, false, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertFalse(overlay.hostVisible());
+        }
+    }
+
+    @Test
+    void mainNavigationIsConfinedToTheLocalPlayer() {
+        String player = "http://127.0.0.1:43123/player/";
+        assertTrue(PokerVideoRuntime.allowedMainNavigation(player, player));
+        assertTrue(PokerVideoRuntime.allowedMainNavigation("about:blank", player));
+        assertFalse(PokerVideoRuntime.allowedMainNavigation("about:settings", player));
+        assertFalse(PokerVideoRuntime.allowedMainNavigation("https://www.youtube.com/watch?v=ABCDEFGHIJK", player));
+        assertFalse(PokerVideoRuntime.allowedMainNavigation("http://127.0.0.1:43124/player/", player));
+        assertFalse(PokerVideoRuntime.allowedMainNavigation("http://127.0.0.1:43123/other", player));
+        assertFalse(PokerVideoRuntime.allowedMainNavigation("javascript:alert(1)", player));
     }
 
     @Test

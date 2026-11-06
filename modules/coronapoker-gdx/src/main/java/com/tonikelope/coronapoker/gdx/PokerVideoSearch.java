@@ -3,12 +3,15 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -19,6 +22,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +36,7 @@ final class PokerVideoSearch {
     static final String TYPE_SHORTS = "shorts";
     static final String TYPE_NORMAL = "normal";
     static final int MAX_RESULTS = 40;
-    private static final int MAX_RESPONSE_CHARS = 12 * 1024 * 1024;
+    private static final int MAX_RESPONSE_BYTES = 12 * 1024 * 1024;
     private static final Pattern FALLBACK_SHORT_ID = Pattern.compile(
             "\\\"url\\\"\\s*:\\s*\\\"/shorts/([A-Za-z0-9_-]{11})");
     private static final Pattern FALLBACK_NORMAL_ID = Pattern.compile(
@@ -76,20 +82,53 @@ final class PokerVideoSearch {
                 .header("Accept", "text/html,application/xhtml+xml")
                 .GET()
                 .build();
-        HttpResponse<String> response = client.send(request,
-                HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("YouTube search returned HTTP "
-                    + response.statusCode());
-        }
-        if (response.body().length() > MAX_RESPONSE_CHARS) {
-            throw new IOException("YouTube search response is unexpectedly large");
-        }
-        List<Video> videos = parse(response.body(), normalizedType);
+        List<Video> videos = parse(fetchBody(client, request, MAX_RESPONSE_BYTES),
+                normalizedType);
         if (videos.isEmpty()) {
             throw new IOException("YouTube search did not expose playable videos");
         }
         return videos;
+    }
+
+    static String fetchBody(HttpClient client, HttpRequest request, int maxBytes)
+            throws IOException, InterruptedException {
+        var pending = client.sendAsync(request, boundedBodyHandler(maxBytes));
+        HttpResponse<String> response;
+        try {
+            response = pending.get(request.timeout().orElse(Duration.ofSeconds(15))
+                    .toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timeout) {
+            pending.cancel(true);
+            throw new HttpTimeoutException("YouTube search response timed out");
+        } catch (InterruptedException interrupted) {
+            pending.cancel(true);
+            throw interrupted;
+        } catch (ExecutionException failure) {
+            if (failure.getCause() instanceof IOException io) throw io;
+            throw new IOException("YouTube search response failed", failure.getCause());
+        }
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IOException("YouTube search returned HTTP "
+                    + response.statusCode());
+        }
+        return response.body();
+    }
+
+    /** Bounds allocation before accumulating each body chunk. */
+    static HttpResponse.BodyHandler<String> boundedBodyHandler(int maxBytes) {
+        return response -> {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            return HttpResponse.BodySubscribers.mapping(
+                    HttpResponse.BodySubscribers.ofByteArrayConsumer(chunk -> {
+                        if (chunk.isEmpty()) return;
+                        byte[] data = chunk.get();
+                        if (data.length > maxBytes - bytes.size()) {
+                            throw new UncheckedIOException(new IOException(
+                                    "YouTube search response is unexpectedly large"));
+                        }
+                        bytes.writeBytes(data);
+                    }), ignored -> bytes.toString(StandardCharsets.UTF_8));
+        };
     }
 
     static URI searchUri(String language) {

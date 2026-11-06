@@ -254,7 +254,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 loadingState = "INICIALIZANDO REPRODUCTOR";
                 PokerVideoRuntime current = runtime;
                 if (current != null) {
-                    current.replaceVideos(videos);
+                    current.replaceVideos(videos, language);
                     loadingError = null;
                     return;
                 }
@@ -761,7 +761,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void releaseForTable() {
-        restoreWindowAfterTable = hostVisible && !minimized;
+        restoreWindowAfterTable = systemAvailable && featureEnabled
+                && !minimized;
         releasedForTable = true;
         hostVisible = false;
         blurBrowser();

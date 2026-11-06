@@ -75,7 +75,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         """;
     private volatile List<PokerVideoSearch.Video> videos;
     private final PokerVideoFrameBuffer frameBuffer;
-    private final String playerLanguage;
+    private volatile String playerLanguage;
     private final AtomicBoolean closed = new AtomicBoolean();
     private PokerVideoLocalServer localServer;
     private CefApp cefApp;
@@ -241,7 +241,8 @@ final class PokerVideoRuntime implements AutoCloseable {
                             + "window.coronaSetActive(" + active + ");",
                             pageUrl, 0);
                 }
-                if (frame != null && frame.isMain() && statusCode >= 400) {
+                if (loaded == browser && frame != null && frame.isMain()
+                        && statusCode >= 400) {
                     state = "ERROR HTTP " + statusCode;
                 }
             }
@@ -249,7 +250,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onLoadError(CefBrowser failed, CefFrame frame,
                     ErrorCode errorCode, String errorText, String failedUrl) {
-                if (frame != null && frame.isMain()) {
+                if (failed == browser && frame != null && frame.isMain()) {
                     state = "ERROR DE CARGA: " + errorCode;
                 }
             }
@@ -274,7 +275,11 @@ final class PokerVideoRuntime implements AutoCloseable {
                     CefRequest request, boolean userGesture,
                     boolean isRedirect) {
                 if (frame != null && frame.isMain()
-                        && !allowedMainNavigation(request.getURL())) {
+                        && !allowedMainNavigation(request.getURL(), pageUrl)) {
+                    state = "NAVEGACIÓN EXTERNA BLOQUEADA";
+                    return true;
+                }
+                if (frame != null && !frame.isMain() && userGesture) {
                     state = "NAVEGACIÓN EXTERNA BLOQUEADA";
                     return true;
                 }
@@ -401,14 +406,17 @@ final class PokerVideoRuntime implements AutoCloseable {
         return false;
     }
 
-    private boolean allowedMainNavigation(String value) {
+    static boolean allowedMainNavigation(String value, String playerUrl) {
         try {
             URI uri = URI.create(value);
-            URI page = URI.create(pageUrl);
-            return "about".equalsIgnoreCase(uri.getScheme())
-                    || uri.getScheme().equalsIgnoreCase(page.getScheme())
+            URI page = URI.create(playerUrl);
+            return "about:blank".equals(value)
+                    || uri.getUserInfo() == null
+                    && uri.getScheme().equalsIgnoreCase(page.getScheme())
                     && uri.getHost().equalsIgnoreCase(page.getHost())
-                    && uri.getPort() == page.getPort();
+                    && uri.getPort() == page.getPort()
+                    && List.of("/", "/player", "/player/")
+                            .contains(uri.getPath());
         } catch (RuntimeException invalid) {
             return false;
         }
@@ -456,13 +464,20 @@ final class PokerVideoRuntime implements AutoCloseable {
                 pageUrl, 0);
     }
 
-    void replaceVideos(List<PokerVideoSearch.Video> replacements) {
+    synchronized void replaceVideos(List<PokerVideoSearch.Video> replacements,
+            String language) {
         List<PokerVideoSearch.Video> next = List.copyOf(replacements);
         if (next.isEmpty()) return;
         videos = next;
         currentIndex = 0;
         resumeSeconds = 0;
         playlistRevision++;
+        String nextLanguage = PokerVideoSearch.languageCode(language);
+        if (!playerLanguage.equals(nextLanguage)) {
+            playerLanguage = nextLanguage;
+            releaseBrowserSession(true);
+            return;
+        }
         synchronizeBrowserPlaylist();
     }
 

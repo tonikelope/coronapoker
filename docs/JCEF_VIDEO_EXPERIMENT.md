@@ -1,6 +1,6 @@
-# Experimento de Shorts de póker (JCEF OSR)
+# Vídeos de póker con JCEF OSR
 
-Esta rama integra el prototipo JCEF sin modificar la lógica de la partida. El
+La integración usa JCEF sin modificar la lógica de la partida. El
 reproductor y su icono aparecen únicamente en la pantalla principal y en la
 sala de espera. Durante la partida no aparece ninguno de los dos.
 
@@ -84,6 +84,9 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   CoronaPoker solo observa el audio elegido en los controles nativos y lo
   conserva entre vídeos y transiciones; nunca sobreescribe un clic de usuario
   con una lectura antigua.
+- Cambiar el idioma del juego sustituye el catálogo y recrea la sesión con
+  el idioma correspondiente, conservando el audio. Entrar en la mesa desde un
+  modal también conserva el estado de la ventana que estaba oculta debajo.
 - Los cambios de vídeo siguen usando `loadVideoById`, sin recrear iframe ni
   navegador. Shorts puede reconstruir su botón de audio con el icono audible
   aunque el elemento de vídeo siga muteado. Un observador de solo lectura
@@ -104,15 +107,21 @@ JCEF no admite de forma segura terminar y reinicializar el proceso nativo. Las
 sesiones de navegador y sus texturas sí se destruyen al cerrar o entrar en
 la mesa.
 
-## Plataformas del artefacto experimental
+## Plataformas de distribución
 
 Se genera un artefacto por plataforma, tal como recomienda JCEF Maven, porque
 cada paquete nativo ocupa alrededor de 100 MB. Las combinaciones admitidas por
-este experimento son Windows x86-64, Linux x86-64/ARM64 y macOS
+esta integración son Windows x86-64, Linux x86-64/ARM64 y macOS
 x86-64/Apple Silicon. Windows ARM64 queda excluido porque JCEF Maven no admite
 OSR en esa plataforma. Cada artefacto incluye además una sola familia de
 nativos LWJGL y conserva únicamente los binarios libGDX/libGDX FreeType de su
 sistema y arquitectura.
+
+`tools/build/build-platform-jars.ps1` fabrica y comprueba los cinco JAR de
+release. Desde 27.17 el actualizador selecciona el artefacto del sistema y
+arquitectura actuales; mantiene el nombre histórico para releases anteriores.
+El instalador Windows incluye `jdk.httpserver` en su runtime privado para el
+servidor local del reproductor.
 
 La disponibilidad se comprueba antes de exponer la función: deben coincidir el
 sistema operativo, la arquitectura y el recurso nativo incluido en el JAR. Si
@@ -125,3 +134,9 @@ La extracción de resultados de búsqueda no usa una clave de API y depende del
 documento público de resultados de YouTube. Es deliberadamente un componente
 aislado y tolerante a fallos: si el formato cambia o la red falla, el menú y la
 sala siguen operativos y el error queda limitado al panel del vídeo.
+La respuesta se limita a 12 MiB durante la recepción y tiene un plazo total de
+15 segundos, incluido el cuerpo; interrumpir la carga cancela la petición.
+
+La validación nativa de esta integración se ha realizado en Windows x64.
+Los paquetes Linux y macOS se comprueban estructuralmente al fabricarlos;
+esto no sustituye una prueba gráfica real en esos sistemas.

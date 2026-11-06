@@ -131,6 +131,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    static final float NEW_GAME_GAME_TOP_ROW_Y = 625f;
+    static final float NEW_GAME_GAME_SECOND_ROW_Y = 505f;
+    static final float NEW_GAME_GAME_LABELLED_ROW_Y = 345f;
+    static final float NEW_GAME_GAME_BOTTOM_ROW_Y = 225f;
     private static final int AVATAR_CROP_OUTPUT_SIZE = 384;
     private static final float AVATAR_CROP_VIEW_SIZE = 650f;
     static final List<String> NEW_GAME_PAGE_LABEL_KEYS = List.of(
@@ -694,6 +698,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean updatePromptDismissed;
     private boolean updatePromptForMod;
     private boolean updateReturnToAbout;
+    private boolean applicationExitConfirmation;
     private boolean startupMenuWaitingForUpdate;
     private boolean startupMenuDeferredByUpdate;
     private boolean startupMenuWasSkipped;
@@ -1351,7 +1356,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (rootSurfaceModal) {
             drawRootModalBackdropSurface();
         } else if (surface == Surface.MENU) {
-            if (renderMainMenuContent(aboutOpen, updatePromptOpen)) {
+            if (applicationExitConfirmation
+                    || renderMainMenuContent(aboutOpen, updatePromptOpen)) {
                 drawMainMenu();
             }
         } else if (surface == Surface.LOBBY) {
@@ -1476,7 +1482,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (avatarCropSession != null) {
+            if (applicationExitConfirmation) {
+                drawApplicationExitConfirmation();
+            } else if (avatarCropSession != null) {
                 drawAvatarCropDialog();
             } else if (modAdultWarning) {
                 drawModAdultWarning();
@@ -1659,9 +1667,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     && !customBotDeleteConfirmation) {
                 drawTooltipTopLayer();
             }
-            if (dropdown != Dropdown.NONE) {
-                drawDropdownTopLayer();
-            }
+        }
+        // Dropdowns are sharp popup layers, not modals. Compose them after
+        // either path above so the main-menu language selector is visible too;
+        // its full-screen dismiss hit also prevents clicks reaching the menu.
+        if (dropdown != Dropdown.NONE) {
+            drawDropdownTopLayer();
         }
         if (shouldDrawEditMenu()) drawEditMenuTopLayer();
         // Transient feedback must be the final composited layer. Drawing only
@@ -1897,7 +1908,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasVisibleFrontendModal() {
-        return avatarCropSession != null
+        return applicationExitConfirmation
+                || avatarCropSession != null
                 || modAdultWarning
                 || !frontendNoticeMessage.isBlank()
                 || settingsRestartNotice
@@ -1929,7 +1941,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasNestedFrontendModal() {
-        return (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+        return !applicationExitConfirmation
+                && ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
                         && customBotManagerOpen
                         && customBotDeleteConfirmation
                 || surface == Surface.LOBBY && networkBlocksOpen
@@ -1938,7 +1951,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && (voiceNoteDeleteConfirmation != null
                         || voiceNotesPurgeConfirmation)
                 || (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
-                        && isBlindStructureChildDialog();
+                        && isBlindStructureChildDialog());
     }
 
     private boolean isBlindStructureChildDialog() {
@@ -1949,6 +1962,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     /** True only when PREPARANDO LA MESA owns the lobby modal foreground. */
     private boolean lobbyLoadingOverlayVisible() {
         return surface == Surface.LOBBY
+                && !applicationExitConfirmation
                 && lobbyPreparationUsesBackdropBlur(lobbyGameStarting, lobby)
                 && !modAdultWarning
                 && frontendNoticeMessage.isBlank()
@@ -1974,6 +1988,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * the blurred scene and only that child dialog is composed sharp.
      */
     private boolean isFrontendRootModal() {
+        if (applicationExitConfirmation) return false;
         if (isSettingsRootModal()) return true;
         if (surface == Surface.NEW_GAME) {
             return !customBotManagerOpen
@@ -2426,7 +2441,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
         exitButton(975f, 205f, 350f, 82f,
-                gameText.translate("ui.salir"), Gdx.app::exit, true);
+                gameText.translate("ui.salir"),
+                this::requestApplicationExit, true);
 
         Rectangle sound = mainMenuSoundBounds();
         drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
@@ -5245,6 +5261,40 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate("ui.si")), ButtonTone.POSITIVE,
                 this::acceptModAdultContent, true);
+    }
+
+    void requestApplicationExit() {
+        if (applicationExitConfirmation) return;
+        dropdown = Dropdown.NONE;
+        editMenu = null;
+        clearActiveField();
+        applicationExitConfirmation = true;
+    }
+
+    private void drawApplicationExitConfirmation() {
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        passwordRevealHits.clear();
+        editMenuHits.clear();
+        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
+                uppercase(gameText.translate("gdx.dialog.confirmation")),
+                uppercase(gameText.translate(
+                        "exit.salir_del_juego_pregunta")));
+        Rectangle cancel = layout.negativeButton();
+        Rectangle exit = layout.positiveButton();
+        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL,
+                () -> applicationExitConfirmation = false, true);
+        themedButton(exit.x, exit.y, exit.width, exit.height,
+                uppercase(gameText.translate("ui.salir")),
+                ButtonTone.DANGER, this::confirmApplicationExit, true);
+    }
+
+    private void confirmApplicationExit() {
+        applicationExitConfirmation = false;
+        Gdx.app.exit();
     }
 
     private void acceptModAdultContent() {
@@ -12066,53 +12116,62 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         panel(430f, 185f, 670f, 625f, settingsGameText("game"));
         panel(1130f, 185f, 725f, 625f, settingsGameText("rules"));
 
-        toggle(470f, 625f, 280f,
+        toggle(470f, NEW_GAME_GAME_TOP_ROW_Y, 280f,
                 gameText.translate("gdx.settings.game.row.hand_limit"),
                 table.handLimit(),
                 () -> table.setHandLimit(!table.handLimit()), true);
-        tooltip(470f, 625f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(470f, NEW_GAME_GAME_TOP_ROW_Y, 590f,
+                GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.hand_limit");
-        inlineStepper(780f, 625f, 280f,
+        inlineStepper(780f, NEW_GAME_GAME_TOP_ROW_Y, 280f,
                 table.handLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setHandLimitCount(table.handLimitCount() - 1),
                 () -> table.setHandLimitCount(table.handLimitCount() + 1),
                 table.handLimit());
-        toggle(470f, 495f, 280f,
+        toggle(470f, NEW_GAME_GAME_SECOND_ROW_Y, 280f,
                 gameText.translate("gdx.settings.game.row.think_time"),
                 table.thinkTime(),
                 () -> table.setThinkTime(!table.thinkTime()), true);
-        tooltip(470f, 495f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(470f, NEW_GAME_GAME_SECOND_ROW_Y, 590f,
+                GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.think_time");
-        inlineStepper(780f, 495f, 280f,
+        inlineStepper(780f, NEW_GAME_GAME_SECOND_ROW_Y, 280f,
                 table.thinkSeconds(), 10, 120,
                 () -> table.setThinkSeconds(table.thinkSeconds() - 5),
                 () -> table.setThinkSeconds(table.thinkSeconds() + 5), table.thinkTime());
-        stepper(470f, 325f, 590f,
+        stepper(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f,
                 gameText.translate("gdx.settings.game.row.showdown_seconds"),
                 table.showdownSeconds(), 5, 30,
                 () -> table.setShowdownSeconds(table.showdownSeconds() - 5),
                 () -> table.setShowdownSeconds(table.showdownSeconds() + 5));
-        tooltip(470f, 325f, 590f, 102f, "tooltip.cfg.showdown_time");
-        toggle(470f, 195f, 590f,
+        tooltip(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f, 102f,
+                "tooltip.cfg.showdown_time");
+        toggle(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
                 gameText.translate("gdx.settings.game.row.allow_hot_join"),
                 table.allowHotJoin(),
                 () -> table.setAllowHotJoin(!table.allowHotJoin()), true);
-        tooltip(470f, 195f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
+                GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.allow_hot_join");
 
-        toggle(1170f, 625f, 645f, "IWTSTH", table.iwtsth(),
+        toggle(1170f, NEW_GAME_GAME_TOP_ROW_Y, 645f, "IWTSTH", table.iwtsth(),
                 () -> table.setIwtsth(!table.iwtsth()), true);
-        tooltip(1170f, 625f, 645f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(1170f, NEW_GAME_GAME_TOP_ROW_Y, 645f,
+                GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.iwtsth");
-        toggle(1170f, 495f, 645f, "RUN IT TWICE", table.runItTwice(),
+        toggle(1170f, NEW_GAME_GAME_SECOND_ROW_Y, 645f, "RUN IT TWICE",
+                table.runItTwice(),
                 () -> table.setRunItTwice(!table.runItTwice()), true);
-        tooltip(1170f, 495f, 645f, GdxSettingsLayout.ROW_HEIGHT,
+        tooltip(1170f, NEW_GAME_GAME_SECOND_ROW_Y, 645f,
+                GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.rit");
-        dropdownChoice(1170f, 325f, 645f,
+        dropdownChoice(1170f, NEW_GAME_GAME_LABELLED_ROW_Y, 645f,
                 settingsGameText("row.rabbit_hunting"),
                 rabbitText(), () -> openDropdown(Dropdown.RABBIT,
-                        1170f, 325f, 645f, 72f), true);
-        tooltip(1170f, 325f, 645f, 102f, "tooltip.cfg.rabbit");
+                        1170f, NEW_GAME_GAME_LABELLED_ROW_Y,
+                        645f, 72f), true);
+        tooltip(1170f, NEW_GAME_GAME_LABELLED_ROW_Y, 645f, 102f,
+                "tooltip.cfg.rabbit");
     }
 
     private String rabbitText() {
@@ -16187,6 +16246,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // Table creation owns this frontend until it either succeeds or
         // restores the lobby.  F11 above remains available, but no hidden
         // lobby field/action may be triggered through the loading overlay.
+        if (applicationExitConfirmation) {
+            if (GdxDialogKeyboard.isCancel(keycode)) {
+                applicationExitConfirmation = false;
+            } else if (GdxDialogKeyboard.isConfirm(keycode)) {
+                confirmApplicationExit();
+            }
+            return true;
+        }
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;

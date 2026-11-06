@@ -70,6 +70,38 @@ final class GdxSceneTransitionContractTest {
                 "table construction must not start the frontend-owned decoder");
     }
 
+    @Test
+    void frontendExitButtonAndNativeCloseShareOneConfirmation()
+            throws Exception {
+        String frontend = source("GdxFrontendScreen.java");
+        String shell = source("GdxApplicationShell.java");
+        int menuStart = frontend.indexOf("private void drawMainMenu()");
+        int menuEnd = frontend.indexOf("private void drawMainMenuQuote(",
+                menuStart);
+        int closeStart = shell.indexOf("boolean requestWindowClose()");
+        int closeEnd = shell.indexOf("@Override\n    public void create()",
+                closeStart);
+
+        assertTrue(menuStart >= 0 && menuEnd > menuStart);
+        String menu = frontend.substring(menuStart, menuEnd);
+        assertTrue(menu.contains("this::requestApplicationExit"));
+        assertFalse(menu.contains("Gdx.app::exit"),
+                "the main-menu button must not terminate without confirmation");
+        assertTrue(frontend.contains(
+                "private void drawApplicationExitConfirmation()"));
+        assertTrue(frontend.contains(
+                "\"exit.salir_del_juego_pregunta\""));
+        assertTrue(frontend.contains(
+                "ButtonTone.DANGER, this::confirmApplicationExit"));
+
+        assertTrue(closeStart >= 0 && closeEnd > closeStart);
+        String close = shell.substring(closeStart, closeEnd);
+        assertTrue(close.contains(
+                "Gdx.app.postRunnable(frontend::requestApplicationExit)"));
+        assertFalse(close.contains("if (current == null) return true;"),
+                "window close must not bypass the frontend confirmation");
+    }
+
     private static int occurrences(String source, String token) {
         int count = 0;
         int offset = 0;

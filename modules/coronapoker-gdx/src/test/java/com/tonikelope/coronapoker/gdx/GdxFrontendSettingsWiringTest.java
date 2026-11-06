@@ -18,6 +18,20 @@ import org.junit.jupiter.api.Test;
 final class GdxFrontendSettingsWiringTest {
 
     @Test
+    void newGameGameRowsKeepBalancedVerticalSpacing() {
+        assertEquals(625f, GdxFrontendScreen.NEW_GAME_GAME_TOP_ROW_Y);
+        assertEquals(505f, GdxFrontendScreen.NEW_GAME_GAME_SECOND_ROW_Y);
+        assertEquals(345f, GdxFrontendScreen.NEW_GAME_GAME_LABELLED_ROW_Y);
+        assertEquals(225f, GdxFrontendScreen.NEW_GAME_GAME_BOTTOM_ROW_Y);
+
+        assertEquals(120f, GdxFrontendScreen.NEW_GAME_GAME_TOP_ROW_Y
+                - GdxFrontendScreen.NEW_GAME_GAME_SECOND_ROW_Y);
+        assertEquals(120f, GdxFrontendScreen.NEW_GAME_GAME_LABELLED_ROW_Y
+                - GdxFrontendScreen.NEW_GAME_GAME_BOTTOM_ROW_Y);
+        assertEquals(40f, GdxFrontendScreen.NEW_GAME_GAME_BOTTOM_ROW_Y - 185f);
+    }
+
+    @Test
     void hostPublishesChangedTableAndChatNotificationSettings() {
         NewGameTableDraft table = new NewGameTableDraft();
         NewGameTableDraft.Settings original = table.snapshot();
@@ -554,6 +568,12 @@ final class GdxFrontendSettingsWiringTest {
         assertFalse(rootModal.contains("dropdown == Dropdown.NONE"),
                 "opening a dropdown must preserve its sharp root surface");
         String normalized = frontend.replaceAll("\\s+", " ");
+        assertEquals(1, occurrences(frontend, "drawDropdownTopLayer();"));
+        int popup = frontend.indexOf("drawDropdownTopLayer();");
+        int editMenu = frontend.indexOf("if (shouldDrawEditMenu())", popup);
+        assertTrue(popup >= 0 && editMenu > popup);
+        assertEquals(1, occurrences(frontend.substring(popup, editMenu), "}"),
+                "main-menu dropdowns must share the global sharp popup pass");
         assertTrue(normalized.contains(
                 "&& dropdown == Dropdown.NONE && (!blockingModal"),
                 "covered scrollbars must not start a drag through the popup");

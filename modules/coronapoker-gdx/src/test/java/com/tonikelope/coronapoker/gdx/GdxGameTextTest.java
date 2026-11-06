@@ -83,9 +83,9 @@ final class GdxGameTextTest {
         assertEquals("English", text.translate("gdx.language_name"));
         assertEquals("Increase blinds",
                 text.translate("gdx.settings.game.row.increase_blinds"));
-        assertEquals("Minimum buy-in range",
+        assertEquals("Minimum buy-in range (BB)",
                 text.translate("gdx.settings.game.row.minimum_range_bb"));
-        assertEquals("Maximum buy-in range",
+        assertEquals("Maximum buy-in range (BB)",
                 text.translate("gdx.settings.game.row.maximum_range_bb"));
         assertEquals("Maximum rebuys",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
@@ -203,8 +203,10 @@ final class GdxGameTextTest {
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
         assertEquals("Aumentar ciegas",
                 text.translate("gdx.settings.game.row.increase_blinds"));
-        assertEquals("Rango mínimo de compra",
+        assertEquals("Rango mínimo de compra (CG)",
                 text.translate("gdx.settings.game.row.minimum_range_bb"));
+        assertEquals("Rango máximo de compra (CG)",
+                text.translate("gdx.settings.game.row.maximum_range_bb"));
         assertEquals("Máximo de recompras",
                 text.translate("gdx.settings.game.row.maximum_rebuys"));
         assertEquals("Confirmar todas las acciones",

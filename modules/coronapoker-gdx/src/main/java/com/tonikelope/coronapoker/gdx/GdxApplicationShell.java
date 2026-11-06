@@ -106,14 +106,19 @@ final class GdxApplicationShell extends ApplicationAdapter {
     }
 
     /**
-     * Native window-close requests must respect the same table-exit contract
-     * as the quick bar and keyboard shortcut. Returning {@code false} keeps
-     * GLFW alive while the table displays its confirmation dialog.
+     * Native window-close requests must respect the same confirmation contract
+     * as the active scene's exit action. Returning {@code false} keeps GLFW
+     * alive while the frontend or table displays its confirmation dialog.
      */
     boolean requestWindowClose() {
         CoronaPokerGdxTable current = table;
-        if (current == null) return true;
-        Gdx.app.postRunnable(current::requestWindowClose);
+        if (current != null) {
+            Gdx.app.postRunnable(current::requestWindowClose);
+            return false;
+        }
+        GdxFrontendScreen frontend = menu;
+        if (frontend == null || startupIntro != null) return true;
+        Gdx.app.postRunnable(frontend::requestApplicationExit);
         return false;
     }
 

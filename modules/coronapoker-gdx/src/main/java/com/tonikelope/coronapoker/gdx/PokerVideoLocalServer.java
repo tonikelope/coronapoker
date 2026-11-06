@@ -1,11 +1,14 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -14,12 +17,13 @@ import java.util.concurrent.Executors;
 /** Serves the player from a real loopback origin so embeds receive a Referer. */
 final class PokerVideoLocalServer implements AutoCloseable {
 
-    private final HttpServer server;
+    private final ServerSocket server;
     private final ExecutorService executor;
     private final byte[] playerHtml;
     private final String origin;
+    private volatile Socket connection;
 
-    private PokerVideoLocalServer(HttpServer server, ExecutorService executor,
+    private PokerVideoLocalServer(ServerSocket server, ExecutorService executor,
             byte[] playerHtml, String origin) {
         this.server = server;
         this.executor = executor;
@@ -33,16 +37,15 @@ final class PokerVideoLocalServer implements AutoCloseable {
         if (videos == null || videos.isEmpty()) {
             throw new IllegalArgumentException("At least one video is required");
         }
-        HttpServer server = HttpServer.create(
-                new InetSocketAddress("127.0.0.1", 0), 0);
+        String template = loadTemplate();
+        ServerSocket server = new ServerSocket(0, 8,
+                InetAddress.getByName("127.0.0.1"));
         ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task, "CoronaPoker-poker-video-http");
             thread.setDaemon(true);
             return thread;
         });
-        server.setExecutor(executor);
-        String origin = "http://127.0.0.1:" + server.getAddress().getPort();
-        String template = loadTemplate();
+        String origin = "http://127.0.0.1:" + server.getLocalPort();
         String ids = videos.stream().map(PokerVideoSearch.Video::id)
                 .map(PokerVideoLocalServer::javascriptString)
                 .map(value -> "'" + value + "'")
@@ -64,37 +67,86 @@ final class PokerVideoLocalServer implements AutoCloseable {
                 .getBytes(StandardCharsets.UTF_8);
         PokerVideoLocalServer local = new PokerVideoLocalServer(server,
                 executor, html, origin);
-        server.createContext("/", local::handle);
-        server.start();
+        executor.submit(local::acceptRequests);
         return local;
     }
 
-    private void handle(HttpExchange exchange) throws IOException {
-        try (exchange) {
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals("/favicon.ico")) {
-                exchange.sendResponseHeaders(204, -1);
-                return;
+    private void acceptRequests() {
+        while (!server.isClosed()) {
+            try (Socket client = server.accept()) {
+                connection = client;
+                if (server.isClosed()) return;
+                client.setSoTimeout(2000);
+                handle(client);
+            } catch (IOException ignored) {
+                // A closed listener, timed-out request or disconnected browser
+                // must not terminate the loop or retain an accepted socket.
+            } finally {
+                connection = null;
             }
-            if (!path.equals("/") && !path.equals("/player")
-                    && !path.equals("/player/")) {
-                byte[] notFound = "Not found".getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(404, notFound.length);
-                exchange.getResponseBody().write(notFound);
-                return;
-            }
-            exchange.getResponseHeaders().set("Content-Type",
-                    "text/html; charset=utf-8");
-            exchange.getResponseHeaders().set("Cache-Control", "no-store");
-            exchange.getResponseHeaders().set("Referrer-Policy",
-                    "strict-origin-when-cross-origin");
-            exchange.getResponseHeaders().set("X-Content-Type-Options",
-                    "nosniff");
-            exchange.getResponseHeaders().set("Permissions-Policy",
-                    "autoplay=(self \"https://www.youtube.com\")");
-            exchange.sendResponseHeaders(200, playerHtml.length);
-            exchange.getResponseBody().write(playerHtml);
         }
+    }
+
+    /** Only serves a fixed document; no filesystem, proxying or request bodies. */
+    private void handle(Socket client) throws IOException {
+        InputStream input = new BufferedInputStream(client.getInputStream());
+        StringBuilder headers = new StringBuilder();
+        long deadline = System.nanoTime() + 2_000_000_000L;
+        int next;
+        while (headers.length() < 16384 && System.nanoTime() < deadline
+                && (next = input.read()) != -1) {
+            headers.append((char) next);
+            if (headers.length() >= 4 && headers.substring(headers.length() - 4)
+                    .equals("\r\n\r\n")) break;
+        }
+        if (!headers.toString().endsWith("\r\n\r\n")) {
+            respond(client, 400, "Bad Request", new byte[0], false);
+            return;
+        }
+        String[] request = headers.substring(0, headers.indexOf("\r\n")).split(" ", 3);
+        if (request.length != 3 || !request[2].startsWith("HTTP/1.")) {
+            respond(client, 400, "Bad Request", new byte[0], false);
+            return;
+        }
+        boolean head = "HEAD".equals(request[0]);
+        if (!head && !"GET".equals(request[0])) {
+            respond(client, 405, "Method Not Allowed", new byte[0], false);
+            return;
+        }
+        String path;
+        try {
+            URI target = URI.create(request[1]);
+            if (target.isAbsolute() || target.getRawAuthority() != null) {
+                throw new IllegalArgumentException("Not an origin-form target");
+            }
+            path = target.getPath();
+        } catch (IllegalArgumentException invalid) {
+            respond(client, 400, "Bad Request", new byte[0], head);
+            return;
+        }
+        if ("/favicon.ico".equals(path)) {
+            respond(client, 204, "No Content", new byte[0], head);
+        } else if ("/".equals(path) || "/player".equals(path) || "/player/".equals(path)) {
+            respond(client, 200, "OK", playerHtml, head);
+        } else {
+            respond(client, 404, "Not Found", new byte[0], head);
+        }
+    }
+
+    private static void respond(Socket client, int status, String reason,
+            byte[] body, boolean head) throws IOException {
+        OutputStream output = client.getOutputStream();
+        String headers = "HTTP/1.1 " + status + " " + reason + "\r\n"
+                + "Content-Type: text/html; charset=utf-8\r\n"
+                + "Content-Length: " + body.length + "\r\n"
+                + "Cache-Control: no-store\r\n"
+                + "Referrer-Policy: strict-origin-when-cross-origin\r\n"
+                + "X-Content-Type-Options: nosniff\r\n"
+                + "Permissions-Policy: autoplay=(self \"https://www.youtube.com\")\r\n"
+                + "Connection: close\r\n\r\n";
+        output.write(headers.getBytes(StandardCharsets.US_ASCII));
+        if (!head) output.write(body);
+        output.flush();
     }
 
     private static String loadTemplate() throws IOException {
@@ -122,7 +174,11 @@ final class PokerVideoLocalServer implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(0);
+        try { server.close(); } catch (IOException ignored) { }
+        Socket current = connection;
+        if (current != null) {
+            try { current.close(); } catch (IOException ignored) { }
+        }
         executor.shutdownNow();
     }
 }

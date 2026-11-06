@@ -120,8 +120,12 @@ sistema y arquitectura.
 `tools/build/build-platform-jars.ps1` fabrica y comprueba los cinco JAR de
 release. Desde 27.17 el actualizador selecciona el artefacto del sistema y
 arquitectura actuales; mantiene el nombre histórico para releases anteriores.
-El instalador Windows incluye `jdk.httpserver` en su runtime privado para el
-servidor local del reproductor.
+Desde 27.18, el servidor del reproductor usa únicamente sockets de `java.base`,
+sin depender del módulo opcional `jdk.httpserver`. Esto permite actualizar el
+JAR sobre instalaciones Windows anteriores conservando su Java privado, como
+hace el actualizador; no es necesario reinstalar para añadir módulos al runtime.
+El servidor escucha solo en loopback, sirve un documento fijo, limita tamaño y
+tiempo de las cabeceras y cierra conexiones al liberar la sesión.
 
 La disponibilidad se comprueba antes de exponer la función: deben coincidir el
 sistema operativo, la arquitectura y el recurso nativo incluido en el JAR. Si

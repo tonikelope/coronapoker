@@ -167,6 +167,36 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void localPlayerOnlyServesItsDocumentAndClosesPendingConnections()
+            throws Exception {
+        PokerVideoLocalServer server = PokerVideoLocalServer.start(List.of(
+                new PokerVideoSearch.Video("ABCDEFGHIJK", "First")),
+                0, 0, true, 100, "es");
+        URI origin = URI.create(server.origin());
+        try (server) {
+            HttpClient client = HttpClient.newHttpClient();
+            assertEquals(404, client.send(HttpRequest.newBuilder(origin.resolve("/other"))
+                    .GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode());
+            assertEquals(405, client.send(HttpRequest.newBuilder(origin.resolve("/player/"))
+                    .POST(HttpRequest.BodyPublishers.noBody()).build(),
+                    HttpResponse.BodyHandlers.discarding()).statusCode());
+            assertEquals(204, client.send(HttpRequest.newBuilder(origin.resolve("/favicon.ico"))
+                    .GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode());
+            var head = client.send(HttpRequest.newBuilder(URI.create(server.playerUrl()))
+                    .method("HEAD", HttpRequest.BodyPublishers.noBody()).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, head.statusCode());
+            assertEquals("", head.body());
+            try (var pending = new java.net.Socket(origin.getHost(), origin.getPort())) {
+                pending.setSoTimeout(2000);
+                pending.getOutputStream().write("GET /player/ HTTP/1.1\r\n".getBytes(StandardCharsets.US_ASCII));
+                server.close();
+                assertEquals(-1, pending.getInputStream().read());
+            }
+        }
+    }
+
+    @Test
     void localPlayerUsesRequestedIndexPositionAndSecurityHeaders()
             throws Exception {
         List<PokerVideoSearch.Video> videos = List.of(
@@ -179,60 +209,61 @@ class PokerVideoSearchTest {
                             .build(),
                     HttpResponse.BodyHandlers.ofString());
 
+            String html = response.body().replace("\r\n", "\n");
             assertEquals(200, response.statusCode());
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "let VIDEO_IDS = ['ABCDEFGHIJK','LMNOPQRSTUV']"));
-            assertTrue(response.body().contains("let currentIndex = 1"));
-            assertTrue(response.body().contains("const START_SECONDS = 73"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains("let currentIndex = 1"));
+            assertTrue(html.contains("const START_SECONDS = 73"));
+            assertTrue(html.contains(
                     "const INITIAL_MUTED = false"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "const INITIAL_VOLUME = 64"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "const PLAYER_LANGUAGE = 'en'"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "function skipUnavailable(errorCode)"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "[2, 5, 100, 101, 150]"));
-            assertTrue(response.body().contains("controls: 1"));
-            assertTrue(response.body().contains("disablekb: 1"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains("controls: 1"));
+            assertTrue(html.contains("disablekb: 1"));
+            assertTrue(html.contains(
                     "function playVideo(target)"));
-            assertTrue(response.body().contains("autoplay: 0"));
-            assertFalse(response.body().contains("autoplay: 1"));
-            assertFalse(response.body().contains("mute: 1"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains("autoplay: 0"));
+            assertFalse(html.contains("autoplay: 1"));
+            assertFalse(html.contains("mute: 1"));
+            assertTrue(html.contains(
                     "function applyDesiredAudio(target)"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "function monitorAudioState()"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "function captureStableAudioState()"));
-            assertFalse(response.body().contains(
+            assertFalse(html.contains(
                     "RECOVER_AUDIO_PIPELINE"));
-            assertFalse(response.body().contains("scheduleAudioSync("));
-            assertFalse(response.body().contains("settleAudioAfterPlayback("));
-            assertFalse(response.body().contains(
+            assertFalse(html.contains("scheduleAudioSync("));
+            assertFalse(html.contains("settleAudioAfterPlayback("));
+            assertFalse(html.contains(
                     "scheduleMutedVisualConfirmation("));
-            assertFalse(response.body().contains("audioStateTrusted"));
-            assertFalse(response.body().contains("muteConfirmationPending"));
-            assertTrue(response.body().contains(
+            assertFalse(html.contains("audioStateTrusted"));
+            assertFalse(html.contains("muteConfirmationPending"));
+            assertTrue(html.contains(
                     "target.unMute();"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "if (target.setVolume) target.setVolume(desiredVolume);"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "videoId: VIDEO_IDS[currentIndex],\n"
                     + "        playerVars:"));
-            assertTrue(response.body().contains("start: START_SECONDS"));
-            assertFalse(response.body().contains(
+            assertTrue(html.contains("start: START_SECONDS"));
+            assertFalse(html.contains(
                     "event.target.loadVideoById({"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
                     + "      playVideo(player);"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "window.coronaSelectRelative = selectRelative"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "window.coronaReplaceVideos = function (ids)"));
-            assertTrue(response.body().contains(
+            assertTrue(html.contains(
                     "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",
                     response.headers().firstValue("Referrer-Policy")

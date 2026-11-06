@@ -14,6 +14,12 @@ the bundled runtime, without administrator elevation. Installing the game does
 not redirect `user.home`; both the portable and installed editions continue to
 use `%USERPROFILE%\.coronapoker` for preferences and user data.
 
+Self-update replaces the application JAR, not this private Java image. New
+features must therefore remain compatible with the module set of previous
+installers, or explicitly migrate that runtime. Since 27.18 the video loopback
+server uses `java.base` sockets and works on pre-video installer runtimes that
+do not contain `jdk.httpserver`.
+
 The task page offers `🛡 Allow CoronaPoker through Windows Firewall` (or its
 Spanish equivalent) and selects it by default. When it remains selected, Setup
 asks for elevation once at the end and creates an inbound TCP rule for the

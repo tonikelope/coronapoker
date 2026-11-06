@@ -434,6 +434,12 @@ At release time, `tools/build/build-platform-jars.ps1` also opens every final
 archive and verifies its JCEF payload and libGDX/LWJGL native family. Linux/macOS
 archive validation on Windows is not a graphical test on those systems.
 
+When a feature adds a Java module dependency, also verify the self-update path
+using the private runtime from an earlier installed release. A fresh installer
+only validates its newly built runtime. The 27.18 video hotfix was checked with
+the installed Java 25.0.4.1 image lacking `jdk.httpserver`, including real JCEF
+startup, native mute controls and session transitions.
+
 ## Extending the scenario catalogue
 
 Do not infer the authoring workflow from the runner. The separate

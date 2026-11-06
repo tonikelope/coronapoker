@@ -187,7 +187,7 @@ if ([string]::IsNullOrWhiteSpace($dependencyLine)) {
 $requiredModules = @(
     "java.desktop", "java.logging", "java.management", "java.naming",
     "java.net.http", "java.prefs", "java.sql", "jdk.charsets",
-    "jdk.crypto.ec", "jdk.httpserver", "jdk.localedata", "jdk.unsupported", "jdk.zipfs"
+    "jdk.crypto.ec", "jdk.localedata", "jdk.unsupported", "jdk.zipfs"
 )
 $modules = ((@($dependencyLine -split ',') + $requiredModules) |
         Sort-Object -Unique) -join ','

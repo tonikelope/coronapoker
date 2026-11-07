@@ -42,11 +42,14 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
-    void pokerVideoTypeDefaultsToShortsAndBelongsToTheVideoSwitch() {
+    void pokerVideoTypeDefaultsToNormalAndBelongsToTheVideoSwitch() {
         Properties properties = new Properties();
         GdxAppearanceOptions.Choice videoType = choice(
                 GdxSettingsContract.POKER_VIDEO_TYPE_KEY);
 
+        assertEquals("NORMALES",
+                GdxAppearanceOptions.selectedLabel(videoType, properties));
+        properties.setProperty(GdxSettingsContract.POKER_VIDEO_TYPE_KEY, "shorts");
         assertEquals("SHORTS",
                 GdxAppearanceOptions.selectedLabel(videoType, properties));
         assertEquals(GdxSettingsContract.POKER_VIDEOS_KEY,

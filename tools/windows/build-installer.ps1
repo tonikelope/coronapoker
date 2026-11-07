@@ -6,6 +6,7 @@ param(
     [string] $Destination = "target",
     [string] $JdkHome = "",
     [string] $InnoSetupHome = "",
+    [string] $ChileanModPath = "",
     [string] $SigningCertificateThumbprint = "",
     [string] $TimestampUrl = "http://timestamp.digicert.com",
     [switch] $KeepStaging
@@ -248,6 +249,15 @@ try {
         return
     }
 
+    if ([string]::IsNullOrWhiteSpace($ChileanModPath)) {
+        $ChileanModPath = Join-Path $Destination "chilean_mod.zip"
+    }
+    if (-not (Test-Path -LiteralPath $ChileanModPath -PathType Leaf)) {
+        throw "Provide the release's chilean_mod.zip in Destination or via -ChileanModPath."
+    }
+    $chileanModSha256 = (Get-FileHash -LiteralPath $ChileanModPath -Algorithm SHA256).Hash
+    $appImageBytes = [long] (Get-ChildItem -LiteralPath $appImage -File -Recurse -Force |
+            Measure-Object -Property Length -Sum).Sum
     $innoCompiler = Resolve-InnoCompiler
     $innoScript = Join-Path $repositoryRoot `
             "packaging\windows\CoronaPoker.iss"
@@ -257,6 +267,8 @@ try {
         "/DOutputDir=$Destination",
         "/DOutputBase=$setupArtifactBase",
         "/DAppArchitecture=$architecture",
+        "/DAppImageBytes=$appImageBytes",
+        "/DChileanModSha256=$chileanModSha256",
         $innoScript
     ) "Branded Windows installer creation"
 

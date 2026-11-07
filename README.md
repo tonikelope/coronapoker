@@ -354,9 +354,11 @@ Windows releases additionally provide
 `CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user
 installer contains a native `CoronaPoker.exe` with the official CoronaPoker
 logo and a private Java 25 runtime with all the modules of the source JDK.
-Its wizard uses the local Windows language
-(Spanish or English) and CoronaPoker artwork instead of generic installer
-graphics.
+Its bilingual wizard uses CoronaPoker artwork, follows the Windows theme
+and shows installation size and progress. The optional MODs section can
+download Chilean MOD from GitHub or install a personal ZIP from disk.
+See [how to package a personal MOD](packaging/windows/README.md#package-a-personal-mod)
+for the supported ZIP layouts and optional password protection.
 Its internal stable JAR and retained private `java.exe` preserve the same
 `coronaupdater.jar` self-update path used by the portable release. Build it
 after the product JAR with `tools/windows/build-release-installer.ps1`. The

@@ -8,7 +8,7 @@ import java.util.List;
 final class PokerVideoCatalog {
     private final PokerVideoFavorites favorites;
     private List<PokerVideoSearch.Video> normal = List.of();
-    private String type = PokerVideoSearch.TYPE_SHORTS;
+    private String type = PokerVideoSearch.TYPE_NORMAL;
     private boolean favoritesMode;
     private long revision;
 

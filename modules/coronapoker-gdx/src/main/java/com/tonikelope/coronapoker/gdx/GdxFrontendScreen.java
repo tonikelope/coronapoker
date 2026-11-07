@@ -1292,12 +1292,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 (surface == Surface.MENU || surface == Surface.LOBBY)
                         && !lobbyLoadingOverlay
                         && !hasBlockingFrontendModal(),
-                surface == Surface.LOBBY
-                        ? PokerVideoIcon.Placement.LOBBY
-                        : PokerVideoIcon.Placement.MENU,
                 gameText.language(), initialProperties.getProperty(
                         GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
-                        PokerVideoSearch.TYPE_SHORTS), WIDTH, HEIGHT);
+                        PokerVideoSearch.TYPE_NORMAL), WIDTH, HEIGHT);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {
@@ -2499,8 +2496,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("ui.salir"),
                 this::requestApplicationExit, true);
 
-        Rectangle sound = mainMenuSoundBounds();
-        drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
+        drawFooterSoundControl();
         if (deferredUpdateAvailable(updatePromptDismissed,
                 updatePromptOpen, updateResult)) {
             themedButton(1460f, 944f, 390f, 68f,
@@ -5991,26 +5987,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             participantY -= 57f;
         }
 
-        exitButton(35f, 55f, 220f, 70f,
-                uppercase(gameText.translate("ui.salir")),
-                () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
-                !lobbyCommandPending);
+        iconButton(35f, 55f, 220f, 70f,
+                uppercase(gameText.translate("ui.salir")), 5,
+                ButtonTone.DANGER, () -> lobbyConfirmation = LobbyConfirmation.LEAVE,
+                !lobbyCommandPending, 28f);
         iconButton(285f, 55f, 360f, 70f,
                 uppercase(gameText.translate("menu.visor_capturas")), 6,
                 ButtonTone.NEUTRAL, this::openScreenshotViewer,
                 !lobbyCommandPending);
+        iconButton(675f, 55f, 245f, 70f,
+                uppercase(gameText.translate("menu.ajustes")), 3,
+                ButtonTone.NEUTRAL, this::openSettings,
+                !lobbyCommandPending);
         if (state.host() && !activeNetworkBlocks().isEmpty()) {
-            iconButton(675f, 55f, 330f, 70f,
+            iconButton(950f, 55f, 330f, 70f,
                     uppercase(gameText.translate(
                             "gdx.network_blocks.button")), 7,
                     ButtonTone.DANGER, this::openNetworkBlocks,
                     !lobbyCommandPending);
         }
-        iconButton(1640f, 55f, 245f, 70f,
-                uppercase(gameText.translate("menu.ajustes")), 3,
-                ButtonTone.NEUTRAL, this::openSettings,
-                !lobbyCommandPending);
-        drawSoundControl(1553f, 62f, 55f, 58f, false);
+        drawFooterSoundControl();
 
     }
 
@@ -10782,6 +10778,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxDisplayModeController.apply(initialProperties, next);
     }
 
+    private void drawFooterSoundControl() {
+        Rectangle sound = mainMenuSoundBounds();
+        drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
+    }
+
     private void drawSoundControl(float x, float y, float w, float h,
             boolean showLabel) {
         float iconSize = Math.min(52f, h);
@@ -14663,12 +14664,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void iconButton(float x, float y, float w, float h,
             String label, int icon, ButtonTone tone, Runnable action,
             boolean enabled) {
+        iconButton(x, y, w, h, label, icon, tone, action, enabled, 84f);
+    }
+
+    private void iconButton(float x, float y, float w, float h,
+            String label, int icon, ButtonTone tone, Runnable action,
+            boolean enabled, float labelInset) {
         // The icon owns a fixed leading column. Drawing the normal centered
         // label underneath it made long lobby labels collide with the camera.
         themedButton(x, y, w, h, "", tone, action, enabled);
         drawButtonIconColumn(x, y, w, h, icon, tone, enabled);
-        float labelX = x + 84f;
-        float labelW = w - 84f;
+        float labelX = x + labelInset;
+        float labelW = w - labelInset;
         Color labelColor = GdxUiButtonStyle.labelColor(
                 GdxUiButtonStyle.Tone.valueOf(tone.name()), enabled);
         crispButtonTextInBox(actionFont, label, labelX, y, labelW, h,

@@ -58,7 +58,7 @@ final class PokerVideoSearch {
 
     static List<Video> fetch(String language) throws IOException,
             InterruptedException {
-        return fetch(language, TYPE_SHORTS);
+        return fetch(language, TYPE_NORMAL);
     }
 
     static List<Video> fetch(String language, String videoType)
@@ -132,7 +132,7 @@ final class PokerVideoSearch {
     }
 
     static URI searchUri(String language) {
-        return searchUri(language, TYPE_SHORTS);
+        return searchUri(language, TYPE_NORMAL);
     }
 
     static URI searchUri(String language, String videoType) {
@@ -146,8 +146,8 @@ final class PokerVideoSearch {
     }
 
     static String videoType(String value) {
-        return TYPE_NORMAL.equalsIgnoreCase(value == null ? "" : value.strip())
-                ? TYPE_NORMAL : TYPE_SHORTS;
+        return TYPE_SHORTS.equalsIgnoreCase(value == null ? "" : value.strip())
+                ? TYPE_SHORTS : TYPE_NORMAL;
     }
 
     static String languageCode(String language) {

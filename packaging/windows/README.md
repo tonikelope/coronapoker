@@ -29,6 +29,37 @@ same executable is replaced instead of duplicated, and the final rule is
 removed by the uninstaller. Clearing the option keeps the entire per-user
 installation unelevated.
 
+The **MODs** group is off by default. Setup can download Chilean MOD from
+the matching GitHub release and verify its SHA-256, or install a personal ZIP.
+Setup shows download and extraction progress, then includes the expanded MOD
+size in the estimate on the confirmation and installation pages. If a MOD is
+already installed, Setup saves it in a sibling `mod-backup-*` folder before
+activating the new one. Uninstall leaves the active MOD and those backups
+in place.
+
+### Package a personal MOD
+
+Create one standard, single-volume `.zip` file. Either select `mod.xml` and
+its resource folders and compress them together, or compress their containing
+folder if it is named `mod`. Both layouts install the same contents into
+`app/mod`.
+
+```text
+At the root           In a top-level mod folder
+my-mod.zip            my-mod.zip
+├── mod.xml           └── mod/
+└── sounds/               ├── mod.xml
+    └── …                 └── sounds/
+                              └── …
+```
+
+Use one `mod.xml` and keep each resource in its original location relative
+to that file. If you include the `mod/` folder, place all files inside it.
+A ZIP with an extra enclosing folder such as `my-mod/mod/mod.xml`, a split
+archive, or a ZIP64 archive is unsupported. The password is optional.
+Setup accepts regular ZIPs and detects encrypted entries before prompting
+for a password. WinZip AES and traditional ZipCrypto were tested.
+
 The native `.exe` intentionally starts without the legacy JVM splash screen.
 `jpackage` invokes the main class directly instead of reading the JAR's
 `SplashScreen-Image` manifest entry, which avoids adding a separate splash
@@ -45,7 +76,7 @@ Build the product JAR first, then use the release wrapper:
 
 ```powershell
 .\qa.cmd build
-.\tools\windows\build-release-installer.ps1
+.\tools\windows\build-release-installer.ps1 -ChileanModPath 'path\to\chilean_mod.zip'
 ```
 
 The result is `target/CoronaPoker_<version>_Windows_<arch>_Setup.exe`. The build
@@ -58,8 +89,11 @@ cache and removes temporary installer staging even if packaging fails.
 requires a JDK 25 distribution with `jpackage`. The build supplies the JDK
 as the runtime image and checks that the packaged module inventory matches
 the source JDK. Use `-PackageType app-image` there to inspect or
-test the native `CoronaPoker.exe` layout without creating an installer; Inno
-Setup is not required for that mode.
+test the native `CoronaPoker.exe` layout without creating an installer. Inno
+Setup and the MOD archive are only required when building an installer.
+By default the build reads `chilean_mod.zip` from the destination directory.
+Use the exact file that will be published with the release, since the
+installer checks its SHA-256 when a user chooses to download it.
 
 The build regenerates the DPI-safe wizard artwork from the checked-in game
 logo and table texture. The wizard follows the current Windows UI language:

@@ -3,6 +3,7 @@ param(
     [string] $JarPath = "",
     [string] $Destination = "target",
     [string] $InnoSetupHome = "",
+    [string] $ChileanModPath = "",
     [string] $SigningCertificateThumbprint = "",
     [string] $TimestampUrl = "http://timestamp.digicert.com"
 )
@@ -128,6 +129,7 @@ try {
         Destination = $Destination
         JdkHome = $jdkHomes[0].FullName
         InnoSetupHome = $InnoSetupHome
+        ChileanModPath = $ChileanModPath
         SigningCertificateThumbprint = $SigningCertificateThumbprint
         TimestampUrl = $TimestampUrl
     }

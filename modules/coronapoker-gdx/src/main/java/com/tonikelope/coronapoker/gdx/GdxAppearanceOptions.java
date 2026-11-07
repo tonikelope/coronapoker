@@ -29,7 +29,7 @@ final class GdxAppearanceOptions {
 
     static final List<Choice> ANIMATION_CHOICES = List.of(
             exact(GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
-                    "TIPOS DE VÍDEOS", "shorts",
+                    "TIPOS DE VÍDEOS", PokerVideoSearch.TYPE_NORMAL,
                     new String[]{"shorts", "normal"},
                     new String[]{"SHORTS", "NORMALES"}),
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",

@@ -33,16 +33,14 @@ class PokerVideoFavoritesTest {
     @Test void startupOffKeepsOnlyTheIconWithoutLoadingUntilItIsClicked() throws Exception {
         try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
                 directory.resolve("favorites.properties")), ignored -> { }, false)) {
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertTrue(overlay.hostVisible());
             assertEquals(true, value(overlay, "minimized"));
             assertEquals(false, value(overlay, "initializationStarted"));
             assertNull(value(overlay, "runtime"));
             overlay.releaseForTable();
             overlay.restoreAfterTable();
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertEquals(true, value(overlay, "minimized"));
             assertEquals(false, value(overlay, "initializationStarted"));
             click(overlay, "iconBounds");
@@ -132,8 +130,7 @@ class PokerVideoFavoritesTest {
         for (boolean available : new boolean[]{false, true}) {
             try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
                     directory.resolve("favorites.properties")), ignored -> { }, true)) {
-                overlay.update(available, false, true, PokerVideoIcon.Placement.MENU,
-                        "es", "shorts", 1920f, 1080f);
+                overlay.update(available, false, true, "es", "shorts", 1920f, 1080f);
                 assertFalse(overlay.hostVisible());
                 assertEquals(false, value(overlay, "initializationStarted"));
                 assertNull(value(overlay, "runtime"));
@@ -144,8 +141,7 @@ class PokerVideoFavoritesTest {
     @Test void manuallyEnablingVideosLaterStillOpensEvenWhenStartupIsOff() throws Exception {
         try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
                 directory.resolve("favorites.properties")), ignored -> { }, false)) {
-            overlay.update(true, false, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, false, true, "es", "shorts", 1920f, 1080f);
             prepare(overlay, 260f);
             assertEquals(false, value(overlay, "minimized"));
         }
@@ -192,6 +188,8 @@ class PokerVideoFavoritesTest {
         store.toggle(SECOND, "normal");
         var model = new PokerVideoCatalog(store);
         model.toggleMode();
+        assertEquals(List.of(SECOND), model.videos());
+        model.setType("shorts");
         assertEquals(List.of(FIRST), model.videos());
         model.setType("normal");
         assertEquals(List.of(SECOND), model.videos());
@@ -258,7 +256,7 @@ class PokerVideoFavoritesTest {
         set(overlay, "initializationStarted", true);
         set(overlay, "requestedCatalogKey", "es:" + type);
         set(overlay, "videoWidth", width);
-        overlay.update(true, true, true, PokerVideoIcon.Placement.MENU, "es", type, 1920f, 1080f);
+        overlay.update(true, true, true, "es", type, 1920f, 1080f);
     }
 
     private static void set(Object target, String name, Object value) throws Exception {

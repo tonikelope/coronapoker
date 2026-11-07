@@ -7,8 +7,8 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
 ## Comportamiento
 
 - El grupo `Apariencia > Animaciones y efectos > Vídeos de póker` está
-  activado por defecto e incluye `Tipos de vídeos`, con `Shorts` como valor
-  inicial y `Normales` como alternativa. El interruptor maestro `Usar animaciones y
+  activado por defecto e incluye `Tipos de vídeos`, con `Normales` como valor
+  inicial y `Shorts` como alternativa. El interruptor maestro `Usar animaciones y
   efectos` domina todo el sistema: si está apagado no aparecen ventana ni
   icono y no se inician búsqueda, servidor ni navegador. Lo mismo ocurre si
   se desactiva específicamente `Vídeos de póker`.

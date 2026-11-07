@@ -109,14 +109,14 @@ final class PokerVideoOverlay implements AutoCloseable {
     private volatile boolean releasedForTable;
     private boolean restoreWindowAfterTable;
     private volatile String requestedCatalogKey;
-    private String selectedVideoType = PokerVideoSearch.TYPE_SHORTS;
-    private float videoAspect = SHORT_ASPECT;
+    private String selectedVideoType = PokerVideoSearch.TYPE_NORMAL;
+    private float videoAspect = NORMAL_ASPECT;
     private float worldWidth;
     private float worldHeight;
     private float x;
     private float y;
     private float videoWidth = INITIAL_WIDTH;
-    private float videoHeight = INITIAL_WIDTH / SHORT_ASPECT;
+    private float videoHeight = INITIAL_WIDTH / NORMAL_ASPECT;
     private Capture capture = Capture.NONE;
     private int capturedPointer = -1;
     private int capturedButton = -1;
@@ -127,8 +127,6 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float startWidth;
     private ResizeHandle resizeHandle = ResizeHandle.NONE;
     private int pressedButtons;
-    private PokerVideoIcon.Placement iconPlacement =
-            PokerVideoIcon.Placement.MENU;
 
     PokerVideoOverlay() {
         this(PokerVideoFavorites.userStore(), ignored -> { });
@@ -154,14 +152,13 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void update(boolean available, boolean enabled, boolean visible,
-            PokerVideoIcon.Placement placement, String language,
+            String language,
             String videoType,
             float width, float height) {
         boolean firstUpdate = !startupHandled;
         startupHandled = true;
         worldWidth = width;
         worldHeight = height;
-        iconPlacement = Objects.requireNonNull(placement, "placement");
         boolean wasAvailable = systemAvailable;
         systemAvailable = available;
         String languageCode = PokerVideoSearch.languageCode(language);
@@ -394,7 +391,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void updateBounds() {
         float totalHeight = videoHeight + CHROME_HEIGHT;
-        PokerVideoIcon.bounds(worldWidth, iconPlacement, iconBounds);
+        PokerVideoIcon.bounds(worldWidth, iconBounds);
         panelBounds.set(x, y, videoWidth, totalHeight);
         videoBounds.set(x, y + FOOTER_HEIGHT, videoWidth, videoHeight);
         headerBounds.set(x, videoBounds.y + videoHeight, videoWidth, HEADER_HEIGHT);

@@ -77,25 +77,25 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void searchTargetsPokerShortsInTheGameLanguage() {
+    void searchDefaultsToNormalVideosAndRespectsShorts() {
         assertEquals(URI.create(
                 "https://www.youtube.com/results?search_query="
                 + "p%C3%B3ker+shorts+espa%C3%B1ol&hl=es"),
-                PokerVideoSearch.searchUri("es"));
+                PokerVideoSearch.searchUri("es", "shorts"));
         assertEquals(URI.create(
                 "https://www.youtube.com/results?search_query="
                 + "poker+shorts+english&hl=en"),
-                PokerVideoSearch.searchUri("en"));
+                PokerVideoSearch.searchUri("en", "shorts"));
         assertEquals(URI.create(
                 "https://www.youtube.com/results?search_query="
                 + "v%C3%ADdeos+de+p%C3%B3ker+espa%C3%B1ol&hl=es"),
-                PokerVideoSearch.searchUri("es", "normal"));
+                PokerVideoSearch.searchUri("es"));
         assertEquals(URI.create(
                 "https://www.youtube.com/results?search_query="
                 + "poker+videos+english&hl=en"),
                 PokerVideoSearch.searchUri("en", "normal"));
         assertEquals("es", PokerVideoSearch.languageCode(null));
-        assertEquals(PokerVideoSearch.TYPE_SHORTS,
+        assertEquals(PokerVideoSearch.TYPE_NORMAL,
                 PokerVideoSearch.videoType("unexpected"));
     }
 
@@ -361,16 +361,10 @@ class PokerVideoSearchTest {
     void overlayStartsAtItsCompactProportionalSize() {
         assertEquals(PokerVideoOverlay.MIN_WIDTH,
                 PokerVideoOverlay.INITIAL_WIDTH);
-        Rectangle menu = PokerVideoIcon.bounds(1920f,
-                PokerVideoIcon.Placement.MENU, new Rectangle());
-        Rectangle lobby = PokerVideoIcon.bounds(1920f,
-                PokerVideoIcon.Placement.LOBBY, new Rectangle());
+        Rectangle menu = PokerVideoIcon.bounds(1920f, new Rectangle());
         assertEquals(1781f, menu.x);
         assertEquals(16f, menu.y);
         assertEquals(48f, menu.width);
-        assertEquals(1478.5f, lobby.x);
-        assertEquals(61f, lobby.y);
-        assertEquals(60f, lobby.width);
     }
 
     @Test
@@ -409,8 +403,7 @@ class PokerVideoSearchTest {
                     "requestedCatalogKey");
             key.setAccessible(true);
             key.set(overlay, "es:normal");
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "normal", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "normal", 1920f, 1080f);
             var boundsField = PokerVideoOverlay.class.getDeclaredField(
                     "panelBounds");
             boundsField.setAccessible(true);
@@ -427,8 +420,7 @@ class PokerVideoSearchTest {
                     / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
 
             key.set(overlay, "es:shorts");
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
             assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
             assertEquals(9f / 16f, panel.width
@@ -447,7 +439,6 @@ class PokerVideoSearchTest {
     void disabledOverlayShowsNothingAndAcceptsNoInput() {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, false, true,
-                    PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());
@@ -470,8 +461,7 @@ class PokerVideoSearchTest {
                     "requestedCatalogKey");
             key.setAccessible(true);
             key.set(overlay, "es:shorts");
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             var closeField = PokerVideoOverlay.class.getDeclaredField("closeBounds");
             closeField.setAccessible(true);
             Rectangle close = (Rectangle) closeField.get(overlay);
@@ -479,13 +469,11 @@ class PokerVideoSearchTest {
             float closeY = close.y + close.height / 2f;
             assertTrue(overlay.touchDown(closeX, closeY, 0, 0));
             assertTrue(overlay.touchUp(closeX, closeY, 0, 0));
-            overlay.update(true, true, true, PokerVideoIcon.Placement.LOBBY,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertFalse(started.getBoolean(overlay));
             overlay.releaseForTable();
             overlay.restoreAfterTable();
-            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertFalse(started.getBoolean(overlay));
             assertTrue(overlay.hostVisible());
             assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
@@ -500,12 +488,10 @@ class PokerVideoSearchTest {
     void disabledStateSurvivesACompleteTableRoundTrip() {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, false, true,
-                    PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
             overlay.releaseForTable();
             overlay.restoreAfterTable();
             overlay.update(true, false, true,
-                    PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());
@@ -518,8 +504,7 @@ class PokerVideoSearchTest {
     void hiddenOpenWindowStillPreservesItsSessionForTheTableReturn()
             throws Exception {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
-            overlay.update(true, true, false, PokerVideoIcon.Placement.LOBBY,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
             assertFalse(overlay.hostVisible());
             overlay.releaseForTable();
             var restore = PokerVideoOverlay.class.getDeclaredField(
@@ -527,8 +512,7 @@ class PokerVideoSearchTest {
             restore.setAccessible(true);
             assertTrue(restore.getBoolean(overlay));
             overlay.restoreAfterTable();
-            overlay.update(true, true, false, PokerVideoIcon.Placement.MENU,
-                    "es", "shorts", 1920f, 1080f);
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
             assertFalse(overlay.hostVisible());
         }
     }
@@ -549,7 +533,6 @@ class PokerVideoSearchTest {
     void unavailablePlatformShowsNothingAndAcceptsNoIconInput() {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(false, true, true,
-                    PokerVideoIcon.Placement.MENU,
                     "es", "shorts", 1920f, 1080f);
 
             assertFalse(overlay.hostVisible());

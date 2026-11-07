@@ -10,24 +10,10 @@ import com.badlogic.gdx.math.Rectangle;
 final class PokerVideoIcon {
 
     private static final float SOUND_GAP = 12f;
-
-    enum Placement {
-        // These are the exact painted sound-button dimensions, not just its
-        // texture bounds. The video affordance therefore has the same visual
-        // weight and sits immediately to its left on both surfaces.
-        MENU(48f, 16f, 31f),
-        LOBBY(60f, 61f, 309.5f);
-
-        private final float size;
-        private final float bottom;
-        private final float soundRightMargin;
-
-        Placement(float size, float bottom, float soundRightMargin) {
-            this.size = size;
-            this.bottom = bottom;
-            this.soundRightMargin = soundRightMargin;
-        }
-    }
+    // The slot uses the painted size of the shared sound control.
+    private static final float SIZE = 48f;
+    private static final float BOTTOM = 16f;
+    private static final float SOUND_RIGHT_MARGIN = 31f;
 
     private PokerVideoIcon() {
     }
@@ -37,12 +23,9 @@ final class PokerVideoIcon {
         return platformAvailable && animationsEnabled;
     }
 
-    static Rectangle bounds(float worldWidth, Placement placement,
-            Rectangle result) {
-        float soundLeft = worldWidth - placement.soundRightMargin
-                - placement.size;
-        return result.set(soundLeft - SOUND_GAP - placement.size,
-                placement.bottom, placement.size, placement.size);
+    static Rectangle bounds(float worldWidth, Rectangle result) {
+        float soundLeft = worldWidth - SOUND_RIGHT_MARGIN - SIZE;
+        return result.set(soundLeft - SOUND_GAP - SIZE, BOTTOM, SIZE, SIZE);
     }
 
     static void drawLogo(SpriteBatch batch, Texture logo, Rectangle bounds,

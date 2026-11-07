@@ -1,86 +1,86 @@
-# Vídeos de póker con JCEF
+# Poker videos with JCEF
 
-El reproductor aparece en la pantalla principal y en la sala de espera.
-Se configura en **Apariencia > Animaciones y efectos > Vídeos de póker**.
-Los vídeos dependen del interruptor **Usar animaciones y efectos**.
+The player is available on the main screen and in the waiting room. Open
+**Appearance > Animations and effects > Poker videos** to configure it.
+The player depends on the **Use animations and effects** switch.
 
-## Ventana y controles
+## Window and controls
 
-- El carrusel empieza en **Normales** por defecto. Puedes elegir **Shorts**
-  en Ajustes o con el selector inferior del reproductor. Ambos controles
-  guardan la misma preferencia. La búsqueda prioriza el idioma del juego y
-  el carrusel baraja los resultados al empezar y al completar cada vuelta.
-- La estrella añade o quita el vídeo actual de **Favoritos**. La lista reúne
-  los dos formatos en el orden en que los guardaste y se conserva al salir.
-  Las flechas recorren la lista y el contador muestra la posición y el total.
-  La ventana adopta el formato de cada favorito. El selector de formato
-  reaparece al volver al carrusel con el valor guardado en Ajustes.
-- Arrastra la cabecera para mover la ventana o sus bordes y esquinas para
-  cambiar el tamaño. El juego guarda posición y tamaño por separado para
-  cada formato. La ventana escala con el área del juego y deja un margen
-  antes del borde.
-- Cerrar minimiza el reproductor al icono junto al volumen. **Abrir vídeo
-  al arrancar** permite empezar con la ventana abierta o solo con el icono.
-  **Animación al cerrar/abrir reproductor** controla la transición entre
-  ambos estados.
-- Una apertura desde el icono empieza silenciada y reanuda el vídeo desde
-  la última posición conocida en esa sesión. Los controles de YouTube
-  cambian el audio y los subtítulos. Los modales pausan el reproductor.
-  El juego libera el navegador al entrar en una mesa y recupera la sesión
-  de vídeo al salir si estaba abierta.
+- The carousel starts with **Normal** videos by default. Choose **Shorts**
+  in Settings or use the selector at the bottom of the player. Both controls
+  save the same preference. Search prioritizes the game language, and the
+  carousel shuffles the results at startup and after each full pass.
+- The star adds or removes the current video from **Favorites**. The list
+  keeps both formats in the order you saved them and persists after you quit.
+  The arrows move through the list, and the counter shows the current
+  position and total. The window adapts to each favorite's format. When you
+  return to the carousel, the format selector reappears with the value saved
+  in Settings.
+- Drag the title bar to move the window, or drag an edge or corner to resize
+  it. The game saves the position and size separately for each format. The
+  window scales with the game area and leaves a margin at its edges.
+- Closing the window minimizes the player to the icon next to the volume
+  control. **Open video at startup** lets you start with the window open or
+  with only the icon visible. **Animate player opening and closing**
+  controls the transition between these states.
+- Opening the window from the icon starts playback muted and resumes the
+  video from its last known position in the session. YouTube's controls
+  change the audio and captions. Modal dialogs pause playback. The game
+  releases the browser when you enter a table and restores the video
+  session when you leave if the player was open.
 
-La ventana se renderiza a la escala real del juego, incluida la resolución
-4K. YouTube decide la calidad según el tamaño, la conexión y el dispositivo.
-La API IFrame dejó de admitir el cambio programático con
-`setPlaybackQuality`. [Historial oficial de la API](https://developers.google.com/youtube/iframe_api_revision_history)
+The window renders at the game's actual scale, including at 4K. YouTube
+selects the video quality based on size, connection and device. The IFrame
+API no longer supports setting the quality programmatically with
+`setPlaybackQuality`. [Official IFrame API revision history](https://developers.google.com/youtube/iframe_api_revision_history)
 
-## Plataformas
+## Platforms
 
-Cada JAR contiene sus propios binarios de JCEF, libGDX y LWJGL. Hay paquetes
-para Windows x64, Linux x64 y ARM64, y macOS Intel y Apple Silicon. El juego
-habilita el reproductor cuando encuentra el recurso nativo que corresponde
-al sistema y arquitectura. En Linux, el JCEF incluido requiere acceso a X11 o
-XWayland mediante `DISPLAY`, incluso en una sesión Wayland. Si ese acceso
-falla, el panel muestra el motivo.
+Each JAR includes its own JCEF, libGDX and LWJGL binaries. Packages are
+available for Windows x64, Linux x64 and ARM64, and macOS on Intel and Apple
+Silicon. The game enables the player when it finds the native resource for
+the operating system and architecture. On Linux, the bundled JCEF requires
+access to X11 or XWayland through `DISPLAY`, even in a Wayland session.
+If that access fails, the panel shows the reason.
 
-Las comprobaciones de archivos multiplataforma verifican el contenido del
-JAR. La reproducción y el audio requieren pruebas en el sistema de destino.
-Consulta [Testing and certification](TESTING.md#poker-video-integration-checks)
-para las comprobaciones automáticas y nativas.
+Cross-platform packaging checks verify the contents of the JAR. Playback
+and audio require testing on the target system. See
+[Testing and certification](TESTING.md#poker-video-integration-checks) for
+the automated and native checks.
 
-## Carga y recuperación
+## Loading and recovery
 
-Cada ejecución obtiene un catálogo nuevo de YouTube. El juego conserva los
-resultados en memoria al minimizar o pasar por una mesa. La búsqueda usa el
-documento público de resultados y limita la descarga a 12 MiB y 15 segundos.
-Los resultados retirados, privados o incompatibles se saltan. Si la red o
-el formato de búsqueda falla, el panel ofrece reintentar y el resto del
-juego sigue disponible.
+The game fetches a fresh catalog from YouTube at startup. It keeps the
+results in memory when you minimize the player or enter a table. Search
+uses the public results document and limits each download to 12 MiB and
+15 seconds. The player skips removed, private or incompatible videos.
+If the network or search format fails, the panel offers a retry while the
+rest of the game remains available.
 
-El documento local y la API de YouTube tienen plazos de carga de 30 segundos.
-El intercambio de preparación tiene 10 segundos. El inicio de reproducción
-tiene 20 segundos y un bloqueo posterior de buffering tiene 45. El
-reproductor reintenta y salta vídeos con límites. Tras tres recuperaciones
-ofrece un reintento manual. Una pausa voluntaria o un modal no cuenta como
-fallo de carga.
+The local document and YouTube API each have a 30-second load timeout.
+The readiness handshake has 10 seconds, playback has 20 seconds to start,
+and a subsequent buffering stall has 45 seconds. The player retries or
+skips videos within these limits. After three recovery attempts it offers
+a manual retry. Pausing playback or opening a modal does not count as a
+loading failure.
 
-## Integración
+## Integration
 
-El servidor HTTP local escucha solo en loopback y usa sockets de `java.base`.
-Atiende dos conexiones a la vez con una cola limitada y cierra las conexiones
-al liberar la sesión. La página local aloja el iframe de YouTube. Las
-ventanas emergentes y las navegaciones externas de nivel superior se bloquean.
+The local HTTP server listens only on loopback and uses sockets from
+`java.base`. It handles two connections at a time with a bounded queue and
+closes the connections when the session is released. The local page hosts
+the YouTube iframe and blocks pop-ups and external top-level navigation.
 
-JCEF renderiza en un búfer BGRA sin ventana. El callback de CEF copia los
-píxeles y el hilo de libGDX actualiza la textura. La instancia nativa de CEF
-permanece en el proceso hasta que CoronaPoker termina. Los navegadores y
-texturas individuales se liberan al cerrar el reproductor o entrar en la mesa.
+JCEF renders to an off-screen BGRA buffer. The CEF callback copies pixels,
+and the libGDX thread updates the texture. The native CEF instance stays
+alive until CoronaPoker exits. The game releases each browser and its
+texture when the player closes or you enter a table.
 
-El documento carga el iframe con la reproducción automática desactivada y
-aplica el mute antes de arrancar el vídeo. El primer `READY` en un proceso
-frío prepara el renderer y recarga el documento una vez. Al cambiar un Short,
-el puente vigila que el control visual de audio refleje el mute real del
-reproductor. La página conserva las decisiones posteriores del usuario.
+The document loads the iframe with autoplay disabled and mutes the player
+before starting the video. The first `READY` in a fresh process warms up
+the renderer and reloads the document once. When switching Shorts, the
+bridge checks that the on-screen audio control matches the player's actual
+mute state. The page preserves subsequent user choices.
 
-Para una prueba nativa silenciosa, `-Dcoronapoker.video.silentOutput=true`
-suprime la salida de Chromium y conserva el estado del control y la API.
+For a silent native test, `-Dcoronapoker.video.silentOutput=true` suppresses
+Chromium's audio output while preserving the audio control and API state.

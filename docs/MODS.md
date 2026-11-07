@@ -220,13 +220,13 @@ Spanish category never changes the English category.
 The Joke Sounds settings page reports the effective state at the top:
 
 ```text
-SE ESTÁN USANDO SONIDOS DEL MOD <name and version> (MODO EXCLUSIVO)
+Sounds from MOD <name and version> are in use (exclusive mode)
 ```
 
 or:
 
 ```text
-SE ESTÁN USANDO SONIDOS DEL MOD <name and version> (MODO FUSIÓN)
+Sounds from MOD <name and version> are in use (fusion mode)
 ```
 
 The message appears only when at least one joke bank for the active language

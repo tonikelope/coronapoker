@@ -168,6 +168,31 @@ Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdo
 
 ---
 
+## 🎥 Poker videos
+
+Watch YouTube poker videos in a floating player on the main menu or in the
+waiting room. Playback starts muted, with YouTube's audio and caption
+controls available. If you leave the player open, the game restores your
+video session when you return from the table.
+
+- **Carousel**. Start with regular videos by default or switch to Shorts.
+  Search prioritises the game's language, and the carousel shuffles its
+  results at startup and after each pass.
+- **Favorites**. Save both formats in one list in the order you add them.
+  Browse with the arrow buttons and see your position in the list. The
+  player adapts to each video's format.
+- **Resizable window**. Drag or resize the player. It remembers its position
+  and size separately for each format across restarts. Close it to minimise
+  it to the icon next to the volume control.
+- **Startup and animations**. Choose whether the player opens at startup
+  and whether its window animates when opening or closing.
+
+Configure it under **Appearance > Animations and effects > Poker videos**.
+See the [poker video guide](docs/JCEF_VIDEO_EXPERIMENT.md) for the controls,
+platform requirements and troubleshooting.
+
+---
+
 ## 📊 Statistics & history
 
 - **Local SQLite database** stores every hand played: timestamps, actions per street, board, stacks, winner and pot.
@@ -337,14 +362,6 @@ release payloads under `target/release-<version>/`. Ordinary local builds
 produce the current host's JAR. The updater selects the correct platform asset
 and installs it beside the running application as `CoronaPoker.jar`, then
 relaunches that stable filename. No manual rename is required.
-
-The main menu and waiting room can show a floating poker-video player powered
-by JCEF. It starts muted. The carousel defaults to regular videos and can
-switch to Shorts. Favorites hold both formats in saved order and resize the
-window to match the current video. The player remembers position and size
-for each format across restarts. YouTube selects playback quality
-automatically. See the [video guide](docs/JCEF_VIDEO_EXPERIMENT.md) for settings,
-controls, platform support and troubleshooting.
 
 Windows releases additionally provide
 `CoronaPoker_<version>_Windows_x64_Setup.exe`. This bilingual per-user

@@ -180,16 +180,28 @@ with its own JCEF payload and LWJGL/libGDX native family. See the
 [build and distribution instructions](../README.md#build-and-certify-from-source).
 
 The optional poker-video player belongs entirely to the GDX presentation.
-`PokerVideoOverlay` owns its window, input and GPU texture;
+`PokerVideoOverlay` owns its window, input and GPU texture.
 `PokerVideoRuntime` owns the JCEF browser session and loopback HTTP server.
-CEF callbacks copy pixels into `PokerVideoFrameBuffer`; only the render
-thread uploads them. Modals pause the session. Starting a table destroys the
+CEF callbacks copy pixels into `PokerVideoFrameBuffer`. The render thread
+uploads them. Modals pause the session. Starting a table destroys the
 browser and texture, while retaining the playback snapshot for the return.
 The initialized native CEF engine stays idle until process exit, because it
 cannot safely be terminated and initialized again. Unsupported platform
 payloads and disabled animation/video settings never initialize the feature.
 The [video integration guide](JCEF_VIDEO_EXPERIMENT.md) records its lifecycle,
 audio behavior, platform matrix and external YouTube dependencies.
+
+The community deal style is sampled from local settings at the start of a
+hand. GDX consumes covered slots and authorised reveals in the same ordered
+projection for both styles. In the by-street style, covered slots stay
+invisible until their reveal. The flop uses the standard flight to deal a
+covered stack into the first slot. The stack flips, then the top two cards
+slide together to the middle and right slots. The turn and river travel
+covered from the dealer and flip after landing. The reveal
+barrier releases when the motion finishes. The same projection also serves
+hot join, Run It Twice and Rabbit. In either deal style, the dealer reserves
+one burn card before the flop, turn and river. Rabbit cards use the unopened
+street slots and appear covered when Rabbit is offered.
 
 The root build runs the module tests and `coronapoker-qa`. The separate
 `tools/qa` reactor runs only when explicitly requested for extended validation.

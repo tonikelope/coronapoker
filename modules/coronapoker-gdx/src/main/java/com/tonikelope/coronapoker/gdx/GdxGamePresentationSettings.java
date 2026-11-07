@@ -40,6 +40,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private volatile boolean autoRebuyOnBroke;
     private volatile int actualMsaaSamples;
     private volatile AnimationFlags animationFlags;
+    private boolean savedCommunityDealByStreet;
     private String secretFeltFirst = "";
     private String secretFeltSecond = "";
     private int secretFeltSwitches;
@@ -64,6 +65,18 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         availableDecks = List.copyOf(new ArrayList<>(decks.values()));
         autoRebuyOnBroke = bool(GdxSettingsContract.AUTO_REBUY_KEY, false);
         refreshRuntimePreferences();
+        commitCommunityDealStyle();
+    }
+
+    void commitCommunityDealStyle() {
+        GdxAppearanceOptions.Choice choice =
+                GdxAppearanceOptions.COMMUNITY_DEAL_STYLE;
+        savedCommunityDealByStreet = "streets".equals(choice.values().get(
+                GdxAppearanceOptions.selectedIndex(choice, properties)));
+    }
+
+    boolean savedCommunityDealByStreet() {
+        return savedCommunityDealByStreet;
     }
 
     private record AnimationFlags(boolean master, boolean halo,

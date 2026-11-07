@@ -27,6 +27,12 @@ final class GdxAppearanceOptions {
         }
     }
 
+    static final Choice COMMUNITY_DEAL_STYLE = exact(
+            GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
+            "TIPO DE REPARTO DE COMUNITARIAS", "streets",
+            new String[]{"streets", "covered"},
+            new String[]{"POR CALLES", "TODAS TAPADAS AL INICIO DE LA MANO"});
+
     static final List<Choice> ANIMATION_CHOICES = List.of(
             exact(GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
                     "TIPOS DE VÍDEOS", PokerVideoSearch.TYPE_NORMAL,
@@ -35,6 +41,7 @@ final class GdxAppearanceOptions {
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
+            COMMUNITY_DEAL_STYLE,
             numeric("card_flip_duration", "VELOCIDAD DE DESTAPE", "620",
                     new String[]{"1100", "850", "620", "480", "350"},
                     new String[]{"MUY LENTA", "LENTA", "NORMAL", "RÁPIDA",
@@ -104,7 +111,9 @@ final class GdxAppearanceOptions {
         return switch (choice.key()) {
             case GdxSettingsContract.POKER_VIDEO_TYPE_KEY ->
                 GdxSettingsContract.POKER_VIDEOS_KEY;
-            case "reparto_velocidad" -> "animacion_reparto";
+            case "reparto_velocidad",
+                    GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
+                "animacion_reparto";
             case "card_flip_duration", "card_flip_direction",
                     "card_flip_zoom" ->
                 "animacion_destape";

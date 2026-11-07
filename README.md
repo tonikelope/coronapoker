@@ -203,7 +203,9 @@ can safely overlay the supported presentation assets:
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only.
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.
 - **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
-- **Action confirmation**: optional safety prompt before fold / all-in / raise.
+- **Community card deal style** under Appearance > Animations and effects. By street is the default. The flop arrives as a covered stack, turns over in the first slot, then spreads to the right. The turn and river travel covered from the dealer and turn over after landing. Choose **All face down at the start of the hand** to deal the full board before the flop. A saved change takes effect from the next hand.
+- **Action confirmation** with an optional safety prompt before fold, all-in or raise.
+- **Straddle timeout** is a personal setting under Game Settings > Blinds. By default the player declines when time runs out.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.
 - **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.
 
@@ -327,37 +329,29 @@ module reactor.
 
 The Windows local distribution and release asset keep the historical name
 `target/CoronaPoker_<version>.jar`. Linux releases append `_Linux_x64` or
-`_Linux_arm64`; macOS releases append `_macOS_x64` or `_macOS_arm64` before
+`_Linux_arm64`. macOS releases append `_macOS_x64` or `_macOS_arm64` before
 `.jar`. `tools/build/build-platform-jars.ps1` creates and verifies the five
-release payloads under `target/release-<version>/`; ordinary local builds only
+release payloads under `target/release-<version>/`. Ordinary local builds
 produce the current host's JAR. The updater selects the correct platform asset
 and installs it beside the running application as `CoronaPoker.jar`, then
 relaunches that stable filename. No manual rename is required.
 
-The main menu and waiting room can show a resizable floating poker-video
-player, powered by JCEF. It starts muted, offers Shorts or landscape videos,
-prioritizes the game language and skips unavailable embeds. Closing minimizes
-it to the play icon; disabling poker videos or the animations master hides it
-completely. Modals pause the current session, and entering a table releases
-the browser and video texture. The feature is hidden when the JAR has no JCEF
-payload for the running platform. Video quality is selected automatically by
-YouTube for the actual displayed resolution and connection.
-The lower toolbar saves favorites across sessions, switches between the saved
-and random carousels, and changes Shorts/normal format using the appearance
-setting. Favorites are grouped by format to preserve the video proportions.
-The video group's startup switch can leave the enabled player minimized to its
-icon until opened manually, without starting a search or browser at launch.
-See the [video integration guide](docs/JCEF_VIDEO_EXPERIMENT.md) for window,
-audio and session behavior, platform support and YouTube limitations.
+The main menu and waiting room can show a floating poker-video player powered
+by JCEF. It starts muted. The carousel defaults to regular videos and can
+switch to Shorts. Favorites hold both formats in saved order and resize the
+window to match the current video. The player remembers position and size
+for each format across restarts. YouTube selects playback quality
+automatically. See the [video guide](docs/JCEF_VIDEO_EXPERIMENT.md) for settings,
+controls, platform support and troubleshooting.
 
 Windows releases additionally provide
-`CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user
+`CoronaPoker_<version>_Windows_x64_Setup.exe`. This bilingual per-user
 installer contains a native `CoronaPoker.exe` with the official CoronaPoker
 logo and a private Java 25 runtime with all the modules of the source JDK.
 Its bilingual wizard uses CoronaPoker artwork, follows the Windows theme
 and shows installation size and progress. The optional MODs section can
 download Chilean MOD from GitHub or install a personal ZIP from disk.
-See [how to package a personal MOD](packaging/windows/README.md#package-a-personal-mod)
+See [how to package a personal MOD](docs/MODS.md#package-a-personal-mod)
 for the supported ZIP layouts and optional password protection.
 Its internal stable JAR and retained private `java.exe` preserve the same
 `coronaupdater.jar` self-update path used by the portable release. Build it

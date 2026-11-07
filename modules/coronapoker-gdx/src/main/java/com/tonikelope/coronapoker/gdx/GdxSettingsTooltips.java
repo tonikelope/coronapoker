@@ -195,6 +195,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_deal";
             case "reparto_velocidad" ->
                 "tooltip.cfg.reparto_velocidad";
+            case GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
+                "tooltip.cfg.community_deal_style";
             case "animacion_destape" ->
                 "gdx.settings.tooltip.animation_reveal";
             case "card_flip_duration" ->

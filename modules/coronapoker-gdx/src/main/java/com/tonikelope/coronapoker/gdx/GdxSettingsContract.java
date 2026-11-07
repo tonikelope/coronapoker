@@ -37,6 +37,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
+    static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
@@ -596,6 +597,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_barajado_precarga"),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
+                    animationChoice(COMMUNITY_DEAL_STYLE_KEY),
                     animationToggle("animacion_destape"),
                     animationChoice("card_flip_duration"),
                     animationChoice("card_flip_direction"),
@@ -672,6 +674,7 @@ final class GdxSettingsContract {
             "animacion_swap",
             "animacion_downgrade", "card_flip_duration",
             "card_flip_direction", "card_flip_zoom", "reparto_velocidad",
+            COMMUNITY_DEAL_STYLE_KEY,
             "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",

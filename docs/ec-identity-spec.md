@@ -159,15 +159,13 @@ Offset  Size  Field           Type        Notes
 All defensive against honest cross-platform bugs, none against malicious source-modified clients.
 
 1. **NFC nick normalization**:
-   ```java
-   nick_utf8 = Normalizer.normalize(nick, Normalizer.Form.NFC).getBytes(StandardCharsets.UTF_8);
-   ```
+   The encoder obtains `nick_utf8` from the Java expression
+   `Normalizer.normalize(nick, Normalizer.Form.NFC).getBytes(StandardCharsets.UTF_8)`.
    Defends against precomposed vs decomposed Unicode (macOS vs Windows). Identity for ASCII nicks.
 
 2. **Float/double-to-cents conversion**:
-   ```java
-   amount_cents = MoneyCents.fromFloat(amount_float).cents();
-   ```
+   The Java expression for `amount_cents` is
+   `MoneyCents.fromFloat(amount_float).cents()`.
    `fromFloat` canonicalises through the float's decimal string. `fromDouble` requires an exact cent value, except for an insignificant tolerance bounded by four ULPs (and `1e-12`) around the nearest cent. Non-finite, negative, out-of-domain and genuinely sub-cent values are rejected. `MoneyCents` is the single implementation. Reproducing conversion elsewhere is an integrity bug.
 
 3. **Locale-independent parsing**: `Float.parseFloat` / `Long.parseLong` are already locale-independent. Any `NumberFormat` for amounts must use `Locale.ROOT`.
@@ -386,8 +384,10 @@ CREATE TABLE IF NOT EXISTS known_identities (
     last_seen      INTEGER NOT NULL,
     sessions_count INTEGER NOT NULL DEFAULT 0,
     verified_oob   INTEGER NOT NULL DEFAULT 0   -- 1 if user clicked "Verify identity"
-);
+)
+```
 
+```sql
 CREATE TABLE IF NOT EXISTS disputed_hands (
     id        INTEGER PRIMARY KEY,
     id_hand   INTEGER NOT NULL,
@@ -396,7 +396,7 @@ CREATE TABLE IF NOT EXISTS disputed_hands (
     local_h   BLOB    NOT NULL,                 -- our local H_final at dispute time
     reason    TEXT,                             -- 'DIVERGENT' | 'MISSING' | 'INVALID_SIG_SEEN' | 'DECK_NO_PROOF' | 'DECK_UNVERIFIED'
     FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE
-);
+)
 ```
 
 The `receipts` blob is stored **as collected** (the receipts are already signed, they are not separately encrypted at rest).

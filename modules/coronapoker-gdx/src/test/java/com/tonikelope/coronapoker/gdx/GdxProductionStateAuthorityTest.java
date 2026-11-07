@@ -86,6 +86,155 @@ final class GdxProductionStateAuthorityTest {
     }
 
     @Test
+    void communityDealChangesOnlyAtTheNextHandAfterSaving(
+            @TempDir Path temporary) {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("animaciones", "false");
+        GdxGamePresentationSettings settings =
+                new GdxGamePresentationSettings(preferences);
+        var choice = GdxAppearanceOptions.COMMUNITY_DEAL_STYLE;
+        assertTrue(settings.savedCommunityDealByStreet());
+        assertEquals("POR CALLES", GdxAppearanceOptions.selectedLabel(choice,
+                preferences.properties(), new GdxGameText("es")));
+        preferences.properties().setProperty(choice.key(), "invalid");
+        settings.commitCommunityDealStyle();
+        assertTrue(settings.savedCommunityDealByStreet());
+        preferences.properties().setProperty(choice.key(), "covered");
+        settings.commitCommunityDealStyle();
+        assertFalse(settings.savedCommunityDealByStreet());
+        assertEquals("TODAS TAPADAS AL INICIO DE LA MANO",
+                GdxAppearanceOptions.selectedLabel(choice,
+                        preferences.properties(), new GdxGameText("es")));
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, settings);
+        table.acceptEvent(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+        assertTrue(acceptBoardDeal(table, 2L, 0).isDone());
+        assertTrue(table.hasRestingCommunityCards(1, false));
+
+        preferences.properties().setProperty(
+                GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY, "streets");
+        settings.commitCommunityDealStyle();
+        assertTrue(acceptBoardDeal(table, 3L, 1).isDone());
+        assertTrue(table.hasRestingCommunityCards(2, false));
+
+        table.acceptEvent(new TableVisualEvent.HandBoundary(4L, 2L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+        assertTrue(acceptBoardDeal(table, 5L, 0).isDone());
+        assertFalse(table.hasRestingCommunityCards(1, false));
+        assertTrue(projection.snapshot().communityCards().get(0).visible());
+
+        preferences.properties().setProperty(
+                GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY, "covered");
+        table.acceptEvent(new TableVisualEvent.HandBoundary(6L, 3L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+        assertTrue(acceptBoardDeal(table, 7L, 0).isDone());
+        assertFalse(table.hasRestingCommunityCards(1, false),
+                "an unsaved selector edit must not affect a new hand");
+
+        settings.commitCommunityDealStyle();
+        table.acceptEvent(new TableVisualEvent.HandBoundary(8L, 4L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+        assertTrue(acceptBoardDeal(table, 9L, 0).isDone());
+        assertTrue(table.hasRestingCommunityCards(1, false));
+    }
+
+    @Test
+    void streetDealKeepsRevealBarriersAndHandlesRedealAndHotJoin(
+            @TempDir Path temporary) {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("sonido_efectos", "false");
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+        for (int slot = 0; slot < 5; slot++) {
+            assertTrue(acceptBoardDeal(table, slot + 1L, slot).isDone());
+            assertFalse(table.hasRestingCommunityCards(slot, 1, false));
+        }
+
+        List<TableSnapshot.CardSnapshot> flop = List.of(card("A_C", true),
+                card("K_D", true), card("J_P", true));
+        CompletableFuture<Void> spread = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(
+                6L, 0, flop, 1000L), spread);
+        assertEquals(flop, projection.snapshot().communityCards().subList(0, 3));
+        assertFalse(table.hasRestingCommunityCards(3, true));
+        table.updateLiveCommunityReveal(1_000_000_000L);
+        table.updateLiveCommunityReveal(1_875_000_000L);
+        assertFalse(spread.isDone());
+        assertFalse(table.hasRestingCommunityCards(3, true));
+        table.updateLiveCommunityReveal(2_310_000_000L);
+        assertFalse(spread.isDone());
+        table.updateLiveCommunityReveal(2_920_000_000L);
+        assertFalse(spread.isDone());
+        table.updateLiveCommunityReveal(3_250_000_000L);
+        assertFalse(spread.isDone());
+        table.updateLiveCommunityReveal(3_350_000_000L);
+        assertTrue(spread.isDone());
+        assertTrue(table.hasRestingCommunityCards(3, true));
+
+        CompletableFuture<Void> turn = new CompletableFuture<>();
+        TableSnapshot.CardSnapshot turnCard = card("5_T", true);
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(
+                7L, 3, List.of(turnCard), 1000L), turn);
+        table.updateLiveCommunityReveal(4_000_000_000L);
+        table.updateLiveCommunityReveal(4_900_000_000L);
+        assertFalse(turn.isDone());
+        assertFalse(table.hasRestingCommunityCards(3, 1, true));
+        table.updateLiveCommunityReveal(5_900_000_000L);
+        assertTrue(turn.isDone());
+        assertTrue(table.hasRestingCommunityCards(4, true));
+
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(8L,
+                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE-B:", 0d,
+                List.of(3, 4)), new CompletableFuture<>());
+        assertTrue(acceptBoardDeal(table, 9L, 3).isDone());
+        assertTrue(acceptBoardDeal(table, 10L, 4).isDone());
+        assertTrue(table.hasRestingCommunityCards(3, true));
+        assertFalse(table.hasRestingCommunityCards(3, 1, false));
+
+        CompletableFuture<Void> pending = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(
+                11L, 3, List.of(turnCard), 2000L), pending);
+        assertFalse(pending.isDone());
+        TableSnapshot snapshot = projection.snapshot();
+        table.acceptEvent(new TableVisualEvent.HotJoinState(12L, snapshot),
+                new CompletableFuture<>());
+        assertTrue(pending.isDone(), "bootstrap releases the old visual barrier");
+        assertTrue(table.hasRestingCommunityCards(4, true));
+        assertFalse(table.hasRestingCommunityCards(4, 1, false));
+
+        table.acceptEvent(new TableVisualEvent.RabbitCards(13L,
+                List.of(new TableVisualEvent.RabbitCard(4, card("", false))),
+                true), new CompletableFuture<>());
+        assertTrue(table.hasRestingCommunityCards(4, 1, false),
+                "an offered Rabbit card must still appear and accept input");
+    }
+
+    private static CompletableFuture<Void> acceptBoardDeal(
+            CoronaPokerGdxTable table, long sequence, int slot) {
+        CompletableFuture<Void> barrier = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.DealCommunityCard(sequence, slot),
+                barrier);
+        return barrier;
+    }
+
+    @Test
     void animatedCardEventsCommitBeforeLaterIndependentEventsCanOvertakeThem(
             @TempDir Path temporary) {
         TableSnapshot input = new TableSnapshot(1L, "human",
@@ -97,6 +246,8 @@ final class GdxProductionStateAuthorityTest {
         preferences.properties().setProperty("sonido_efectos", "false");
         preferences.properties().setProperty("animacion_reparto", "true");
         preferences.properties().setProperty("animacion_destape", "true");
+        preferences.properties().setProperty(
+                GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY, "covered");
         CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
                 command -> { }, () -> { }, new GdxGameLogSink(), preferences,
                 null, new GdxGamePresentationSettings(preferences));

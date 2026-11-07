@@ -1,202 +1,86 @@
-# Vídeos de póker con JCEF OSR
+# Vídeos de póker con JCEF
 
-La integración usa JCEF sin modificar la lógica de la partida. El
-reproductor y su icono aparecen únicamente en la pantalla principal y en la
-sala de espera. Durante la partida no aparece ninguno de los dos.
+El reproductor aparece en la pantalla principal y en la sala de espera.
+Se configura en **Apariencia > Animaciones y efectos > Vídeos de póker**.
+Los vídeos dependen del interruptor **Usar animaciones y efectos**.
 
-## Comportamiento
+## Ventana y controles
 
-- El grupo `Apariencia > Animaciones y efectos > Vídeos de póker` está
-  activado por defecto e incluye `Tipos de vídeos`, con `Normales` como valor
-  inicial y `Shorts` como alternativa. El interruptor maestro `Usar animaciones y
-  efectos` domina todo el sistema: si está apagado no aparecen ventana ni
-  icono y no se inician búsqueda, servidor ni navegador. Lo mismo ocurre si
-  se desactiva específicamente `Vídeos de póker`.
-- `Abrir vídeo al arrancar` está activado por defecto. Al apagarlo, el próximo
-  arranque muestra solo el icono y no inicia búsqueda ni navegador hasta pulsarlo.
-  Necesita que los vídeos y las animaciones estén activados; no puede habilitar
-  por sí solo una función desactivada. Se conserva el estado de ventana/icono
-  durante los cambios de pantalla de la sesión. Activar manualmente los vídeos
-  más tarde sí abre la ventana, independientemente de la opción de arranque.
-- La lista contiene Shorts o vídeos normales según el selector. La búsqueda
-  añade español o inglés según el idioma del juego para priorizar contenido en ese idioma. El
-  lote anónimo que entrega YouTube se baraja al iniciar y se vuelve a barajar
-  al completar cada vuelta; al terminar un Short avanza automáticamente. La
-  reproducción continúa recorriendo y reordenando los resultados únicos
-  obtenidos en esa consulta.
-- La lista no se cachea entre ejecuciones de CoronaPoker: cada arranque vuelve
-  a consultar YouTube para poder incorporar resultados nuevos. Dentro de una
-  misma ejecución sí se conserva en memoria al minimizar o pasar por la mesa.
-- Los resultados retirados, privados, incompatibles o que prohíben la
-  reproducción embebida se marcan y se saltan automáticamente. Los botones
-  anterior y siguiente también evitan los resultados ya descartados.
-- En Favoritos, la cabecera muestra la posición y el total a la derecha
-  de las flechas. En el carrusel se muestra el título.
-- La cabecera tiene un fondo opaco uniforme, con anterior, siguiente y cerrar.
-  Una barra inferior separada contiene la estrella de favorito, el botón para
-  ver favoritos o volver al «Modo carrusel». En el carrusel, el selector
-  rápido Shorts/Normales guarda el mismo ajuste de formato que el menú de
-  apariencia. El selector se oculta en Favoritos.
-- La estrella hueca guarda el vídeo y pasa a estar rellena; pulsarla otra vez
-  lo quita de favoritos. La lista se guarda en
-  `~/.coronapoker/poker-video-favorites.properties` y sobrevive a reinicios.
-  La lista reúne ambos formatos en el orden en que se guardaron. El
-  reproductor adapta su proporción al favorito activo. Al volver al
-  carrusel se recupera el formato guardado en Ajustes. Si la lista está
-  vacía, el reproductor se pausa y ofrece volver al carrusel.
-- El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
-  controles nativos de YouTube están habilitados para mantener el icono de
-  audio enlazado con el mute real; la navegación y el cierre se
-  realizan desde la barra de CoronaPoker. El
-  perfil anónimo del reproductor vive solo en memoria para no heredar una
-  preferencia antigua de subtítulos. La
-  barra propia de CoronaPoker muestra el título del resultado, anterior,
-  siguiente y cerrar.
-- La ventana guarda una posición y tamaño por formato entre Principal, Sala
-  de espera y reinicios del juego. Se puede arrastrar y redimensionar
-  manteniendo el formato del vídeo. Los cuatro
-  bordes y las cuatro esquinas aceptan el gesto y muestran el cursor adecuado,
-  aunque las zonas son invisibles. No se dibujan marco, sombra ni tirador de
-  esquina; la cabecera y las dos esquinas inferiores de la barra de controles quedan
-  redondeadas. La posición y tamaño escalan con el `FitViewport` 1920x1080,
-  por lo que conservan la misma
-  proporción visual en 1080p, 1440p y 2160p. En la sala el icono queda elevado
-  por encima
-  de los controles inferiores y su hover está recortado al propio botón. En
-  principal y sala el icono tiene el mismo tamaño que el botón de sonido y se
-  sitúa inmediatamente a su izquierda.
-- El tamaño máximo solo depende del espacio disponible en pantalla, incluidos
-  la cabecera, el pie de controles y un margen de ocho unidades por lado. No existe un ancho máximo
-  fijo; al cambiar de formato se ajusta el tamaño para que siga cabiendo.
-  La superficie JCEF recibe la escala real del viewport, también en 4K y al
-  redimensionar la ventana del juego. YouTube mantiene su selección automática
-  de calidad según tamaño y conexión; la API no permite forzar una resolución
-  máxima (`setPlaybackQuality` ya no tiene efecto).
-- Abrir un modal pausa y oculta el vídeo sin destruir la sesión. Al cerrar el
-  modal continúa desde el mismo punto.
-- Cerrar minimiza la ventana al icono sin modificar el ajuste. Conserva en
-  memoria el vídeo y el segundo aproximado; después cierra
-  la sesión de navegador y libera la textura. Pulsar el icono recrea la sesión
-  desde ese punto, siempre silenciada al abrir desde el icono. Desactivar el ajuste oculta tanto
-  ventana como icono y cancela cualquier inicialización pendiente.
-- Antes de crear la mesa se aplica el mismo cierre de sesión y liberación de
-  textura. Durante la partida no se muestra ni se crea icono o reproductor. Al
-  volver de la timba se restaura exactamente el estado de ventana o icono que
-  correspondía.
-- Una apertura nueva empieza realmente silenciada. Los cambios
-  entre principal, modal y sala de espera conservan la misma sesión, posición
-  y audio. Si la sesión debe liberarse al entrar en la mesa, su último estado
-  estable se restaura al volver. El iframe se crea con reproducción automática
-  desactivada; al recibir `onReady`, CoronaPoker aplica primero el mute real y
-  después inicia la reproducción. No se fuerzan ciclos de mute/desmute ni
-  cambios de volumen para intentar repintar el altavoz. Con `controls: 0`, el
-  reproductor de Shorts dejaba un botón visible cuyo icono no seguía los
-  cambios de la API; el diagnóstico con CEF real reprodujo la contradicción.
-  El mute se suministra también en la URL del iframe. La primera inicialización
-  de Shorts en un proceso CEF frío podía dejar incoherente el modelo visual
-  incluso con ese valor: el diagnóstico real reprodujo el fallo y comprobó que
-  desaparecía al recargar el documento. El primer `READY` prepara el renderer
-  sin permitir reproducción y pide una única recarga; solo el siguiente
-  `READY` permite reproducir. Esta preparación no se repite al minimizar,
-  restaurar ni cambiar de pantalla. Se conservan los controles nativos para que
-  sus cambios de mute se reflejen en la API. Tras restaurar el estado inicial,
-  CoronaPoker solo observa el audio elegido en los controles nativos y lo
-  conserva entre vídeos y transiciones; nunca sobreescribe un clic de usuario
-  con una lectura antigua.
-- Cambiar el idioma del juego sustituye el catálogo y recrea la sesión con
-  el idioma correspondiente, conservando el audio. Entrar en la mesa desde un
-  modal también conserva el estado de la ventana que estaba oculta debajo.
-- Los cambios de vídeo siguen usando `loadVideoById`, sin recrear iframe ni
-  navegador. Shorts puede reconstruir su botón de audio con el icono audible
-  aunque el elemento de vídeo siga muteado. Un observador de solo lectura
-  detecta esa discrepancia concreta al cambiar el control y avisa al documento
-  principal; este vuelve a emitir `mute()` únicamente si la API sigue muteada.
-  No se inyectan clics ni se modifica el icono: el propio reproductor lo
-  sincroniza. La detección responde a cambios del control y del audio, sin
-  temporizadores adicionales ni recargas por vídeo.
-- Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
-  página de resultados nunca se presenta como navegador al usuario.
+- El carrusel empieza en **Normales** por defecto. Puedes elegir **Shorts**
+  en Ajustes o con el selector inferior del reproductor. Ambos controles
+  guardan la misma preferencia. La búsqueda prioriza el idioma del juego y
+  el carrusel baraja los resultados al empezar y al completar cada vuelta.
+- La estrella añade o quita el vídeo actual de **Favoritos**. La lista reúne
+  los dos formatos en el orden en que los guardaste y se conserva al salir.
+  Las flechas recorren la lista y el contador muestra la posición y el total.
+  La ventana adopta el formato de cada favorito. El selector de formato
+  reaparece al volver al carrusel con el valor guardado en Ajustes.
+- Arrastra la cabecera para mover la ventana o sus bordes y esquinas para
+  cambiar el tamaño. El juego guarda posición y tamaño por separado para
+  cada formato. La ventana escala con el área del juego y deja un margen
+  antes del borde.
+- Cerrar minimiza el reproductor al icono junto al volumen. **Abrir vídeo
+  al arrancar** permite empezar con la ventana abierta o solo con el icono.
+  **Animación al cerrar/abrir reproductor** controla la transición entre
+  ambos estados.
+- Una apertura desde el icono empieza silenciada y reanuda el vídeo desde
+  la última posición conocida en esa sesión. Los controles de YouTube
+  cambian el audio y los subtítulos. Los modales pausan el reproductor.
+  El juego libera el navegador al entrar en una mesa y recupera la sesión
+  de vídeo al salir si estaba abierta.
 
-## Recuperación de cargas
+La ventana se renderiza a la escala real del juego, incluida la resolución
+4K. YouTube decide la calidad según el tamaño, la conexión y el dispositivo.
+La API IFrame dejó de admitir el cambio programático con
+`setPlaybackQuality`. [Historial oficial de la API](https://developers.google.com/youtube/iframe_api_revision_history)
 
-La búsqueda tiene un plazo total de 15 segundos. Minimizar o desactivar los
-vídeos interrumpe la petición pendiente; si ya empezó la inicialización nativa,
-se permite que termine para conservar la única instancia de CEF de la sesión.
-Los resultados de una petición cancelada no pueden sustituir un catálogo nuevo.
+## Plataformas
 
-El documento local tiene un plazo de 30 segundos mientras está visible. Los
-errores HTTP, de carga o de terminación del renderer muestran `Reintentar`.
-Dentro del documento, la API de YouTube dispone de 30 segundos y el intercambio
-de preparación de 10; un fallo de API permite una sola recarga automática.
-La reproducción inicial tiene 20 segundos y un bloqueo posterior de buffering,
-45. Se reintenta el mismo vídeo conservando posición y audio, después se salta;
-tras tres recuperaciones se ofrece un reintento manual. No hay bucles de carga
-indefinidos. Los plazos se suspenden al ocultar el reproductor y una pausa
-voluntaria después de empezar a reproducir no se considera un fallo.
+Cada JAR contiene sus propios binarios de JCEF, libGDX y LWJGL. Hay paquetes
+para Windows x64, Linux x64 y ARM64, y macOS Intel y Apple Silicon. El juego
+habilita el reproductor cuando encuentra el recurso nativo que corresponde
+al sistema y arquitectura. En Linux, el JCEF incluido requiere acceso a X11 o
+XWayland mediante `DISPLAY`, incluso en una sesión Wayland. Si ese acceso
+falla, el panel muestra el motivo.
 
-El servidor loopback atiende conexiones con dos trabajadores y una cola
-limitada, para que una conexión especulativa inactiva no bloquee la carga real.
-Las conexiones abiertas se cierran al liberar la sesión. Los fallos de carga y
-las recuperaciones quedan registrados sin incluir el contenido de las páginas.
+Las comprobaciones de archivos multiplataforma verifican el contenido del
+JAR. La reproducción y el audio requieren pruebas en el sistema de destino.
+Consulta [Testing and certification](TESTING.md#poker-video-integration-checks)
+para las comprobaciones automáticas y nativas.
 
-## Aislamiento de recursos
+## Carga y recuperación
 
-JCEF pinta en un búfer BGRA sin ventana (`OSR`). El callback de CEF solo copia
-memoria; la subida de la textura OpenGL ocurre en el hilo de renderizado de
-libGDX. El motor CEF permanece inicializado hasta salir de CoronaPoker porque
-JCEF no admite de forma segura terminar y reinicializar el proceso nativo. Las
-sesiones de navegador y sus texturas sí se destruyen al cerrar o entrar en
-la mesa.
+Cada ejecución obtiene un catálogo nuevo de YouTube. El juego conserva los
+resultados en memoria al minimizar o pasar por una mesa. La búsqueda usa el
+documento público de resultados y limita la descarga a 12 MiB y 15 segundos.
+Los resultados retirados, privados o incompatibles se saltan. Si la red o
+el formato de búsqueda falla, el panel ofrece reintentar y el resto del
+juego sigue disponible.
 
-## Plataformas de distribución
+El documento local y la API de YouTube tienen plazos de carga de 30 segundos.
+El intercambio de preparación tiene 10 segundos. El inicio de reproducción
+tiene 20 segundos y un bloqueo posterior de buffering tiene 45. El
+reproductor reintenta y salta vídeos con límites. Tras tres recuperaciones
+ofrece un reintento manual. Una pausa voluntaria o un modal no cuenta como
+fallo de carga.
 
-Se genera un artefacto por plataforma, tal como recomienda JCEF Maven, porque
-cada paquete nativo ocupa alrededor de 100 MB. Las combinaciones admitidas por
-esta integración son Windows x86-64, Linux x86-64/ARM64 y macOS
-x86-64/Apple Silicon. Windows ARM64 queda excluido porque JCEF Maven no admite
-OSR en esa plataforma. Cada artefacto incluye además una sola familia de
-nativos LWJGL y conserva únicamente los binarios libGDX/libGDX FreeType de su
-sistema y arquitectura.
+## Integración
 
-`tools/build/build-platform-jars.ps1` fabrica y comprueba los cinco JAR de
-release. Desde 27.17 el actualizador selecciona el artefacto del sistema y
-arquitectura actuales; mantiene el nombre histórico para releases anteriores.
-Desde 27.18, el servidor del reproductor usa únicamente sockets de `java.base`,
-sin depender del módulo opcional `jdk.httpserver`. Esto permite actualizar el
-JAR sobre instalaciones Windows anteriores conservando su Java privado, como
-hace el actualizador; no es necesario reinstalar para añadir módulos al runtime.
-El servidor escucha solo en loopback, sirve un documento fijo, limita tamaño y
-tiempo de las cabeceras y cierra conexiones al liberar la sesión.
+El servidor HTTP local escucha solo en loopback y usa sockets de `java.base`.
+Atiende dos conexiones a la vez con una cola limitada y cierra las conexiones
+al liberar la sesión. La página local aloja el iframe de YouTube. Las
+ventanas emergentes y las navegaciones externas de nivel superior se bloquean.
 
-La disponibilidad se comprueba antes de exponer la función: deben coincidir el
-sistema operativo, la arquitectura y el recurso nativo incluido en el JAR. Si
-alguna condición falla, no aparece el ajuste, no aparece el icono y no se
-inician la búsqueda, el servidor local ni JCEF. Esto también evita que la
-dependencia base descargue automáticamente un paquete nativo en una plataforma
-no admitida.
+JCEF renderiza en un búfer BGRA sin ventana. El callback de CEF copia los
+píxeles y el hilo de libGDX actualiza la textura. La instancia nativa de CEF
+permanece en el proceso hasta que CoronaPoker termina. Los navegadores y
+texturas individuales se liberan al cerrar el reproductor o entrar en la mesa.
 
-En Linux, el JCEF incluido necesita acceso a X11 o XWayland incluso cuando
-GLFW y Chromium renderizan en Wayland. Antes de iniciarlo, CoronaPoker
-comprueba que puede abrir el `DISPLAY`. Si falta o no es accesible, el panel
-muestra el motivo. El Chromium embebido omite su asistente de primer arranque
-y usa su toolkit interno para evitar cargar la integración GTK durante el
-arranque. Estos argumentos solo se aplican a Linux. Si el arranque nativo
-tarda más de un minuto, el panel informa de la espera sin lanzar otra
-instancia de Chromium.
+El documento carga el iframe con la reproducción automática desactivada y
+aplica el mute antes de arrancar el vídeo. El primer `READY` en un proceso
+frío prepara el renderer y recarga el documento una vez. Al cambiar un Short,
+el puente vigila que el control visual de audio refleje el mute real del
+reproductor. La página conserva las decisiones posteriores del usuario.
 
-La extracción de resultados de búsqueda no usa una clave de API y depende del
-documento público de resultados de YouTube. Es deliberadamente un componente
-aislado y tolerante a fallos: si el formato cambia o la red falla, el menú y la
-sala siguen operativos y el error queda limitado al panel del vídeo.
-La respuesta se limita a 12 MiB durante la recepción y tiene un plazo total de
-15 segundos, incluido el cuerpo; interrumpir la carga cancela la petición.
-
-La integración se ha validado en Windows x64 y en Linux x64 mediante WSLg,
-con los clientes gráficos en Wayland y en X11. La prueba de Linux incluyó
-reproducción de YouTube y cierre del navegador. La validación de los paquetes
-macOS y Linux ARM64 es estructural.
-
-En las pruebas nativas se puede usar `-Dcoronapoker.video.silentOutput=true`:
-añade `--mute-audio` a Chromium sin cambiar el mute de la API ni su control
-visual. Permite comprobar ambos estados sin emitir sonido. No se activa en el
-producto distribuido; esas comprobaciones no prueban la salida física de audio.
+Para una prueba nativa silenciosa, `-Dcoronapoker.video.silentOutput=true`
+suprime la salida de Chromium y conserva el estado del control y la API.

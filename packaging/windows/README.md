@@ -12,8 +12,8 @@ at `app/CoronaPoker.jar`, beside the optional `app/mod` directory, and the
 private runtime retains `runtime/bin/java.exe`. This is the layout expected by
 `coronaupdater.jar`: self-update replaces the stable JAR and relaunches it with
 the bundled runtime, without administrator elevation. Installing the game does
-not redirect `user.home`; both the portable and installed editions continue to
-use `%USERPROFILE%\.coronapoker` for preferences and user data.
+not redirect `user.home`. Both editions use
+`%USERPROFILE%\.coronapoker` for preferences and user data.
 
 Self-update replaces the application JAR. Run a current Setup to refresh
 the bundled Java runtime or replace a reduced runtime from an earlier
@@ -41,26 +41,9 @@ in place.
 
 ### Package a personal MOD
 
-Create one standard, single-volume `.zip` file. Either select `mod.xml` and
-its resource folders and compress them together, or compress their containing
-folder if it is named `mod`. Both layouts install the same contents into
-`app/mod`.
-
-```text
-At the root           In a top-level mod folder
-my-mod.zip            my-mod.zip
-├── mod.xml           └── mod/
-└── sounds/               ├── mod.xml
-    └── …                 └── sounds/
-                              └── …
-```
-
-Use one `mod.xml` and keep each resource in its original location relative
-to that file. If you include the `mod/` folder, place all files inside it.
-A ZIP with an extra enclosing folder such as `my-mod/mod/mod.xml`, a split
-archive, or a ZIP64 archive is unsupported. The password is optional.
-Setup accepts regular ZIPs and detects encrypted entries before prompting
-for a password. WinZip AES and traditional ZipCrypto were tested.
+Use one of the [supported ZIP layouts](../../docs/MODS.md#package-a-personal-mod).
+Select the ZIP from disk. Setup installs its contents in `app/mod` and asks
+for a password if the ZIP has encrypted entries.
 
 The native `.exe` intentionally starts without the legacy JVM splash screen.
 `jpackage` invokes the main class directly instead of reading the JAR's
@@ -107,13 +90,9 @@ second copy.
 The installer is a single executable that includes both the game and its
 private Java runtime. On the first launch,
 Windows or endpoint protection may scan the complete unsigned executable
-before Inno Setup is allowed to show the license page; subsequent launches are
-normally immediate once that scan is cached. A scripted Inno splash cannot
-cover this interval because its code only runs after the operating system has
-finished loading the executable. Keep solid compression enabled to minimise
-the file that Windows must inspect. Splitting the payload would make the
-wizard appear sooner, but would replace the one-file installer with an EXE
-plus external data files and is therefore deliberately not used.
+before Inno Setup shows the license page. Later launches can reuse the
+cached scan. The package uses solid compression and keeps the payload in
+one executable.
 
 For a signed public build, install the code-signing certificate in the Windows
 certificate store and pass its thumbprint:
@@ -148,7 +127,7 @@ not as a replacement for the portable package. For every release:
 5. Archive useful audit evidence, then remove the entire root `target`,
    module build outputs, downloaded JDK archives, extracted toolchains,
    staging images and temporary previews. Final publication cleanup also
-   removes the local JARs and installers; keeping a JAR for an intermediate
-   local test does not override a later request for final cleanup.
+   removes the local JARs and installers. For intermediate tests, keep
+   the current Windows JAR in `target` until final publication.
 6. Keep only the newest public GitHub release and the historical 24.10
    release, after verifying the new release. Preserve historical Git tags.

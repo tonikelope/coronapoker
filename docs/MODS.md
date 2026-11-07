@@ -2,10 +2,11 @@
 
 # CoronaPoker MOD packs
 
-CoronaPoker loads one external MOD from a `mod` directory next to the
-application JAR or executable. A MOD is a directory, not an archive. Its
-activation marker is `mod/mod.xml`, and the catalog is rebuilt when the game
-starts.
+CoronaPoker loads one external MOD from a `mod` directory beside the game JAR.
+For the portable edition, put it next to the downloaded JAR. Windows Setup
+uses `app/CoronaPoker.jar`, so its MOD lives in `app/mod`. CoronaPoker looks
+for `mod/mod.xml` and rebuilds its media catalog at startup. A ZIP is a
+distribution format that must be extracted before the game can load it.
 
 MOD media is decorative. It cannot replace rules, network messages,
 cryptographic receipts, the shuffled deck or any other authoritative state.
@@ -97,6 +98,26 @@ mod/
 ```
 
 `mod.png` is the optional image shown with the active MOD information.
+
+### Package a personal MOD
+
+Create one standard ZIP. Put `mod.xml` and its resource folders at the
+archive root, or put all of them inside a single top-level `mod/` folder.
+
+```text
+At the root           In a top-level mod folder
+my-mod.zip            my-mod.zip
+├── mod.xml           └── mod/
+└── sounds/               ├── mod.xml
+                          └── sounds/
+```
+
+Keep each resource in its original location relative to `mod.xml`. Windows
+Setup supports both layouts, with optional password protection using WinZip
+AES or ZipCrypto. It asks for a password only if it detects encrypted ZIP
+entries. Use a single-volume ZIP without ZIP64 or an extra enclosing folder
+such as `my-mod/mod/`. For a portable installation, extract the contents
+so `mod/mod.xml` sits beside the game JAR.
 
 ---
 
@@ -315,6 +336,6 @@ indicator.
   `sounds/misc` slots.
 - `fusion_cinematics` affects only the all-in GIF catalog and its companion
   audio. It never merges exact `cinematics/misc` replacements.
-- Distribute the complete `mod` directory and keep `mod.xml` at its root.
+- Check the [ZIP layouts](#package-a-personal-mod) before distributing a MOD.
 
 </div>

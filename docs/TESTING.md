@@ -411,8 +411,8 @@ reports while a build, certification run or game process is using them.
 
 ## Poker-video integration checks
 
-The video overlay is presentation-only; its focused regressions can run without
-the gameplay scenario schedule:
+The video overlay has its own regression suite outside the gameplay scenario
+schedule.
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am `
@@ -435,7 +435,7 @@ The Node suite executes the shipped player script with deterministic timers and
 a controlled YouTube/CEF bridge. It covers stalled startup, finite recovery,
 buffering, inactive modals, voluntary pause, embedding errors and rapid audio
 changes. It needs no live service and produces no audio. For live JCEF checks,
-launch the test JVM with `-Dcoronapoker.video.silentOutput=true`; this suppresses
+launch the test JVM with `-Dcoronapoker.video.silentOutput=true`. This suppresses
 Chromium output while preserving observable API/media mute and native controls.
 Keep any game-music fixture at zero volume too. Do not change system or user
 volume settings for automated checks.
@@ -449,6 +449,14 @@ using the private runtime from an earlier installed release. A fresh installer
 only validates its newly built runtime. The 27.18 video hotfix was checked with
 the installed Java 25.0.4.1 image lacking `jdk.httpserver`, including real JCEF
 startup, native mute controls and session transitions.
+
+## Community card presentation
+
+`GdxCommunityStreetDealTest` checks the flop stack, the flight and flip
+timing, and the animation durations against the dealer barrier.
+`GdxProductionStateAuthorityTest` checks the ordered table projection,
+hand-boundary settings, Run It Twice, Rabbit and hot-join cutover. These
+tests run without a graphics context.
 
 ## Extending the scenario catalogue
 

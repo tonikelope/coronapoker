@@ -176,6 +176,14 @@ final class PokerVideoOverlay implements AutoCloseable {
             float width, float height) {
         boolean firstUpdate = !startupHandled;
         startupHandled = true;
+        if (width != worldWidth || height != worldHeight) {
+            if (capture == Capture.MOVE || capture == Capture.RESIZE) {
+                cancelHiddenCapture();
+            }
+            // Refit from the user's saved layout, not from geometry already
+            // constrained by a smaller viewport.
+            geometryInitialized = false;
+        }
         worldWidth = width;
         worldHeight = height;
         boolean wasAvailable = systemAvailable;
@@ -318,7 +326,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             float savedY = Float.parseFloat(stored[1]);
             float savedWidth = Float.parseFloat(stored[2]);
             if (Float.isFinite(savedX) && Float.isFinite(savedY)
-                    && Float.isFinite(savedWidth) && savedWidth >= MIN_WIDTH) {
+                    && Float.isFinite(savedWidth) && savedWidth > 0f) {
                 x = savedX;
                 y = savedY;
                 videoWidth = savedWidth;
@@ -331,7 +339,10 @@ final class PokerVideoOverlay implements AutoCloseable {
     private void saveWindowGeometry() {
         if (!geometryDirty) return;
         geometryDirty = false;
-        windowPreferences.setProperty(windowGeometryKey(), x + "," + y + "," + videoWidth);
+        String key = windowGeometryKey();
+        String geometry = x + "," + y + "," + videoWidth;
+        if (geometry.equals(windowPreferences.getProperty(key))) return;
+        windowPreferences.setProperty(key, geometry);
         persistWindowPreferences.run();
     }
 
@@ -934,10 +945,12 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         switch (capture) {
             case MOVE -> {
-                geometryDirty = true;
-                x = startWindowX + pointerX - captureStartX;
-                y = startWindowY + pointerY - captureStartY;
+                float previousX = x;
+                float previousY = y;
+                x = startWindowX + (pointerX - captureStartX);
+                y = startWindowY + (pointerY - captureStartY);
                 clampWindow();
+                geometryDirty |= x != previousX || y != previousY;
                 updateBounds();
             }
             case RESIZE -> resizeFrom(pointerX, pointerY);
@@ -1066,7 +1079,9 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void resizeFrom(float pointerX, float pointerY) {
         if (resizeHandle == ResizeHandle.NONE) return;
-        geometryDirty = true;
+        float previousX = x;
+        float previousY = y;
+        float previousWidth = videoWidth;
         float deltaX = pointerX - captureStartX;
         float deltaY = pointerY - captureStartY;
         float startHeight = startWidth / videoAspect;
@@ -1084,8 +1099,9 @@ final class PokerVideoOverlay implements AutoCloseable {
         } else {
             candidate = resizeHandle.horizontal() ? horizontal : vertical;
         }
-        videoWidth = MathUtils.clamp(candidate, MIN_WIDTH,
-                maximumVideoWidth());
+        float maximum = maximumVideoWidth();
+        videoWidth = MathUtils.clamp(candidate, Math.min(MIN_WIDTH, maximum),
+                maximum);
         videoHeight = videoWidth / videoAspect;
         float startRight = startWindowX + startWidth;
         float startTop = startWindowY + startHeight + CHROME_HEIGHT;
@@ -1100,6 +1116,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                 : resizeHandle.top() ? startWindowY
                         : startCenterY - totalHeight / 2f;
         clampWindow();
+        geometryDirty |= x != previousX || y != previousY
+                || videoWidth != previousWidth;
         updateBounds();
         PokerVideoRuntime current = runtime;
         if (current != null) {
@@ -1180,6 +1198,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         releasedForTable = true;
         hostVisible = false;
         finishWindowTransition();
+        cancelHiddenCapture();
         blurBrowser();
         releaseBrowserSession(restoreWindowAfterTable);
     }
@@ -1249,12 +1268,14 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private float maximumVideoWidth() {
-        return Math.max(MIN_WIDTH, Math.min(worldWidth - 2f * WINDOW_MARGIN,
+        return Math.max(1f, Math.min(worldWidth - 2f * WINDOW_MARGIN,
                 (worldHeight - CHROME_HEIGHT - 2f * WINDOW_MARGIN) * videoAspect));
     }
 
     private void clampWindow() {
-        videoWidth = Math.min(videoWidth, maximumVideoWidth());
+        float maximum = maximumVideoWidth();
+        videoWidth = MathUtils.clamp(videoWidth, Math.min(MIN_WIDTH, maximum),
+                maximum);
         videoHeight = videoWidth / videoAspect;
         float totalHeight = videoHeight + CHROME_HEIGHT;
         x = MathUtils.clamp(x, WINDOW_MARGIN,

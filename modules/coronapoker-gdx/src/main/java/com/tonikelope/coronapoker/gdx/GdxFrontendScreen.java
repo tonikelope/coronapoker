@@ -8636,6 +8636,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         presentationSettings.requestedMsaaSamples(),
                         presentationSettings.actualMsaaSamples());
         if (save) {
+            presentationSettings.commitCommunityDealStyle();
             if (settingsReturnSurface == Surface.MENU
                     && settingsTable != null) {
                 initialProperties.setProperty(DEFAULT_TABLE_SETTINGS_KEY,

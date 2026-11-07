@@ -703,8 +703,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(21, page.options().size());
-        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(28, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "mostrar_videos_poker",
@@ -720,6 +720,7 @@ final class GdxSettingsContractTest {
                 "animacion_barajado_precarga",
                 "animacion_reparto",
                 "reparto_velocidad",
+                GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
                 "animacion_destape",
                 "card_flip_duration",
                 "card_flip_direction",

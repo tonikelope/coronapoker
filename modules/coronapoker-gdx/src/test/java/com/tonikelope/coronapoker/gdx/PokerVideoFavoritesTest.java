@@ -332,6 +332,60 @@ class PokerVideoFavoritesTest {
         assertTrue(overlay.touchUp(edgeX - 20f, edgeY, 0, 0));
     }
 
+    @Test void enteringTheTableFinishesAnUnreleasedDrag() throws Exception {
+        var favorites = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        var preferences = new Properties();
+        var saves = new java.util.concurrent.atomic.AtomicInteger();
+        try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                preferences, saves::incrementAndGet)) {
+            set(overlay, "initializationStarted", true);
+            set(overlay, "requestedCatalogKey", "es:normal");
+            overlay.update(true, true, true, "es", "normal", 1920f, 1080f);
+            Rectangle panel = bounds(overlay, "panelBounds");
+            float titleX = panel.x + panel.width / 2f;
+            float titleY = panel.y + panel.height - PokerVideoOverlay.HEADER_HEIGHT / 2f;
+            assertTrue(overlay.touchDown(titleX, titleY, 0, 0));
+            assertTrue(overlay.touchDragged(titleX, titleY, 0));
+            assertTrue(overlay.touchUp(titleX, titleY, 0, 0));
+            assertEquals(0, saves.get(), "a drag without movement must not save");
+
+            assertTrue(overlay.touchDown(titleX, titleY, 0, 0));
+            assertTrue(overlay.touchDragged(titleX - 80f, titleY + 40f, 0));
+            Rectangle moved = new Rectangle(panel);
+            overlay.releaseForTable();
+            assertFalse(overlay.capturesPointer());
+            assertEquals(1, saves.get());
+            overlay.restoreAfterTable();
+            overlay.update(true, true, true, "es", "normal", 1920f, 1080f);
+            assertEquals(moved, bounds(overlay, "panelBounds"));
+        }
+    }
+
+    @Test void temporaryViewportClampDoesNotReplaceTheSavedShortsLayout()
+            throws Exception {
+        var favorites = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        var preferences = new Properties();
+        var saves = new java.util.concurrent.atomic.AtomicInteger();
+        preferences.setProperty("poker_video_window_shorts", "900,80,350");
+        preferences.setProperty("poker_video_window_normal", "NaN,Infinity,-1");
+        try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                preferences, saves::incrementAndGet)) {
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
+            Rectangle original = new Rectangle(bounds(overlay, "panelBounds"));
+            overlay.update(true, true, false, "es", "shorts", 960f, 510f);
+            Rectangle fitted = bounds(overlay, "panelBounds");
+            assertTrue(fitted.x >= 8f && fitted.y >= 8f);
+            assertTrue(fitted.x + fitted.width <= 952f);
+            assertTrue(fitted.y + fitted.height <= 502.01f);
+            assertTrue(fitted.width < PokerVideoOverlay.MIN_WIDTH);
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
+            assertEquals(original, bounds(overlay, "panelBounds"));
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(514f, bounds(overlay, "panelBounds").width);
+            assertEquals(0, saves.get());
+        }
+    }
+
     private PokerVideoOverlay overlay(float width) throws Exception {
         var overlay = new PokerVideoOverlay(new PokerVideoFavorites(directory.resolve("favorites.properties")), ignored -> { });
         prepare(overlay, width);

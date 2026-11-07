@@ -281,16 +281,12 @@ The pivot to the industry-standard pattern:
 
 `Bot.calculateBotDecision()` wraps the raw decision in a thin layer:
 
-```java
-int decision = computeRawDecision(opponentsCount);
-double mistakeRate = mistakeRateForDifficulty();
-if (mistakeRate > 0.0 && randDouble() < mistakeRate) {
-    int corrupted = injectRecreationalMistake(decision);
-    if (corrupted != decision) {
-        return corrupted;
-    }
-}
-return decision;
+```text
+decision = computeRawDecision(opponentsCount)
+mistakeRate = mistakeRateForDifficulty()
+if mistakeRate > 0 and randDouble() < mistakeRate
+    return injectRecreationalMistake(decision)
+return decision
 ```
 
 Mistake rates:

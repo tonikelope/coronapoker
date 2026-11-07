@@ -4,6 +4,9 @@ Prueba de concepto independiente para decidir si un reproductor oficial de YouTu
 con el renderizado de CoronaPoker. No depende de los módulos del juego y no modifica ninguna
 pantalla, recurso o preferencia de CoronaPoker.
 
+La [guía del reproductor actual](../../docs/JCEF_VIDEO_EXPERIMENT.md) describe
+la integración distribuida con el juego.
+
 ## Qué demuestra
 
 - Ventana libGDX/LWJGL3 de 1280 × 720 con un panel flotante Scene2D.
@@ -29,7 +32,7 @@ pantalla, recurso o preferencia de CoronaPoker.
 - Gradle Wrapper: 9.8.2.
 
 `me.friwi:jcefmaven:152.0.6` y sus paquetes nativos están publicados en Maven Central. El JAR de
-Windows generado por defecto incluye el paquete nativo Windows x64; la primera ejecución lo extrae
+Windows generado por defecto incluye el paquete nativo Windows x64. La primera ejecución lo extrae
 en `%LOCALAPPDATA%\CoronaPoker\jcef-poc` y no necesita descargar CEF.
 
 ## Compilar y ejecutar en Windows x64
@@ -48,7 +51,7 @@ java -jar .\build\libs\coronapoker-jcef-poc-0.1.0-windows-x86_64.jar `
 ```
 
 Se acepta un identificador o una URL de `youtube.com`, `youtu.be`, `embed`, `shorts` o `live`.
-También se lee `jcef-poc.properties` del directorio de ejecución; véase
+También se lee `jcef-poc.properties` del directorio de ejecución. Consulta
 `jcef-poc.properties.example`.
 
 ## Origen, Referer y error 153
@@ -64,7 +67,7 @@ debe aceptar `?video=ID` e implementar la API IFrame. En ese modo la identidad e
 proporcionado.
 
 La página muestra y notifica errores 2, 5, 100, 101, 150 y 153, además de bloqueo de autoplay. El
-autoplay inicial se solicita silenciado; el usuario puede activar el audio con el control oficial.
+autoplay inicial se solicita silenciado. El usuario puede activar el audio con el control oficial.
 No se descarga ni se extrae ningún stream de YouTube.
 
 ## Diseño del puente OSR

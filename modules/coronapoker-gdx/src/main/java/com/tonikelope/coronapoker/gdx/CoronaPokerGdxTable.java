@@ -27534,8 +27534,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawSettingsChoiceText(float x, float y, float width,
             String label, String value, String status, boolean enabled,
             float alpha) {
-        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(x, y,
-                width, GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.ChoiceRow row = settingsChoiceTextRow(x, y, width,
+                value);
         Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
         boolean modOverrideValue = GdxModSettingsIndicator.marked(value)
                 || GdxModSettingsIndicator.marked(status);
@@ -27543,9 +27543,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? enabled ? MOD_OVERRIDE : MOD_OVERRIDE_DISABLED
                 : enabled ? POT_GOLD : SETTINGS_DISABLED;
         boolean hasStatus = status != null && !status.isBlank();
-        float labelWidth = hasStatus
-                ? row.label().width * 0.38f : row.label().width;
-        drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
+        String caption = uppercase(label);
+        float labelWidth = row.label().width;
+        if (hasStatus) {
+            glyph.setText(settingsSmallFont, caption);
+            labelWidth = GdxSettingsLayout.labelWidthWithStatus(labelWidth,
+                    glyph.width);
+        }
+        drawFittedLeft(settingsSmallFont, caption, row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), labelWidth,
                 labelColor, alpha);
         if (hasStatus) {
@@ -27559,6 +27564,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 row.value().x + row.value().width / 2f,
                 GdxSettingsLayout.rowTextBaseline(y), row.value().width,
                 valueColor, alpha);
+    }
+
+    private GdxSettingsLayout.ChoiceRow settingsChoiceTextRow(float x, float y,
+            float width, String value) {
+        glyph.setText(settingsBodyFont, value);
+        return GdxSettingsLayout.fitChoiceValue(
+                GdxSettingsLayout.choiceRow(x, y, width,
+                        GdxSettingsLayout.ROW_HEIGHT), glyph.width + 12f);
     }
 
     private void drawSettingsAudioDeviceChoiceText(float x, float y,
@@ -27581,8 +27594,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveSettingsDropdownText(float x, float y, float width,
             String label, String value, SettingsRowAccess access,
             float alpha) {
-        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(x, y,
-                width, GdxSettingsLayout.ROW_HEIGHT);
+        GdxSettingsLayout.ChoiceRow row = settingsChoiceTextRow(x, y, width,
+                value);
         Color color = settingsAccessLabelColor(access);
         drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), row.label().width,
@@ -27638,7 +27651,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsInfoText(float x, float y, float width,
             String label, String value, float alpha) {
-        float valueWidth = Math.min(660f, width * 0.58f);
+        float valueWidth = GdxSettingsLayout.infoValueWidth(width);
         drawFittedLeft(settingsSmallFont, uppercase(label), x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
                 width - valueWidth - 52f, Color.WHITE, alpha);
@@ -29946,9 +29959,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float elapsed = Math.max(0f, totalTime - finalSummaryOpenedAt);
         float reveal = Interpolation.fade.apply(
                 MathUtils.clamp(elapsed / 0.34f, 0f, 1f));
-        float cardsReveal = Interpolation.swingOut.apply(
+        boolean animateCards = liveAnimationsEnabled()
+                && tablePreference(
+                        GdxSettingsContract.FINAL_SUMMARY_CARDS_ANIMATION_KEY,
+                        true);
+        float cardsReveal = animateCards ? Interpolation.swingOut.apply(
                 MathUtils.clamp((elapsed - FINAL_CARD_DEAL_START_SECONDS)
-                        / FINAL_CARD_DEAL_SECONDS, 0f, 1f));
+                        / FINAL_CARD_DEAL_SECONDS, 0f, 1f)) : 1f;
         TableSessionSummary.PlayerBalance local = summary.localBalance();
         double net = local == null ? 0d : local.netResult();
         Color resultColor = finalSummaryResultColor(net);
@@ -30029,7 +30046,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     = summary.balances().get(index);
             float targetX = firstX + offset * (cardW + gap);
             FinalCardMotion motion = finalSummaryCardMotion(elapsed, offset,
-                    targetX, cardY, cardW, cardH, centerX);
+                    targetX, cardY, cardW, cardH, centerX, animateCards);
             if (motion.glow() > 0f) {
                 shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b,
                         0.28f * motion.glow());
@@ -30129,7 +30146,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     = summary.balances().get(index);
             float targetX = firstX + offset * (cardW + gap);
             FinalCardMotion motion = finalSummaryCardMotion(elapsed, offset,
-                    targetX, cardY, cardW, cardH, centerX);
+                    targetX, cardY, cardW, cardH, centerX, animateCards);
             float x = motion.x();
             float animatedCardY = motion.y();
             float animatedCardW = motion.width();
@@ -30414,7 +30431,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     static FinalCardMotion finalSummaryCardMotion(float elapsedSeconds,
             int visibleIndex, float targetX, float targetY, float cardWidth,
-            float cardHeight, float centerX) {
+            float cardHeight, float centerX, boolean animated) {
+        if (!animated) {
+            return new FinalCardMotion(targetX, targetY, cardWidth, cardHeight,
+                    1f, 1f, 0f);
+        }
         float start = FINAL_CARD_DEAL_START_SECONDS
                 + Math.max(0, visibleIndex) * FINAL_CARD_DEAL_STAGGER_SECONDS;
         float progress = MathUtils.clamp(

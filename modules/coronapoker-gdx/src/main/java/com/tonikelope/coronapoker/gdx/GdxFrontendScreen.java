@@ -9490,8 +9490,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         rowBounds.x, rowBounds.y, rowBounds.width,
                         GdxSettingsLayout.ROW_HEIGHT);
                 settingsDropdownChoice(rowBounds.x, rowBounds.y,
-                        rowBounds.width,
-                        GdxSettingsLayout.ROW_HEIGHT,
+                        rowBounds.width, GdxSettingsLayout.ROW_HEIGHT,
                         option.label(gameText),
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.selectedLabel(option,
@@ -9536,8 +9535,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsChoice(float x, float y, float w, float h,
             String label, String value, Runnable action, boolean enabled) {
-        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
-                x, y, w, h);
+        GdxSettingsLayout.ChoiceRow row = settingsChoiceTextRow(x, y, w, h,
+                value);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
@@ -9582,15 +9581,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, String status, Runnable action,
             boolean enabled) {
-        GdxSettingsLayout.ChoiceRow row = GdxSettingsLayout.choiceRow(
-                x, y, w, h);
+        GdxSettingsLayout.ChoiceRow row = settingsChoiceTextRow(x, y, w, h,
+                value);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
         boolean hasStatus = status != null && !status.isBlank();
+        String caption = uppercase(label);
         float labelWidth = hasStatus
-                ? row.label().width * 0.38f : row.label().width;
-        textFit(smallFont, uppercase(label), row.label().x,
+                ? GdxSettingsLayout.labelWidthWithStatus(row.label().width,
+                        textWidth(smallFont, caption)) : row.label().width;
+        textFit(smallFont, caption, row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y),
                 enabled ? Color.WHITE : DISABLED, false, labelWidth);
         boolean modOverrideValue = GdxModSettingsIndicator.marked(value)
@@ -9615,6 +9616,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.rectLine(cx - 11f, cy + 6f, cx, cy - 5f, 3f);
         shapes.rectLine(cx, cy - 5f, cx + 11f, cy + 6f, 3f);
         if (enabled) hit(x, y, w, h, action);
+    }
+
+    private GdxSettingsLayout.ChoiceRow settingsChoiceTextRow(float x, float y,
+            float w, float h, String value) {
+        return GdxSettingsLayout.fitChoiceValue(
+                GdxSettingsLayout.choiceRow(x, y, w, h),
+                textWidth(uiFont, value) + 12f);
     }
 
     private void settingsAudioDeviceDropdownChoice(float x, float y, float w,
@@ -9777,7 +9785,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String label, String value) {
         GdxSettingsStyle.drawRow(shapes, x, y, w, h,
                 true, false, false, 1f);
-        float valueWidth = Math.min(660f, w * 0.58f);
+        float valueWidth = GdxSettingsLayout.infoValueWidth(w);
         textFit(smallFont, uppercase(label), x + 20f,
                 GdxSettingsLayout.infoLabelBaseline(y),
                 Color.WHITE, false, w - valueWidth - 52f);

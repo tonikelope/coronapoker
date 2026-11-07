@@ -287,6 +287,25 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
+    void longChoiceValuesGainSpaceWithoutMovingTheChevron() {
+        for (float width : new float[]{920f, 1_500f}) {
+            Rectangle bounds = new Rectangle(100f, 200f, width,
+                    GdxSettingsLayout.ROW_HEIGHT);
+            var compact = GdxSettingsLayout.choiceRow(bounds.x, bounds.y,
+                    bounds.width, bounds.height);
+            var expanded = GdxSettingsLayout.fitChoiceValue(compact, 601f);
+
+            assertEquals(compact, GdxSettingsLayout.fitChoiceValue(compact, 240f));
+            assertTrue(expanded.value().width > compact.value().width);
+            assertTrue(expanded.label().x + expanded.label().width
+                    < expanded.value().x);
+            assertTrue(expanded.value().x + expanded.value().width
+                    < expanded.arrow().x);
+            assertEquals(compact.arrow(), expanded.arrow());
+        }
+    }
+
+    @Test
     void toggleStateAlignsWithStepperValuesWithoutTouchingTheSwitch() {
         GdxSettingsLayout.StepperRow stepper = GdxSettingsLayout.stepperRow(
                 100f, 200f, 1_120f, GdxSettingsLayout.ROW_HEIGHT);

@@ -314,7 +314,7 @@ final class GdxProductionStateAuthorityTest {
         preferences.properties().setProperty(choice.key(), "covered");
         settings.commitCommunityDealStyle();
         assertFalse(settings.savedCommunityDealByStreet());
-        assertEquals("TODAS TAPADAS AL INICIO DE LA MANO",
+        assertEquals("TAPADAS AL REPARTIR LA MANO",
                 GdxAppearanceOptions.selectedLabel(choice,
                         preferences.properties(), new GdxGameText("es")));
         CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,

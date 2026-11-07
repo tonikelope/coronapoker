@@ -702,9 +702,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(21, page.options().size());
+        assertEquals(22, page.options().size());
         assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(30, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "mostrar_videos_poker",
@@ -731,6 +731,7 @@ final class GdxSettingsContractTest {
                 "animacion_swap",
                 "swap_velocidad",
                 "swap_arco",
+                GdxSettingsContract.FINAL_SUMMARY_CARDS_ANIMATION_KEY,
                 "animacion_contador_final",
                 "animacion_fuego_allin",
                 "animacion_efecto_ganador",
@@ -744,6 +745,20 @@ final class GdxSettingsContractTest {
                 .anyMatch(group -> group.parentRow() == 1
                         && group.lastRow() == 4),
                 "video startup, animation and type must share the poker video group");
+    }
+
+    @Test
+    void finalSummaryCardsDefaultOnAndFollowTheAnimationMasterSwitch() {
+        String key = GdxSettingsContract.FINAL_SUMMARY_CARDS_ANIMATION_KEY;
+        var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options()
+                .stream().filter(row -> key.equals(row.key()))
+                .findFirst().orElseThrow();
+        Properties values = new Properties();
+        assertTrue(option.fallback());
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key));
+        assertTrue(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty("animaciones", "false");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
     }
 
     @Test

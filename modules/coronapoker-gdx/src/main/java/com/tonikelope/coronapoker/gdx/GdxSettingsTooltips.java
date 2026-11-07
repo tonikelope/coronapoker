@@ -212,6 +212,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_sort_hand";
             case "swap_velocidad" -> "tooltip.cfg.swap_velocidad";
             case "swap_arco" -> "tooltip.cfg.swap_estilo";
+            case GdxSettingsContract.FINAL_SUMMARY_CARDS_ANIMATION_KEY ->
+                "gdx.settings.tooltip.animation_final_summary_cards";
             case "animacion_contador_final" ->
                 "gdx.settings.tooltip.animation_final_count";
             case "animacion_fuego_allin" ->

@@ -1881,21 +1881,29 @@ final class GdxTableViewStateTest {
     void finalBalanceCardsDealUpwardWithStaggerAndSettleExactly() {
         CoronaPokerGdxTable.FinalCardMotion first =
                 CoronaPokerGdxTable.finalSummaryCardMotion(0.28f, 0,
-                        100f, 28f, 180f, 240f, 960f);
+                        100f, 28f, 180f, 240f, 960f, true);
         CoronaPokerGdxTable.FinalCardMotion second =
                 CoronaPokerGdxTable.finalSummaryCardMotion(0.28f, 1,
-                        292f, 28f, 180f, 240f, 960f);
+                        292f, 28f, 180f, 240f, 960f, true);
         assertTrue(first.alpha() > second.alpha());
         assertTrue(first.y() > -240f);
 
         CoronaPokerGdxTable.FinalCardMotion settled =
                 CoronaPokerGdxTable.finalSummaryCardMotion(2f, 8,
-                        420f, 28f, 180f, 240f, 960f);
+                        420f, 28f, 180f, 240f, 960f, true);
         assertEquals(420f, settled.x(), 0.001f);
         assertEquals(28f, settled.y(), 0.001f);
         assertEquals(180f, settled.width(), 0.001f);
         assertEquals(240f, settled.height(), 0.001f);
         assertEquals(1f, settled.alpha(), 0.001f);
+    }
+
+    @Test
+    void finalBalanceCardsAreFullyVisibleImmediatelyWithAnimationOff() {
+        assertEquals(new CoronaPokerGdxTable.FinalCardMotion(
+                420f, 28f, 180f, 240f, 1f, 1f, 0f),
+                CoronaPokerGdxTable.finalSummaryCardMotion(0f, 8,
+                        420f, 28f, 180f, 240f, 960f, false));
     }
 
     @Test

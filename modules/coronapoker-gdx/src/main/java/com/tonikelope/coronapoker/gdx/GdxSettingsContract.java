@@ -38,6 +38,8 @@ final class GdxSettingsContract {
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
     static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
+    static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
+            "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
@@ -397,6 +399,8 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_swap", "ORDENAR LA MANO", true,
                     Gate.ANIMATIONS),
+            option(FINAL_SUMMARY_CARDS_ANIMATION_KEY,
+                    "TARJETAS DE FIN DE TIMBA", true, Gate.ANIMATIONS),
             option("animacion_contador_final", "RECUENTO FINAL", true,
                     Gate.ANIMATIONS),
             option("animacion_fuego_allin", "FUEGO DE ALL-IN", true,
@@ -608,6 +612,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_swap"),
                     animationChoice("swap_velocidad"),
                     animationChoice("swap_arco"),
+                    animationToggle(FINAL_SUMMARY_CARDS_ANIMATION_KEY),
                     animationToggle("animacion_contador_final"),
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
@@ -657,7 +662,7 @@ final class GdxSettingsContract {
             "chat_images_ingame", CHAT_GAME_NOTIFICATIONS_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
             "screenshot_fin_timba", ANTI_DOS_WARNINGS_KEY,
-            "animacion_contador_final",
+            FINAL_SUMMARY_CARDS_ANIMATION_KEY, "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
             "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY,

@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import java.util.List;
 import java.util.Set;
@@ -149,6 +150,10 @@ final class GdxSettingsLayout {
         return x + width - INFO_VALUE_RIGHT_INSET;
     }
 
+    static float infoValueWidth(float width) {
+        return width * 0.72f;
+    }
+
     /**
      * Complete frame shared by the startup/lobby and live-table settings
      * entry points.  Keeping these rectangles here prevents a visual fix in
@@ -270,6 +275,25 @@ final class GdxSettingsLayout {
                 Math.max(0f, value.x - x - 44f),
                 Math.max(0f, height - 10f));
         return new ChoiceRow(bounds, label, value, arrow);
+    }
+
+    static ChoiceRow fitChoiceValue(ChoiceRow compact, float requestedWidth) {
+        Rectangle bounds = compact.bounds();
+        float valueRight = compact.arrow().x - 12f;
+        float valueWidth = Math.min(requestedWidth, Math.min(
+                bounds.width * 0.48f, valueRight - bounds.x - 44f));
+        if (valueWidth <= compact.value().width) return compact;
+        Rectangle value = new Rectangle(valueRight - valueWidth,
+                compact.value().y, valueWidth, compact.value().height);
+        Rectangle label = new Rectangle(compact.label().x,
+                compact.label().y, Math.max(0f, value.x - bounds.x - 44f),
+                compact.label().height);
+        return new ChoiceRow(compact.bounds(), label, value, compact.arrow());
+    }
+
+    static float labelWidthWithStatus(float availableWidth, float textWidth) {
+        return MathUtils.clamp(textWidth + 8f, availableWidth * 0.38f,
+                availableWidth * 0.55f);
     }
 
     /**

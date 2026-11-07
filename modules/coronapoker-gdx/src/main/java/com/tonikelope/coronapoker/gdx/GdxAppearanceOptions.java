@@ -31,7 +31,7 @@ final class GdxAppearanceOptions {
             GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
             "TIPO DE REPARTO DE COMUNITARIAS", "streets",
             new String[]{"streets", "covered"},
-            new String[]{"POR CALLES", "TODAS TAPADAS AL INICIO DE LA MANO"});
+            new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
     static final List<Choice> ANIMATION_CHOICES = List.of(
             exact(GdxSettingsContract.POKER_VIDEO_TYPE_KEY,

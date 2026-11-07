@@ -417,6 +417,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
     private static final float CHIP_IMPACT_PITCH_VARIATION = 0.015f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
+    private static final float COMMUNITY_DEAL_FLIGHT_SECONDS = 0.52f;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int CARD_EDGE_SUPERSAMPLES = 4;
@@ -5320,32 +5321,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         0.96f + (dealOrder % 3) * 0.025f);
             }
         } else if (event instanceof TableVisualEvent.DealCommunityCard deal) {
-            int activePlayers = activeDealtPlayerCount();
-            boolean animated = liveDealAnimationEnabled();
-            if (communityDealByStreet || !animated) {
+            if (communityDealByStreet || !liveDealAnimationEnabled()) {
                 // Consume the canonical deal in order, even when the covered
                 // slot has no presentation until its street is revealed.
                 liveState.apply(event);
                 barrier.complete(null);
                 return;
             }
-            float flightSeconds = animated
-                    ? liveDealFlightSeconds(activePlayers,
-                            liveDealSpeedPercent()) : 0f;
-            float barrierDelay = animated ? flightSeconds
-                    : liveDealCadenceSeconds(activePlayers,
-                            liveDealSpeedPercent());
+            float flightSeconds = communityDealFlightSeconds(liveDealSpeedPercent());
             LiveCardFlight flight = new LiveCardFlight(event,
                     System.nanoTime(),
-                    barrier, barrierDelay, deal.slot(),
-                    flightSeconds, 0f, animated, 1);
+                    barrier, flightSeconds, deal.slot(),
+                    flightSeconds, 0f, true, 1);
             // As with hole cards, state order and visual timing are separate:
             // the back is drawn by this flight while the canonical slot is
             // already protected from unrelated higher-sequence events.
             liveState.apply(event);
             flight.stateApplied = true;
             liveCardFlights.add(flight);
-            if (animated && liveDealSoundEnabled()) {
+            if (liveDealSoundEnabled()) {
                 play(dealSound, 0.34f,
                         0.94f + deal.slot() * 0.018f);
             }
@@ -9503,6 +9497,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int flightBase = Math.max(150, pauseBase);
         float speed = speedPercent / 100f;
         return Math.max(80, Math.round(flightBase * speed)) / 1000f;
+    }
+
+    private static float communityDealFlightSeconds(int speedPercent) {
+        return COMMUNITY_DEAL_FLIGHT_SECONDS
+                * MathUtils.clamp(speedPercent, 60, 150) / 100f;
     }
 
     static boolean shouldDismissAutoActionDialog(TableVisualEvent event,
@@ -17268,13 +17267,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.RevealCommunityCards event, boolean flip) {
         boolean deal = liveDealAnimationEnabled();
         float leadIn = event.leadInMillis() / 1000f;
-        int speed = MathUtils.clamp(liveDealSpeedPercent(), 60, 150);
-        float flight = deal ? liveDealFlightSeconds(activeDealtPlayerCount(),
-                speed) : 0f;
+        int speed = liveDealSpeedPercent();
+        float flight = deal ? communityDealFlightSeconds(speed) : 0f;
         float flipSeconds = flip ? cardFlipSeconds() : 0f;
         if (event.cards().size() == 3) {
             return deal ? GdxCommunityStreetDeal.flop(leadIn, flight,
-                    flipSeconds, speed) : null;
+                    flipSeconds, MathUtils.clamp(speed, 60, 150)) : null;
         }
         if (!deal && !flip) return null;
         return GdxCommunityStreetDeal.single(leadIn, flight, flipSeconds);

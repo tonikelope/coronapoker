@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
+import static com.tonikelope.coronapoker.gdx.GdxSettingsContract.BLIND_ROW_COUNT;
+
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -671,6 +673,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String settingsShortcutCaptureId;
     private GdxTableDialog settingsAutoCallDialog;
     private boolean settingsAutoRebuySnapshot;
+    private boolean settingsStraddleTimeoutDraft;
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
     private int settingsOpenedMsaaSamples;
     private NewGameTableDraft settingsTable;
@@ -816,7 +819,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 preferenceBoolean(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY, true), type -> {
             initialProperties.setProperty(GdxSettingsContract.POKER_VIDEO_TYPE_KEY, type);
             this.preferences.saveDeferred();
-        });
+        }, initialProperties, this.preferences::saveDeferred);
         customBotProfiles.addAll(
                 CustomBotProfileCatalog.readFrom(initialProperties));
         customBotRandomSelection = CustomBotProfileCatalog
@@ -8561,6 +8564,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsShortcutCaptureId = null;
         settingsAutoCallDialog = null;
         settingsAutoRebuySnapshot = presentationSettings.autoRebuyOnBroke();
+        settingsStraddleTimeoutDraft = GdxSettingsContract.straddleOnTimeout(
+                initialProperties);
         shortcutBindings.beginEdit();
         settingsOpenedWindowMode = GdxDisplayModeController.activeMode();
         settingsOpenedMsaaSamples = presentationSettings
@@ -8641,6 +8646,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         settingsTable.customBotsOnly());
             }
             shortcutBindings.commitEdit();
+            if (settingsStraddleTimeoutDraft
+                    != GdxSettingsContract.straddleOnTimeout(initialProperties)) {
+                initialProperties.setProperty(
+                        GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY,
+                        Boolean.toString(settingsStraddleTimeoutDraft));
+            }
             if (preferences != null) preferences.saveDeferred();
         } else {
             shortcutBindings.cancelEdit();
@@ -8697,6 +8708,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean settingsHavePendingChanges() {
         if (shortcutBindings.hasPendingEdits()
                 || settingsSession.propertiesChanged(initialProperties)
+                || settingsStraddleTimeoutDraft
+                        != GdxSettingsContract.straddleOnTimeout(initialProperties)
                 || presentationSettings.autoRebuyOnBroke()
                         != settingsAutoRebuySnapshot) {
             return true;
@@ -9825,11 +9838,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsContract.gameGroups(0);
         GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                 y, settingsRowsClip.y, y + GdxSettingsLayout.ROW_HEIGHT,
-                10, settingsGameScroll, groups);
+                BLIND_ROW_COUNT, settingsGameScroll, groups);
         settingsGameScroll = rows.offset();
         GdxSettingsLayout.drawGroups(shapes, rowX, rowWidth, rows, groups, 1f);
         Rectangle row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(0),
-                rowWidth, 0, groups, 10);
+                rowWidth, 0, groups, BLIND_ROW_COUNT);
         settingsDropdownChoice(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.structure"),
@@ -9839,20 +9852,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : settingsTable.structureName(),
                 Dropdown.BLIND_STRUCTURE, enabled);
         row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(1), rowWidth, 1,
-                groups, 10);
+                groups, BLIND_ROW_COUNT);
         settingsStepper(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.initial_blinds"), settingsBlindLevel(),
                 () -> adjustSettingsBlindLevel(-1),
                 () -> adjustSettingsBlindLevel(1), enabled);
         row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(2), rowWidth, 2,
-                groups, 10);
+                groups, BLIND_ROW_COUNT);
         button(row.x, row.y, row.width, GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.manage_structures"), false,
                 this::openSettingsBlindStructureEditor, enabled);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_INCREASE_ROW), rowWidth,
-                GdxSettingsContract.BLIND_INCREASE_ROW, groups, 10);
+                GdxSettingsContract.BLIND_INCREASE_ROW, groups, BLIND_ROW_COUNT);
         settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.increase_blinds"),
                 settingsTable.increaseBlinds(), false, () -> settingsTable
@@ -9860,7 +9873,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_UNIT_ROW), rowWidth,
-                GdxSettingsContract.BLIND_UNIT_ROW, groups, 10);
+                GdxSettingsContract.BLIND_UNIT_ROW, groups, BLIND_ROW_COUNT);
         settingsDropdownChoice(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.unit"), settingsBlindUnit(),
@@ -9868,7 +9881,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && settingsTable.increaseBlinds());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_INTERVAL_ROW), rowWidth,
-                GdxSettingsContract.BLIND_INTERVAL_ROW, groups, 10);
+                GdxSettingsContract.BLIND_INTERVAL_ROW, groups, BLIND_ROW_COUNT);
         settingsStepper(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.interval"),
@@ -9878,7 +9891,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && settingsTable.increaseBlinds());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_CAP_TOGGLE_ROW), rowWidth,
-                GdxSettingsContract.BLIND_CAP_TOGGLE_ROW, groups, 10);
+                GdxSettingsContract.BLIND_CAP_TOGGLE_ROW, groups, BLIND_ROW_COUNT);
         settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.blind_cap"),
                 settingsTable.blindCap(), false, () -> settingsTable
@@ -9886,7 +9899,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && settingsTable.blindCapControlEnabled());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_CAP_ROW), rowWidth,
-                GdxSettingsContract.BLIND_CAP_ROW, groups, 10);
+                GdxSettingsContract.BLIND_CAP_ROW, groups, BLIND_ROW_COUNT);
         settingsStepper(row.x, row.y, row.width,
                 GdxSettingsLayout.ROW_HEIGHT,
                 settingsGameText("row.cap"), settingsBlindCap(),
@@ -9895,22 +9908,38 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && settingsTable.blindCapRaisesEnabled());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_ANTE_ROW), rowWidth,
-                GdxSettingsContract.BLIND_ANTE_ROW, groups, 10);
+                GdxSettingsContract.BLIND_ANTE_ROW, groups, BLIND_ROW_COUNT);
         settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.ante"), settingsTable.ante(), false,
                 () -> settingsTable.setAnte(!settingsTable.ante()), enabled);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_STRADDLE_ROW), rowWidth,
-                GdxSettingsContract.BLIND_STRADDLE_ROW, groups, 10);
+                GdxSettingsContract.BLIND_STRADDLE_ROW, groups, BLIND_ROW_COUNT);
         settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.straddle"), settingsTable.straddle(),
                 false, () -> settingsTable.setStraddle(
                         !settingsTable.straddle()), enabled);
+        int timeoutIndex = GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW;
+        Rectangle timeoutRow = GdxSettingsLayout.groupedRow(rowX,
+                rows.rowY(timeoutIndex), rowWidth, timeoutIndex, groups,
+                BLIND_ROW_COUNT);
+        settingsBooleanToggle(timeoutRow.x, timeoutRow.y, timeoutRow.width,
+                settingsGameText("row.straddle_on_timeout"),
+                settingsStraddleTimeoutDraft, false,
+                () -> settingsStraddleTimeoutDraft =
+                        !settingsStraddleTimeoutDraft, true);
+        Rectangle tooltipBounds = clippedSettingsHit(timeoutRow.x,
+                timeoutRow.y, timeoutRow.width, timeoutRow.height);
+        if (tooltipBounds != null) {
+            settingsTooltip(tooltipBounds,
+                    GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY);
+        }
         if (!enabled) {
             for (int index = rows.firstIndex();
                     index < rows.lastExclusive(); index++) {
+                if (index == timeoutIndex) continue;
                 Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(index), rowWidth, index, groups, 10);
+                        rows.rowY(index), rowWidth, index, groups, BLIND_ROW_COUNT);
                 tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
                         lockKey);
             }
@@ -17383,7 +17412,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             offset = settingsAppearanceScroll;
         } else if (section == GdxSettingsContract.Section.GAME) {
             totalRows = switch (settingsGamePage) {
-                case 0 -> 10;
+                case 0 -> BLIND_ROW_COUNT;
                 case 1 -> 8;
                 case 2 -> 6;
                 default -> 9;

@@ -41,6 +41,22 @@ class PokerVideoRuntimeSessionTest {
         assertEquals(false, field(runtime, "restoreAudioOnNextSession"));
     }
 
+    @Test void aReloadReportsTheDocumentRevisionAndIgnoresItsObsoleteSelection() throws Exception {
+        var runtime = interrupted();
+        var normal = new PokerVideoSearch.Video("ABCDEFGHIJK", "Normal");
+        var shorts = new PokerVideoSearch.Video("LMNOPQRSTUV", "Short", "shorts");
+        runtime.replaceVideos(List.of(normal, shorts), "es", true);
+        var message = PokerVideoRuntime.class.getDeclaredMethod("handlePlayerMessage", String.class);
+        message.setAccessible(true);
+        message.invoke(runtime, "READY|0");
+        assertEquals(0L, field(runtime, "browserPlaylistRevision"));
+        message.invoke(runtime, "INDEX|1:1:1");
+        assertEquals(new PokerVideoRuntime.Selection(shorts, 1, 2), runtime.selection());
+        message.invoke(runtime, "POSITION|0:42:0");
+        assertEquals(new PokerVideoRuntime.Selection(shorts, 1, 2), runtime.selection());
+        assertEquals(0, field(runtime, "resumeSeconds"));
+    }
+
     private static PokerVideoRuntime interrupted() throws Exception {
         var constructor = PokerVideoRuntime.class.getDeclaredConstructor(List.class,
                 PokerVideoFrameBuffer.class, String.class);

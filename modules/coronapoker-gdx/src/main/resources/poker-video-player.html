@@ -22,6 +22,8 @@
   <script>
     'use strict';
     let VIDEO_IDS = [@@VIDEO_IDS@@];
+    let orderedPlaylist = @@ORDERED_PLAYLIST@@;
+    let playlistRevision = @@PLAYLIST_REVISION@@;
     const ORIGIN = '@@ORIGIN@@';
     const PLAYER_LANGUAGE = '@@PLAYER_LANGUAGE@@';
     const statusBox = document.getElementById('status');
@@ -166,7 +168,7 @@
     }
 
     function reportIndex() {
-      report('INDEX', currentIndex + ':' + orderPosition);
+      report('INDEX', currentIndex + ':' + orderPosition + ':' + playlistRevision);
     }
 
     function selectOrderPosition(position, recovery = false, startSeconds = 0) {
@@ -221,7 +223,7 @@
 
     function nextPlayableOrderPosition(direction) {
       const step = direction < 0 ? -1 : 1;
-      if (step > 0 && orderPosition >= playOrder.length - 1) {
+      if (!orderedPlaylist && step > 0 && orderPosition >= playOrder.length - 1) {
         shuffleForNextCycle();
       }
       for (let offset = 1; offset <= VIDEO_IDS.length; offset += 1) {
@@ -324,17 +326,19 @@
     window.coronaRefreshMutedControl = function () {
       if (player && ready && player.isMuted()) player.mute();
     };
-    window.coronaReplaceVideos = function (ids) {
+    window.coronaReplaceVideos = function (ids, ordered = false, revision = 0, index = 0) {
       if (!Array.isArray(ids)) return;
       const valid = ids.filter(id => typeof id === 'string'
         && /^[A-Za-z0-9_-]{11}$/.test(id));
       if (valid.length === 0) return;
       VIDEO_IDS = valid;
+      orderedPlaylist = ordered;
+      playlistRevision = revision;
       failedVideoIds.clear();
       playOrder = VIDEO_IDS.map((ignored, index) => index);
-      orderPosition = 0;
-      currentIndex = 0;
-      if (player && ready) selectOrderPosition(0);
+      currentIndex = Math.max(0, Math.min(index, VIDEO_IDS.length - 1));
+      orderPosition = currentIndex;
+      if (player && ready) selectOrderPosition(orderPosition);
       else reportIndex();
     };
     window.coronaSetActive = function (enabled) {
@@ -393,7 +397,7 @@
             audioRestorePending = true;
             applyDesiredAudio(event.target);
             armApiTimeout();
-            report('READY', '1', response => {
+            report('READY', playlistRevision, response => {
               cancelLoadTimers();
               if (response === 'reload') {
                 window.location.reload();
@@ -461,7 +465,8 @@
 
     function reportPosition() {
       if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
-      report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime())));
+      report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime()))
+        + ':' + playlistRevision);
     }
     function reportSession() {
       captureStableAudioState();

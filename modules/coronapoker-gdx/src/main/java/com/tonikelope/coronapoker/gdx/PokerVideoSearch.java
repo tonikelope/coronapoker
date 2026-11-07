@@ -42,7 +42,11 @@ final class PokerVideoSearch {
     private static final Pattern FALLBACK_NORMAL_ID = Pattern.compile(
             "\\\"url\\\"\\s*:\\s*\\\"/watch\\?v=([A-Za-z0-9_-]{11})");
 
-    record Video(String id, String title) {
+    record Video(String id, String title, String type) {
+
+        Video(String id, String title) {
+            this(id, title, TYPE_NORMAL);
+        }
 
         Video {
             if (id == null || !id.matches("[A-Za-z0-9_-]{11}")) {
@@ -50,6 +54,7 @@ final class PokerVideoSearch {
             }
             title = title == null || title.isBlank()
                     ? "Vídeo de póker" : title.strip();
+            type = videoType(type);
         }
     }
 
@@ -179,7 +184,7 @@ final class PokerVideoSearch {
                     ? FALLBACK_SHORT_ID : FALLBACK_NORMAL_ID).matcher(html);
             while (matcher.find() && ordered.size() < MAX_RESULTS) {
                 String id = matcher.group(1);
-                ordered.putIfAbsent(id, new Video(id, "Vídeo de póker"));
+                ordered.putIfAbsent(id, new Video(id, "Vídeo de póker", normalizedType));
             }
         }
         return List.copyOf(ordered.values());
@@ -236,7 +241,7 @@ final class PokerVideoSearch {
                 "primaryText");
         String title = primaryText == null ? ""
                 : primaryText.getString("content", "");
-        ordered.put(id, new Video(id, title));
+        ordered.put(id, new Video(id, title, TYPE_SHORTS));
     }
 
     private static void addLegacyRenderer(JsonValue renderer,
@@ -245,7 +250,7 @@ final class PokerVideoSearch {
         if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
             return;
         }
-        ordered.put(id, new Video(id, rendererTitle(renderer)));
+        ordered.put(id, new Video(id, rendererTitle(renderer), TYPE_SHORTS));
     }
 
     private static String rendererTitle(JsonValue renderer) {

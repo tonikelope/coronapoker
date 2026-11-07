@@ -162,7 +162,9 @@ public final class GdxLauncher {
         CoreGameTableFactory gameTables = new CoreGameTableFactory(
                 database, gameText, gameLog,
                 new GdxGameDialogSink(gameText, preferences),
-                new GdxGameDecisionSink(gameText),
+                new GdxGameDecisionSink(gameText,
+                        () -> GdxSettingsContract.straddleOnTimeout(
+                                preferences.properties())),
                 presentationSettings, cinematics, modMedia.installed(),
                 preferences.properties(), identityTrust);
         RecoverableGameRepository recoverableGames

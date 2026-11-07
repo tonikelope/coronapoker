@@ -277,7 +277,9 @@ class PokerVideoSearchTest {
             assertTrue(html.contains(
                     "window.coronaSelectRelative = selectRelative"));
             assertTrue(html.contains(
-                    "window.coronaReplaceVideos = function (ids)"));
+                    "window.coronaReplaceVideos = function (ids, ordered"));
+            assertTrue(html.contains("let orderedPlaylist = false;"));
+            assertTrue(html.contains("let playlistRevision = 0;"));
             assertTrue(html.contains(
                     "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",

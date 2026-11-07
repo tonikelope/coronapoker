@@ -3,9 +3,11 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.*;
 import com.badlogic.gdx.math.Rectangle;
+import com.tonikelope.coronapoker.core.PreferencesService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,17 +18,19 @@ class PokerVideoFavoritesTest {
             new PokerVideoSearch.Video("ABCDEFGHIJK", "Póker: acción y ♠");
     private static final PokerVideoSearch.Video SECOND =
             new PokerVideoSearch.Video("LMNOPQRSTUV", "Second video");
+    private static final PokerVideoSearch.Video FIRST_SHORT =
+            new PokerVideoSearch.Video(FIRST.id(), FIRST.title(), "shorts");
 
     @Test void savesTitlesAndOrderAcrossSessionsAndPersistsRemoval() throws Exception {
         Path file = directory.resolve("favorites.properties");
         var store = new PokerVideoFavorites(file);
         assertFalse(Files.exists(file));
-        store.toggle(FIRST, "shorts");
-        store.toggle(SECOND, "shorts");
+        store.toggle(FIRST_SHORT);
+        store.toggle(SECOND);
         var reopened = new PokerVideoFavorites(file);
-        assertEquals(List.of(FIRST, SECOND), reopened.videos("shorts"));
-        reopened.toggle(FIRST, "shorts");
-        assertEquals(List.of(SECOND), new PokerVideoFavorites(file).videos("shorts"));
+        assertEquals(List.of(FIRST_SHORT, SECOND), reopened.videos());
+        reopened.toggle(FIRST_SHORT);
+        assertEquals(List.of(SECOND), new PokerVideoFavorites(file).videos());
         try (var siblings = Files.list(directory)) { assertEquals(1, siblings.count()); }
     }
 
@@ -53,7 +57,7 @@ class PokerVideoFavoritesTest {
         String corrupt = "order=shorts.ABCDEFGHIJK\nshorts.ABCDEFGHIJK=\\uZZZZ\n";
         Files.writeString(file, corrupt);
         var store = new PokerVideoFavorites(file);
-        assertThrows(java.io.IOException.class, () -> store.toggle(SECOND, "shorts"));
+        assertThrows(java.io.IOException.class, () -> store.toggle(SECOND));
         assertEquals(corrupt, Files.readString(file));
     }
 
@@ -62,8 +66,7 @@ class PokerVideoFavoritesTest {
         Files.writeString(file, "order=shorts.invalid,unknown.ABCDEFGHIJK,normal.ABCDEFGHIJK\n"
                 + "normal.ABCDEFGHIJK=Valid video\n");
         var store = new PokerVideoFavorites(file);
-        assertTrue(store.videos("shorts").isEmpty());
-        assertEquals(List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "Valid video")), store.videos("normal"));
+        assertEquals(List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "Valid video")), store.videos());
     }
 
     @Test void failedCatalogueOffersRetryWithoutLosingOtherControls() throws Exception {
@@ -149,20 +152,21 @@ class PokerVideoFavoritesTest {
 
     @Test void keepsFavoritesSeparateByFormatWithoutLosingTheOtherFormat() throws Exception {
         var store = new PokerVideoFavorites(directory.resolve("favorites.properties"));
-        store.toggle(FIRST, "shorts");
-        store.toggle(FIRST, "normal");
-        store.toggle(FIRST, "shorts");
-        assertFalse(store.contains(FIRST, "shorts"));
-        assertTrue(store.contains(FIRST, "normal"));
-        assertEquals(List.of(FIRST), store.videos("normal"));
+        store.toggle(FIRST_SHORT);
+        store.toggle(FIRST);
+        assertEquals(List.of(FIRST_SHORT, FIRST), store.videos());
+        store.toggle(FIRST_SHORT);
+        assertFalse(store.contains(FIRST_SHORT));
+        assertTrue(store.contains(FIRST));
+        assertEquals(List.of(FIRST), store.videos());
     }
 
     @Test void aFailedSaveDoesNotClaimThatTheVideoWasAdded() throws Exception {
         Path blocked = directory.resolve("blocked");
         Files.writeString(blocked, "not a directory");
         var store = new PokerVideoFavorites(blocked.resolve("favorites.properties"));
-        assertThrows(java.io.IOException.class, () -> store.toggle(FIRST, "normal"));
-        assertFalse(store.contains(FIRST, "normal"));
+        assertThrows(java.io.IOException.class, () -> store.toggle(FIRST));
+        assertFalse(store.contains(FIRST));
         assertEquals("not a directory", Files.readString(blocked));
     }
 
@@ -182,19 +186,20 @@ class PokerVideoFavoritesTest {
         assertEquals(normal, model.videos());
     }
 
-    @Test void switchingFormatsInFavoritesLoadsTheMatchingSavedVideos() throws Exception {
+    @Test void favoritesKeepBothFormatsInOrderRegardlessOfTheSearchPreference() throws Exception {
         var store = new PokerVideoFavorites(directory.resolve("favorites.properties"));
-        store.toggle(FIRST, "shorts");
-        store.toggle(SECOND, "normal");
+        store.toggle(FIRST_SHORT);
+        store.toggle(SECOND);
         var model = new PokerVideoCatalog(store);
         model.toggleMode();
-        assertEquals(List.of(SECOND), model.videos());
+        long revision = model.revision();
+        assertEquals(List.of(FIRST_SHORT, SECOND), model.videos());
         model.setType("shorts");
-        assertEquals(List.of(FIRST), model.videos());
+        assertEquals(revision, model.revision());
+        assertEquals(List.of(FIRST_SHORT, SECOND), model.videos());
         model.setType("normal");
-        assertEquals(List.of(SECOND), model.videos());
         model.replaceNormal(List.of(FIRST), "normal");
-        assertEquals(List.of(SECOND), model.videos(), "Search completion must not overwrite favorites mode");
+        assertEquals(List.of(FIRST_SHORT, SECOND), model.videos(), "Search must not overwrite favorites");
         model.toggleMode();
         assertEquals(List.of(FIRST), model.videos());
     }
@@ -240,9 +245,91 @@ class PokerVideoFavoritesTest {
             PokerVideoCatalog model = (PokerVideoCatalog) field.get(overlay);
             click(overlay, "favoritesModeBounds");
             assertTrue(model.favoritesMode());
+            var tooltips = new java.util.ArrayList<String>();
+            overlay.addTooltips((rectangle, label) -> tooltips.add(label));
+            assertFalse(tooltips.contains("gdx.video.type.shorts"));
             click(overlay, "favoritesModeBounds");
             assertFalse(model.favoritesMode());
         }
+    }
+
+    @Test void changingFavoriteTypeRestoresTheCorrectLayoutWithoutChangingThePreference()
+            throws Exception {
+        var requested = new AtomicReference<String>();
+        var store = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        store.toggle(FIRST_SHORT);
+        store.toggle(SECOND);
+        var constructor = PokerVideoRuntime.class.getDeclaredConstructor(
+                List.class, PokerVideoFrameBuffer.class, String.class);
+        constructor.setAccessible(true);
+        try (var overlay = new PokerVideoOverlay(store, requested::set)) {
+            var model = (PokerVideoCatalog) value(overlay, "catalog");
+            model.replaceNormal(List.of(SECOND), "normal");
+            model.toggleMode();
+            var runtime = constructor.newInstance(model.videos(), new PokerVideoFrameBuffer(), "es");
+            set(overlay, "runtime", runtime);
+            set(overlay, "appliedCatalogRevision", model.revision());
+            set(overlay, "appliedLanguage", "es");
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(330f, bounds(overlay, "panelBounds").width);
+            assertEquals(new PokerVideoRuntime.Selection(FIRST_SHORT, 0, 2),
+                    value(overlay, "displayedSelection"));
+
+            var message = PokerVideoRuntime.class.getDeclaredMethod("handlePlayerMessage", String.class);
+            message.setAccessible(true);
+            message.invoke(runtime, "INDEX|1:1:0");
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(514f, bounds(overlay, "panelBounds").width);
+            assertEquals(new PokerVideoRuntime.Selection(SECOND, 1, 2),
+                    value(overlay, "displayedSelection"));
+            model.toggleMode();
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            message.invoke(runtime, "INDEX|1:1:0");
+            assertEquals(new PokerVideoRuntime.Selection(SECOND, 0, 1), runtime.selection());
+            assertNull(requested.get());
+        }
+    }
+
+    @Test void separateWindowSizesAndPositionsSurviveARealPreferencesRestart() throws Exception {
+        Path file = directory.resolve("coronapoker.properties");
+        var favorites = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        Rectangle shorts, normal;
+        try (var preferences = new PreferencesService(file)) {
+            preferences.start();
+            try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                    preferences.properties(), preferences::saveDeferred)) {
+                set(overlay, "initializationStarted", true);
+                set(overlay, "requestedCatalogKey", "es:shorts");
+                overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+                moveAndResize(overlay, -160f);
+                shorts = new Rectangle(bounds(overlay, "panelBounds"));
+                set(overlay, "requestedCatalogKey", "es:normal");
+                overlay.update(true, true, true, "es", "normal", 1920f, 1080f);
+                moveAndResize(overlay, -80f);
+                normal = new Rectangle(bounds(overlay, "panelBounds"));
+            }
+        }
+        try (var preferences = new PreferencesService(file);
+                var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                        preferences.properties(), preferences::saveDeferred)) {
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
+            assertEquals(shorts, bounds(overlay, "panelBounds"));
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(normal, bounds(overlay, "panelBounds"));
+        }
+    }
+
+    private static void moveAndResize(PokerVideoOverlay overlay, float shift) throws Exception {
+        Rectangle panel = bounds(overlay, "panelBounds");
+        float titleX = panel.x + panel.width / 2f;
+        float titleY = panel.y + panel.height - PokerVideoOverlay.HEADER_HEIGHT / 2f;
+        assertTrue(overlay.touchDown(titleX, titleY, 0, 0));
+        assertTrue(overlay.touchDragged(titleX + shift, titleY + 13f, 0));
+        assertTrue(overlay.touchUp(titleX + shift, titleY + 13f, 0, 0));
+        float edgeX = panel.x + 2f, edgeY = panel.y + panel.height / 2f;
+        assertTrue(overlay.touchDown(edgeX, edgeY, 0, 0));
+        assertTrue(overlay.touchDragged(edgeX - 20f, edgeY, 0));
+        assertTrue(overlay.touchUp(edgeX - 20f, edgeY, 0, 0));
     }
 
     private PokerVideoOverlay overlay(float width) throws Exception {
@@ -255,7 +342,9 @@ class PokerVideoFavoritesTest {
         String type = width > 260f ? "normal" : "shorts";
         set(overlay, "initializationStarted", true);
         set(overlay, "requestedCatalogKey", "es:" + type);
-        set(overlay, "videoWidth", width);
+        Properties preferences = (Properties) value(overlay, "windowPreferences");
+        preferences.setProperty("poker_video_window_" + type, "400,100," + width);
+        set(overlay, "geometryInitialized", false);
         overlay.update(true, true, true, "es", type, 1920f, 1080f);
     }
 

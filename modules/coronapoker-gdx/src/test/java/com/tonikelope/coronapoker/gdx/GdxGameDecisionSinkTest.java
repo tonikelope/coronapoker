@@ -120,6 +120,35 @@ final class GdxGameDecisionSinkTest {
     }
 
     @Test
+    void straddleTimeoutOptInAppliesOnlyToAnExpiredDecision() {
+        AtomicReference<GdxTableDialog> shown = new AtomicReference<>();
+        java.util.Properties preferences = new java.util.Properties();
+        GdxGameDecisionSink decisions = new GdxGameDecisionSink(
+                GameText.keys(), shown::set,
+                () -> GdxSettingsContract.straddleOnTimeout(preferences));
+        GameDecisionSink.StraddleHandle first = decisions.showStraddle(5,
+                "0.8");
+        preferences.setProperty(GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY,
+                "true");
+        shown.get().timeout();
+        assertEquals(GameDecisionSink.NO_STRADDLE,
+                first.decision().toCompletableFuture().join());
+
+        GameDecisionSink.StraddleHandle expired = decisions.showStraddle(5,
+                "0.8");
+        shown.get().timeout();
+        assertEquals(GameDecisionSink.POST_STRADDLE,
+                expired.decision().toCompletableFuture().join());
+
+        GameDecisionSink.StraddleHandle declined = decisions.showStraddle(5,
+                "0.8");
+        declined.decline();
+        shown.get().timeout();
+        assertEquals(GameDecisionSink.NO_STRADDLE,
+                declined.decision().toCompletableFuture().join());
+    }
+
+    @Test
     void timedPokerDecisionsFollowTheSelectedLanguage() {
         List<GdxTableDialog> shown = new ArrayList<>();
         GdxGameDecisionSink decisions = new GdxGameDecisionSink(

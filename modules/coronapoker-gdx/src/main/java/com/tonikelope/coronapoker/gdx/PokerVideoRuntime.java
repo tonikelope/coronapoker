@@ -93,6 +93,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private boolean coldPlayerBootstrapPending = true;
     private volatile boolean active = true;
     private volatile int currentIndex;
+    private volatile Selection selection;
     private volatile int resumeSeconds;
     private volatile boolean resumeMuted = true;
     private volatile int resumeVolume = 100;
@@ -101,21 +102,24 @@ final class PokerVideoRuntime implements AutoCloseable {
     private final PokerVideoDocumentLoad documentLoad = new PokerVideoDocumentLoad();
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
+    private boolean orderedPlaylist;
     private volatile String pageUrl;
     private volatile String refererOrigin;
 
     private PokerVideoRuntime(List<PokerVideoSearch.Video> videos,
             PokerVideoFrameBuffer frameBuffer, String language) {
         this.videos = List.copyOf(videos);
+        setCurrentIndex(0);
         this.frameBuffer = frameBuffer;
         playerLanguage = PokerVideoSearch.languageCode(language);
     }
 
     static PokerVideoRuntime initialize(List<PokerVideoSearch.Video> videos,
             PokerVideoFrameBuffer frameBuffer, Path dataDirectory,
-            String language, int width, int height, double scaleFactor) {
+            String language, boolean orderedPlaylist, int width, int height, double scaleFactor) {
         PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer,
                 language);
+        runtime.orderedPlaylist = orderedPlaylist;
         if (!PokerVideoPlatformSupport.isAvailable()) {
             runtime.initializationError = "JCEF no está disponible para "
                     + "esta plataforma o este artefacto";
@@ -213,7 +217,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         boolean initialMuted = restoreAudio ? resumeMuted : true;
         int initialVolume = restoreAudio ? resumeVolume : 100;
         localServer = PokerVideoLocalServer.start(videos, currentIndex,
-                resumeSeconds, initialMuted, initialVolume, playerLanguage);
+                resumeSeconds, initialMuted, initialVolume, playerLanguage,
+                orderedPlaylist, playlistRevision);
         restoreAudioOnNextSession = false;
         browserPlaylistRevision = playlistRevision;
         apiRecoveryAttempts = 0;
@@ -431,6 +436,11 @@ final class PokerVideoRuntime implements AutoCloseable {
             return true;
         }
         if (request.startsWith("READY|")) {
+            try {
+                browserPlaylistRevision = Long.parseLong(request.substring("READY|".length()));
+            } catch (NumberFormatException ignored) {
+                browserPlaylistRevision = -1L;
+            }
             playerReady = true;
             synchronizeBrowserPlaylist();
             state = "REPRODUCIENDO EN SILENCIO";
@@ -447,30 +457,11 @@ final class PokerVideoRuntime implements AutoCloseable {
             return true;
         }
         if (request.startsWith("INDEX|")) {
-            String[] parts = request.substring("INDEX|".length())
-                    .split(":", 2);
-            try {
-                int next = Integer.parseInt(parts[0]);
-                if (next >= 0 && next < videos.size()) {
-                    currentIndex = next;
-                }
-            } catch (NumberFormatException ignored) {
-            }
+            updateSelection(request.substring("INDEX|".length()), false);
             return true;
         }
         if (request.startsWith("POSITION|")) {
-            String[] parts = request.substring("POSITION|".length())
-                    .split(":", 2);
-            try {
-                int index = Integer.parseInt(parts[0]);
-                int seconds = parts.length > 1
-                        ? Integer.parseInt(parts[1]) : 0;
-                if (index >= 0 && index < videos.size()) {
-                    currentIndex = index;
-                    resumeSeconds = Math.max(0, seconds);
-                }
-            } catch (NumberFormatException ignored) {
-            }
+            updateSelection(request.substring("POSITION|".length()), true);
             return true;
         }
         if (request.startsWith("AUDIO|")) {
@@ -552,12 +543,28 @@ final class PokerVideoRuntime implements AutoCloseable {
                 pageUrl, 0);
     }
 
+    private synchronized void updateSelection(String message, boolean hasPosition) {
+        String[] parts = message.split(":", 3);
+        if (parts.length != 3) return;
+        try {
+            int index = Integer.parseInt(parts[0]);
+            long revision = Long.parseLong(parts[2]);
+            if (revision != playlistRevision || index < 0 || index >= videos.size()) return;
+            int seconds = hasPosition ? Math.max(0, Integer.parseInt(parts[1])) : 0;
+            if (hasPosition || currentIndex != index) resumeSeconds = seconds;
+            if (currentIndex != index) setCurrentIndex(index);
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
     synchronized void replaceVideos(List<PokerVideoSearch.Video> replacements,
-            String language) {
+            String language, boolean ordered) {
         List<PokerVideoSearch.Video> next = List.copyOf(replacements);
         if (next.isEmpty()) return;
+        int nextIndex = orderedPlaylist && ordered ? Math.min(currentIndex, next.size() - 1) : 0;
+        orderedPlaylist = ordered;
         videos = next;
-        currentIndex = 0;
+        setCurrentIndex(nextIndex);
         resumeSeconds = 0;
         playlistRevision++;
         String nextLanguage = PokerVideoSearch.languageCode(language);
@@ -569,7 +576,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         synchronizeBrowserPlaylist();
     }
 
-    private void synchronizeBrowserPlaylist() {
+    private synchronized void synchronizeBrowserPlaylist() {
         LibGdxCefBrowser current = browser;
         long revision = playlistRevision;
         if (!playerReady || current == null || !browserCreated
@@ -582,7 +589,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         }
         ids.append(']');
         current.executeJavaScript("window.coronaReplaceVideos && "
-                + "window.coronaReplaceVideos(" + ids + ");",
+                + "window.coronaReplaceVideos(" + ids + "," + orderedPlaylist + ","
+                + revision + "," + currentIndex + ");",
                 pageUrl, 0);
         browserPlaylistRevision = revision;
     }
@@ -603,14 +611,15 @@ final class PokerVideoRuntime implements AutoCloseable {
         return state;
     }
 
-    String title() {
-        return video().title();
+    record Selection(PokerVideoSearch.Video video, int index, int total) { }
+
+    Selection selection() {
+        return selection;
     }
 
-    PokerVideoSearch.Video video() {
-        List<PokerVideoSearch.Video> snapshot = videos;
-        return snapshot.get(Math.max(0, Math.min(currentIndex,
-                snapshot.size() - 1)));
+    private void setCurrentIndex(int index) {
+        currentIndex = index;
+        selection = new Selection(videos.get(index), index, videos.size());
     }
 
     String initializationError() {

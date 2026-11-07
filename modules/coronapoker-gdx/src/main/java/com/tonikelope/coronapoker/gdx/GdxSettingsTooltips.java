@@ -265,6 +265,8 @@ final class GdxSettingsTooltips {
                 "tooltip.cfg.blinds_level";
             case "ante" -> "tooltip.cfg.ante";
             case "straddle" -> "tooltip.cfg.straddle";
+            case GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY ->
+                "tooltip.cfg.straddle_on_timeout";
             case "increase_blinds" -> "tooltip.cfg.double_blinds";
             case "blind_cap", "blind_cap_level" ->
                 "tooltip.cfg.blind_cap";

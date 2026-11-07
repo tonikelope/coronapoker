@@ -64,7 +64,8 @@ function playerPage(options = {}) {
   vm.createContext(context);
   let script = inline;
   const replacements = { VIDEO_IDS: ids.map(id => `'${id}'`).join(','), ORIGIN: 'http://127.0.0.1:10000',
-    PLAYER_LANGUAGE: 'es', INITIAL_INDEX: '0', START_SECONDS: '17', INITIAL_MUTED: 'true', INITIAL_VOLUME: '100' };
+    PLAYER_LANGUAGE: 'es', INITIAL_INDEX: '0', START_SECONDS: '17', INITIAL_MUTED: 'true', INITIAL_VOLUME: '100',
+    ORDERED_PLAYLIST: String(Boolean(options.ordered)), PLAYLIST_REVISION: '0' };
   for (const [key, value] of Object.entries(replacements)) script = script.replaceAll(`@@${key}@@`, value);
   vm.runInContext(script, context);
   return {
@@ -88,6 +89,24 @@ function playerPage(options = {}) {
     }
   };
 }
+
+test('favorite navigation keeps the saved order across wrap and reports the new playlist revision', () => {
+  const page = playerPage({ ordered: true });
+  page.ready();
+  assert.ok(page.messages.includes('READY|0'));
+  page.context.coronaSelectRelative(-1);
+  assert.equal(page.loads.at(-1).id, ids[2]);
+  page.context.coronaSelectRelative(1);
+  assert.equal(page.loads.at(-1).id, ids[0]);
+  page.context.coronaReplaceVideos([ids[2], ids[1]], true, 7, 1);
+  assert.equal(page.loads.at(-1).id, ids[1]);
+  assert.ok(page.messages.includes('INDEX|1:1:7'));
+  page.context.coronaSelectRelative(1);
+  assert.equal(page.loads.at(-1).id, ids[2]);
+  assert.ok(page.messages.includes('INDEX|0:0:7'));
+  page.context.coronaReportPosition();
+  assert.ok(page.messages.includes('POSITION|0:0:7'));
+});
 
 test('API ready without first playback retries, skips and terminates with a retry action', () => {
   const page = playerPage(); page.ready(); page.tick(20000);

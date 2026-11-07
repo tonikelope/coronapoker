@@ -36,6 +36,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
+    static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
@@ -52,6 +53,8 @@ final class GdxSettingsContract {
     static final int BLIND_CAP_ROW = 7;
     static final int BLIND_ANTE_ROW = 8;
     static final int BLIND_STRADDLE_ROW = 9;
+    static final int BLIND_STRADDLE_TIMEOUT_ROW = 10;
+    static final int BLIND_ROW_COUNT = BLIND_STRADDLE_TIMEOUT_ROW + 1;
     static final int BUYIN_MINIMUM_ROW = 0;
     static final int BUYIN_MAXIMUM_ROW = 1;
     static final int BUYIN_FIXED_ROW = 2;
@@ -1140,7 +1143,9 @@ final class GdxSettingsContract {
         return switch (gamePage) {
             case 0 -> List.of(
                     new RowGroup(BLIND_STRUCTURE_ROW, BLIND_MANAGE_ROW, 0),
-                    new RowGroup(BLIND_INCREASE_ROW, BLIND_CAP_ROW, 0));
+                    new RowGroup(BLIND_INCREASE_ROW, BLIND_CAP_ROW, 0),
+                    new RowGroup(BLIND_STRADDLE_ROW,
+                            BLIND_STRADDLE_TIMEOUT_ROW, 0));
             case 1 -> List.of(
                     new RowGroup(BUYIN_FIXED_ROW, BUYIN_INITIAL_ROW, 0),
                     new RowGroup(BUYIN_REBUY_ROW, BUYIN_REBUY_CAP_ROW, 0));
@@ -1150,6 +1155,11 @@ final class GdxSettingsContract {
                     new RowGroup(2, 3, 0));
             default -> List.of();
         };
+    }
+
+    static boolean straddleOnTimeout(Properties properties) {
+        return Boolean.parseBoolean(properties.getProperty(
+                STRADDLE_ON_TIMEOUT_KEY, "false"));
     }
 
     private static AppearanceAnimationRow animationToggle(String key) {

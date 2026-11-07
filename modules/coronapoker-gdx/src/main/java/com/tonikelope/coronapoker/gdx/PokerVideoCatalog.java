@@ -21,7 +21,7 @@ final class PokerVideoCatalog {
         if (!type.equals(next)) {
             type = next;
             normal = List.of();
-            revision++;
+            if (!favoritesMode) revision++;
         }
     }
 
@@ -37,18 +37,18 @@ final class PokerVideoCatalog {
     }
 
     synchronized void toggleFavorite(PokerVideoSearch.Video video) throws IOException {
-        favorites.toggle(video, type);
+        favorites.toggle(video);
         if (favoritesMode) revision++;
     }
 
     synchronized boolean isFavorite(PokerVideoSearch.Video video) {
-        return favorites.contains(video, type);
+        return favorites.contains(video);
     }
 
     synchronized boolean favoritesMode() { return favoritesMode; }
     synchronized boolean hasNormalVideos() { return !normal.isEmpty(); }
     synchronized long revision() { return revision; }
     synchronized List<PokerVideoSearch.Video> videos() {
-        return favoritesMode ? favorites.videos(type) : normal;
+        return favoritesMode ? favorites.videos() : normal;
     }
 }

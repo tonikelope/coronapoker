@@ -201,6 +201,7 @@ final class GdxSettingsTooltipsTest {
     void allGameRowsHaveDedicatedDescriptions() {
         List<String> keys = List.of(
                 "structure", "initial_blinds", "ante", "straddle",
+                GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY,
                 "blind_structures", "increase_blinds", "blind_unit",
                 "blind_interval", "blind_cap", "blind_cap_level",
                 "fixed_buyin", "initial_buyin", "minimum_buyin",

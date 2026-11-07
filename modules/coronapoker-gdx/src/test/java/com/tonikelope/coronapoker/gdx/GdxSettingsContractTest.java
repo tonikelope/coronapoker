@@ -296,7 +296,8 @@ final class GdxSettingsContractTest {
     void gameParentBlocksAreSharedAcrossEverySettingsEntryPoint() {
         assertEquals(java.util.List.of(
                 new GdxSettingsContract.RowGroup(0, 2, 0),
-                new GdxSettingsContract.RowGroup(3, 7, 0)),
+                new GdxSettingsContract.RowGroup(3, 7, 0),
+                new GdxSettingsContract.RowGroup(9, 10, 0)),
                 GdxSettingsContract.gameGroups(0));
         assertEquals(java.util.List.of(
                 new GdxSettingsContract.RowGroup(2, 3, 0),

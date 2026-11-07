@@ -8,6 +8,8 @@
  */
 package com.tonikelope.coronapoker.gdx;
 
+import static com.tonikelope.coronapoker.gdx.GdxSettingsContract.BLIND_ROW_COUNT;
+
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -1294,6 +1296,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String voiceStatus = "";
     private int seatChatBlockHand = Integer.MIN_VALUE;
     private boolean settingsAutoRebuySnapshot;
+    private boolean settingsStraddleTimeoutDraft;
     private boolean settingsTextToSpeechSnapshot;
     private boolean settingsVoiceMessagesSnapshot;
     private boolean settingsTextToSpeechDraft = true;
@@ -2888,6 +2891,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shortcutBindings.beginEdit();
         GdxAudioDevices.refreshCaptureDevicesAsync();
         settingsAutoRebuySnapshot = autoRebuy;
+        settingsStraddleTimeoutDraft = GdxSettingsContract.straddleOnTimeout(
+                tableProperties);
         settingsTextToSpeechDraft = settingsValueAtOpen(
                 globalTextToSpeechEnabled(), pendingSavedTextToSpeech);
         settingsVoiceMessagesDraft = settingsValueAtOpen(
@@ -3088,7 +3093,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 submitHotJoinPolicy(settingsHotJoinDraft);
             }
         }
-        if (save && preferences != null) preferences.saveDeferred();
+        if (save && preferences != null) {
+            if (settingsStraddleTimeoutDraft
+                    != GdxSettingsContract.straddleOnTimeout(tableProperties)) {
+                tableProperties.setProperty(
+                        GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY,
+                        Boolean.toString(settingsStraddleTimeoutDraft));
+            }
+            preferences.saveDeferred();
+        }
         liveSettingsOpened = null;
         liveSettingsDraft = null;
         settingsHandLimitDraftValue = 1;
@@ -3137,6 +3150,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean settingsHavePendingChanges() {
         if (shortcutBindings.hasPendingEdits()
                 || autoRebuy != settingsAutoRebuySnapshot
+                || settingsStraddleTimeoutDraft
+                        != GdxSettingsContract.straddleOnTimeout(tableProperties)
                 || settingsTextToSpeechDraft != settingsTextToSpeechSnapshot
                 || settingsVoiceMessagesDraft != settingsVoiceMessagesSnapshot
                 || settingsHotJoinDraft != settingsHotJoinSnapshot
@@ -14622,7 +14637,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveCardPlacement liveHolePlacement(Seat seat, int slot) {
         Texture cardBack = activeCardBack();
         float aspect = cardBack.getHeight() / (float) cardBack.getWidth();
-        if (cachedSeatLayoutValid && slot >= 0 && slot < 2) {
+        if (cachedSeatLayoutValid
+                && Float.compare(cachedSeatCardAspect, aspect) == 0
+                && slot >= 0 && slot < 2) {
             LiveCardPlacement cached = cachedHolePlacements[seat.index][slot];
             if (cached != null) return cached;
         }
@@ -21647,32 +21664,41 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return;
                 }
             }
-        } else if (contentPage == 3
-                && GdxLiveSettingsPolicy.canEditGameRules(tableHost,
-                        liveSettingsDraft)) {
+        } else if (contentPage == 3) {
             GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstRowY, 0, 10, settingsGameScroll);
+                    firstRowY, 0, BLIND_ROW_COUNT, settingsGameScroll);
             settingsGameScroll = rows.offset();
+            Rectangle timeout = settingsGameRowBounds(contentX, rowW, rows,
+                    0, BLIND_ROW_COUNT,
+                    GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW);
+            if (timeout.contains(x, y)) {
+                boolean enabled = settingsStraddleTimeoutDraft;
+                runSwitchAction(enabled,
+                        () -> settingsStraddleTimeoutDraft = !enabled);
+                return;
+            }
+            if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
+                    liveSettingsDraft)) return;
             Rectangle structure = settingsGameRowBounds(contentX, rowW,
-                    rows, 0, 10, 0);
+                    rows, 0, BLIND_ROW_COUNT, 0);
             Rectangle level = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, 1);
+                    0, BLIND_ROW_COUNT, 1);
             Rectangle increasing = settingsGameRowBounds(contentX, rowW,
-                    rows, 0, 10,
+                    rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_INCREASE_ROW);
             Rectangle unit = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, GdxSettingsContract.BLIND_UNIT_ROW);
+                    0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_UNIT_ROW);
             Rectangle interval = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, GdxSettingsContract.BLIND_INTERVAL_ROW);
+                    0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_INTERVAL_ROW);
             Rectangle capToggle = settingsGameRowBounds(contentX, rowW,
-                    rows, 0, 10,
+                    rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_CAP_TOGGLE_ROW);
             Rectangle cap = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, GdxSettingsContract.BLIND_CAP_ROW);
+                    0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_CAP_ROW);
             Rectangle ante = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, GdxSettingsContract.BLIND_ANTE_ROW);
+                    0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_ANTE_ROW);
             Rectangle straddle = settingsGameRowBounds(contentX, rowW, rows,
-                    0, 10, GdxSettingsContract.BLIND_STRADDLE_ROW);
+                    0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRADDLE_ROW);
             if (structure.contains(x, y)) {
                 openSettingsSelectionList(
                         SettingsSelectionList.BLIND_STRUCTURE);
@@ -22363,7 +22389,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         "Unsupported game settings page");
             };
             total = switch (gamePage) {
-                case 0 -> 10;
+                case 0 -> BLIND_ROW_COUNT;
                 case 1 -> 8;
                 case 2 -> 6;
                 case 3 -> 9;
@@ -24826,9 +24852,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!viewportBounds.contains(pointer)) return null;
         if (page == 3) {
             GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstY, 0, 10, settingsGameScroll);
+                    firstY, 0, BLIND_ROW_COUNT, settingsGameScroll);
             SettingsLockHover manage = hoveredLock(settingsGameRowBounds(x,
-                    width, rows, 0, 10,
+                    width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_MANAGE_ROW),
                     "gdx.settings.game.locked_during_game", "blind-manage");
             if (manage != null) return manage;
@@ -24836,23 +24862,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (access != SettingsRowAccess.EDITABLE) {
                 return firstHoveredLock(settingsAccessTooltipKey(access),
                         "blinds-server",
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_STRUCTURE_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_INITIAL_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_INCREASE_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_UNIT_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_INTERVAL_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_CAP_TOGGLE_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_CAP_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_ANTE_ROW),
-                        settingsGameRowBounds(x, width, rows, 0, 10,
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_STRADDLE_ROW));
             }
             return null;
@@ -25221,7 +25247,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             String[] keys = {"structure", "initial_blinds",
                 "blind_structures", "increase_blinds", "blind_unit",
                 "blind_interval", "blind_cap", "blind_cap_level", "ante",
-                "straddle"};
+                "straddle", GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY};
             GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
                     firstY, 0, keys.length, settingsGameScroll);
             for (int row = rows.firstIndex();
@@ -25968,31 +25994,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (contentPage == 3) {
             SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.PixelRows rows = settingsGameRows(
-                    currentSettingsContent(), firstY, 0, 10,
+                    currentSettingsContent(), firstY, 0, BLIND_ROW_COUNT,
                     settingsGameScroll);
             settingsGameScroll = rows.offset();
             GdxSettingsLayout.drawGroups(shapes, x, width, rows,
                     GdxSettingsContract.gameGroups(0), alpha);
             Rectangle structure = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_STRUCTURE_ROW);
-            Rectangle level = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRUCTURE_ROW);
+            Rectangle level = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_INITIAL_ROW);
-            Rectangle manage = settingsGameRowBounds(x, width, rows, 0, 10,
+            Rectangle manage = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_MANAGE_ROW);
             Rectangle increase = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_INCREASE_ROW);
-            Rectangle unit = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_INCREASE_ROW);
+            Rectangle unit = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_UNIT_ROW);
             Rectangle interval = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_INTERVAL_ROW);
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_INTERVAL_ROW);
             Rectangle capToggle = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_CAP_TOGGLE_ROW);
-            Rectangle cap = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_CAP_TOGGLE_ROW);
+            Rectangle cap = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_CAP_ROW);
-            Rectangle ante = settingsGameRowBounds(x, width, rows, 0, 10,
+            Rectangle ante = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_ANTE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_STRADDLE_ROW);
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRADDLE_ROW);
             drawLiveSettingsDropdownShape(structure.x, structure.y,
                     structure.width, access, alpha);
             drawLiveSettingsStepperShape(level.x, level.y, level.width,
@@ -26004,6 +26030,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     straddle.width,
                     liveSettingsDraft != null && liveSettingsDraft.straddle(),
                     access, alpha);
+            Rectangle timeout = settingsGameRowBounds(x, width, rows, 0,
+                    BLIND_ROW_COUNT,
+                    GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW);
+            drawLiveSettingsToggleShape(timeout.x, timeout.y, timeout.width,
+                    settingsStraddleTimeoutDraft, SettingsRowAccess.EDITABLE,
+                    alpha);
             drawLiveSettingsActionShape(manage.x, manage.y, manage.width,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             boolean increasing = liveSettingsDraft != null
@@ -26935,29 +26967,29 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (contentPage == 3) {
             SettingsRowAccess access = liveGameRuleAccess();
             GdxSettingsLayout.PixelRows rows = settingsGameRows(
-                    currentSettingsContent(), firstY, 0, 10,
+                    currentSettingsContent(), firstY, 0, BLIND_ROW_COUNT,
                     settingsGameScroll);
             settingsGameScroll = rows.offset();
             Rectangle structure = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_STRUCTURE_ROW);
-            Rectangle level = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRUCTURE_ROW);
+            Rectangle level = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_INITIAL_ROW);
-            Rectangle manage = settingsGameRowBounds(x, width, rows, 0, 10,
+            Rectangle manage = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_MANAGE_ROW);
             Rectangle increase = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_INCREASE_ROW);
-            Rectangle unit = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_INCREASE_ROW);
+            Rectangle unit = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_UNIT_ROW);
             Rectangle interval = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_INTERVAL_ROW);
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_INTERVAL_ROW);
             Rectangle capToggle = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_CAP_TOGGLE_ROW);
-            Rectangle cap = settingsGameRowBounds(x, width, rows, 0, 10,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_CAP_TOGGLE_ROW);
+            Rectangle cap = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_CAP_ROW);
-            Rectangle ante = settingsGameRowBounds(x, width, rows, 0, 10,
+            Rectangle ante = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_ANTE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
-                    10, GdxSettingsContract.BLIND_STRADDLE_ROW);
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRADDLE_ROW);
             drawLiveSettingsDropdownText(structure.x, structure.y,
                     structure.width,
                     settingsGameText("row.structure"),
@@ -26982,6 +27014,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsGameText("row.straddle"),
                     GdxSettingsContract.booleanStatusLabel(straddleValue,
                             false, gameText), access, alpha);
+            Rectangle timeout = settingsGameRowBounds(x, width, rows, 0,
+                    BLIND_ROW_COUNT,
+                    GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW);
+            drawLiveSettingsToggleText(timeout.x, timeout.y, timeout.width,
+                    settingsGameText("row.straddle_on_timeout"),
+                    GdxSettingsContract.booleanStatusLabel(
+                            settingsStraddleTimeoutDraft, false, gameText),
+                    SettingsRowAccess.EDITABLE, alpha);
             drawLiveSettingsActionText(manage.x, manage.y, manage.width,
                     settingsGameText("row.manage_structures"),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
@@ -27853,15 +27893,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case BLIND_STRUCTURE -> {
                 if (settingsContentPage() != 3) yield null;
                 GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                        frame.firstRowY(), 0, 10, settingsGameScroll);
-                yield settingsGameRowBounds(x, width, rows, 0, 10,
+                        frame.firstRowY(), 0, BLIND_ROW_COUNT, settingsGameScroll);
+                yield settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                         GdxSettingsContract.BLIND_STRUCTURE_ROW);
             }
             case BLIND_UNIT -> {
                 if (settingsContentPage() != 3) yield null;
                 GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                        frame.firstRowY(), 0, 10, settingsGameScroll);
-                yield settingsGameRowBounds(x, width, rows, 0, 10,
+                        frame.firstRowY(), 0, BLIND_ROW_COUNT, settingsGameScroll);
+                yield settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                         GdxSettingsContract.BLIND_UNIT_ROW);
             }
             case BOT_DIFFICULTY -> {

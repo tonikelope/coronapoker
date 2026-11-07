@@ -3,9 +3,13 @@ const
   TTM_ADDTOOLW = $0432;
   TTM_SETMAXTIPWIDTH = $0418;
   TTF_SUBCLASS = $0010;
+  TTS_ALWAYSTIP = $0001;
   TTS_NOPREFIX = $0002;
   WS_EX_TOPMOST = $00000008;
   WS_POPUP = $80000000;
+  SWP_NOSIZE = $0001;
+  SWP_NOMOVE = $0002;
+  SWP_NOACTIVATE = $0010;
 
 type
   TFirewallToolInfo = record
@@ -33,6 +37,11 @@ function CreateTaskTooltip(ExStyle: Cardinal; ClassName, WindowName: String;
   Style: Cardinal; X, Y, Width, Height: Integer; Parent: HWND;
   Menu, Instance, Param: THandle): HWND;
   external 'CreateWindowExW@user32.dll stdcall setuponly';
+procedure InitTooltipControls;
+  external 'InitCommonControls@comctl32.dll stdcall setuponly';
+function SetTooltipPosition(Window, InsertAfter: HWND; X, Y, Width,
+  Height: Integer; Flags: Cardinal): Boolean;
+  external 'SetWindowPos@user32.dll stdcall setuponly';
 function DestroyTaskTooltip(Window: HWND): Boolean;
   external 'DestroyWindow@user32.dll stdcall setuponly';
 function AllocateHintText(Flags: Cardinal; Bytes: THandle): THandle;
@@ -70,7 +79,8 @@ begin
   begin
     if Tasks.ItemCaption[I] <> Caption then
       Continue;
-    if ReadTaskItemRect(Tasks.Handle, LB_GETITEMRECT, I, Tool.Bounds) <> 0 then
+    if (ReadTaskItemRect(Tasks.Handle, LB_GETITEMRECT, I, Tool.Bounds) = THandle(-1)) or
+      (Tool.Bounds.Bottom <= Tool.Bounds.Top) then
       Exit;
     Hint := CustomMessage('FirewallAccessHint');
     Capacity := Length(Hint) + 1;
@@ -78,10 +88,16 @@ begin
     if FirewallHintText = 0 then
       Exit;
     CopyHintText(FirewallHintText, Hint, Capacity);
+    InitTooltipControls;
+    { The tool is an owner-drawn row inside a child list box. The tip must
+      work even when that child is not itself the active window. }
     FirewallHintWindow := CreateTaskTooltip(WS_EX_TOPMOST, 'tooltips_class32',
-      '', WS_POPUP or TTS_NOPREFIX, 0, 0, 0, 0, Tasks.Handle, 0, 0, 0);
+      '', WS_POPUP or TTS_NOPREFIX or TTS_ALWAYSTIP, 0, 0, 0, 0,
+      WizardForm.Handle, 0, 0, 0);
     if FirewallHintWindow <> 0 then
     begin
+      SetTooltipPosition(FirewallHintWindow, HWND(-1), 0, 0, 0, 0,
+        SWP_NOSIZE or SWP_NOMOVE or SWP_NOACTIVATE);
       Tool.Size := SizeOf(Tool);
       Tool.Flags := TTF_SUBCLASS;
       Tool.Window := Tasks.Handle;
@@ -94,6 +110,7 @@ begin
       if AddTooltipTool(FirewallHintWindow, TTM_ADDTOOLW, 0, Tool) <> 0 then
         Exit;
     end;
+    Log('Could not attach the Firewall task tooltip.');
     ClearFirewallTaskHint;
     Exit;
   end;

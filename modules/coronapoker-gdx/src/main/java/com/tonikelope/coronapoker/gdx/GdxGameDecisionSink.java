@@ -40,23 +40,33 @@ final class GdxGameDecisionSink implements GameDecisionSink {
     private final long gameOverAudioSafetyTimeout;
     private final TimeUnit gameOverAudioSafetyTimeoutUnit;
     private final BooleanSupplier gameOverCinematicsEnabled;
+    private final BooleanSupplier straddleOnTimeout;
 
     GdxGameDecisionSink() {
         this(GameText.keys());
     }
 
     GdxGameDecisionSink(GameText text) {
-        this(text, GdxGameDecisionSink::present,
+        this(text, () -> false);
+    }
+
+    GdxGameDecisionSink(GameText text, BooleanSupplier straddleOnTimeout) {
+        this(text, GdxGameDecisionSink::present, straddleOnTimeout);
+    }
+
+    GdxGameDecisionSink(GameText text, Consumer<GdxTableDialog> presenter,
+            BooleanSupplier straddleOnTimeout) {
+        this(text, presenter,
                 GdxGameDecisionSink::submitRecoveredAction,
                 GdxGameDecisionSink::presentGameOverAudio,
-                GdxGameDecisionSink::activeGameOverCinematicsEnabled);
+                GdxGameDecisionSink::activeGameOverCinematicsEnabled,
+                GAME_OVER_AUDIO_SAFETY_TIMEOUT_SECONDS, TimeUnit.SECONDS,
+                straddleOnTimeout);
     }
 
     GdxGameDecisionSink(GameText text,
             Consumer<GdxTableDialog> presenter) {
-        this(text, presenter, GdxGameDecisionSink::submitRecoveredAction,
-                GdxGameDecisionSink::presentGameOverAudio,
-                GdxGameDecisionSink::activeGameOverCinematicsEnabled);
+        this(text, presenter, () -> false);
     }
 
     GdxGameDecisionSink(GameText text,
@@ -104,6 +114,19 @@ final class GdxGameDecisionSink implements GameDecisionSink {
             BooleanSupplier gameOverCinematicsEnabled,
             long gameOverAudioSafetyTimeout,
             TimeUnit gameOverAudioSafetyTimeoutUnit) {
+        this(text, presenter, recoveredActionSubmitter, gameOverAudio,
+                gameOverCinematicsEnabled, gameOverAudioSafetyTimeout,
+                gameOverAudioSafetyTimeoutUnit, () -> false);
+    }
+
+    private GdxGameDecisionSink(GameText text,
+            Consumer<GdxTableDialog> presenter,
+            Consumer<TableCommand> recoveredActionSubmitter,
+            Function<GameOverAudioCue, CompletionStage<Void>> gameOverAudio,
+            BooleanSupplier gameOverCinematicsEnabled,
+            long gameOverAudioSafetyTimeout,
+            TimeUnit gameOverAudioSafetyTimeoutUnit,
+            BooleanSupplier straddleOnTimeout) {
         this.text = Objects.requireNonNull(text, "text");
         this.presenter = Objects.requireNonNull(presenter, "presenter");
         this.recoveredActionSubmitter = Objects.requireNonNull(
@@ -112,6 +135,8 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                 "gameOverAudio");
         this.gameOverCinematicsEnabled = Objects.requireNonNull(
                 gameOverCinematicsEnabled, "gameOverCinematicsEnabled");
+        this.straddleOnTimeout = Objects.requireNonNull(straddleOnTimeout,
+                "straddleOnTimeout");
         if (gameOverAudioSafetyTimeout <= 0L) {
             throw new IllegalArgumentException(
                     "game-over audio safety timeout must be positive");
@@ -347,7 +372,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     tr("gdx.straddle.question",
                             "¿PONER STRADDLE DE " + amountText + "?",
                             amountText), GameDialogSink.Icon.NONE, 780,
-                    timeoutSeconds, false,
+                    timeoutSeconds, straddleOnTimeout.getAsBoolean(),
                     tr("straddle.dialog_no", "NO"),
                     tr("straddle.dialog_poner", "PONER"));
             dialog.result().thenAccept(answer -> decision.complete(answer

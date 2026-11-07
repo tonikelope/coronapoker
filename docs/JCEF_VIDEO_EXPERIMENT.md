@@ -30,21 +30,20 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
 - Los resultados retirados, privados, incompatibles o que prohíben la
   reproducción embebida se marcan y se saltan automáticamente. Los botones
   anterior y siguiente también evitan los resultados ya descartados.
-- La barra de título muestra solo el título del vídeo, sin contador ni total
-  de resultados.
+- En Favoritos, la cabecera muestra la posición y el total a la derecha
+  de las flechas. En el carrusel se muestra el título.
 - La cabecera tiene un fondo opaco uniforme, con anterior, siguiente y cerrar.
   Una barra inferior separada contiene la estrella de favorito, el botón para
-  ver favoritos o volver al «Modo carrusel», y el selector rápido Shorts/Normales.
-  Este selector guarda el mismo ajuste de formato que el menú de apariencia.
-  Estrella y favoritos se alinean a la izquierda; el selector de formato queda
-  a la derecha y muestra el destino del cambio, tanto en su texto como en su icono.
+  ver favoritos o volver al «Modo carrusel». En el carrusel, el selector
+  rápido Shorts/Normales guarda el mismo ajuste de formato que el menú de
+  apariencia. El selector se oculta en Favoritos.
 - La estrella hueca guarda el vídeo y pasa a estar rellena; pulsarla otra vez
   lo quita de favoritos. La lista se guarda en
   `~/.coronapoker/poker-video-favorites.properties` y sobrevive a reinicios.
-  Los favoritos se separan por formato para mantener la proporción correcta.
-  El modo favoritos usa esa lista en el carrusel; al volver a normal recupera
-  el catálogo aleatorio de la sesión. Si no hay favoritos del tipo elegido,
-  se pausa el vídeo y se muestra un mensaje que permite volver al modo carrusel.
+  La lista reúne ambos formatos en el orden en que se guardaron. El
+  reproductor adapta su proporción al favorito activo. Al volver al
+  carrusel se recupera el formato guardado en Ajustes. Si la lista está
+  vacía, el reproductor se pausa y ofrece volver al carrusel.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
   controles nativos de YouTube están habilitados para mantener el icono de
   audio enlazado con el mute real; la navegación y el cierre se
@@ -53,13 +52,14 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   preferencia antigua de subtítulos. La
   barra propia de CoronaPoker muestra el título del resultado, anterior,
   siguiente y cerrar.
-- La ventana conserva posición y tamaño entre Principal y Sala de espera. Es
-  arrastrable y redimensionable manteniendo el formato del vídeo; los cuatro
+- La ventana guarda una posición y tamaño por formato entre Principal, Sala
+  de espera y reinicios del juego. Se puede arrastrar y redimensionar
+  manteniendo el formato del vídeo. Los cuatro
   bordes y las cuatro esquinas aceptan el gesto y muestran el cursor adecuado,
   aunque las zonas son invisibles. No se dibujan marco, sombra ni tirador de
   esquina; la cabecera y las dos esquinas inferiores de la barra de controles quedan
-  redondeadas. Su tamaño inicial compacto corresponde al mínimo de la ventana
-  y escala con el `FitViewport` 1920x1080, por lo que conserva la misma
+  redondeadas. La posición y tamaño escalan con el `FitViewport` 1920x1080,
+  por lo que conservan la misma
   proporción visual en 1080p, 1440p y 2160p. En la sala el icono queda elevado
   por encima
   de los controles inferiores y su hover está recortado al propio botón. En

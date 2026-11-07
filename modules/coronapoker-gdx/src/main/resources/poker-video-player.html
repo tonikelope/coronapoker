@@ -9,13 +9,15 @@
     html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
     body { font-family: system-ui, sans-serif; color: #fff; }
     #status { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
-      box-sizing: border-box; text-align: center; background: #101820; z-index: 2; }
+      box-sizing: border-box; text-align: center; align-content: center; gap: 16px; background: #101820; z-index: 2; }
     #status.hidden { display: none; }
     #status.error { background: #2a1014; }
+    #status button { color: #ffdc6c; background: #111a2a; border: 1px solid #536073;
+      border-radius: 12px; padding: 12px 24px; cursor: pointer; font: inherit; }
   </style>
 </head>
 <body>
-  <div id="status">Buscando vídeos…</div>
+  <div id="status">Cargando reproductor…</div>
   <div id="player"></div>
   <script>
     'use strict';
@@ -41,36 +43,147 @@
     const failedVideoIds = new Set();
     let skipTimer = null;
     let autoplayRetryTimer = null;
+    const API_TIMEOUT_MS = 30000;
+    const PLAYBACK_TIMEOUT_MS = 20000;
+    const BUFFER_TIMEOUT_MS = 45000;
+    let apiTimer = null;
+    let playbackTimer = null;
+    let apiRecoveryPending = false;
+    let playbackGeneration = 0;
+    let playbackRecoveries = 0;
+    let playedCurrentVideo = false;
+    let loadStopped = false;
+    let loadStartSeconds = START_SECONDS;
 
-    function report(kind, detail, onSuccess) {
+    function text(spanish, english) {
+      return PLAYER_LANGUAGE === 'en' ? english : spanish;
+    }
+
+    function cancelLoadTimers() {
+      if (apiTimer !== null) clearTimeout(apiTimer);
+      if (playbackTimer !== null) clearTimeout(playbackTimer);
+      apiTimer = playbackTimer = null;
+    }
+
+    function loading(message) {
+      statusBox.className = '';
+      statusBox.textContent = message;
+    }
+
+    function report(kind, detail, onSuccess, onFailure) {
       const request = kind + '|' + String(detail == null ? '' : detail).replace(/[|\r\n]/g, ' ');
       if (typeof window.cefQuery === 'function') {
-        window.cefQuery({ request, onSuccess: onSuccess || (() => {}), onFailure: () => {} });
+        try {
+          window.cefQuery({ request, onSuccess: onSuccess || (() => {}), onFailure: onFailure || (() => {}) });
+        } catch (failure) {
+          if (onFailure) onFailure(failure);
+        }
       } else if (onSuccess) {
         onSuccess('ok');
       }
     }
 
     function showError(message) {
+      loadStopped = true;
+      cancelLoadTimers();
+      if (autoplayRetryTimer !== null) clearTimeout(autoplayRetryTimer);
+      autoplayRetryTimer = null;
+      if (skipTimer !== null) clearTimeout(skipTimer);
+      skipTimer = null;
       statusBox.className = 'error';
       statusBox.textContent = message;
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = text('Reintentar', 'Retry');
+      retry.onclick = retryLoad;
+      statusBox.appendChild(retry);
       report('ERROR', message);
+    }
+
+    function recoverApi(manual) {
+      if (apiRecoveryPending) return;
+      apiRecoveryPending = true;
+      cancelLoadTimers();
+      loading(text('Reconectando con el reproductor…', 'Reconnecting to the player…'));
+      const failed = () => {
+        apiRecoveryPending = false;
+        showError(text('No se pudo conectar con YouTube. Comprueba la conexión y reintenta.',
+          'Could not connect to YouTube. Check your connection and retry.'));
+      };
+      report(manual ? 'RETRY_API_MANUAL' : 'RETRY_API', 'API unavailable', response => {
+        if (response === 'reload') window.location.reload();
+        else failed();
+      }, failed);
+    }
+
+    function armApiTimeout() {
+      if (!active || loadStopped || apiTimer !== null || apiRecoveryPending) return;
+      if (ready) {
+        if (!playbackAllowed) apiTimer = setTimeout(() => {
+          apiTimer = null;
+          showError(text('El reproductor no respondió. Pulsa Reintentar.',
+            'The player did not respond. Press Retry.'));
+        }, 10000);
+        return;
+      }
+      apiTimer = setTimeout(() => {
+        apiTimer = null;
+        if (!ready && active) recoverApi(false);
+      }, API_TIMEOUT_MS);
+    }
+
+    function armPlaybackTimeout(delay = PLAYBACK_TIMEOUT_MS) {
+      if (!ready || !playbackAllowed || !active || loadStopped || playbackTimer !== null) return;
+      if (player.getPlayerState && player.getPlayerState() === 1) return;
+      const generation = playbackGeneration;
+      playbackTimer = setTimeout(() => {
+        playbackTimer = null;
+        if (!active || generation !== playbackGeneration || loadStopped) return;
+        if (player.getPlayerState && player.getPlayerState() === 1) return;
+        playbackRecoveries += 1;
+        report('RECOVERY', 'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]);
+        if (playbackRecoveries >= 3) {
+          showError(text('El vídeo no responde. Comprueba la conexión y pulsa Reintentar.',
+            'The video is not responding. Check your connection and press Retry.'));
+        } else if (playbackRecoveries === 1) {
+          const seconds = Math.max(loadStartSeconds, player.getCurrentTime ? player.getCurrentTime() || 0 : 0);
+          selectOrderPosition(orderPosition, true, seconds);
+        } else {
+          skipUnavailable('timeout');
+        }
+      }, delay);
+    }
+
+    function retryLoad() {
+      loadStopped = false;
+      playbackRecoveries = 0;
+      if (ready && playbackAllowed) {
+        failedVideoIds.clear();
+        selectOrderPosition(orderPosition, false, player.getCurrentTime ? player.getCurrentTime() || 0 : loadStartSeconds);
+      } else {
+        recoverApi(true);
+      }
     }
 
     function reportIndex() {
       report('INDEX', currentIndex + ':' + orderPosition);
     }
 
-    function selectOrderPosition(position) {
+    function selectOrderPosition(position, recovery = false, startSeconds = 0) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
+      cancelLoadTimers();
+      playbackGeneration += 1;
+      if (!recovery) playbackRecoveries = 0;
+      playedCurrentVideo = false;
+      loadStopped = false;
+      loadStartSeconds = Math.max(0, Math.floor(startSeconds));
       if (skipTimer !== null) {
         clearTimeout(skipTimer);
         skipTimer = null;
       }
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
-      statusBox.className = '';
-      statusBox.textContent = 'Cargando vídeo…';
+      loading(text('Cargando vídeo…', 'Loading video…'));
       captureStableAudioState();
       audioRestorePending = true;
       if (autoplayRetryTimer !== null) {
@@ -78,8 +191,14 @@
         autoplayRetryTimer = null;
       }
       applyDesiredAudio(player);
-      player.loadVideoById(VIDEO_IDS[currentIndex]);
-      playVideo(player);
+      try {
+        if (loadStartSeconds > 0) player.loadVideoById({videoId: VIDEO_IDS[currentIndex], startSeconds: loadStartSeconds});
+        else player.loadVideoById(VIDEO_IDS[currentIndex]);
+        playVideo(player);
+        armPlaybackTimeout();
+      } catch (failure) {
+        showError(text('No se pudo cargar el vídeo. Pulsa Reintentar.', 'Could not load the video. Press Retry.'));
+      }
       reportIndex();
     }
 
@@ -125,6 +244,7 @@
 
     function skipUnavailable(errorCode) {
       if (skipTimer !== null || VIDEO_IDS.length === 0) return;
+      cancelLoadTimers();
       failedVideoIds.add(VIDEO_IDS[currentIndex]);
       report('FAILED', currentIndex + ':' + errorCode);
       const nextPosition = nextPlayableOrderPosition(1);
@@ -137,7 +257,7 @@
       report('STATE', 'VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
-        selectOrderPosition(nextPosition);
+        selectOrderPosition(nextPosition, true);
       }, 100);
     }
 
@@ -219,9 +339,12 @@
     };
     window.coronaSetActive = function (enabled) {
       active = Boolean(enabled);
+      if (!active) cancelLoadTimers();
+      else armApiTimeout();
       if (!player || !ready) return;
       if (active) {
         playVideo(player);
+        armPlaybackTimeout();
       } else {
         captureStableAudioState();
         reportAudioState();
@@ -230,6 +353,7 @@
     };
 
     window.onYouTubeIframeAPIReady = function () {
+      try {
       player = new YT.Player('player', {
         width: '100%',
         height: '100%',
@@ -260,25 +384,44 @@
         },
         events: {
           onReady: event => {
+            try {
             ready = true;
+            cancelLoadTimers();
+            loading(text('Cargando vídeo…', 'Loading video…'));
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
             audioRestorePending = true;
             applyDesiredAudio(event.target);
+            armApiTimeout();
             report('READY', '1', response => {
+              cancelLoadTimers();
               if (response === 'reload') {
                 window.location.reload();
                 return;
               }
               playbackAllowed = true;
+              loadStopped = false;
               playVideo(event.target);
+              armPlaybackTimeout();
               reportIndex();
               report('STATE', INITIAL_MUTED
                 ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
-            });
+            }, () => showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
+              'Could not start the player. Press Retry.')));
+            } catch (failure) {
+              showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
+                'Could not start the player. Press Retry.'));
+            }
           },
           onStateChange: event => {
             if (event.data === 1) {
+              cancelLoadTimers();
+              playedCurrentVideo = true;
+              loadStopped = false;
+              playbackRecoveries = 0;
+              // Confirm the applied audio state at first playback, before a
+              // fast native-control click can precede the polling interval.
+              monitorAudioState();
               if (autoplayRetryTimer !== null) {
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
@@ -286,6 +429,8 @@
               statusBox.className = 'hidden';
               if (!active) event.target.pauseVideo();
             }
+            if (event.data === 2 && (playedCurrentVideo || !active)) cancelLoadTimers();
+            if (event.data === 3) armPlaybackTimeout(playedCurrentVideo ? BUFFER_TIMEOUT_MS : PLAYBACK_TIMEOUT_MS);
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
             report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
@@ -303,9 +448,15 @@
           },
           onAutoplayBlocked: () => {
             report('STATE', 'REPRODUCCIÓN AUTOMÁTICA BLOQUEADA');
+            showError(text('La reproducción automática se ha bloqueado. Pulsa Reintentar.',
+              'Automatic playback was blocked. Press Retry.'));
           }
         }
       });
+      } catch (failure) {
+        showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
+          'Could not start the player. Press Retry.'));
+      }
     };
 
     function reportPosition() {
@@ -321,13 +472,13 @@
     setInterval(reportPosition, 750);
     setInterval(monitorAudioState, 250);
 
-    setTimeout(() => {
-      if (!ready) showError('No se pudo inicializar el reproductor. Comprueba la conexión.');
-    }, 20000);
+    loading(text('Conectando con el reproductor…', 'Connecting to the player…'));
+    report('BOOT', '1');
+    armApiTimeout();
 
     const script = document.createElement('script');
     script.src = 'https://www.youtube.com/iframe_api';
-    script.onerror = () => showError('No se pudo descargar la API del reproductor.');
+    script.onerror = () => recoverApi(false);
     document.head.appendChild(script);
   </script>
 </body>

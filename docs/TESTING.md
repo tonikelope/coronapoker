@@ -416,9 +416,10 @@ the gameplay scenario schedule:
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am `
-  '-Dtest=PokerVideoFavoritesTest,PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
+  '-Dtest=PokerVideoFavoritesTest,PokerVideoDocumentLoadTest,PokerVideoRuntimeSessionTest,PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
   '-Dsurefire.failIfNoSpecifiedTests=false' test
 mvn -f coronaupdater/pom.xml test
+node --test tools/qa/poker-video-player.test.mjs
 ```
 
 These cover search extraction, shuffling, bounded/timeout HTTP reception,
@@ -429,6 +430,15 @@ muted/audible rapid video changes, modal pause/resume, minimized reopening and
 table release/return, comparing the real media mute state with the native
 control. The [integration guide](JCEF_VIDEO_EXPERIMENT.md) describes the expected
 behavior and remaining platform limitations.
+
+The Node suite executes the shipped player script with deterministic timers and
+a controlled YouTube/CEF bridge. It covers stalled startup, finite recovery,
+buffering, inactive modals, voluntary pause, embedding errors and rapid audio
+changes. It needs no live service and produces no audio. For live JCEF checks,
+launch the test JVM with `-Dcoronapoker.video.silentOutput=true`; this suppresses
+Chromium output while preserving observable API/media mute and native controls.
+Keep any game-music fixture at zero volume too. Do not change system or user
+volume settings for automated checks.
 
 At release time, `tools/build/build-platform-jars.ps1` also opens every final
 archive and verifies its JCEF payload and libGDX/LWJGL native family. Linux/macOS

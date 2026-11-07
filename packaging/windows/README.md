@@ -110,6 +110,10 @@ not as a replacement for the portable package. For every release:
    updater layout, language resources, installer hash and signing status.
 4. Publish and remotely verify all platform JARs, the installer and the MOD
    before deleting local build output.
-5. Remove downloaded JDK archives, extracted toolchains, staging images,
-   previews, logs and obsolete experimental installers during final cleanup.
-   Keep the canonical Windows JAR in `target` when requested for local testing.
+5. Archive useful audit evidence, then remove the entire root `target`,
+   module build outputs, downloaded JDK archives, extracted toolchains,
+   staging images and temporary previews. Final publication cleanup also
+   removes the local JARs and installers; keeping a JAR for an intermediate
+   local test does not override a later request for final cleanup.
+6. Keep only the newest public GitHub release and the historical 24.10
+   release, after verifying the new release. Preserve historical Git tags.

@@ -11,17 +11,29 @@ import java.net.Socket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /** Serves the player from a real loopback origin so embeds receive a Referer. */
 final class PokerVideoLocalServer implements AutoCloseable {
 
     private final ServerSocket server;
     private final ExecutorService executor;
+    private final ExecutorService requests = new ThreadPoolExecutor(2, 2, 0L,
+            TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(8), task -> {
+                Thread thread = new Thread(task, "CoronaPoker-poker-video-request");
+                thread.setDaemon(true);
+                return thread;
+            });
     private final byte[] playerHtml;
     private final String origin;
-    private volatile Socket connection;
+    private final Set<Socket> connections = ConcurrentHashMap.newKeySet();
 
     private PokerVideoLocalServer(ServerSocket server, ExecutorService executor,
             byte[] playerHtml, String origin) {
@@ -73,18 +85,36 @@ final class PokerVideoLocalServer implements AutoCloseable {
 
     private void acceptRequests() {
         while (!server.isClosed()) {
-            try (Socket client = server.accept()) {
-                connection = client;
-                if (server.isClosed()) return;
-                client.setSoTimeout(2000);
-                handle(client);
+            try {
+                Socket client = server.accept();
+                connections.add(client);
+                if (server.isClosed()) {
+                    closeConnection(client);
+                    return;
+                }
+                try {
+                    requests.execute(() -> {
+                        try {
+                            client.setSoTimeout(2000);
+                            handle(client);
+                        } catch (IOException ignored) {
+                            // Idle speculative connections and browser cancellation are expected.
+                        } finally {
+                            closeConnection(client);
+                        }
+                    });
+                } catch (RejectedExecutionException busy) {
+                    closeConnection(client);
+                }
             } catch (IOException ignored) {
-                // A closed listener, timed-out request or disconnected browser
-                // must not terminate the loop or retain an accepted socket.
-            } finally {
-                connection = null;
+                // Closing the listener unblocks accept without retaining any sockets.
             }
         }
+    }
+
+    private void closeConnection(Socket client) {
+        try { client.close(); } catch (IOException ignored) { }
+        connections.remove(client);
     }
 
     /** Only serves a fixed document; no filesystem, proxying or request bodies. */
@@ -175,10 +205,8 @@ final class PokerVideoLocalServer implements AutoCloseable {
     @Override
     public void close() {
         try { server.close(); } catch (IOException ignored) { }
-        Socket current = connection;
-        if (current != null) {
-            try { current.close(); } catch (IOException ignored) { }
-        }
+        connections.forEach(this::closeConnection);
+        requests.shutdownNow();
         executor.shutdownNow();
     }
 }

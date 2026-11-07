@@ -50,6 +50,63 @@ class PokerVideoFavoritesTest {
         }
     }
 
+    @Test void corruptFavoritesCannotOverwriteTheExistingFile() throws Exception {
+        Path file = directory.resolve("favorites.properties");
+        String corrupt = "order=shorts.ABCDEFGHIJK\nshorts.ABCDEFGHIJK=\\uZZZZ\n";
+        Files.writeString(file, corrupt);
+        var store = new PokerVideoFavorites(file);
+        assertThrows(java.io.IOException.class, () -> store.toggle(SECOND, "shorts"));
+        assertEquals(corrupt, Files.readString(file));
+    }
+
+    @Test void malformedFavoriteEntriesDoNotDiscardValidOnes() throws Exception {
+        Path file = directory.resolve("favorites.properties");
+        Files.writeString(file, "order=shorts.invalid,unknown.ABCDEFGHIJK,normal.ABCDEFGHIJK\n"
+                + "normal.ABCDEFGHIJK=Valid video\n");
+        var store = new PokerVideoFavorites(file);
+        assertTrue(store.videos("shorts").isEmpty());
+        assertEquals(List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "Valid video")), store.videos("normal"));
+    }
+
+    @Test void failedCatalogueOffersRetryWithoutLosingOtherControls() throws Exception {
+        try (var overlay = overlay(260f)) {
+            set(overlay, "loadingError", "Network unavailable");
+            click(overlay, "retryBounds");
+            assertNull(value(overlay, "loadingError"));
+            assertEquals(false, value(overlay, "initializationStarted"));
+            assertNull(value(overlay, "requestedCatalogKey"));
+        }
+    }
+
+    @Test void closingDuringSearchCancelsItButDoesNotInterruptNativeInitialization() throws Exception {
+        for (boolean nativePhase : new boolean[]{false, true}) {
+            var entered = new java.util.concurrent.CountDownLatch(1);
+            var release = new java.util.concurrent.CountDownLatch(1);
+            var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+            var task = new java.util.concurrent.FutureTask<Void>(() -> {
+                entered.countDown();
+                try { release.await(); }
+                catch (InterruptedException stopped) { interrupted.set(true); }
+                return null;
+            });
+            var worker = new Thread(task, "video-cancellation-regression");
+            try (var overlay = overlay(260f)) {
+                set(overlay, "initializationTask", task);
+                set(overlay, "startingNative", nativePhase);
+                set(overlay, "catalogLoading", true);
+                worker.start();
+                assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS));
+                click(overlay, "closeBounds");
+                assertTrue(task.isCancelled());
+                release.countDown();
+                worker.join(2000);
+                assertFalse(worker.isAlive());
+                assertEquals(!nativePhase, interrupted.get());
+                assertEquals(false, value(overlay, "initializationStarted"));
+            } finally { release.countDown(); worker.join(2000); }
+        }
+    }
+
     @Test void featureAndAnimationSwitchesDominateTheStartupOption() throws Exception {
         for (boolean available : new boolean[]{false, true}) {
             try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(

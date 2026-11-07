@@ -117,7 +117,29 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
 - Popups, menús contextuales y navegaciones de nivel superior se bloquean. La
   página de resultados nunca se presenta como navegador al usuario.
 
-## Aislamiento
+## Recuperación de cargas
+
+La búsqueda tiene un plazo total de 15 segundos. Minimizar o desactivar los
+vídeos interrumpe la petición pendiente; si ya empezó la inicialización nativa,
+se permite que termine para conservar la única instancia de CEF de la sesión.
+Los resultados de una petición cancelada no pueden sustituir un catálogo nuevo.
+
+El documento local tiene un plazo de 30 segundos mientras está visible. Los
+errores HTTP, de carga o de terminación del renderer muestran `Reintentar`.
+Dentro del documento, la API de YouTube dispone de 30 segundos y el intercambio
+de preparación de 10; un fallo de API permite una sola recarga automática.
+La reproducción inicial tiene 20 segundos y un bloqueo posterior de buffering,
+45. Se reintenta el mismo vídeo conservando posición y audio, después se salta;
+tras tres recuperaciones se ofrece un reintento manual. No hay bucles de carga
+indefinidos. Los plazos se suspenden al ocultar el reproductor y una pausa
+voluntaria después de empezar a reproducir no se considera un fallo.
+
+El servidor loopback atiende conexiones con dos trabajadores y una cola
+limitada, para que una conexión especulativa inactiva no bloquee la carga real.
+Las conexiones abiertas se cierran al liberar la sesión. Los fallos de carga y
+las recuperaciones quedan registrados sin incluir el contenido de las páginas.
+
+## Aislamiento de recursos
 
 JCEF pinta en un búfer BGRA sin ventana (`OSR`). El callback de CEF solo copia
 memoria; la subida de la textura OpenGL ocurre en el hilo de renderizado de
@@ -163,3 +185,8 @@ La respuesta se limita a 12 MiB durante la recepción y tiene un plazo total de
 La validación nativa de esta integración se ha realizado en Windows x64.
 Los paquetes Linux y macOS se comprueban estructuralmente al fabricarlos;
 esto no sustituye una prueba gráfica real en esos sistemas.
+
+En las pruebas nativas se puede usar `-Dcoronapoker.video.silentOutput=true`:
+añade `--mute-audio` a Chromium sin cambiar el mute de la API ni su control
+visual. Permite comprobar ambos estados sin emitir sonido. No se activa en el
+producto distribuido; esas comprobaciones no prueban la salida física de audio.

@@ -167,6 +167,22 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void idleSpeculativeConnectionDoesNotBlockThePlayerDocument() throws Exception {
+        try (PokerVideoLocalServer server = PokerVideoLocalServer.start(List.of(
+                new PokerVideoSearch.Video("ABCDEFGHIJK", "First")), 0, 0, true, 100, "es")) {
+            URI origin = URI.create(server.origin());
+            try (var idle = new java.net.Socket(origin.getHost(), origin.getPort())) {
+                idle.getOutputStream().write("GET /player/ HTTP/1.1\r\n".getBytes(StandardCharsets.US_ASCII));
+                var response = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                        URI.create(server.playerUrl())).timeout(Duration.ofMillis(1500)).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, response.statusCode());
+                assertTrue(response.body().contains("ABCDEFGHIJK"));
+            }
+        }
+    }
+
+    @Test
     void localPlayerOnlyServesItsDocumentAndClosesPendingConnections()
             throws Exception {
         PokerVideoLocalServer server = PokerVideoLocalServer.start(List.of(
@@ -257,8 +273,7 @@ class PokerVideoSearchTest {
             assertFalse(html.contains(
                     "event.target.loadVideoById({"));
             assertTrue(html.contains(
-                    "player.loadVideoById(VIDEO_IDS[currentIndex]);\n"
-                    + "      playVideo(player);"));
+                    "player.loadVideoById(VIDEO_IDS[currentIndex]);"));
             assertTrue(html.contains(
                     "window.coronaSelectRelative = selectRelative"));
             assertTrue(html.contains(
@@ -309,7 +324,7 @@ class PokerVideoSearchTest {
                 "boolean initialMuted = restoreAudio ? resumeMuted : true"));
         assertTrue(runtimeSource.contains(
                 "restoreAudioOnNextSession = preserveAudioForResume "
-                + "&& current != null"));
+                + "&& hadSession"));
         assertTrue(runtimeSource.contains("request.startsWith(\"AUDIO|\")"));
 
         String overlaySource = Files.readString(Path.of(

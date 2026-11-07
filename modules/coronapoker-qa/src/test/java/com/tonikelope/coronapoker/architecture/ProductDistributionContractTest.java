@@ -200,7 +200,8 @@ final class ProductDistributionContractTest {
                 "installed CoronaPoker.jar differs from the canonical"),
                 "The packaged JAR must be hash-checked before release");
         assertTrue(script.contains(
-                "Updater-compatible runtime is missing module"));
+                "Private runtime is missing module"));
+        assertTrue(script.contains("foreach ($requiredModule in $requiredModules)"));
         assertTrue(script.contains("Invoke-Sign $nativeLauncher"));
         assertTrue(script.contains("Invoke-Sign $finalPath"));
         assertTrue(releaseScript.contains(

@@ -74,6 +74,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle videoTypeBounds = new Rectangle();
     private final PokerVideoCatalog catalog;
     private final Consumer<String> videoTypeChanged;
+    private final boolean openOnStartup;
+    private boolean startupHandled;
     private final GdxGameText text = new GdxGameText("es");
     private volatile boolean catalogLoading;
     private volatile long appliedCatalogRevision = -1;
@@ -123,15 +125,27 @@ final class PokerVideoOverlay implements AutoCloseable {
         this(PokerVideoFavorites.userStore(), videoTypeChanged);
     }
 
+    PokerVideoOverlay(boolean openOnStartup, Consumer<String> videoTypeChanged) {
+        this(PokerVideoFavorites.userStore(), videoTypeChanged, openOnStartup);
+    }
+
     PokerVideoOverlay(PokerVideoFavorites favorites, Consumer<String> videoTypeChanged) {
+        this(favorites, videoTypeChanged, true);
+    }
+
+    PokerVideoOverlay(PokerVideoFavorites favorites, Consumer<String> videoTypeChanged,
+            boolean openOnStartup) {
         catalog = new PokerVideoCatalog(Objects.requireNonNull(favorites));
         this.videoTypeChanged = Objects.requireNonNull(videoTypeChanged);
+        this.openOnStartup = openOnStartup;
     }
 
     void update(boolean available, boolean enabled, boolean visible,
             PokerVideoIcon.Placement placement, String language,
             String videoType,
             float width, float height) {
+        boolean firstUpdate = !startupHandled;
+        startupHandled = true;
         worldWidth = width;
         worldHeight = height;
         iconPlacement = Objects.requireNonNull(placement, "placement");
@@ -168,7 +182,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
             minimized = true;
         } else if (!wasEnabled) {
-            minimized = false;
+            minimized = firstUpdate && !openOnStartup;
         }
         ensurePosition();
         // A disabled feature is fully absent. "Minimized" is only a runtime
@@ -341,7 +355,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         closeBounds.set(x + videoWidth - 48f, headerBounds.y + 7f, 40f, 38f);
         float starWidth = videoWidth < 420f ? 32f : 40f;
         float available = videoWidth - 26f - starWidth;
-        float modeWidth = Math.min(156f, available * 0.55f);
+        float modeWidth = Math.min(catalog.favoritesMode() ? 174f : 156f, available * 0.55f);
         float typeWidth = Math.min(124f, available - modeWidth);
         float left = x + 8f;
         favoriteBounds.set(left, y + 5f, starWidth, 38f);
@@ -516,9 +530,11 @@ final class PokerVideoOverlay implements AutoCloseable {
         boolean icon = bounds == favoritesModeBounds ? bounds.width >= 132f : bounds.width >= 110f;
         float inset = icon ? 35f : 6f;
         float width = bounds.width - inset - 6f;
-        GdxPixelText.draw(font, batch, ellipsize(font, label, width),
-                bounds.x + inset, bounds.y + 26f, width,
-                icon ? Align.left : Align.center, false, viewport);
+        glyph.setText(font, label);
+        boolean wrap = bounds == favoritesModeBounds && glyph.width > width;
+        GdxPixelText.draw(font, batch, wrap ? label : ellipsize(font, label, width),
+                bounds.x + inset, bounds.y + (wrap ? 34f : 26f), width,
+                icon ? Align.left : Align.center, wrap, viewport);
     }
 
     private boolean emptyFavorites() {

@@ -33,6 +33,7 @@ final class GdxSettingsContract {
     static final String GLASS_EFFECT_KEY = "efecto_relieve";
     static final String POKER_VIDEOS_KEY = "mostrar_videos_poker";
     static final String POKER_VIDEO_TYPE_KEY = "tipo_videos_poker";
+    static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
@@ -352,14 +353,15 @@ final class GdxSettingsContract {
                     Gate.NONE),
             option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
                     Gate.NONE));
-    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE =
-            withoutUnavailablePokerVideo(page(
+    private static final TogglePage APPEARANCE_ANIMATION_SOURCE = page(
             "ANIMACIONES Y EFECTOS",
             option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
             option(POKER_VIDEOS_KEY,
                     "MOSTRAR VÍDEOS DE PÓKER",
                     true, Gate.ANIMATIONS),
+            option(POKER_VIDEO_AUTO_OPEN_KEY, "ABRIR VÍDEO AL ARRANCAR",
+                    true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
             option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
                     Gate.ANIMATIONS),
             option(MODAL_BLUR_KEY, "DESENFOQUE DE DIÁLOGOS", true,
@@ -394,7 +396,10 @@ final class GdxSettingsContract {
             option("animacion_efecto_ganador", "EFECTO DE GANADOR", true,
                     Gate.ANIMATIONS),
             option("animacion_apuestas", "FICHAS VOLADORAS", true,
-                    Gate.ANIMATIONS)));
+                    Gate.ANIMATIONS));
+
+    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE =
+            withoutUnavailablePokerVideo(APPEARANCE_ANIMATION_SOURCE);
 
     private static final List<Integer> VOICE_RETENTION_DAYS = List.of(
             7, 15, 30, 90, 0);
@@ -572,6 +577,7 @@ final class GdxSettingsContract {
                     List.of(
                     animationToggle("animaciones"),
                     animationToggle(POKER_VIDEOS_KEY),
+                    animationToggle(POKER_VIDEO_AUTO_OPEN_KEY),
                     animationChoice(POKER_VIDEO_TYPE_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
@@ -644,7 +650,7 @@ final class GdxSettingsContract {
             "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
-            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_TYPE_KEY,
+            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY, POKER_VIDEO_TYPE_KEY,
             "cinematicas",
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
@@ -674,7 +680,8 @@ final class GdxSettingsContract {
     private static TogglePage withoutUnavailablePokerVideo(TogglePage page) {
         if (PokerVideoPlatformSupport.isAvailable()) return page;
         return new TogglePage(page.title(), page.options().stream()
-                .filter(option -> !POKER_VIDEOS_KEY.equals(option.key()))
+                .filter(option -> !POKER_VIDEOS_KEY.equals(option.key())
+                        && !POKER_VIDEO_AUTO_OPEN_KEY.equals(option.key()))
                 .toList());
     }
 
@@ -684,6 +691,7 @@ final class GdxSettingsContract {
         if (PokerVideoPlatformSupport.isAvailable()) return rows;
         return rows.stream()
                 .filter(row -> !POKER_VIDEOS_KEY.equals(row.key())
+                        && !POKER_VIDEO_AUTO_OPEN_KEY.equals(row.key())
                         && !POKER_VIDEO_TYPE_KEY.equals(row.key()))
                 .toList();
     }
@@ -1138,7 +1146,7 @@ final class GdxSettingsContract {
 
     private static AppearanceAnimationRow animationToggle(String key) {
         return new AppearanceAnimationRow(
-                APPEARANCE_ANIMATIONS_PAGE.options().stream()
+                APPEARANCE_ANIMATION_SOURCE.options().stream()
                         .filter(option -> option.key().equals(key))
                         .findFirst().orElseThrow(
                                 () -> new IllegalStateException(

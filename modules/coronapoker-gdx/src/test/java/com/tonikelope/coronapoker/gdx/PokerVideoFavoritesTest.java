@@ -30,6 +30,49 @@ class PokerVideoFavoritesTest {
         try (var siblings = Files.list(directory)) { assertEquals(1, siblings.count()); }
     }
 
+    @Test void startupOffKeepsOnlyTheIconWithoutLoadingUntilItIsClicked() throws Exception {
+        try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
+                directory.resolve("favorites.properties")), ignored -> { }, false)) {
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertTrue(overlay.hostVisible());
+            assertEquals(true, value(overlay, "minimized"));
+            assertEquals(false, value(overlay, "initializationStarted"));
+            assertNull(value(overlay, "runtime"));
+            overlay.releaseForTable();
+            overlay.restoreAfterTable();
+            overlay.update(true, true, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            assertEquals(true, value(overlay, "minimized"));
+            assertEquals(false, value(overlay, "initializationStarted"));
+            click(overlay, "iconBounds");
+            assertEquals(false, value(overlay, "minimized"));
+        }
+    }
+
+    @Test void featureAndAnimationSwitchesDominateTheStartupOption() throws Exception {
+        for (boolean available : new boolean[]{false, true}) {
+            try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
+                    directory.resolve("favorites.properties")), ignored -> { }, true)) {
+                overlay.update(available, false, true, PokerVideoIcon.Placement.MENU,
+                        "es", "shorts", 1920f, 1080f);
+                assertFalse(overlay.hostVisible());
+                assertEquals(false, value(overlay, "initializationStarted"));
+                assertNull(value(overlay, "runtime"));
+            }
+        }
+    }
+
+    @Test void manuallyEnablingVideosLaterStillOpensEvenWhenStartupIsOff() throws Exception {
+        try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
+                directory.resolve("favorites.properties")), ignored -> { }, false)) {
+            overlay.update(true, false, true, PokerVideoIcon.Placement.MENU,
+                    "es", "shorts", 1920f, 1080f);
+            prepare(overlay, 260f);
+            assertEquals(false, value(overlay, "minimized"));
+        }
+    }
+
     @Test void keepsFavoritesSeparateByFormatWithoutLosingTheOtherFormat() throws Exception {
         var store = new PokerVideoFavorites(directory.resolve("favorites.properties"));
         store.toggle(FIRST, "shorts");
@@ -144,6 +187,12 @@ class PokerVideoFavoritesTest {
         var field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static Object value(PokerVideoOverlay overlay, String name) throws Exception {
+        var field = PokerVideoOverlay.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(overlay);
     }
 
     private static Rectangle bounds(PokerVideoOverlay overlay, String name) throws Exception {

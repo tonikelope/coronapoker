@@ -811,7 +811,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "secureRandom");
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
-        pokerVideoOverlay = new PokerVideoOverlay(type -> {
+        pokerVideoOverlay = new PokerVideoOverlay(
+                preferenceBoolean(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY, true), type -> {
             initialProperties.setProperty(GdxSettingsContract.POKER_VIDEO_TYPE_KEY, type);
             this.preferences.saveDeferred();
         });

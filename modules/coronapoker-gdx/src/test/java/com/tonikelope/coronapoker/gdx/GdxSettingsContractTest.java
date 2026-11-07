@@ -701,12 +701,13 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(19, page.options().size());
+        assertEquals(20, page.options().size());
         assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "mostrar_videos_poker",
+                "abrir_video_poker_al_arrancar",
                 "tipo_videos_poker",
                 "efecto_halos",
                 "efecto_desenfoque",
@@ -738,8 +739,24 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceGroups(page),
                 GdxSettingsContract.appearanceRowCount(page)).stream()
                 .anyMatch(group -> group.parentRow() == 1
-                        && group.lastRow() == 2),
-                "the poker video switch and type selector must share a group");
+                        && group.lastRow() == 3),
+                "video startup and type must share the poker video group");
+    }
+
+    @Test
+    void videoStartupPreferenceDefaultsOnAndRequiresVideosAndAnimations() {
+        var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                .filter(row -> GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY.equals(row.key()))
+                .findFirst().orElseThrow();
+        Properties values = new Properties();
+        assertTrue(option.fallback());
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(option.key()));
+        assertTrue(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY, "false");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY, "true");
+        values.setProperty("animaciones", "false");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
     }
 
     @Test

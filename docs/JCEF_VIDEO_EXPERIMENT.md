@@ -12,6 +12,12 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   efectos` domina todo el sistema: si está apagado no aparecen ventana ni
   icono y no se inician búsqueda, servidor ni navegador. Lo mismo ocurre si
   se desactiva específicamente `Vídeos de póker`.
+- `Abrir vídeo al arrancar` está activado por defecto. Al apagarlo, el próximo
+  arranque muestra solo el icono y no inicia búsqueda ni navegador hasta pulsarlo.
+  Necesita que los vídeos y las animaciones estén activados; no puede habilitar
+  por sí solo una función desactivada. Se conserva el estado de ventana/icono
+  durante los cambios de pantalla de la sesión. Activar manualmente los vídeos
+  más tarde sí abre la ventana, independientemente de la opción de arranque.
 - La lista contiene Shorts o vídeos normales según el selector. La búsqueda
   añade español o inglés según el idioma del juego para priorizar contenido en ese idioma. El
   lote anónimo que entrega YouTube se baraja al iniciar y se vuelve a barajar
@@ -28,7 +34,7 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   de resultados.
 - La cabecera tiene un fondo opaco uniforme, con anterior, siguiente y cerrar.
   Una barra inferior separada contiene la estrella de favorito, el botón para
-  ver favoritos o volver al carrusel normal, y el selector rápido Shorts/Normales.
+  ver favoritos o volver al «Modo carrusel», y el selector rápido Shorts/Normales.
   Este selector guarda el mismo ajuste de formato que el menú de apariencia.
   Estrella y favoritos se alinean a la izquierda; el selector de formato queda
   a la derecha y muestra el destino del cambio, tanto en su texto como en su icono.
@@ -38,7 +44,7 @@ sala de espera. Durante la partida no aparece ninguno de los dos.
   Los favoritos se separan por formato para mantener la proporción correcta.
   El modo favoritos usa esa lista en el carrusel; al volver a normal recupera
   el catálogo aleatorio de la sesión. Si no hay favoritos del tipo elegido,
-  se pausa el vídeo y se muestra un mensaje que permite volver al modo normal.
+  se pausa el vídeo y se muestra un mensaje que permite volver al modo carrusel.
 - El Short arranca automáticamente silenciado y sin forzar subtítulos. Los
   controles nativos de YouTube están habilitados para mantener el icono de
   audio enlazado con el mute real; la navegación y el cierre se

@@ -345,6 +345,8 @@ YouTube for the actual displayed resolution and connection.
 The lower toolbar saves favorites across sessions, switches between the saved
 and random carousels, and changes Shorts/normal format using the appearance
 setting. Favorites are grouped by format to preserve the video proportions.
+The video group's startup switch can leave the enabled player minimized to its
+icon until opened manually, without starting a search or browser at launch.
 See the [video integration guide](docs/JCEF_VIDEO_EXPERIMENT.md) for window,
 audio and session behavior, platform support and YouTube limitations.
 

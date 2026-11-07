@@ -3,8 +3,6 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.Graphics.DisplayMode;
-import com.badlogic.gdx.Graphics.Monitor;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.DatabaseService;
@@ -309,11 +307,9 @@ final class GdxApplicationShell extends ApplicationAdapter {
         frameRateMonitorPollClock += Math.max(0f, delta);
         if (frameRateMonitorPollClock >= 0.35f) {
             frameRateMonitorPollClock = 0f;
-            Monitor monitor = Gdx.graphics.getMonitor();
-            DisplayMode mode = monitor == null ? null
-                    : Gdx.graphics.getDisplayMode(monitor);
-            if (monitor != null && mode != null && mode.refreshRate > 0) {
-                frameRateMonitorRefresh = mode.refreshRate;
+            int refreshRate = GdxDisplayModeController.monitorRefreshRate(Gdx.graphics);
+            if (refreshRate > 0) {
+                frameRateMonitorRefresh = refreshRate;
             }
         }
         int target = presentationSettings.effectiveFrameRateLimit(
@@ -339,9 +335,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     /**
      * GLFW owns display-sleep inhibition while its window is attached to a
-     * monitor in exclusive fullscreen. Borderless fullscreen is still a
-     * windowed GLFW surface, so CoronaPoker supplies the native inhibitor for
-     * that mode and for an ordinary window.
+     * monitor in native fullscreen. CoronaPoker supplies the native inhibitor
+     * for windowed surfaces, including borderless fullscreen on X11 and Windows.
      */
     private void synchronizeScreenWakeLock() {
         boolean required = GdxDisplayModeController

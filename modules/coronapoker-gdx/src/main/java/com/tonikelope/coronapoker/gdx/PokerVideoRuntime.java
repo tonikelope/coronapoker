@@ -138,6 +138,14 @@ final class PokerVideoRuntime implements AutoCloseable {
 
     private void initializeInternal(Path dataDirectory, int width, int height,
             double scaleFactor) throws Exception {
+        String osName = System.getProperty("os.name", "");
+        if (!PokerVideoPlatformSupport.hasBrowserDisplay(osName,
+                System.getenv("DISPLAY"))) {
+            initializationFailed("en".equals(playerLanguage)
+                    ? "Chromium requires an accessible X11 or XWayland display."
+                    : "Chromium necesita una pantalla X11 o XWayland accesible.");
+            return;
+        }
         Files.createDirectories(dataDirectory);
         Path nativeDirectory = dataDirectory.resolve(
                 "jcef-" + JCEF_MAVEN_VERSION);
@@ -149,6 +157,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         CefAppBuilder builder = new CefAppBuilder();
         builder.setInstallDir(nativeDirectory.toFile());
         builder.addJcefArgs("--use-alloy-style");
+        builder.getJcefArgs().addAll(PokerVideoPlatformSupport.browserArguments(osName));
         // This isolated browser exists only for the user-enabled poker-video
         // overlay. The player itself decides whether a recreated browser is a
         // fresh muted opening or a table-transition restoration.
@@ -169,9 +178,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         builder.setAppHandler(new MavenCefAppHandlerAdapter() {
             @Override
             public void stateHasChanged(CefAppState appState) {
-                if (appState == CefAppState.TERMINATED && !closed.get()) {
-                    state = "REPRODUCTOR FINALIZADO";
-                }
+                onCefStateChanged(appState);
             }
         });
 
@@ -181,9 +188,27 @@ final class PokerVideoRuntime implements AutoCloseable {
         openBrowserSession(width, height, scaleFactor);
     }
 
+    void onCefStateChanged(CefAppState appState) {
+        if (closed.get()) return;
+        if (appState == CefAppState.INITIALIZATION_FAILED
+                || appState == CefAppState.TERMINATED) {
+            initializationFailed("en".equals(playerLanguage)
+                    ? "Chromium could not start or stopped unexpectedly."
+                    : "Chromium no pudo arrancar o se cerró inesperadamente.");
+            Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
+                    "Poker video CEF state: {0}", appState);
+        }
+    }
+
+    private void initializationFailed(String message) {
+        initializationError = message;
+        state = "REPRODUCTOR NO DISPONIBLE";
+    }
+
     private synchronized void openBrowserSession(int width, int height,
             double scaleFactor) throws Exception {
-        if (browser != null || browserClosing || closed.get()) return;
+        if (browser != null || browserClosing || closed.get()
+                || initializationError != null) return;
         boolean restoreAudio = restoreAudioOnNextSession;
         boolean initialMuted = restoreAudio ? resumeMuted : true;
         int initialVolume = restoreAudio ? resumeVolume : 100;

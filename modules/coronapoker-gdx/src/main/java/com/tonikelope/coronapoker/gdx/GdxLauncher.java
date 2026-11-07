@@ -95,6 +95,7 @@ public final class GdxLauncher {
                 : requestedMonitor;
         DisplayMode display = Lwjgl3ApplicationConfiguration.getDisplayMode(
                 targetMonitor);
+        boolean wayland = GdxDisplayModeController.isWayland();
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("CoronaPoker // GDX");
         // --silent starts the shared master control muted, but keeps the audio
@@ -111,25 +112,26 @@ public final class GdxLauncher {
         // Omitting those attachments saves bandwidth on every presented frame.
         config.setBackBufferConfig(8, 8, 8, 8, 0, 0,
                 presentationSettings.requestedMsaaSamples());
-        config.setWindowIcon("images/corona_poker_16.png");
+        if (!wayland) config.setWindowIcon("images/corona_poker_16.png");
         if (windowMode == GdxWindowMode.WINDOWED) {
             config.setDecorated(true);
             config.setResizable(true);
             config.setWindowedMode(1600, 900);
-            if (requestedMonitor != null) {
+            if (!wayland && requestedMonitor != null) {
                 int x = requestedMonitor.virtualX
                         + Math.max(0, (display.width - 1600) / 2);
                 int y = requestedMonitor.virtualY
                         + Math.max(0, (display.height - 900) / 2);
                 config.setWindowPosition(x, y);
             }
-        } else if (windowMode == GdxWindowMode.BORDERLESS) {
+        } else if (!wayland && windowMode == GdxWindowMode.BORDERLESS) {
             config.setDecorated(false);
             config.setResizable(false);
             config.setWindowedMode(display.width, display.height);
             config.setWindowPosition(targetMonitor.virtualX,
                     targetMonitor.virtualY);
         } else {
+            // On Wayland both fullscreen preferences use compositor fullscreen.
             config.setFullscreenMode(display);
         }
         System.setProperty("coronapoker.gdx.activeWindowMode",

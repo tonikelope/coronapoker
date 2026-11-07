@@ -92,7 +92,7 @@ class PokerVideoFavoritesTest {
             var worker = new Thread(task, "video-cancellation-regression");
             try (var overlay = overlay(260f)) {
                 set(overlay, "initializationTask", task);
-                set(overlay, "startingNative", nativePhase);
+                set(overlay, "nativeStartupSince", nativePhase ? 1L : 0L);
                 set(overlay, "catalogLoading", true);
                 worker.start();
                 assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS));
@@ -104,6 +104,27 @@ class PokerVideoFavoritesTest {
                 assertEquals(!nativePhase, interrupted.get());
                 assertEquals(false, value(overlay, "initializationStarted"));
             } finally { release.countDown(); worker.join(2000); }
+        }
+    }
+
+    @Test void windowAnimationRunsBothWaysAndCanBeDisabled() throws Exception {
+        try (var overlay = overlay(260f)) {
+            set(overlay, "minimized", true);
+            overlay.updateWindowAnimation(true, 0f);
+            click(overlay, "iconBounds");
+            assertEquals(0f, value(overlay, "transitionElapsed"));
+            overlay.updateWindowAnimation(true, 1f);
+            click(overlay, "closeBounds");
+            assertEquals(0f, value(overlay, "transitionElapsed"));
+            assertEquals(true, value(overlay, "minimized"));
+            overlay.updateWindowAnimation(false, 0f);
+            Object complete = value(overlay, "transitionElapsed");
+            click(overlay, "iconBounds");
+            assertEquals(false, value(overlay, "minimized"));
+            assertEquals(complete, value(overlay, "transitionElapsed"));
+            click(overlay, "closeBounds");
+            assertEquals(true, value(overlay, "minimized"));
+            assertEquals(complete, value(overlay, "transitionElapsed"));
         }
     }
 

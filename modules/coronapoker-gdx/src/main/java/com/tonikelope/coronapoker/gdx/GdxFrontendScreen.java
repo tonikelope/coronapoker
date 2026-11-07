@@ -19,6 +19,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -1282,6 +1283,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean pokerVideosAvailable = PokerVideoIcon.systemEnabled(
                 PokerVideoPlatformSupport.isAvailable(),
                 preferenceBoolean("animaciones", true));
+        pokerVideoOverlay.updateWindowAnimation(preferenceBoolean(
+                GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY, true),
+                frameDelta);
         pokerVideoOverlay.update(pokerVideosAvailable,
                 pokerVideosAvailable && preferenceBoolean(
                         GdxSettingsContract.POKER_VIDEOS_KEY, true),
@@ -1929,7 +1933,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
         batch.begin();
         pokerVideoOverlay.drawContent(batch, buttonTinyFont, tinyFont,
-                viewport);
+                viewport, pointer);
         batch.end();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         pokerVideoOverlay.drawForegroundShapes(shapes, pointer);
@@ -6478,16 +6482,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || settingsLobbyBackdrop,
                 lobbyImageMode, lobbyEmojiPickerOpen,
                 lobbyChatViewport.width, lobbyChatViewport.height)) return;
-        int screenX = Math.round(viewport.getScreenX()
-                + lobbyChatViewport.x * viewport.getScreenWidth() / WIDTH);
-        int screenY = Math.round(viewport.getScreenY()
-                + lobbyChatViewport.y * viewport.getScreenHeight() / HEIGHT);
-        int screenWidth = Math.max(1, Math.round(lobbyChatViewport.width
-                * viewport.getScreenWidth() / WIDTH));
-        int screenHeight = Math.max(1, Math.round(lobbyChatViewport.height
-                * viewport.getScreenHeight() / HEIGHT));
-        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        enableWorldScissor(lobbyChatViewport);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -6533,16 +6528,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         != GdxSettingsContract.Section.DEBUG
                 || settingsDebugViewport.width <= 0f
                 || settingsDebugViewport.height <= 0f) return;
-        int screenX = Math.round(viewport.getScreenX()
-                + settingsDebugViewport.x * viewport.getScreenWidth() / WIDTH);
-        int screenY = Math.round(viewport.getScreenY()
-                + settingsDebugViewport.y * viewport.getScreenHeight() / HEIGHT);
-        int screenWidth = Math.max(1, Math.round(settingsDebugViewport.width
-                * viewport.getScreenWidth() / WIDTH));
-        int screenHeight = Math.max(1, Math.round(settingsDebugViewport.height
-                * viewport.getScreenHeight() / HEIGHT));
-        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        enableWorldScissor(settingsDebugViewport);
         batch.begin();
         for (TextItem item : settingsDebugTexts) {
             drawTextItem(item);
@@ -6583,7 +6569,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int screenHeight = Math.max(1, Math.round(bounds.height
                 * viewport.getScreenHeight() / HEIGHT));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
     }
 
     static boolean shouldDrawLobbyChatLayer(boolean lobbySurface,

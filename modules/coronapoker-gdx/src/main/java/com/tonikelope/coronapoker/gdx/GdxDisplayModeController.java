@@ -2,10 +2,14 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.Graphics.DisplayMode;
 import com.badlogic.gdx.Graphics.Monitor;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
+import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Input;
 import java.util.Properties;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWVidMode;
 
 /** Runtime F11 transition shared by the native menu and the live table. */
 final class GdxDisplayModeController {
@@ -37,7 +41,7 @@ final class GdxDisplayModeController {
     static boolean apply(GdxWindowMode mode) {
         if (!(Gdx.graphics instanceof Lwjgl3Graphics graphics)
                 || mode == null) return false;
-        boolean applied = switch (mode) {
+        boolean applied = isWayland() ? applyWayland(graphics, mode) : switch (mode) {
             case WINDOWED -> leaveFullscreen(graphics);
             case BORDERLESS -> enterBorderless(graphics);
             case EXCLUSIVE -> enterExclusive(graphics);
@@ -49,6 +53,49 @@ final class GdxDisplayModeController {
     static boolean apply(Properties properties, GdxWindowMode mode) {
         if (!apply(mode)) return false;
         synchronizePreference(properties, mode);
+        return true;
+    }
+
+    static boolean isWayland() {
+        return GLFW.glfwGetPlatform() == GLFW.GLFW_PLATFORM_WAYLAND;
+    }
+
+    static int monitorRefreshRate(Graphics graphics) {
+        if (graphics instanceof Lwjgl3Graphics lwjgl && isWayland()) {
+            long window = lwjgl.getWindow().getWindowHandle();
+            long monitor = GLFW.glfwGetWindowMonitor(window);
+            // Wayland only exposes a window's monitor when it is fullscreen.
+            if (monitor == 0L) monitor = GLFW.glfwGetPrimaryMonitor();
+            GLFWVidMode video = monitor == 0L ? null : GLFW.glfwGetVideoMode(monitor);
+            return video == null ? 0 : video.refreshRate();
+        }
+        Monitor monitor = graphics.getMonitor();
+        DisplayMode mode = monitor == null ? null : graphics.getDisplayMode(monitor);
+        return mode == null ? 0 : mode.refreshRate;
+    }
+
+    private static boolean applyWayland(Lwjgl3Graphics graphics, GdxWindowMode mode) {
+        long window = graphics.getWindow().getWindowHandle();
+        boolean fullscreen = GLFW.glfwGetWindowMonitor(window) != 0L;
+        boolean targetFullscreen = mode != GdxWindowMode.WINDOWED;
+        if (fullscreen != targetFullscreen) {
+            // libGDX's mode changes query/restore global window coordinates.
+            // Wayland lets the compositor place the window and size fullscreen.
+            if (targetFullscreen) {
+                long monitor = GLFW.glfwGetPrimaryMonitor();
+                if (monitor == 0L) return false;
+                GLFWVidMode video = GLFW.glfwGetVideoMode(monitor);
+                if (video == null) return false;
+                GLFW.glfwSetWindowMonitor(window, monitor, 0, 0,
+                        video.width(), video.height(), GLFW.GLFW_DONT_CARE);
+            } else {
+                GLFW.glfwSetWindowMonitor(window, 0L, 0, 0, WINDOWED_WIDTH,
+                        WINDOWED_HEIGHT, GLFW.GLFW_DONT_CARE);
+            }
+            if (graphics.isFullscreen() != targetFullscreen) return false;
+            if (Gdx.input instanceof Lwjgl3Input input) input.resetPollingStates();
+        }
+        setActiveMode(mode);
         return true;
     }
 

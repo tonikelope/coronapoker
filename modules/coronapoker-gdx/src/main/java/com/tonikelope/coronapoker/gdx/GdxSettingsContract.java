@@ -34,6 +34,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEOS_KEY = "mostrar_videos_poker";
     static final String POKER_VIDEO_TYPE_KEY = "tipo_videos_poker";
     static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
+    static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
@@ -362,6 +363,9 @@ final class GdxSettingsContract {
                     true, Gate.ANIMATIONS),
             option(POKER_VIDEO_AUTO_OPEN_KEY, "ABRIR VÍDEO AL ARRANCAR",
                     true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
+            option(POKER_VIDEO_WINDOW_ANIMATION_KEY,
+                    "ANIMACIÓN AL CERRAR/ABRIR REPRODUCTOR",
+                    true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
             option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
                     Gate.ANIMATIONS),
             option(MODAL_BLUR_KEY, "DESENFOQUE DE DIÁLOGOS", true,
@@ -578,6 +582,7 @@ final class GdxSettingsContract {
                     animationToggle("animaciones"),
                     animationToggle(POKER_VIDEOS_KEY),
                     animationToggle(POKER_VIDEO_AUTO_OPEN_KEY),
+                    animationToggle(POKER_VIDEO_WINDOW_ANIMATION_KEY),
                     animationChoice(POKER_VIDEO_TYPE_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
@@ -650,7 +655,8 @@ final class GdxSettingsContract {
             "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
-            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY, POKER_VIDEO_TYPE_KEY,
+            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY,
+            POKER_VIDEO_WINDOW_ANIMATION_KEY, POKER_VIDEO_TYPE_KEY,
             "cinematicas",
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
@@ -681,7 +687,8 @@ final class GdxSettingsContract {
         if (PokerVideoPlatformSupport.isAvailable()) return page;
         return new TogglePage(page.title(), page.options().stream()
                 .filter(option -> !POKER_VIDEOS_KEY.equals(option.key())
-                        && !POKER_VIDEO_AUTO_OPEN_KEY.equals(option.key()))
+                        && !POKER_VIDEO_AUTO_OPEN_KEY.equals(option.key())
+                        && !POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(option.key()))
                 .toList());
     }
 
@@ -692,6 +699,7 @@ final class GdxSettingsContract {
         return rows.stream()
                 .filter(row -> !POKER_VIDEOS_KEY.equals(row.key())
                         && !POKER_VIDEO_AUTO_OPEN_KEY.equals(row.key())
+                        && !POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(row.key())
                         && !POKER_VIDEO_TYPE_KEY.equals(row.key()))
                 .toList();
     }

@@ -2,9 +2,28 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import org.cef.CefApp.CefAppState;
 import org.junit.jupiter.api.Test;
 
 class PokerVideoRuntimeSessionTest {
+    @Test void nativeStartupHasAVisibleDeadlineBeforeTheDocumentExists() {
+        long limit = TimeUnit.SECONDS.toNanos(60);
+        long started = 1L;
+        assertFalse(PokerVideoOverlay.nativeStartupTimedOut(0L, limit + started));
+        assertFalse(PokerVideoOverlay.nativeStartupTimedOut(started, limit));
+        assertTrue(PokerVideoOverlay.nativeStartupTimedOut(started, limit + started));
+    }
+
+    @Test void asyncNativeStartupFailureBecomesAPlayerError() throws Exception {
+        var runtime = interrupted();
+        runtime.onCefStateChanged(CefAppState.INITIALIZING);
+        assertNull(runtime.initializationError());
+        runtime.onCefStateChanged(CefAppState.INITIALIZATION_FAILED);
+        assertNotNull(runtime.initializationError());
+        assertEquals("REPRODUCTOR NO DISPONIBLE", runtime.state());
+    }
+
     @Test void interruptedBrowserCanResumeItsLastStableAudio() throws Exception {
         var runtime = interrupted();
         runtime.releaseBrowserSession(true);

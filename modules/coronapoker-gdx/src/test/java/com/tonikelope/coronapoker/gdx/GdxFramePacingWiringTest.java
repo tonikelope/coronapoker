@@ -41,9 +41,9 @@ final class GdxFramePacingWiringTest {
                 && nextMethod > vsyncStart);
 
         String pacing = source.substring(pacingStart, vsyncStart);
-        assertTrue(pacing.contains("Gdx.graphics.getMonitor()"));
-        assertTrue(pacing.contains("Gdx.graphics.getDisplayMode(monitor)"));
-        assertTrue(pacing.contains("frameRateMonitorRefresh = mode.refreshRate"));
+        assertTrue(pacing.contains(
+                "GdxDisplayModeController.monitorRefreshRate(Gdx.graphics)"));
+        assertTrue(pacing.contains("frameRateMonitorRefresh = refreshRate"));
         assertTrue(pacing.contains("target != appliedForegroundFps"));
         assertTrue(pacing.contains("Gdx.graphics.setForegroundFPS(target)"));
 

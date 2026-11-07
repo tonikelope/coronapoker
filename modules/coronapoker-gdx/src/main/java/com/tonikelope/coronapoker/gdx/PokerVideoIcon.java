@@ -1,11 +1,12 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.math.Vector2;
 
-/** Shared, resource-free poker-video affordance for the menu and waiting room. */
+/** Shared minimized video button for the menu and waiting room. */
 final class PokerVideoIcon {
 
     private static final float SOUND_GAP = 12f;
@@ -44,21 +45,33 @@ final class PokerVideoIcon {
                 placement.bottom, placement.size, placement.size);
     }
 
-    static void draw(ShapeRenderer shapes, Rectangle bounds, Vector2 pointer,
-            boolean pressed, float alpha) {
-        boolean hovered = bounds.contains(pointer);
-        // Deliberately no external hover halo or drop shadow: the complete
-        // interaction feedback stays clipped to the control silhouette.
-        GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,
-                bounds.width, bounds.height,
-                GdxUiButtonStyle.Tone.FEATURED, true,
-                hovered ? 1f : 0f, pressed, alpha);
-        GdxUiIconRenderer.draw(shapes,
-                GdxUiIconRenderer.Icon.CONTINUE,
-                bounds.x + bounds.width / 2f,
-                bounds.y + bounds.height / 2f,
-                Math.max(12f, bounds.width - 8f),
-                GdxUiButtonStyle.labelColor(
-                        GdxUiButtonStyle.Tone.FEATURED, true), alpha);
+    static void drawLogo(SpriteBatch batch, Texture logo, Rectangle bounds,
+            boolean hovered, boolean pressed) {
+        float feedbackScale = pressed ? 0.94f : hovered ? 1.04f : 1f;
+        drawLogo(batch, logo, bounds, feedbackScale, 1f);
+    }
+
+    static Rectangle logoBounds(Texture logo, Rectangle bounds, Rectangle result) {
+        float scale = fitScale(logo, bounds);
+        float width = logo.getWidth() * scale;
+        float height = logo.getHeight() * scale;
+        return result.set(bounds.x + (bounds.width - width) / 2f,
+                bounds.y + (bounds.height - height) / 2f, width, height);
+    }
+
+    static void drawLogo(SpriteBatch batch, Texture logo, Rectangle bounds,
+            float feedbackScale, float alpha) {
+        float scale = fitScale(logo, bounds) * feedbackScale;
+        float width = logo.getWidth() * scale;
+        float height = logo.getHeight() * scale;
+        batch.setColor(1f, 1f, 1f, alpha);
+        batch.draw(logo, bounds.x + (bounds.width - width) / 2f,
+                bounds.y + (bounds.height - height) / 2f, width, height);
+        batch.setColor(Color.WHITE);
+    }
+
+    private static float fitScale(Texture logo, Rectangle bounds) {
+        return Math.min(bounds.width / logo.getWidth(),
+                bounds.height / logo.getHeight());
     }
 }

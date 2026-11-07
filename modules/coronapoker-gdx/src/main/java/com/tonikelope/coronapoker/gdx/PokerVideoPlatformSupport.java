@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.sun.jna.platform.unix.X11;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
 
@@ -26,6 +28,34 @@ final class PokerVideoPlatformSupport {
         String artifact = nativeArtifact(osName, osArch);
         return artifact != null && resourceExists.test(
                 nativeResource(artifact));
+    }
+
+    static List<String> browserArguments(String osName) {
+        // The embedded player renders its own controls. On Linux the native
+        // GTK integration and Chromium's first-run UI can fail before OSR starts.
+        return isLinux(osName)
+                ? List.of("--no-first-run", "--ui-toolkit=fallback") : List.of();
+    }
+
+    static boolean hasBrowserDisplay(String osName, String displayName) {
+        return hasBrowserDisplay(osName, displayName, name -> {
+            var display = X11.INSTANCE.XOpenDisplay(name);
+            if (display == null) return false;
+            X11.INSTANCE.XCloseDisplay(display);
+            return true;
+        });
+    }
+
+    static boolean hasBrowserDisplay(String osName, String displayName,
+            Predicate<String> canOpenDisplay) {
+        // CEF 152 creates an X11 helper window even for windowless rendering
+        // on the Wayland backend. A missing X display can abort the JVM.
+        return !isLinux(osName) || displayName != null
+                && !displayName.isBlank() && canOpenDisplay.test(displayName);
+    }
+
+    private static boolean isLinux(String osName) {
+        return osName != null && osName.toLowerCase(Locale.ROOT).contains("linux");
     }
 
     static String nativeArtifact(String osName, String osArch) {

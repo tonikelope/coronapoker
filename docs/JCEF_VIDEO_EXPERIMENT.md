@@ -175,6 +175,15 @@ inician la búsqueda, el servidor local ni JCEF. Esto también evita que la
 dependencia base descargue automáticamente un paquete nativo en una plataforma
 no admitida.
 
+En Linux, el JCEF incluido necesita acceso a X11 o XWayland incluso cuando
+GLFW y Chromium renderizan en Wayland. Antes de iniciarlo, CoronaPoker
+comprueba que puede abrir el `DISPLAY`. Si falta o no es accesible, el panel
+muestra el motivo. El Chromium embebido omite su asistente de primer arranque
+y usa su toolkit interno para evitar cargar la integración GTK durante el
+arranque. Estos argumentos solo se aplican a Linux. Si el arranque nativo
+tarda más de un minuto, el panel informa de la espera sin lanzar otra
+instancia de Chromium.
+
 La extracción de resultados de búsqueda no usa una clave de API y depende del
 documento público de resultados de YouTube. Es deliberadamente un componente
 aislado y tolerante a fallos: si el formato cambia o la red falla, el menú y la
@@ -182,9 +191,10 @@ sala siguen operativos y el error queda limitado al panel del vídeo.
 La respuesta se limita a 12 MiB durante la recepción y tiene un plazo total de
 15 segundos, incluido el cuerpo; interrumpir la carga cancela la petición.
 
-La validación nativa de esta integración se ha realizado en Windows x64.
-Los paquetes Linux y macOS se comprueban estructuralmente al fabricarlos;
-esto no sustituye una prueba gráfica real en esos sistemas.
+La integración se ha validado en Windows x64 y en Linux x64 mediante WSLg,
+con los clientes gráficos en Wayland y en X11. La prueba de Linux incluyó
+reproducción de YouTube y cierre del navegador. La validación de los paquetes
+macOS y Linux ARM64 es estructural.
 
 En las pruebas nativas se puede usar `-Dcoronapoker.video.silentOutput=true`:
 añade `--mute-audio` a Chromium sin cambiar el mute de la API ni su control

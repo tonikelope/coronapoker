@@ -30,6 +30,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
+import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Interpolation;
@@ -25339,7 +25340,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int screenHeight = Math.max(1, Math.round(bounds.height
                 * viewport.getScreenHeight() / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
     }
 
     /**
@@ -27259,7 +27260,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewportHeight * viewport.getScreenHeight()
                 / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
         batch.begin();
         for (int i = 0; i < formatted.size(); i++) {
             float lineY = anchoredPixelRowY(formatted.size(), i,
@@ -28594,7 +28595,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int screenHeight = Math.max(1, Math.round(content.height
                 * viewport.getScreenHeight() / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
         drawGameLogCardBackgrounds(logLines, content, logX, logW,
                 maximumScroll, alpha);
         batch.begin();
@@ -29166,7 +29167,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int screenHeight = Math.max(1, Math.round(historyViewportH
                 * viewport.getScreenHeight() / viewport.getWorldHeight()));
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glScissor(screenX, screenY, screenWidth, screenHeight);
+        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
         batch.begin();
         if (messages.isEmpty()) {
             drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(

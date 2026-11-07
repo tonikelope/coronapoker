@@ -14475,7 +14475,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Seat seat = seatByNickname(deal.nickname());
                 if (seat != null) {
                     LiveCardPlacement target = liveHolePlacement(seat, deal.slot());
-                    float progress = Interpolation.pow2Out.apply(flight.flightProgress());
+                    float flightProgress = flight.flightProgress();
                     float fanX = 1f;
                     float fanY = 0f;
                     if (seat.index == 0) {
@@ -14486,24 +14486,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         fanX = -towardY / length;
                         fanY = towardX / length;
                     }
-                    // Canonical visual-reference curve: the tangent follows
-                    // each hand's fan and the constant lift is only 62 world units.
-                    float controlX = (dealerSourceX + target.x) * 0.5f
-                            + fanX * 128f;
-                    float controlY = (dealerSourceY + target.y) * 0.5f
-                            + fanY * 128f + 62f;
-                    float x = bezier(dealerSourceX, controlX, target.x, progress);
-                    float y = bezier(dealerSourceY, controlY, target.y, progress);
-                    float launchRotation = (flight.dealOrder & 1) == 0
-                            ? -26f : 26f;
-                    float rotation = MathUtils.lerp(launchRotation,
-                            target.rotation, progress);
                     float reveal = flight.revealProgress();
-                    float scale = (0.82f + progress * 0.18f)
-                            * cardFlipScale(reveal);
-                    float shaderCanvas = CARD_SHADER_CANVAS_SCALE;
-                    float renderWidth = target.width * shaderCanvas;
-                    float renderHeight = target.height * shaderCanvas;
                     if (reveal > 0f) {
                         usePerspectiveCardShader(liveCardFace(deal.card().code()),
                                 cardFlipAngle(reveal, flight.flipDirection),
@@ -14511,12 +14494,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     } else {
                         useRoundedCardShader();
                     }
-                    batch.setColor(Color.WHITE);
-                    batch.draw(cardBack, x - renderWidth / 2f,
-                            y - renderHeight / 2f, renderWidth / 2f,
-                            renderHeight / 2f, renderWidth, renderHeight,
-                            scale, scale, rotation, 0, 0,
-                            cardBack.getWidth(), cardBack.getHeight(), false, false);
+                    drawDealtCardFlight(target, flightProgress, fanX, fanY,
+                            flight.dealOrder, cardFlipScale(reveal), cardBack);
                 }
             }
             if (liveHoleReveal != null) {
@@ -14539,6 +14518,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawDisabledHoleCardsLayer(cardBack,
                     DISABLED_HOLE_CARD_UPPER_PASS);
         }
+    }
+
+    private void drawDealtCardFlight(LiveCardPlacement target,
+            float flightProgress, float fanX, float fanY, int dealOrder,
+            float flipScale, Texture cardBack) {
+        float progress = Interpolation.pow2Out.apply(flightProgress);
+        // The curve follows the fan direction with a small lift above it.
+        float controlX = (dealerSourceX + target.x) * 0.5f + fanX * 128f;
+        float controlY = (dealerSourceY + target.y) * 0.5f + fanY * 128f + 62f;
+        float x = bezier(dealerSourceX, controlX, target.x, progress);
+        float y = bezier(dealerSourceY, controlY, target.y, progress);
+        float launchRotation = (dealOrder & 1) == 0 ? -26f : 26f;
+        float rotation = MathUtils.lerp(launchRotation, target.rotation, progress);
+        float scale = (0.82f + progress * 0.18f) * flipScale;
+        float renderWidth = target.width * CARD_SHADER_CANVAS_SCALE;
+        float renderHeight = target.height * CARD_SHADER_CANVAS_SCALE;
+        batch.setColor(Color.WHITE);
+        batch.draw(cardBack, x - renderWidth / 2f, y - renderHeight / 2f,
+                renderWidth / 2f, renderHeight / 2f, renderWidth, renderHeight,
+                scale, scale, rotation, 0, 0,
+                cardBack.getWidth(), cardBack.getHeight(), false, false);
     }
 
     static boolean shouldCompositeDisabledHoleCards(boolean foregroundFlights,
@@ -15301,21 +15301,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawCommunityCardFlight(int slot, LiveCardPlacement target,
             float flightProgress, Texture cardBack) {
-        float progress = Interpolation.pow2Out.apply(flightProgress);
-        float controlX = (dealerSourceX + target.x) * 0.5f + (slot - 2f) * 42f;
-        float controlY = Math.max(dealerSourceY, target.y) + 150f;
-        float x = bezier(dealerSourceX, controlX, target.x, progress);
-        float y = bezier(dealerSourceY, controlY, target.y, progress);
-        float rotation = MathUtils.lerp(-20f + slot * 10f, 0f, progress);
         useRoundedCardShader();
-        batch.setColor(Color.WHITE);
-        float canvasWidth = target.width * CARD_SHADER_CANVAS_SCALE;
-        float canvasHeight = target.height * CARD_SHADER_CANVAS_SCALE;
-        batch.draw(cardBack, x - canvasWidth / 2f,
-                y - canvasHeight / 2f, canvasWidth / 2f,
-                canvasHeight / 2f, canvasWidth, canvasHeight,
-                1f, 1f, rotation,
-                0, 0, cardBack.getWidth(), cardBack.getHeight(), false, false);
+        drawDealtCardFlight(target, flightProgress, 1f, 0f, slot, 1f, cardBack);
     }
 
     private boolean hasActiveCommunityFlight(int slot) {

@@ -672,8 +672,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
             }
             if (lobby.host() && command.command().equals("HOTJOIN_EXIT")) {
                 String nickname = command.peerNickname();
+                boolean retire = true;
                 try {
                     if (!hotJoin.disconnect(nickname)) {
+                        if (context.channel().isPeerDefinitivelyClosed(nickname)) {
+                            // The loss handler owns the reservation cleanup.
+                            retire = false;
+                            return;
+                        }
                         throw new IllegalArgumentException(
                                 "HOTJOIN_EXIT source is not warming");
                     }
@@ -688,7 +694,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 } catch (java.io.IOException failure) {
                     hotJoin.disconnect(nickname);
                 } finally {
-                    context.channel().retirePeerAfterExit(nickname);
+                    if (retire) context.channel().retirePeerAfterExit(nickname);
                 }
                 return;
             }
@@ -2287,11 +2293,11 @@ public final class CoreGameTableFactory implements GameTableFactory {
                      */
                     channel.sendFromHost(nickname,
                             "HOTJOIN_ACTIVE#" + hand)
-                            .whenComplete((ignored, failure) -> {
+                            .whenCompleteAsync((ignored, failure) -> {
                                 if (failure != null) {
                                     disconnectDefinitiveLoss(nickname);
                                 }
-                            });
+                            }, scheduler);
                 } catch (java.io.IOException failure) {
                     disconnectDefinitiveLoss(nickname);
                     return;
@@ -2329,11 +2335,13 @@ public final class CoreGameTableFactory implements GameTableFactory {
             try {
                 java.util.concurrent.CompletionStage<Void> delivery
                         = channel.sendFromHost(nickname, command);
-                delivery.whenComplete((ignored, failure) -> {
-                    if (failure != null) {
-                        disconnectDefinitiveLoss(nickname);
-                    }
-                });
+                if (host) {
+                    delivery.whenCompleteAsync((ignored, failure) -> {
+                        if (failure != null) {
+                            disconnectDefinitiveLoss(nickname);
+                        }
+                    }, scheduler);
+                }
                 return delivery;
             } catch (java.io.IOException failure) {
                 disconnectDefinitiveLoss(nickname);
@@ -2380,37 +2388,33 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
 
         boolean disconnectDefinitiveLoss(String nickname) {
-            boolean removed;
             synchronized (presentationLock) {
                 if (!warming.contains(nickname)
-                        || channel.isPeerConnected(nickname)
-                        || !channel.retirePeerAfterDefinitiveLoss(nickname)) {
+                        || !channel.isPeerDefinitivelyClosed(nickname)) {
                     return false;
                 }
-                // register() uses this same lock. Keep transport retirement
-                // and reservation removal indivisible with respect to a fresh
-                // HOTJOIN using the same persistent identity.
                 presentationCutovers.remove(nickname);
-                removed = warming.remove(nickname);
+                warming.remove(nickname);
+                earlyReady.remove(nickname);
+                boundaryReady.remove(nickname);
             }
-            earlyReady.remove(nickname);
-            boundaryReady.remove(nickname);
-            Crupier current = dealer;
-            if (removed && current != null) {
-                current.cancelHotJoin(nickname);
+            // The closed peer still reserves its identity in the transport.
+            // Release it only after cancelling the old dealer reservation and
+            // ordering that cancellation ahead of a fresh HOTJOIN.
+            try {
+                Crupier current = dealer;
+                if (current != null) current.cancelHotJoin(nickname);
+                if (host) broadcastCancellation(nickname);
+            } finally {
+                channel.retirePeerAfterDefinitiveLoss(nickname);
             }
-            if (removed && host) {
-                broadcastCancellation(nickname);
-            }
-            return removed;
+            return true;
         }
 
         void broadcastCancellation(String nickname) {
             String command = "HOTJOIN_CANCELLED#"
                     + Base64.getEncoder().encodeToString(
                             nickname.getBytes(StandardCharsets.UTF_8));
-            java.util.ArrayList<CompletableFuture<Void>> deliveries
-                    = new java.util.ArrayList<>();
             try {
                 /*
                  * DELUSER is a lobby lifecycle notification and is not a
@@ -2420,32 +2424,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
                  * It is enqueued before a later HOTJOIN for the same identity,
                  * so a stale loss cannot cancel the new incarnation.
                  */
-                deliveries.add(channel.broadcastFromHost(command, null)
-                        .toCompletableFuture());
-                for (String warmingNickname : java.util.List.copyOf(warming)) {
-                    if (!warmingNickname.equals(nickname)) {
-                        deliveries.add(sendBoundary(warmingNickname, command)
-                                .toCompletableFuture());
-                    }
-                }
+                channel.relayHotJoinLifecycleFromHost(command, nickname);
             } catch (java.io.IOException failure) {
-                channel.close();
-                return;
+                LOGGER.log(java.util.logging.Level.WARNING,
+                        "HOT JOIN: could not enqueue cancellation for "
+                        + nickname, failure);
             }
-            CompletableFuture.allOf(deliveries.toArray(
-                    CompletableFuture[]::new))
-                    .whenComplete((ignored, failure) -> {
-                        if (failure != null) {
-                            LOGGER.log(java.util.logging.Level.WARNING,
-                                    "HOT JOIN: failed to replicate cancellation for "
-                                    + nickname, failure);
-                            channel.close();
-                        } else {
-                            LOGGER.log(java.util.logging.Level.INFO,
-                                    "HOT JOIN: replicated cancellation for {0}",
-                                    nickname);
-                        }
-                    });
         }
 
         void replaceHistory() {

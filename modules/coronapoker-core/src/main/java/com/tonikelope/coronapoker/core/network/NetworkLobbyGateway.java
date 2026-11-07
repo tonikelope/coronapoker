@@ -761,6 +761,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 connection = new Connection(socket, input, output, keys[0], keys[1],
                         GameCommandType.Direction.CLIENT_TO_HOST, executor,
                         false);
+                Connection.Generation initialGeneration =
+                        connection.currentGeneration();
                 String join = connection.readEncryptedText(
                         MAX_HANDSHAKE_FRAME_BYTES);
                 if (join == null) throw new IOException("Client closed during handshake");
@@ -770,7 +772,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     if (reconnected != null) {
                         authenticated = true;
                         connection = null;
-                        executor.execute(() -> readHostPeer(reconnected));
                         reconnected.startHeartbeat(this::publishCurrent);
                     }
                     return;
@@ -810,7 +811,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                  */
                 cryptographicallyVerified = true;
                 boolean hotJoin = false;
-                String hotJoinCommand = null;
                 synchronized (this) {
                     if (closed.get()) return;
                     LobbySession active = session;
@@ -887,30 +887,21 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         sendGame(connection, "INIT#"
                                 + GameConfigCodecV1.encodeBase64(
                                         launchConfiguration));
-                    }
-                    if (hotJoin) {
-                        hotJoinCommand = "HOTJOIN#" + b64(nickname) + "#"
+                        String hotJoinCommand = "HOTJOIN#" + b64(nickname) + "#"
                                 + (parts[2].isBlank() ? "*" : parts[2])
                                 + "#" + parts[4] + "#" + parts[5];
+                        // The lobby roster, local dealer and remote outboxes
+                        // must append concurrent arrivals in the same order.
+                        gameChannel.receive(localNickname, hotJoinCommand);
+                        broadcastHotJoinBestEffort(hotJoinCommand, nickname);
                     } else {
                         broadcastGame("NEWUSER#" + b64(nickname) + "#0#"
                                 + (parts[2].isBlank() ? "*" : parts[2]) + "#" + parts[4] + "#" + parts[5], connection);
                     }
                 }
                 socket.setSoTimeout(0);
-                if (hotJoin) {
-                    /*
-                     * The host is the authority that queues and bootstraps a
-                     * late joiner. Commit that transition locally before the
-                     * remote fan-out: one stale incumbent outbox must never
-                     * leave the newcomer admitted by the lobby but unknown to
-                     * the running table.
-                     */
-                    gameChannel.receive(localNickname, hotJoinCommand);
-                    broadcastHotJoinBestEffort(hotJoinCommand, connection);
-                }
                 Connection accepted = connection;
-                executor.execute(() -> readHostPeer(accepted));
+                executor.execute(() -> readHostPeer(accepted, initialGeneration));
                 accepted.startHeartbeat(this::publishCurrent);
                 authenticated = true;
                 connection = null;
@@ -998,10 +989,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 candidate.remoteIdentityPublicKey = existing.identityPublicKey;
                 candidate.remoteIdentitySignature = existing.identitySignature;
                 candidate.currentGeneration().socket.setSoTimeout(0);
-                existing.connection.adopt(candidate);
-                existing.connection.writeEncrypted("RECONNECT_OK");
+                Connection connection = existing.connection;
+                Connection.Generation generation = connection.adopt(candidate,
+                        "RECONNECT_OK");
                 publishCurrent();
-                return existing.connection;
+                executor.execute(() -> readHostPeer(connection, generation));
+                return connection;
             }
         }
 
@@ -1296,8 +1289,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             });
         }
 
-        private void readHostPeer(Connection connection) {
-            Connection.Generation generation = connection.currentGeneration();
+        private void readHostPeer(Connection connection,
+                Connection.Generation generation) {
             try {
                 readLoop(connection, generation, true);
             } finally {
@@ -1357,7 +1350,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     LOGGER.log(Level.WARNING,
                             "Native peer {0} did not reconnect within {1}ms. Declaring definitive loss",
                             new Object[]{nickname, HOST_PEER_RECONNECT_TIMEOUT_MS});
-                    gameChannel.publishPeerLoss(nickname);
+                    gameChannel.publishPeerLoss(connection);
                     publishCurrent();
                 });
             } catch (RejectedExecutionException rejected) {
@@ -1433,14 +1426,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         Connection candidate = null;
                         try {
                             candidate = clientReconnectHandshake(connection);
-                            connection.adopt(candidate);
+                            connection.adopt(candidate, null);
                             candidate = null;
                             serverConnection = connection;
                             publish(LobbySnapshot.Phase.IN_GAME, "");
-                            executor.execute(() -> readClient(connection));
-                            connection.startHeartbeat(this::publishCurrent);
-                            beginStatsSync(connection);
-                            return;
+                            break;
                         } catch (Exception failure) {
                             if (candidate != null) candidate.close();
                             LOGGER.log(Level.FINE,
@@ -1463,10 +1453,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     if (!closed.get() && connection.isReconnecting()) {
                         failTableTransport(
                                 "No se pudo recuperar la conexión con el servidor");
+                        return;
                     }
                 } finally {
                     clientReconnectRunning.set(false);
                 }
+                if (closed.get()) return;
+                // A replacement reader may see EOF immediately. Its
+                // generation must be able to start a new reconnect attempt.
+                executor.execute(() -> readClient(connection));
+                connection.startHeartbeat(this::publishCurrent);
+                beginStatsSync(connection);
             });
         }
 
@@ -1499,7 +1496,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         byte[] clear = SecureChannelCodec.decryptBytes(
                                 encrypted, generation.aes,
                                 generation.hmac);
-                        if (clear != null) receiveBinary(connection, clear, fromClient);
+                        if (clear != null && connection.isCurrent(generation)) {
+                            receiveBinary(connection, clear, fromClient);
+                        }
                         continue;
                     }
                     String command;
@@ -1525,6 +1524,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private synchronized void receiveText(Connection source,
                 Connection.Generation generation, String command,
                 boolean fromClient) throws Exception {
+            if (!source.isCurrent(generation)) return;
             String[] parts = command.split("#", -1);
             switch (parts[0]) {
                 case "PING" -> {
@@ -1966,10 +1966,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
-        private void broadcastHotJoinBestEffort(String body,
-                Connection newcomer) {
+        private synchronized void broadcastHotJoinBestEffort(String body,
+                String skipNickname) {
             for (Peer peer : List.copyOf(peers.values())) {
-                if (peer.connection == null || peer.connection == newcomer) {
+                if (peer.connection == null || peer.connection.closed.get()
+                        || peer.nickname.equals(skipNickname)) {
                     continue;
                 }
                 try {
@@ -1984,6 +1985,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     LOGGER.log(Level.FINE,
                             "Skipping unavailable peer during hot-join fan-out: {0}",
                             peer.nickname);
+                    if (peer.connection.closed.get()) {
+                        gameChannel.publishPeerLoss(peer.connection);
+                    }
                 }
             }
         }
@@ -2069,11 +2073,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             publishCurrent();
         }
 
-        private synchronized boolean removePeerIfDisconnected(
+        private synchronized boolean removeClosedPeer(
                 String nickname) throws Exception {
             Peer peer = findNormalized(nickname);
             if (peer == null || peer.local || peer.connection == null
-                    || peer.connection.isConnected()) {
+                    || !peer.connection.closed.get()) {
                 return false;
             }
             removePeer(peer.nickname, host);
@@ -2203,7 +2207,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         + peer.nickname, notificationFailure);
             }
             connection.close();
-            gameChannel.publishPeerLoss(peer.nickname);
+            gameChannel.publishPeerLoss(connection);
             publishCurrent();
         }
 
@@ -2354,7 +2358,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private Consumer<String> peerLossListener;
         private Consumer<SecurityIncident> securityIncidentListener;
         private Consumer<String> transportFailureListener;
-        private final java.util.LinkedHashSet<String> pendingPeerLosses
+        private final java.util.LinkedHashSet<Connection> pendingPeerLosses
                 = new java.util.LinkedHashSet<>();
         private final java.util.LinkedHashSet<SecurityIncident>
                 pendingSecurityIncidents = new java.util.LinkedHashSet<>();
@@ -2452,7 +2456,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
             peerLossListener = Objects.requireNonNull(next, "listener");
             if (!pendingPeerLosses.isEmpty()) {
-                java.util.List<String> losses = java.util.List.copyOf(
+                java.util.List<Connection> losses = java.util.List.copyOf(
                         pendingPeerLosses);
                 pendingPeerLosses.clear();
                 executor.execute(() -> losses.forEach(this::deliverPeerLoss));
@@ -2576,25 +2580,28 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
-        synchronized void publishPeerLoss(String nickname) {
-            if (closed || nickname == null || nickname.isBlank()) return;
+        synchronized void publishPeerLoss(Connection connection) {
+            if (closed || connection.remoteNickname == null) return;
             if (peerLossListener == null) {
-                pendingPeerLosses.add(nickname);
+                pendingPeerLosses.add(connection);
                 return;
             }
-            executor.execute(() -> deliverPeerLoss(nickname));
+            executor.execute(() -> deliverPeerLoss(connection));
         }
 
-        private void deliverPeerLoss(String nickname) {
+        private void deliverPeerLoss(Connection connection) {
             Consumer<String> target;
             synchronized (this) {
                 if (closed) return;
                 target = peerLossListener;
                 if (target == null) {
-                    pendingPeerLosses.add(nickname);
+                    pendingPeerLosses.add(connection);
                     return;
                 }
             }
+            String nickname = connection.remoteNickname;
+            // The same identity may have rejoined before this async callback.
+            if (transport.gameConnection(nickname) != connection) return;
             try {
                 target.accept(nickname);
             } catch (RuntimeException failure) {
@@ -2667,6 +2674,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     requireCommand(command));
         }
 
+        @Override public void relayHotJoinLifecycleFromHost(String command,
+                String skipNickname) {
+            if (!transport.host) {
+                throw new IllegalStateException("Only the host can relay hot joins");
+            }
+            transport.broadcastHotJoinBestEffort(requireCommand(command),
+                    skipNickname);
+        }
+
         @Override public boolean isPeerReconnecting(String nickname) {
             Connection connection = transport.gameConnection(nickname);
             return connection != null && connection.isReconnecting();
@@ -2675,6 +2691,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         @Override public boolean isPeerConnected(String nickname) {
             Connection connection = transport.gameConnection(nickname);
             return connection != null && connection.isConnected();
+        }
+
+        @Override public boolean isPeerDefinitivelyClosed(String nickname) {
+            Connection connection = transport.gameConnection(nickname);
+            return connection != null && connection.closed.get();
         }
 
         @Override public int peerReconnectionCount(String nickname) {
@@ -2716,7 +2737,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         @Override public boolean retirePeerAfterDefinitiveLoss(
                 String nickname) {
             try {
-                return transport.removePeerIfDisconnected(
+                return transport.removeClosedPeer(
                         Objects.requireNonNull(nickname, "nickname"));
             } catch (Exception failure) {
                 throw new IllegalStateException(
@@ -2975,23 +2996,30 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         boolean closeIfStillReconnecting(long expectedAttempt) {
             synchronized (generationLock) {
-                if (closed.get() || !reconnecting || generation != null
-                        || reconnectAttempt != expectedAttempt) {
+                if (!reconnecting || generation != null
+                        || reconnectAttempt != expectedAttempt
+                        || !closed.compareAndSet(false, true)) {
                     return false;
                 }
-                close();
-                return true;
             }
+            finishClose();
+            return true;
         }
 
-        void adopt(Connection candidate) throws IOException {
+        Generation adopt(Connection candidate, String handshakeReply)
+                throws IOException {
             Objects.requireNonNull(candidate, "candidate");
-            Generation replacement = candidate.detachGeneration();
+            Generation replacement;
             synchronized (generationLock) {
                 if (closed.get()) {
-                    replacement.close();
                     throw new IOException("Logical game connection is closed");
                 }
+                // Send the host's reply on the private candidate before the
+                // logical connection exposes it to the ordered GAME writer.
+                if (handshakeReply != null) {
+                    candidate.writeEncrypted(handshakeReply);
+                }
+                replacement = candidate.detachGeneration();
                 Generation previous = generation;
                 if (previous != null) {
                     gameOutbox.advanceGenerationPreservingEntries();
@@ -3009,6 +3037,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             synchronized (confirmationLock) {
                 confirmationLock.notifyAll();
             }
+            return replacement;
         }
 
         private Generation detachGeneration() throws IOException {
@@ -3148,13 +3177,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             java.util.concurrent.CompletableFuture<Void> delivery
                     = new java.util.concurrent.CompletableFuture<>();
             synchronized (gameOutbox) {
-                if (closed.get() || !gameOutbox.offer(body)) {
-                    close();
-                    throw new IOException("Critical GAME outbox is closed or full");
+                if (!closed.get() && gameOutbox.offer(body)) {
+                    gameDeliveries.addLast(delivery);
+                    return delivery;
                 }
-                gameDeliveries.addLast(delivery);
             }
-            return delivery;
+            close();
+            throw new IOException("Critical GAME outbox is closed or full");
         }
 
         private void runGameOutbox() {
@@ -3200,17 +3229,22 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                             .toMillis(remaining));
                             confirmationLock.wait(millis);
                         }
-                        confirmed = confirmationReceived && isCurrent(active);
+                        confirmed = confirmationReceived;
                     }
                     if (confirmed) {
+                        java.util.concurrent.CompletableFuture<Void> completed
+                                = null;
                         synchronized (gameOutbox) {
-                            if (gameOutbox.isCurrent(entry)
-                                    && gameOutbox.removeIfHead(entry)) {
-                                java.util.concurrent.CompletableFuture<Void>
-                                        completed = gameDeliveries.removeFirst();
-                                completed.complete(null);
+                            // The reader may have processed EOF immediately
+                            // after the authenticated ACK. The same wire id
+                            // still identifies the command in the rebased FIFO.
+                            SessionOutbox.Entry head = gameOutbox.peek();
+                            if (head != null && head.wireId() == entry.wireId()
+                                    && gameOutbox.removeIfHead(head)) {
+                                completed = gameDeliveries.removeFirst();
                             }
                         }
+                        if (completed != null) completed.complete(null);
                     } else if (isCurrent(active)) {
                         // Closing only this socket wakes its reader. The reader
                         // owns the transition to reconnecting and publication.
@@ -3321,6 +3355,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         @Override public void close() {
             if (!closed.compareAndSet(false, true)) return;
+            finishClose();
+        }
+
+        private void finishClose() {
             Generation current;
             synchronized (generationLock) {
                 current = generation;
@@ -3328,17 +3366,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 reconnecting = false;
                 generationLock.notifyAll();
             }
+            List<java.util.concurrent.CompletableFuture<Void>> abandoned;
             synchronized (gameOutbox) {
                 gameOutbox.advanceGeneration();
-                IOException failure = new IOException(
-                        "Game connection closed before delivery");
-                while (!gameDeliveries.isEmpty()) {
-                    gameDeliveries.removeFirst()
-                            .completeExceptionally(failure);
-                }
+                abandoned = List.copyOf(gameDeliveries);
+                gameDeliveries.clear();
             }
             synchronized (confirmationLock) { confirmationLock.notifyAll(); }
             if (current != null) current.close();
+            IOException failure = new IOException(
+                    "Game connection closed before delivery");
+            abandoned.forEach(delivery -> delivery.completeExceptionally(failure));
         }
 
         private static SecretKeySpec copyKey(SecretKeySpec source) {

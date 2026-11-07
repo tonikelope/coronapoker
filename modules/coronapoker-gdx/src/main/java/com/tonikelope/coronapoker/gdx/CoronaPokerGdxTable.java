@@ -1127,6 +1127,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxTableDialog settingsDiscardConfirmation;
     private Runnable settingsDiscardAfterClose;
     private GdxTableDialog forceReconnectConfirmation;
+    private GdxTableDialog timeoutKickConfirmation;
+    private String timeoutKickNickname;
     private TableSessionSummary finalSummary;
     private CompletableFuture<Void> finalSummaryBarrier;
     private float finalSummaryOpenedAt;
@@ -1547,6 +1549,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float tableCenterX;
     private float tableCenterY;
+    private String handDealerNickname;
+    private boolean dealerSourceLocated;
     private float dealerSourceX;
     private float dealerSourceY;
     private float potCenterX;
@@ -2530,6 +2534,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         this.liveState = liveState;
         if (liveState != null) {
+            bindHandDealer(liveState.snapshot());
             liveState.snapshot().players().stream()
                     .map(TableSnapshot.PlayerSnapshot::nickname)
                     .filter(name -> name != null && !name.isBlank())
@@ -4682,6 +4687,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void syncSeatsFromLiveState() {
         livePlayers.update(liveState.snapshot());
+        if (timeoutKickConfirmation != null
+                && !canKickTimedOutPlayer(timeoutKickNickname)) {
+            timeoutKickConfirmation.dismiss();
+        }
         List<TableSnapshot.PlayerSnapshot> ordered =
                 livePlayers.visualSeatPlayers();
         boolean rosterChanged = false;
@@ -4695,6 +4704,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (!rosterChanged) return;
+        cachedSeatLayoutValid = false;
 
         Map<String, Seat> previous = new HashMap<>();
         for (Seat seat : seats) {
@@ -4753,6 +4763,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (seat != null && !seat.name.isBlank()) {
                 seatsByNickname.put(seat.name, seat);
             }
+        }
+        if (remoteRebuyStartedAt.keySet().removeIf(
+                nickname -> !seatsByNickname.containsKey(nickname))
+                && remoteRebuyStartedAt.isEmpty()) {
+            releaseRemoteRebuyPresentation();
         }
     }
 
@@ -5012,6 +5027,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
              */
             clearCardPresentationForHotJoin();
             liveState.apply(event);
+            bindHandDealer(liveState.snapshot());
             liveInvestmentChips.clear();
             clearRunItTwicePotPartition();
             replacePotChipInventory(liveState.snapshot().pot(),
@@ -5491,6 +5507,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
                 communityDealByStreet = configuredCommunityDealByStreet();
+                bindHandDealer(boundary.snapshot());
                 restoreUnspentRunItTwicePotChips();
                 pendingStackRackRebalances.keySet().forEach(
                         this::rebalanceSeatRack);
@@ -7756,6 +7773,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!canKickTimedOutPlayer(nickname)) {
             return null;
         }
+        if (timeoutKickConfirmation != null) {
+            return timeoutKickConfirmation;
+        }
         GdxTableDialog confirmation = new GdxTableDialog(
                 GdxTableDialog.Kind.CONFIRM,
                 uppercase(gameText.translate("ui.expulsar_jugador")),
@@ -7767,7 +7787,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 uppercase(gameText.translate("ui.cancelar")),
                 uppercase(gameText.translate("ui.expulsar_jugador")))
                 .dangerousChoice();
+        timeoutKickConfirmation = confirmation;
+        timeoutKickNickname = nickname;
         confirmation.result().thenAccept(accepted -> {
+            timeoutKickConfirmation = null;
+            timeoutKickNickname = null;
             if (accepted && canKickTimedOutPlayer(nickname)) {
                 submit(new TableCommand.KickTimedOutPlayer(nickname));
             }
@@ -11731,13 +11755,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void updateDealerSource(float width, float height) {
-        int dealerIndex = dealerSeat();
-        Seat dealer = dealerIndex < 0 ? null : seats[dealerIndex];
-        // Cards originate under the dealer avatar itself. There is no artificial
-        // shoe/deck widget on the felt. Before the authoritative position event
-        // arrives, keep the source neutral instead of inventing a seat.
-        dealerSourceX = dealer == null ? width / 2f : dealer.x;
-        dealerSourceY = dealer == null ? height / 2f : dealer.y;
+        if (handDealerNickname == null) {
+            handDealerNickname = dealerNickname(liveState.snapshot());
+        }
+        Seat dealer = seatByNickname(handDealerNickname);
+        if (dealer != null && dealer.geometryReady) {
+            dealerSourceX = dealer.x;
+            dealerSourceY = dealer.y;
+            dealerSourceLocated = true;
+        } else if (!dealerSourceLocated) {
+            dealerSourceX = width / 2f;
+            dealerSourceY = height / 2f;
+        }
+        // A dealer who leaves during the hand keeps their last visible
+        // dealing origin until the next hand or an authoritative cut-over.
+    }
+
+    private void bindHandDealer(TableSnapshot snapshot) {
+        handDealerNickname = dealerNickname(snapshot);
+        dealerSourceLocated = false;
     }
 
     private float seatAnchor(int seat, int component) {
@@ -16370,25 +16406,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 value -> deckCardTexture(value, "trasera.jpg"));
     }
 
-    private int dealerSeat() {
-        Objects.requireNonNull(liveState,
-                "Dealer lookup requires authoritative live state");
-        int seat = liveSeatWithPosition(TableSnapshot.Position.DEALER,
-                TableSnapshot.Position.DEAD_DEALER,
-                TableSnapshot.Position.DEALER_STRADDLE);
-        if (seat >= 0) {
-            return seat;
-        }
-        // Heads-up stores the shared dealer/small-blind role as SMALL_BLIND.
-        // The dealer button is intentionally suppressed, but dealing must still
-        // originate from the real dealer rather than an invented seat.
-        if (activePokerPlayerCount(liveState.snapshot()) == 2) {
-            seat = liveSeatWithPosition(TableSnapshot.Position.SMALL_BLIND);
-            if (seat >= 0) {
-                return seat;
+    private static String dealerNickname(TableSnapshot snapshot) {
+        String smallBlind = null;
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (!hasVisiblePositionChip(player)) continue;
+            switch (player.position()) {
+                case DEALER, DEAD_DEALER, DEALER_STRADDLE -> {
+                    return player.nickname();
+                }
+                case SMALL_BLIND -> smallBlind = player.nickname();
+                default -> { }
             }
         }
-        return -1;
+        // Heads-up stores the shared dealer/small-blind role as SMALL_BLIND.
+        return activePokerPlayerCount(snapshot) == 2 ? smallBlind : null;
     }
 
     private String availableDeck(String deck) {
@@ -16401,25 +16432,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return GdxGamePresentationSettings.OFFICIAL_DECKS.stream()
                 .filter(candidate -> candidate.equalsIgnoreCase(deck))
                 .findFirst().orElse("goliat");
-    }
-
-    private int liveSeatWithPosition(TableSnapshot.Position... positions) {
-        List<TableSnapshot.PlayerSnapshot> players = liveState.snapshot().players();
-        for (int seat = 0; seat < seats.length; seat++) {
-            TableSnapshot.PlayerSnapshot player = livePlayer(seats[seat]);
-            if (player == null) {
-                continue;
-            }
-            if (!hasActivePokerRole(player)) {
-                continue;
-            }
-            for (TableSnapshot.Position position : positions) {
-                if (player.position() == position) {
-                    return seat;
-                }
-            }
-        }
-        return -1;
     }
 
     static boolean hasActivePokerRole(TableSnapshot.PlayerSnapshot player) {
@@ -24626,7 +24638,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.RebuyDecision decision) {
         if (decision.phase()
                 == TableVisualEvent.RebuyDecision.Phase.WAITING) {
-            beginRemoteRebuyPresentation(decision.nickname(), true);
+            TableSnapshot.PlayerSnapshot player = livePlayer(decision.nickname());
+            if (player != null && !player.exited()) {
+                beginRemoteRebuyPresentation(decision.nickname(), true);
+            }
             return;
         }
         remoteRebuyStartedAt.remove(decision.nickname());
@@ -32602,14 +32617,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presenceOrder = runtimeEntryOrder;
             }
             if (previous == null) return;
-            relayoutFromX = previous.x;
-            relayoutFromY = previous.y;
-            relayoutFromStackX = previous.stackX;
-            relayoutFromStackY = previous.stackY;
-            relayoutFromPodX = previous.podX;
-            relayoutFromPodY = previous.podY;
-            relayoutFromPositionX = previous.positionX;
-            relayoutFromPositionY = previous.positionY;
+            // Another departure can arrive before the next layout pass.
+            // Carry the last painted geometry into that replacement too.
+            x = relayoutFromX = previous.x;
+            y = relayoutFromY = previous.y;
+            stackX = relayoutFromStackX = previous.stackX;
+            stackY = relayoutFromStackY = previous.stackY;
+            podX = relayoutFromPodX = previous.podX;
+            podY = relayoutFromPodY = previous.podY;
+            positionX = relayoutFromPositionX = previous.positionX;
+            positionY = relayoutFromPositionY = previous.positionY;
+            geometryReady = previous.geometryReady;
         }
     }
 }

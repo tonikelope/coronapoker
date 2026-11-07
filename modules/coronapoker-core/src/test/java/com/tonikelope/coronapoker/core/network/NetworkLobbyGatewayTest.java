@@ -55,6 +55,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.imageio.ImageIO;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -644,7 +645,8 @@ class NetworkLobbyGatewayTest {
         assertStartedTableAcceptsLateHuman(true, 1, "mixed");
     }
 
-    @Test void retiringWarmingPeerPurgesItsQueuedBoundaryWithoutClosingTable()
+    @RepeatedTest(5)
+    void retiringWarmingPeerPurgesItsQueuedBoundaryWithoutClosingTable()
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -1363,10 +1365,23 @@ class NetworkLobbyGatewayTest {
                         return CompletableFuture.completedFuture(null);
                     });
         };
+        AtomicInteger statsStarts = new AtomicInteger();
+        CountDownLatch firstReconnectFinishing = new CountDownLatch(1);
+        CountDownLatch releaseFirstReconnect = new CountDownLatch(1);
+        StatsSyncService stats = new StatsSyncService(
+                statsDatabase("reconnect-stats.db"),
+                () -> false, () -> java.util.Set.of());
         try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
                     temporary.resolve("reconnect-host"), tables);
                 NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
-                    temporary.resolve("reconnect-client"), tables)) {
+                    temporary.resolve("reconnect-client"), tables,
+                    null, IdentityTrustStore.unavailable(), () -> {
+                        if (statsStarts.incrementAndGet() == 2) {
+                            firstReconnectFinishing.countDown();
+                            awaitUnchecked(releaseFirstReconnect);
+                        }
+                        return false;
+                    }, () -> false, stats)) {
             LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
                     .get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(request(true, "Invitado", port))
@@ -1402,12 +1417,23 @@ class NetworkLobbyGatewayTest {
                 await(() -> hostInbound.stream().filter(
                         "ACTION#survives-reconnect"::equals).count() == 1L);
 
+                assertTrue(firstReconnectFinishing.await(5, TimeUnit.SECONDS));
+                closeClientSocket(client);
+                await(() -> hostContext.get().channel()
+                        .isPeerReconnecting("Invitado"));
+                hostContext.get().channel().sendFromHost("Invitado",
+                        "PAUSE#0#queued-during-reconnect").toCompletableFuture()
+                        .get(10, TimeUnit.SECONDS);
+                await(() -> clientInbound.stream().filter(
+                        "PAUSE#0#queued-during-reconnect"::equals).count() == 1L);
+                releaseFirstReconnect.countDown();
+
                 assertEquals(1, hostContext.get().channel()
                         .forceReconnectRemotePeers());
                 await(() -> hostContext.get().channel()
-                        .peerReconnectionCount("Invitado") == 2
+                        .peerReconnectionCount("Invitado") == 3
                         && clientContext.get().channel()
-                                .peerReconnectionCount("Anfitrion") == 2);
+                                .peerReconnectionCount("Anfitrion") == 3);
                 assertThrows(IllegalStateException.class,
                         () -> clientContext.get().channel()
                                 .forceReconnectRemotePeers(),
@@ -1422,7 +1448,10 @@ class NetworkLobbyGatewayTest {
                         "ACTION#survives-reconnect"::equals).count());
                 assertEquals(1L, clientInbound.stream().filter(
                         "PAUSE#0#after-reconnect"::equals).count());
+                assertEquals(1L, clientInbound.stream().filter(
+                        "PAUSE#0#queued-during-reconnect"::equals).count());
             } finally {
+                releaseFirstReconnect.countDown();
                 client.close();
                 host.close();
             }

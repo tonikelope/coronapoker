@@ -956,12 +956,22 @@ public final class GdxMultiprocessNodeMain {
                 }
                 marker("HOT_JOIN_WARMING", "nick=" + config.nickname
                         + " historyLines=" + bootstrapLogLines.get());
-                if (renderer.latencyIndicatorIsRed(config.nickname)) {
+                if (renderer.pendingLatencyIndicatorIsRed(config.nickname)) {
                     throw new AssertionError("CALENTANDO latency without a "
                             + "measurement was rendered as a connection error");
                 }
                 marker("HOT_JOIN_LOCAL_LATENCY", "nick=" + config.nickname
-                        + " state=pending-or-measured");
+                        + " state=pending-or-measured "
+                        + renderer.latencyDiagnostic(config.nickname));
+                if (concurrentExit && "late-drop".equals(config.phase)) {
+                    requireCommand("DROP_SOCKET");
+                    closeNativeClientSocket(lobby);
+                    marker("SOCKET_DROP_REQUESTED", "nick=" + config.nickname
+                            + " phase=warming");
+                    await(() -> peerReconnectionCount(lobby, "server") == 1,
+                            Duration.ofSeconds(60), "warming socket replacement");
+                    marker("RECONNECTED", "peer=server count=1 phase=warming");
+                }
                 if (thisWarmingIncarnationExits || firstReentryIncarnation) {
                     requireCommand("EXIT_HOT_JOIN");
                     table.commands().submit(new TableCommand.ExitGame());

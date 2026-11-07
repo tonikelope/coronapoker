@@ -152,6 +152,31 @@ therefore sees the current public board, card backs, actions, pots, timers,
 pause state and later animations without receiving private cards or acting in
 the current hand. Admission to play happens only at a following hand boundary.
 
+The host registers each concurrent arrival and queues the same lifecycle
+notification to the other peers under one transport lock. This keeps the
+lobby roster, pending dealer seats and remote outboxes in the same order.
+If a warming peer is lost permanently, the host clears its dealer reservation
+and queues its cancellation before releasing that identity for a fresh join.
+Each surviving peer receives the cancellation through its own ordered outbox.
+
+### Live reconnection and confirmed departure
+
+`NetworkLobbyGateway` keeps one logical connection per authenticated peer.
+Each physical socket has its own generation. The reconnect handshake confirms
+the replacement before the host makes that socket available to the game
+outbox. Pending commands keep their wire IDs across the replacement, and a
+valid acknowledgement still counts if EOF follows it immediately. The
+client releases the reconnect worker before starting the replacement reader
+so an immediate second drop can start another attempt.
+
+GDX draws the local reconnect overlay from the lobby connection phase and
+blocks game input while that phase is active. Remote seats can show a
+reconnecting label or a dealer timeout. A confirmed departure removes the
+remote seat and preserves the last painted positions for the remaining seats'
+animation, including when several departures arrive before the next frame.
+The dealer retains the departing player's financial and hand evidence for
+settlement and recovery.
+
 ## Maven modules
 
 ![CoronaPoker module map](diagrams/coronapoker-module-map.png)

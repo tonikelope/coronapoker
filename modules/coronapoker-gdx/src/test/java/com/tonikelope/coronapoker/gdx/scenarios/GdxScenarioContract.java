@@ -81,6 +81,7 @@ final class GdxScenarioContract {
                     "twoConcurrentHotJoinsDuringPauseShareOneExactPublicState",
                     "twoConcurrentHotJoinsDuringShowdownShareOneExactPublicState",
                     "oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted",
+                    "oneHotJoinReconnectsWhileAnotherLeavesAndTheLedgerConverges",
                     "oneConcurrentHotJoinCanChurnWhileAnotherKeepsWarming",
                     "twoConcurrentHotJoinsCanRepeatedlyLeaveAndReenterTogether",
                     "warmingHotJoinReceivesHostTableStop",

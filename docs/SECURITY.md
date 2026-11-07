@@ -401,9 +401,24 @@ WARMING UP is not an ordinary spectator role and not a member of the current
 hand's cryptographic ring. The peer receives no private cards, sends no betting
 action, cannot rebuy and does not sign the current hand. At the next eligible
 hand boundary the seat joins the normal game and cryptographic ring. A player
-who leaves during a hand is audited as folded and any reentry is WARMING UP.
-Reentry can never restore action in the hand that was left. An authenticated
-returning identity keeps its existing stack for later admission.
+who leaves forfeits future actions in that hand. A committed all-in still
+qualifies for its pots. An authenticated returning identity keeps its existing
+stack and enters as WARMING UP for admission at a later hand boundary.
+
+### 7.5 Live socket replacement
+
+A live client reconnects to the same session and proves possession of the
+original channel key. The replacement uses fresh channel keys. The host keeps
+the seat for 45 seconds after detecting socket loss, and the client has an
+independent retry budget of 80 seconds by default. Each pending game command
+keeps its original wire ID, so an authenticated replay can be acknowledged
+without applying the command again.
+
+A definitive loss is tied to the closed logical connection. A pending
+entrant can be retired and replaced by a fresh authenticated join. When an
+active peer is definitively lost, the host orders a MISDEAL on the dealer
+thread. The dealer refunds the affected bets and persists the recovery
+checkpoint before the table continues through the recovery flow.
 
 ---
 
@@ -475,7 +490,14 @@ Remote avatars have a separate pre-rasterization choke point (`AvatarIO`). Stric
 | Remote betting `ACTION` | deadline gated on the think-time limit, then AUTO-EXPEL |
 | Synchronous broadcast ACK (`broadcastGAMECommandFromServer`, plus the two recovery broadcasts) | deadline, then AUTO-EXPEL |
 
-Three properties keep these deadlines from punishing an honest player. They are set **far above** legitimate slow-client or slow-PC crypto work. They **do not count paused time, nor time while any peer is reconnecting** (the same condition under which clients freeze the acting player's think-time countdown). And a genuinely dead peer still leaves through the normal socket-death path (`isExit`), not through a deadline. The betting deadline has one extra guard: it only applies when the **think-time limit is enabled** (the default). With think-time disabled the game allows unlimited thinking on purpose, so a withheld action cannot be told apart from a human taking their time, and the remedy there is a manual kick. Clients also bound the wait for the host's `HANDVERIFY` trigger with a derived reconnection-plus-broadcast deadline. Recovery broadcasts reuse the broadcast deadline rather than inventing a separate policy.
+The deadlines allow time for ordinary cryptographic work. A table pause
+defers progress checks. Several protocol waits also defer them while a
+required peer is reconnecting, up to the hard cap for repeated reconnects.
+During betting, the action deadline follows the same pause and timeout
+conditions as the acting player's countdown. With the think-time limit
+disabled, the host can intervene manually if a player stalls the table.
+Clients bound the wait for the host's `HANDVERIFY` trigger using the reconnect
+and broadcast budgets. Recovery broadcasts use the broadcast deadline.
 
 Because a single refusal or one slow reveal might be a bug, the deadlines respond proportionately. The cascade and rotation MISDEAL first and only AUTO-EXPEL a peer once its refusals over the game reach a strike threshold (`MAX_DEAL_REFUSAL_STRIKES`). A same-version client never produces invalid crypto or withholds past the deadline, so repeated refusals are unambiguous. This keeps a one-off hiccup from removing anyone while still stopping a peer from looping MISDEALs forever.
 
@@ -495,7 +517,7 @@ For honesty's sake:
 - **The optional Google Translate TTS** for fast-chat readout makes outbound requests to `translate.google.com`. Disable TTS if you want a fully air-gappable session.
 - **Unlimited thinking with the think-time limit disabled.** When the table turns the think-time limit off, the game allows a player to think for as long as they want, on purpose. The host cannot then tell a slow human apart from a peer withholding its action, so it imposes no betting deadline in that mode. A player who stalls the table this way is removed with a **manual kick**, not automatically.
 - **A hostile host making a client's table unpleasant.** The verifiable crypto already stops a hostile host from cheating (reading cards, rigging the deck, forging results, stealing chips), while hard frame sizes, strict codecs, bounded queues and synchronous per-connection processing contain malformed or unbounded binary work. Valid high-rate traffic is not silently dropped merely because it crosses an observation threshold. A hostile host can still refuse to deal, stall the game or deliberately consume bandwidth within the structural limits. The client's remedy for a hostile host is the one it always has, which is to leave.
-- **A griefer imposing bounded stalls via pause or repeated reconnection.** The progress deadlines are deliberately lenient. They freeze while the table is paused or while any peer is reconnecting, precisely so an honest slow or reconnecting player is never expelled by mistake. A peer can lean on that leniency to stall the hands it is in, by asserting a pause or by dropping and reconnecting in a loop. Each stall is bounded (a reconnection grace lasts at most about 80 s, and the host can force-resume a pause), and the table always makes progress in between, so this cannot freeze the game outright. But the automated deadline will not remove such a griefer on its own. The remedy is the manual kick the host already has. Choosing leniency here is deliberate, because a false expulsion of an honest player is worse than a bounded, recoverable stall.
+- **Repeated disconnects or pauses.** A real reconnect grants the peer a fresh socket. Several protocol deadlines cap the time that repeated reconnects can defer progress. The host can resume a paused game or remove a player whose timeout is blocking the table.
 - **Reading an auto-mucked loser's cards at showdown.** At a contested showdown every contender reveals its pocket key so that **every** peer can independently recompute the winner (the whole point of zero trust: nobody takes the host's word for who won). The optional "auto-muck" behaviour of the *I Want To See The Hand* rule (`IWTSTH`, **off by default**) then hides the beaten hands **on screen**, but it is a display convenience, not a cryptographic seal: the keys are already on the wire, so a modified client can recompute a mucked loser's cards. This is post-hand information only, with no in-hand or money advantage, and it is inherent to a reveal-all mental-poker showdown. Truly sealing a mucked hand would require an **ordered, player-chosen muck** (each player reveals or concedes in turn, and a conceded hand is never verified), which is a showdown-protocol change deliberately not taken for a default-off, post-hand leak, since it would put the settlement's independent-verification property at risk.
 
 ---

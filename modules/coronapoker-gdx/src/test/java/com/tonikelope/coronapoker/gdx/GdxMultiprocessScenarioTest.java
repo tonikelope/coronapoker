@@ -290,7 +290,14 @@ class GdxMultiprocessScenarioTest {
     @Timeout(360)
     void oneOfTwoConcurrentHotJoinsCanLeaveWhileTheOtherIsAdmitted(
             @TempDir Path root) throws Exception {
-        runConcurrentHotJoinExitScenario(root);
+        runConcurrentHotJoinExitScenario(root, false);
+    }
+
+    @Test
+    @Timeout(360)
+    void oneHotJoinReconnectsWhileAnotherLeavesAndTheLedgerConverges(
+            @TempDir Path root) throws Exception {
+        runConcurrentHotJoinExitScenario(root, true);
     }
 
     @Test
@@ -1946,7 +1953,8 @@ class GdxMultiprocessScenarioTest {
                 || !second.isBlank() && first.startsWith(second + ",");
     }
 
-    private static void runConcurrentHotJoinExitScenario(Path root)
+    private static void runConcurrentHotJoinExitScenario(Path root,
+            boolean cutAdmittedSocket)
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -1967,7 +1975,8 @@ class GdxMultiprocessScenarioTest {
 
             NodeProcess admitted = startNode(root.resolve("client-1"),
                     "client", "client1", port, 2, 1, 3,
-                    "live-hot-join-two-exit", "late");
+                    "live-hot-join-two-exit",
+                    cutAdmittedSocket ? "late-drop" : "late");
             exiting = startNode(root.resolve("client-2"),
                     "client", "client2", port, 2, 1, 3,
                     "live-hot-join-two-exit", "late");
@@ -1979,8 +1988,14 @@ class GdxMultiprocessScenarioTest {
                     "CP_GDX_E2E_HOT_JOIN_WARMING nick=client2",
                     Duration.ofSeconds(105)), exiting.diagnostic());
 
-            host.send("EXIT_HOT_JOIN");
+            if (cutAdmittedSocket) {
+                admitted.send("DROP_SOCKET");
+                assertTrue(admitted.await("CP_GDX_E2E_SOCKET_DROP_REQUESTED"
+                        + " nick=client1 phase=warming",
+                        Duration.ofSeconds(30)), admitted.diagnostic());
+            }
             exiting.send("EXIT_HOT_JOIN");
+            host.send("EXIT_HOT_JOIN");
             assertTrue(exiting.await(
                     "CP_GDX_E2E_HOT_JOIN_EXITED nick=client2",
                     Duration.ofSeconds(60)), exiting.diagnostic());
@@ -1989,6 +2004,11 @@ class GdxMultiprocessScenarioTest {
             assertTrue(host.await(
                     "CP_GDX_E2E_HOT_JOIN_EXIT_OBSERVED nick=client2",
                     Duration.ofSeconds(60)), host.diagnostic());
+            if (cutAdmittedSocket) {
+                assertTrue(admitted.await("CP_GDX_E2E_RECONNECTED"
+                        + " peer=server count=1 phase=warming",
+                        Duration.ofSeconds(60)), admitted.diagnostic());
+            }
             assertTrue(admitted.await(
                     "CP_GDX_E2E_HOT_JOIN_ADMITTED nick=client1",
                     Duration.ofSeconds(210)), admitted.diagnostic());
@@ -2004,6 +2024,8 @@ class GdxMultiprocessScenarioTest {
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
                         node.diagnostic());
             }
+            assertMatchingConservedLedgers(survivors,
+                    "live-hot-join-two-exit", 3);
             List<NodeProcess> audited = new ArrayList<>(survivors);
             audited.add(exiting);
             for (NodeProcess node : audited) {
@@ -2280,6 +2302,8 @@ class GdxMultiprocessScenarioTest {
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(25)),
                         node.diagnostic());
             }
+            assertMatchingConservedLedgers(completing,
+                    scenario, 5);
             for (NodeProcess node : incarnations) {
                 assertTrue(!node.contains("CP_GDX_E2E_FAIL"),
                         node.diagnostic());
@@ -2830,6 +2854,8 @@ class GdxMultiprocessScenarioTest {
                             fatal + "\n" + node.diagnostic());
                 }
             }
+            assertMatchingConservedLedgers(completing,
+                    "live-hot-join-crash-reentry", 4);
         } finally {
             if (crashed != null) crashed.close();
             if (reentered != null) reentered.close();

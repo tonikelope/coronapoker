@@ -481,6 +481,8 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PlayerDeparture departure) {
             actionKinds.remove(departure.nickname());
             actionLabels.put(departure.nickname(), departure.label());
+            rebuyDecisions.remove(departure.nickname());
+            immediateRebuys.remove(departure.nickname());
             replacePlayer(departure.nickname(), player
                     -> copyPlayerDeparture(player, departure.label()));
             if (departure.nickname().equals(snapshot.currentTurnNickname())) {
@@ -1637,7 +1639,7 @@ final class GdxTableViewState {
             TableSnapshot.PlayerSnapshot source, boolean timedOut) {
         return new TableSnapshot.PlayerSnapshot(source.nickname(), source.stack(),
                 source.streetBet(), source.potContribution(), source.active(),
-                source.spectator(), source.exited(), timedOut,
+                source.spectator(), source.exited(), timedOut && !source.exited(),
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
                 source.winner(), source.underTheGun(), source.position(),
@@ -1654,10 +1656,12 @@ final class GdxTableViewState {
                 source.spectator(), true, false,
                 source.latency(), source.previousLatency(),
                 source.reconnectionCount(), source.telemetryAt(),
-                source.winner(), source.underTheGun(), source.position(),
+                source.winner(), false, TableSnapshot.Position.NONE,
                 source.decision(), source.actionKind(), label,
                 source.handName(), source.holeCards(), source.buyIn(),
-                source.rebuyCount(), source.warming(), source.presentation());
+                source.rebuyCount(), false,
+                copyPresentationRebuy(source.presentation(),
+                        TableSnapshot.RebuyPhase.NONE, 0));
     }
 
     private static TableSnapshot.PlayerSnapshot copyPlayerUnderTheGun(

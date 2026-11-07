@@ -372,6 +372,25 @@ recovery, command and event wiring, and socket or process lifecycle. It does not
 certify subjective rendering quality, exact pixels, physical audio devices,
 real Internet or NAT behaviour, or every operating-system display setup.
 
+### Network lifecycle coverage
+
+Choose scenarios by the failure they can detect. Keep the assertions about
+the outcome alongside the code that introduces the disruption.
+
+| Scenario | What it checks |
+|---|---|
+| A socket drops again during reconnect | A second replacement starts. Queued traffic in both directions is applied once. |
+| A warming client closes immediately after its final ACK | The host retires the seat and discards that client's stale readiness frames. The table keeps accepting commands from other players. |
+| Two players enter in the same hand, one leaves and one reconnects | The remaining newcomer becomes playable. The survivors finish with the same ledger and conserve the total buy-ins. |
+| Two identities repeatedly enter and leave together | All peers agree on the circular seat order and cryptographic ring. Reentry preserves each identity's stack, buy-ins and rebuy count. |
+| A warming process crashes and returns with the same identity | The host retires the old reservation, admits the replacement and closes with the same balances as the surviving peers. |
+| Active peers drop permanently during a hand | The host and survivors agree on one MISDEAL, refund the hand and report the same durable balances. |
+
+Compare per-player ledger rows and total cents. A test that checks only the
+sum can miss a transfer to the wrong seat. Extend a scenario when the same
+disruption already reaches the affected code. Add a new scenario when the
+existing one cannot observe the failure or enforce its ordering.
+
 ## Reading results
 
 Every public runner returns zero only when all requested work passes.

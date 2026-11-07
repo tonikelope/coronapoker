@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
@@ -1363,9 +1364,18 @@ final class GdxScenarioRenderer implements TableRenderer {
                         .effectiveLatencyMillis(player) >= 0);
     }
 
-    boolean latencyIndicatorIsRed(String nickname) {
-        return Color.rgba8888(CoronaPokerGdxTable.latencyColor(
-                playerSnapshot(nickname))) == 0xf44336ff;
+    boolean pendingLatencyIndicatorIsRed(String nickname) {
+        TableSnapshot.PlayerSnapshot player = playerSnapshot(nickname);
+        return CoronaPokerGdxTable.effectiveLatencyMillis(player)
+                == LobbyParticipant.NO_LATENCY
+                && Color.rgba8888(CoronaPokerGdxTable.latencyColor(player))
+                        == 0xf44336ff;
+    }
+
+    String latencyDiagnostic(String nickname) {
+        TableSnapshot.PlayerSnapshot player = playerSnapshot(nickname);
+        return "primary=" + player.latency() + " secondary="
+                + player.previousLatency() + " timedOut=" + player.timedOut();
     }
 
     private TableSnapshot.PlayerSnapshot playerSnapshot(String nickname) {

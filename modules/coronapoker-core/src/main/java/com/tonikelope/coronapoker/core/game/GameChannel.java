@@ -99,6 +99,12 @@ public interface GameChannel extends AutoCloseable {
     CompletionStage<Void> broadcastFromHost(String command, String skipNickname)
             throws IOException;
 
+    /** Enqueues a hot-join lifecycle notification for each remaining peer. */
+    default void relayHotJoinLifecycleFromHost(String command,
+            String skipNickname) throws IOException {
+        broadcastFromHost(command, skipNickname);
+    }
+
     /** Host-to-one command; completes only after the authenticated ACK. */
     CompletionStage<Void> sendFromHost(String nickname, String command) throws IOException;
 
@@ -113,6 +119,11 @@ public interface GameChannel extends AutoCloseable {
      * incarnation after the same persistent identity has already rejoined.
      */
     default boolean isPeerConnected(String nickname) {
+        return false;
+    }
+
+    /** True only after the logical connection has lost its reconnect grace. */
+    default boolean isPeerDefinitivelyClosed(String nickname) {
         return false;
     }
 
@@ -150,10 +161,8 @@ public interface GameChannel extends AutoCloseable {
     }
 
     /**
-     * Atomically retires a peer only when its current authenticated socket
-     * generation is still disconnected. Used by definitive-loss callbacks so
-     * a delayed callback from an older generation cannot remove a connection
-     * that has already reauthenticated under the same persistent identity.
+     * Atomically retires a peer only when its logical connection is closed.
+     * A physical socket loss during reconnect grace cannot retire the peer.
      *
      * @return true when the disconnected logical peer was retired
      */

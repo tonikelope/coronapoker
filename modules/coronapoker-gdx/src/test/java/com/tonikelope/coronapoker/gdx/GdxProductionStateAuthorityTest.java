@@ -3,17 +3,27 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.graphics.Color;
+import com.tonikelope.coronapoker.core.LobbyParticipant;
+import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.PreferencesService;
+import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -83,6 +93,203 @@ final class GdxProductionStateAuthorityTest {
 
         assertEquals(expected, actual);
         assertFalse(actual.isEmpty());
+    }
+
+    @Test
+    void dealerFlightOriginSurvivesFoldAndDepartureUntilTheNextHand(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot.PlayerSnapshot smallBlind = player("human",
+                TableSnapshot.Position.SMALL_BLIND);
+        TableSnapshot.PlayerSnapshot bigBlind = player("remote",
+                TableSnapshot.Position.BIG_BLIND);
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(smallBlind, bigBlind,
+                        player("dealer", TableSnapshot.Position.DEALER)),
+                List.of());
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                false);
+        table.acceptEvent(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, initial),
+                new CompletableFuture<>());
+        placeSeat(table, "dealer", 1460f, 760f);
+        placeSeat(table, "human", 960f, 200f);
+        assertDealerSource(table, 1460f, 760f);
+
+        table.acceptEvent(new TableVisualEvent.FoldHoleCards(2L, "dealer"),
+                new CompletableFuture<>());
+        assertFalse(player(projection, "dealer").active());
+        assertDealerSource(table, 1460f, 760f);
+
+        table.acceptEvent(new TableVisualEvent.PlayerDeparture(3L, "dealer",
+                "SE VA"), new CompletableFuture<>());
+        assertFalse(((Map<?, ?>) tableField("seatsByNickname").get(table))
+                .containsKey("dealer"));
+        assertDealerSource(table, 1460f, 760f);
+
+        TableSnapshot.PlayerSnapshot departed = new TableSnapshot.PlayerSnapshot(
+                "dealer", 10d, 0d, 0d, false, false, true, false,
+                -1, -1, 0, 0L, false, TableSnapshot.Position.NONE,
+                "", "", List.of());
+        table.acceptEvent(new TableVisualEvent.SeatRoster(4L,
+                List.of(smallBlind, bigBlind, departed)),
+                new CompletableFuture<>());
+        assertTrue(player(projection, "dealer").exited());
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(5L,
+                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE-B:", 0d,
+                List.of(3, 4)), new CompletableFuture<>());
+        placeSeat(table, "human", 960f, 200f);
+        assertDealerSource(table, 1460f, 760f);
+
+        TableSnapshot headsUp = new TableSnapshot(2L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(smallBlind, bigBlind), List.of());
+        table.acceptEvent(new TableVisualEvent.HandBoundary(6L, 2L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, headsUp),
+                new CompletableFuture<>());
+        assertDealerSource(table, 960f, 200f);
+    }
+
+    @Test
+    void departureRemovesSeatAndRebuyWhileSurvivorStartsRelayout(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.SHOWDOWN, 0d, "remote", false,
+                List.of(player("human"), player("remote"), player("second"),
+                        player("other")),
+                List.of());
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = animatedTable(temporary, projection);
+        table.acceptEvent(new TableVisualEvent.PreparationStatus(1L,
+                TableVisualEvent.PreparationStatus.Phase.READY),
+                new CompletableFuture<>());
+        tableField("creationComplete").setBoolean(table, true);
+        table.acceptEvent(new TableVisualEvent.RebuyDecision(2L, "remote",
+                TableVisualEvent.RebuyDecision.Phase.WAITING),
+                new CompletableFuture<>());
+        assertTrue(table.hasRemoteRebuyPresentation("remote"));
+        placeSeat(table, "other", 1400f, 760f);
+
+        table.acceptEvent(new TableVisualEvent.PlayerDeparture(3L, "remote",
+                "SE VA"), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.PlayerDeparture(4L, "second",
+                "SE VA"), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.PlayerTimeout(5L, "remote", true),
+                new CompletableFuture<>());
+
+        Map<?, ?> seats = (Map<?, ?>) tableField("seatsByNickname").get(table);
+        assertEquals(Set.of("human", "other"), seats.keySet());
+        Object survivor = seats.get("other");
+        Field relayout = survivor.getClass().getDeclaredField("relayoutStartedAt");
+        relayout.setAccessible(true);
+        assertFalse(Float.isNaN(relayout.getFloat(survivor)));
+        Field relayoutFromX = survivor.getClass().getDeclaredField(
+                "relayoutFromX");
+        relayoutFromX.setAccessible(true);
+        assertEquals(1400f, relayoutFromX.getFloat(survivor));
+        assertTrue(projection.snapshot().currentTurnNickname().isBlank());
+        assertFalse(player(projection, "remote").timedOut());
+        assertNull(projection.rebuyDecision("remote"));
+        assertFalse(table.hasRemoteRebuyPresentation("remote"));
+    }
+
+    @Test
+    void kickConfirmationExpiresOnReconnectAndOnDeparture(
+            @TempDir Path temporary) {
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "remote", false,
+                List.of(player("human"), player("remote")), List.of());
+        LobbySession lobby = new LobbySession(new LobbySnapshot("human",
+                "human", "127.0.0.1", true, LobbySnapshot.Phase.IN_GAME, "",
+                List.of(new LobbyParticipant("human", null, true, true,
+                        false, true, false, true, 0, 0),
+                        new LobbyParticipant("remote", null, false, false,
+                                false, false, false, true, 0, 0)),
+                List.of(), null, false, false),
+                command -> CompletableFuture.completedFuture(null));
+        List<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240,
+                new GdxTableViewState(initial), submitted::add, () -> { },
+                new GdxGameLogSink(), new PreferencesService(
+                        temporary.resolve("coronapoker.properties")),
+                lobby, null);
+        table.acceptEvent(new TableVisualEvent.PlayerTimeout(1L, "remote", true),
+                new CompletableFuture<>());
+        GdxTableDialog recovered = table.requestKickTimedOutPlayer("remote");
+        assertNotNull(recovered);
+        table.acceptEvent(new TableVisualEvent.PlayerTimeout(2L, "remote", false),
+                new CompletableFuture<>());
+        assertFalse(recovered.result().toCompletableFuture().join());
+
+        table.acceptEvent(new TableVisualEvent.PlayerTimeout(3L, "remote", true),
+                new CompletableFuture<>());
+        recovered.accept();
+        assertTrue(submitted.isEmpty());
+        GdxTableDialog departed = table.requestKickTimedOutPlayer("remote");
+        assertNotNull(departed);
+        table.acceptEvent(new TableVisualEvent.PlayerDeparture(4L, "remote",
+                "SE VA"), new CompletableFuture<>());
+        assertFalse(departed.result().toCompletableFuture().join());
+        assertNull(table.requestKickTimedOutPlayer("remote"));
+    }
+
+    @Test
+    void latencyPresentationDistinguishesPendingAndFailedHeartbeats() {
+        var input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.WAITING, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        var projection = new GdxTableViewState(input);
+        long now = System.currentTimeMillis();
+        int pending = LobbyParticipant.NO_LATENCY;
+        int red = 0xf44336ff;
+        projection.apply(new TableVisualEvent.TelemetryStatus(1L, List.of(
+                new TableVisualEvent.PlayerTelemetry("remote", pending,
+                        pending, 0, now))));
+        assertNotEquals(red, Color.rgba8888(CoronaPokerGdxTable.latencyColor(
+                player(projection, "remote"))));
+        projection.apply(new TableVisualEvent.TelemetryStatus(2L, List.of(
+                new TableVisualEvent.PlayerTelemetry("remote", -1,
+                        pending, 0, now))));
+        assertEquals(red, Color.rgba8888(CoronaPokerGdxTable.latencyColor(
+                player(projection, "remote"))));
+    }
+
+    @Test
+    void hotJoinUsesTheFoldedDealerAndRefreshesReplacedSeatGeometry(
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot.PlayerSnapshot local = player("human",
+                TableSnapshot.Position.SMALL_BLIND);
+        TableSnapshot.PlayerSnapshot bigBlind = player("remote",
+                TableSnapshot.Position.BIG_BLIND);
+        TableSnapshot initial = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(local, bigBlind,
+                        player("previous", TableSnapshot.Position.DEALER)),
+                List.of());
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary,
+                new GdxTableViewState(initial), false);
+        table.acceptEvent(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, initial),
+                new CompletableFuture<>());
+        placeSeat(table, "previous", 330f, 740f);
+        assertDealerSource(table, 330f, 740f);
+        Field cachedLayout = tableField("cachedSeatLayoutValid");
+        cachedLayout.setBoolean(table, true);
+
+        TableSnapshot host = new TableSnapshot(2L, "human",
+                TableSnapshot.Street.FLOP, 0d, "", false,
+                List.of(local, bigBlind, player("current",
+                        TableSnapshot.Position.DEALER_STRADDLE)), List.of());
+        GdxTableViewState hostProjection = new GdxTableViewState(host);
+        hostProjection.apply(new TableVisualEvent.FoldHoleCards(1L,
+                "current"));
+        table.acceptEvent(new TableVisualEvent.HotJoinState(2L,
+                hostProjection.snapshot()), new CompletableFuture<>());
+        assertFalse(cachedLayout.getBoolean(table));
+        placeSeat(table, "human", 960f, 200f);
+        placeSeat(table, "current", 1490f, 740f);
+        assertDealerSource(table, 1490f, 740f);
     }
 
     @Test
@@ -641,6 +848,7 @@ final class GdxProductionStateAuthorityTest {
                 file.resolve("coronapoker.properties"));
         preferences.properties().setProperty("sonido_efectos", "false");
         preferences.properties().setProperty("animaciones", "true");
+        preferences.properties().setProperty("cinematicas_gameover", "false");
         preferences.properties().setProperty("animacion_reparto", "true");
         preferences.properties().setProperty("animacion_destape", "true");
         preferences.properties().setProperty("animacion_apuestas", "true");
@@ -704,9 +912,46 @@ final class GdxProductionStateAuthorityTest {
     }
 
     private static TableSnapshot.PlayerSnapshot player(String nickname) {
+        return player(nickname, TableSnapshot.Position.NONE);
+    }
+
+    private static TableSnapshot.PlayerSnapshot player(String nickname,
+            TableSnapshot.Position position) {
         return new TableSnapshot.PlayerSnapshot(nickname, 10d, 0d, 0d,
                 true, false, false, false, -1, -1, 0, 0L, false,
-                TableSnapshot.Position.NONE, "", "", List.of());
+                position, "", "", List.of());
+    }
+
+    private static Field tableField(String name) throws Exception {
+        Field field = CoronaPokerGdxTable.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field;
+    }
+
+    private static void placeSeat(CoronaPokerGdxTable table, String nickname,
+            float x, float y) throws Exception {
+        Map<?, ?> seats = (Map<?, ?>) tableField("seatsByNickname").get(table);
+        Object seat = seats.get(nickname);
+        assertNotNull(seat);
+        Field seatX = seat.getClass().getDeclaredField("x");
+        Field seatY = seat.getClass().getDeclaredField("y");
+        Field ready = seat.getClass().getDeclaredField("geometryReady");
+        seatX.setAccessible(true);
+        seatY.setAccessible(true);
+        ready.setAccessible(true);
+        seatX.setFloat(seat, x);
+        seatY.setFloat(seat, y);
+        ready.setBoolean(seat, true);
+    }
+
+    private static void assertDealerSource(CoronaPokerGdxTable table,
+            float x, float y) throws Exception {
+        Method update = CoronaPokerGdxTable.class.getDeclaredMethod(
+                "updateDealerSource", float.class, float.class);
+        update.setAccessible(true);
+        update.invoke(table, 1920f, 1080f);
+        assertEquals(x, tableField("dealerSourceX").getFloat(table));
+        assertEquals(y, tableField("dealerSourceY").getFloat(table));
     }
 
     private static TableSnapshot.PlayerSnapshot playerState(String nickname,

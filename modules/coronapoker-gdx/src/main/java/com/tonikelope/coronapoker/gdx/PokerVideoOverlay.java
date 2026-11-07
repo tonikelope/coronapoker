@@ -37,10 +37,15 @@ import org.cef.browser.LibGdxCefBrowser;
 final class PokerVideoOverlay implements AutoCloseable {
 
     static final float MIN_WIDTH = 260f;
-    static final float INITIAL_WIDTH = MIN_WIDTH;
     static final float HEADER_HEIGHT = 52f;
     static final float FOOTER_HEIGHT = 48f;
     static final float CHROME_HEIGHT = HEADER_HEIGHT + FOOTER_HEIGHT;
+    // The frontend viewport scales this 1920×1080 layout to the display.
+    private static final float DEFAULT_NORMAL_WIDTH = 514f;
+    private static final float DEFAULT_SHORT_WIDTH = 330f;
+    private static final float DEFAULT_NORMAL_BOTTOM = 100f;
+    private static final float DEFAULT_SHORT_BOTTOM = 108f;
+    private static final float WINDOW_MARGIN = 8f;
     private static final float RESIZE_EDGE_HIT = 11f;
     private static final float RESIZE_CORNER_HIT = 22f;
     private static final float SHORT_ASPECT = 9f / 16f;
@@ -103,7 +108,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private volatile boolean minimized;
     private boolean animateWindow;
     private float transitionElapsed = WINDOW_TRANSITION_SECONDS;
-    private boolean positioned;
+    private boolean customGeometry;
     private boolean runtimeActive;
     private boolean browserFocused;
     private volatile boolean releasedForTable;
@@ -115,8 +120,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float worldHeight;
     private float x;
     private float y;
-    private float videoWidth = INITIAL_WIDTH;
-    private float videoHeight = INITIAL_WIDTH / NORMAL_ASPECT;
+    private float videoWidth = DEFAULT_NORMAL_WIDTH;
+    private float videoHeight = DEFAULT_NORMAL_WIDTH / NORMAL_ASPECT;
     private Capture capture = Capture.NONE;
     private int capturedPointer = -1;
     private int capturedButton = -1;
@@ -197,15 +202,14 @@ final class PokerVideoOverlay implements AutoCloseable {
         } else if (!wasEnabled) {
             minimized = firstUpdate && !openOnStartup;
         }
-        ensurePosition();
+        String normalizedType = PokerVideoSearch.videoType(videoType);
+        catalog.setType(normalizedType);
+        updateVideoGeometry(normalizedType);
         // A disabled feature is fully absent. "Minimized" is only a runtime
         // window state while the feature remains enabled; it must not turn a
         // disabled preference back into a floating activation icon.
         hostVisible = visible && enabled && !releasedForTable;
         if (firstUpdate && !minimized) beginWindowTransition();
-        String normalizedType = PokerVideoSearch.videoType(videoType);
-        catalog.setType(normalizedType);
-        updateVideoAspect(normalizedType);
         String catalogKey = PokerVideoSearch.languageCode(language) + ":"
                 + normalizedType;
         if (hostVisible && !minimized && (!initializationStarted
@@ -264,17 +268,21 @@ final class PokerVideoOverlay implements AutoCloseable {
         updateBounds();
     }
 
-    private void updateVideoAspect(String videoType) {
-        if (videoType.equals(selectedVideoType)) return;
-        float top = y + videoHeight + CHROME_HEIGHT;
-        selectedVideoType = videoType;
-        videoAspect = PokerVideoSearch.TYPE_NORMAL.equals(videoType)
-                ? NORMAL_ASPECT : SHORT_ASPECT;
-        videoHeight = videoWidth / videoAspect;
-        if (positioned) {
-            y = top - videoHeight - CHROME_HEIGHT;
-            clampWindow();
+    private void updateVideoGeometry(String videoType) {
+        boolean shorts = PokerVideoSearch.TYPE_SHORTS.equals(videoType);
+        if (!videoType.equals(selectedVideoType)) {
+            float top = y + videoHeight + CHROME_HEIGHT;
+            selectedVideoType = videoType;
+            videoAspect = shorts ? SHORT_ASPECT : NORMAL_ASPECT;
+            y = top - videoWidth / videoAspect - CHROME_HEIGHT;
         }
+        if (!customGeometry) {
+            videoWidth = Math.min(shorts ? DEFAULT_SHORT_WIDTH : DEFAULT_NORMAL_WIDTH,
+                    maximumVideoWidth());
+            x = worldWidth - videoWidth - WINDOW_MARGIN;
+            y = shorts ? DEFAULT_SHORT_BOTTOM : DEFAULT_NORMAL_BOTTOM;
+        }
+        clampWindow();
     }
 
     private void start(String language, String videoType,
@@ -376,17 +384,6 @@ final class PokerVideoOverlay implements AutoCloseable {
                 ? Path.of(System.getProperty("user.home"), ".cache",
                         "coronapoker", "jcef")
                 : Path.of(xdg, "coronapoker", "jcef");
-    }
-
-    private void ensurePosition() {
-        if (positioned) {
-            clampWindow();
-            return;
-        }
-        x = Math.max(8f, worldWidth - videoWidth - 24f);
-        y = 104f;
-        positioned = true;
-        clampWindow();
     }
 
     private void updateBounds() {
@@ -873,6 +870,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         switch (capture) {
             case MOVE -> {
+                customGeometry = true;
                 x = startWindowX + pointerX - captureStartX;
                 y = startWindowY + pointerY - captureStartY;
                 clampWindow();
@@ -1000,6 +998,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private void resizeFrom(float pointerX, float pointerY) {
+        customGeometry = true;
         if (resizeHandle == ResizeHandle.NONE) return;
         float deltaX = pointerX - captureStartX;
         float deltaY = pointerY - captureStartY;
@@ -1183,18 +1182,18 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private float maximumVideoWidth() {
-        return Math.max(MIN_WIDTH, Math.min(worldWidth - 16f,
-                (worldHeight - CHROME_HEIGHT - 16f) * videoAspect));
+        return Math.max(MIN_WIDTH, Math.min(worldWidth - 2f * WINDOW_MARGIN,
+                (worldHeight - CHROME_HEIGHT - 2f * WINDOW_MARGIN) * videoAspect));
     }
 
     private void clampWindow() {
         videoWidth = Math.min(videoWidth, maximumVideoWidth());
         videoHeight = videoWidth / videoAspect;
         float totalHeight = videoHeight + CHROME_HEIGHT;
-        x = MathUtils.clamp(x, 8f,
-                Math.max(8f, worldWidth - videoWidth - 8f));
-        y = MathUtils.clamp(y, 8f,
-                Math.max(8f, worldHeight - totalHeight - 8f));
+        x = MathUtils.clamp(x, WINDOW_MARGIN,
+                Math.max(WINDOW_MARGIN, worldWidth - videoWidth - WINDOW_MARGIN));
+        y = MathUtils.clamp(y, WINDOW_MARGIN,
+                Math.max(WINDOW_MARGIN, worldHeight - totalHeight - WINDOW_MARGIN));
     }
 
     boolean capturesPointer() {

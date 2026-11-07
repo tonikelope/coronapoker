@@ -47,7 +47,7 @@ OutputBaseFilename={#OutputBase}
 Compression=lzma2/max
 SolidCompression=yes
 ArchiveExtraction=full
-WizardStyle=modern dynamic polar
+WizardStyle=modern dynamic
 WizardImageFile=installer-wizard.png
 WizardSmallImageFile=installer-small.png
 WizardImageStretch=yes
@@ -72,7 +72,7 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:AdditionalShortcuts}"; Flags: checkedonce
 Name: "firewall"; Description: "{cm:FirewallAccess}"; GroupDescription: "{cm:NetworkAccess}"
-Name: "mods"; Description: "🔒  {cm:ModEnable}"; GroupDescription: "MODs"; Flags: unchecked checkedonce
+Name: "mods"; Description: "{cm:ModEnable}"; GroupDescription: "MODs"; Flags: unchecked checkedonce
 Name: "mods\chilean"; Description: "{cm:ModChilean}"; Flags: exclusive unchecked checkedonce
 Name: "mods\local"; Description: "{cm:ModLocal}"; Flags: exclusive unchecked checkedonce
 
@@ -93,6 +93,7 @@ english.AdditionalShortcuts=Shortcuts:
 english.LaunchCoronaPoker=Launch CoronaPoker
 english.NetworkAccess=Network access:
 english.FirewallAccess=Allow CoronaPoker through Windows Firewall
+english.FirewallAccessHint=Allows other players to connect when you host a game over the Internet. If you skip this option, Windows may ask for permission when you create a game.
 english.FirewallFailed=Windows Firewall could not be configured. CoronaPoker was installed, but Windows may ask for network access when you host a game.
 english.FirewallRemoveFailed=The CoronaPoker Windows Firewall rule could not be removed automatically.
 spanish.DesktopShortcut=Crear un acceso directo en el &escritorio
@@ -100,6 +101,7 @@ spanish.AdditionalShortcuts=Accesos directos:
 spanish.LaunchCoronaPoker=Abrir CoronaPoker
 spanish.NetworkAccess=Acceso de red:
 spanish.FirewallAccess=Permitir CoronaPoker en el Firewall de Windows
+spanish.FirewallAccessHint=Permite que otros jugadores se conecten cuando haces de anfitrión por Internet. Si no activas esta opción, Windows puede pedirte permiso al crear una partida.
 spanish.FirewallFailed=No se pudo configurar el Firewall de Windows. CoronaPoker se ha instalado, pero Windows puede pedir permiso de red al crear una timba.
 spanish.FirewallRemoveFailed=No se pudo quitar automáticamente la regla de CoronaPoker del Firewall de Windows.
 english.InstallSize=Estimated installation size
@@ -109,10 +111,10 @@ english.ModLocal=Personal MOD · choose a ZIP file
 english.ModFileDescription=Choose a MOD stored on this computer.
 english.ModFileInstructions=Select a ZIP containing mod.xml at its root or inside a mod folder.
 english.ModFileLabel=MOD archive
-english.ModPasswordTitle=🔒  Protected MOD
+english.ModPasswordTitle=Protected MOD
 english.ModPasswordDescription=The selected ZIP archive is encrypted.
 english.ModPasswordInstructions=Enter the archive password to verify and extract the MOD.
-english.ModPasswordLabel=ZIP password
+english.ModPasswordLabel=🔒  ZIP password
 english.ModPasswordRequired=Enter the password for the selected ZIP archive.
 english.ModPasswordFailed=The MOD could not be extracted. Check the ZIP password and try again.
 english.ModCopyFailed=Setup could not read the selected ZIP or copy it to temporary storage.
@@ -130,10 +132,10 @@ spanish.ModLocal=MOD personal · elegir un archivo ZIP
 spanish.ModFileDescription=Elige un MOD guardado en este equipo.
 spanish.ModFileInstructions=Selecciona un ZIP con mod.xml en su raíz o dentro de una carpeta mod.
 spanish.ModFileLabel=Archivo del MOD
-spanish.ModPasswordTitle=🔒  MOD protegido
+spanish.ModPasswordTitle=MOD protegido
 spanish.ModPasswordDescription=El archivo ZIP seleccionado está cifrado.
 spanish.ModPasswordInstructions=Introduce la contraseña del ZIP para verificar y extraer el MOD.
-spanish.ModPasswordLabel=Contraseña del ZIP
+spanish.ModPasswordLabel=🔒  Contraseña del ZIP
 spanish.ModPasswordRequired=Introduce la contraseña del archivo ZIP seleccionado.
 spanish.ModPasswordFailed=No se pudo extraer el MOD. Comprueba la contraseña del ZIP e inténtalo de nuevo.
 spanish.ModCopyFailed=No se pudo leer el ZIP seleccionado o copiarlo al almacenamiento temporal.
@@ -154,19 +156,18 @@ spanish.StatusExtractFiles=Instalando CoronaPoker y Java…
 [Code]
 #include "ModArchive.iss"
 #include "ModInstall.iss"
+#include "FirewallTaskHint.iss"
 
 const
-  BCM_SETSHIELD = $160C;
   FirewallRuleName = 'CoronaPoker';
   FirewallRegistryKey = 'Software\CoronaPoker';
   FirewallRegistryValue = 'FirewallRuleInstalled';
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  { Let Windows draw its native, DPI-aware UAC shield only when the selected
-    install options will require the later elevated firewall operation. }
-  SendMessage(WizardForm.NextButton.Handle, BCM_SETSHIELD, 0,
-    Ord((CurPageID = wpReady) and WizardIsTaskSelected('firewall')));
+  UpdateFirewallTaskHint(CurPageID);
+  WizardForm.NextButton.ElevationRequired :=
+    (CurPageID = wpReady) and WizardIsTaskSelected('firewall') and not IsAdmin;
   if CurPageID = wpInstalling then
     WizardForm.PageDescriptionLabel.Caption :=
       CustomMessage('InstallSize') + '  ·  ' + EstimatedInstallSize;
@@ -181,54 +182,62 @@ end;
 function RunElevatedPowerShell(const Script: String): Boolean;
 var
   ExitCode: Integer;
-  Parameters: String;
+  Parameters, PowerShell: String;
+  Started: Boolean;
 begin
   Parameters := '-NoLogo -NoProfile -NonInteractive ' +
-    '-ExecutionPolicy Bypass -Command "' + Script + '"';
-  Result := ShellExec('runas',
-    ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    Parameters, '', SW_HIDE, ewWaitUntilTerminated, ExitCode)
-    and (ExitCode = 0);
+    '-Command "' + Script + '"';
+  PowerShell := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  if IsAdmin then
+    Started := Exec(PowerShell, Parameters, '', SW_HIDE,
+      ewWaitUntilTerminated, ExitCode)
+  else
+    Started := ShellExec('runas', PowerShell, Parameters, '', SW_HIDE,
+      ewWaitUntilTerminated, ExitCode);
+  Result := Started and (ExitCode = 0);
+  if not Started then
+    Log('Could not launch the firewall command. Windows error: ' +
+      IntToStr(ExitCode))
+  else if not Result then
+    Log('Firewall command failed. PowerShell exit code: ' + IntToStr(ExitCode));
+end;
+
+function FirewallScript(const ProgramPath: String; Install: Boolean): String;
+begin
+  { Enumerate the local store once. A display-name query reports an error
+    when the rule is absent, and display names are not unique. }
+  Result := '$ErrorActionPreference = ''Stop''; try { ' +
+    'Import-Module -Name (Join-Path $PSHOME ''Modules\NetSecurity\NetSecurity.psd1''); ' +
+    '$program = ' + PowerShellQuote(ProgramPath) + '; ' +
+    '$name = ' + PowerShellQuote(FirewallRuleName) + '; ' +
+    '$rules = @(NetSecurity\Get-NetFirewallRule -PolicyStore PersistentStore | ' +
+    'Where-Object { $_.DisplayName -eq $name -and $_.Direction -eq ''Inbound'' ' +
+    '-and $_.Action -eq ''Allow'' -and ' +
+    '(NetSecurity\Get-NetFirewallApplicationFilter -AssociatedNetFirewallRule $_).Program -eq $program }); ';
+  if Install then
+    Result := Result +
+      'if ($rules.Count -eq 0) { NetSecurity\New-NetFirewallRule ' +
+      '-PolicyStore PersistentStore -DisplayName $name ' +
+      '-Direction Inbound -Action Allow -Profile Private,Public -Program $program ' +
+      '-Protocol TCP -Enabled True | Out-Null } else { ' +
+      'NetSecurity\Set-NetFirewallRule -InputObject $rules[0] ' +
+      '-Enabled True -Profile Private,Public -Protocol TCP | Out-Null; ' +
+      '$rules = @($rules | Select-Object -Skip 1) }; ';
+  Result := Result +
+    'foreach ($rule in $rules) { NetSecurity\Remove-NetFirewallRule -InputObject $rule }; ' +
+    'exit 0 } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }';
 end;
 
 function InstallFirewallRule(): Boolean;
-var
-  ProgramPath: String;
-  Script: String;
 begin
-  ProgramPath := PowerShellQuote(
-    ExpandConstant('{app}\CoronaPoker.exe'));
-  Script := '$ErrorActionPreference = ''Stop''; ' +
-    'Get-NetFirewallApplicationFilter -Program ' + ProgramPath +
-    ' -ErrorAction SilentlyContinue | Get-NetFirewallRule ' +
-    '-ErrorAction SilentlyContinue | Where-Object { $_.Direction -eq ''Inbound'' } ' +
-    '| Remove-NetFirewallRule; ' +
-    'Get-NetFirewallRule -DisplayName ' +
-    PowerShellQuote(FirewallRuleName) +
-    ' -ErrorAction SilentlyContinue | Remove-NetFirewallRule; ' +
-    'New-NetFirewallRule -DisplayName ' +
-    PowerShellQuote(FirewallRuleName) +
-    ' -Direction Inbound -Action Allow -Profile Private,Public -Program ' +
-    ProgramPath + ' -Protocol TCP -Enabled True | Out-Null';
-  Result := RunElevatedPowerShell(Script);
+  Result := RunElevatedPowerShell(
+    FirewallScript(ExpandConstant('{app}\CoronaPoker.exe'), True));
 end;
 
 function RemoveFirewallRule(): Boolean;
-var
-  ProgramPath: String;
-  Script: String;
 begin
-  ProgramPath := PowerShellQuote(
-    ExpandConstant('{app}\CoronaPoker.exe'));
-  Script := '$ErrorActionPreference = ''Stop''; ' +
-    'Get-NetFirewallApplicationFilter -Program ' + ProgramPath +
-    ' -ErrorAction SilentlyContinue | Get-NetFirewallRule ' +
-    '-ErrorAction SilentlyContinue | Where-Object { $_.Direction -eq ''Inbound'' } ' +
-    '| Remove-NetFirewallRule; ' +
-    'Get-NetFirewallRule -DisplayName ' +
-    PowerShellQuote(FirewallRuleName) +
-    ' -ErrorAction SilentlyContinue | Remove-NetFirewallRule';
-  Result := RunElevatedPowerShell(Script);
+  Result := RunElevatedPowerShell(
+    FirewallScript(ExpandConstant('{app}\CoronaPoker.exe'), False));
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

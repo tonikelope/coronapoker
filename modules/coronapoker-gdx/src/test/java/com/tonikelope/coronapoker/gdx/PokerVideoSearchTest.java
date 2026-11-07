@@ -358,9 +358,34 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void overlayStartsAtItsCompactProportionalSize() {
-        assertEquals(PokerVideoOverlay.MIN_WIDTH,
-                PokerVideoOverlay.INITIAL_WIDTH);
+    void defaultOverlaySizesFitAboveTheFooterAndReachTheRightEdge() throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            var boundsField = PokerVideoOverlay.class.getDeclaredField("panelBounds");
+            boundsField.setAccessible(true);
+            Rectangle panel = (Rectangle) boundsField.get(overlay);
+
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(514f, panel.width);
+            assertEquals(100f, panel.y);
+            assertEquals(1912f, panel.x + panel.width);
+            assertEquals(16f / 9f, panel.width
+                    / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
+
+            overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
+            assertEquals(330f, panel.width);
+            assertEquals(108f, panel.y);
+            assertEquals(1912f, panel.x + panel.width);
+            assertEquals(9f / 16f, panel.width
+                    / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
+
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertEquals(514f, panel.width);
+            assertEquals(100f, panel.y);
+        }
+    }
+
+    @Test
+    void footerVideoIconKeepsItsSharedBounds() {
         Rectangle menu = PokerVideoIcon.bounds(1920f, new Rectangle());
         assertEquals(1781f, menu.x);
         assertEquals(16f, menu.y);
@@ -425,6 +450,32 @@ class PokerVideoSearchTest {
             assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);
             assertEquals(9f / 16f, panel.width
                     / (panel.height - PokerVideoOverlay.CHROME_HEIGHT), 0.001f);
+        }
+    }
+
+    @Test
+    void draggingPastTheBottomRightKeepsTheWindowInsideTheDisplay()
+            throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            var started = PokerVideoOverlay.class.getDeclaredField("initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField("requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:shorts");
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+            var boundsField = PokerVideoOverlay.class.getDeclaredField("panelBounds");
+            boundsField.setAccessible(true);
+            Rectangle panel = (Rectangle) boundsField.get(overlay);
+            float titleX = panel.x + panel.width / 2f;
+            float titleY = panel.y + panel.height - PokerVideoOverlay.HEADER_HEIGHT / 2f;
+
+            assertTrue(overlay.touchDown(titleX, titleY, 0, 0));
+            assertTrue(overlay.touchDragged(2500f, -100f, 0));
+            assertTrue(overlay.touchUp(2500f, -100f, 0, 0));
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+            assertEquals(1912f, panel.x + panel.width);
+            assertEquals(8f, panel.y);
         }
     }
 

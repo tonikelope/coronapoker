@@ -159,13 +159,11 @@ final class ProductDistributionContractTest {
                 "Firewall access must be an explicit installer task");
         assertFalse(installerSpec.contains("🛡"),
                 "The installer must use the native Windows UAC shield, not an emoji substitute");
-        assertTrue(installerSpec.contains("BCM_SETSHIELD = $160C"),
-                "The firewall elevation cue must use the native Windows button shield");
         assertTrue(installerSpec.contains(
-                "WizardForm.NextButton.Handle, BCM_SETSHIELD"),
+                "WizardForm.NextButton.ElevationRequired"),
                 "The native elevation cue must be attached to the install button");
         assertTrue(installerSpec.contains(
-                "(CurPageID = wpReady) and WizardIsTaskSelected('firewall')"),
+                "(CurPageID = wpReady) and WizardIsTaskSelected('firewall') and not IsAdmin"),
                 "The UAC shield must only appear when installation will configure the firewall");
         assertFalse(installerSpec.contains(
                 "Name: \"firewall\"; Description: \"{cm:FirewallAccess}\"; "
@@ -177,8 +175,10 @@ final class ProductDistributionContractTest {
                 "-Direction Inbound -Action Allow -Profile Private,Public -Program"),
                 "The rule must cover the selected Windows network profile and be tied to the launcher");
         assertTrue(installerSpec.contains(
-                "Get-NetFirewallApplicationFilter -Program"),
-                "Installer upgrades must replace an existing rule for the launcher path");
+                "Get-NetFirewallApplicationFilter -AssociatedNetFirewallRule $_).Program -eq $program"),
+                "Rule management must match the exact launcher path");
+        assertTrue(installerSpec.contains("Remove-NetFirewallRule -InputObject $rule"),
+                "Uninstall must remove matching rules by identity");
         assertTrue(installerSpec.contains("-Protocol TCP"));
         assertFalse(installerSpec.toLowerCase(java.util.Locale.ROOT)
                 .contains("localport"),

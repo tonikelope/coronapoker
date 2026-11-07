@@ -20,14 +20,16 @@ the bundled Java runtime or replace a reduced runtime from an earlier
 installer. Since 27.18 the video loopback server uses `java.base` sockets
 and works on pre-video installer runtimes that lack `jdk.httpserver`.
 
-The task page offers `🛡 Allow CoronaPoker through Windows Firewall` (or its
-Spanish equivalent) and selects it by default. When it remains selected, Setup
-asks for elevation once at the end and creates an inbound TCP rule for the
-installed `CoronaPoker.exe` on private and public Windows network profiles. The
-rule follows the program, not a fixed poker port; an older inbound rule for the
-same executable is replaced instead of duplicated, and the final rule is
-removed by the uninstaller. Clearing the option keeps the entire per-user
-installation unelevated.
+The task page offers **Allow CoronaPoker through Windows Firewall** (or its
+Spanish equivalent) and selects it by default. With the task selected, the
+Install button shows the system UAC shield when elevation is needed. Setup
+asks for elevation once at the end and configures an inbound TCP rule for the
+installed `CoronaPoker.exe` on private and public Windows network profiles.
+Reinstalling reuses the rule for that executable. Uninstall removes matching
+local rules and succeeds if they are already gone. Clearing the task keeps
+the per-user installation unelevated. The task tooltip explains that the
+rule allows hosting over the Internet and that Windows may ask for access
+when you create a game if you skip it during Setup.
 
 The **MODs** group is off by default. Setup can download Chilean MOD from
 the matching GitHub release and verify its SHA-256, or install a personal ZIP.

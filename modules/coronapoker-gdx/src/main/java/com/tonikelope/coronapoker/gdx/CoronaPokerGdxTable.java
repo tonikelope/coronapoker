@@ -417,7 +417,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
     private static final float CHIP_IMPACT_PITCH_VARIATION = 0.015f;
     private static final int CLASSIC_DEAL_BASE_MILLIS = 250;
-    private static final float COMMUNITY_DEAL_FLIGHT_SECONDS = 0.52f;
+    private static final float COMMUNITY_STREET_DEAL_FLIGHT_SECONDS = 0.52f;
     private static final float CARD_CORNER_RADIUS = 0.075f;
     private static final float CARD_EDGE_SOFTNESS = 0.006f;
     private static final int CARD_EDGE_SUPERSAMPLES = 4;
@@ -5328,7 +5328,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 barrier.complete(null);
                 return;
             }
-            float flightSeconds = communityDealFlightSeconds(liveDealSpeedPercent());
+            float flightSeconds = liveDealFlightSeconds(activeDealtPlayerCount(),
+                    liveDealSpeedPercent());
             LiveCardFlight flight = new LiveCardFlight(event,
                     System.nanoTime(),
                     barrier, flightSeconds, deal.slot(),
@@ -9497,11 +9498,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int flightBase = Math.max(150, pauseBase);
         float speed = speedPercent / 100f;
         return Math.max(80, Math.round(flightBase * speed)) / 1000f;
-    }
-
-    private static float communityDealFlightSeconds(int speedPercent) {
-        return COMMUNITY_DEAL_FLIGHT_SECONDS
-                * MathUtils.clamp(speedPercent, 60, 150) / 100f;
     }
 
     static boolean shouldDismissAutoActionDialog(TableVisualEvent event,
@@ -17267,12 +17263,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             TableVisualEvent.RevealCommunityCards event, boolean flip) {
         boolean deal = liveDealAnimationEnabled();
         float leadIn = event.leadInMillis() / 1000f;
-        int speed = liveDealSpeedPercent();
-        float flight = deal ? communityDealFlightSeconds(speed) : 0f;
+        int speed = MathUtils.clamp(liveDealSpeedPercent(), 60, 150);
+        float flight = deal ? COMMUNITY_STREET_DEAL_FLIGHT_SECONDS
+                * speed / 100f : 0f;
         float flipSeconds = flip ? cardFlipSeconds() : 0f;
         if (event.cards().size() == 3) {
             return deal ? GdxCommunityStreetDeal.flop(leadIn, flight,
-                    flipSeconds, MathUtils.clamp(speed, 60, 150)) : null;
+                    flipSeconds, speed) : null;
         }
         if (!deal && !flip) return null;
         return GdxCommunityStreetDeal.single(leadIn, flight, flipSeconds);

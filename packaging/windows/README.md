@@ -2,8 +2,9 @@
 
 CoronaPoker publishes a portable JAR per supported platform and additionally a
 native Windows installer. The installer is built with the JDK's native
-`jpackage` launcher and contains a reduced private Java runtime made by
-`jlink`; Inno Setup supplies the branded, bilingual installation wizard.
+`jpackage` launcher and bundles a private Java 25 runtime with all the
+modules of the source JDK. Inno Setup supplies the branded, bilingual
+installation wizard.
 Users do not need to install or update Java globally.
 
 The package deliberately installs per user. Its stable application JAR lives
@@ -14,11 +15,10 @@ the bundled runtime, without administrator elevation. Installing the game does
 not redirect `user.home`; both the portable and installed editions continue to
 use `%USERPROFILE%\.coronapoker` for preferences and user data.
 
-Self-update replaces the application JAR, not this private Java image. New
-features must therefore remain compatible with the module set of previous
-installers, or explicitly migrate that runtime. Since 27.18 the video loopback
-server uses `java.base` sockets and works on pre-video installer runtimes that
-do not contain `jdk.httpserver`.
+Self-update replaces the application JAR. Run a current Setup to refresh
+the bundled Java runtime or replace a reduced runtime from an earlier
+installer. Since 27.18 the video loopback server uses `java.base` sockets
+and works on pre-video installer runtimes that lack `jdk.httpserver`.
 
 The task page offers `🛡 Allow CoronaPoker through Windows Firewall` (or its
 Spanish equivalent) and selects it by default. When it remains selected, Setup
@@ -50,15 +50,14 @@ Build the product JAR first, then use the release wrapper:
 
 The result is `target/CoronaPoker_<version>_Windows_<arch>_Setup.exe`. The build
 host needs Inno Setup 6.7 or newer. The wrapper downloads the current x64
-Microsoft Build of OpenJDK 25 from Microsoft's stable URL, downloads and checks
-its official SHA-256, builds the installer, and removes both the ZIP and
-extracted JDK even if packaging fails. Java is therefore never a permanent
-release-machine prerequisite or repository artifact.
+Microsoft Build of OpenJDK 25 from Microsoft's stable URL and verifies its
+official SHA-256. It reuses the verified JDK in the Git-ignored `.toolchains`
+cache and removes temporary installer staging even if packaging fails.
 
 `build-installer.ps1` remains the lower-level entry point for development. It
-requires a JDK 25 distribution with `jdeps`, `jlink` and `jpackage`; the JDK
-must either include `jmods` or preserve the packaged modules needed by the JDK
-25 linkable-runtime feature. Use `-PackageType app-image` there to inspect or
+requires a JDK 25 distribution with `jpackage`. The build supplies the JDK
+as the runtime image and checks that the packaged module inventory matches
+the source JDK. Use `-PackageType app-image` there to inspect or
 test the native `CoronaPoker.exe` layout without creating an installer; Inno
 Setup is not required for that mode.
 
@@ -69,8 +68,8 @@ English. The same stable application ID must remain unchanged so later Setup
 versions upgrade the existing per-user installation instead of creating a
 second copy.
 
-The published installer is a single executable of roughly 300 MB because it
-contains both the game and its private Java runtime. On the first launch,
+The installer is a single executable that includes both the game and its
+private Java runtime. On the first launch,
 Windows or endpoint protection may scan the complete unsigned executable
 before Inno Setup is allowed to show the license page; subsequent launches are
 normally immediate once that scan is cached. A scripted Inno splash cannot

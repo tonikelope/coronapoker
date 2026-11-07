@@ -127,9 +127,8 @@ $Destination = [IO.Path]::GetFullPath($Destination)
 New-Item -ItemType Directory -Path $Destination -Force | Out-Null
 
 $jpackage = Resolve-JdkTool "jpackage"
-$jlink = Resolve-JdkTool "jlink"
-$jdeps = Resolve-JdkTool "jdeps"
-$java = Resolve-JdkTool "java"
+$resolvedJdkHome = Split-Path -Parent (Split-Path -Parent $jpackage)
+$java = Join-Path $resolvedJdkHome "bin\java.exe"
 $savedErrorActionPreference = $ErrorActionPreference
 try {
     # Windows PowerShell reports native stderr as ErrorRecord objects when
@@ -147,8 +146,10 @@ if ($javaExitCode -ne 0 -or -not ($jdkProperties -match
         '^\s*java\.specification\.version\s*=\s*25\s*$')) {
     throw "The Windows installer must be built with JDK 25."
 }
-$resolvedJdkHome = Split-Path -Parent (Split-Path -Parent $jlink)
-$jmods = Join-Path $resolvedJdkHome "jmods"
+$jdkModules = @(Invoke-Checked $java @("--list-modules") "Source JDK module inventory")
+if ($jdkModules.Count -eq 0) {
+    throw "The source JDK reported no modules."
+}
 
 if (-not [string]::Equals((Split-Path -Parent $stagingRoot), $targetRoot,
         [StringComparison]::OrdinalIgnoreCase)) {
@@ -159,60 +160,10 @@ if (Test-Path -LiteralPath $stagingRoot) {
 }
 
 $inputRoot = Join-Path $stagingRoot "input"
-$runtimeRoot = Join-Path $stagingRoot "runtime"
 $imageOutput = Join-Path $stagingRoot "image"
 New-Item -ItemType Directory -Path $inputRoot, $imageOutput |
         Out-Null
 Copy-Item -LiteralPath $JarPath -Destination (Join-Path $inputRoot "CoronaPoker.jar")
-
-$jdepsArguments = @(
-    "--ignore-missing-deps", "--multi-release", "17",
-    "--print-module-deps", $JarPath
-)
-$jdepsOutput = @(& $jdeps @jdepsArguments 2>&1)
-if ($LASTEXITCODE -ne 0) {
-    throw "jdeps could not calculate the private runtime modules:`n$($jdepsOutput -join [Environment]::NewLine)"
-}
-$dependencyLine = $jdepsOutput | Where-Object {
-    $_ -match '^[a-z0-9_.]+(?:,[a-z0-9_.]+)*$'
-} | Select-Object -Last 1
-if ([string]::IsNullOrWhiteSpace($dependencyLine)) {
-    throw "jdeps returned no Java module set."
-}
-
-# The updater is downloaded separately, so its Swing/logging requirements are
-# deliberately added even if the game JAR does not make all of them visible to
-# jdeps. Native launchers must remain in the image: coronaupdater.jar launches
-# through <private runtime>/bin/java.exe and then relaunches CoronaPoker.jar.
-$requiredModules = @(
-    "java.desktop", "java.logging", "java.management", "java.naming",
-    "java.net.http", "java.prefs", "java.sql", "jdk.charsets",
-    "jdk.crypto.ec", "jdk.localedata", "jdk.unsupported", "jdk.zipfs"
-)
-$modules = ((@($dependencyLine -split ',') + $requiredModules) |
-        Sort-Object -Unique) -join ','
-
-$jlinkArguments = @()
-if (Test-Path -LiteralPath $jmods -PathType Container) {
-    $jlinkArguments += @("--module-path", $jmods)
-}
-$jlinkArguments += @(
-    "--add-modules", $modules,
-    "--include-locales=en,es",
-    "--compress=zip-9",
-    "--strip-debug",
-    "--no-header-files",
-    "--no-man-pages",
-    "--output", $runtimeRoot
-)
-Invoke-Checked $jlink $jlinkArguments "Private Java runtime creation"
-
-foreach ($launcher in @("java.exe", "javaw.exe")) {
-    $launcherPath = Join-Path $runtimeRoot "bin\$launcher"
-    if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
-        throw "Updater-compatible runtime is missing $launcherPath."
-    }
-}
 
 $icon = Join-Path $repositoryRoot "packaging\windows\CoronaPoker.ico"
 $wizardImage = Join-Path $repositoryRoot `
@@ -232,7 +183,7 @@ $appImageArgs = @(
     "--name", "CoronaPoker",
     "--main-jar", "CoronaPoker.jar",
     "--main-class", "com.tonikelope.coronapoker.gdx.GdxLauncher",
-    "--runtime-image", $runtimeRoot,
+    "--runtime-image", $resolvedJdkHome,
     "--app-version", $version,
     "--vendor", "tonikelope",
     "--description", $description,
@@ -248,8 +199,9 @@ $nativeLauncher = Join-Path $appImage "CoronaPoker.exe"
 $installedJar = Join-Path $appImage "app\CoronaPoker.jar"
 $installedConfig = Join-Path $appImage "app\CoronaPoker.cfg"
 $installedJava = Join-Path $appImage "runtime\bin\java.exe"
+$installedJavaw = Join-Path $appImage "runtime\bin\javaw.exe"
 foreach ($requiredFile in @($nativeLauncher, $installedJar,
-        $installedConfig, $installedJava)) {
+        $installedConfig, $installedJava, $installedJavaw)) {
     if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
         throw "Incomplete application image; missing $requiredFile."
     }
@@ -261,14 +213,12 @@ if ((Get-FileHash -LiteralPath $JarPath -Algorithm SHA256).Hash -ne
 if ((Get-Content -LiteralPath $installedConfig -Raw) -match 'user\.home') {
     throw "The native launcher must preserve %USERPROFILE%\.coronapoker."
 }
-$runtimeModules = @(& $installedJava --list-modules | ForEach-Object {
-        ($_ -split '@')[0]
-    })
-foreach ($requiredModule in $requiredModules) {
-    if ($requiredModule -notin $runtimeModules) {
-        throw "Private runtime is missing module $requiredModule."
-    }
+$runtimeModules = @(Invoke-Checked $installedJava @("--list-modules") "Packaged Java module inventory")
+if ($runtimeModules.Count -eq 0 -or
+        (Compare-Object -ReferenceObject $jdkModules -DifferenceObject $runtimeModules)) {
+    throw "The packaged Java module set differs from the source JDK."
 }
+Write-Host "Packaged private Java contains all $($runtimeModules.Count) source JDK modules."
 Invoke-Sign $nativeLauncher
 
 $architecture = switch ($env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()) {

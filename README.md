@@ -353,8 +353,8 @@ audio and session behavior, platform support and YouTube limitations.
 Windows releases additionally provide
 `CoronaPoker_<version>_Windows_<arch>_Setup.exe`. This bilingual per-user
 installer contains a native `CoronaPoker.exe` with the official CoronaPoker
-logo and a reduced private Java 25 runtime, so it neither requires nor modifies
-a system Java installation. Its wizard uses the local Windows language
+logo and a private Java 25 runtime with all the modules of the source JDK.
+Its wizard uses the local Windows language
 (Spanish or English) and CoronaPoker artwork instead of generic installer
 graphics.
 Its internal stable JAR and retained private `java.exe` preserve the same

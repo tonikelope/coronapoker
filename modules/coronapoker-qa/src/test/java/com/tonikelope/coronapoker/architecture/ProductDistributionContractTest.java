@@ -135,16 +135,16 @@ final class ProductDistributionContractTest {
                 "The installer needs a high-DPI CoronaPoker header logo");
         assertTrue(script.contains("\"CoronaPoker.jar\""),
                 "The installed JAR name must remain stable for updates");
-        assertTrue(script.contains("\"--runtime-image\""));
+        assertTrue(script.contains("\"--runtime-image\", $resolvedJdkHome"),
+                "jpackage must copy the source JDK as the private runtime");
         assertTrue(script.contains(
                 "The Windows installer must be built with JDK 25."));
         assertTrue(script.contains("bin\\java.exe"),
                 "The private runtime must retain Java for coronaupdater.jar");
-        assertFalse(script.contains("--strip-native-commands"),
-                "jpackage's stripped runtime would break coronaupdater.jar");
-        assertTrue(script.contains(
-                "$jlinkArguments += @(\"--module-path\", $jmods)"),
-                "JDKs with jmods must remain supported");
+        assertTrue(script.contains("bin\\javaw.exe"),
+                "The private runtime must retain the graphical Java launcher");
+        assertFalse(script.contains("--add-modules") || script.contains("--include-locales"),
+                "The installer must not reduce the bundled Java module set or locales");
         assertTrue(script.contains(
                 "$setupArtifactBase = \"${appImageArtifactBase}_Setup\""));
         assertTrue(installerSpec.contains(
@@ -200,8 +200,8 @@ final class ProductDistributionContractTest {
                 "installed CoronaPoker.jar differs from the canonical"),
                 "The packaged JAR must be hash-checked before release");
         assertTrue(script.contains(
-                "Private runtime is missing module"));
-        assertTrue(script.contains("foreach ($requiredModule in $requiredModules)"));
+                "Compare-Object -ReferenceObject $jdkModules -DifferenceObject $runtimeModules"),
+                "The private runtime must have the same modules as the source JDK");
         assertTrue(script.contains("Invoke-Sign $nativeLauncher"));
         assertTrue(script.contains("Invoke-Sign $finalPath"));
         assertTrue(releaseScript.contains(

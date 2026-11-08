@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>CoronaPoker | Estadísticas</title>
+<link rel="stylesheet" href="dashboard.css">
+<script defer src="echarts.min.js"></script>
+<script defer src="dashboard.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span aria-hidden="true" class="brand-suit">♠</span><span>CoronaPoker</span><span class="brand-rule"></span><span class="brand-section" data-t="stats">Estadísticas</span></div>
+    <nav aria-label="Estadísticas" id="tabs" role="tablist">
+      <button role="tab" id="tab-overview" aria-selected="true" aria-controls="overview" data-tab="overview" data-t="overview">Resumen</button>
+      <button role="tab" id="tab-sessions" aria-selected="false" aria-controls="sessions" tabindex="-1" data-tab="sessions" data-t="sessions">Sesiones</button>
+      <button role="tab" id="tab-analysis" aria-selected="false" aria-controls="analysis" tabindex="-1" data-tab="analysis" data-t="analysis">Análisis</button>
+      <button role="tab" id="tab-compare" aria-selected="false" aria-controls="compare" tabindex="-1" data-tab="compare" data-t="compare">Comparativas</button>
+    </nav>
+    <div class="top-actions">
+      <div class="zoom-tools" role="group" id="zoom-tools">
+        <button id="zoom-out" class="ghost" type="button">−</button>
+        <button id="zoom-reset" class="ghost" type="button">100%</button>
+        <button id="zoom-in" class="ghost" type="button">+</button>
+      </div>
+      <button id="history" class="ghost" data-t="history">Historial</button>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="intro" aria-labelledby="heading">
+    <div><p class="eyebrow"><span></span><span data-t="eyebrow">TEXAS HOLD’EM / REGISTRO DE MESA</span></p>
+      <h1 id="heading" data-t="title">Estadísticas de juego</h1>
+      <p class="intro-detail" data-t="intro">Resultados, tendencias y decisiones mano a mano.</p>
+    </div>
+    <div class="filter-panel">
+      <label><span data-t="player">Jugador</span><select id="player" disabled></select></label>
+      <label><span data-t="from">Desde</span><input id="from" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
+      <label><span data-t="through">Hasta</span><input id="through" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
+      <button id="apply" class="primary" data-t="apply" disabled>Aplicar</button>
+      <button id="reset" class="ghost" data-t="allTime" disabled>Todo</button>
+    </div>
+  </section>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="overview-grid">
+      <article class="panel chart-panel">
+        <div class="panel-heading"><div><span class="section-mark" data-t="performance">RENDIMIENTO</span><h2 data-t="bankroll">Evolución del bankroll</h2></div>
+          <div class="chart-legend"><span class="legend-key line" data-t="cumulative">Acumulado</span><span class="legend-key bars" data-t="perSession">Por sesión</span></div></div>
+        <div id="bankroll-chart" class="chart main-chart" role="img"></div>
+        <p class="footnote" data-t="bankrollNote">Beneficio acumulado de las mesas del periodo, en fichas.</p>
+      </article>
+      <article class="panel rates-panel">
+        <div class="panel-heading"><div><span class="section-mark" data-t="profile">PERFIL DE JUEGO</span><h2 data-t="behavior">Estadísticas clave</h2></div></div>
+        <div id="rates" class="rates"></div>
+      </article>
+    </div>
+  </section>
+  <section id="sessions" role="tabpanel" aria-labelledby="tab-sessions" hidden>
+    <article class="panel">
+      <div class="panel-heading"><div><span class="section-mark" data-t="performance">RENDIMIENTO</span><h2 data-t="sessionResults">Resultados por sesión</h2></div><span class="badge" id="session-count"></span></div>
+      <div class="table-scroll"><table><thead><tr id="sessions-head"></tr></thead><tbody id="session-rows"></tbody></table></div>
+      <div class="pagination"><button id="prev" class="ghost" data-t="prev">Anterior</button><span id="page-label"></span><button id="next" class="ghost" data-t="next">Siguiente</button></div>
+    </article>
+  </section>
+  <section id="analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+    <div class="analysis-grid">
+      <article class="panel">
+        <div class="panel-heading"><div><span class="section-mark" data-t="heatmaps">MAPAS DE CALOR</span><h2 data-t="startingHands">Manos iniciales</h2></div></div>
+        <p class="subtext" data-t="cardsNote">Manos con cartas registradas. Pasa el cursor para ver la muestra.</p>
+        <div id="cards-chart" class="chart matrix-chart" role="img"></div>
+        <div class="heat-legend"><span data-t="loss">Pérdida</span><i></i><span data-t="profit">Ganancia</span></div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><span class="section-mark" data-t="heatmaps">MAPAS DE CALOR</span><h2 data-t="positions">Rendimiento por posición</h2></div></div>
+        <p class="subtext" data-t="positionsNote">Beneficio medio por mano en cada posición registrada.</p>
+        <div id="position-chart" class="chart position-chart" role="img"></div>
+        <div class="table-scroll"><table><thead><tr id="positions-head"></tr></thead><tbody id="position-rows"></tbody></table></div>
+      </article>
+    </div>
+  </section>
+  <section id="compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+    <article class="panel chart-panel">
+      <div class="panel-heading"><div><span class="section-mark" data-t="compareMark">COMPARATIVAS</span><h2 data-t="trends">Evolución de estadísticas</h2></div><label class="metric-filter"><span class="sr-only" data-t="metric">Métrica</span><select id="trend-metric"></select></label></div>
+      <div id="trend-chart" class="chart trend-chart" role="img"></div>
+      <p class="footnote" id="trend-note"></p>
+    </article>
+    <article class="panel">
+      <div class="panel-heading"><div><span class="section-mark" data-t="compareMark">COMPARATIVAS</span><h2 data-t="playerCompare">Jugadores en las mismas sesiones</h2></div><span id="sample-badge" class="badge"></span></div>
+      <div class="table-scroll"><table><thead><tr id="compare-head"></tr></thead><tbody id="compare-rows"></tbody></table></div>
+    </article>
+  </section>
+  <footer><span>♠ &nbsp; CORONAPOKER</span><span data-t="footer">Estadísticas del historial local</span></footer>
+</main>
+</body>
+</html>

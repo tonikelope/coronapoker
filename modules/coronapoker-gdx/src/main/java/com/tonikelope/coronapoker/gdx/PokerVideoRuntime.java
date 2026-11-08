@@ -2,8 +2,6 @@
 package com.tonikelope.coronapoker.gdx;
 
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -11,9 +9,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import me.friwi.jcefmaven.CefAppBuilder;
-import me.friwi.jcefmaven.MavenCefAppHandlerAdapter;
-import org.cef.CefApp;
 import org.cef.CefApp.CefAppState;
 import org.cef.CefBrowserSettings;
 import org.cef.CefClient;
@@ -43,7 +38,6 @@ import org.cef.network.CefRequest;
 final class PokerVideoRuntime implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(PokerVideoRuntime.class.getName());
-    static final String JCEF_MAVEN_VERSION = "152.0.6";
     // Read-only observer of the native control: Shorts may recreate it after
     // loadVideoById without reflecting an already-muted media element. Signal
     // that concrete mismatch, then refresh through the public outer Player API.
@@ -86,8 +80,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile String playerLanguage;
     private final AtomicBoolean closed = new AtomicBoolean();
     private PokerVideoLocalServer localServer;
-    private CefApp cefApp;
-    private PokerVideoChromiumLog chromiumLog;
+    private final java.util.function.Consumer<CefAppState> cefStateListener = this::onCefStateChanged;
     private CefClient client;
     private CefMessageRouter messageRouter;
     private volatile LibGdxCefBrowser browser;
@@ -128,7 +121,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     static PokerVideoRuntime initialize(List<PokerVideoSearch.Video> videos,
-            PokerVideoFrameBuffer frameBuffer, Path dataDirectory,
+            PokerVideoFrameBuffer frameBuffer,
             String language, boolean orderedPlaylist, int width, int height, double scaleFactor) {
         PokerVideoRuntime runtime = new PokerVideoRuntime(videos, frameBuffer,
                 language);
@@ -140,7 +133,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             return runtime;
         }
         try {
-            runtime.initializeInternal(dataDirectory, width, height,
+            runtime.initializeInternal(width, height,
                     scaleFactor);
         } catch (Throwable failure) {
             Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
@@ -153,7 +146,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         return runtime;
     }
 
-    private void initializeInternal(Path dataDirectory, int width, int height,
+    private void initializeInternal(int width, int height,
             double scaleFactor) throws Exception {
         String osName = System.getProperty("os.name", "");
         if (!PokerVideoPlatformSupport.hasBrowserDisplay(osName,
@@ -163,51 +156,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                     : "Chromium necesita una pantalla X11 o XWayland accesible.");
             return;
         }
-        Files.createDirectories(dataDirectory);
-        Path nativeDirectory = dataDirectory.resolve(
-                "jcef-" + JCEF_MAVEN_VERSION);
-        Path cacheRoot = dataDirectory.resolve("cache");
-        Path logDirectory = dataDirectory.resolve("logs");
-        Files.createDirectories(cacheRoot);
-        Files.createDirectories(logDirectory);
-
-        CefAppBuilder builder = new CefAppBuilder();
-        builder.setInstallDir(nativeDirectory.toFile());
-        builder.addJcefArgs("--use-alloy-style");
-        builder.getJcefArgs().addAll(PokerVideoPlatformSupport.browserArguments(osName));
-        // This isolated browser exists only for the user-enabled poker-video
-        // overlay. The player itself decides whether a recreated browser is a
-        // fresh muted opening or a table-transition restoration.
-        builder.addJcefArgs("--autoplay-policy=no-user-gesture-required");
-        // Diagnostic A/B test for the hardware video decoder, independent of game OpenGL.
-        boolean softwareDecode = Boolean.getBoolean("coronapoker.video.softwareDecode");
-        if (softwareDecode) builder.addJcefArgs("--disable-accelerated-video-decode");
-        // Quiet native QA keeps the player's own mute/API state observable.
-        if (Boolean.getBoolean("coronapoker.video.silentOutput")) builder.addJcefArgs("--mute-audio");
-        CefSettings settings = builder.getCefSettings();
-        settings.windowless_rendering_enabled = true;
-        settings.root_cache_path = cacheRoot.toAbsolutePath().toString();
-        // Keep the anonymous video profile in memory. This prevents an old
-        // YouTube caption preference from turning subtitles on by default in
-        // a later CoronaPoker run.
-        settings.cache_path = "";
-        Path nativeLog = logDirectory.resolve("poker-video-cef.log").toAbsolutePath();
-        settings.log_file = nativeLog.toString();
-        settings.log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING;
-        settings.background_color = settings.new ColorType(255, 5, 8, 12);
-        builder.setAppHandler(new MavenCefAppHandlerAdapter() {
-            @Override
-            public void stateHasChanged(CefAppState appState) {
-                onCefStateChanged(appState);
-            }
-        });
-
-        LOG.log(Level.INFO, "Poker video Chromium start | {0} | OS {1} {2} | softwareDecode={3} | native log={4}",
-                new Object[]{PokerVideoPlatformSupport.NATIVES_VERSION, osName,
-                    System.getProperty("os.version"), softwareDecode, nativeLog});
-        chromiumLog = new PokerVideoChromiumLog(nativeLog);
-        cefApp = builder.build();
-        client = cefApp.createClient();
+        client = PokerChromium.createClient(cefStateListener);
         installHandlers(osName);
         openBrowserSession(width, height, scaleFactor);
     }
@@ -819,10 +768,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         releaseBrowserSession(false);
-        try {
-            if (cefApp != null) cefApp.dispose();
-        } finally {
-            if (chromiumLog != null) chromiumLog.close();
-        }
+        PokerChromium.removeListener(cefStateListener);
+        if (client != null) client.dispose();
     }
 }

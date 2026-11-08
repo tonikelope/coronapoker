@@ -29,6 +29,10 @@ public final class StatsRepository {
         this.database = Objects.requireNonNull(database, "database");
     }
 
+    public StatsDashboard dashboard() throws SQLException {
+        return StatsDashboard.load(database);
+    }
+
     public List<GameSummary> games() throws SQLException {
         String sql = "SELECT g.*, (SELECT COUNT(*) FROM hand h "
                 + "WHERE h.id_game=g.id AND h.end IS NOT NULL) AS tot_hands "

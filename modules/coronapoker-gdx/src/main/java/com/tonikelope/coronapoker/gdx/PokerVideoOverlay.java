@@ -18,7 +18,6 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -415,7 +414,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                     nativeStartupSince = System.nanoTime();
                 }
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
-                        frameBuffer, dataDirectory(), language, favoritesMode,
+                        frameBuffer, language, favoritesMode,
                         Math.round(videoWidth), Math.round(videoHeight),
                         displayScale());
                 if (closed.get()) {
@@ -458,26 +457,6 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
         });
         }
-    }
-
-    private static Path dataDirectory() {
-        String os = System.getProperty("os.name", "")
-                .toLowerCase(Locale.ROOT);
-        if (os.contains("win")) {
-            String localAppData = System.getenv("LOCALAPPDATA");
-            if (localAppData != null && !localAppData.isBlank()) {
-                return Path.of(localAppData, "CoronaPoker", "jcef");
-            }
-        }
-        if (os.contains("mac")) {
-            return Path.of(System.getProperty("user.home"), "Library",
-                    "Caches", "CoronaPoker", "jcef");
-        }
-        String xdg = System.getenv("XDG_CACHE_HOME");
-        return xdg == null || xdg.isBlank()
-                ? Path.of(System.getProperty("user.home"), ".cache",
-                        "coronapoker", "jcef")
-                : Path.of(xdg, "coronapoker", "jcef");
     }
 
     private void updateBounds() {
@@ -903,7 +882,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         return suffix;
     }
 
-    private Texture loadingSpade() {
+    Texture loadingSpade() {
         if (loadingSpade == null) {
             loadingSpade = new Texture(Gdx.files.internal(
                     "images/menu/pica_roja.png"));

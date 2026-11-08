@@ -26,6 +26,8 @@ import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -436,6 +438,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final NewGameSubmissionCoordinator submissions;
     private final RecoverableGameRepository recoverableGames;
     private final StatsRepository statsRepository;
+    private static final Rectangle STATS_WEB_BOUNDS =
+            new Rectangle(76f, 70f, 1768f, 720f);
+    private PokerStatsBrowser statsBrowser;
+    private boolean statsBrowserFocused;
+    private boolean statsDashboardFailed;
     private final ExecutorService recoveryExecutor;
     private final ExecutorService statsExecutor;
     private final ExecutorService networkInfoExecutor;
@@ -2615,6 +2622,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSortMode = statsMode;
         statsSortHandScope = false;
         resetStatsResultScroll();
+        statsDashboardFailed = false;
+        openStatsDashboard();
         loadStatsGames();
         syncMusicForSurface();
     }
@@ -2626,6 +2635,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeStats() {
+        closeStatsDashboard();
         closeStatsEvidence();
         statsLoadGeneration++;
         statsLoading = false;
@@ -3022,15 +3032,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (statsLoading || statsGameIndex < 0 || statsHands.isEmpty()
                 || !statsMode.supportsHandScope()) return;
         int count = statsHands.size() + 1;
-        statsHandIndex = Math.floorMod(statsHandIndex + 1 + direction,
-                count) - 1;
-        loadStatsScope();
+        selectStatsHandAt(Math.floorMod(statsHandIndex + 1 + direction,
+                count) - 1);
     }
 
     private void selectStatsHandAt(int index) {
         if (statsLoading || statsGameIndex < 0 || index < -1
                 || index >= statsHands.size()) return;
         statsHandIndex = index;
+        if (index >= 0 && statsBrowser != null) {
+            closeStatsDashboard();
+            statsMode = StatsMode.BALANCE;
+        }
         statsPicker = StatsPicker.NONE;
         resetStatsResultScroll();
         loadStatsScope();
@@ -3067,7 +3080,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (statsLoading || picker == StatsPicker.NONE) return;
         if (picker == StatsPicker.HAND
                 && (statsGameIndex < 0 || statsHands.isEmpty()
-                        || !statsMode.supportsHandScope())) return;
+                        || (statsBrowser == null && !statsMode.supportsHandScope()))) return;
         statsPicker = picker;
         int selected = switch (picker) {
             case GAME -> statsGameIndex + 1;
@@ -3242,7 +3255,89 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }, statsExecutor);
     }
 
+    private void openStatsDashboard() {
+        if (!PokerVideoPlatformSupport.isAvailable() || statsBrowser != null) return;
+        statsDashboardFailed = false;
+        statsBrowserFocused = false;
+        if (statsHandIndex >= 0) {
+            statsHandIndex = -1;
+            loadStatsScope();
+        }
+        statsBrowser = new PokerStatsBrowser(statsRepository,
+                statsPlayerFilter.isBlank() ? connection.nickname() : statsPlayerFilter,
+                "en".equalsIgnoreCase(gameText.language()),
+                preferenceBoolean("animaciones", true), statsDashboardGame(),
+                statsBrowserWidth(), statsBrowserHeight(),
+                this::closeStatsDashboard);
+    }
+
+    private int statsDashboardGame() {
+        return statsGameIndex < 0 ? 0 : statsGames.get(statsGameIndex).id();
+    }
+
+    private int statsBrowserWidth() {
+        return Math.max(1, Math.round(STATS_WEB_BOUNDS.width * viewport.getScreenWidth() / WIDTH));
+    }
+
+    private int statsBrowserHeight() {
+        return Math.max(1, Math.round(STATS_WEB_BOUNDS.height * viewport.getScreenHeight() / HEIGHT));
+    }
+
+    private void closeStatsDashboard() {
+        if (statsBrowser == null) return;
+        statsBrowser.close();
+        statsBrowser = null;
+        statsBrowserFocused = false;
+    }
+
+    private void drawStatsDashboard() {
+        Rectangle bounds = STATS_WEB_BOUNDS;
+        statsBrowser.setScope(statsDashboardGame());
+        Texture rendered = statsBrowser.texture(statsBrowserWidth(), statsBrowserHeight());
+        if (rendered != null) {
+            // Snap the OSR texture to physical pixels to preserve Chromium's
+            // glyph and chart edges inside the letterboxed game viewport.
+            float pixelsPerWorldX = viewport.getScreenWidth() / WIDTH
+                    * Gdx.graphics.getBackBufferWidth() / Gdx.graphics.getWidth();
+            float pixelsPerWorldY = viewport.getScreenHeight() / HEIGHT
+                    * Gdx.graphics.getBackBufferHeight() / Gdx.graphics.getHeight();
+            if (pixelsPerWorldX > 0f && pixelsPerWorldY > 0f) {
+                float x = Math.round(bounds.x * pixelsPerWorldX) / pixelsPerWorldX;
+                float y = Math.round(bounds.y * pixelsPerWorldY) / pixelsPerWorldY;
+                float width = Math.round(bounds.width * pixelsPerWorldX) / pixelsPerWorldX;
+                float height = Math.round(bounds.height * pixelsPerWorldY) / pixelsPerWorldY;
+                uiImages.add(new UiImageItem(rendered, x, y, width, height, Color.WHITE));
+            }
+            return;
+        }
+        Texture spade = pokerVideoOverlay.loadingSpade();
+        float cx = bounds.x + bounds.width / 2f;
+        float cy = bounds.y + bounds.height / 2f;
+        uiImages.add(new UiImageItem(spade, cx - 34f, cy + 27f,
+                68f, 68f, Color.WHITE));
+        textFit(headingFont, gameText.translate("gdx.stats.dashboard.loading"),
+                cx, cy + 3f, GOLD, true, 800f);
+        themedButton(cx - 170f, cy - 100f, 340f, 54f,
+                gameText.translate("gdx.stats.dashboard.history"), ButtonTone.NEUTRAL,
+                this::closeStatsDashboard, true);
+    }
+
+    private boolean statsBrowserInput() {
+        return surface == Surface.STATS && statsBrowser != null
+                && statsBrowser.interactive() && !childModalOwnsInput();
+    }
+
+    private void statsBrowserMouse(int event) {
+        Rectangle bounds = STATS_WEB_BOUNDS;
+        statsBrowser.mouse(event, (pointer.x - bounds.x) / bounds.width,
+                (bounds.y + bounds.height - pointer.y) / bounds.height);
+    }
+
     private void drawStatsScreen() {
+        if (statsBrowser != null && statsBrowser.failed()) {
+            closeStatsDashboard();
+            statsDashboardFailed = true;
+        }
         panel(20f, 20f, 1880f, 1040f, "");
         textFit(titleFont, gameText.translate("ui.estadisticas"), 62f,
                 1015f, GOLD, false, 470f);
@@ -3266,14 +3361,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.stats.hand"), handLabel,
                 () -> openStatsPicker(StatsPicker.HAND),
                 !statsLoading && statsGameIndex >= 0 && !statsHands.isEmpty()
-                        && statsMode.supportsHandScope());
-        String playerLabel = statsPlayerFilter.isBlank()
-                ? gameText.translate("gdx.stats.all_players")
-                : statsPlayerFilter;
+                        && (statsBrowser != null || statsMode.supportsHandScope()));
+        String playerLabel = statsBrowser != null
+                ? gameText.translate("gdx.stats.dashboard.player")
+                : statsPlayerFilter.isBlank()
+                        ? gameText.translate("gdx.stats.all_players")
+                        : statsPlayerFilter;
         choice(1280f, 840f, 580f,
                 gameText.translate("gdx.stats.player_filter"), playerLabel,
                 () -> openStatsPicker(StatsPicker.PLAYER),
-                !statsLoading && !statsPlayers.isEmpty());
+                statsBrowser == null && !statsLoading && !statsPlayers.isEmpty());
+
+        if (statsBrowser != null) {
+            panel(60f, 54f, 1800f, 752f, "");
+            drawStatsDashboard();
+            return;
+        }
 
         panel(60f, 70f, 400f, 710f,
                 statsHandIndex >= 0
@@ -3283,6 +3386,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 statsMode == StatsMode.BALANCE && statsHandIndex >= 0
                         ? gameText.translate("gdx.stats.showdown")
                         : gameText.translate("gdx.stats.view"));
+        if (PokerVideoPlatformSupport.isAvailable()) {
+            themedButton(1020f, 716f, 306f, 38f, gameText.translate(statsDashboardFailed
+                    ? "gdx.stats.dashboard.retry" : "gdx.stats.dashboard.open"),
+                    ButtonTone.NEUTRAL, this::openStatsDashboard, !statsLoading);
+        }
         choice(535f, STATS_MODE_SELECTOR_Y, 1280f,
                 STATS_MODE_SELECTOR_HEIGHT, "", statsModeLabel(),
                 () -> openStatsPicker(StatsPicker.MODE), !statsLoading);
@@ -15751,6 +15859,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
+        if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
+            if (button == Input.Buttons.LEFT) {
+                statsBrowserFocused = true;
+                statsBrowserMouse(MouseEvent.MOUSE_PRESSED);
+            }
+            return true;
+        }
+        if (statsBrowser != null) {
+            statsBrowserFocused = false;
+            statsBrowser.unfocus();
+        }
         boolean blockingModal = hasBlockingFrontendModal();
         if (!blockingModal && pokerVideoOverlay.touchDown(pointer.x,
                 pointer.y, pointerIndex, button)) {
@@ -15907,6 +16026,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (statsBrowserInput() && statsBrowser.pressed()) {
+            statsBrowserMouse(MouseEvent.MOUSE_DRAGGED);
+            return true;
+        }
         if (pokerVideoOverlay.touchDragged(pointer.x, pointer.y,
                 pointerIndex)) return true;
         if (avatarCropSession != null
@@ -15965,6 +16088,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (statsBrowserInput() && button == Input.Buttons.LEFT
+                && statsBrowser.pressed()) {
+            statsBrowserMouse(MouseEvent.MOUSE_RELEASED);
+            return true;
+        }
         if (pokerVideoOverlay.touchUp(pointer.x, pointer.y, pointerIndex,
                 button)) return true;
         if (avatarCropSession != null
@@ -16342,6 +16470,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
+        if (statsBrowserInput() && statsBrowserFocused && keycode != Input.Keys.ESCAPE) {
+            statsBrowser.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED);
+            return true;
+        }
         editMenu = null;
         boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
@@ -16841,6 +16973,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyTyped(char character) {
+        if (statsBrowserInput() && statsBrowserFocused) {
+            statsBrowser.key(KeyEvent.KEY_TYPED, 0, character);
+            return true;
+        }
         editMenu = null;
         if (hasBlockingFrontendModal()
                 && !frontendModalTextFieldActive()) {
@@ -17151,7 +17287,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void dispose() {
         disposed = true;
         if (updateCheck != null) updateCheck.cancel(true);
+        closeStatsDashboard();
         pokerVideoOverlay.close();
+        PokerChromium.shutdown();
         cancelAndReleaseUpnp();
         recoveryLoadGeneration++;
         autoSubmitRecovery = false;
@@ -17242,6 +17380,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override public boolean keyUp(int keycode) {
         textDeleteRepeat.release(keycode);
+        if (statsBrowserInput() && statsBrowserFocused) {
+            statsBrowser.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);
+            return true;
+        }
         if (keycode == Input.Keys.F9 && lobbyVoiceRecorder != null) {
             finishLobbyVoiceRecording(false);
             return true;
@@ -17249,6 +17391,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (statsBrowser != null && statsBrowser.pressed()) {
+            statsBrowser.unfocus();
+            return true;
+        }
         if (pokerVideoOverlay.cancelTouch(p, b)) return true;
         if (avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == p) {
@@ -17285,6 +17431,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
+        if (statsBrowserInput()) {
+            if (STATS_WEB_BOUNDS.contains(pointer)) {
+                statsBrowserMouse(MouseEvent.MOUSE_MOVED);
+                return true;
+            }
+            statsBrowserMouse(MouseEvent.MOUSE_EXITED);
+        }
         if (pokerVideoOverlay.mouseMoved(pointer.x, pointer.y)) return true;
         return hasBlockingFrontendModal();
     }
@@ -17292,6 +17445,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean scrolled(float amountX, float amountY) {
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
+        if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
+            Rectangle bounds = STATS_WEB_BOUNDS;
+            statsBrowser.wheel((pointer.x - bounds.x) / bounds.width,
+                    (bounds.y + bounds.height - pointer.y) / bounds.height, amountY);
+            return true;
+        }
         if (!hasBlockingFrontendModal()
                 && pokerVideoOverlay.scrolled(pointer.x, pointer.y, amountY)) {
             return true;

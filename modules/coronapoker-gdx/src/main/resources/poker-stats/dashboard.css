@@ -104,6 +104,7 @@ nav button[aria-selected=true]::after {
   white-space: nowrap;
   font-size: .9rem;
 }
+.ghost, select { border-width: 2px; }
 .ghost:hover:not(:disabled) { border-color: var(--cyan); background: #203653; }
 .primary { border-color: var(--cyan); background: var(--cyan); color: #051724; }
 .primary:hover:not(:disabled) { border-color: #9af0ff; background: #9af0ff; }
@@ -155,13 +156,23 @@ select { min-width: 6.3rem; max-width: 14rem; }
     max-block-size: min(22rem, 62dvh);
     margin-block: .22rem;
     padding: .23rem;
-    border: 1px solid #456987;
+    border: 2px solid #456987;
     border-radius: .55rem;
     background: #101d30;
     color: var(--ink);
     box-shadow: 0 10px 32px #050912a8;
     overscroll-behavior: contain;
-    scrollbar-color: #537b9d #0c1627;
+  }
+  ::picker(select)::-webkit-scrollbar { width: 20px; }
+  ::picker(select)::-webkit-scrollbar-track { background: #0c1627; }
+  ::picker(select)::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    border: 3px solid #0c1627;
+    border-radius: 10px;
+    background: #537b9d;
+  }
+  ::picker(select)::-webkit-scrollbar-thumb:hover, ::picker(select)::-webkit-scrollbar-thumb:active {
+    background: var(--cyan);
   }
   select option {
     gap: .48rem;

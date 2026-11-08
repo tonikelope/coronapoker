@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.CoreGameDatabase;
@@ -65,6 +66,16 @@ final class StatsRepositoryTest {
             assertTrue(showdown.winner());
             assertEquals(java.util.List.of("A_C", "A_D"),
                     showdown.holeCards());
+
+            var detail = repository.handDetail(7, 11);
+            assertEquals(hand, detail.hand());
+            assertEquals(repository.showdown(11), detail.showdown());
+            assertEquals(repository.balances(7, 11), detail.balances());
+            assertEquals(repository.averageResponse(7, 11), detail.responseTimes());
+            assertEquals(3, detail.actions().size());
+            assertEquals(new StatsRepository.HandActionRow("server", 1, 3, 1d, 2),
+                    detail.actions().get(0));
+            assertNull(repository.handDetail(8, 11));
 
             assertEquals(3d, repository.averageResponse(7, null)
                     .get(0).value(), 0.0001d);

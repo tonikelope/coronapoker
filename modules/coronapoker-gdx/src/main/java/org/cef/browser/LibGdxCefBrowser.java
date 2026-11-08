@@ -119,9 +119,17 @@ public final class LibGdxCefBrowser extends CefBrowser_N implements CefRenderHan
     }
 
     public void dispatchWheel(int x, int y, int modifiers, int rotation) {
+        dispatchWheel(x, y, modifiers, 3, rotation);
+    }
+
+    public void dispatchWheelPixels(int x, int y, int modifiers, int pixels) {
+        dispatchWheel(x, y, modifiers, 1, pixels);
+    }
+
+    private void dispatchWheel(int x, int y, int modifiers, int units, int rotation) {
         MouseWheelEvent event = new MouseWheelEvent(eventSource, MouseEvent.MOUSE_WHEEL,
                 System.currentTimeMillis(), modifiers, x, y, 0, false,
-                MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, rotation);
+                MouseWheelEvent.WHEEL_UNIT_SCROLL, units, rotation);
         sendMouseWheelEvent(event);
     }
 

@@ -4,8 +4,7 @@
 const strings = {
   es: {
     stats:'Estadísticas', overview:'Resumen', sessions:'Sesiones', analysis:'Análisis',
-    compare:'Comparativas', classics:'Clásicas', history:'Historial', title:'Estadísticas de juego',
-    eyebrow:'TEXAS HOLD’EM / REGISTRO DE MESA',
+    compare:'Comparativas', classics:'Clásicas',
     player:'Jugador', from:'Desde', through:'Hasta', apply:'Aplicar', allTime:'Todo',
     performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
     perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo, en fichas.',
@@ -15,14 +14,14 @@ const strings = {
     loss:'Pérdida', profit:'Ganancia', positions:'Rendimiento por posición',
     positionsNote:'Beneficio medio por mano en cada posición registrada.',
     compareMark:'COMPARATIVAS', trends:'Evolución de estadísticas', metric:'Métrica',
-    playerCompare:'Jugadores en las mismas sesiones', footer:'Estadísticas del historial local',
+    playerCompare:'Jugadores en las mismas sesiones',
     net:'Beneficio neto', hourly:'Ganancia por hora', hands:'Manos jugadas',
     sessionCount:'Sesiones', chips:'fichas', perHour:'fichas/h', settled:'Manos liquidadas',
     timed:'de mesa registradas', profitable:'con beneficio', noBalance:'Sin saldo registrado',
     noDuration:'Sin duración registrada', loading:'Consultando el historial local…',
     emptyHistory:'Las estadísticas aparecerán cuando haya manos liquidadas en el historial.',
     emptyFilter:'No hay sesiones para este jugador en el periodo seleccionado.',
-    error:'No se pudo cargar el historial. Puedes reintentar o abrir Historial.',
+    error:'No se pudieron cargar los datos. Vuelve a pulsar Aplicar.',
     invalid:'Introduce fechas válidas (AAAA-MM-DD) y comprueba el orden del intervalo.',
     noSamples:'Sin muestra', noChart:'Sin datos para este periodo', noCard:'Sin cartas registradas',
     noTrend:'Se necesitan dos sesiones con muestra suficiente para esta métrica.',
@@ -39,7 +38,7 @@ const strings = {
     coveredPreflop:'Manos con acciones preflop', coveredFlop:'Flops observados',
     coveredShowdown:'Showdowns disputados', coveredCards:'Manos con cartas y saldo',
     coveredPosition:'Manos con posición y saldo',
-    classicTitle:'Estadísticas clásicas', classicDetail:'Resultados detallados',
+    classicDetail:'Resultados detallados',
     classicBalance:'Ganancias y pérdidas', classicPerformance:'Rendimiento de jugadores', classicResponse:'Tiempo medio de respuesta',
     classicBest:'Jugadas ganadoras', classicPreflop:'Apuestas y subidas · Preflop', classicFlop:'Apuestas y subidas · Flop',
     classicTurn:'Apuestas y subidas · Turn', classicRiver:'Apuestas y subidas · River',
@@ -52,12 +51,19 @@ const strings = {
     stackNote:'Las líneas muestran hasta seis jugadores. Usa la leyenda para activar o desactivar series.',
     bestNote:'El gráfico incluye todas las jugadas ganadoras con categoría registrada. La tabla muestra hasta 1.000 resultados.',
     noRank:'Sin categoría registrada', items:'resultados',
-    handRanks:['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color','Escalera real']
+    handRanks:['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color','Escalera real'],
+    handDetail:'Detalle de la mano', board:'Cartas comunitarias', handSeats:'Posiciones',
+    handPlayers:'Jugadores por calle', handActions:'Secuencia de acciones', handBalances:'Saldos registrados',
+    showdown:'Showdown', handNet:'Beneficio de la mano', blinds:'Ciegas', pot:'Bote',
+    button:'Botón', smallBlind:'Ciega pequeña', bigBlind:'Ciega grande', street:'Calle',
+    decision:'Acción', committed:'Aportación en la calle', response:'Respuesta',
+    winner:'Gana', payout:'Cobro', yes:'Sí', no:'No', fold:'Retirada', checkCall:'Paso / Igualo',
+    betRaise:'Apuesta / Subida', allIn:'All-in', noHand:'No hay datos para la mano seleccionada.',
+    noHandData:'Sin registros para esta mano.', handError:'No se pudo cargar la mano. Vuelve a seleccionarla.'
   },
   en: {
     stats:'Statistics', overview:'Overview', sessions:'Sessions', analysis:'Analysis',
-    compare:'Compare', classics:'Classics', history:'History', title:'Poker statistics',
-    eyebrow:'TEXAS HOLD’EM / TABLE HISTORY',
+    compare:'Compare', classics:'Classics',
     player:'Player', from:'From', through:'To', apply:'Apply', allTime:'All time',
     performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
     perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period, in chips.',
@@ -67,13 +73,13 @@ const strings = {
     loss:'Loss', profit:'Profit', positions:'Performance by position',
     positionsNote:'Average profit per hand for each recorded position.',
     compareMark:'COMPARISONS', trends:'Stats over time', metric:'Metric',
-    playerCompare:'Players in the same sessions', footer:'Statistics from local history',
+    playerCompare:'Players in the same sessions',
     net:'Net profit', hourly:'Profit per hour', hands:'Hands played', sessionCount:'Sessions',
     chips:'chips', perHour:'chips/h', settled:'Settled hands', timed:'of recorded table time',
     profitable:'profitable', noBalance:'No recorded balance', noDuration:'No recorded duration',
     loading:'Reading local history…', emptyHistory:'Statistics appear once your history contains settled hands.',
     emptyFilter:'This player has no sessions in the selected period.',
-    error:'Could not read the history. Try again or open History.',
+    error:'Could not load the data. Press Apply to try again.',
     invalid:'Enter valid dates (YYYY-MM-DD) and check the order of the date range.',
     noSamples:'No sample', noChart:'No data for this period', noCard:'No recorded cards',
     noTrend:'This metric needs at least two sessions with a sufficient sample.',
@@ -90,7 +96,7 @@ const strings = {
     coveredPreflop:'Hands with preflop actions', coveredFlop:'Observed flops',
     coveredShowdown:'Contested showdowns', coveredCards:'Hands with recorded cards and balance',
     coveredPosition:'Hands with recorded position and balance',
-    classicTitle:'Classic statistics', classicDetail:'Detailed results',
+    classicDetail:'Detailed results',
     classicBalance:'Profit and loss', classicPerformance:'Player performance', classicResponse:'Average response time',
     classicBest:'Winning hands', classicPreflop:'Bets and raises · Preflop', classicFlop:'Bets and raises · Flop',
     classicTurn:'Bets and raises · Turn', classicRiver:'Bets and raises · River',
@@ -103,7 +109,15 @@ const strings = {
     stackNote:'Lines show up to six players. Use the legend to toggle each series.',
     bestNote:'The chart includes every winning hand with a recorded rank. The table shows up to 1,000 results.',
     noRank:'No recorded rank', items:'results',
-    handRanks:['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush','Royal flush']
+    handRanks:['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush','Royal flush'],
+    handDetail:'Hand details', board:'Community cards', handSeats:'Positions',
+    handPlayers:'Players by street', handActions:'Action sequence', handBalances:'Recorded balances',
+    showdown:'Showdown', handNet:'Hand profit', blinds:'Blinds', pot:'Pot',
+    button:'Button', smallBlind:'Small blind', bigBlind:'Big blind', street:'Street',
+    decision:'Action', committed:'Street contribution', response:'Response',
+    winner:'Won', payout:'Payout', yes:'Yes', no:'No', fold:'Fold', checkCall:'Check / Call',
+    betRaise:'Bet / Raise', allIn:'All-in', noHand:'No data for the selected hand.',
+    noHandData:'No records for this hand.', handError:'Could not load the hand. Select it again to retry.'
   }
 };
 
@@ -139,6 +153,7 @@ const t = key => strings[locale][key];
 let number, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
+let handView, tabBeforeHand = 'overview';
 let appliedRange = ['', ''], classic, classicKey = '', classicRequest = 0, classicPage = 0;
 const reducedMotion = query.get('motion') === '0' || matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -163,6 +178,10 @@ function translate() {
   headings('sessions-head', [t('date'), t('status'), t('hands'), t('duration'), t('net'), t('cumulative')]);
   headings('positions-head', [t('position'), t('hands'), t('net'), t('perHand')]);
   headings('compare-head', [t('player'), t('hands'), t('net'), ...metrics.map(([, name]) => name)]);
+  headings('hand-showdown-head', [t('player'), t('winner'), t('cards'), t('handRank'), t('payout'), t('net')]);
+  headings('hand-actions-head', [t('street'), t('player'), t('decision'), t('committed'), t('response')]);
+  headings('hand-balances-head', [t('player'), t('stack'), t('buyin'), t('net')]);
+  headings('hand-response-head', [t('player'), t('response')]);
 }
 
 function headings(id, labels) {
@@ -197,7 +216,6 @@ function controls(enabled) {
 function selectTab(id, focus = false) {
   if (activeTab !== id) window.scrollTo(0, 0);
   activeTab = id;
-  $('heading').textContent = t(id === 'overview' ? 'title' : id === 'classics' ? 'classicTitle' : id);
   $('classic-filter').hidden = id !== 'classics';
   for (const tab of tabs) {
     const active = tab.dataset.tab === id;
@@ -210,7 +228,7 @@ function selectTab(id, focus = false) {
   if (id === 'classics') {
     if (ready) notice('');
     refreshClassic();
-  } else if (ready) {
+  } else if (ready && id !== 'hand') {
     notice(!hasPlayers ? (scope ? t('emptyFilter') : t('emptyHistory'))
       : view && !view.sessionCount ? t('emptyFilter') : '');
   }
@@ -449,8 +467,8 @@ function classicAxes() {
     splitLine:{lineStyle:{color:paint.grid, type:'dashed'}}};
 }
 
-function classicBars(rows, valueOf, unit, colorOf, scale) {
-  const entries = rows.slice(0, 8);
+function classicBars(rows, valueOf, unit, colorOf, scale, limit = 8) {
+  const entries = rows.slice(0, limit);
   return {
     grid:{left:10, right:20, top:10, bottom:25, containLabel:true},
     tooltip:{...tooltip(), trigger:'axis', valueFormatter:value => val(value) + unit},
@@ -524,11 +542,84 @@ function winningDonut(entries) {
 function renderCards(cell, cards) {
   const suits = {P:'♠', C:'♥', T:'♣', D:'♦'};
   const badges = (cards ?? []).flatMap(card => {
-    const match = /^(10|[2-9AJQK])_([PCTD])$/.exec(card);
-    return match ? [create('span', match[1] + suits[match[2]],
-      match[2] === 'C' || match[2] === 'D' ? 'poker-card red' : 'poker-card')] : [];
+    const match = /^(10|[2-9AJQKT])[_\s]*([PCTD♠♥♣♦])$/.exec(card.trim().toUpperCase());
+    if (!match) return [];
+    const suit = suits[match[2]] ?? match[2];
+    return [create('span', (match[1] === 'T' ? '10' : match[1]) + suit,
+      suit === '♥' || suit === '♦' ? 'poker-card red' : 'poker-card')];
   });
   if (badges.length) cell.replaceChildren(...badges);
+}
+
+function setHandMode(selected) {
+  if (selected && activeTab !== 'hand') tabBeforeHand = activeTab;
+  for (const tab of tabs) tab.hidden = selected !== (tab.dataset.tab === 'hand');
+  $('filters').hidden = selected;
+  if (selected || activeTab === 'hand') selectTab(selected ? 'hand' : tabBeforeHand);
+}
+
+function showHand() {
+  $('hand-detail').hidden = !handView;
+  if (!handView) return;
+  const {hand, showdown, balances, responseTimes, actions} = handView;
+  const streets = ['Preflop', 'Flop', 'Turn', 'River'];
+  const elapsed = hand.startedAtMillis > 0 && hand.endedAtMillis >= hand.startedAtMillis
+    ? Math.floor((hand.endedAtMillis - hand.startedAtMillis) / 1000) : null;
+  const clock = elapsed == null ? '–' : [Math.floor(elapsed / 3600),
+    Math.floor(elapsed / 60) % 60, elapsed % 60].map(n => String(n).padStart(2, '0')).join(':');
+  $('hand-heading').textContent = t('handNumber') + ' ' + integer.format(hand.counter);
+  $('hand-facts').replaceChildren(...[
+    ['blinds', val(hand.smallBlind) + ' / ' + val(2 * hand.smallBlind)],
+    ['pot', val(hand.pot)], ['duration', clock]
+  ].map(([key, value]) => {
+    const fact = create('div', null);
+    fact.append(create('span', t(key)), create('strong', value));
+    return fact;
+  }));
+  $('hand-board').textContent = t('noCard');
+  renderCards($('hand-board'), hand.communityCards);
+  $('hand-seats').replaceChildren(...[
+    ['button', hand.dealer], ['smallBlind', hand.smallBlindPlayer], ['bigBlind', hand.bigBlindPlayer]
+  ].flatMap(([key, player]) => [create('dt', t(key)), create('dd', player || '–')]));
+  const rosters = [hand.preflopPlayers, hand.flopPlayers, hand.turnPlayers, hand.riverPlayers];
+  $('hand-rosters').replaceChildren(...rosters.map((players, i) => {
+    const item = create('div', null);
+    const chips = create('div', null, 'hand-chips');
+    chips.append(...(players.length ? players : ['–']).map(player => create('span', player, 'hand-chip')));
+    item.append(create('span', streets[i], 'hand-street'), chips);
+    return item;
+  }));
+  handRows('hand-showdown-rows', 6, showdown.map(entry => {
+    const tr = row([[entry.player], [t(entry.winner ? 'yes' : 'no'), entry.winner ? 'positive' : ''],
+      ['–'], [handRank(entry.handValue)], [val(entry.pay)], [signed(entry.profit), tone(entry.profit)]]);
+    renderCards(tr.children[2], entry.holeCards);
+    return tr;
+  }));
+  const hasProfit = showdown.some(entry => entry.profit !== 0);
+  $('hand-result-panel').hidden = !hasProfit;
+  if (hasProfit) {
+    const outcomes = [...showdown].sort((a, b) => b.profit - a.profit);
+    draw('hand-chart', {...classicBars(outcomes, entry => entry.profit, '',
+      entry => entry.profit < 0 ? paint.loss : paint.gain, undefined, outcomes.length),
+    animation:!reducedMotion, aria:{enabled:true, label:{description:t('handNet')}}}, '');
+  }
+  const decisions = ['', 'fold', 'checkCall', 'betRaise', 'allIn'];
+  const responseText = seconds => seconds == null ? '–' : val(seconds) + ' ' + t('seconds');
+  handRows('hand-actions-rows', 5, actions.map(entry => row([
+    [streets[entry.street - 1] ?? '–'], [entry.player],
+    [decisions[entry.decision] ? t(decisions[entry.decision]) : '–'],
+    [val(entry.committed)], [responseText(entry.responseSeconds)]
+  ])));
+  handRows('hand-balances-rows', 4, balances.map(entry => row([
+    [entry.player], [val(entry.stack)], [val(entry.buyin)], [signed(entry.profit), tone(entry.profit)]
+  ])));
+  handRows('hand-response-rows', 2, responseTimes.map(entry => row([
+    [entry.player], [responseText(entry.value)]
+  ])));
+}
+
+function handRows(id, columns, rows) {
+  $(id).replaceChildren(...(rows.length ? rows : [emptyRow(columns, t('noHandData'))]));
 }
 
 function classicPresentation(data, mode) {
@@ -643,6 +734,7 @@ function render() {
   if (activeTab === 'analysis') showAnalysis();
   if (activeTab === 'compare') showCompare();
   if (activeTab === 'classics') showClassic();
+  if (activeTab === 'hand') showHand();
 }
 
 function validDate(value) {
@@ -706,6 +798,7 @@ async function loadScope() {
   ready = false;
   hasPlayers = false;
   view = undefined;
+  handView = undefined;
   page = 0;
   classic = undefined;
   classicKey = '';
@@ -717,6 +810,15 @@ async function loadScope() {
     const data = JSON.parse(await send('init'));
     if (sequence !== requestNumber) return;
     scope = data.scope;
+    setHandMode(data.handId > 0);
+    if (data.handId > 0) {
+      const detail = JSON.parse(await send(['hand', scope, data.handId].join('\t')));
+      if (sequence !== requestNumber) return;
+      handView = detail;
+      render();
+      notice(detail ? '' : t('noHand'));
+      return;
+    }
     $('player').replaceChildren(...data.players.map((player, i) => new Option(player, i)));
     hasPlayers = data.players.length > 0;
     ready = true;
@@ -730,7 +832,7 @@ async function loadScope() {
     if (sequence !== requestNumber) return;
     ready = false;
     $('apply').disabled = false;
-    notice(t('error'), true);
+    notice(t(activeTab === 'hand' ? 'handError' : 'error'), true);
   }
 }
 
@@ -747,12 +849,12 @@ for (const tab of tabs) tab.addEventListener('click', () => selectTab(tab.datase
 $('tabs').addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const current = tabs.findIndex(tab => tab.dataset.tab === activeTab);
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
-    : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-  selectTab(tabs[next].dataset.tab, true);
+  const visible = tabs.filter(tab => !tab.hidden);
+  const current = visible.findIndex(tab => tab.dataset.tab === activeTab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? visible.length - 1
+    : (current + (event.key === 'ArrowRight' ? 1 : -1) + visible.length) % visible.length;
+  selectTab(visible[next].dataset.tab, true);
 });
-$('history').addEventListener('click', () => send('history').catch(() => {}));
 $('zoom-out').addEventListener('click', () => changeZoom(-10));
 $('zoom-in').addEventListener('click', () => changeZoom(10));
 $('zoom-reset').addEventListener('click', () => changeZoom(0));

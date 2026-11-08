@@ -12,38 +12,30 @@
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="brand"><span aria-hidden="true" class="brand-suit">♠</span><span>CoronaPoker</span><span class="brand-rule"></span><span class="brand-section" data-t="stats">Estadísticas</span></div>
     <nav aria-label="Estadísticas" id="tabs" role="tablist">
       <button role="tab" id="tab-overview" aria-selected="true" aria-controls="overview" data-tab="overview" data-t="overview">Resumen</button>
       <button role="tab" id="tab-sessions" aria-selected="false" aria-controls="sessions" tabindex="-1" data-tab="sessions" data-t="sessions">Sesiones</button>
       <button role="tab" id="tab-analysis" aria-selected="false" aria-controls="analysis" tabindex="-1" data-tab="analysis" data-t="analysis">Análisis</button>
       <button role="tab" id="tab-compare" aria-selected="false" aria-controls="compare" tabindex="-1" data-tab="compare" data-t="compare">Comparativas</button>
       <button role="tab" id="tab-classics" aria-selected="false" aria-controls="classics" tabindex="-1" data-tab="classics" data-t="classics">Clásicas</button>
+      <button role="tab" id="tab-hand" aria-selected="false" aria-controls="hand" tabindex="-1" data-tab="hand" data-t="handDetail" hidden>Detalle de la mano</button>
     </nav>
-    <div class="top-actions">
-      <div class="zoom-tools" role="group" id="zoom-tools">
-        <button id="zoom-out" class="ghost" type="button">−</button>
-        <button id="zoom-reset" class="ghost" type="button">100%</button>
-        <button id="zoom-in" class="ghost" type="button">+</button>
-      </div>
-      <button id="history" class="ghost" data-t="history">Historial</button>
+    <div class="zoom-tools" role="group" id="zoom-tools">
+      <button id="zoom-out" class="ghost" type="button">−</button>
+      <button id="zoom-reset" class="ghost" type="button">100%</button>
+      <button id="zoom-in" class="ghost" type="button">+</button>
     </div>
   </div>
 </header>
 <main>
-  <section class="intro" aria-labelledby="heading">
-    <div><p class="eyebrow"><span></span><span data-t="eyebrow">TEXAS HOLD’EM / REGISTRO DE MESA</span></p>
-      <h1 id="heading" data-t="title">Estadísticas de juego</h1>
-    </div>
-    <div class="filter-panel">
+  <div class="filter-panel" id="filters">
       <label id="classic-filter" class="classic-select" hidden><span data-t="metric">Métrica</span><select id="classic-metric"></select></label>
       <label><span data-t="player">Jugador</span><select id="player" disabled></select></label>
       <label><span data-t="from">Desde</span><input id="from" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
       <label><span data-t="through">Hasta</span><input id="through" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
       <button id="apply" class="primary" data-t="apply" disabled>Aplicar</button>
       <button id="reset" class="ghost" data-t="allTime" disabled>Todo</button>
-    </div>
-  </section>
+  </div>
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
   <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
     <div class="kpis" id="kpis"></div>
@@ -114,7 +106,50 @@
       </article>
     </div>
   </section>
-  <footer><span>♠ &nbsp; CORONAPOKER</span><span data-t="footer">Estadísticas del historial local</span></footer>
+  <section id="hand" role="tabpanel" aria-labelledby="tab-hand" hidden>
+    <div class="hand-grid" id="hand-detail" hidden>
+      <div class="hand-column">
+        <article class="panel hand-summary">
+          <div class="panel-heading"><h2 id="hand-heading"></h2></div>
+          <div class="hand-facts" id="hand-facts"></div>
+          <section class="hand-group">
+            <h3 data-t="board">Cartas comunitarias</h3>
+            <div id="hand-board" class="hand-board"></div>
+          </section>
+          <section class="hand-group">
+            <h3 data-t="handSeats">Posiciones</h3>
+            <dl id="hand-seats" class="hand-seats"></dl>
+          </section>
+          <section class="hand-group">
+            <h3 data-t="handPlayers">Jugadores por calle</h3>
+            <div id="hand-rosters" class="hand-rosters"></div>
+          </section>
+        </article>
+        <article class="panel hand-balances">
+          <div class="panel-heading"><h2 data-t="handBalances">Saldos registrados</h2></div>
+          <div class="table-scroll"><table><thead><tr id="hand-balances-head"></tr></thead><tbody id="hand-balances-rows"></tbody></table></div>
+        </article>
+      </div>
+      <div class="hand-column">
+        <article class="panel hand-showdown">
+          <div class="panel-heading"><h2 data-t="showdown">Showdown</h2></div>
+          <div class="table-scroll"><table><thead><tr id="hand-showdown-head"></tr></thead><tbody id="hand-showdown-rows"></tbody></table></div>
+          <div class="hand-group" id="hand-result-panel" hidden>
+            <h3 data-t="handNet">Beneficio de la mano</h3>
+            <div id="hand-chart" class="chart hand-chart" role="img"></div>
+          </div>
+        </article>
+        <article class="panel hand-actions">
+          <div class="panel-heading"><h2 data-t="handActions">Secuencia de acciones</h2></div>
+          <div class="table-scroll"><table><thead><tr id="hand-actions-head"></tr></thead><tbody id="hand-actions-rows"></tbody></table></div>
+        </article>
+        <article class="panel hand-response">
+          <div class="panel-heading"><h2 data-t="classicResponse">Tiempo medio de respuesta</h2></div>
+          <div class="table-scroll"><table><thead><tr id="hand-response-head"></tr></thead><tbody id="hand-response-rows"></tbody></table></div>
+        </article>
+      </div>
+    </div>
+  </section>
 </main>
 </body>
 </html>

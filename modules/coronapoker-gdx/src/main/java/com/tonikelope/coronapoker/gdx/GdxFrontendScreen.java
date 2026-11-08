@@ -442,7 +442,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new Rectangle(76f, 60f, 1768f, 750f);
     private PokerStatsBrowser statsBrowser;
     private boolean statsBrowserFocused;
-    private boolean statsDashboardFailed;
     private final ExecutorService recoveryExecutor;
     private final ExecutorService statsExecutor;
     private final ExecutorService networkInfoExecutor;
@@ -761,6 +760,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float statsSummaryPlayersScroll;
     private float statsSummaryPlayersScrollTarget;
     private float statsSummaryPlayersScrollMaximum;
+    private final Rectangle statsSummaryPlayersViewport = new Rectangle();
     private final Rectangle statsSummaryPlayersScrollTrack = new Rectangle();
     private float statsSummaryPlayersScrollThumbHeight;
     private boolean statsEvidenceOpen;
@@ -2622,7 +2622,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSortMode = statsMode;
         statsSortHandScope = false;
         resetStatsResultScroll();
-        statsDashboardFailed = false;
         openStatsDashboard();
         loadStatsGames();
         syncMusicForSurface();
@@ -3040,8 +3039,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (statsLoading || statsGameIndex < 0 || index < -1
                 || index >= statsHands.size()) return;
         statsHandIndex = index;
+        statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget = 0f;
         if (index >= 0 && statsBrowser != null) {
-            closeStatsDashboard();
             statsMode = StatsMode.BALANCE;
         }
         statsPicker = StatsPicker.NONE;
@@ -3257,22 +3256,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void openStatsDashboard() {
         if (!PokerVideoPlatformSupport.isAvailable() || statsBrowser != null) return;
-        statsDashboardFailed = false;
         statsBrowserFocused = false;
-        if (statsHandIndex >= 0) {
-            statsHandIndex = -1;
-            loadStatsScope();
-        }
         statsBrowser = new PokerStatsBrowser(statsRepository,
                 statsPlayerFilter.isBlank() ? connection.nickname() : statsPlayerFilter,
                 "en".equalsIgnoreCase(gameText.language()),
                 preferenceBoolean("animaciones", true), statsDashboardGame(),
-                statsBrowserWidth(), statsBrowserHeight(),
-                this::closeStatsDashboard);
+                statsDashboardHand(), statsBrowserWidth(), statsBrowserHeight());
     }
 
     private int statsDashboardGame() {
         return statsGameIndex < 0 ? 0 : statsGames.get(statsGameIndex).id();
+    }
+
+    private int statsDashboardHand() {
+        return statsHandIndex < 0 ? 0 : statsHands.get(statsHandIndex).id();
     }
 
     private int statsBrowserWidth() {
@@ -3292,7 +3289,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawStatsDashboard() {
         Rectangle bounds = STATS_WEB_BOUNDS;
-        statsBrowser.setScope(statsDashboardGame());
+        statsBrowser.setScope(statsDashboardGame(), statsDashboardHand());
         Texture rendered = statsBrowser.texture(statsBrowserWidth(), statsBrowserHeight());
         if (rendered != null) {
             // Snap the OSR texture to physical pixels to preserve Chromium's
@@ -3317,9 +3314,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 68f, 68f, Color.WHITE));
         textFit(headingFont, gameText.translate("gdx.stats.dashboard.loading"),
                 cx, cy + 3f, GOLD, true, 800f);
-        themedButton(cx - 170f, cy - 100f, 340f, 54f,
-                gameText.translate("gdx.stats.dashboard.history"), ButtonTone.NEUTRAL,
-                this::closeStatsDashboard, true);
     }
 
     private boolean statsBrowserInput() {
@@ -3334,9 +3328,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawStatsScreen() {
+        statsSummaryPlayersViewport.set(0f, 0f, 0f, 0f);
+        statsSummaryPlayersScrollTrack.set(0f, 0f, 0f, 0f);
         if (statsBrowser != null && statsBrowser.failed()) {
             closeStatsDashboard();
-            statsDashboardFailed = true;
         }
         panel(20f, 20f, 1880f, 1040f, "");
         textFit(titleFont, gameText.translate("ui.estadisticas"), 62f,
@@ -3362,7 +3357,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> openStatsPicker(StatsPicker.HAND),
                 !statsLoading && statsGameIndex >= 0 && !statsHands.isEmpty()
                         && (statsBrowser != null || statsMode.supportsHandScope()));
-        String playerLabel = statsBrowser != null
+        String playerLabel = statsBrowser != null && statsHandIndex < 0
                 ? gameText.translate("gdx.stats.dashboard.player")
                 : statsPlayerFilter.isBlank()
                         ? gameText.translate("gdx.stats.all_players")
@@ -3386,11 +3381,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 statsMode == StatsMode.BALANCE && statsHandIndex >= 0
                         ? gameText.translate("gdx.stats.showdown")
                         : gameText.translate("gdx.stats.view"));
-        if (PokerVideoPlatformSupport.isAvailable()) {
-            themedButton(1020f, 716f, 306f, 38f, gameText.translate(statsDashboardFailed
-                    ? "gdx.stats.dashboard.retry" : "gdx.stats.dashboard.open"),
-                    ButtonTone.NEUTRAL, this::openStatsDashboard, !statsLoading);
-        }
         choice(535f, STATS_MODE_SELECTOR_Y, 1280f,
                 STATS_MODE_SELECTOR_HEIGHT, "", statsModeLabel(),
                 () -> openStatsPicker(StatsPicker.MODE), !statsLoading);
@@ -4174,7 +4164,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 12f, y - 25f, 1275f, 48f);
-            textFit(smallFont, row.player(), x, y + 7f, Color.WHITE,
+            statsTextFit(smallFont, row.player(), x, y + 7f, Color.WHITE,
                     false, 260f);
             float barX = 835f;
             float barWidth = 820f;
@@ -4188,11 +4178,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     24f, 6f);
             String value = String.format(Locale.ROOT,
                     responseTime ? "%.1f" : "%.1f%%", row.value());
-            textFit(smallFont, value, 1735f, y + 7f, GOLD,
+            statsTextFit(smallFont, value, 1735f, y + 7f, GOLD,
                     true, 140f);
         }
         if (statsMetrics.isEmpty()) {
-            textFit(smallFont, gameText.translate("gdx.stats.no_data"),
+            statsTextFit(smallFont, gameText.translate("gdx.stats.no_data"),
                     1175f, 430f, MUTED, true, 1100f);
         }
     }
@@ -4211,7 +4201,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && statsSortHandScope == (statsHandIndex >= 0)
                 && statsSortColumn == column;
         float labelX = x + (active ? 18f : 0f);
-        textExactFit(tinyFont, uppercase(label), labelX, y, CYAN, false,
+        statsTextFit(tinyFont, uppercase(label), labelX, y, CYAN, false,
                 width - (active ? 18f : 0f));
         hit(x - 5f, y - 26f, width + 10f, 38f,
                 () -> toggleStatsSort(column));
@@ -4308,7 +4298,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 percent(row.roiPercent()),
                 String.format(Locale.ROOT, "%.2f", row.effectiveness()) };
             for (int column = 0; column < values.length; column++) {
-                textFit(smallFont, values[column], columns[column], y + 7f,
+                statsTextFit(smallFont, values[column], columns[column], y + 7f,
                         column >= 4 && row.roiPercent() < 0d
                                 ? new Color(0xff6b6bff) : Color.WHITE,
                         false, widths[column]);
@@ -4441,15 +4431,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 10f, y - 23f, 630f, 42f);
-            textFit(smallFont, row.player(), columns[0], y + 7f,
+            statsTextFit(smallFont, row.player(), columns[0], y + 7f,
                     Color.WHITE, false, widths[0]);
             drawStatsCards(row.holeCards(), columns[1], y, widths[1],
                     "*****");
-            textFit(smallFont, statsHandRank(row.handValue()), columns[2],
+            statsTextFit(smallFont, statsHandRank(row.handValue()), columns[2],
                     y + 7f, Color.WHITE, false, widths[2]);
-            textFit(smallFont, Integer.toString(row.handCounter()),
+            statsTextFit(smallFont, Integer.toString(row.handCounter()),
                     columns[3], y + 7f, Color.WHITE, false, widths[3]);
-            textFit(smallFont, money(row.profit()), columns[4], y + 7f,
+            statsTextFit(smallFont, money(row.profit()), columns[4], y + 7f,
                     new Color(0x64df86ff), false, widths[4]);
         }
     }
@@ -4574,39 +4564,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<String> safePlayers = players == null ? List.of() : players;
         float visibleHeight = viewportHeight - 10f;
         float contentHeight = safePlayers.size() * rowHeight;
-        float maximum = statsSummaryPlayersMaximum(safePlayers.size());
-        statsSummaryPlayersScrollMaximum = maximum;
-        statsSummaryPlayersScrollTarget = MathUtils.clamp(
-                statsSummaryPlayersScrollTarget, 0f, maximum);
-        statsSummaryPlayersScroll = MathUtils.clamp(statsSummaryPlayersScroll,
-                0f, maximum);
+        drawStatsSummaryScrollbar(topY, bottom, visibleHeight, contentHeight);
         float firstBaseline = topY - 10f + statsSummaryPlayersScroll;
         for (int index = 0; index < safePlayers.size(); index++) {
             float baseline = firstBaseline - index * rowHeight;
             if (baseline > topY - 4f || baseline < bottom + 8f) continue;
-            textExactFit(tinyFont, safePlayers.get(index), x + 126f,
-                    baseline, Color.WHITE, false, width - 148f);
+            text(tinyFont, ellipsize(tinyFont, safePlayers.get(index), width - 148f),
+                    x + 126f, baseline, Color.WHITE, false);
         }
-        if (maximum > 0f) {
-            float trackX = x + width - 10f;
-            float trackY = bottom + 6f;
-            float trackHeight = viewportHeight - 12f;
-            statsSummaryPlayersScrollTrack.set(trackX, trackY,
-                    5f, trackHeight);
-            shapes.setColor(new Color(0x18304cff));
-            roundedRect(trackX, trackY, 5f, trackHeight, 2.5f);
-            float thumb = Math.max(18f,
-                    trackHeight * visibleHeight / contentHeight);
-            statsSummaryPlayersScrollThumbHeight = thumb;
-            float travel = trackHeight - thumb;
-            float thumbY = trackY + travel
-                    * (1f - statsSummaryPlayersScroll / maximum);
-            shapes.setColor(CYAN);
-            roundedRect(trackX, thumbY, 5f, thumb, 2.5f);
-        } else {
-            statsSummaryPlayersScrollTrack.set(0f, 0f, 0f, 0f);
-            statsSummaryPlayersScrollThumbHeight = 0f;
-        }
+    }
+
+    private void drawStatsSummaryScrollbar(float topY, float bottom,
+            float visibleHeight, float contentHeight) {
+        statsSummaryPlayersViewport.set(86f, bottom, 348f, topY - bottom);
+        float maximum = Math.max(0f, contentHeight - visibleHeight);
+        statsSummaryPlayersScrollMaximum = maximum;
+        statsSummaryPlayersScrollTarget = MathUtils.clamp(
+                statsSummaryPlayersScrollTarget, 0f, maximum);
+        statsSummaryPlayersScroll = MathUtils.clamp(statsSummaryPlayersScroll, 0f, maximum);
+        if (maximum <= 0f) return;
+        float trackX = 424f;
+        float trackY = bottom + 6f;
+        float trackHeight = topY - bottom - 12f;
+        statsSummaryPlayersScrollTrack.set(trackX, trackY, 5f, trackHeight);
+        shapes.setColor(new Color(0x18304cff));
+        roundedRect(trackX, trackY, 5f, trackHeight, 2.5f);
+        float thumb = Math.max(18f, trackHeight * visibleHeight / contentHeight);
+        statsSummaryPlayersScrollThumbHeight = thumb;
+        float thumbY = trackY + (trackHeight - thumb)
+                * (1f - statsSummaryPlayersScroll / maximum);
+        shapes.setColor(CYAN);
+        roundedRect(trackX, thumbY, 5f, thumb, 2.5f);
     }
 
     static float statsSummaryPlayersMaximum(int playerCount) {
@@ -4623,8 +4611,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         + money(hand.smallBlind() * 2d), y); y -= 43f;
         statsSummaryLine(gameText.translate("stats.bote"), money(hand.pot()), y);
         y -= 43f;
-        statsSummaryLine(gameText.translate("ui.cartas_comunitarias"),
-                statsCards(hand.communityCards(), "-----"), y); y -= 43f;
+        text(tinyFont, uppercase(gameText.translate("ui.cartas_comunitarias")),
+                86f, y + 8f, MUTED, false);
+        drawStatsCards(hand.communityCards(), 86f, y - 25f, 348f, "-----", 5);
+        shapes.setColor(new Color(0x31445f88));
+        shapes.rect(86f, y - 50f, 348f, 1f);
+        y -= 71f;
         statsSummaryLine(gameText.translate("position.dealer"),
                 hand.dealer(), y); y -= 43f;
         statsSummaryLine(gameText.translate("stats.ciega_pequena"),
@@ -4635,14 +4627,41 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 (hand.endedAtMillis() - hand.startedAtMillis()) / 1000L);
         statsSummaryLine(gameText.translate("gdx.stats.duration"),
                 formatStatsDuration(duration), y); y -= 43f;
-        statsSummaryLine(gameText.translate("stats.jugadores_preflop"),
-                statsPlayers(hand.preflopPlayers()), y); y -= 43f;
-        statsSummaryLine(gameText.translate("stats.jugadores_flop"),
-                statsPlayers(hand.flopPlayers()), y); y -= 43f;
-        statsSummaryLine(gameText.translate("stats.jugadores_turn"),
-                statsPlayers(hand.turnPlayers()), y); y -= 43f;
-        statsSummaryLine(gameText.translate("stats.jugadores_river"),
-                statsPlayers(hand.riverPlayers()), y);
+        drawStatsStreetRosters(hand, y + 17f);
+    }
+
+    private void drawStatsStreetRosters(StatsRepository.HandSummary hand, float topY) {
+        String[] labels = {"stats.jugadores_preflop", "stats.jugadores_flop",
+            "stats.jugadores_turn", "stats.jugadores_river"};
+        List<List<String>> rosters = List.of(hand.preflopPlayers(), hand.flopPlayers(),
+                hand.turnPlayers(), hand.riverPlayers());
+        float bottom = 89f;
+        float lineHeight = 20f;
+        float groupGap = 7f;
+        float contentHeight = 0f;
+        List<List<String>> wrapped = new ArrayList<>(rosters.size());
+        for (List<String> players : rosters) {
+            List<String> lines = wrapText(tinyFont, statsPlayers(players), 327f, Integer.MAX_VALUE);
+            wrapped.add(lines);
+            contentHeight += (lines.size() + 1) * lineHeight + groupGap;
+        }
+        drawStatsSummaryScrollbar(topY, bottom, topY - bottom, contentHeight);
+        float baseline = topY - 13f + statsSummaryPlayersScroll;
+        for (int i = 0; i < labels.length; i++) {
+            if (baseline <= topY - 4f && baseline >= bottom + 9f) {
+                text(tinyFont, uppercase(gameText.translate(labels[i])),
+                        86f, baseline, MUTED, false);
+            }
+            baseline -= lineHeight;
+            for (String line : wrapped.get(i)) {
+                if (baseline <= topY - 4f && baseline >= bottom + 9f) {
+                    text(tinyFont, ellipsize(tinyFont, line, 327f),
+                            86f, baseline, Color.WHITE, false);
+                }
+                baseline -= lineHeight;
+            }
+            baseline -= groupGap;
+        }
     }
 
     private String statsBlindIncrease(StatsRepository.GameSummary game) {
@@ -4711,24 +4730,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shapes.setColor(index % 2 == 0
                     ? new Color(0x16263bdd) : new Color(0x101d30dd));
             shapes.rect(x - 12f, y - 23f, 1275f, 42f);
-            textFit(smallFont, row.player(), columns[0], y + 7f,
+            statsTextFit(smallFont, row.player(), columns[0], y + 7f,
                     Color.WHITE, false, widths[0]);
-            textFit(smallFont, row.winner()
+            statsTextFit(smallFont, row.winner()
                     ? gameText.translate("ui.si")
                             : gameText.translate("gdx.stats.no"),
                     columns[1], y + 7f, row.winner() ? GOLD : MUTED,
                     false, widths[1]);
             drawStatsCards(row.holeCards(), columns[2], y, widths[2],
                     "*****");
-            textFit(smallFont, statsHandRank(row.handValue()), columns[3],
+            statsTextFit(smallFont, statsHandRank(row.handValue()), columns[3],
                     y + 7f, Color.WHITE, false, widths[3]);
-            textFit(smallFont, money(row.pay()), columns[4], y + 7f,
+            statsTextFit(smallFont, money(row.pay()), columns[4], y + 7f,
                     Color.WHITE, false, widths[4]);
-            textFit(smallFont, money(row.profit()), columns[5], y + 7f,
+            statsTextFit(smallFont, money(row.profit()), columns[5], y + 7f,
                     result, false, widths[5]);
         }
         if (statsShowdown.isEmpty()) {
-            textFit(smallFont, gameText.translate("gdx.stats.no_showdown"),
+            statsTextFit(smallFont, gameText.translate("gdx.stats.no_showdown"),
                     1175f, 430f, MUTED, true, 1100f);
         }
     }
@@ -4754,9 +4773,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawStatsCards(List<String> cards, float x, float centerY,
             float maxWidth, String empty) {
+        drawStatsCards(cards, x, centerY, maxWidth, empty, 2);
+    }
+
+    private void drawStatsCards(List<String> cards, float x, float centerY,
+            float maxWidth, String empty, int maxCards) {
         List<StatsCardGlyph> decoded = cards == null ? List.of()
                 : cards.stream().map(GdxFrontendScreen::decodeStatsCard)
-                        .filter(Objects::nonNull).limit(2).toList();
+                        .filter(Objects::nonNull).limit(maxCards).toList();
         if (decoded.isEmpty()) {
             textFit(smallFont, empty, x, centerY + 7f, MUTED, false,
                     maxWidth);
@@ -4858,23 +4882,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void statsSummaryLine(String label, String value, float y) {
+        float labelWidth = 132f;
         shapes.setColor(new Color(0x31445f88));
         shapes.rect(86f, y - 23f, 348f, 1f);
-        textFit(tinyFont, uppercase(label), 86f, y + 8f, MUTED, false, 132f);
-        textFit(smallFont, value, 230f, y + 8f, Color.WHITE, false, 204f);
-    }
-
-    private void statsSummaryWrappedLine(String label, String value, float y) {
-        shapes.setColor(new Color(0x31445f88));
-        shapes.rect(86f, y - 49f, 348f, 1f);
-        textFit(tinyFont, uppercase(label), 86f, y + 8f, MUTED, false, 132f);
-        wrappedText(tinyFont, value, 230f, y + 8f, 204f, 21f, 3,
-                Color.WHITE);
+        text(tinyFont, ellipsize(tinyFont, uppercase(label), labelWidth),
+                86f, y + 8f, MUTED, false);
+        float valueWidth = 348f - labelWidth - 12f;
+        String safe = Objects.requireNonNullElse(value, "-----");
+        BitmapFont font = fits(smallFont, safe, valueWidth) ? smallFont : tinyFont;
+        text(font, ellipsize(font, safe, valueWidth),
+                98f + labelWidth, y + 8f, Color.WHITE, false);
     }
 
     private void drawStatsBalances() {
         if (statsBalances.isEmpty()) {
-            textFit(smallFont,
+            statsTextFit(smallFont,
                     gameText.translate("stats.no_partidas_guardadas"),
                     1175f, 430f, MUTED, true, 1100f);
             return;
@@ -4923,7 +4945,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 money(row.buyin()), money(row.profit()),
                 String.format(Locale.ROOT, "%.1f%%", row.roiPercent()) };
             for (int column = 0; column < values.length; column++) {
-                textFit(tinyFont, values[column], columns[column], y + 6f,
+                statsTextFit(tinyFont, values[column], columns[column], y + 6f,
                         column >= 3 ? profit : Color.WHITE,
                         false, widths[column]);
             }
@@ -15668,11 +15690,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 1f - MathUtils.clamp(scroll, 0f, 1f));
     }
 
+    private void statsTextFit(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        activeTextItems().add(statsFittedTextItem(font, value, x, y, color, centered, maxWidth));
+    }
+
+    private TextItem statsFittedTextItem(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        TextItem item = fittedTextItem(font, value, x, y, color, centered, maxWidth);
+        String clipped = ellipsize(item.font(), item.text(), maxWidth);
+        return clipped.equals(item.text()) ? item
+                : new TextItem(item.font(), clipped, x, y, item.color(), centered);
+    }
+
     private void chartTextFit(BitmapFont font, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
         List<TextItem> target = statsChartCanvasActive
                 ? statsChartTexts : texts;
-        target.add(fittedTextItem(font, value,
+        target.add(statsFittedTextItem(font, value,
                 statsChartCanvasActive ? statsChartX(x) : x,
                 statsChartCanvasActive ? statsChartY(y) : y,
                 color, centered, maxWidth));
@@ -17536,12 +17571,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
                 return true;
             }
-            if (statsGameIndex >= 0 && statsHandIndex < 0
-                    && amountY != 0f
-                    && pointer.x >= 86f && pointer.x <= 434f
-                    && pointer.y >= 323f && pointer.y <= 395f) {
-                float maximum = statsSummaryPlayersMaximum(
-                        statsGames.get(statsGameIndex).players().size());
+            if (statsGameIndex >= 0 && amountY != 0f
+                    && statsSummaryPlayersViewport.width > 0f
+                    && statsSummaryPlayersViewport.contains(pointer)) {
+                float maximum = statsHandIndex >= 0 ? statsSummaryPlayersScrollMaximum
+                        : statsSummaryPlayersMaximum(statsGames.get(statsGameIndex).players().size());
                 statsSummaryPlayersScrollTarget = MathUtils.clamp(
                         statsSummaryPlayersScrollTarget
                                 + amountY * 46f, 0f, maximum);

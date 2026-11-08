@@ -130,21 +130,62 @@ public final class StatsRepository {
                 try (ResultSet rows = statement.executeQuery()) {
                     List<HandSummary> result = new ArrayList<>();
                     while (rows.next()) {
-                        result.add(new HandSummary(rows.getInt("id"), gameId,
-                                rows.getInt("counter"), rows.getDouble("sbval"),
-                                rows.getInt("blinds_double"),
-                                rows.getString("dealer"), rows.getString("sb"),
-                                rows.getString("bb"), rows.getLong("start"),
-                                rows.getLong("end"),
-                                splitCards(rows.getString("com_cards")),
-                                decodePlayers(rows.getString("preflop_players")),
-                                decodePlayers(rows.getString("flop_players")),
-                                decodePlayers(rows.getString("turn_players")),
-                                decodePlayers(rows.getString("river_players")),
-                                rows.getDouble("pot")));
+                        result.add(readHand(rows, gameId));
                     }
                     return List.copyOf(result);
                 }
+            }
+        }
+    }
+
+    public HandDetail handDetail(int gameId, int handId) throws SQLException {
+        String sql = "SELECT * FROM hand WHERE id_game=? AND id=? AND end IS NOT NULL";
+        synchronized (database.lock()) {
+            HandSummary hand;
+            try (PreparedStatement statement = database.connection().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, gameId);
+                statement.setInt(2, handId);
+                try (ResultSet rows = statement.executeQuery()) {
+                    if (!rows.next()) return null;
+                    hand = readHand(rows, gameId);
+                }
+            }
+            return new HandDetail(hand, showdown(handId), balances(gameId, handId),
+                    scopedAverageResponse(new GameScope(gameId, null, null), handId, true),
+                    handActions(handId));
+        }
+    }
+
+    private static HandSummary readHand(ResultSet rows, int gameId) throws SQLException {
+        return new HandSummary(rows.getInt("id"), gameId, rows.getInt("counter"),
+                rows.getDouble("sbval"), rows.getInt("blinds_double"),
+                rows.getString("dealer"), rows.getString("sb"), rows.getString("bb"),
+                rows.getLong("start"), rows.getLong("end"),
+                splitCards(rows.getString("com_cards")),
+                decodePlayers(rows.getString("preflop_players")),
+                decodePlayers(rows.getString("flop_players")),
+                decodePlayers(rows.getString("turn_players")),
+                decodePlayers(rows.getString("river_players")), rows.getDouble("pot"));
+    }
+
+    private List<HandActionRow> handActions(int handId) throws SQLException {
+        String sql = "SELECT player,round,action,bet,response_time FROM action"
+                + " WHERE id_hand=? ORDER BY round,counter,id";
+        try (PreparedStatement statement = database.connection().prepareStatement(sql)) {
+            statement.setQueryTimeout(30);
+            statement.setInt(1, handId);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<HandActionRow> result = new ArrayList<>();
+                while (rows.next()) {
+                    double bet = rows.getDouble("bet");
+                    Double committed = rows.wasNull() ? null : bet;
+                    int seconds = rows.getInt("response_time");
+                    Integer response = rows.wasNull() ? null : seconds;
+                    result.add(new HandActionRow(rows.getString("player"), rows.getInt("round"),
+                            rows.getInt("action"), committed, response));
+                }
+                return List.copyOf(result);
             }
         }
     }
@@ -586,6 +627,13 @@ public final class StatsRepository {
 
     public record BalanceRow(String player, double stack, double buyin,
             double profit, double roiPercent) { }
+
+    public record HandDetail(HandSummary hand, List<ShowdownRow> showdown,
+            List<BalanceRow> balances, List<MetricRow> responseTimes,
+            List<HandActionRow> actions) { }
+
+    public record HandActionRow(String player, int street, int decision,
+            Double committed, Integer responseSeconds) { }
 
     public record BalancePoint(String player, int handCounter, double stack) { }
 

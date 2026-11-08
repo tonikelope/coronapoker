@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.JsonWriter;
 import com.tonikelope.coronapoker.core.StatsDashboard;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import java.awt.event.KeyEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,10 +62,10 @@ final class PokerStatsBrowser implements AutoCloseable {
             + "style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; "
             + "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
     private static final long STARTUP_TIMEOUT = TimeUnit.SECONDS.toNanos(35);
+    private static final double SCROLL_PIXELS_PER_STEP = 96d;
 
     private final StatsRepository repository;
     private final String preferredPlayer;
-    private final Runnable historyAction;
     private final String pageUrl;
     private final PokerVideoFrameBuffer frames = new PokerVideoFrameBuffer();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(task -> {
@@ -79,20 +80,19 @@ final class PokerStatsBrowser implements AutoCloseable {
     private volatile boolean ready;
     private volatile boolean failed;
     private volatile LibGdxCefBrowser browser;
-    private volatile int gameId;
+    private volatile Scope selection;
     private CefClient client;
     private StatsDashboard snapshot;
     private boolean pressed;
+    private double scrollRemainder;
     private int width;
     private int height;
 
     PokerStatsBrowser(StatsRepository repository, String player, boolean english,
-            boolean animate, int gameId, int width, int height,
-            Runnable historyAction) {
+            boolean animate, int gameId, int handId, int width, int height) {
         this.repository = repository;
         preferredPlayer = player;
-        this.historyAction = historyAction;
-        this.gameId = gameId;
+        selection = new Scope(gameId, handId);
         this.width = width;
         this.height = height;
         pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es")
@@ -122,7 +122,7 @@ final class PokerStatsBrowser implements AutoCloseable {
                 client = created;
                 installHandlers(created, assets);
                 CefBrowserSettings settings = new CefBrowserSettings();
-                settings.windowless_frame_rate = 30;
+                settings.windowless_frame_rate = 60;
                 CefRequestContext context = CefRequestContext.createContext(null);
                 if (context == null) throw new IllegalStateException("No isolated Chromium context");
                 try {
@@ -237,12 +237,6 @@ final class PokerStatsBrowser implements AutoCloseable {
                         failed = true;
                         reply.success("");
                     }
-                    case "history" -> {
-                        reply.success("");
-                        Gdx.app.postRunnable(() -> {
-                            if (!closed) historyAction.run();
-                        });
-                    }
                     default -> {
                         try {
                             worker.execute(() -> answer(request, reply));
@@ -262,13 +256,27 @@ final class PokerStatsBrowser implements AutoCloseable {
         try {
             String response;
             if ("init".equals(request)) {
-                if (snapshot == null) snapshot = repository.dashboard();
-                int scope = gameId;
-                List<String> players = snapshot.players(scope);
-                response = json.toJson(new Setup(scope, players,
+                Scope scope = selection;
+                List<String> players = List.of();
+                if (scope.handId == 0) {
+                    if (snapshot == null) snapshot = repository.dashboard();
+                    players = snapshot.players(scope.gameId);
+                }
+                response = json.toJson(new Setup(scope.gameId, scope.handId, players,
                         Math.max(0, players.indexOf(preferredPlayer))));
             } else {
                 String[] parts = request.split("\\t", -1);
+                if (parts.length == 3 && "hand".equals(parts[0])) {
+                    Scope requested = new Scope(Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2]));
+                    if (!selection.equals(requested) || requested.gameId <= 0 || requested.handId <= 0) {
+                        throw new IllegalArgumentException("Unknown hand selection");
+                    }
+                    StatsRepository.HandDetail detail = repository.handDetail(
+                            requested.gameId, requested.handId);
+                    if (!closed) reply.success(detail == null ? "null" : json.toJson(detail));
+                    return;
+                }
                 if (snapshot == null || parts.length != 5) {
                     reply.failure(400, "Unknown statistics request");
                     return;
@@ -318,9 +326,9 @@ final class PokerStatsBrowser implements AutoCloseable {
         return failed || !interactive() && System.nanoTime() - started > STARTUP_TIMEOUT;
     }
 
-    void setScope(int id) {
-        if (gameId == id) return;
-        gameId = id;
+    void setScope(int gameId, int handId) {
+        if (selection.gameId == gameId && selection.handId == handId) return;
+        selection = new Scope(gameId, handId);
         LibGdxCefBrowser current = browser;
         if (ready && current != null) {
             current.executeJavaScript("window.coronaStatsScope?.()", pageUrl, 0);
@@ -373,12 +381,21 @@ final class PokerStatsBrowser implements AutoCloseable {
 
     void wheel(float x, float y, float amount) {
         LibGdxCefBrowser current = browser;
-        if (ready && current != null && amount != 0f) {
+        if (!ready || current == null || !Float.isFinite(amount) || amount == 0f) return;
+        int mouseX = Math.round(x * width);
+        int mouseY = Math.round(y * height);
+        int modifiers = modifiers();
+        if ((modifiers & InputEvent.CTRL_DOWN_MASK) != 0) {
             int steps = Math.max(1, Math.round(Math.abs(amount)));
-            // GDX scroll amounts point down, while JCEF's native wheel delta points up.
-            current.dispatchWheel(Math.round(x * width), Math.round(y * height),
-                    modifiers(), amount > 0 ? -steps : steps);
+            current.dispatchWheel(mouseX, mouseY, modifiers, amount > 0 ? -steps : steps);
+            return;
         }
+        // CEF consumes pixels with the opposite sign to GDX. Preserve subpixel
+        // remainders from precision wheels and touchpads instead of rounding to a notch.
+        double distance = amount * SCROLL_PIXELS_PER_STEP + scrollRemainder;
+        int pixels = (int) distance;
+        scrollRemainder = distance - pixels;
+        if (pixels != 0) current.dispatchWheelPixels(mouseX, mouseY, modifiers, -pixels);
     }
 
     void key(int event, int key, char character) {
@@ -453,7 +470,9 @@ final class PokerStatsBrowser implements AutoCloseable {
         }
     }
 
-    private record Setup(int scope, List<String> players, int selected) { }
+    private record Scope(int gameId, int handId) { }
+
+    private record Setup(int scope, int handId, List<String> players, int selected) { }
 
     private record Asset(byte[] bytes, String mimeType) { }
 

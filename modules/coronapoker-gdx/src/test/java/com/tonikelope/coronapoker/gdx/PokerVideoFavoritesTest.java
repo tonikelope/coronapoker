@@ -211,7 +211,7 @@ class PokerVideoFavoritesTest {
                 assertEquals(footer.y + footer.height, video.y, 0.01f);
                 assertEquals(video.y + video.height, header.y, 0.01f);
                 Rectangle previous = null;
-                for (String name : List.of("favoriteBounds", "favoritesModeBounds", "videoTypeBounds")) {
+                for (String name : List.of("favoriteBounds", "favoritesModeBounds", "opacityBounds", "videoTypeBounds")) {
                     Rectangle button = bounds(overlay, name);
                     assertTrue(footer.contains(button), name);
                     assertFalse(video.overlaps(button), name);
@@ -222,10 +222,62 @@ class PokerVideoFavoritesTest {
                 Rectangle star = bounds(overlay, "favoriteBounds");
                 Rectangle favorites = bounds(overlay, "favoritesModeBounds");
                 Rectangle format = bounds(overlay, "videoTypeBounds");
+                Rectangle opacity = bounds(overlay, "opacityBounds");
+                assertEquals(footer.x + footer.width / 2f,
+                        opacity.x + opacity.width / 2f, 0.01f);
                 assertEquals(footer.x + 8f, star.x, 0.01f);
                 assertEquals(star.x + star.width + 5f, favorites.x, 0.01f);
                 assertEquals(footer.x + footer.width - 8f, format.x + format.width, 0.01f);
             }
+        }
+    }
+
+    @Test void visiblePlayerOwnsHoverOverItsWholeWindowAndMinimizedIcon() throws Exception {
+        try (var overlay = overlay(514f)) {
+            Rectangle panel = bounds(overlay, "panelBounds");
+            for (String name : List.of("headerBounds", "videoBounds", "footerBounds")) {
+                Rectangle area = bounds(overlay, name);
+                assertTrue(overlay.ownsHover(area.x + area.width / 2f,
+                        area.y + area.height / 2f), name);
+            }
+            assertFalse(overlay.ownsHover(panel.x - 1f, panel.y));
+            click(overlay, "closeBounds");
+            assertFalse(overlay.ownsHover(panel.x + panel.width / 2f, panel.y + 20f));
+            Rectangle icon = bounds(overlay, "iconBounds");
+            assertTrue(overlay.ownsHover(icon.x + icon.width / 2f, icon.y + icon.height / 2f));
+            overlay.update(true, true, false, "es", "normal", 1920f, 1080f);
+            assertFalse(overlay.ownsHover(icon.x + icon.width / 2f, icon.y + icon.height / 2f));
+        }
+    }
+
+    @Test void opacityDragUpdatesLiveAndSavesOnlyOnRelease() throws Exception {
+        var favorites = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        var preferences = new Properties();
+        var saves = new java.util.concurrent.atomic.AtomicInteger();
+        try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                preferences, saves::incrementAndGet)) {
+            prepare(overlay, 260f);
+            assertEquals(100, value(overlay, "videoOpacity"));
+            Rectangle slider = bounds(overlay, "opacityBounds");
+            float centerY = slider.y + slider.height / 2f;
+            assertTrue(overlay.touchDown(slider.x + slider.width / 2f, centerY, 0, 0));
+            assertEquals(55, value(overlay, "videoOpacity"));
+            assertTrue(overlay.touchDragged(slider.x - 20f, centerY, 0));
+            assertEquals(10, value(overlay, "videoOpacity"));
+            assertEquals(0, saves.get());
+            assertTrue(overlay.touchUp(slider.x - 20f, centerY, 0, 0));
+            assertEquals(1, saves.get());
+        }
+        try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                preferences, saves::incrementAndGet)) {
+            assertEquals(10, value(overlay, "videoOpacity"));
+            prepare(overlay, 514f);
+            Rectangle slider = bounds(overlay, "opacityBounds");
+            float centerY = slider.y + slider.height / 2f;
+            assertTrue(overlay.touchDown(slider.x + slider.width - 1f, centerY, 0, 0));
+            assertTrue(overlay.touchUp(slider.x + slider.width + 20f, centerY, 0, 0));
+            assertEquals(100, value(overlay, "videoOpacity"));
+            assertEquals(2, saves.get());
         }
     }
 

@@ -34,10 +34,6 @@ final class GdxAppearanceOptions {
             new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
     static final List<Choice> ANIMATION_CHOICES = List.of(
-            exact(GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
-                    "TIPOS DE VÍDEOS", PokerVideoSearch.TYPE_NORMAL,
-                    new String[]{"shorts", "normal"},
-                    new String[]{"SHORTS", "NORMALES"}),
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -109,8 +105,6 @@ final class GdxAppearanceOptions {
 
     static String parentKey(Choice choice) {
         return switch (choice.key()) {
-            case GdxSettingsContract.POKER_VIDEO_TYPE_KEY ->
-                GdxSettingsContract.POKER_VIDEOS_KEY;
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";

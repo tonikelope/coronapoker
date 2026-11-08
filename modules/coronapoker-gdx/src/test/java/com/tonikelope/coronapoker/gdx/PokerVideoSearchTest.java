@@ -353,7 +353,7 @@ class PokerVideoSearchTest {
         option.ifPresent(candidate -> assertTrue(candidate.fallback()));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 GdxSettingsContract.POKER_VIDEOS_KEY));
-        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
+        assertFalse(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 GdxSettingsContract.POKER_VIDEO_TYPE_KEY));
     }
 

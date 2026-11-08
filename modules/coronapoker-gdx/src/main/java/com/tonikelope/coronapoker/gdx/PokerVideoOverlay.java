@@ -47,6 +47,11 @@ final class PokerVideoOverlay implements AutoCloseable {
     private static final float DEFAULT_NORMAL_BOTTOM = 100f;
     private static final float DEFAULT_SHORT_BOTTOM = 108f;
     private static final float WINDOW_MARGIN = 8f;
+    private static final String OPACITY_PREFERENCE = "poker_video_opacity";
+    private static final int MIN_OPACITY = 10;
+    private static final int MAX_OPACITY = 100;
+    private static final float OPACITY_TRACK_INSET = 7f;
+    private static final float COMPACT_FAVORITES_WIDTH = 70f;
     private static final float RESIZE_EDGE_HIT = 11f;
     private static final float RESIZE_CORNER_HIT = 22f;
     private static final float SHORT_ASPECT = 9f / 16f;
@@ -58,6 +63,8 @@ final class PokerVideoOverlay implements AutoCloseable {
             GdxSettingsStyle.GOLD_RGBA);
     private static final Color MUTED = new Color(
             GdxSettingsStyle.MUTED_RGBA);
+    private static final Color OPACITY_TRACK = new Color(
+            GdxSettingsStyle.TOGGLE_OFF_RGBA);
 
     private final PokerVideoFrameBuffer frameBuffer =
             new PokerVideoFrameBuffer();
@@ -87,6 +94,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle favoriteBounds = new Rectangle();
     private final Rectangle favoritesModeBounds = new Rectangle();
     private final Rectangle videoTypeBounds = new Rectangle();
+    private final Rectangle opacityBounds = new Rectangle();
     private final Rectangle retryBounds = new Rectangle();
     private final PokerVideoCatalog catalog;
     private final Consumer<String> videoTypeChanged;
@@ -128,6 +136,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float y;
     private float videoWidth = DEFAULT_NORMAL_WIDTH;
     private float videoHeight = DEFAULT_NORMAL_WIDTH / NORMAL_ASPECT;
+    private int videoOpacity;
     private Capture capture = Capture.NONE;
     private int capturedPointer = -1;
     private int capturedButton = -1;
@@ -169,6 +178,17 @@ final class PokerVideoOverlay implements AutoCloseable {
         this.openOnStartup = openOnStartup;
         this.windowPreferences = Objects.requireNonNull(windowPreferences);
         this.persistWindowPreferences = Objects.requireNonNull(persistWindowPreferences);
+        videoOpacity = readOpacity(windowPreferences);
+    }
+
+    private static int readOpacity(Properties preferences) {
+        try {
+            return MathUtils.clamp(Integer.parseInt(preferences.getProperty(
+                    OPACITY_PREFERENCE, Integer.toString(MAX_OPACITY))),
+                    MIN_OPACITY, MAX_OPACITY);
+        } catch (NumberFormatException ignored) {
+            return MAX_OPACITY;
+        }
     }
 
     void update(boolean available, boolean enabled, boolean visible,
@@ -473,13 +493,18 @@ final class PokerVideoOverlay implements AutoCloseable {
         maximizeBounds.set(closeBounds.x - 45f, closeBounds.y,
                 closeBounds.width, closeBounds.height);
         float starWidth = videoWidth < 420f ? 32f : 40f;
-        float available = videoWidth - 26f - starWidth;
-        float modeWidth = Math.min(catalog.favoritesMode() ? 174f : 156f, available * 0.55f);
-        float typeWidth = Math.min(124f, available - modeWidth);
+        float opacityWidth = MathUtils.clamp(videoWidth * 0.23f, 62f, 160f);
+        opacityBounds.set(x + (videoWidth - opacityWidth) / 2f,
+                y + RESIZE_EDGE_HIT + 1f, opacityWidth, 32f);
         float left = x + 8f;
         favoriteBounds.set(left, y + 5f, starWidth, 38f);
-        favoritesModeBounds.set(left + starWidth + 5f, y + 5f, modeWidth, 38f);
-        videoTypeBounds.set(x + videoWidth - 8f - typeWidth, y + 5f, typeWidth, 38f);
+        float modeLeft = left + starWidth + 5f;
+        float modeWidth = Math.min(catalog.favoritesMode() ? 174f : 156f,
+                opacityBounds.x - 5f - modeLeft);
+        favoritesModeBounds.set(modeLeft, y + 5f, modeWidth, 38f);
+        float right = x + videoWidth - 8f;
+        float typeWidth = Math.min(124f, right - (opacityBounds.x + opacityWidth + 5f));
+        videoTypeBounds.set(right - typeWidth, y + 5f, typeWidth, 38f);
         retryBounds.set(videoBounds.x + (videoWidth - 128f) / 2f,
                 videoBounds.y + videoBounds.height / 2f - 90f, 128f, 38f);
     }
@@ -533,7 +558,9 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (windowTransitionActive()) {
             float alpha = updateTransitionBounds();
             if (alpha > 0f) {
-                shapes.setColor(HEADER.r, HEADER.g, HEADER.b, HEADER.a * alpha);
+                float backingAlpha = frameBuffer.texture() == null ? alpha
+                        : alpha * videoOpacity / MAX_OPACITY;
+                shapes.setColor(HEADER.r, HEADER.g, HEADER.b, HEADER.a * backingAlpha);
                 GdxAntialiasedRoundedRect.fill(shapes, transitionBounds.x,
                         transitionBounds.y, transitionBounds.width,
                         transitionBounds.height,
@@ -542,8 +569,10 @@ final class PokerVideoOverlay implements AutoCloseable {
             return;
         }
         if (minimized) return;
-        shapes.setColor(Color.BLACK);
-        shapes.rect(videoBounds.x, videoBounds.y, videoBounds.width, videoBounds.height);
+        if (videoOpacity == MAX_OPACITY || visibleVideoTexture() == null) {
+            shapes.setColor(Color.BLACK);
+            shapes.rect(videoBounds.x, videoBounds.y, videoBounds.width, videoBounds.height);
+        }
         shapes.setColor(HEADER);
         GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x,
                 headerBounds.y, headerBounds.width,
@@ -554,6 +583,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 footerBounds.width, footerBounds.height, 15f);
         shapes.rect(footerBounds.x, footerBounds.y + footerBounds.height / 2f,
                 footerBounds.width, footerBounds.height / 2f);
+        drawOpacitySlider(shapes, pointer);
         if (canRetry()) drawButton(shapes, pointer, retryBounds,
                 GdxUiButtonStyle.Tone.NEUTRAL, Capture.RETRY, false);
         drawButton(shapes, pointer, previousBounds,
@@ -574,6 +604,23 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         drawButton(shapes, pointer, closeBounds,
                 GdxUiButtonStyle.Tone.DANGER, Capture.CLOSE, false);
+    }
+
+    private void drawOpacitySlider(ShapeRenderer shapes, Vector2 pointer) {
+        float trackX = opacityBounds.x + OPACITY_TRACK_INSET;
+        float trackWidth = opacityBounds.width - 2f * OPACITY_TRACK_INSET;
+        float trackY = opacityBounds.y + 3f;
+        float fill = trackWidth * (videoOpacity - MIN_OPACITY) / (MAX_OPACITY - MIN_OPACITY);
+        shapes.setColor(OPACITY_TRACK);
+        GdxAntialiasedRoundedRect.fill(shapes, trackX, trackY, trackWidth, 5f, 2.5f);
+        shapes.setColor(GOLD);
+        if (fill > 0f) {
+            GdxAntialiasedRoundedRect.fill(shapes, trackX, trackY, fill, 5f, 2.5f);
+        }
+        if (opacityBounds.contains(pointer) || capture == Capture.OPACITY) {
+            shapes.setColor(Color.WHITE);
+        }
+        shapes.circle(trackX + fill, trackY + 2.5f, 5f, 20);
     }
 
     void drawForegroundShapes(ShapeRenderer shapes, Vector2 pointer) {
@@ -610,8 +657,9 @@ final class PokerVideoOverlay implements AutoCloseable {
                     bounds.y + bounds.height / 2f, 10f,
                     currentIsFavorite(), iconColor);
         } else if (action == Capture.FAVORITES_MODE) {
-            if (bounds.width < 132f) return;
-            float cx = bounds.x + (bounds.width > 40f ? 20f : bounds.width / 2f);
+            boolean iconOnly = bounds.width < COMPACT_FAVORITES_WIDTH;
+            if (!iconOnly && bounds.width < 132f) return;
+            float cx = bounds.x + (iconOnly ? bounds.width / 2f : 20f);
             float cy = bounds.y + bounds.height / 2f;
             if (catalog.favoritesMode()) {
                 drawChevron(shapes, new Rectangle(cx - 12f, cy - 19f, 24f, 38f), false, iconColor);
@@ -676,20 +724,21 @@ final class PokerVideoOverlay implements AutoCloseable {
                     iconBounds.contains(pointer), capture == Capture.ICON);
             return;
         }
-        PokerVideoRuntime current = runtime;
-        String playerLoading = current == null ? null : current.loadingKey();
-        Texture texture = frameBuffer.texture();
-        boolean empty = emptyFavorites();
-        String displayedError = loadingError;
-        if (displayedError == null && catalogLoading
-                && nativeStartupTimedOut(nativeStartupSince, System.nanoTime())) {
-            displayedError = text.translate("gdx.video.startup_timeout");
-        }
-        if (texture != null && playerLoading == null && !empty && !catalogLoading && displayedError == null) {
-            batch.setColor(Color.WHITE);
+        Texture texture = visibleVideoTexture();
+        if (texture != null) {
+            batch.setColor(1f, 1f, 1f, videoOpacity / (float) MAX_OPACITY);
             batch.draw(texture, videoBounds.x, videoBounds.y,
                     videoBounds.width, videoBounds.height);
+            batch.setColor(Color.WHITE);
         } else {
+            PokerVideoRuntime current = runtime;
+            String playerLoading = current == null ? null : current.loadingKey();
+            boolean empty = emptyFavorites();
+            String displayedError = loadingError;
+            if (displayedError == null && catalogLoading
+                    && nativeStartupTimedOut(nativeStartupSince, System.nanoTime())) {
+                displayedError = text.translate("gdx.video.startup_timeout");
+            }
             tinyFont.setColor(displayedError == null || empty ? MUTED : Color.SALMON);
             String message = empty ? text.translate("gdx.video.favorites.empty")
                     : displayedError == null
@@ -731,13 +780,26 @@ final class PokerVideoOverlay implements AutoCloseable {
         font.setColor(GOLD);
         GdxPixelText.draw(font, batch, ellipsize(font, title, titleWidth),
                 titleX, headerBounds.y + 33f, viewport);
-        drawButtonLabel(batch, tinyFont, viewport, favoritesModeBounds,
-                    text.translate(catalog.favoritesMode()
+        if (favoritesModeBounds.width >= COMPACT_FAVORITES_WIDTH) {
+            drawButtonLabel(batch, tinyFont, viewport, favoritesModeBounds,
+                    text.translate(favoritesMode
                             ? "gdx.video.normal.label" : "gdx.video.favorites.label"));
+        }
+        tinyFont.setColor(GOLD);
+        GdxPixelText.draw(tinyFont, batch, videoOpacity + "%",
+                opacityBounds.x, opacityBounds.y + 27f, opacityBounds.width,
+                Align.center, false, viewport);
         if (!favoritesMode) drawButtonLabel(batch, tinyFont, viewport, videoTypeBounds,
                     text.translate(PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType)
                             ? "gdx.settings.choice.tipo_videos_poker.normal"
                             : "gdx.settings.choice.tipo_videos_poker.shorts"));
+    }
+
+    private Texture visibleVideoTexture() {
+        PokerVideoRuntime current = runtime;
+        if (catalogLoading || loadingError != null || emptyFavorites()
+                || current != null && current.loadingKey() != null) return null;
+        return frameBuffer.texture();
     }
 
     private void drawButtonLabel(SpriteBatch batch, BitmapFont font,
@@ -777,6 +839,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     void addTooltips(BiConsumer<Rectangle, String> add) {
         if (!hostVisible || minimized || windowTransitionActive()) return;
         if (canMaximize()) add.accept(maximizeBounds, "gdx.video.maximize");
+        add.accept(opacityBounds, "gdx.video.opacity");
         add.accept(favoriteBounds, favoriteSaveFailed ? "gdx.video.favorite.error"
                 : currentIsFavorite() ? "gdx.video.favorite.remove" : "gdx.video.favorite.add");
         add.accept(favoritesModeBounds, catalog.favoritesMode()
@@ -869,7 +932,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                     videoAreaHeight / frame.getHeight());
             float width = frame.getWidth() * scale;
             float height = frame.getHeight() * scale;
-            batch.setColor(1f, 1f, 1f, alpha);
+            batch.setColor(1f, 1f, 1f, alpha * videoOpacity / MAX_OPACITY);
             batch.draw(frame, transitionBounds.x + (transitionBounds.width - width) / 2f,
                     transitionBounds.y + FOOTER_HEIGHT * verticalScale
                     + (videoAreaHeight - height) / 2f, width, height);
@@ -931,6 +994,11 @@ final class PokerVideoOverlay implements AutoCloseable {
                         pointerX, pointerY);
                 return true;
             }
+            if (opacityBounds.contains(pointerX, pointerY)) {
+                capture(Capture.OPACITY, pointerIndex, button, pointerX, pointerY);
+                updateOpacity(pointerX);
+                return true;
+            }
             if (favoriteBounds.contains(pointerX, pointerY)) {
                 capture(Capture.FAVORITE, pointerIndex, button, pointerX, pointerY);
                 return true;
@@ -989,6 +1057,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 updateBounds();
             }
             case RESIZE -> resizeFrom(pointerX, pointerY);
+            case OPACITY -> updateOpacity(pointerX);
             case VIDEO -> dispatchMouse(MouseEvent.MOUSE_DRAGGED,
                     pointerX, pointerY, MouseEvent.NOBUTTON, 0);
             default -> { }
@@ -1006,6 +1075,10 @@ final class PokerVideoOverlay implements AutoCloseable {
         capturedButton = -1;
         switch (completed) {
             case MOVE, RESIZE -> saveWindowGeometry();
+            case OPACITY -> {
+                updateOpacity(pointerX);
+                saveOpacity();
+            }
             case ICON -> {
                 if (iconBounds.contains(pointerX, pointerY)) {
                     restoreWindowAfterTable = false;
@@ -1075,6 +1148,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             pressedButtons &= ~(1 << button);
         }
         saveWindowGeometry();
+        if (capture == Capture.OPACITY) saveOpacity();
         capture = Capture.NONE;
         resizeHandle = ResizeHandle.NONE;
         capturedPointer = -1;
@@ -1084,6 +1158,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void cancelHiddenCapture() {
         saveWindowGeometry();
+        if (capture == Capture.OPACITY) saveOpacity();
         if (capture == Capture.VIDEO && capturedButton >= 0) {
             dispatchMouse(MouseEvent.MOUSE_RELEASED, captureStartX,
                     captureStartY, awtButton(capturedButton), 1);
@@ -1095,14 +1170,39 @@ final class PokerVideoOverlay implements AutoCloseable {
         pressedButtons = 0;
     }
 
+    private void updateOpacity(float pointerX) {
+        float trackX = opacityBounds.x + OPACITY_TRACK_INSET;
+        float trackWidth = opacityBounds.width - 2f * OPACITY_TRACK_INSET;
+        float fraction = MathUtils.clamp((pointerX - trackX) / trackWidth, 0f, 1f);
+        videoOpacity = Math.round(MathUtils.lerp(MIN_OPACITY, MAX_OPACITY, fraction));
+    }
+
+    private void saveOpacity() {
+        String value = Integer.toString(videoOpacity);
+        if (value.equals(windowPreferences.getProperty(OPACITY_PREFERENCE,
+                Integer.toString(MAX_OPACITY)))) return;
+        windowPreferences.setProperty(OPACITY_PREFERENCE, value);
+        persistWindowPreferences.run();
+    }
+
+    boolean ownsHover(float pointerX, float pointerY) {
+        if (!hostVisible) return false;
+        if (capture != Capture.NONE) return true;
+        if (windowTransitionActive()) {
+            return transitionBounds.contains(pointerX, pointerY)
+                    || iconBounds.contains(pointerX, pointerY);
+        }
+        return (minimized ? iconBounds : panelBounds).contains(pointerX, pointerY);
+    }
+
     boolean mouseMoved(float pointerX, float pointerY) {
-        if (!hostVisible || minimized || windowTransitionActive()) return false;
-        updateBounds();
-        if (resizeHandleAt(panelBounds, pointerX, pointerY)
-                != ResizeHandle.NONE) return true;
-        if (!videoBounds.contains(pointerX, pointerY)) return false;
-        dispatchMouse(MouseEvent.MOUSE_MOVED, pointerX, pointerY,
-                MouseEvent.NOBUTTON, 0);
+        if (!ownsHover(pointerX, pointerY)) return false;
+        if (!minimized && !windowTransitionActive()
+                && videoBounds.contains(pointerX, pointerY)
+                && resizeHandleAt(panelBounds, pointerX, pointerY) == ResizeHandle.NONE) {
+            dispatchMouse(MouseEvent.MOUSE_MOVED, pointerX, pointerY,
+                    MouseEvent.NOBUTTON, 0);
+        }
         return true;
     }
 
@@ -1410,6 +1510,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         saveWindowGeometry();
+        if (capture == Capture.OPACITY) saveOpacity();
         initializer.shutdownNow();
         PokerVideoRuntime current = runtime;
         if (current != null) current.close();
@@ -1420,7 +1521,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private enum Capture {
         NONE, ICON, CLOSE, MAXIMIZE, PREVIOUS, NEXT, FAVORITE,
-        FAVORITES_MODE, VIDEO_TYPE, RETRY, MOVE, RESIZE, VIDEO
+        FAVORITES_MODE, VIDEO_TYPE, OPACITY, RETRY, MOVE, RESIZE, VIDEO
     }
 
     enum ResizeHandle {

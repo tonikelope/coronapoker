@@ -171,8 +171,6 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.poker_video_auto_open";
             case GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY ->
                 "gdx.settings.tooltip.poker_video_window_animation";
-            case GdxSettingsContract.POKER_VIDEO_TYPE_KEY ->
-                "gdx.settings.tooltip.poker_video_type";
             case GdxSettingsContract.HALO_EFFECT_KEY ->
                 "gdx.settings.tooltip.halo_effects";
             case GdxSettingsContract.MODAL_BLUR_KEY ->
@@ -263,10 +261,11 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.confirm_actions";
             case "auto_rebuy" -> "gdx.settings.tooltip.auto_rebuy";
             case "shortcut" -> "gdx.settings.tooltip.shortcut";
-            case "structure", "blind_structures" ->
-                "tooltip.cfg.structure";
-            case "initial_blinds", "blind_unit", "blind_interval" ->
-                "tooltip.cfg.blinds_level";
+            case "structure" -> "tooltip.cfg.structure";
+            case "blind_structures" -> "gdx.settings.tooltip.blind_structures";
+            case "initial_blinds" -> "tooltip.cfg.blinds_level";
+            case "blind_unit" -> "gdx.settings.tooltip.blind_unit";
+            case "blind_interval" -> "gdx.settings.tooltip.blind_interval";
             case "ante" -> "tooltip.cfg.ante";
             case "straddle" -> "tooltip.cfg.straddle";
             case GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY ->
@@ -278,7 +277,8 @@ final class GdxSettingsTooltips {
             case "initial_buyin" -> "tooltip.cfg.buyin";
             case "minimum_buyin", "maximum_buyin" ->
                 "tooltip.cfg.buyin_range";
-            case "rebuy", "maximum_rebuys", "player_rebuy_limit" ->
+            case "rebuy" -> "gdx.settings.tooltip.rebuy";
+            case "maximum_rebuys", "player_rebuy_limit" ->
                 "tooltip.cfg.rebuy_limit";
             case "rebuy_cap" -> "gdx.settings.tooltip.rebuy_cap";
             case "bot_difficulty" -> "tooltip.cfg.bots";

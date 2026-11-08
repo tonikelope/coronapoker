@@ -1,24 +1,30 @@
 # Poker videos with JCEF
 
-The player is available on the main screen and in the waiting room. Open
+The player is available on the main menu, in the waiting room and at the table. Open
 **Appearance > Animations and effects > Poker videos** to configure it.
 The player depends on the **Use animations and effects** switch.
 
 ## Window and controls
 
-- The carousel starts with **Normal** videos by default. Choose **Shorts**
-  in Settings or use the selector at the bottom of the player. Both controls
-  save the same preference. Search prioritizes the game language, and the
+- The carousel starts with **Normal** videos by default. Use the selector at
+  the bottom of the player to switch to **Shorts**. The game remembers your
+  choice across sessions. Search prioritizes the game language, and the
   carousel shuffles the results at startup and after each full pass.
 - The star adds or removes the current video from **Favorites**. The list
   keeps both formats in the order you saved them and persists after you quit.
   The arrows move through the list, and the counter shows the current
   position and total. The window adapts to each favorite's format. When you
   return to the carousel, the format selector reappears with the value saved
-  in Settings.
+  by the player.
 - Drag the title bar to move the window, or drag an edge or corner to resize
   it. The game saves the position and size separately for each format. The
-  window scales with the game area and leaves a margin at its edges.
+  window scales with the game area and leaves a margin at its edges. The
+  maximize button next to Close fills the available space and reappears when
+  you resize the window below that size.
+- Use the opacity slider in the center of the bottom bar to make the video
+  translucent. It ranges from 10% to 100%, and the game remembers your
+  choice. The player captures mouse movement and clicks over the video at
+  every opacity.
 - Closing the window minimizes the player to the icon next to the volume
   control. **Open video at startup** lets you start with the window open or
   with only the icon visible. **Animate player opening and closing**

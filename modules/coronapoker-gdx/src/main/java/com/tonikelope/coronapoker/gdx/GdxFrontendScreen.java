@@ -1361,8 +1361,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // maps were already replaced for the foreground pass, but the covered
         // page was still painted first with the live pointer and therefore
         // showed hover states through the dialog.
+        boolean videoOwnsHover = pokerVideoOverlay.ownsHover(pointer.x, pointer.y);
         boolean shieldBackgroundPointer = rootSurfaceModal
-                || hasBlockingFrontendModal();
+                || hasBlockingFrontendModal() || videoOwnsHover;
         float livePointerX = pointer.x;
         float livePointerY = pointer.y;
         if (shieldBackgroundPointer) pointer.set(-10_000f, -10_000f);
@@ -1406,12 +1407,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         batch.end();
 
-        if (shieldBackgroundPointer) pointer.set(livePointerX, livePointerY);
+        if (shieldBackgroundPointer && !videoOwnsHover) {
+            pointer.set(livePointerX, livePointerY);
+        }
 
         drawSettingsRowsTextLayer();
         drawStatsChartTextLayer();
         drawLobbyChatLayer(lobbyRootBackdrop);
         drawSettingsDebugLayer();
+        if (videoOwnsHover) {
+            tooltipHits.clear();
+            pointer.set(livePointerX, livePointerY);
+        }
         drawPokerVideoTopLayer();
 
         drawStartupMenuReveal();
@@ -1979,8 +1986,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         boolean outputAvailable = audioOutputAvailable();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawFooterSoundSurface(outputAvailable, footerSoundContains(pointer),
-                soundPressed);
+        boolean videoOwnsHover = pokerVideoOverlay.ownsHover(pointer.x, pointer.y);
+        drawFooterSoundSurface(outputAvailable,
+                !videoOwnsHover && footerSoundContains(pointer), soundPressed);
         shapes.end();
         batch.begin();
         UiImageItem image = footerSoundImage(outputAvailable);
@@ -1988,7 +1996,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.draw(image.texture, image.x, image.y, image.width, image.height);
         batch.setColor(Color.WHITE);
         batch.end();
-        addFooterSoundTooltip(outputAvailable);
+        if (!videoOwnsHover) addFooterSoundTooltip(outputAvailable);
         drawPokerVideoTopLayer();
         drawTooltipTopLayer();
     }

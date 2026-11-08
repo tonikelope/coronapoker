@@ -19,14 +19,32 @@ final class GdxSettingsTooltipsTest {
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
                 "gdx_msaa_samples", properties, new GdxGameText("es"));
         assertTrue(spanish.text().contains("Suaviza"));
-        assertTrue(spanish.text().contains("Impacto en el rendimiento: ALTO"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+        assertTrue(spanish.text().contains("Impacto estimado en el rendimiento: MEDIO"));
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
                 spanish.performanceImpact());
 
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
                 "gdx_vsync", properties, new GdxGameText("en"));
         assertTrue(english.text().contains("Synchronizes frames"));
-        assertTrue(english.text().contains("Performance impact: HIGH"));
+        assertFalse(english.text().contains("Estimated performance impact"));
+
+        properties.setProperty("gdx_fps_limit", "0");
+        GdxSettingsTooltips.Content monitorRefresh = GdxSettingsTooltips.content(
+                "gdx_fps_limit", properties, new GdxGameText("en"));
+        assertTrue(monitorRefresh.text().contains("follows your display"));
+        assertFalse(monitorRefresh.text().contains("Estimated performance impact"));
+    }
+
+    @Test
+    void pokerVideoTooltipExplainsReopeningDuringPlayInBothLanguages() {
+        String key = GdxSettingsContract.POKER_VIDEOS_KEY;
+        Properties properties = new Properties();
+        assertTrue(GdxSettingsTooltips.content(key, properties,
+                new GdxGameText("es")).text().contains(
+                        "puedes volver a abrirlo desde su icono"));
+        assertTrue(GdxSettingsTooltips.content(key, properties,
+                new GdxGameText("en")).text().contains(
+                        "can be reopened from its icon"));
     }
 
     @Test

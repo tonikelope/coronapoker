@@ -208,10 +208,10 @@ The optional poker-video player belongs entirely to the GDX presentation.
 `PokerVideoOverlay` owns its window, input and GPU texture.
 `PokerVideoRuntime` owns the JCEF browser session and loopback HTTP server.
 CEF callbacks copy pixels into `PokerVideoFrameBuffer`. The render thread
-uploads them. Modals pause the session. Starting a table destroys the
-browser and texture, while retaining the playback snapshot for the return.
-The initialized native CEF engine stays idle until process exit, because it
-cannot safely be terminated and initialized again. Unsupported platform
+uploads them. Modals pause the session. Starting a table releases the
+browser and texture while retaining the playback snapshot. The player can
+open a new browser session from the live table. The native CEF engine remains
+initialized until process exit and serves each new browser session. Unsupported platform
 payloads and disabled animation/video settings never initialize the feature.
 The [video integration guide](JCEF_VIDEO_EXPERIMENT.md) records its lifecycle,
 audio behavior, platform matrix and external YouTube dependencies.

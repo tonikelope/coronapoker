@@ -435,7 +435,7 @@ schedule.
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am `
-  '-Dtest=PokerVideoFavoritesTest,PokerVideoDocumentLoadTest,PokerVideoRuntimeSessionTest,PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxGameTextTest' `
+  '-Dtest=PokerVideoFavoritesTest,PokerVideoDocumentLoadTest,PokerVideoRuntimeSessionTest,PokerVideoSearchTest,PokerVideoPlatformSupportTest,GdxPortableNativePackagingTest,GdxAppearanceOptionsTest,GdxSettingsContractTest,GdxSettingsTooltipsTest,GdxGameTextTest' `
   '-Dsurefire.failIfNoSpecifiedTests=false' test
 mvn -f coronaupdater/pom.xml test
 node --test tools/qa/poker-video-player.test.mjs
@@ -446,8 +446,11 @@ local serving, navigation rules, lifecycle flags, platform detection, native
 packaging and settings. They do not exercise a real YouTube renderer or prove
 speaker output. Native verification must separately check a cold muted open,
 muted/audible rapid video changes, modal pause/resume, minimized reopening and
-table release/return, comparing the real media mute state with the native
-control. The [integration guide](JCEF_VIDEO_EXPERIMENT.md) describes the expected
+table release and reopening, comparing the real media mute state with the
+native control. Check that the opacity slider preserves its value across a
+reopen and that a translucent player blocks hover and clicks on the table
+underneath it. The covered controls should react again as soon as they are
+uncovered. The [integration guide](JCEF_VIDEO_EXPERIMENT.md) describes the expected
 behavior and remaining platform limitations.
 
 The Node suite executes the shipped player script with deterministic timers and

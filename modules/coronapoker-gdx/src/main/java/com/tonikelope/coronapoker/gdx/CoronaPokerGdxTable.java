@@ -2304,6 +2304,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !tableVoiceConfirmationVisible();
     }
 
+    private boolean tableVideoOwnsHover() {
+        if (!tableMediaVisible()) return false;
+        Vector2 position = mediaFrontend.tableMediaPointer(Gdx.input.getX(), Gdx.input.getY());
+        return mediaFrontend.pokerVideoOverlay().ownsHover(position.x, position.y);
+    }
+
     private boolean beginMediaPointer(int screenX, int screenY,
             int pointerIndex, int button) {
         Vector2 position = mediaFrontend.tableMediaPointer(screenX, screenY);
@@ -6539,8 +6545,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // the live pointer while composing the covered table and quick bar,
         // then restore it for the modal itself. This prevents controls below
         // dialogs from lighting up even though their clicks were consumed.
+        boolean videoOwnsHover = tableVideoOwnsHover();
         boolean shieldBackgroundPointer = preparationModal
-                || pauseForeground
+                || pauseForeground || videoOwnsHover
                 || uiLayer != UI_NONE && (uiLayer != UI_GAME_LOG
                         || gameLogPanelContains(pointer.x, pointer.y))
                 || blocksTableUtilities(activeDialog)
@@ -6594,7 +6601,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (wantsModalBackdrop) {
             drawUnifiedModalBackdrop();
         }
-        if (shieldBackgroundPointer) {
+        if (shieldBackgroundPointer && !videoOwnsHover) {
             pointer.set(livePointerX, livePointerY);
         }
         if (pauseForeground) {
@@ -6626,6 +6633,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawPerformanceCounter(viewport.getWorldWidth(),
                     viewport.getWorldHeight());
         }
+        if (videoOwnsHover) pointer.set(livePointerX, livePointerY);
         if (showMedia) mediaFrontend.drawTableMedia(mediaSoundPressed);
         if (screenshotRequested) {
             screenshotRequested = false;
@@ -9625,9 +9633,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         viewport.unproject(pointer);
         if (gameLogPanelContains(pointer.x, pointer.y)) return;
         float width = fastBarExpanded ? fastExpandedWidth() : FAST_BUTTON_SIZE;
-        boolean inside = contains(pointer.x, pointer.y, FAST_BAR_X, FAST_BAR_Y,
-                width, FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING);
-        boolean overMenu = contains(pointer.x, pointer.y,
+        boolean videoOwnsHover = tableVideoOwnsHover();
+        boolean inside = !videoOwnsHover && contains(pointer.x, pointer.y,
+                FAST_BAR_X, FAST_BAR_Y, width, FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING);
+        boolean overMenu = !videoOwnsHover && contains(pointer.x, pointer.y,
                 FAST_BAR_X + FAST_BAR_PADDING, FAST_BAR_Y + FAST_BAR_PADDING,
                 FAST_BUTTON_SIZE, FAST_BUTTON_SIZE);
         if (!fastBarExpanded && overMenu) {

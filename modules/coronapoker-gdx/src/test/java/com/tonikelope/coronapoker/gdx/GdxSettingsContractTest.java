@@ -65,7 +65,7 @@ final class GdxSettingsContractTest {
     void performanceImpactHighlightsOnlyMeaningfulRenderSettings() {
         Properties properties = new Properties();
 
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+        assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
                 GdxSettingsContract.performanceImpact(
                         "gdx_vsync", properties));
 
@@ -127,54 +127,45 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void antialiasingImpactBelongsToTheSettingNotItsSelectedValue() {
-        Properties properties = new Properties();
-        properties.setProperty("gdx_msaa_samples", "0");
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_msaa_samples", properties));
-        properties.setProperty("gdx_msaa_samples", "2");
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_msaa_samples", properties));
-        properties.setProperty("gdx_msaa_samples", "8");
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_msaa_samples", properties));
-        for (String quality : java.util.List.of("0", "1")) {
-            properties.setProperty("gdx_card_smaa_quality", quality);
-            assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                    GdxSettingsContract.performanceImpact(
-                            "gdx_card_smaa_quality", properties));
-        }
+    void graphicsImpactMatchesTheSelectedValue() {
+        assertPerformanceImpact("gdx_msaa_samples", "0",
+                GdxSettingsContract.PerformanceImpact.NONE);
+        assertPerformanceImpact("gdx_msaa_samples", "2",
+                GdxSettingsContract.PerformanceImpact.LOW);
+        assertPerformanceImpact("gdx_msaa_samples", "4",
+                GdxSettingsContract.PerformanceImpact.MEDIUM);
+        assertPerformanceImpact("gdx_msaa_samples", "8",
+                GdxSettingsContract.PerformanceImpact.HIGH);
+        assertPerformanceImpact("gdx_msaa_samples", "16",
+                GdxSettingsContract.PerformanceImpact.MEDIUM);
+        assertPerformanceImpact(GdxSettingsContract.CARD_RENDERING_KEY, "0",
+                GdxSettingsContract.PerformanceImpact.NONE);
+        assertPerformanceImpact(GdxSettingsContract.CARD_RENDERING_KEY, "1",
+                GdxSettingsContract.PerformanceImpact.HIGH);
 
+        assertPerformanceImpact("gdx_fps_limit", "0",
+                GdxSettingsContract.PerformanceImpact.NONE);
+        assertPerformanceImpact("gdx_fps_limit", "60",
+                GdxSettingsContract.PerformanceImpact.LOW);
+        assertPerformanceImpact("gdx_fps_limit", "120",
+                GdxSettingsContract.PerformanceImpact.MEDIUM);
+        assertPerformanceImpact("gdx_fps_limit", "144",
+                GdxSettingsContract.PerformanceImpact.MEDIUM);
+        assertPerformanceImpact("gdx_fps_limit", "240",
+                GdxSettingsContract.PerformanceImpact.HIGH);
+        assertPerformanceImpact("gdx_fps_limit", "360",
+                GdxSettingsContract.PerformanceImpact.MEDIUM);
+
+        assertPerformanceImpact("card_flip_zoom", "100",
+                GdxSettingsContract.PerformanceImpact.NONE);
+        assertPerformanceImpact("card_flip_zoom", "145",
+                GdxSettingsContract.PerformanceImpact.LOW);
     }
 
-    @Test
-    void otherGraphicsImpactStillReflectsItsConfiguredCost() {
-        Properties properties = new Properties();
-
-        properties.setProperty("gdx_fps_limit", "60");
-        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_fps_limit", properties));
-        properties.setProperty("gdx_fps_limit", "120");
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_fps_limit", properties));
-        properties.setProperty("gdx_fps_limit", "0");
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_fps_limit", properties));
-
-        properties.setProperty("card_flip_zoom", "100");
-        assertEquals(GdxSettingsContract.PerformanceImpact.LOW,
-                GdxSettingsContract.performanceImpact(
-                        "card_flip_zoom", properties));
-        properties.setProperty("card_flip_zoom", "145");
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
-                GdxSettingsContract.performanceImpact(
-                        "card_flip_zoom", properties));
+    private static void assertPerformanceImpact(String key, String value,
+            GdxSettingsContract.PerformanceImpact expected) {
+        assertEquals(expected, GdxSettingsContract.performanceImpact(
+                key, properties(key, value)), key + "=" + value);
     }
 
     @Test
@@ -703,14 +694,13 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(22, page.options().size());
-        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(30, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "mostrar_videos_poker",
                 "abrir_video_poker_al_arrancar",
                 "animacion_ventana_video_poker",
-                "tipo_videos_poker",
                 "efecto_halos",
                 "efecto_desenfoque",
                 "efecto_relieve",
@@ -743,8 +733,8 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceGroups(page),
                 GdxSettingsContract.appearanceRowCount(page)).stream()
                 .anyMatch(group -> group.parentRow() == 1
-                        && group.lastRow() == 4),
-                "video startup, animation and type must share the poker video group");
+                        && group.lastRow() == 3),
+                "video startup and animation must share the poker video group");
     }
 
     @Test

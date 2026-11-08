@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -31,6 +33,29 @@ public final class StatsRepository {
 
     public StatsDashboard dashboard() throws SQLException {
         return StatsDashboard.load(database);
+    }
+
+    /** Uses the original view definitions for the requested session dates. */
+    public ClassicView classic(ClassicMode mode, Integer gameId, LocalDate from,
+            LocalDate through) throws SQLException {
+        GameScope scope = GameScope.dates(gameId, from, through);
+        synchronized (database.lock()) {
+            return switch (mode) {
+                case BALANCE -> {
+                    List<BalanceRow> rows = scopedBalances(scope, null);
+                    yield new ClassicView(rows, List.of(), List.of(), List.of(),
+                            gameId == null || rows.isEmpty() ? List.of() : balanceHistory(gameId),
+                            List.of());
+                }
+                case RESPONSE -> ClassicView.metrics(scopedAverageResponse(scope, null, true));
+                case PREFLOP, FLOP, TURN, RIVER ->
+                    ClassicView.metrics(scopedRaiseFrequency(scope, mode.street, true));
+                case PERFORMANCE -> new ClassicView(List.of(), List.of(),
+                        scopedPerformance(scope), List.of(), List.of(), List.of());
+                case BEST_HANDS -> new ClassicView(List.of(), List.of(), List.of(),
+                        scopedBestHands(scope), List.of(), winningRanks(scope));
+            };
+        }
     }
 
     public List<GameSummary> games() throws SQLException {
@@ -127,20 +152,26 @@ public final class StatsRepository {
     /** Balance at all-games, one-game or one-hand scope. */
     public List<BalanceRow> balances(Integer gameId, Integer handId)
             throws SQLException {
+        return scopedBalances(new GameScope(gameId, null, null), handId);
+    }
+
+    private List<BalanceRow> scopedBalances(GameScope scope, Integer handId)
+            throws SQLException {
         String sql;
         if (handId != null) {
             sql = "SELECT player, stack, buyin FROM balance "
                     + "WHERE id_hand=? ORDER BY (stack-buyin) DESC, player";
-        } else if (gameId != null) {
+        } else if (scope.gameId != null) {
             sql = "SELECT b.player, b.stack, b.buyin FROM balance b "
-                    + "JOIN hand h ON h.id=b.id_hand WHERE h.id_game=? "
+                    + "JOIN hand h ON h.id=b.id_hand" + scope.where()
                     + "AND h.id=(SELECT MAX(h2.id) FROM hand h2 "
                     + "JOIN balance b2 ON b2.id_hand=h2.id "
-                    + "WHERE h2.id_game=?) ORDER BY (b.stack-b.buyin) DESC, b.player";
+                    + "WHERE h2.id_game=h.id_game) ORDER BY (b.stack-b.buyin) DESC, b.player";
         } else {
             sql = "SELECT player, SUM(stack) AS stack, SUM(buyin) AS buyin "
                     + "FROM balance WHERE id_hand IN (SELECT MAX(h.id) FROM hand h "
-                    + "JOIN balance b ON b.id_hand=h.id GROUP BY h.id_game) "
+                    + "JOIN balance b ON b.id_hand=h.id" + scope.where()
+                    + "GROUP BY h.id_game) "
                     + "GROUP BY player ORDER BY (SUM(stack)-SUM(buyin)) DESC, player";
         }
         synchronized (database.lock()) {
@@ -149,9 +180,8 @@ public final class StatsRepository {
                 statement.setQueryTimeout(30);
                 if (handId != null) {
                     statement.setInt(1, handId);
-                } else if (gameId != null) {
-                    statement.setInt(1, gameId);
-                    statement.setInt(2, gameId);
+                } else {
+                    scope.bind(statement, 1);
                 }
                 try (ResultSet rows = statement.executeQuery()) {
                     List<BalanceRow> result = new ArrayList<>();
@@ -223,32 +253,47 @@ public final class StatsRepository {
 
     public List<MetricRow> averageResponse(Integer gameId, Integer handId)
             throws SQLException {
+        return scopedAverageResponse(new GameScope(gameId, null, null), handId, false);
+    }
+
+    private List<MetricRow> scopedAverageResponse(GameScope scope, Integer handId, boolean sampled)
+            throws SQLException {
         String sql = "SELECT a.player, ROUND(AVG(a.response_time),1) AS value "
-                + "FROM action a "
-                + (gameId == null ? "" : "JOIN hand h ON h.id=a.id_hand ")
-                + (handId != null ? "WHERE a.id_hand=? "
-                        : gameId != null ? "WHERE h.id_game=? " : "")
-                + "GROUP BY a.player ORDER BY value DESC,a.player";
-        return metricRows(sql, handId != null ? handId : gameId);
+                + "FROM action a" + scope.joinHand("a")
+                + (handId != null ? " WHERE a.id_hand=? " : scope.where())
+                + "GROUP BY a.player" + (sampled ? " HAVING value IS NOT NULL" : "")
+                + " ORDER BY value DESC,a.player";
+        synchronized (database.lock()) {
+            try (PreparedStatement statement = database.connection().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                if (handId != null) statement.setInt(1, handId);
+                else scope.bind(statement, 1);
+                return readMetricRows(statement);
+            }
+        }
     }
 
     /** Percentage of hands in which a player bet or raised on a street. */
     public List<MetricRow> raiseFrequency(Integer gameId, int round)
             throws SQLException {
-        String gameJoin = gameId == null ? "" : " JOIN hand h ON h.id=a.id_hand";
-        String gameWhere = gameId == null ? "" : " AND h.id_game=?";
+        return scopedRaiseFrequency(new GameScope(gameId, null, null), round, false);
+    }
+
+    private List<MetricRow> scopedRaiseFrequency(GameScope scope, int round, boolean sampled)
+            throws SQLException {
         String sql = "SELECT a.player, ROUND(100.0*COUNT(DISTINCT CASE "
                 + "WHEN a.action>=3 THEN a.id_hand END)/"
                 + "NULLIF(COUNT(DISTINCT CASE WHEN a.action>=2 THEN a.id_hand END),0),1) "
-                + "AS value FROM action a" + gameJoin
-                + " WHERE a.round=?" + gameWhere
-                + " GROUP BY a.player ORDER BY value DESC,a.player";
+                + "AS value FROM action a" + scope.joinHand("a")
+                + " WHERE a.round=?" + scope.and()
+                + " GROUP BY a.player" + (sampled ? " HAVING value IS NOT NULL" : "")
+                + " ORDER BY value DESC,a.player";
         synchronized (database.lock()) {
             try (PreparedStatement statement = database.connection()
                     .prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, round);
-                if (gameId != null) statement.setInt(2, gameId);
+                scope.bind(statement, 2);
                 return readMetricRows(statement);
             }
         }
@@ -256,28 +301,30 @@ public final class StatsRepository {
 
     public List<PerformanceRow> performance(Integer gameId)
             throws SQLException {
-        String join = gameId == null ? "" : " JOIN hand h ON h.id=a.id_hand";
-        String where = gameId == null ? "" : " WHERE h.id_game=?";
+        return scopedPerformance(new GameScope(gameId, null, null));
+    }
+
+    private List<PerformanceRow> scopedPerformance(GameScope scope) throws SQLException {
         String sql = "SELECT a.player,COUNT(DISTINCT a.id_hand) AS total,"
                 + "COUNT(DISTINCT CASE WHEN a.round=1 AND a.action>=2 "
-                + "THEN a.id_hand END) AS played FROM action a" + join
-                + where + " GROUP BY a.player ORDER BY a.player";
+                + "THEN a.id_hand END) AS played FROM action a" + scope.joinHand("a")
+                + scope.where() + " GROUP BY a.player ORDER BY a.player";
         Map<String, BalanceRow> balanceByPlayer = new HashMap<>();
-        for (BalanceRow row : balances(gameId, null)) {
+        for (BalanceRow row : scopedBalances(scope, null)) {
             balanceByPlayer.put(row.player(), row);
         }
         synchronized (database.lock()) {
             try (PreparedStatement statement = database.connection()
                     .prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
-                if (gameId != null) statement.setInt(1, gameId);
+                scope.bind(statement, 1);
                 try (ResultSet rows = statement.executeQuery()) {
                     List<PerformanceRow> result = new ArrayList<>();
                     while (rows.next()) {
                         String player = rows.getString("player");
                         int total = rows.getInt("total");
                         int played = rows.getInt("played");
-                        int won = wonHands(player, gameId);
+                        int won = wonHands(player, scope);
                         double participation = total == 0 ? 0d
                                 : played * 100d / total;
                         double wonPercent = total == 0 ? 0d
@@ -300,16 +347,14 @@ public final class StatsRepository {
         }
     }
 
-    private int wonHands(String player, Integer gameId) throws SQLException {
+    private int wonHands(String player, GameScope scope) throws SQLException {
         String sql = "SELECT COUNT(DISTINCT s.id_hand) FROM showdown s"
-                + (gameId == null ? "" : " JOIN hand h ON h.id=s.id_hand")
-                + " WHERE s.player=? AND s.winner=1"
-                + (gameId == null ? "" : " AND h.id_game=?");
+                + scope.joinHand("s") + " WHERE s.player=? AND s.winner=1" + scope.and();
         try (PreparedStatement statement = database.connection()
                 .prepareStatement(sql)) {
             statement.setQueryTimeout(30);
             statement.setString(1, player);
-            if (gameId != null) statement.setInt(2, gameId);
+            scope.bind(statement, 2);
             try (ResultSet row = statement.executeQuery()) {
                 return row.next() ? row.getInt(1) : 0;
             }
@@ -317,16 +362,20 @@ public final class StatsRepository {
     }
 
     public List<BestHandRow> bestHands(Integer gameId) throws SQLException {
+        return scopedBestHands(new GameScope(gameId, null, null));
+    }
+
+    private List<BestHandRow> scopedBestHands(GameScope scope) throws SQLException {
         String sql = "SELECT s.player,s.hole_cards,s.hand_cards,s.hand_val,"
                 + "h.counter,s.profit,g.server,g.start FROM showdown s "
                 + "JOIN hand h ON h.id=s.id_hand JOIN game g ON g.id=h.id_game "
-                + "WHERE s.winner=1" + (gameId == null ? "" : " AND g.id=?")
+                + "WHERE s.winner=1" + scope.and()
                 + " ORDER BY s.hand_val DESC,s.profit DESC LIMIT 1000";
         synchronized (database.lock()) {
             try (PreparedStatement statement = database.connection()
                     .prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
-                if (gameId != null) statement.setInt(1, gameId);
+                scope.bind(statement, 1);
                 try (ResultSet rows = statement.executeQuery()) {
                     List<BestHandRow> result = new ArrayList<>();
                     while (rows.next()) {
@@ -344,18 +393,6 @@ public final class StatsRepository {
         }
     }
 
-    private List<MetricRow> metricRows(String sql, Integer scopeId)
-            throws SQLException {
-        synchronized (database.lock()) {
-            try (PreparedStatement statement = database.connection()
-                    .prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                if (scopeId != null) statement.setInt(1, scopeId);
-                return readMetricRows(statement);
-            }
-        }
-    }
-
     private static List<MetricRow> readMetricRows(PreparedStatement statement)
             throws SQLException {
         try (ResultSet rows = statement.executeQuery()) {
@@ -365,6 +402,22 @@ public final class StatsRepository {
                         rows.getDouble("value")));
             }
             return List.copyOf(result);
+        }
+    }
+
+    private List<RankCount> winningRanks(GameScope scope) throws SQLException {
+        String sql = "SELECT s.hand_val,COUNT(*) AS entries FROM showdown s"
+                + " JOIN hand h ON h.id=s.id_hand JOIN game g ON g.id=h.id_game"
+                + " WHERE s.winner=1 AND s.hand_val BETWEEN 1 AND 10" + scope.and()
+                + " GROUP BY s.hand_val ORDER BY s.hand_val";
+        try (PreparedStatement statement = database.connection().prepareStatement(sql)) {
+            statement.setQueryTimeout(30);
+            scope.bind(statement, 1);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<RankCount> result = new ArrayList<>();
+                while (rows.next()) result.add(new RankCount(rows.getInt(1), rows.getInt(2)));
+                return List.copyOf(result);
+            }
         }
     }
 
@@ -537,6 +590,71 @@ public final class StatsRepository {
     public record BalancePoint(String player, int handCounter, double stack) { }
 
     public record MetricRow(String player, double value) { }
+
+    public enum ClassicMode {
+        BALANCE(0), PERFORMANCE(0), RESPONSE(0), BEST_HANDS(0),
+        PREFLOP(1), FLOP(2), TURN(3), RIVER(4);
+
+        private final int street;
+
+        ClassicMode(int street) {
+            this.street = street;
+        }
+    }
+
+    public record ClassicView(List<BalanceRow> balances, List<MetricRow> metrics,
+            List<PerformanceRow> performance, List<BestHandRow> bestHands,
+            List<BalancePoint> stacks, List<RankCount> winningRanks) {
+
+        private static ClassicView metrics(List<MetricRow> rows) {
+            return new ClassicView(List.of(), rows, List.of(), List.of(), List.of(), List.of());
+        }
+    }
+
+    public record RankCount(int handValue, int count) { }
+
+    private record GameScope(Integer gameId, Long from, Long until) {
+
+        static GameScope dates(Integer gameId, LocalDate from, LocalDate through) {
+            ZoneId zone = ZoneId.systemDefault();
+            return new GameScope(gameId,
+                    from == null ? null : from.atStartOfDay(zone).toInstant().toEpochMilli(),
+                    through == null ? null : through.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli());
+        }
+
+        private boolean limited() {
+            return gameId != null || from != null || until != null;
+        }
+
+        String joinHand(String alias) {
+            return limited() ? " JOIN hand h ON h.id=" + alias + ".id_hand " : " ";
+        }
+
+        String where() {
+            return limited() ? " WHERE " + conditions() + " " : " ";
+        }
+
+        String and() {
+            return limited() ? " AND " + conditions() : "";
+        }
+
+        private String conditions() {
+            List<String> conditions = new ArrayList<>(2);
+            if (gameId != null) conditions.add("h.id_game=?");
+            if (from != null || until != null) {
+                String dates = from == null ? "start<?"
+                        : until == null ? "start>=?" : "start>=? AND start<?";
+                conditions.add("h.id_game IN (SELECT id FROM game WHERE " + dates + ")");
+            }
+            return String.join(" AND ", conditions);
+        }
+
+        void bind(PreparedStatement statement, int index) throws SQLException {
+            if (gameId != null) statement.setInt(index++, gameId);
+            if (from != null) statement.setLong(index++, from);
+            if (until != null) statement.setLong(index, until);
+        }
+    }
 
     public record PerformanceRow(String player, double playedPercent,
             double wonPercent, double precisionPercent, double roiPercent,

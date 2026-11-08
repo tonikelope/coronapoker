@@ -439,7 +439,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final RecoverableGameRepository recoverableGames;
     private final StatsRepository statsRepository;
     private static final Rectangle STATS_WEB_BOUNDS =
-            new Rectangle(76f, 70f, 1768f, 720f);
+            new Rectangle(76f, 60f, 1768f, 750f);
     private PokerStatsBrowser statsBrowser;
     private boolean statsBrowserFocused;
     private boolean statsDashboardFailed;
@@ -3373,7 +3373,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 statsBrowser == null && !statsLoading && !statsPlayers.isEmpty());
 
         if (statsBrowser != null) {
-            panel(60f, 54f, 1800f, 752f, "");
+            panel(60f, 44f, 1800f, 782f, "");
             drawStatsDashboard();
             return;
         }

@@ -34,6 +34,7 @@ final class StatsDashboardTest {
             assertEquals(List.of("Carol"), dashboard.players(2));
             var alice = dashboard.view("Alice", 0, null, null);
             assertEquals(1, alice.sessionCount());
+            assertEquals(1, alice.timedSessions());
             assertEquals(2, alice.hands());
             assertEquals(8d, alice.net());
             assertEquals(16d, alice.hourly());
@@ -76,6 +77,43 @@ final class StatsDashboardTest {
         assertNull(StatsDashboard.handClass("A_X#A_D"));
     }
 
+    @Test
+    void classicViewsReuseTheNativeMetricsAndFilterBySessionStart() throws Exception {
+        DatabaseService database = new DatabaseService(temporary.resolve("classic.db").toString());
+        database.start();
+        try {
+            new CoreGameDatabase(database);
+            seed(database);
+            try (Statement sql = database.connection().createStatement()) {
+                sql.executeUpdate("UPDATE action SET response_time=3 WHERE round=1");
+                sql.executeUpdate("UPDATE action SET response_time=5 WHERE round>1");
+            }
+            StatsRepository repository = new StatsRepository(database);
+            var firstDate = Instant.ofEpochMilli(1764676800000L).atZone(ZoneId.systemDefault()).toLocalDate();
+            var balance = repository.classic(StatsRepository.ClassicMode.BALANCE, null, firstDate, firstDate);
+            assertEquals(repository.balances(1, null), balance.balances());
+            var stack = repository.classic(StatsRepository.ClassicMode.BALANCE, 1, firstDate, firstDate);
+            assertEquals(repository.balanceHistory(1), stack.stacks());
+            assertEquals(repository.performance(1), repository.classic(
+                    StatsRepository.ClassicMode.PERFORMANCE, null, firstDate, firstDate).performance());
+            assertEquals(repository.averageResponse(1, null), repository.classic(
+                    StatsRepository.ClassicMode.RESPONSE, null, firstDate, firstDate).metrics());
+            var winningHands = repository.classic(
+                    StatsRepository.ClassicMode.BEST_HANDS, null, firstDate, firstDate);
+            assertEquals(repository.bestHands(1), winningHands.bestHands());
+            assertEquals(List.of(new StatsRepository.RankCount(2, 1)), winningHands.winningRanks());
+            var preflop = repository.classic(StatsRepository.ClassicMode.PREFLOP, null, firstDate, firstDate);
+            assertEquals(repository.raiseFrequency(1, 1).stream()
+                    .filter(row -> !"Carol".equals(row.player())).toList(), preflop.metrics());
+            assertTrue(repository.classic(StatsRepository.ClassicMode.BALANCE,
+                    1, firstDate.plusDays(1), null).balances().isEmpty());
+            assertTrue(repository.classic(StatsRepository.ClassicMode.BEST_HANDS,
+                    1, null, firstDate.minusDays(1)).bestHands().isEmpty());
+        } finally {
+            database.close();
+        }
+    }
+
     private static void seed(DatabaseService database) throws Exception {
         String headsUp = encoded("Bob") + "#" + encoded("Alice");
         String threeWay = encoded("Alice") + "#" + encoded("Bob") + "#" + encoded("Carol");
@@ -106,8 +144,8 @@ final class StatsDashboardTest {
                     (10,'Alice',28,20),(10,'Bob',2,10),(30,'Alice',100,20)
                     """);
             statement.executeUpdate("""
-                    INSERT INTO showdown(id_hand,player,winner,hole_cards) VALUES
-                    (20,'Alice',1,'A_D#K_D'),(20,'Bob',0,NULL),(10,'Alice',1,NULL)
+                    INSERT INTO showdown(id_hand,player,winner,hole_cards,hand_val) VALUES
+                    (20,'Alice',1,'A_D#K_D',2),(20,'Bob',0,NULL,-1),(10,'Alice',1,NULL,-1)
                     """);
         }
     }

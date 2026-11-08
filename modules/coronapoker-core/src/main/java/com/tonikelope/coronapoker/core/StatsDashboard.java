@@ -137,6 +137,7 @@ public final class StatsDashboard {
         long hourlyNet = 0;
         long running = 0;
         int funded = 0;
+        int timed = 0;
         int wins = 0;
         for (Session session : sessions) {
             if (gameId != 0 && session.id != gameId
@@ -150,6 +151,7 @@ public final class StatsDashboard {
                 funded++;
                 if (entry.net > 0) wins++;
                 if (session.seconds > 0 && session.closed) {
+                    timed++;
                     elapsed += session.seconds;
                     hourlyNet += entry.net;
                 }
@@ -173,12 +175,12 @@ public final class StatsDashboard {
                 .map(key -> total.positions.get(key).row(key)).toList();
         List<Bucket> cards = total.cards.entrySet().stream()
                 .map(entry -> entry.getValue().row(entry.getKey())).toList();
-        return new View(rows.size(), funded, wins, total.hands, elapsed, units(total.net),
+        return new View(rows.size(), funded, timed, wins, total.hands, elapsed, units(total.net),
                 elapsed == 0 ? null : hourlyNet * 36d / elapsed, total.rates(),
                 rows, positions, cards, comparison, COMPARISON_HANDS);
     }
 
-    public record View(int sessionCount, int sessionsWithBalance, int winningSessions,
+    public record View(int sessionCount, int sessionsWithBalance, int timedSessions, int winningSessions,
             int hands, long timedSeconds, Double net, Double hourly, Rates rates,
             List<SessionRow> sessions, List<Bucket> positions, List<Bucket> cards,
             List<PlayerRow> comparison, int comparisonHands) { }

@@ -18,6 +18,7 @@
       <button role="tab" id="tab-sessions" aria-selected="false" aria-controls="sessions" tabindex="-1" data-tab="sessions" data-t="sessions">Sesiones</button>
       <button role="tab" id="tab-analysis" aria-selected="false" aria-controls="analysis" tabindex="-1" data-tab="analysis" data-t="analysis">Análisis</button>
       <button role="tab" id="tab-compare" aria-selected="false" aria-controls="compare" tabindex="-1" data-tab="compare" data-t="compare">Comparativas</button>
+      <button role="tab" id="tab-classics" aria-selected="false" aria-controls="classics" tabindex="-1" data-tab="classics" data-t="classics">Clásicas</button>
     </nav>
     <div class="top-actions">
       <div class="zoom-tools" role="group" id="zoom-tools">
@@ -33,9 +34,9 @@
   <section class="intro" aria-labelledby="heading">
     <div><p class="eyebrow"><span></span><span data-t="eyebrow">TEXAS HOLD’EM / REGISTRO DE MESA</span></p>
       <h1 id="heading" data-t="title">Estadísticas de juego</h1>
-      <p class="intro-detail" data-t="intro">Resultados, tendencias y decisiones mano a mano.</p>
     </div>
     <div class="filter-panel">
+      <label id="classic-filter" class="classic-select" hidden><span data-t="metric">Métrica</span><select id="classic-metric"></select></label>
       <label><span data-t="player">Jugador</span><select id="player" disabled></select></label>
       <label><span data-t="from">Desde</span><input id="from" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
       <label><span data-t="through">Hasta</span><input id="through" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
@@ -58,6 +59,11 @@
         <div id="rates" class="rates"></div>
       </article>
     </div>
+    <details class="panel coverage">
+      <summary data-t="coverage">Cobertura de los datos</summary>
+      <div id="coverage-rows" class="coverage-grid"></div>
+      <p class="footnote" data-t="coverageNote">Las métricas usan las muestras registradas del jugador y del periodo. Las fechas filtran por inicio de sesión.</p>
+    </details>
   </section>
   <section id="sessions" role="tabpanel" aria-labelledby="tab-sessions" hidden>
     <article class="panel">
@@ -92,6 +98,21 @@
       <div class="panel-heading"><div><span class="section-mark" data-t="compareMark">COMPARATIVAS</span><h2 data-t="playerCompare">Jugadores en las mismas sesiones</h2></div><span id="sample-badge" class="badge"></span></div>
       <div class="table-scroll"><table><thead><tr id="compare-head"></tr></thead><tbody id="compare-rows"></tbody></table></div>
     </article>
+  </section>
+  <section id="classics" role="tabpanel" aria-labelledby="tab-classics" hidden>
+    <div class="classic-grid">
+      <article class="panel chart-panel">
+        <div class="panel-heading"><h2 id="classic-chart-title"></h2></div>
+        <div id="classic-chart" class="chart classic-chart" role="img"></div>
+        <p class="footnote" id="classic-note"></p>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><h2 data-t="classicDetail">Resultados detallados</h2><span id="classic-count" class="badge"></span></div>
+        <p class="subtext" data-t="classicAudience">Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.</p>
+        <div class="table-scroll"><table><thead><tr id="classic-head"></tr></thead><tbody id="classic-rows"></tbody></table></div>
+        <div class="pagination"><button id="classic-prev" class="ghost" data-t="prev">Anterior</button><span id="classic-page"></span><button id="classic-next" class="ghost" data-t="next">Siguiente</button></div>
+      </article>
+    </div>
   </section>
   <footer><span>♠ &nbsp; CORONAPOKER</span><span data-t="footer">Estadísticas del historial local</span></footer>
 </main>

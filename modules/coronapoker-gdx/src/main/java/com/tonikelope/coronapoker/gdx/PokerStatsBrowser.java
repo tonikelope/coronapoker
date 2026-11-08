@@ -28,6 +28,7 @@ import org.cef.CefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.browser.CefMessageRouter;
+import org.cef.browser.CefRequestContext;
 import org.cef.browser.LibGdxCefBrowser;
 import org.cef.callback.CefCallback;
 import org.cef.callback.CefContextMenuParams;
@@ -122,8 +123,16 @@ final class PokerStatsBrowser implements AutoCloseable {
                 installHandlers(created, assets);
                 CefBrowserSettings settings = new CefBrowserSettings();
                 settings.windowless_frame_rate = 30;
-                browser = new LibGdxCefBrowser(created, pageUrl, null, settings,
-                        frames, width, height);
+                CefRequestContext context = CefRequestContext.createContext(null);
+                if (context == null) throw new IllegalStateException("No isolated Chromium context");
+                try {
+                    // The browser owns and disposes this context on native close.
+                    browser = new LibGdxCefBrowser(created, pageUrl, context, settings,
+                            frames, width, height);
+                } catch (RuntimeException | LinkageError failure) {
+                    context.dispose();
+                    throw failure;
+                }
                 frames.setAcceptingFrames(true);
                 browser.createImmediately();
                 browser.resizeBrowser(width, height, scale);
@@ -260,24 +269,34 @@ final class PokerStatsBrowser implements AutoCloseable {
                         Math.max(0, players.indexOf(preferredPlayer))));
             } else {
                 String[] parts = request.split("\\t", -1);
-                if (snapshot == null || parts.length != 5 || !"view".equals(parts[0])) {
+                if (snapshot == null || parts.length != 5) {
                     reply.failure(400, "Unknown statistics request");
                     return;
                 }
                 int scope = Integer.parseInt(parts[1]);
-                int player = Integer.parseInt(parts[2]);
                 LocalDate from = parseDate(parts[3]);
                 LocalDate through = parseDate(parts[4]);
-                List<String> players = snapshot.players(scope);
-                if (player < 0 || player >= players.size()
-                        || from != null && through != null && through.isBefore(from)) {
+                if (scope < 0 || from != null && through != null && through.isBefore(from)) {
                     reply.failure(400, "Invalid statistics filter");
                     return;
                 }
-                response = json.toJson(snapshot.view(players.get(player), scope, from, through));
+                response = switch (parts[0]) {
+                    case "classic" -> json.toJson(repository.classic(
+                            StatsRepository.ClassicMode.valueOf(parts[2]),
+                            scope == 0 ? null : scope, from, through));
+                    case "view" -> {
+                        int player = Integer.parseInt(parts[2]);
+                        List<String> players = snapshot.players(scope);
+                        if (player < 0 || player >= players.size()) {
+                            throw new IllegalArgumentException("Unknown player");
+                        }
+                        yield json.toJson(snapshot.view(players.get(player), scope, from, through));
+                    }
+                    default -> throw new IllegalArgumentException("Unknown statistics request");
+                };
             }
             if (!closed) reply.success(response);
-        } catch (DateTimeParseException | NumberFormatException invalid) {
+        } catch (DateTimeParseException | IllegalArgumentException invalid) {
             if (!closed) reply.failure(400, "Invalid statistics filter");
         } catch (Exception failure) {
             if (!closed) {
@@ -356,8 +375,9 @@ final class PokerStatsBrowser implements AutoCloseable {
         LibGdxCefBrowser current = browser;
         if (ready && current != null && amount != 0f) {
             int steps = Math.max(1, Math.round(Math.abs(amount)));
+            // GDX scroll amounts point down, while JCEF's native wheel delta points up.
             current.dispatchWheel(Math.round(x * width), Math.round(y * height),
-                    modifiers(), amount < 0 ? -steps : steps);
+                    modifiers(), amount > 0 ? -steps : steps);
         }
     }
 

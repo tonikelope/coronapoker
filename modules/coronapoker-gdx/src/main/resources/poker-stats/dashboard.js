@@ -4,8 +4,8 @@
 const strings = {
   es: {
     stats:'Estadísticas', overview:'Resumen', sessions:'Sesiones', analysis:'Análisis',
-    compare:'Comparativas', history:'Historial', close:'Cerrar', title:'Estadísticas de juego',
-    eyebrow:'TEXAS HOLD’EM / REGISTRO DE MESA', intro:'Resultados, tendencias y decisiones mano a mano.',
+    compare:'Comparativas', classics:'Clásicas', history:'Historial', title:'Estadísticas de juego',
+    eyebrow:'TEXAS HOLD’EM / REGISTRO DE MESA',
     player:'Jugador', from:'Desde', through:'Hasta', apply:'Aplicar', allTime:'Todo',
     performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
     perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo, en fichas.',
@@ -27,18 +27,37 @@ const strings = {
     noSamples:'Sin muestra', noChart:'Sin datos para este periodo', noCard:'Sin cartas registradas',
     noTrend:'Se necesitan dos sesiones con muestra suficiente para esta métrica.',
     vpip:'Inversión voluntaria preflop', pfr:'Subidas preflop', threeBet:'Resubidas ante una subida',
-    af:'Apuestas y subidas / calls postflop', wtsd:'Showdowns tras ver el flop',
+    af:'Apuestas y subidas divididas por calls postflop', afShort:'Agresión postflop', wtsd:'Showdowns tras ver el flop',
     wsd:'Showdowns ganados', date:'Fecha', duration:'Duración', status:'Estado',
     closed:'Cerrada', live:'Sin cierre', imported:'Importada', local:'Local',
     position:'Posición', perHand:'Por mano', sample:'Muestra mínima', page:'Página',
     comparisonNote:'Los puntos se muestran en sesiones con al menos {n} manos y muestra para la métrica.',
     zoom:'Zoom del panel', zoomIn:'Ampliar texto y panel', zoomOut:'Reducir texto y panel', zoomReset:'Restablecer zoom',
-    noPlayers:'Todavía no hay jugadores con la muestra mínima en estas sesiones.'
+    noPlayers:'Todavía no hay jugadores con la muestra mínima en estas sesiones.',
+    coverage:'Cobertura de los datos', coverageNote:'Los denominadores cuentan las muestras registradas para el jugador y el periodo. El intervalo se aplica a la fecha de inicio de las sesiones.',
+    coveredNet:'Sesiones con saldo', coveredTime:'Sesiones cerradas con duración y saldo',
+    coveredPreflop:'Manos con acciones preflop', coveredFlop:'Flops observados',
+    coveredShowdown:'Showdowns disputados', coveredCards:'Manos con cartas y saldo',
+    coveredPosition:'Manos con posición y saldo',
+    classicTitle:'Estadísticas clásicas', classicDetail:'Resultados detallados',
+    classicBalance:'Ganancias y pérdidas', classicPerformance:'Rendimiento de jugadores', classicResponse:'Tiempo medio de respuesta',
+    classicBest:'Jugadas ganadoras', classicPreflop:'Apuestas y subidas · Preflop', classicFlop:'Apuestas y subidas · Flop',
+    classicTurn:'Apuestas y subidas · Turn', classicRiver:'Apuestas y subidas · River',
+    classicAudience:'Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.',
+    scatterNote:'Cada punto es un jugador. Verde indica ROI positivo y rosa indica ROI negativo.',
+    classicLeaders:'Se grafican hasta ocho jugadores. La tabla incluye todos los resultados.',
+    stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precisión', played:'Participación',
+    wins:'Manos ganadas', effectiveness:'Efectividad', seconds:'s', cards:'Cartas iniciales',
+    handRank:'Jugada', handNumber:'Mano', stackHistory:'Stack por mano',
+    stackNote:'Las líneas muestran hasta seis jugadores. Usa la leyenda para activar o desactivar series.',
+    bestNote:'El gráfico incluye todas las jugadas ganadoras con categoría registrada. La tabla muestra hasta 1.000 resultados.',
+    noRank:'Sin categoría registrada', items:'resultados',
+    handRanks:['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color','Escalera real']
   },
   en: {
     stats:'Statistics', overview:'Overview', sessions:'Sessions', analysis:'Analysis',
-    compare:'Compare', history:'History', close:'Close', title:'Poker statistics',
-    eyebrow:'TEXAS HOLD’EM / TABLE HISTORY', intro:'Results, trends and decisions, hand by hand.',
+    compare:'Compare', classics:'Classics', history:'History', title:'Poker statistics',
+    eyebrow:'TEXAS HOLD’EM / TABLE HISTORY',
     player:'Player', from:'From', through:'To', apply:'Apply', allTime:'All time',
     performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
     perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period, in chips.',
@@ -59,20 +78,45 @@ const strings = {
     noSamples:'No sample', noChart:'No data for this period', noCard:'No recorded cards',
     noTrend:'This metric needs at least two sessions with a sufficient sample.',
     vpip:'Voluntary preflop investment', pfr:'Preflop raises', threeBet:'Re-raises facing a raise',
-    af:'Postflop bets and raises / calls', wtsd:'Showdowns after seeing the flop',
+    af:'Postflop bets and raises divided by calls', afShort:'Postflop aggression', wtsd:'Showdowns after seeing the flop',
     wsd:'Showdowns won', date:'Date', duration:'Duration', status:'Status',
     closed:'Closed', live:'Open', imported:'Imported', local:'Local',
     position:'Position', perHand:'Per hand', sample:'Minimum sample', page:'Page',
     comparisonNote:'Points require at least {n} hands in the session and a sample for the selected metric.',
     zoom:'Dashboard zoom', zoomIn:'Enlarge text and dashboard', zoomOut:'Shrink text and dashboard', zoomReset:'Reset zoom',
-    noPlayers:'No players reach the minimum sample in these sessions yet.'
+    noPlayers:'No players reach the minimum sample in these sessions yet.',
+    coverage:'Data coverage', coverageNote:'Denominators count recorded samples for the player and period. The date range applies to session start dates.',
+    coveredNet:'Sessions with a balance', coveredTime:'Closed sessions with duration and balance',
+    coveredPreflop:'Hands with preflop actions', coveredFlop:'Observed flops',
+    coveredShowdown:'Contested showdowns', coveredCards:'Hands with recorded cards and balance',
+    coveredPosition:'Hands with recorded position and balance',
+    classicTitle:'Classic statistics', classicDetail:'Detailed results',
+    classicBalance:'Profit and loss', classicPerformance:'Player performance', classicResponse:'Average response time',
+    classicBest:'Winning hands', classicPreflop:'Bets and raises · Preflop', classicFlop:'Bets and raises · Flop',
+    classicTurn:'Bets and raises · Turn', classicRiver:'Bets and raises · River',
+    classicAudience:'All players in the period. The selected player is highlighted in the table.',
+    scatterNote:'Each dot is a player. Green indicates positive ROI and pink indicates negative ROI.',
+    classicLeaders:'The chart shows up to eight players. The table includes every result.',
+    stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precision', played:'Participation',
+    wins:'Hands won', effectiveness:'Effectiveness', seconds:'s', cards:'Hole cards',
+    handRank:'Hand rank', handNumber:'Hand', stackHistory:'Stack by hand',
+    stackNote:'Lines show up to six players. Use the legend to toggle each series.',
+    bestNote:'The chart includes every winning hand with a recorded rank. The table shows up to 1,000 results.',
+    noRank:'No recorded rank', items:'results',
+    handRanks:['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush','Royal flush']
   }
 };
 
 const metrics = [['vpip','VPIP'], ['pfr','PFR'], ['threeBet','3-Bet'], ['af','AF'], ['wtsd','WTSD'], ['wsd','W$SD']];
+const classicModes = new Map([
+  ['BALANCE','classicBalance'], ['PERFORMANCE','classicPerformance'],
+  ['RESPONSE','classicResponse'], ['BEST_HANDS','classicBest'],
+  ['PREFLOP','classicPreflop'], ['FLOP','classicFlop'], ['TURN','classicTurn'], ['RIVER','classicRiver']
+]);
 const pageSize = 14;
 const rank = [...'AKQJT98765432'];
-const paint = {mint:'#71e7a8', gain:'#3b8b66', loss:'#e27b88', muted:'#b4c2d5', axis:'#31445f', grid:'#23344b'};
+const paint = {mint:'#71e7a8', gain:'#3f9a75', loss:'#f08596', muted:'#bdcbdd',
+  axis:'#395673', grid:'#29415b', cyan:'#36d9ff', amber:'#ffe07a', violet:'#b7a3ff'};
 const tabs = [...document.querySelectorAll('[role=tab]')];
 const charts = new Map();
 const $ = id => document.getElementById(id);
@@ -95,6 +139,7 @@ const t = key => strings[locale][key];
 let number, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
+let appliedRange = ['', ''], classic, classicKey = '', classicRequest = 0, classicPage = 0;
 const reducedMotion = query.get('motion') === '0' || matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function translate() {
@@ -114,6 +159,7 @@ function translate() {
   date = new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'});
   shortDate = new Intl.DateTimeFormat(locale, {day:'numeric', month:'short', year:'2-digit'});
   $('trend-metric').replaceChildren(...metrics.map(([key, name]) => new Option(name, key)));
+  $('classic-metric').replaceChildren(...[...classicModes].map(([mode, key]) => new Option(t(key), mode)));
   headings('sessions-head', [t('date'), t('status'), t('hands'), t('duration'), t('net'), t('cumulative')]);
   headings('positions-head', [t('position'), t('hands'), t('net'), t('perHand')]);
   headings('compare-head', [t('player'), t('hands'), t('net'), ...metrics.map(([, name]) => name)]);
@@ -145,10 +191,14 @@ function notice(message, error = false) {
   $('notice').classList.toggle('error', error);
 }
 function controls(enabled) {
-  for (const id of ['player', 'from', 'through', 'apply', 'reset']) $(id).disabled = !enabled;
+  for (const id of ['from', 'through', 'apply', 'reset']) $(id).disabled = !enabled;
+  $('player').disabled = !enabled || !hasPlayers;
 }
 function selectTab(id, focus = false) {
+  if (activeTab !== id) window.scrollTo(0, 0);
   activeTab = id;
+  $('heading').textContent = t(id === 'overview' ? 'title' : id === 'classics' ? 'classicTitle' : id);
+  $('classic-filter').hidden = id !== 'classics';
   for (const tab of tabs) {
     const active = tab.dataset.tab === id;
     tab.setAttribute('aria-selected', String(active));
@@ -157,6 +207,13 @@ function selectTab(id, focus = false) {
     if (active && focus) tab.focus();
   }
   render();
+  if (id === 'classics') {
+    if (ready) notice('');
+    refreshClassic();
+  } else if (ready) {
+    notice(!hasPlayers ? (scope ? t('emptyFilter') : t('emptyHistory'))
+      : view && !view.sessionCount ? t('emptyFilter') : '');
+  }
 }
 
 function statCard(label, value, caption, icon, hero, cls) {
@@ -189,7 +246,9 @@ function showOverview() {
     meter.style.width = key === 'af' ? Math.min(100, (rate?.value ?? 0) * 20) + '%' : (rate?.value ?? 0) + '%';
     rail.setAttribute('aria-hidden', 'true');
     rail.append(meter);
-    block.append(title, create('small', t(key)), rail, create('small', sample));
+    const description = create('small', t(key === 'af' ? 'afShort' : key));
+    description.title = t(key);
+    block.append(title, description, rail, create('small', sample));
     return block;
   }));
   const rows = v?.sessions ?? [];
@@ -206,6 +265,30 @@ function showOverview() {
       ])}}
   ];
   draw('bankroll-chart', options, rows.some(row => row.net != null) ? '' : t('noChart'));
+  showCoverage();
+}
+
+function showCoverage() {
+  const countedHands = buckets => buckets?.reduce((count, bucket) => count + bucket.hands, 0);
+  const rows = [
+    ['coveredNet', view?.sessionsWithBalance, view?.sessionCount],
+    ['coveredTime', view?.timedSessions, view?.sessionCount],
+    ['coveredPreflop', view?.rates.vpip.sample, view?.hands],
+    ['coveredFlop', view?.rates.wtsd.sample, view?.hands],
+    ['coveredShowdown', view?.rates.wsd.sample, view?.hands],
+    ['coveredCards', countedHands(view?.cards), view?.hands],
+    ['coveredPosition', countedHands(view?.positions), view?.hands]
+  ];
+  $('coverage-rows').replaceChildren(...rows.map(([key, count, total]) => {
+    const item = create('div', null);
+    item.append(create('span', t(key)), create('strong', total ? integer.format(count)
+      + ' / ' + integer.format(total) : '–', 'coverage-value'));
+    return item;
+  }));
+}
+
+function chartFont(factor = .79) {
+  return Math.round(parseFloat(getComputedStyle(document.documentElement).fontSize) * factor);
 }
 
 function timeChart(rows, label, formatter) {
@@ -213,7 +296,7 @@ function timeChart(rows, label, formatter) {
   return {
     aria:{enabled:true, label:{description:label}}, animation:!reducedMotion,
     color:[paint.mint, paint.gain],
-    grid:{left:59, right:15, top:14, bottom:zoomable ? 53 : 30},
+    grid:{left:chartFont(4.4), right:18, top:18, bottom:zoomable ? 59 : 33},
     tooltip:{...tooltip(), trigger:'axis', valueFormatter:formatter,
       formatter:items => {
         const row = rows[items[0]?.dataIndex];
@@ -224,12 +307,12 @@ function timeChart(rows, label, formatter) {
         })].join('\n');
       }},
     xAxis:{type:'category', data:rows.map(row => shortDate.format(row.startedAt)),
-      axisLabel:{color:paint.muted, hideOverlap:true, fontSize:10},
+      axisLabel:{color:paint.muted, hideOverlap:true, fontSize:chartFont()},
       axisLine:{lineStyle:{color:paint.axis}}, axisTick:{show:false}},
-    yAxis:{type:'value', axisLabel:{color:paint.muted, fontSize:10, formatter},
+    yAxis:{type:'value', axisLabel:{color:paint.muted, fontSize:chartFont(), formatter},
       splitLine:{lineStyle:{color:paint.grid, type:'dashed'}}},
     dataZoom:zoomable ? [{type:'inside', zoomOnMouseWheel:'ctrl', moveOnMouseWheel:false},
-      {type:'slider', height:16, bottom:7, showDetail:false, brushSelect:false,
+      {type:'slider', height:20, bottom:7, showDetail:false, brushSelect:false,
       borderColor:paint.axis, fillerColor:'#54bb8b30', handleStyle:{color:paint.mint},
       dataBackground:{lineStyle:{color:paint.gain}, areaStyle:{color:paint.grid}}}] : []
   };
@@ -237,7 +320,7 @@ function timeChart(rows, label, formatter) {
 
 function tooltip() {
   return {renderMode:'richText', confine:true, backgroundColor:'#0b1423',
-    borderColor:paint.axis, textStyle:{color:'#edf5f1', fontSize:12}, padding:10};
+    borderColor:paint.axis, textStyle:{color:'#edf5f1', fontSize:chartFont(.86)}, padding:12};
 }
 
 function draw(id, options, empty) {
@@ -252,7 +335,7 @@ function draw(id, options, empty) {
   chart.resize();
   chart.setOption(empty ? {
     aria:{enabled:true, label:{description:empty}},
-    title:{text:empty, left:'center', top:'middle', textStyle:{color:paint.muted, fontSize:13, fontWeight:500}},
+    title:{text:empty, left:'center', top:'middle', textStyle:{color:paint.muted, fontSize:chartFont(.84), fontWeight:500}},
     animation:false
   } : options, {notMerge:true});
 }
@@ -307,12 +390,12 @@ function heatmap(x, y, cells, label, empty, showAxes) {
         t('net') + '  ' + signed(bucket.net), t('perHand') + '  ' + signed(bucket.perHand)].join('\n')
         : name + '\n' + empty;
     }},
-    grid:{left:showAxes ? 19 : 0, right:4, top:5, bottom:showAxes ? 20 : 11},
+    grid:{left:showAxes ? 27 : 0, right:4, top:5, bottom:showAxes ? 26 : 11},
     xAxis:{type:'category', data:x, axisTick:{show:false}, axisLine:{show:false},
-      axisLabel:{show:showAxes, color:paint.muted, interval:0, fontSize:10}},
+      axisLabel:{show:showAxes, color:paint.muted, interval:0, fontSize:chartFont(.75)}},
     yAxis:{type:'category', data:y, inverse:true, axisTick:{show:false}, axisLine:{show:false},
-      axisLabel:{show:showAxes, color:paint.muted, interval:0, fontSize:10}},
-    series:[{type:'heatmap', label:{show:true, color:'#edf5f1', fontSize:10,
+      axisLabel:{show:showAxes, color:paint.muted, interval:0, fontSize:chartFont(.75)}},
+    series:[{type:'heatmap', label:{show:true, color:'#edf5f1', fontSize:chartFont(.71),
       formatter:params => params.data.name}, emphasis:{itemStyle:{borderColor:paint.mint, borderWidth:2}},
       data:cells.map(({x, y, name, bucket}) => ({
         value:[x, y, bucket?.perHand ?? 0], name, bucket,
@@ -360,12 +443,206 @@ function showCompare() {
   ], entry.player === player)) : [emptyRow(9, t('noPlayers'))]));
 }
 
+function classicAxes() {
+  return {axisLabel:{color:paint.muted, fontSize:chartFont()}, axisTick:{show:false},
+    axisLine:{lineStyle:{color:paint.axis}},
+    splitLine:{lineStyle:{color:paint.grid, type:'dashed'}}};
+}
+
+function classicBars(rows, valueOf, unit, colorOf, scale) {
+  const entries = rows.slice(0, 8);
+  return {
+    grid:{left:10, right:20, top:10, bottom:25, containLabel:true},
+    tooltip:{...tooltip(), trigger:'axis', valueFormatter:value => val(value) + unit},
+    xAxis:{...classicAxes(), type:'value', max:scale,
+      axisLabel:{...classicAxes().axisLabel, formatter:value => val(value) + unit}},
+    yAxis:{...classicAxes(), type:'category', inverse:true, data:entries.map(entry => entry.player),
+      axisLabel:{...classicAxes().axisLabel, width:chartFont(9), overflow:'truncate'}},
+    series:[{type:'bar', barMaxWidth:chartFont(1.25), data:entries.map(entry => ({
+      value:valueOf(entry), itemStyle:{color:colorOf(entry), borderRadius:4}
+    }))}]
+  };
+}
+
+function stackChart(rows, players) {
+  const series = players.slice(0, 6).map(({player}) => ({
+    name:player, type:'line', showSymbol:rows.length < 30, symbolSize:5,
+    data:rows.filter(entry => entry.player === player).map(entry => [entry.handCounter, entry.stack])
+  })).filter(entry => entry.data.length);
+  return {
+    color:[paint.cyan, paint.amber, paint.violet, paint.mint, paint.loss, '#83a5ff'],
+    legend:{type:'scroll', textStyle:{color:paint.muted, fontSize:chartFont()}, top:0},
+    grid:{left:chartFont(3.9), right:25, top:42, bottom:53},
+    tooltip:{...tooltip(), trigger:'axis', valueFormatter:point => val(point)},
+    xAxis:{...classicAxes(), type:'value', name:t('handNumber'), nameLocation:'middle', nameGap:22,
+      nameTextStyle:{color:paint.muted, fontSize:chartFont()}, minInterval:1},
+    yAxis:{...classicAxes(), type:'value', min:0},
+    dataZoom:[{type:'inside', zoomOnMouseWheel:'ctrl', moveOnMouseWheel:false}],
+    series
+  };
+}
+
+function performanceScatter(entries) {
+  return {
+    grid:{left:chartFont(4.7), right:22, top:17, bottom:54},
+    xAxis:{...classicAxes(), type:'value', min:0, max:100, name:t('played'),
+      nameLocation:'middle', nameGap:29, nameTextStyle:{color:paint.muted, fontSize:chartFont()},
+      axisLabel:{...classicAxes().axisLabel, formatter:'{value}%'}},
+    yAxis:{...classicAxes(), type:'value', min:0, max:value => Math.max(100, value.max),
+      name:t('precision'), nameLocation:'middle', nameGap:48,
+      nameTextStyle:{color:paint.muted, fontSize:chartFont()},
+      axisLabel:{...classicAxes().axisLabel, formatter:'{value}%'}},
+    tooltip:{...tooltip(), formatter:params => [
+      params.data.name, t('played') + '  ' + val(params.value[0]) + '%',
+      t('precision') + '  ' + val(params.value[1]) + '%',
+      t('roi') + '  ' + signed(params.value[2]) + '%'
+    ].join('\n')},
+    series:[{type:'scatter', symbolSize:chartFont(.95), data:entries.map(entry => ({
+      name:entry.player, value:[entry.playedPercent, entry.precisionPercent, entry.roiPercent],
+      itemStyle:{color:entry.roiPercent < 0 ? paint.loss : entry.roiPercent > 0 ? paint.mint : paint.cyan,
+        opacity:.73, borderColor:'#071323', borderWidth:1}
+    }))}]
+  };
+}
+
+function handRank(value) { return t('handRanks')[value - 1] ?? t('noRank'); }
+
+function winningDonut(entries) {
+  const slices = entries.map(entry => ({value:entry.count, name:handRank(entry.handValue)}));
+  return {
+    color:['#36d9ff','#6a9fff','#b7a3ff','#e791c1','#ffe07a','#fba578','#ff8995','#71e7a8','#4fc5be','#b6e080'],
+    title:{text:integer.format(slices.reduce((total, slice) => total + slice.value, 0)),
+      left:'center', top:'36%', textStyle:{color:'#edf3fb', fontSize:chartFont(1.8)}},
+    legend:{type:'scroll', bottom:2, textStyle:{color:paint.muted, fontSize:chartFont()}},
+    tooltip:{...tooltip(), formatter:params => params.name + '\n' + integer.format(params.value) + ' (' + val(params.percent) + '%)'},
+    series:[{type:'pie', center:['50%', '43%'], radius:['48%', '70%'],
+      label:{show:false}, itemStyle:{borderColor:'#101a2e', borderWidth:3, borderRadius:4},
+      data:slices}]
+  };
+}
+
+function renderCards(cell, cards) {
+  const suits = {P:'♠', C:'♥', T:'♣', D:'♦'};
+  const badges = (cards ?? []).flatMap(card => {
+    const match = /^(10|[2-9AJQK])_([PCTD])$/.exec(card);
+    return match ? [create('span', match[1] + suits[match[2]],
+      match[2] === 'C' || match[2] === 'D' ? 'poker-card red' : 'poker-card')] : [];
+  });
+  if (badges.length) cell.replaceChildren(...badges);
+}
+
+function classicPresentation(data, mode) {
+  const metric = t(classicModes.get(mode));
+  const player = t('player');
+  if (mode === 'BALANCE') {
+    const leaders = [...data.balances].sort((a, b) => Math.abs(b.profit) - Math.abs(a.profit));
+    const hasStacks = data.stacks.length > 0;
+    return {
+      title:hasStacks ? t('stackHistory') : metric, entries:data.balances,
+      columns:[player,t('stack'),t('buyin'),t('net'),t('roi')],
+      cells:entry => [[entry.player], [val(entry.stack)], [val(entry.buyin)],
+        [signed(entry.profit),tone(entry.profit)], [signed(entry.roiPercent) + '%',tone(entry.roiPercent)]],
+      options:hasStacks ? stackChart(data.stacks, leaders)
+        : classicBars(leaders, entry => entry.profit, '', entry => entry.profit < 0 ? paint.loss : paint.gain),
+      note:hasStacks ? t('stackNote') : t('classicLeaders')
+    };
+  }
+  if (mode === 'PERFORMANCE') {
+    return {
+      title:metric, entries:data.performance,
+      columns:[player,t('played'),t('wins'),t('precision'),t('roi'),t('effectiveness')],
+      cells:entry => [[entry.player], [val(entry.playedPercent) + '%'], [val(entry.wonPercent) + '%'],
+        [val(entry.precisionPercent) + '%'], [signed(entry.roiPercent) + '%',tone(entry.roiPercent)],
+        [signed(entry.effectiveness),tone(entry.effectiveness)]],
+      options:performanceScatter(data.performance), note:t('scatterNote')
+    };
+  }
+  if (mode === 'BEST_HANDS') {
+    const options = winningDonut(data.winningRanks);
+    return {
+      title:metric, entries:data.bestHands,
+      columns:[player,t('cards'),t('handRank'),t('handNumber'),t('net')],
+      cells:entry => [[entry.player], ['–'], [handRank(entry.handValue)], [integer.format(entry.handCounter)],
+        [signed(entry.profit),tone(entry.profit)]],
+      options, empty:!options.series[0].data.length, note:t('bestNote')
+    };
+  }
+  const response = mode === 'RESPONSE';
+  const unit = response ? ' ' + t('seconds') : '%';
+  return {
+    title:metric, entries:data.metrics, columns:[player, response ? metric : '%'],
+    cells:entry => [[entry.player], [val(entry.value) + unit]],
+    options:classicBars(data.metrics, entry => entry.value, unit,
+      () => response ? paint.amber : paint.cyan, response ? undefined : 100),
+    note:t('classicLeaders')
+  };
+}
+
+function showClassic() {
+  const mode = $('classic-metric').value;
+  if (!classic) {
+    $('classic-chart-title').textContent = t(classicModes.get(mode));
+    $('classic-note').textContent = '';
+    $('classic-count').textContent = '';
+    headings('classic-head', []);
+    $('classic-rows').replaceChildren();
+    $('classic-page').textContent = '';
+    $('classic-prev').disabled = $('classic-next').disabled = true;
+    draw('classic-chart', {}, classicKey ? t('loading') : t('noChart'));
+    return;
+  }
+  const display = classicPresentation(classic, mode);
+  const player = $('player').selectedOptions[0]?.textContent;
+  const entries = display.entries;
+  const last = Math.max(0, Math.ceil(entries.length / pageSize) - 1);
+  const rows = entries.slice(classicPage * pageSize, (classicPage + 1) * pageSize).map(entry => {
+    const tr = row(display.cells(entry), entry.player === player);
+    if (mode === 'BEST_HANDS') renderCards(tr.children[1], entry.holeCards);
+    return tr;
+  });
+  $('classic-chart-title').textContent = display.title;
+  $('classic-note').textContent = display.note;
+  $('classic-count').textContent = integer.format(entries.length) + ' ' + t('items');
+  headings('classic-head', display.columns);
+  $('classic-rows').replaceChildren(...(rows.length ? rows : [emptyRow(display.columns.length, t('noChart'))]));
+  $('classic-page').textContent = entries.length ? t('page') + ' ' + (classicPage + 1) + ' / ' + (last + 1) : '';
+  $('classic-prev').disabled = classicPage === 0;
+  $('classic-next').disabled = classicPage === last;
+  draw('classic-chart', {...display.options, aria:{enabled:true, label:{description:display.title}},
+    animation:!reducedMotion}, !entries.length || display.empty ? t('noChart') : '');
+}
+
+async function refreshClassic() {
+  if (!ready || activeTab !== 'classics') return;
+  const request = ['classic', scope, $('classic-metric').value, ...appliedRange].join('\t');
+  if (request === classicKey) return;
+  const sequence = ++classicRequest;
+  classicKey = request;
+  classic = undefined;
+  classicPage = 0;
+  showClassic();
+  try {
+    const result = JSON.parse(await send(request));
+    if (sequence !== classicRequest) return;
+    classic = result;
+    if (activeTab === 'classics') showClassic();
+  } catch (failure) {
+    if (sequence !== classicRequest) return;
+    classicKey = '';
+    if (activeTab === 'classics') {
+      showClassic();
+      notice(t('error'), true);
+    }
+  }
+}
+
 function render() {
   if (!window.echarts) return;
   if (activeTab === 'overview') showOverview();
   if (activeTab === 'sessions') showSessions();
   if (activeTab === 'analysis') showAnalysis();
   if (activeTab === 'compare') showCompare();
+  if (activeTab === 'classics') showClassic();
 }
 
 function validDate(value) {
@@ -376,7 +653,7 @@ function validDate(value) {
 }
 
 async function applyFilters() {
-  if (!hasPlayers) return;
+  if (!ready) return;
   const from = $('from').value.trim();
   const through = $('through').value.trim();
   const reversed = from && through && from > through;
@@ -387,15 +664,24 @@ async function applyFilters() {
     notice(t('invalid'), true);
     return;
   }
+  appliedRange = [from, through];
+  if (activeTab === 'classics') {
+    notice('');
+    refreshClassic();
+  }
+  if (!hasPlayers) {
+    if (activeTab !== 'classics') notice(scope ? t('emptyFilter') : t('emptyHistory'));
+    return;
+  }
   const sequence = ++requestNumber;
-  notice(t('loading'));
+  if (activeTab !== 'classics') notice(t('loading'));
   try {
     const response = await send(['view', scope, $('player').value, from, through].join('\t'));
     if (sequence !== requestNumber) return;
     view = JSON.parse(response);
     page = 0;
     render();
-    notice(view.sessionCount ? '' : t('emptyFilter'));
+    if (activeTab !== 'classics') notice(view.sessionCount ? '' : t('emptyFilter'));
   } catch (failure) {
     if (sequence === requestNumber) notice(t('error'), true);
   }
@@ -420,6 +706,10 @@ async function loadScope() {
   ready = false;
   hasPlayers = false;
   view = undefined;
+  page = 0;
+  classic = undefined;
+  classicKey = '';
+  classicRequest++;
   render();
   controls(false);
   notice(t('loading'));
@@ -430,16 +720,12 @@ async function loadScope() {
     $('player').replaceChildren(...data.players.map((player, i) => new Option(player, i)));
     hasPlayers = data.players.length > 0;
     ready = true;
-    controls(hasPlayers);
+    controls(true);
     if (hasPlayers) {
       const remembered = data.players.indexOf(previous);
       $('player').selectedIndex = remembered >= 0 ? remembered : data.selected;
-      await applyFilters();
-    } else {
-      view = undefined;
-      render();
-      notice(scope ? t('emptyFilter') : t('emptyHistory'));
     }
+    await applyFilters();
   } catch (failure) {
     if (sequence !== requestNumber) return;
     ready = false;
@@ -484,6 +770,9 @@ $('player').addEventListener('change', applyFilters);
 $('prev').addEventListener('click', () => { page--; showSessions(); });
 $('next').addEventListener('click', () => { page++; showSessions(); });
 $('trend-metric').addEventListener('change', showCompare);
+$('classic-metric').addEventListener('change', refreshClassic);
+$('classic-prev').addEventListener('click', () => { classicPage--; showClassic(); });
+$('classic-next').addEventListener('click', () => { classicPage++; showClassic(); });
 for (const id of ['from','through']) $(id).addEventListener('keydown', event => {
   if (event.key === 'Enter') applyFilters();
 });

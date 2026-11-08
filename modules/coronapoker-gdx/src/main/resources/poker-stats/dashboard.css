@@ -1,13 +1,7 @@
 @font-face {
-  font-family: Inter;
-  src: url(../fonts/Inter-Medium.ttf) format("truetype");
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: Montserrat;
-  src: url(../fonts/Montserrat-Bold.ttf) format("truetype");
-  font-weight: 700;
+  font-family: McLaren;
+  src: url(../fonts/McLaren-Regular.ttf) format("truetype");
+  font-weight: 400;
   font-display: swap;
 }
 
@@ -25,7 +19,7 @@
   --radius: .8rem;
   --gap: .8rem;
   --edge: clamp(15px, 1.7vw, 40px);
-  font: 500 clamp(16px, 1.18vw, 24px)/1.32 Inter, system-ui, sans-serif;
+  font: 400 clamp(16px, 1.18vw, 24px)/1.32 McLaren, system-ui, sans-serif;
   color: var(--ink);
   background: var(--bg);
 }
@@ -113,7 +107,7 @@ nav button[aria-selected=true]::after {
 .zoom-tools #reset-charts { margin-inline-end: .4rem; padding-inline: .62rem; color: var(--gold); }
 
 main { min-width: 0; padding: .78rem var(--edge); overflow: auto; overscroll-behavior: contain; }
-h2, h3 { margin: 0; font-family: Montserrat, system-ui, sans-serif; letter-spacing: -.035em; }
+h2, h3 { margin: 0; letter-spacing: -.02em; }
 h2 { font-size: 1.34rem; line-height: 1.16; }
 h3 { font-size: .95rem; line-height: 1.2; }
 .section-mark {
@@ -270,11 +264,10 @@ input[aria-invalid=true] { border-color: var(--loss); }
 }
 .kpi-icon { color: var(--cyan); font-size: 1.14rem; line-height: 1; }
 .kpi strong, .rate .value, .coverage-value {
-  font-family: Montserrat, system-ui, sans-serif;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.kpi strong { display: block; margin: .35rem 0 .18rem; font-size: 2.06rem; line-height: 1; letter-spacing: -.055em; overflow-wrap: anywhere; }
+.kpi strong { display: block; margin: .35rem 0 .18rem; font-size: 2.06rem; line-height: 1; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .kpi small, .footnote, .subtext, .rate small { color: var(--muted); font-size: .78rem; }
 .positive { color: var(--mint); }
 .negative { color: var(--loss); }
@@ -324,7 +317,7 @@ input[aria-invalid=true] { border-color: var(--loss); }
 .subtext { margin: 0 0 .45rem; }
 .rates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .49rem; }
 .rate { display: grid; min-width: 0; gap: .19rem; padding: .46rem .57rem; border: 1px solid #2d4563; border-radius: .5rem; background: #0c1627; }
-.rate .value { font-size: 1.5rem; line-height: 1; letter-spacing: -.04em; white-space: nowrap; }
+.rate .value { font-size: 1.5rem; line-height: 1; letter-spacing: -.025em; white-space: nowrap; }
 .rate i { height: 4px; border-radius: 6px; background: #243b55; overflow: hidden; }
 .rate i > span { display: block; height: 100%; border-radius: 6px; background: var(--cyan); }
 .rate:nth-child(3n) i > span { background: var(--gold); }

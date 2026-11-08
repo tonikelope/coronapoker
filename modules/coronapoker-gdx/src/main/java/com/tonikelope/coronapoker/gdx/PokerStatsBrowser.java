@@ -114,8 +114,7 @@ final class PokerStatsBrowser implements AutoCloseable {
                     ORIGIN + ROOT + "dashboard.css", asset(ROOT + "dashboard.css", "text/css"),
                     ORIGIN + ROOT + "dashboard.js", asset(ROOT + "dashboard.js", "text/javascript"),
                     ORIGIN + ROOT + "echarts.min.js", asset(ROOT + "echarts.min.js", "text/javascript"),
-                    ORIGIN + "/fonts/Inter-Medium.ttf", asset("/fonts/Inter-Medium.ttf", "font/ttf"),
-                    ORIGIN + "/fonts/Montserrat-Bold.ttf", asset("/fonts/Montserrat-Bold.ttf", "font/ttf"));
+                    ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf"));
             if (closed) return;
             CefClient created = PokerChromium.createClient(null);
             synchronized (this) {

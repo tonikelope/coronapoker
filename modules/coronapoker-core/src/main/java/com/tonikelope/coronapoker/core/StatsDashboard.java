@@ -130,6 +130,11 @@ public final class StatsDashboard {
     }
 
     public View view(String player, int gameId, LocalDate from, LocalDate through) {
+        return view(player, gameId, from, through, false);
+    }
+
+    public View view(String player, int gameId, LocalDate from, LocalDate through,
+            boolean excludeBotOpponents) {
         Totals total = new Totals();
         Map<String, Totals> opponents = new HashMap<>();
         List<SessionRow> rows = new ArrayList<>();
@@ -165,6 +170,7 @@ public final class StatsDashboard {
         }
         List<PlayerRow> comparison = opponents.entrySet().stream()
                 .filter(entry -> entry.getValue().hands >= COMPARISON_HANDS)
+                .filter(entry -> !excludeBotOpponents || !BotNickname.isBot(entry.getKey()))
                 .sorted(Map.Entry.<String, Totals>comparingByValue(
                         Comparator.comparingInt(stats -> -stats.hands))
                         .thenComparing(Map.Entry.comparingByKey()))

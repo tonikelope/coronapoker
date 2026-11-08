@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Renderer-neutral access to the persisted game history.
@@ -38,24 +39,40 @@ public final class StatsRepository {
     /** Uses the original view definitions for the requested session dates. */
     public ClassicView classic(ClassicMode mode, Integer gameId, LocalDate from,
             LocalDate through) throws SQLException {
+        return classic(mode, gameId, from, through, false);
+    }
+
+    public ClassicView classic(ClassicMode mode, Integer gameId, LocalDate from,
+            LocalDate through, boolean excludeBots) throws SQLException {
         GameScope scope = GameScope.dates(gameId, from, through);
         synchronized (database.lock()) {
             return switch (mode) {
                 case BALANCE -> {
-                    List<BalanceRow> rows = scopedBalances(scope, null);
+                    List<BalanceRow> rows = filterBots(scopedBalances(scope, null),
+                            BalanceRow::player, excludeBots);
                     yield new ClassicView(rows, List.of(), List.of(), List.of(),
-                            gameId == null || rows.isEmpty() ? List.of() : balanceHistory(gameId),
+                            gameId == null || rows.isEmpty() ? List.of() : filterBots(
+                                    balanceHistory(gameId), BalancePoint::player, excludeBots),
                             List.of());
                 }
-                case RESPONSE -> ClassicView.metrics(scopedAverageResponse(scope, null, true));
-                case PREFLOP, FLOP, TURN, RIVER ->
-                    ClassicView.metrics(scopedRaiseFrequency(scope, mode.street, true));
+                case RESPONSE -> ClassicView.metrics(filterBots(scopedAverageResponse(scope, null, true),
+                        MetricRow::player, excludeBots));
+                case PREFLOP, FLOP, TURN, RIVER -> ClassicView.metrics(filterBots(
+                        scopedRaiseFrequency(scope, mode.street, true), MetricRow::player, excludeBots));
                 case PERFORMANCE -> new ClassicView(List.of(), List.of(),
-                        scopedPerformance(scope), List.of(), List.of(), List.of());
+                        filterBots(scopedPerformance(scope), PerformanceRow::player, excludeBots),
+                        List.of(), List.of(), List.of());
                 case BEST_HANDS -> new ClassicView(List.of(), List.of(), List.of(),
-                        scopedBestHands(scope), List.of(), winningRanks(scope));
+                        scopedBestHands(scope, excludeBots), List.of(), winningRanks(scope, excludeBots));
             };
         }
+    }
+
+    private static <T> List<T> filterBots(List<T> rows, Function<T, String> player,
+            boolean excludeBots) {
+        return excludeBots
+                ? rows.stream().filter(row -> !BotNickname.isBot(player.apply(row))).toList()
+                : rows;
     }
 
     public List<GameSummary> games() throws SQLException {
@@ -403,14 +420,14 @@ public final class StatsRepository {
     }
 
     public List<BestHandRow> bestHands(Integer gameId) throws SQLException {
-        return scopedBestHands(new GameScope(gameId, null, null));
+        return scopedBestHands(new GameScope(gameId, null, null), false);
     }
 
-    private List<BestHandRow> scopedBestHands(GameScope scope) throws SQLException {
+    private List<BestHandRow> scopedBestHands(GameScope scope, boolean excludeBots) throws SQLException {
         String sql = "SELECT s.player,s.hole_cards,s.hand_cards,s.hand_val,"
                 + "h.counter,s.profit,g.server,g.start FROM showdown s "
                 + "JOIN hand h ON h.id=s.id_hand JOIN game g ON g.id=h.id_game "
-                + "WHERE s.winner=1" + scope.and()
+                + "WHERE s.winner=1" + scope.and() + humanShowdowns(excludeBots)
                 + " ORDER BY s.hand_val DESC,s.profit DESC LIMIT 1000";
         synchronized (database.lock()) {
             try (PreparedStatement statement = database.connection()
@@ -446,10 +463,10 @@ public final class StatsRepository {
         }
     }
 
-    private List<RankCount> winningRanks(GameScope scope) throws SQLException {
+    private List<RankCount> winningRanks(GameScope scope, boolean excludeBots) throws SQLException {
         String sql = "SELECT s.hand_val,COUNT(*) AS entries FROM showdown s"
                 + " JOIN hand h ON h.id=s.id_hand JOIN game g ON g.id=h.id_game"
-                + " WHERE s.winner=1 AND s.hand_val BETWEEN 1 AND 10" + scope.and()
+                + " WHERE s.winner=1 AND s.hand_val BETWEEN 1 AND 10" + scope.and() + humanShowdowns(excludeBots)
                 + " GROUP BY s.hand_val ORDER BY s.hand_val";
         try (PreparedStatement statement = database.connection().prepareStatement(sql)) {
             statement.setQueryTimeout(30);
@@ -460,6 +477,10 @@ public final class StatsRepository {
                 return List.copyOf(result);
             }
         }
+    }
+
+    private static String humanShowdowns(boolean excludeBots) {
+        return excludeBots ? " AND INSTR(COALESCE(s.player,''),'" + BotNickname.MARKER + "')=0" : "";
     }
 
     public void setPrivate(int gameId, boolean value) throws SQLException {

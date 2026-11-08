@@ -38,6 +38,7 @@
       </div>
     </div>
     <label class="scope-player"><span data-t="player">Jugador</span><select id="player" disabled></select></label>
+    <label id="bot-filter" class="bot-filter"><input id="exclude-bots" type="checkbox" disabled><span data-t="excludeBots">Excluir bots</span></label>
     <label id="classic-filter" class="classic-select" hidden><span data-t="metric">Métrica</span><select id="classic-metric"></select></label>
     <div class="period-filter" id="period-filters">
       <label><span data-t="from">Desde</span><input id="from" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
@@ -112,7 +113,7 @@
       </article>
       <article class="panel">
         <div class="panel-heading"><h2 data-t="classicDetail">Resultados detallados</h2><span id="classic-count" class="badge"></span></div>
-        <p class="subtext" data-t="classicAudience">Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.</p>
+        <p class="subtext" id="classic-audience">Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.</p>
         <div class="table-scroll"><table><thead><tr id="classic-head"></tr></thead><tbody id="classic-rows"></tbody></table></div>
         <div class="pagination"><button id="classic-prev" class="ghost" data-t="prev">Anterior</button><span id="classic-page"></span><button id="classic-next" class="ghost" data-t="next">Siguiente</button></div>
       </article>

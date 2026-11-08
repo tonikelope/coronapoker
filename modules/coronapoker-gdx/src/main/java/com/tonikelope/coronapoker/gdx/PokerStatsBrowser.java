@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.JsonWriter;
+import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.core.StatsDashboard;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import java.awt.event.KeyEvent;
@@ -81,7 +82,7 @@ final class PokerStatsBrowser implements AutoCloseable {
     private volatile boolean ready;
     private volatile boolean failed;
     private volatile LibGdxCefBrowser browser;
-    private volatile Selection selection = new Selection(0, 0, "");
+    private volatile Selection selection = new Selection(0, 0, "", false);
     private CefClient client;
     private StatsDashboard snapshot;
     private List<GameOption> games;
@@ -99,7 +100,7 @@ final class PokerStatsBrowser implements AutoCloseable {
         this.width = width;
         this.height = height;
         pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es")
-                + "&motion=" + (animate ? "1" : "0");
+                + "&motion=" + (animate ? "1" : "0") + "&botMarker=" + BotNickname.MARKER;
         json.setUsePrototypes(false);
         json.setTypeName(null);
         double scale = scale();
@@ -272,8 +273,13 @@ final class PokerStatsBrowser implements AutoCloseable {
     private String responseFor(String request) throws SQLException {
         if ("games".equals(request)) return json.toJson(gameOptions());
         String[] parts = request.split("\\t", -1);
-        if (parts.length == 3 && "select".equals(parts[0])) {
-            return json.toJson(select(Integer.parseInt(parts[1]), Integer.parseInt(parts[2])));
+        if (parts.length == 4 && "select".equals(parts[0])) {
+            boolean excludeBots = switch (parts[3]) {
+                case "0" -> false;
+                case "1" -> true;
+                default -> throw new IllegalArgumentException("Invalid bot filter");
+            };
+            return json.toJson(select(Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), excludeBots));
         }
         if (snapshot == null || parts.length != 5) {
             throw new IllegalArgumentException("Unknown statistics request");
@@ -288,16 +294,16 @@ final class PokerStatsBrowser implements AutoCloseable {
         return switch (parts[0]) {
             case "classic" -> json.toJson(repository.classic(
                     StatsRepository.ClassicMode.valueOf(parts[2]),
-                    scope == 0 ? null : scope, from, through));
+                    scope == 0 ? null : scope, from, through, selection.excludeBots));
             case "view" -> {
                 int index = Integer.parseInt(parts[2]);
-                List<String> players = snapshot.players(scope);
+                List<String> players = players(scope, selection.excludeBots);
                 if (index < 0 || index >= players.size()) {
                     throw new IllegalArgumentException("Unknown player");
                 }
                 String player = players.get(index);
-                String result = json.toJson(snapshot.view(player, scope, from, through));
-                selection = new Selection(scope, 0, player);
+                String result = json.toJson(snapshot.view(player, scope, from, through, selection.excludeBots));
+                selection = new Selection(scope, 0, player, selection.excludeBots);
                 yield result;
             }
             default -> throw new IllegalArgumentException("Unknown statistics request");
@@ -312,7 +318,7 @@ final class PokerStatsBrowser implements AutoCloseable {
         return games;
     }
 
-    private Setup select(int gameId, int handId) throws SQLException {
+    private Setup select(int gameId, int handId, boolean excludeBots) throws SQLException {
         if (gameId < 0 || handId < 0 || gameId == 0 && handId != 0
                 || gameId > 0 && gameOptions().stream().noneMatch(game -> game.id == gameId)) {
             throw new IllegalArgumentException("Unknown game selection");
@@ -328,15 +334,20 @@ final class PokerStatsBrowser implements AutoCloseable {
                 throw new IllegalArgumentException("Unknown hand selection");
             }
             StatsRepository.HandDetail detail = repository.handDetail(gameId, handId);
-            selection = new Selection(gameId, handId, previousPlayer);
+            selection = new Selection(gameId, handId, previousPlayer, excludeBots);
             return new Setup(gameId, handId, hands, List.of(), 0, detail);
         }
         if (snapshot == null) snapshot = repository.dashboard();
-        List<String> players = snapshot.players(gameId);
+        List<String> players = players(gameId, excludeBots);
         int previous = players.indexOf(previousPlayer);
         int selected = previous >= 0 ? previous : Math.max(0, players.indexOf(preferredPlayer));
-        selection = new Selection(gameId, 0, players.isEmpty() ? "" : players.get(selected));
+        selection = new Selection(gameId, 0, players.isEmpty() ? "" : players.get(selected), excludeBots);
         return new Setup(gameId, 0, hands, players, selected, null);
+    }
+
+    private List<String> players(int gameId, boolean excludeBots) {
+        List<String> players = snapshot.players(gameId);
+        return excludeBots ? players.stream().filter(player -> !BotNickname.isBot(player)).toList() : players;
     }
 
     private static LocalDate parseDate(String value) {
@@ -490,7 +501,7 @@ final class PokerStatsBrowser implements AutoCloseable {
         }
     }
 
-    record Selection(int gameId, int handId, String player) { }
+    record Selection(int gameId, int handId, String player, boolean excludeBots) { }
 
     private record GameOption(int id, String server, long startedAtMillis) { }
 

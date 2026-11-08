@@ -114,6 +114,63 @@ final class StatsDashboardTest {
         }
     }
 
+    @Test
+    void excludesBotComparisonsAndWinningHandsBeforeRankingWithoutChangingHumanStats() throws Exception {
+        DatabaseService database = new DatabaseService(temporary.resolve("human-stats.db").toString());
+        database.start();
+        try {
+            new CoreGameDatabase(database);
+            try (Statement sql = database.connection().createStatement()) {
+                sql.executeUpdate("INSERT INTO game(id,start,end,play_time) VALUES(1,1764676800000,1764678600000,1800)");
+                sql.executeUpdate("""
+                        WITH RECURSIVE numbers(n) AS (
+                            VALUES(1) UNION ALL SELECT n+1 FROM numbers WHERE n<1001
+                        )
+                        INSERT INTO hand(id,id_game,counter,sbval,end,pot)
+                        SELECT n,1,n,0.5,1,4 FROM numbers
+                        """);
+                sql.executeUpdate("""
+                        INSERT INTO action(id_hand,player,counter,round,action,bet,response_time)
+                        SELECT id,'Alice',1,1,3,2,2 FROM hand WHERE id<=30
+                        UNION ALL SELECT id,'CoronaBot$1',2,1,2,2,1 FROM hand WHERE id<=30
+                        UNION ALL SELECT id,'Coach$',3,1,2,2,1 FROM hand WHERE id<=30
+                        """);
+                sql.executeUpdate("""
+                        INSERT INTO balance(id_hand,player,stack,buyin) VALUES
+                        (1001,'Alice',12,10),(1001,'CoronaBot$1',9,10),(1001,'Coach$',9,10)
+                        """);
+                sql.executeUpdate("""
+                        INSERT INTO showdown(id_hand,player,winner,hand_val)
+                        SELECT id,CASE WHEN id%2=0 THEN 'CoronaBot$1' ELSE 'Coach$' END,1,9 FROM hand
+                        UNION ALL SELECT 1,'Alice',1,2
+                        """);
+            }
+            StatsRepository repository = new StatsRepository(database);
+            var dashboard = repository.dashboard();
+            var all = dashboard.view("Alice", 1, null, null);
+            var humans = dashboard.view("Alice", 1, null, null, true);
+            assertEquals(3, all.comparison().size());
+            assertEquals(List.of("Alice"), humans.comparison().stream()
+                    .map(StatsDashboard.PlayerRow::player).toList());
+            assertEquals(all.sessions(), humans.sessions());
+            assertEquals(all.rates(), humans.rates());
+            assertEquals(all.net(), humans.net());
+
+            var balance = repository.classic(StatsRepository.ClassicMode.BALANCE, 1, null, null, true);
+            assertEquals(List.of("Alice"), balance.balances().stream().map(StatsRepository.BalanceRow::player).toList());
+            assertEquals(List.of("Alice"), balance.stacks().stream().map(StatsRepository.BalancePoint::player).toList());
+            var mode = StatsRepository.ClassicMode.BEST_HANDS;
+            var allWinners = repository.classic(mode, 1, null, null);
+            assertEquals(1000, allWinners.bestHands().size());
+            assertTrue(allWinners.bestHands().stream().allMatch(hand -> BotNickname.isBot(hand.player())));
+            var winners = repository.classic(mode, 1, null, null, true);
+            assertEquals(List.of("Alice"), winners.bestHands().stream().map(StatsRepository.BestHandRow::player).toList());
+            assertEquals(List.of(new StatsRepository.RankCount(2, 1)), winners.winningRanks());
+        } finally {
+            database.close();
+        }
+    }
+
     private static void seed(DatabaseService database) throws Exception {
         String headsUp = encoded("Bob") + "#" + encoded("Alice");
         String threeWay = encoded("Alice") + "#" + encoded("Bob") + "#" + encoded("Carol");

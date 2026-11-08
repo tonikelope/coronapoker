@@ -6,7 +6,10 @@ const strings = {
     stats:'Estadísticas', overview:'Resumen', sessions:'Sesiones', analysis:'Análisis',
     compare:'Comparativas', classics:'Clásicas',
     player:'Jugador', from:'Desde', through:'Hasta', apply:'Aplicar', allTime:'Todo',
+    excludeBots:'Excluir bots', excludeBotsHelp:'Excluye a los bots y conserva las manos de los jugadores humanos.',
+    noHumans:'No hay jugadores humanos registrados en esta selección.', noVisibleRows:'Sin registros visibles.',
     game:'Partida', allGames:'Todas las partidas', allHands:'Todas las manos', allPlayers:'Todos los jugadores',
+    humanPlayers:'Jugadores humanos',
     previousHand:'Mano anterior', nextHand:'Mano siguiente',
     performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
     perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo, en fichas.',
@@ -49,6 +52,7 @@ const strings = {
     classicBest:'Jugadas ganadoras', classicPreflop:'Apuestas y subidas · Preflop', classicFlop:'Apuestas y subidas · Flop',
     classicTurn:'Apuestas y subidas · Turn', classicRiver:'Apuestas y subidas · River',
     classicAudience:'Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.',
+    classicHumanAudience:'Jugadores humanos del periodo. El jugador seleccionado se resalta en la tabla.',
     scatterNote:'Cada punto es un jugador. Verde indica ROI positivo y rosa indica ROI negativo.',
     classicLeaders:'Se grafican hasta ocho jugadores. La tabla incluye todos los resultados.',
     stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precisión', played:'Participación',
@@ -56,6 +60,7 @@ const strings = {
     handRank:'Jugada', handNumber:'Mano', stackHistory:'Stack por mano',
     stackNote:'Las líneas muestran hasta seis jugadores. Usa la leyenda para activar o desactivar series.',
     bestNote:'El gráfico incluye todas las jugadas ganadoras con categoría registrada. La tabla muestra hasta 1.000 resultados.',
+    bestHumanNote:'El gráfico incluye las jugadas ganadoras de humanos con categoría registrada. La tabla muestra hasta 1.000 resultados.',
     noRank:'Sin categoría registrada', items:'resultados',
     handRanks:['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color','Escalera real'],
     handDetail:'Detalle de la mano', board:'Cartas comunitarias', handSeats:'Posiciones',
@@ -71,7 +76,10 @@ const strings = {
     stats:'Statistics', overview:'Overview', sessions:'Sessions', analysis:'Analysis',
     compare:'Compare', classics:'Classics',
     player:'Player', from:'From', through:'To', apply:'Apply', allTime:'All time',
+    excludeBots:'Exclude bots', excludeBotsHelp:'Exclude bots and keep hands played by human players.',
+    noHumans:'No human players are recorded in this selection.', noVisibleRows:'No visible records.',
     game:'Game', allGames:'All games', allHands:'All hands', allPlayers:'All players',
+    humanPlayers:'Human players',
     previousHand:'Previous hand', nextHand:'Next hand',
     performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
     perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period, in chips.',
@@ -113,6 +121,7 @@ const strings = {
     classicBest:'Winning hands', classicPreflop:'Bets and raises · Preflop', classicFlop:'Bets and raises · Flop',
     classicTurn:'Bets and raises · Turn', classicRiver:'Bets and raises · River',
     classicAudience:'All players in the period. The selected player is highlighted in the table.',
+    classicHumanAudience:'Human players in the period. The selected player is highlighted in the table.',
     scatterNote:'Each dot is a player. Green indicates positive ROI and pink indicates negative ROI.',
     classicLeaders:'The chart shows up to eight players. The table includes every result.',
     stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precision', played:'Participation',
@@ -120,6 +129,7 @@ const strings = {
     handRank:'Hand rank', handNumber:'Hand', stackHistory:'Stack by hand',
     stackNote:'Lines show up to six players. Use the legend to toggle each series.',
     bestNote:'The chart includes every winning hand with a recorded rank. The table shows up to 1,000 results.',
+    bestHumanNote:'The chart includes winning hands by human players with a recorded rank. The table shows up to 1,000 results.',
     noRank:'No recorded rank', items:'results',
     handRanks:['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush','Royal flush'],
     handDetail:'Hand details', board:'Community cards', handSeats:'Positions',
@@ -161,11 +171,13 @@ const send = request => new Promise((resolve, reject) => {
   window.cefQuery({request, onSuccess: resolve, onFailure: (_, message) => reject(new Error(message))});
 });
 const query = new URLSearchParams(location.search);
+const botMarker = query.get('botMarker');
 const locale = query.get('lang') === 'en' ? 'en' : 'es';
 const t = key => strings[locale][key];
 let number, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
+let excludeBots = false;
 let catalogueLoaded = false, hasGames = false, handOptions = [], selectedHand = 0;
 let handView, tabBeforeHand = 'overview';
 let appliedRange = ['', ''], classic, classicKey = '', classicRequest = 0, classicPage = 0;
@@ -176,6 +188,7 @@ function translate() {
   document.documentElement.classList.toggle('no-motion', reducedMotion);
   document.title = 'CoronaPoker | ' + t('stats');
   $('tabs').setAttribute('aria-label', t('stats'));
+  $('bot-filter').title = t('excludeBotsHelp');
   $('zoom-tools').setAttribute('aria-label', t('zoom'));
   for (const [id, label] of [['zoom-in','zoomIn'], ['zoom-out','zoomOut'], ['zoom-reset','zoomReset']]) {
     $(id).setAttribute('aria-label', t(label));
@@ -227,6 +240,11 @@ function notice(message, error = false) {
   $('notice').textContent = message;
   $('notice').classList.toggle('error', error);
 }
+
+function emptyScopeNotice() {
+  return t(excludeBots ? 'noHumans' : scope ? 'emptyFilter' : 'emptyHistory');
+}
+
 function controls(enabled) {
   for (const id of ['from', 'through', 'apply', 'reset']) $(id).disabled = !enabled;
   $('game').disabled = !enabled || !hasGames;
@@ -234,6 +252,7 @@ function controls(enabled) {
   $('previous-hand').disabled = !enabled || !neighborHand(1);
   $('next-hand').disabled = !enabled || !neighborHand(-1);
   $('player').disabled = !enabled || !hasPlayers || selectedHand !== 0;
+  $('exclude-bots').disabled = !enabled || !hasGames;
 }
 
 // The list mirrors the native history, with the newest hand first.
@@ -260,10 +279,10 @@ function selectTab(id, focus = false) {
   }
   render();
   if (id === 'classics') {
-    if (ready) notice('');
+    if (ready) notice(excludeBots && !hasPlayers ? emptyScopeNotice() : '');
     refreshClassic();
   } else if (ready && id !== 'hand') {
-    notice(!hasPlayers ? (scope ? t('emptyFilter') : t('emptyHistory'))
+    notice(!hasPlayers ? emptyScopeNotice()
       : view && !view.sessionCount ? t('emptyFilter') : '');
   }
 }
@@ -675,7 +694,10 @@ function setHandMode(selected) {
 function showHand() {
   $('hand-detail').hidden = !handView;
   if (!handView) return;
-  const {hand, showdown, balances, responseTimes, actions} = handView;
+  const {hand} = handView;
+  const visible = player => !excludeBots || !botMarker || !player?.includes(botMarker);
+  const visibleRows = rows => rows.filter(entry => visible(entry.player));
+  const showdown = visibleRows(handView.showdown);
   const streets = ['Preflop', 'Flop', 'Turn', 'River'];
   const elapsed = hand.startedAtMillis > 0 && hand.endedAtMillis >= hand.startedAtMillis
     ? Math.floor((hand.endedAtMillis - hand.startedAtMillis) / 1000) : null;
@@ -694,12 +716,13 @@ function showHand() {
   renderCards($('hand-board'), hand.communityCards);
   $('hand-seats').replaceChildren(...[
     ['button', hand.dealer], ['smallBlind', hand.smallBlindPlayer], ['bigBlind', hand.bigBlindPlayer]
-  ].flatMap(([key, player]) => [create('dt', t(key)), create('dd', player || '–')]));
+  ].flatMap(([key, player]) => [create('dt', t(key)), create('dd', visible(player) && player || '–')]));
   const rosters = [hand.preflopPlayers, hand.flopPlayers, hand.turnPlayers, hand.riverPlayers];
   $('hand-rosters').replaceChildren(...rosters.map((players, i) => {
     const item = create('div', null);
     const chips = create('div', null, 'hand-chips');
-    chips.append(...(players.length ? players : ['–']).map(player => create('span', player, 'hand-chip')));
+    const displayed = players.filter(visible);
+    chips.append(...(displayed.length ? displayed : ['–']).map(player => create('span', player, 'hand-chip')));
     item.append(create('span', streets[i], 'hand-street'), chips);
     return item;
   }));
@@ -719,21 +742,21 @@ function showHand() {
   }
   const decisions = ['', 'fold', 'checkCall', 'betRaise', 'allIn'];
   const responseText = seconds => seconds == null ? '–' : val(seconds) + ' ' + t('seconds');
-  handRows('hand-actions-rows', 5, actions.map(entry => row([
+  handRows('hand-actions-rows', 5, visibleRows(handView.actions).map(entry => row([
     [streets[entry.street - 1] ?? '–'], [entry.player],
     [decisions[entry.decision] ? t(decisions[entry.decision]) : '–'],
     [val(entry.committed)], [responseText(entry.responseSeconds)]
   ])));
-  handRows('hand-balances-rows', 4, balances.map(entry => row([
+  handRows('hand-balances-rows', 4, visibleRows(handView.balances).map(entry => row([
     [entry.player], [val(entry.stack)], [val(entry.buyin)], [signed(entry.profit), tone(entry.profit)]
   ])));
-  handRows('hand-response-rows', 2, responseTimes.map(entry => row([
+  handRows('hand-response-rows', 2, visibleRows(handView.responseTimes).map(entry => row([
     [entry.player], [responseText(entry.value)]
   ])));
 }
 
 function handRows(id, columns, rows) {
-  $(id).replaceChildren(...(rows.length ? rows : [emptyRow(columns, t('noHandData'))]));
+  $(id).replaceChildren(...(rows.length ? rows : [emptyRow(columns, t(excludeBots ? 'noVisibleRows' : 'noHandData'))]));
 }
 
 function classicPresentation(data, mode) {
@@ -769,7 +792,7 @@ function classicPresentation(data, mode) {
       columns:[player,t('cards'),t('handRank'),t('handNumber'),t('net')],
       cells:entry => [[entry.player], ['–'], [handRank(entry.handValue)], [integer.format(entry.handCounter)],
         [signed(entry.profit),tone(entry.profit)]],
-      options, empty:!options.series[0].data.length, note:t('bestNote')
+      options, empty:!options.series[0].data.length, note:t(excludeBots ? 'bestHumanNote' : 'bestNote')
     };
   }
   const response = mode === 'RESPONSE';
@@ -784,6 +807,7 @@ function classicPresentation(data, mode) {
 }
 
 function showClassic() {
+  $('classic-audience').textContent = t(excludeBots ? 'classicHumanAudience' : 'classicAudience');
   const mode = $('classic-metric').value;
   if (!classic) {
     $('classic-chart-title').textContent = t(classicModes.get(mode));
@@ -876,7 +900,7 @@ async function applyFilters() {
     refreshClassic();
   }
   if (!hasPlayers) {
-    if (activeTab !== 'classics') notice(scope ? t('emptyFilter') : t('emptyHistory'));
+    if (excludeBots || activeTab !== 'classics') notice(emptyScopeNotice());
     return;
   }
   const sequence = ++requestNumber;
@@ -927,7 +951,7 @@ async function loadCatalogue() {
   }
 }
 
-async function loadScope(gameId, handId) {
+async function loadScope(gameId, handId, hideBots = excludeBots) {
   const sequence = ++requestNumber;
   const previousReady = ready;
   const focus = document.activeElement;
@@ -936,7 +960,7 @@ async function loadScope(gameId, handId) {
   controls(false);
   notice(t('loading'));
   try {
-    const data = JSON.parse(await send(['select', gameId, handId].join('\t')));
+    const data = JSON.parse(await send(['select', gameId, handId, hideBots ? 1 : 0].join('\t')));
     if (sequence !== requestNumber) return;
     view = undefined;
     handView = data.detail;
@@ -945,6 +969,7 @@ async function loadScope(gameId, handId) {
     classicKey = '';
     const gameChanged = scope !== data.scope;
     scope = data.scope;
+    excludeBots = hideBots;
     selectedHand = data.handId;
     handOptions = data.hands;
     $('game').value = String(scope);
@@ -954,7 +979,7 @@ async function loadScope(gameId, handId) {
     }
     $('hand-select').value = String(selectedHand);
     if (selectedHand) {
-      $('player').replaceChildren(new Option(t('allPlayers'), ''));
+      $('player').replaceChildren(new Option(t(excludeBots ? 'humanPlayers' : 'allPlayers'), ''));
     } else {
       $('player').replaceChildren(...data.players.map((player, i) => new Option(player, i)));
       if (data.players.length) $('player').selectedIndex = data.selected;
@@ -963,7 +988,8 @@ async function loadScope(gameId, handId) {
     setHandMode(selectedHand !== 0);
     ready = true;
     controls(true);
-    if ((focus === $('previous-hand') || focus === $('next-hand')) && !focus.disabled) {
+    if ((focus === $('previous-hand') || focus === $('next-hand') || focus === $('exclude-bots'))
+        && !focus.disabled) {
       focus.focus({preventScroll:true});
     }
     if (selectedHand) {
@@ -975,6 +1001,7 @@ async function loadScope(gameId, handId) {
     if (sequence !== requestNumber) return;
     $('game').value = String(scope);
     $('hand-select').value = String(selectedHand);
+    $('exclude-bots').checked = excludeBots;
     ready = previousReady;
     classicKey = '';
     controls(ready);
@@ -1024,6 +1051,7 @@ $('reset').addEventListener('click', () => {
   applyFilters();
 });
 $('player').addEventListener('change', applyFilters);
+$('exclude-bots').addEventListener('change', event => loadScope(scope, selectedHand, event.target.checked));
 $('game').addEventListener('change', () => loadScope(Number($('game').value), 0));
 $('hand-select').addEventListener('change', () => loadScope(scope, Number($('hand-select').value)));
 $('previous-hand').addEventListener('click', () => navigateHand(1));

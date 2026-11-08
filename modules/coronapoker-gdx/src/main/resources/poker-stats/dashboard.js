@@ -174,7 +174,7 @@ const query = new URLSearchParams(location.search);
 const botMarker = query.get('botMarker');
 const locale = query.get('lang') === 'en' ? 'en' : 'es';
 const t = key => strings[locale][key];
-let number, integer, date, shortDate;
+let number, amount, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
 let excludeBots = false;
@@ -201,6 +201,7 @@ function translate() {
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
   for (const id of ['from', 'through']) $(id).placeholder = locale === 'en' ? 'YYYY-MM-DD' : 'AAAA-MM-DD';
   number = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
+  amount = new Intl.NumberFormat(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
   integer = new Intl.NumberFormat(locale);
   date = new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'});
   shortDate = new Intl.DateTimeFormat(locale, {day:'numeric', month:'short', year:'2-digit'});
@@ -224,7 +225,8 @@ function headings(id, labels) {
 }
 
 function val(n) { return n == null ? '–' : number.format(n); }
-function signed(n) { return n != null && n > 0 ? '+' + val(n) : val(n); }
+function money(n) { return n == null ? '–' : amount.format(n); }
+function signed(n, formatter = val) { return (n > 0 ? '+' : '') + formatter(n); }
 function tone(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : ''; }
 function rateText(rate, key) {
   return rate?.value == null ? '–' : val(rate.value) + (key === 'af' ? '' : '%');
@@ -301,8 +303,8 @@ function statCard(label, value, caption, icon, hero, cls) {
 function showOverview() {
   const v = view;
   $('kpis').replaceChildren(
-    statCard(t('net'), signed(v?.net), v?.net == null ? t('noBalance') : '', '↗', true, tone(v?.net)),
-    statCard(t('hourly'), signed(v?.hourly), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed'), '◷', false, tone(v?.hourly)),
+    statCard(t('net'), signed(v?.net, money), v?.net == null ? t('noBalance') : '', '↗', true, tone(v?.net)),
+    statCard(t('hourly'), signed(v?.hourly, money), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed'), '◷', false, tone(v?.hourly)),
     statCard(t('hands'), v ? integer.format(v.hands) : '–', t('settled'), '♠', false, ''),
     statCard(t('sessionCount'), v ? integer.format(v.sessionCount) : '–',
       v?.sessionsWithBalance ? integer.format(v.winningSessions) + '/' + integer.format(v.sessionsWithBalance) + ' ' + t('profitable') : t('noBalance'), '▤', false, '')
@@ -324,7 +326,7 @@ function showOverview() {
     return block;
   }));
   const rows = v?.sessions ?? [];
-  const options = timeChart(rows, t('bankroll'), val);
+  const options = timeChart(rows, t('bankroll'), money);
   options.series = [
     {name:t('perSession'), type:'bar', barMaxWidth:22, data:rows.map(row => ({
       value:row.net ?? null, itemStyle:{color:row.net < 0 ? paint.loss : paint.gain, borderRadius:2}
@@ -511,8 +513,8 @@ function showSessions() {
   const upper = sessions.length - page * pageSize;
   const rows = sessions.slice(Math.max(0, upper - pageSize), upper).reverse().map(session => {
     const tr = row([[date.format(session.startedAt)], [session.closed ? t('closed') : t('live')],
-      [integer.format(session.hands)], [duration(session.seconds)], [signed(session.net), tone(session.net)],
-      [signed(session.running), tone(session.running)]]);
+      [integer.format(session.hands)], [duration(session.seconds)], [signed(session.net, money), tone(session.net)],
+      [signed(session.running, money), tone(session.running)]]);
     tr.children[1].append(create('span', session.imported ? t('imported') : t('local'), 'session-status'));
     return tr;
   });
@@ -538,7 +540,7 @@ function heatmap(x, y, cells, label, empty, showAxes) {
     tooltip:{...tooltip(), formatter:params => {
       const {name, bucket} = params.data;
       return bucket ? [name, t('hands') + '  ' + integer.format(bucket.hands),
-        t('net') + '  ' + signed(bucket.net), t('perHand') + '  ' + signed(bucket.perHand)].join('\n')
+        t('net') + '  ' + signed(bucket.net, money), t('perHand') + '  ' + signed(bucket.perHand, money)].join('\n')
         : name + '\n' + empty;
     }},
     grid:{left:showAxes ? 27 : 0, right:4, top:5, bottom:showAxes ? 26 : 11},
@@ -569,8 +571,8 @@ function showAnalysis() {
   const cells = order.map((name, x) => ({x, y:0, name, bucket:byPosition.get(name)}));
   draw('position-chart', heatmap(order, [''], cells, t('positions'), t('noSamples'), false), positions.length ? '' : t('noChart'));
   $('position-rows').replaceChildren(...(positions.length ? positions.map(bucket => row([
-    [bucket.key], [integer.format(bucket.hands)], [signed(bucket.net), tone(bucket.net)],
-    [signed(bucket.perHand), tone(bucket.perHand)]
+    [bucket.key], [integer.format(bucket.hands)], [signed(bucket.net, money), tone(bucket.net)],
+    [signed(bucket.perHand, money), tone(bucket.perHand)]
   ])) : [emptyRow(4, t('noSamples'))]));
 }
 
@@ -589,7 +591,7 @@ function showCompare() {
   const comparison = view?.comparison ?? [];
   const player = $('player').selectedOptions[0]?.textContent;
   $('compare-rows').replaceChildren(...(comparison.length ? comparison.map(entry => row([
-    [entry.player], [integer.format(entry.hands)], [signed(entry.net), tone(entry.net)],
+    [entry.player], [integer.format(entry.hands)], [signed(entry.net, money), tone(entry.net)],
     ...metrics.map(([id]) => [rateText(entry.rates[id], id)])
   ], entry.player === player)) : [emptyRow(9, t('noPlayers'))]));
 }
@@ -600,13 +602,13 @@ function classicAxes() {
     splitLine:{lineStyle:{color:paint.grid, type:'dashed'}}};
 }
 
-function classicBars(rows, valueOf, unit, colorOf, scale, limit = 8) {
+function classicBars(rows, valueOf, formatter, colorOf, scale, limit = 8) {
   const entries = rows.slice(0, limit);
   return {
     grid:{left:10, right:20, top:10, bottom:25, containLabel:true},
-    tooltip:{...tooltip(), trigger:'axis', valueFormatter:value => val(value) + unit},
+    tooltip:{...tooltip(), trigger:'axis', valueFormatter:formatter},
     xAxis:{...classicAxes(), type:'value', max:scale,
-      axisLabel:{...classicAxes().axisLabel, formatter:value => val(value) + unit}},
+      axisLabel:{...classicAxes().axisLabel, formatter}},
     yAxis:{...classicAxes(), type:'category', inverse:true, data:entries.map(entry => entry.player),
       axisLabel:{...classicAxes().axisLabel, width:chartFont(9), overflow:'truncate'}},
     series:[{type:'bar', barMaxWidth:chartFont(1.25), data:entries.map(entry => ({
@@ -618,16 +620,18 @@ function classicBars(rows, valueOf, unit, colorOf, scale, limit = 8) {
 function stackChart(rows, players) {
   const series = players.slice(0, 6).map(({player}) => ({
     name:player, type:'line', showSymbol:rows.length < 30, symbolSize:5,
+    encode:{tooltip:1},
     data:rows.filter(entry => entry.player === player).map(entry => [entry.handCounter, entry.stack])
   })).filter(entry => entry.data.length);
   return {
     color:[paint.cyan, paint.amber, paint.violet, paint.mint, paint.loss, '#83a5ff'],
     legend:{type:'scroll', textStyle:{color:paint.muted, fontSize:chartFont()}, top:0},
     grid:{left:chartFont(3.9), right:25, top:42, bottom:53},
-    tooltip:{...tooltip(), trigger:'axis', valueFormatter:point => val(point)},
+    tooltip:{...tooltip(), trigger:'axis', valueFormatter:money},
     xAxis:{...classicAxes(), type:'value', name:t('handNumber'), nameLocation:'middle', nameGap:22,
       nameTextStyle:{color:paint.muted, fontSize:chartFont()}, minInterval:1},
-    yAxis:{...classicAxes(), type:'value', min:0},
+    yAxis:{...classicAxes(), type:'value', min:0,
+      axisLabel:{...classicAxes().axisLabel, formatter:money}},
     dataZoom:[{type:'inside', zoomOnMouseWheel:'ctrl', moveOnMouseWheel:false}],
     series
   };
@@ -706,8 +710,8 @@ function showHand() {
     Math.floor(elapsed / 60) % 60, elapsed % 60].map(n => String(n).padStart(2, '0')).join(':');
   $('hand-heading').textContent = t('handNumber') + ' ' + integer.format(hand.counter);
   $('hand-facts').replaceChildren(...[
-    ['blinds', val(hand.smallBlind) + ' / ' + val(2 * hand.smallBlind)],
-    ['pot', val(hand.pot)], ['duration', clock]
+    ['blinds', money(hand.smallBlind) + ' / ' + money(2 * hand.smallBlind)],
+    ['pot', money(hand.pot)], ['duration', clock]
   ].map(([key, value]) => {
     const fact = create('div', null);
     fact.append(create('span', t(key)), create('strong', value));
@@ -729,7 +733,7 @@ function showHand() {
   }));
   handRows('hand-showdown-rows', 6, showdown.map(entry => {
     const tr = row([[entry.player], [t(entry.winner ? 'yes' : 'no'), entry.winner ? 'positive' : ''],
-      ['–'], [handRank(entry.handValue)], [val(entry.pay)], [signed(entry.profit), tone(entry.profit)]]);
+      ['–'], [handRank(entry.handValue)], [money(entry.pay)], [signed(entry.profit, money), tone(entry.profit)]]);
     renderCards(tr.children[2], entry.holeCards);
     return tr;
   }));
@@ -737,7 +741,7 @@ function showHand() {
   $('hand-result-panel').hidden = !hasProfit;
   if (hasProfit) {
     const outcomes = [...showdown].sort((a, b) => b.profit - a.profit);
-    draw('hand-chart', {...classicBars(outcomes, entry => entry.profit, '',
+    draw('hand-chart', {...classicBars(outcomes, entry => entry.profit, money,
       entry => entry.profit < 0 ? paint.loss : paint.gain, undefined, outcomes.length),
     animation:!reducedMotion, aria:{enabled:true, label:{description:t('handNet')}}}, '');
   }
@@ -746,10 +750,10 @@ function showHand() {
   handRows('hand-actions-rows', 5, visibleRows(handView.actions).map(entry => row([
     [streets[entry.street - 1] ?? '–'], [entry.player],
     [decisions[entry.decision] ? t(decisions[entry.decision]) : '–'],
-    [val(entry.committed)], [responseText(entry.responseSeconds)]
+    [money(entry.committed)], [responseText(entry.responseSeconds)]
   ])));
   handRows('hand-balances-rows', 4, visibleRows(handView.balances).map(entry => row([
-    [entry.player], [val(entry.stack)], [val(entry.buyin)], [signed(entry.profit), tone(entry.profit)]
+    [entry.player], [money(entry.stack)], [money(entry.buyin)], [signed(entry.profit, money), tone(entry.profit)]
   ])));
   handRows('hand-response-rows', 2, visibleRows(handView.responseTimes).map(entry => row([
     [entry.player], [responseText(entry.value)]
@@ -769,10 +773,10 @@ function classicPresentation(data, mode) {
     return {
       title:hasStacks ? t('stackHistory') : metric, entries:data.balances,
       columns:[player,t('stack'),t('buyin'),t('net'),t('roi')],
-      cells:entry => [[entry.player], [val(entry.stack)], [val(entry.buyin)],
-        [signed(entry.profit),tone(entry.profit)], [signed(entry.roiPercent) + '%',tone(entry.roiPercent)]],
+      cells:entry => [[entry.player], [money(entry.stack)], [money(entry.buyin)],
+        [signed(entry.profit, money),tone(entry.profit)], [signed(entry.roiPercent) + '%',tone(entry.roiPercent)]],
       options:hasStacks ? stackChart(data.stacks, leaders)
-        : classicBars(leaders, entry => entry.profit, '', entry => entry.profit < 0 ? paint.loss : paint.gain),
+        : classicBars(leaders, entry => entry.profit, money, entry => entry.profit < 0 ? paint.loss : paint.gain),
       note:hasStacks ? t('stackNote') : t('classicLeaders')
     };
   }
@@ -792,7 +796,7 @@ function classicPresentation(data, mode) {
       title:metric, entries:data.bestHands,
       columns:[player,t('cards'),t('handRank'),t('handNumber'),t('net')],
       cells:entry => [[entry.player], ['–'], [handRank(entry.handValue)], [integer.format(entry.handCounter)],
-        [signed(entry.profit),tone(entry.profit)]],
+        [signed(entry.profit, money),tone(entry.profit)]],
       options, empty:!options.series[0].data.length, note:t(excludeBots ? 'bestHumanNote' : 'bestNote')
     };
   }
@@ -801,7 +805,7 @@ function classicPresentation(data, mode) {
   return {
     title:metric, entries:data.metrics, columns:[player, response ? metric : '%'],
     cells:entry => [[entry.player], [val(entry.value) + unit]],
-    options:classicBars(data.metrics, entry => entry.value, unit,
+    options:classicBars(data.metrics, entry => entry.value, value => val(value) + unit,
       () => response ? paint.amber : paint.cyan, response ? undefined : 100),
     note:t('classicLeaders')
   };

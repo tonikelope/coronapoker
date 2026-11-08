@@ -51,7 +51,15 @@ The native `.exe` intentionally starts without the legacy JVM splash screen.
 resource and keeps the native startup path as direct as possible. The portable
 JAR continues to show its existing splash when launched with `java -jar`.
 
-Install Inno Setup once on the release machine:
+Check for the installed Inno Setup command-line compiler before packaging. On
+this project's Windows release machine, the per-user compiler is at
+`%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`. Check the path from the same
+Windows session and permission context that runs the release build. The wrapper
+detects that location automatically. Pass `-InnoSetupHome` when the compiler is
+installed elsewhere.
+
+Use the existing `ISCC.exe` for routine releases. Provision Inno Setup once on
+a new release machine:
 
 ```powershell
 winget install --id JRSoftware.InnoSetup -e --scope user

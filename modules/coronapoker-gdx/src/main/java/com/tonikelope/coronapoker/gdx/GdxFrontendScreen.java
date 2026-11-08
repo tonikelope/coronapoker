@@ -834,10 +834,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // UPnP is explicit authority for one lobby, not a preference.
             this.preferences.saveDeferred();
         }
-        if (GdxSettingsContract.migrateLegacyChatNotificationPreference(
-                initialProperties)) {
-            this.preferences.saveDeferred();
-        }
         this.connection = defaultConnection(initialProperties,
                 NewGameConnectionDraft.Mode.CREATE);
         audioControl = new GdxAudioControl(initialProperties, this.preferences);
@@ -8665,44 +8661,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeSettings(boolean save) {
         settingsShortcutCaptureId = null;
-        if (save && settingsReturnSurface == Surface.LOBBY && lobby != null) {
+        if (save && settingsReturnSurface == Surface.LOBBY) {
             NewGameTableDraft.Settings requested = settingsTable == null
                     ? null : settingsTable.snapshot();
-            List<LobbyCommand> commands = lobbySettingsCommands(lobby,
-                    requested, GdxSettingsContract.chatNotificationsEnabled(
-                            initialProperties, true));
-            if (!commands.isEmpty()) {
-                submitLobbySettingsCommands(commands, 0);
+            if (shouldSubmitLobbyTableSettings(lobby, requested)) {
+                submitLobbyCommand(new LobbyCommand.UpdateTableSettings(requested),
+                        () -> finishClosingSettings(true));
                 return;
             }
         }
         finishClosingSettings(save);
     }
 
-    private void submitLobbySettingsCommands(List<LobbyCommand> commands,
-            int index) {
-        if (index >= commands.size()) {
-            finishClosingSettings(true);
-            return;
-        }
-        submitLobbyCommand(commands.get(index),
-                () -> submitLobbySettingsCommands(commands, index + 1));
-    }
-
-    static List<LobbyCommand> lobbySettingsCommands(LobbySnapshot state,
-            NewGameTableDraft.Settings requested,
-            boolean chatNotifications) {
-        if (state == null) return List.of();
-        List<LobbyCommand> commands = new ArrayList<>(2);
-        if (state.host() && requested != null
-                && !requested.equals(state.tableSettings())) {
-            commands.add(new LobbyCommand.UpdateTableSettings(requested));
-        }
-        if (chatNotifications != state.chatNotifications()) {
-            commands.add(new LobbyCommand.SetChatNotifications(
-                    chatNotifications));
-        }
-        return List.copyOf(commands);
+    static boolean shouldSubmitLobbyTableSettings(LobbySnapshot state,
+            NewGameTableDraft.Settings requested) {
+        return state != null && state.host() && requested != null
+                && !requested.equals(state.tableSettings());
     }
 
     private void finishClosingSettings(boolean save) {
@@ -10013,7 +9987,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameText("row.straddle_on_timeout"),
                 settingsStraddleTimeoutDraft, false,
                 () -> settingsStraddleTimeoutDraft =
-                        !settingsStraddleTimeoutDraft, true);
+                        !settingsStraddleTimeoutDraft, settingsTable.straddle());
         Rectangle tooltipBounds = clippedSettingsHit(timeoutRow.x,
                 timeoutRow.y, timeoutRow.width, timeoutRow.height);
         if (tooltipBounds != null) {
@@ -10204,7 +10178,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsLayout.ROW_HEIGHT,
                     uppercase(gameText.translate(
                             "gdx.custom_bots.manage")),
-                    false, this::openCustomBotManager, true);
+                    false, this::openCustomBotManager, settingsTable.customBots());
             tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
                     "tooltip.cfg.custom_bots.manage");
         }
@@ -10219,6 +10193,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (!editable) {
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
+                if (row == 4) continue;
                 Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
                         rows.rowY(row), rowWidth, row, groups, 6);
                 tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
@@ -10514,7 +10489,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     presentationSettings.autoRebuyOnBroke(), false, () ->
                             presentationSettings.setAutoRebuyOnBroke(
                                     !presentationSettings.autoRebuyOnBroke()),
-                    true);
+                    settingsTable != null && settingsTable.rebuy());
             default -> { }
         }
     }

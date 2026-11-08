@@ -70,12 +70,10 @@ final class GdxSettingsContract {
             "auto_action_buttons", "auto_call_enabled",
             "auto_action_persist", "modo_auto_confirm", "confirmar_todo",
             AUTO_REBUY_KEY);
-    static final String CHAT_GAME_NOTIFICATIONS_KEY =
-            "chat_game_notifications";
+    static final String TABLE_CHAT_FEED_KEY = "gdx_table_chat_feed";
+    static final String TABLE_SPEAKING_EMOJI_KEY = "gdx_table_speaking_emoji";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
     static final String ANTI_DOS_WARNINGS_KEY = "anti_dos_warnings";
-    private static final String LEGACY_GDX_CHAT_NOTIFICATIONS_KEY =
-            "chat_notifications_ingame";
 
     enum Gate {
         NONE, MUSIC, EFFECTS, FUNNY_SOUNDS, ANIMATIONS, SHUFFLE_ANIMATION
@@ -337,7 +335,7 @@ final class GdxSettingsContract {
                     "NOTAS DE VOZ (LOCAL)", false, Gate.NONE,
                     "voice_messages"),
             option("audio_play_own_voice", "REPRODUCIR MIS NOTAS", true,
-                    Gate.NONE, "voice_messages"),
+                    Gate.NONE, "audio_block_voice_messages"),
             option("tts_server", "VOZ (TTS)", true, Gate.NONE),
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
                     Gate.NONE, "tts_server"));
@@ -355,8 +353,9 @@ final class GdxSettingsContract {
                     "CAPTURA AL TERMINAR LA TIMBA", false, Gate.NONE),
             option(ANTI_DOS_WARNINGS_KEY,
                     "MOSTRAR AVISOS ANTIDOS", true, Gate.NONE),
-            option(CHAT_GAME_NOTIFICATIONS_KEY,
-                    "NOTIFICACIONES DE CHAT DURANTE LA PARTIDA", true,
+            option(TABLE_CHAT_FEED_KEY, "MENSAJES SOBRE LA MESA", true,
+                    Gate.NONE),
+            option(TABLE_SPEAKING_EMOJI_KEY, "EMOJI AL HABLAR", true,
                     Gate.NONE),
             option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
                     Gate.NONE));
@@ -452,7 +451,8 @@ final class GdxSettingsContract {
                     option("sonido_reparto", "REPARTIR", true, Gate.EFFECTS),
                     option("sonido_destape", "DESTAPAR", true, Gate.EFFECTS),
                     option("sonido_destape_mis_cartas",
-                            "DESTAPAR MIS CARTAS", false, Gate.EFFECTS),
+                            "DESTAPAR MIS CARTAS", false, Gate.EFFECTS,
+                            "sonido_destape"),
                     option("sonido_ciegas", "CIEGAS", true, Gate.EFFECTS)),
             page("PARTIDA",
                     option("sonido_conteo", "CONTEO", true, Gate.EFFECTS),
@@ -658,7 +658,8 @@ final class GdxSettingsContract {
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "gdx_show_cpu_memory",
             "mostrar_coste_igualar",
-            "chat_images_ingame", CHAT_GAME_NOTIFICATIONS_KEY,
+            "chat_images_ingame",
+            TABLE_CHAT_FEED_KEY, TABLE_SPEAKING_EMOJI_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
             "screenshot_fin_timba", ANTI_DOS_WARNINGS_KEY,
             FINAL_SUMMARY_CARDS_ANIMATION_KEY, "animacion_contador_final",
@@ -1579,11 +1580,28 @@ final class GdxSettingsContract {
 
     static boolean enabled(ToggleOption option, Properties properties,
             boolean soundEnabled, boolean mayEditGlobalCommunication) {
+        return enabledWithCommunicationRules(option, properties,
+                mayEditGlobalCommunication,
+                Boolean.parseBoolean(properties.getProperty("voice_messages", "true")),
+                Boolean.parseBoolean(properties.getProperty("tts_server", "true")));
+    }
+
+    static boolean enabledWithCommunicationRules(ToggleOption option,
+            Properties properties, boolean mayEditGlobalCommunication,
+            boolean voiceMessages, boolean textToSpeech) {
         if (isGlobalCommunicationOption(option)
                 && !mayEditGlobalCommunication) return false;
-        if (option.parentKey() != null && !Boolean.parseBoolean(
-                properties.getProperty(option.parentKey(), "true"))) {
-            return false;
+        if (option.parentKey() != null) {
+            boolean parentEnabled = switch (option.parentKey()) {
+                case "voice_messages" -> voiceMessages;
+                case "tts_server" -> textToSpeech;
+                case "audio_block_voice_messages" -> voiceMessages
+                        && !Boolean.parseBoolean(properties.getProperty(
+                                "audio_block_voice_messages", "false"));
+                default -> Boolean.parseBoolean(
+                        properties.getProperty(option.parentKey(), "true"));
+            };
+            if (!parentEnabled) return false;
         }
         boolean music = Boolean.parseBoolean(properties.getProperty(
                 "musica", "true"));
@@ -1626,33 +1644,6 @@ final class GdxSettingsContract {
             }
         }
         return snapshot;
-    }
-
-    /**
-     * Migrates the temporary GDX-only key to CoronaPoker's canonical Swing
-     * preference. Both frontends must observe the same value.
-     */
-    static boolean migrateLegacyChatNotificationPreference(
-            Properties properties) {
-        if (properties == null
-                || !properties.containsKey(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY)) {
-            return false;
-        }
-        if (!properties.containsKey(CHAT_GAME_NOTIFICATIONS_KEY)) {
-            properties.setProperty(CHAT_GAME_NOTIFICATIONS_KEY,
-                    properties.getProperty(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY));
-        }
-        properties.remove(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY);
-        return true;
-    }
-
-    static boolean chatNotificationsEnabled(Properties properties,
-            boolean fallback) {
-        if (properties == null) return fallback;
-        String value = properties.getProperty(CHAT_GAME_NOTIFICATIONS_KEY,
-                properties.getProperty(LEGACY_GDX_CHAT_NOTIFICATIONS_KEY,
-                        Boolean.toString(fallback)));
-        return Boolean.parseBoolean(value);
     }
 
     static void restore(Properties properties, Map<String, String> snapshot) {

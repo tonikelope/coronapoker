@@ -99,7 +99,7 @@ class GdxLobbyConnectionDataTest {
                 "localhost:21339", true,
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
                 List.of(participant("host", true, true)), List.of(),
-                null, false, true);
+                null, false);
         String localEndpoint = GdxLocalServerAddresses.displayEndpoint(
                 host.host(), host.serverAddress(), "192.168.1.20");
         assertEquals("localhost:21339", host.serverAddress());
@@ -116,7 +116,7 @@ class GdxLobbyConnectionDataTest {
                 LobbySnapshot.Phase.IN_GAME, "",
                 List.of(participant("host", false, true),
                         participant("client", true, false)),
-                List.of(), null, true, true);
+                List.of(), null, true);
         assertEquals(List.of("SERVIDOR IP / PUERTO: 83.39.59.168:21339"),
                 GdxApplicationShell.tableConnectionEndpointLines(client.host(),
                         GdxLocalServerAddresses.displayEndpoint(

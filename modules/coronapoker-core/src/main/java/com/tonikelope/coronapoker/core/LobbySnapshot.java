@@ -10,8 +10,7 @@ import java.util.Set;
 public record LobbySnapshot(String localNickname, String serverNickname,
         String serverAddress, boolean host, Phase phase, String statusDetail,
         List<LobbyParticipant> participants, List<LobbyChatMessage> chat,
-        NewGameTableDraft.Settings tableSettings, boolean recovering,
-        boolean chatNotifications) {
+        NewGameTableDraft.Settings tableSettings, boolean recovering) {
 
     public static final int MAX_PARTICIPANTS = 10;
 

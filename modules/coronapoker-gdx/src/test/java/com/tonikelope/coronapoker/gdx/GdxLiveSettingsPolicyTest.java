@@ -52,6 +52,15 @@ final class GdxLiveSettingsPolicyTest {
     }
 
     @Test
+    void localStraddleTimeoutFollowsTheTableRule() {
+        GameConfigCodecV1.Configuration configuration = configuration(true);
+        assertFalse(GdxLiveSettingsPolicy.canEditStraddleOnTimeout(null));
+        assertFalse(GdxLiveSettingsPolicy.canEditStraddleOnTimeout(configuration));
+        assertTrue(GdxLiveSettingsPolicy.canEditStraddleOnTimeout(
+                configuration.withStraddle(true)));
+    }
+
+    @Test
     void liveHandLimitNeverTargetsAnAlreadyPlayedHand() {
         assertEquals(8, GdxLiveSettingsPolicy.minimumHandLimit(7));
         assertEquals(8, GdxLiveSettingsPolicy.handLimitValue(7, -1));

@@ -33,7 +33,7 @@ final class CoreGameTableIdentityWiringTest {
         LobbySnapshot lobby = new LobbySnapshot("host", "host",
                 "localhost:2345", true,
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
-                List.of(local, remote), List.of(), null, false, true);
+                List.of(local, remote), List.of(), null, false);
 
         Map<String, GamePeerController> peers =
                 CoreGameTableFactory.createPeers(lobby,

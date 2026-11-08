@@ -206,7 +206,7 @@ final class GdxProductionStateAuthorityTest {
                         false, true, false, true, 0, 0),
                         new LobbyParticipant("remote", null, false, false,
                                 false, false, false, true, 0, 0)),
-                List.of(), null, false, false),
+                List.of(), null, false),
                 command -> CompletableFuture.completedFuture(null));
         List<TableCommand> submitted = new ArrayList<>();
         CoronaPokerGdxTable table = new CoronaPokerGdxTable(240,

@@ -159,8 +159,10 @@ final class GdxSettingsTooltips {
                 "tooltip.cfg.screenshot_fin_timba";
             case GdxSettingsContract.ANTI_DOS_WARNINGS_KEY ->
                 "gdx.settings.tooltip.anti_dos_warnings";
-            case GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY ->
-                "gdx.settings.tooltip.chat_notifications";
+            case GdxSettingsContract.TABLE_CHAT_FEED_KEY ->
+                "gdx.settings.tooltip.table_chat_feed";
+            case GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY ->
+                "gdx.settings.tooltip.table_speaking_emoji";
             case "chat_images_ingame" ->
                 "gdx.settings.tooltip.chat_images";
             case "animaciones" ->

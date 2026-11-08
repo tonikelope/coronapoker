@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class GdxTableChatSession implements AutoCloseable {
 
     private final LobbySession lobby;
+    private final List<LobbyChatMessage> initialHistory;
     private final AtomicReference<LobbySnapshot> snapshot;
     private final ConcurrentLinkedQueue<LobbyChatMessage> incoming =
             new ConcurrentLinkedQueue<>();
@@ -28,6 +29,7 @@ final class GdxTableChatSession implements AutoCloseable {
     GdxTableChatSession(LobbySession lobby) {
         this.lobby = Objects.requireNonNull(lobby, "lobby");
         LobbySnapshot initial = lobby.snapshot();
+        initialHistory = initial.chat();
         snapshot = new AtomicReference<>(initial);
         deliveredSequence = maximumSequence(initial.chat());
         subscription = lobby.subscribe(this::accept);
@@ -35,6 +37,10 @@ final class GdxTableChatSession implements AutoCloseable {
 
     LobbySnapshot snapshot() {
         return snapshot.get();
+    }
+
+    List<LobbyChatMessage> initialHistory() {
+        return initialHistory;
     }
 
     List<LobbyChatMessage> history() {

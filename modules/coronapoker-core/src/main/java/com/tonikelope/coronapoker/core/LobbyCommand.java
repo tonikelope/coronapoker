@@ -8,7 +8,7 @@ public sealed interface LobbyCommand permits LobbyCommand.SendText,
         LobbyCommand.SendImage, LobbyCommand.SendVoice, LobbyCommand.AddBot,
         LobbyCommand.Kick, LobbyCommand.StartGame, LobbyCommand.Leave,
         LobbyCommand.ChangePassword, LobbyCommand.UpdateTableSettings,
-        LobbyCommand.SetHotJoinPolicy, LobbyCommand.SetChatNotifications {
+        LobbyCommand.SetHotJoinPolicy {
 
     record SendText(String text) implements LobbyCommand {
         public SendText {
@@ -68,8 +68,6 @@ public sealed interface LobbyCommand permits LobbyCommand.SendText,
 
     /** Changes admission for future hot-join attempts while a game is active. */
     record SetHotJoinPolicy(boolean enabled) implements LobbyCommand { }
-
-    record SetChatNotifications(boolean enabled) implements LobbyCommand { }
 
     private static String required(String value, String label) {
         String text = Objects.requireNonNull(value, label).trim();

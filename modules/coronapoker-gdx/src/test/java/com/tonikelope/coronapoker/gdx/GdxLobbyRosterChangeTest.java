@@ -71,7 +71,7 @@ class GdxLobbyRosterChangeTest {
         participants.addAll(List.of(remote));
         return new LobbySnapshot("server", "server", "localhost:2345", true,
                 phase, "", participants,
-                List.of(), null, false, true);
+                List.of(), null, false);
     }
 
     private static LobbyParticipant bot(String nickname) {

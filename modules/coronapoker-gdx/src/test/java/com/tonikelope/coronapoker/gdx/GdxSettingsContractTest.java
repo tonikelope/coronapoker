@@ -643,6 +643,25 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void tableMessagesAndSpeakingEmojiDefaultOnAndResetWithAppearance() {
+        Properties properties = new Properties();
+        for (String key : List.of(GdxSettingsContract.TABLE_CHAT_FEED_KEY,
+                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY)) {
+            GdxSettingsContract.ToggleOption option = GdxSettingsContract
+                    .appearanceTablePage().options().stream()
+                    .filter(row -> row.key().equals(key)).findFirst().orElseThrow();
+            assertTrue(option.fallback());
+            assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key));
+            properties.setProperty(key, "false");
+        }
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 0, false);
+        assertEquals("true", properties.getProperty(
+                GdxSettingsContract.TABLE_CHAT_FEED_KEY));
+        assertEquals("true", properties.getProperty(
+                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY));
+    }
+
+    @Test
     void appearanceCatalogHasNoDuplicateKeysAndKeepsRowsInsideTheDialog() {
         java.util.List<String> keys = java.util.stream.Stream.concat(
                 java.util.stream.Stream.of(
@@ -663,7 +682,7 @@ final class GdxSettingsContractTest {
                 "animacion_contador_final", "animacion_fuego_allin",
                 "animacion_efecto_ganador",
                 "mostrar_coste_igualar",
-                "chat_images_ingame", "chat_game_notifications",
+                "chat_images_ingame",
                 "resaltar_jugada_showdown",
                 "resaltar_avatares")));
         assertFalse(keys.contains("auto_fullscreen"));
@@ -767,30 +786,6 @@ final class GdxSettingsContractTest {
             values.setProperty("animaciones", "false");
             assertFalse(GdxSettingsContract.enabled(option, values, true));
         }
-    }
-
-    @Test
-    void chatNotificationsShareSwingsCanonicalPreferenceAndMigrateGdxAlias() {
-        Properties properties = new Properties();
-        properties.setProperty("chat_notifications_ingame", "false");
-
-        assertFalse(GdxSettingsContract.chatNotificationsEnabled(
-                properties, true));
-        assertTrue(GdxSettingsContract
-                .migrateLegacyChatNotificationPreference(properties));
-        assertEquals("false", properties.getProperty(
-                GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY));
-        assertFalse(properties.containsKey("chat_notifications_ingame"));
-        assertFalse(GdxSettingsContract.chatNotificationsEnabled(
-                properties, true));
-
-        properties.setProperty("chat_notifications_ingame", "false");
-        properties.setProperty(
-                GdxSettingsContract.CHAT_GAME_NOTIFICATIONS_KEY, "true");
-        assertTrue(GdxSettingsContract
-                .migrateLegacyChatNotificationPreference(properties));
-        assertTrue(GdxSettingsContract.chatNotificationsEnabled(
-                properties, false));
     }
 
     @Test
@@ -928,7 +923,7 @@ final class GdxSettingsContractTest {
 
         assertEquals("voice_messages",
                 options.get("audio_block_voice_messages").parentKey());
-        assertEquals("voice_messages",
+        assertEquals("audio_block_voice_messages",
                 options.get("audio_play_own_voice").parentKey());
         assertEquals("tts_server",
                 options.get("audio_block_tts_local").parentKey());
@@ -944,6 +939,36 @@ final class GdxSettingsContractTest {
                 options.get("audio_play_own_voice"), properties, true));
         assertTrue(GdxSettingsContract.displayedValue(
                 options.get("audio_block_tts_local"), properties, true));
+
+        assertTrue(GdxSettingsContract.enabledWithCommunicationRules(
+                options.get("audio_play_own_voice"), properties, false, true, false));
+        properties.setProperty("audio_block_voice_messages", "true");
+        assertFalse(GdxSettingsContract.enabledWithCommunicationRules(
+                options.get("audio_play_own_voice"), properties, false, true, false));
+        properties.setProperty("tts_server", "true");
+        assertFalse(GdxSettingsContract.enabledWithCommunicationRules(
+                options.get("audio_block_tts_local"), properties, false, true, false));
+        assertTrue(GdxSettingsContract.enabledWithCommunicationRules(
+                options.get("audio_block_tts_local"), properties, false, true, true));
+        assertFalse(GdxSettingsContract.enabledWithCommunicationRules(
+                options.get("tts_server"), properties, false, true, true));
+    }
+
+    @Test
+    void ownCardRevealSoundFollowsTheRevealSoundSwitch() {
+        GdxSettingsContract.ToggleOption option = GdxSettingsContract.AUDIO_PAGES
+                .stream().flatMap(page -> page.options().stream())
+                .filter(row -> row.key().equals("sonido_destape_mis_cartas"))
+                .findFirst().orElseThrow();
+        Properties properties = new Properties();
+        properties.setProperty("sonido_destape_mis_cartas", "true");
+        properties.setProperty("sonido_destape", "false");
+        assertFalse(GdxSettingsContract.enabled(option, properties, true));
+        assertTrue(GdxSettingsContract.displayedValue(option, properties, true));
+        properties.setProperty("sonido_destape", "true");
+        assertTrue(GdxSettingsContract.enabled(option, properties, true));
+        properties.setProperty("sonido_efectos", "false");
+        assertFalse(GdxSettingsContract.enabled(option, properties, true));
     }
 
     @Test

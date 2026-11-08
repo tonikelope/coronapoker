@@ -245,7 +245,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
             minimized = true;
         } else if (!wasEnabled) {
-            minimized = firstUpdate && !openOnStartup;
+            minimized = !firstUpdate || !openOnStartup;
             recreatedAfterTimeout = false;
         }
         String normalizedType = PokerVideoSearch.videoType(videoType);

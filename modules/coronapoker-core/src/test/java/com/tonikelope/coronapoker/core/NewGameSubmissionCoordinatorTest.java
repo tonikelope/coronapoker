@@ -147,7 +147,7 @@ final class NewGameSubmissionCoordinatorTest {
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
                 host ? java.util.List.of(local)
                         : java.util.List.of(local, remoteHost),
-                java.util.List.of(), null, false, true);
+                java.util.List.of(), null, false);
         return new LobbySession(snapshot,
                 command -> CompletableFuture.completedFuture(null));
     }

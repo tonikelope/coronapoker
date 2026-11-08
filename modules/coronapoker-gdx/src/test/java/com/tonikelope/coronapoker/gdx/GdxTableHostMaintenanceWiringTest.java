@@ -159,14 +159,14 @@ final class GdxTableHostMaintenanceWiringTest {
                 participant("local", true, false, true),
                 participant("remote", false, true,
                         phase != LobbySnapshot.Phase.RECONNECTING)),
-                List.of(), null, false, true);
+                List.of(), null, false);
     }
 
     private static LobbySession lobby(boolean host,
             List<LobbyParticipant> participants) {
         LobbySnapshot snapshot = new LobbySnapshot("local", "remote",
                 "localhost:2345", host, LobbySnapshot.Phase.IN_GAME, "",
-                participants, List.of(), null, false, true);
+                participants, List.of(), null, false);
         return new LobbySession(snapshot,
                 command -> CompletableFuture.completedFuture(null));
     }

@@ -42,6 +42,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.BufferUtils;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
@@ -71,10 +72,12 @@ import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 import com.tonikelope.coronapoker.DebugLog;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.IdentityHashMap;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -280,9 +283,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float DERIVED_POT_OVERLAY_HEIGHT = 46f;
     private static final float DERIVED_POT_OVERLAY_BOTTOM_GAP = 4f;
     private static final float DERIVED_POT_OVERLAY_STACK_GAP = 8f;
-    private static final float TABLE_NOTIFICATION_MAX_WIDTH = 820f;
-    private static final float TABLE_NOTIFICATION_HEIGHT = 92f;
-    private static final float TABLE_NOTIFICATION_TOP_INSET = 98f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
     private static final int SOFT_GLOW_LAYER_COUNT = 24;
     private static final float SEAT_HALO_ANGULAR_SPEED = 4.8f;
@@ -495,8 +495,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color QUICK_CHAT_TOGGLE_KNOB = new Color(0xe4f5ebff);
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
-    private static final float VOICE_STATUS_SECONDS = 2.8f;
-    private static final float VOICE_SENT_STATUS_SECONDS = 1.15f;
     static final float SEAT_CHAT_AUDIO_TAIL_SECONDS = 0.25f;
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
@@ -1032,7 +1030,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final Color RECORDING_RED = new Color(0xe53935ff);
     private static final Color PREPARATION_TRACK = new Color(0x020813ff);
     private static final Color RECONNECT_TEXT = new Color(0xc8d4e2ff);
     private static final Color CLOCK_PANEL = new Color(0x080b0ecc);
@@ -1100,8 +1097,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxDialogInputGate autoActionInputGate =
             new GdxDialogInputGate();
     private final Map<String, SeatChatNotice> seatChatNotices = new HashMap<>();
-    private final ArrayDeque<SilentChatNotice> silentChatNotices =
-            new ArrayDeque<>();
+    private final GdxTableChatFeed chatFeed = new GdxTableChatFeed();
+    private final GlyphLayout chatLineGlyph = new GlyphLayout();
+    private final Color chatLineTint = new Color(Color.WHITE);
+    private final Map<GdxTableChatFeed.Line, GlyphLayout> feedGlyphs =
+            new IdentityHashMap<>();
+    private final float[] feedSeatObstacles = new float[SEAT_COUNT - 1];
+    private BitmapFont feedGlyphFont;
+    private float feedGlyphWidth;
+    private GdxTableChatFeed.Visible newestFeedLine;
+    private float feedSlideStartedAt;
     private final Map<String, Texture> tableAvatarTextures = new HashMap<>();
     private final Set<String> blockedSeatMediaNotices = new HashSet<>();
     private final Map<Integer, Texture> emojiTextures = new HashMap<>();
@@ -1279,13 +1284,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String quickChatPendingDraft = "";
     private boolean quickChatAutoClose = true;
     private long quickChatVoiceSequence = -1L;
+    private long quickChatVoiceGeneration;
     private boolean quickChatVoicePaused;
+    private SeatChatNotice quickChatVoiceNotice;
     private float quickChatScroll;
     private float quickChatScrollMaximum;
     private TableScrollDrag tableScrollDrag = TableScrollDrag.NONE;
     private final GdxPointerHold tableScrollPointer = new GdxPointerHold();
     private float tableScrollGrabOffset;
-    private int quickChatMessageCount;
+    private final ArrayList<Float> quickChatRowEnds = new ArrayList<>();
+    private BitmapFont quickChatRowFont;
+    private float quickChatRowWidth;
     private volatile GdxVoiceRecorder voiceRecorder;
     private boolean voiceOpening;
     private boolean voiceLive;
@@ -1296,9 +1305,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean mediaSoundPressed;
     private boolean mediaPressedThisFrame;
     private float voiceLiveAt;
-    private float voiceStatusAt;
-    private float voiceStatusSeconds = VOICE_STATUS_SECONDS;
-    private String voiceStatus = "";
     private int seatChatBlockHand = Integer.MIN_VALUE;
     private boolean settingsAutoRebuySnapshot;
     private boolean settingsStraddleTimeoutDraft;
@@ -1462,7 +1468,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture communityStraddleIcon;
     private Texture soundIcon;
     private Texture muteIcon;
-    private Texture blockedSoundIcon;
     private Texture lightsOnIcon;
     private Texture lightsOffIcon;
     private Texture pauseIcon;
@@ -1544,10 +1549,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean screenshotRequested;
     private String screenshotError = "";
     private String screenshotMetadata = "";
-    private String screenshotToast = "";
-    private float screenshotToastUntil;
-    private final ArrayDeque<TableToast> pendingTableToasts =
-            new ArrayDeque<>();
     private boolean screenshotOperationPending;
 
     private float tableCenterX;
@@ -1563,7 +1564,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String potText = "BOTE: 0";
 
     private float totalTime;
-    private float volumeOverlayUntil;
     private float sceneTime;
     private float shuffleSoundDurationSeconds;
     private long shuffleSoundId = -1L;
@@ -2629,6 +2629,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communityDealByStreet = configuredCommunityDealByStreet();
         gameText = new GdxGameText(presentationSettings == null
                 ? "es" : presentationSettings.language());
+        if (tableChat != null) {
+            for (LobbyChatMessage message : tableChat.initialHistory()) {
+                rememberChatMessage(message, null, false);
+            }
+        }
         if (presentationSettings != null) {
             liveDeck = presentationSettings.deck();
         }
@@ -2723,8 +2728,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean settingsOptionEnabled(
             GdxSettingsContract.ToggleOption option) {
-        return GdxSettingsContract.enabled(option, tableSettingsProperties(),
-                audioControl.enabled(), tableHost);
+        return GdxSettingsContract.enabledWithCommunicationRules(option,
+                tableSettingsProperties(), tableHost, settingsVoiceMessagesDraft,
+                settingsTextToSpeechDraft);
     }
 
     private boolean settingsOptionDisplayedValue(
@@ -3186,39 +3192,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         reconcileShufflePreload();
         uiLayer = UI_NONE;
         if (restartNotice) {
-            showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
-                    gameText.translate("gdx.settings.msaa_restart.title"),
-                    gameText.translate("gdx.settings.msaa_restart.message"),
-                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
-                    860, 0, false, "",
-                    uppercase(gameText.translate("ui.aceptar"))));
+            postTableNotice(GdxTableChatFeed.Kind.INFO, "",
+                    gameText.translate("gdx.settings.msaa_restart.message"));
         }
     }
 
     private void submitHotJoinPolicy(boolean enabled) {
+        Runnable reportFailure = () -> postTableNotice(GdxTableChatFeed.Kind.WARNING,
+                "", gameText.translate("gdx.settings.hot_join_update_failed"));
         try {
             lobby.submit(new LobbyCommand.SetHotJoinPolicy(enabled))
                     .whenComplete((unused, failure) -> {
-                        if (failure == null || Gdx.app == null) return;
-                        Gdx.app.postRunnable(() -> showDialog(
-                                new GdxTableDialog(
-                                        GdxTableDialog.Kind.ERROR,
-                                        gameText.translate("gdx.dialog.error"),
-                                        gameText.translate(
-                                                "gdx.settings.hot_join_update_failed"),
-                                        com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
-                                        860, 0, false, "",
-                                        uppercase(gameText.translate(
-                                                "ui.aceptar")))));
+                        if (failure != null && Gdx.app != null) {
+                            Gdx.app.postRunnable(reportFailure);
+                        }
                     });
         } catch (RuntimeException failure) {
-            showDialog(new GdxTableDialog(GdxTableDialog.Kind.ERROR,
-                    gameText.translate("gdx.dialog.error"),
-                    gameText.translate(
-                            "gdx.settings.hot_join_update_failed"),
-                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
-                    860, 0, false, "",
-                    uppercase(gameText.translate("ui.aceptar"))));
+            reportFailure.run();
         }
     }
 
@@ -3578,22 +3568,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "images/straddle_small.png");
             case 10 -> soundIcon = texture("images/sound.png");
             case 11 -> muteIcon = texture("images/mute.png");
-            case 12 -> blockedSoundIcon = texture("images/sound_b.png");
-            case 13 -> lightsOnIcon = texture("images/lights_on.png");
-            case 14 -> lightsOffIcon = texture("images/lights_off.png");
-            case 15 -> pauseIcon = texture("images/pause.png");
-            case 16 -> foldThumbIcon = texture("images/action/down.png");
-            case 17 -> callThumbIcon = texture("images/action/up.png");
+            case 12 -> lightsOnIcon = texture("images/lights_on.png");
+            case 13 -> lightsOffIcon = texture("images/lights_off.png");
+            case 14 -> pauseIcon = texture("images/pause.png");
+            case 15 -> foldThumbIcon = texture("images/action/down.png");
+            case 16 -> callThumbIcon = texture("images/action/up.png");
             // The legacy menu glyph is only 24 px and is enlarged on remote
             // seats. Use the matching 256 px artwork so the warning remains
             // clean at 1080p, 1440p, 4K and fractional desktop scaling.
-            case 18 -> timeoutIcon = texture("images/action/timeout.png");
-            case 19 -> rabbitActionIcon = texture(
+            case 17 -> timeoutIcon = texture("images/action/timeout.png");
+            case 18 -> rabbitActionIcon = texture(
                     "images/action/rabbit_action.png");
-            case 20 -> talkIcon = alphaEdgeTexture("images/talk.png");
-            case 21 -> fastMenuIcon = texture("images/fast_panel/menu.png");
+            case 19 -> talkIcon = alphaEdgeTexture("images/talk.png");
+            case 20 -> fastMenuIcon = texture("images/fast_panel/menu.png");
             default -> {
-                int fastIcon = resource - 22;
+                int fastIcon = resource - 21;
                 if (fastIcon >= FAST_BUTTON_ICON_PATHS.length) return true;
                 if (fastButtonIcons == null) {
                     fastButtonIcons = new Texture[FAST_BUTTON_ICON_PATHS.length];
@@ -4979,9 +4968,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void showJoinedPlayerNotices(List<String> joinedPlayers) {
         for (String nickname : joinedPlayers) {
-            showTableToast(nickname + " "
-                    + gameText.translate("game.se_une_a_la_timba"), 3.2f);
+            postTableNotice(GdxTableChatFeed.Kind.JOIN, nickname,
+                    gameText.translate("gdx.lobby.player_joined"));
         }
+    }
+
+    static List<String> departedPlayers(TableSnapshot previous,
+            List<TableSnapshot.PlayerSnapshot> roster) {
+        Set<String> remaining = new HashSet<>();
+        for (TableSnapshot.PlayerSnapshot player : roster) {
+            if (!player.exited()) remaining.add(player.nickname());
+        }
+        return previous.players().stream().filter(player -> !player.exited())
+                .map(TableSnapshot.PlayerSnapshot::nickname)
+                .filter(name -> !name.equals(previous.localNickname())
+                        && !BotNickname.isBot(name) && !remaining.contains(name))
+                .toList();
     }
 
     static String formatAmount(double amount) {
@@ -5108,9 +5110,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.LateJoinRequest request) {
             liveState.apply(event);
-            showTableToast("[" + request.nickname() + "] "
-                    + gameText.translate("game.quiere_entrar_en_la_timba"),
-                    4f);
+            postTableNotice(GdxTableChatFeed.Kind.INFO, request.nickname(),
+                    gameText.translate("game.quiere_entrar_en_la_timba"));
             playPreferenceSound("misc/new_user.wav",
                     "sonido_entrar_sala", 0.82f);
             barrier.complete(null);
@@ -5132,9 +5133,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || event instanceof TableVisualEvent.TelemetryStatus
                 || event instanceof TableVisualEvent.SeatRoster) {
             boolean wasPaused = liveState.snapshot().paused();
-            List<String> joinedPlayers =
-                    event instanceof TableVisualEvent.SeatRoster roster
-                            ? newlyJoinedPlayers(roster.players()) : List.of();
+            List<String> joinedPlayers = List.of();
+            List<String> departedPlayers = List.of();
+            if (event instanceof TableVisualEvent.SeatRoster roster) {
+                joinedPlayers = newlyJoinedPlayers(roster.players());
+                departedPlayers = departedPlayers(liveState.snapshot(),
+                        roster.players());
+            }
             liveState.apply(event);
             if (GdxSoundFeedback.pauseStarted(wasPaused,
                     liveState.snapshot().paused())) {
@@ -5145,6 +5150,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (event instanceof TableVisualEvent.SeatRoster) {
                 reconcileSeatRacksToAuthoritativeState();
                 showJoinedPlayerNotices(joinedPlayers);
+                for (String nickname : departedPlayers) {
+                    postTableNotice(GdxTableChatFeed.Kind.LEAVE, nickname,
+                            gameText.translate("gdx.lobby.player_left"));
+                }
             }
             barrier.complete(null);
         } else if (event instanceof TableVisualEvent.AllInRunoutPause pause) {
@@ -6623,8 +6632,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawTableIdentityDialog();
         drawNetworkReconnectOverlay();
         drawRecoveryStopOverlay();
-        drawScreenshotToast();
-        drawVolumeOverlay();
+        drawTableChatFeed();
         drawProductVersionBrand(1f);
         if (tablePreference("gdx_show_fps", false)) {
             drawFpsCounter(viewport.getWorldWidth(), viewport.getWorldHeight());
@@ -7627,6 +7635,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        if (request.kind() == GdxTableDialog.Kind.TIMED_WARNING
+                || request.kind() == GdxTableDialog.Kind.INFO
+                && request.icon() == com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.BLINDS) {
+            postTableNotice(request.kind() == GdxTableDialog.Kind.TIMED_WARNING
+                    ? GdxTableChatFeed.Kind.WARNING : GdxTableChatFeed.Kind.INFO,
+                    "", request.message());
+            request.accept();
+            return;
+        }
+        if (request.isNotice() && !request.isRecovery()) {
+            postTableNotice(request.kind() == GdxTableDialog.Kind.INFO
+                    ? GdxTableChatFeed.Kind.INFO : GdxTableChatFeed.Kind.WARNING,
+                    request.title(), request.message());
+        }
         if (request.isAutoAction()) {
             // AUTO owns neither the modal stack nor its input focus. It keeps
             // counting down underneath settings, logs and confirmations, and
@@ -9877,7 +9899,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         quickChatPendingDraft = chatDraft;
         quickChatScroll = 0f;
         quickChatScrollMaximum = 0f;
-        quickChatMessageCount = visibleTableChatMessages().size();
         chatEdit.focus("tableChat", chatDraft);
         chatEdit.end(chatDraft, false);
         openUiLayer(UI_CHAT);
@@ -10235,43 +10256,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             if (discard) return;
                             if (failure != null || wav == null) {
                                 setVoiceStatusText(voiceFailureLabel(
-                                        recorder.outcome(), gameText),
-                                        VOICE_STATUS_SECONDS);
+                                        recorder.outcome(), gameText));
                                 return;
                             }
                             processOwnTableVoice(wav);
                             setVoiceStatus("gdx.lobby.voice_sending");
                             tableChat.sendVoice(wav).whenComplete((ignored, sendFailure) ->
                                     Gdx.app.postRunnable(() -> {
-                                        setVoiceStatus(sendFailure == null
-                                                        ? "gdx.lobby.voice_sent"
-                                                        : "gdx.table.chat.send_failed",
-                                                sendFailure == null
-                                                        ? VOICE_SENT_STATUS_SECONDS
-                                                        : VOICE_STATUS_SECONDS);
+                                        if (sendFailure != null) {
+                                            persistTableVoiceNote(
+                                                    tableChat.snapshot().localNickname(),
+                                                    wav);
+                                            postTableNotice(GdxTableChatFeed.Kind.WARNING, "",
+                                                    gameText.translate("gdx.table.chat.send_failed"));
+                                        }
                                     }));
                         }));
     }
 
     private void setVoiceStatus(String translationKey) {
-        setVoiceStatus(translationKey, VOICE_STATUS_SECONDS);
+        setVoiceStatusText(gameText.translate(translationKey));
     }
 
-    private void setVoiceStatus(String translationKey, float seconds) {
-        setVoiceStatusText(uppercase(gameText.translate(translationKey)),
-                seconds);
-    }
-
-    private void setVoiceStatusText(String value, float seconds) {
-        voiceStatus = value;
-        voiceStatusAt = totalTime;
-        voiceStatusSeconds = seconds;
+    private void setVoiceStatusText(String value) {
+        postTableNotice(GdxTableChatFeed.Kind.INFO, "", value);
     }
 
     private void processOwnTableVoice(byte[] wav) {
         if (tableChat == null || !VoiceWavContract.isValid(wav)) return;
         String nickname = tableChat.snapshot().localNickname();
-        persistTableVoiceNote(nickname, wav);
         if (!audioControl.enabled()
                 || !audioOutputAvailable()
                 || tablePreference("audio_block_voice_messages", false)
@@ -10299,13 +10312,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (previous != null) previous.dispose();
         notice.audioTimed = true;
         notice.startedAt = totalTime;
-        float watchdog = notice.type == LobbyChatMessage.Type.VOICE
-                ? VoiceWavContract.MAX_SECONDS + 2f
-                : GdxTextToSpeechPlayback.playbackWatchdogSeconds(
+        float watchdog = notice.type == LobbyChatMessage.Type.TEXT
+                ? GdxTextToSpeechPlayback.playbackWatchdogSeconds(
                         GdxTextToSpeechPlayback.serviceText(
                                 GdxTextToSpeechPlayback.cleanChatMessage(
                                         notice.content)))
-                        + SEAT_CHAT_AUDIO_TAIL_SECONDS;
+                        + SEAT_CHAT_AUDIO_TAIL_SECONDS
+                : VoiceWavContract.MAX_SECONDS + 2f;
         notice.expiresAt = totalTime + watchdog;
         seatChatNotices.put(nickname, notice);
     }
@@ -10314,6 +10327,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             SeatChatNotice notice) {
         if (!disposed && seatChatNotices.get(nickname) == notice) {
             notice.expiresAt = totalTime + SEAT_CHAT_AUDIO_TAIL_SECONDS;
+        }
+    }
+
+    private void postSeatChatNoticeFinished(String nickname,
+            SeatChatNotice notice) {
+        if (Gdx.app != null) {
+            Gdx.app.postRunnable(() -> finishSeatChatNotice(nickname, notice));
         }
     }
 
@@ -11026,13 +11046,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             terminationRequested = false;
             recoverableTerminationRequested = false;
             String detail = failure.getMessage();
-            showDialog(new GdxTableDialog(GdxTableDialog.Kind.ERROR,
-                    uppercase(gameText.translate(
-                            "gdx.termination_failed"))
-                    + (detail == null || detail.isBlank()
-                            ? "" : "\n" + detail),
-                    com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.EXIT,
-                    820, 0));
+            postTableNotice(GdxTableChatFeed.Kind.WARNING, "",
+                    gameText.translate("gdx.termination_failed")
+                            + (detail == null || detail.isBlank()
+                                    ? "" : " " + detail));
         }
     }
 
@@ -11417,10 +11434,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // the local HUD repaints over talk.png and makes an own voice note look
         // as if it never produced its speaking indicator.
         drawSeatChatNotices();
-        drawSilentChatNotice();
         drawStackViewerTooltip();
         drawLatencyTooltip();
-        drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
     }
 
@@ -11582,11 +11597,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (voiceLive && totalTime - voiceLiveAt >= VOICE_RECORD_MAX_SECONDS) {
             finishVoiceRecording(false);
         }
-        if (!voiceOpening && !voiceLive && !voiceStopping
-                && !voiceStatus.isEmpty()
-                && totalTime - voiceStatusAt > voiceStatusSeconds) {
-            voiceStatus = "";
-        }
     }
 
     private String fastButtonLabel(int index) {
@@ -11597,44 +11607,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int resource = fastButtonResourceIndex(index);
         return resource < 0 ? "" : uppercase(gameText.translate(
                 FAST_BUTTON_TEXT_KEYS[resource]));
-    }
-
-    private void drawVoiceRecordingOverlay(float width, float height) {
-        if (voiceStatus.isEmpty()) return;
-        boolean active = voiceOpening || voiceLive || voiceStopping;
-        float panelW = 720f;
-        float panelH = 92f;
-        float x = (width - panelW) / 2f;
-        float y = Math.max(LOCAL_HUD_SAFE_TOP + 12f, height * 0.18f);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.008f, 0.035f, 0.055f, 0.95f);
-        roundedRect(x, y, panelW, panelH, 15f);
-        shapes.setColor(active ? RECORDING_RED : BUTTON_LINE);
-        roundedRect(x + 16f, y + 15f, 7f, panelH - 30f, 3f);
-        if (voiceLive) {
-            shapes.setColor(0.08f, 0.16f, 0.24f, 0.96f);
-            roundedRect(x + panelW - 110f, y + 24f, 88f, 44f, 10f);
-            float elapsed = MathUtils.clamp(totalTime - voiceLiveAt, 0f,
-                    VOICE_RECORD_MAX_SECONDS);
-            shapes.setColor(0.17f, 0.92f, 0.62f, 0.92f);
-            roundedRect(x + 84f, y + 12f,
-                    (panelW - 216f) * (1f - elapsed / VOICE_RECORD_MAX_SECONDS),
-                    7f, 3f);
-        }
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(smallFont, voiceStatus, x + 38f, y + 28f,
-                panelW - (voiceLive ? 174f : 76f), 34f,
-                active ? Color.WHITE : POT_GOLD, 1f);
-        if (voiceLive) {
-            int remaining = Math.max(0, (int) Math.ceil(
-                    VOICE_RECORD_MAX_SECONDS - (totalTime - voiceLiveAt)));
-            drawFittedCenteredInBox(smallFont, remaining + " s",
-                    x + panelW - 110f, y + 31f, 88f, 30f,
-                    Color.WHITE, 1f);
-        }
-        batch.end();
     }
 
     private void updateLiveShowdownHover(float worldWidth) {
@@ -13793,12 +13765,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             seatChatBlockHand = liveState.handNumber();
             blockedSeatMediaNotices.clear();
         }
-        boolean notifications = preferences == null ||
-                GdxSettingsContract.chatNotificationsEnabled(
-                        tableProperties, true);
         for (LobbyChatMessage message : tableChat.drainIncoming()) {
             boolean ownMessage = message.nickname().equals(
                     tableChat.snapshot().localNickname());
+            var voiceFile = message.type() == LobbyChatMessage.Type.VOICE
+                    ? persistTableVoiceNote(message.nickname(), message.content())
+                    : null;
+            rememberChatMessage(message, voiceFile, true);
             if (preferences != null
                     && message.type() == LobbyChatMessage.Type.IMAGE
                     && !ownMessage
@@ -13816,15 +13789,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // the ordered echo only adds it to chat history.
                 continue;
             }
-            if (message.type() == LobbyChatMessage.Type.VOICE) {
-                persistTableVoiceNote(message.nickname(), message.content());
-            }
             boolean senderBlocked = blockedSeatMediaNotices.contains(
                     message.nickname());
-            // The in-game switch is not enough: OpenAL remains instantiated
-            // when Windows has no physical output endpoint. In that state a
-            // text message follows the existing mute-notice path and is never
-            // submitted to TTS.
+            // OpenAL can remain instantiated without a physical output.
+            // The message is already in the feed and history in that case.
             boolean audibleOutput = chatAudioAvailable(
                     audioControl.enabled(),
                     audioOutputAvailable());
@@ -13834,70 +13802,40 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ownMessage,
                     tablePreference("audio_play_own_voice", true));
             boolean spokenText = shouldSpeakTableChat(message.type(),
-                    notifications, audibleOutput,
+                    audibleOutput,
                     globalTextToSpeechEnabled(),
                     tablePreference("audio_block_tts_local", false),
                     senderBlocked);
-            boolean eligibleNotice = shouldShowSeatNotice(message.type(),
-                    notifications,
-                    tablePreference("chat_images_ingame", true), voiceNotice,
-                    senderBlocked, ownMessage);
-            if (shouldShowSilentTextNotice(message.type(), eligibleNotice,
-                    spokenText)
-                    && seatByNickname(message.nickname()) != null) {
-                // A burst from the same player is one live notification, not
-                // a backlog of stale three-second cards. Replacing it also
-                // guarantees that every new message restarts the animation.
-                silentChatNotices.removeIf(notice -> notice.nickname.equals(
-                        message.nickname()));
-                silentChatNotices.addLast(new SilentChatNotice(
-                        message.nickname(),
-                        GdxTextToSpeechPlayback.cleanChatMessage(
-                                message.content()), senderBlocked,
-                        seatChatNoticeDuration(message.type(),
-                                message.content())));
+            if (message.type() == LobbyChatMessage.Type.TEXT) {
+                if (spokenText) {
+                    String sender = message.nickname();
+                    SeatChatNotice notice = new SeatChatNotice(message.type(),
+                            message.content(), totalTime, totalTime);
+                    textToSpeech.enqueue(message.content(),
+                            presentationSettings == null
+                                    ? tablePreferenceText("lenguaje", "es")
+                                    : presentationSettings.language(),
+                            () -> startAudioSeatNotice(sender, notice))
+                            .whenComplete((played, failure) ->
+                                    postSeatChatNoticeFinished(sender, notice));
+                }
                 continue;
             }
-            if (!shouldDisplaySeatNotice(message.type(), eligibleNotice,
-                    spokenText)
+            if (!shouldShowSeatNotice(message.type(),
+                    tablePreference("chat_images_ingame", true), voiceNotice,
+                    senderBlocked)
                     || seatByNickname(message.nickname()) == null) {
                 continue;
             }
             SeatChatNotice notice = new SeatChatNotice(message.type(),
                     message.content(), totalTime,
-                    totalTime + seatChatNoticeDuration(message.type(),
-                            message.content()));
-            if (spokenText) {
-                // Start the indicator with the actual audio, not while the
-                // speech is queued or downloaded. Its matching completion
-                // starts the short identification tail.
-                textToSpeech.enqueue(message.content(),
-                        presentationSettings == null
-                                ? tablePreferenceText("lenguaje", "es")
-                                : presentationSettings.language(),
-                        () -> startAudioSeatNotice(message.nickname(), notice))
-                        .whenComplete((played, failure) -> {
-                            if (Gdx.app == null) return;
-                            Gdx.app.postRunnable(() -> finishSeatChatNotice(
-                                    message.nickname(), notice));
-                        });
-                continue;
-            }
+                    totalTime + 9f);
             if (message.type() == LobbyChatMessage.Type.VOICE) {
                 playTableVoice(message, () -> startAudioSeatNotice(
                         message.nickname(), notice))
-                        .whenComplete((ignored, failure) -> {
-                            if (Gdx.app == null) return;
-                            Gdx.app.postRunnable(() -> {
-                                if (!disposed
-                                        && seatChatNotices.get(
-                                                message.nickname())
-                                                == notice) {
-                                    finishSeatChatNotice(message.nickname(),
-                                            notice);
-                                }
-                            });
-                        });
+                        .whenComplete((ignored, failure) ->
+                                postSeatChatNoticeFinished(
+                                        message.nickname(), notice));
                 continue;
             }
             SeatChatNotice previous = seatChatNotices.remove(message.nickname());
@@ -13916,22 +13854,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 iterator.remove();
             }
         }
-        updateSilentChatNotice();
     }
 
-    private void persistTableVoiceNote(String nickname, String base64Wav) {
+    private void rememberChatMessage(LobbyChatMessage message,
+            CompletionStage<GdxVoiceNoteLibrary.Entry> voiceFile,
+            boolean showOnTable) {
+        GdxTableChatFeed.Kind kind = switch (message.type()) {
+            case TEXT -> GdxTableChatFeed.Kind.TEXT;
+            case IMAGE, VOICE -> GdxTableChatFeed.Kind.MEDIA;
+            case PLAYER_JOINED, PLAYER_LEFT -> null;
+        };
+        // Presence is announced by the authoritative table roster.
+        if (kind == null) return;
+        boolean local = message.nickname().equals(
+                tableChat.snapshot().localNickname());
+        long voiceSequence = message.type() == LobbyChatMessage.Type.VOICE
+                ? message.sequence() : -1L;
+        chatFeed.add(new GdxTableChatFeed.Line(kind, message.nickname(),
+                quickChatMessageBody(message, gameText), local, voiceSequence,
+                voiceFile), totalTime, showOnTable);
+    }
+
+    private CompletableFuture<GdxVoiceNoteLibrary.Entry> persistTableVoiceNote(
+            String nickname, String base64Wav) {
         try {
-            persistTableVoiceNote(nickname,
+            return persistTableVoiceNote(nickname,
                     Base64.getDecoder().decode(base64Wav));
         } catch (IllegalArgumentException malformed) {
             LOGGER.log(Level.WARNING, "Dropped malformed table voice note",
                     malformed);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
-    private void persistTableVoiceNote(String nickname, byte[] wav) {
-        if (!VoiceWavContract.isValid(wav)) return;
-        CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<GdxVoiceNoteLibrary.Entry> persistTableVoiceNote(
+            String nickname, byte[] wav) {
+        if (!VoiceWavContract.isValid(wav)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return CompletableFuture.supplyAsync(() -> {
             try {
                 return voiceNoteLibrary.store(nickname, wav);
             } catch (IOException failure) {
@@ -13951,32 +13912,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         });
     }
 
-    private void updateSilentChatNotice() {
-        SilentChatNotice active = silentChatNotices.peekFirst();
-        if (active != null && active.startedAt >= 0f
-                && active.expiresAt <= totalTime) {
-            silentChatNotices.removeFirst();
-            active = silentChatNotices.peekFirst();
-        }
-        if (active != null && active.startedAt < 0f) {
-            active.startedAt = totalTime;
-            active.expiresAt = totalTime + active.duration;
-        }
-    }
-
     private CompletableFuture<Void> playTableVoice(LobbyChatMessage message,
             Runnable playbackStarted) {
-        return playTableVoice(message, playbackStarted, false);
-    }
 
-    private CompletableFuture<Void> playTableVoice(LobbyChatMessage message,
-            Runnable playbackStarted, boolean manualReplay) {
         if (!audioControl.enabled()
                 || !audioOutputAvailable()
                 || tablePreference("audio_block_voice_messages", false)
-                || (message.nickname().equals(tableChat.snapshot().localNickname())
-                && !manualReplay
-                && !tablePreference("audio_play_own_voice", true))) {
+) {
             return CompletableFuture.completedFuture(null);
         }
         try {
@@ -14044,6 +13986,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }));
     }
 
+    private boolean seatChatNoticeVisible(SeatChatNotice notice) {
+        return !notice.audioTimed || booleanPreference(tableProperties,
+                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY, true);
+    }
+
     /** Mirrors Swing's sender notification over the cards of the sender. */
     private void drawSeatChatNotices() {
         if (seatChatNotices.isEmpty()) return;
@@ -14052,6 +13999,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat seat = seatByNickname(entry.getKey());
             if (seat == null) continue;
             SeatChatNotice notice = entry.getValue();
+            if (!seatChatNoticeVisible(notice)) continue;
             float remaining = MathUtils.clamp((notice.expiresAt - totalTime)
                     / seatChatFadeSeconds(notice.audioTimed),
                     0f, 1f);
@@ -14075,48 +14023,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // still be fully opaque instead of entering a pre-existing 350 ms fade
         // already part-way through.
         return audioTimed ? SEAT_CHAT_AUDIO_TAIL_SECONDS : 0.35f;
-    }
-
-    /** Swing uses a mute/blocked dialog instead of talk.png when TTS cannot play. */
-    private void drawSilentChatNotice() {
-        SilentChatNotice notice = silentChatNotices.peekFirst();
-        if (notice == null || notice.startedAt < 0f) return;
-        float appeared = MathUtils.clamp(
-                (totalTime - notice.startedAt) / 0.16f, 0f, 1f);
-        float remaining = MathUtils.clamp(
-                (notice.expiresAt - totalTime) / 0.22f, 0f, 1f);
-        float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
-        String message = notice.nickname + ": " + notice.content;
-        glyph.setText(smallFont, message);
-        float desiredWidth = GdxTransientNoticeLayout.contentWidth(
-                glyph.width, 92f, 20f, 300f,
-                TABLE_NOTIFICATION_MAX_WIDTH,
-                viewport.getWorldWidth() - 40f);
-        Rectangle bounds = tableNotificationBounds(
-                viewport.getWorldWidth(), viewport.getWorldHeight(),
-                desiredWidth);
-        float width = bounds.width;
-        float height = bounds.height;
-        float x = bounds.x;
-        float y = bounds.y;
-        Color accent = notice.senderBlocked ? POT_GOLD : FOLD_RED;
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(accent.r, accent.g, accent.b, 0.94f * alpha);
-        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 13f);
-        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
-        roundedRect(x, y, width, height, 11f);
-        shapes.end();
-        batch.begin();
-        Texture icon = notice.senderBlocked ? blockedSoundIcon : muteIcon;
-        batch.setColor(1f, 1f, 1f, alpha);
-        batch.draw(icon, x + 18f, y + 18f, 56f, 56f);
-        drawFittedCenteredInBox(smallFont,
-                message,
-                x + 92f, y + 16f, width - 112f, height - 32f,
-                notice.senderBlocked ? POT_GOLD : Color.WHITE, alpha);
-        batch.setColor(Color.WHITE);
-        batch.end();
     }
 
     private Texture seatChatNoticeTexture(SeatChatNotice notice) {
@@ -14203,6 +14109,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat seat = seatByNickname(entry.getKey());
             if (seat == null) continue;
             SeatChatNotice notice = entry.getValue();
+            if (!seatChatNoticeVisible(notice)) continue;
             Rectangle noticeHit = seat.index == 0
                     ? seatChatNoticeBounds(seat, seatChatNoticeTexture(notice))
                     : seatChatNoticeTarget(seat);
@@ -17478,7 +17385,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
         GdxVoicePlayback.refreshVolume(effectsVolume);
-        volumeOverlayUntil = totalTime + 1f;
+        postTableNotice(GdxTableChatFeed.Kind.INFO, "",
+                gameText.translate("gdx.settings.row.master_volume")
+                        + " " + Math.round(effectsVolume * 100f) + "%");
         playPreferenceSound(GdxSoundFeedback.VOLUME_CHANGE,
                 "sonido_volumen", 0.72f);
     }
@@ -21208,12 +21117,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.round(ratio * maximum);
     }
 
-    static float quickChatMaximumPixelScroll(int messageCount,
-            float viewportHeight) {
-        return Math.max(0f, messageCount * 30f
-                - Math.max(0f, viewportHeight));
-    }
-
     static float quickChatPixelScrollAfterWheel(float current, float maximum,
             float amountY) {
         return MathUtils.clamp(current - amountY * 36f, 0f,
@@ -21783,9 +21686,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW);
             if (timeout.contains(x, y)) {
-                boolean enabled = settingsStraddleTimeoutDraft;
-                runSwitchAction(enabled,
-                        () -> settingsStraddleTimeoutDraft = !enabled);
+                if (straddleTimeoutAccess() == SettingsRowAccess.EDITABLE) {
+                    boolean enabled = settingsStraddleTimeoutDraft;
+                    runSwitchAction(enabled,
+                            () -> settingsStraddleTimeoutDraft = !enabled);
+                }
                 return;
             }
             if (!GdxLiveSettingsPolicy.canEditGameRules(tableHost,
@@ -22797,7 +22702,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float quickChatScrollThumbHeight(float trackHeight) {
         float viewportHeight = Math.max(0f,
                 quickChatHistoryBounds().height - 16f);
-        float contentHeight = viewportHeight + quickChatScrollMaximum;
+        float contentHeight = quickChatContentHeight();
         return quickChatScrollMaximum <= 0f ? trackHeight
                 : Math.max(34f, trackHeight * viewportHeight
                         / Math.max(1f, contentHeight));
@@ -22900,7 +22805,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = QUICK_CHAT_PANEL_Y;
         float panelW = quickChatWidth();
         float panelH = quickChatHeight();
-        LobbyChatMessage voice = quickChatVoiceAt(x, y);
+        GdxTableChatFeed.Line voice = quickChatVoiceAt(x, y);
         if (voice != null) {
             Rectangle history = quickChatHistoryBounds();
             if (x >= history.x + history.width - 68f) {
@@ -22923,56 +22828,117 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private LobbyChatMessage quickChatVoiceAt(float x, float y) {
+    private GdxTableChatFeed.Line quickChatVoiceAt(float x, float y) {
         Rectangle history = quickChatHistoryBounds();
         if (!history.contains(x, y)
                 || x > history.x + history.width - 28f) return null;
-        List<LobbyChatMessage> messages = visibleTableChatMessages();
-        float viewportHeight = Math.max(0f, history.height - 16f);
-        for (int line = 0; line < messages.size(); line++) {
-            float rowY = anchoredPixelRowY(messages.size(), line, 30f,
-                    history.y + 8f, viewportHeight, quickChatScroll,
-                    quickChatScrollMaximum);
-            if (y >= rowY && y <= rowY + 30f) {
-                LobbyChatMessage message = messages.get(line);
-                return message.type() == LobbyChatMessage.Type.VOICE
-                        ? message : null;
-            }
-        }
-        return null;
+        List<GdxTableChatFeed.Line> messages = chatFeed.history();
+        float offset = quickChatContentTop(history) - y;
+        if (offset < 0f || y < history.y + 8f
+                || y > history.y + history.height - 8f) return null;
+        int index = quickChatRowAt(offset);
+        if (index >= messages.size()) return null;
+        GdxTableChatFeed.Line message = messages.get(index);
+        return message.isVoice() ? message : null;
     }
 
-    private void toggleQuickChatVoice(LobbyChatMessage message) {
-        if (quickChatVoiceSequence == message.sequence()) {
+    private void toggleQuickChatVoice(GdxTableChatFeed.Line message) {
+        if (!audioControl.enabled() || !audioOutputAvailable()
+                || tablePreference("audio_block_voice_messages", false)) {
+            setVoiceStatus("gdx.lobby.voice_playback_disabled");
+            return;
+        }
+        if (quickChatVoiceSequence == message.voiceSequence()) {
             quickChatVoicePaused = !quickChatVoicePaused;
-            if (quickChatVoicePaused) GdxVoicePlayback.pause();
-            else GdxVoicePlayback.resume();
+            if (quickChatVoicePaused) {
+                GdxVoicePlayback.pause();
+                seatChatNotices.remove(message.sender(), quickChatVoiceNotice);
+            } else {
+                GdxVoicePlayback.resume();
+                if (quickChatVoiceNotice != null) {
+                    startAudioSeatNotice(message.sender(), quickChatVoiceNotice);
+                }
+            }
             return;
         }
         stopQuickChatVoice();
-        long sequence = message.sequence();
+        long sequence = message.voiceSequence();
+        long generation = quickChatVoiceGeneration;
         quickChatVoiceSequence = sequence;
         quickChatVoicePaused = false;
-        playTableVoice(message, () -> {
-            if (quickChatVoiceSequence == sequence
-                    && quickChatVoicePaused) {
+        SeatChatNotice notice = new SeatChatNotice(LobbyChatMessage.Type.VOICE,
+                "", totalTime, totalTime);
+        Runnable playbackStarted = () -> {
+            if (disposed || quickChatVoiceGeneration != generation) return;
+            quickChatVoiceNotice = notice;
+            if (quickChatVoicePaused) {
                 GdxVoicePlayback.pause();
+            } else {
+                startAudioSeatNotice(message.sender(), notice);
             }
-        }, true).whenComplete((ignored, failure) -> {
-            if (Gdx.app == null) return;
-            Gdx.app.postRunnable(() -> {
-                if (quickChatVoiceSequence == sequence) {
-                    quickChatVoiceSequence = -1L;
-                    quickChatVoicePaused = false;
+        };
+        loadQuickChatVoice(message).whenComplete((wav, readFailure) ->
+                Gdx.app.postRunnable(() -> {
+                    if (disposed || quickChatVoiceGeneration != generation) return;
+                    if (!audioControl.enabled() || !audioOutputAvailable()
+                            || tablePreference("audio_block_voice_messages", false)) {
+                        stopQuickChatVoice();
+                        return;
+                    }
+                    if (readFailure != null || !VoiceWavContract.isValid(wav)) {
+                        stopQuickChatVoice();
+                        setVoiceStatus("gdx.lobby.voice_playback_failed");
+                        return;
+                    }
+                    GdxVoicePlayback.play(wav, effectsVolume, playbackStarted)
+                            .whenComplete((unused, failure) ->
+                                    finishQuickChatVoice(generation,
+                                            message.sender(), notice, failure));
+                }));
+    }
+
+    private CompletableFuture<byte[]> loadQuickChatVoice(
+            GdxTableChatFeed.Line line) {
+        // The transport's history is bounded. The note library lets older
+        // table entries keep their playback control after the payload rolls out.
+        for (List<LobbyChatMessage> history :
+                List.of(tableChat.history(), tableChat.initialHistory())) {
+            for (LobbyChatMessage message : history) {
+                if (message.sequence() == line.voiceSequence()) {
+                    return CompletableFuture.supplyAsync(() ->
+                            Base64.getDecoder().decode(message.content()));
                 }
-                if (!disposed && failure != null) {
-                    setVoiceStatus("gdx.lobby.voice_playback_failed");
-                }
-            });
+            }
+        }
+        if (line.voiceFile() == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return line.voiceFile().toCompletableFuture().thenApplyAsync(entry -> {
+            if (entry == null) return null;
+            try {
+                return voiceNoteLibrary.read(entry);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        });
+    }
+
+    private void finishQuickChatVoice(long generation, String nickname,
+            SeatChatNotice notice, Throwable failure) {
+        if (Gdx.app == null) return;
+        Gdx.app.postRunnable(() -> {
+            finishSeatChatNotice(nickname, notice);
+            if (disposed || quickChatVoiceGeneration != generation) return;
+            quickChatVoiceNotice = null;
+            quickChatVoiceSequence = -1L;
+            quickChatVoicePaused = false;
+            if (failure != null) setVoiceStatus("gdx.lobby.voice_playback_failed");
         });
     }
 
     private void stopQuickChatVoice() {
+        quickChatVoiceGeneration++;
+        quickChatVoiceNotice = null;
         quickChatVoiceSequence = -1L;
         quickChatVoicePaused = false;
         GdxVoicePlayback.stop();
@@ -23016,8 +22982,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String message = chatDraft.trim();
         if (message.isEmpty()) return;
         if (chatImageMode && totalTime < tableImageSendAllowedAt) {
-            chatError = uppercase(gameText.translate(
-                    "gdx.lobby.image_cooldown"));
+            chatError = uppercase(gameText.translate("gdx.lobby.image_cooldown"));
+            postTableNotice(GdxTableChatFeed.Kind.WARNING, "", chatError);
             return;
         }
         chatSending = true;
@@ -23045,6 +23011,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? uppercase(gameText.translate(
                             "gdx.table.chat.invalid_message"))
                     : invalid.getMessage();
+            postTableNotice(GdxTableChatFeed.Kind.WARNING, "", chatError);
             return;
         }
         delivery.whenComplete((ignored, failure) ->
@@ -23076,6 +23043,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 ? uppercase(gameText.translate(
                                         "gdx.table.chat.send_failed"))
                                 : root.getMessage();
+                        postTableNotice(GdxTableChatFeed.Kind.WARNING, "", chatError);
                     }
                 }));
     }
@@ -23331,12 +23299,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0, 0, width, height, true);
         Path file = screenshotDirectory().resolve(
                 screenshotFilename(System.currentTimeMillis()));
-        String savedText = uppercase(gameText.translate(
-                "gdx.screenshot.saved"));
-        String failedText = uppercase(gameText.translate(
-                "gdx.screenshot.save_failed"));
         Thread writer = new Thread(() -> {
-            String result;
+            boolean saved = false;
             try {
                 Files.createDirectories(file.getParent());
                 Pixmap pixmap = new Pixmap(width, height,
@@ -23347,15 +23311,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 } finally {
                     pixmap.dispose();
                 }
-                result = savedText;
+                saved = true;
             } catch (RuntimeException | IOException failure) {
-                result = failedText;
+                LOGGER.log(Level.WARNING, "Could not save screenshot", failure);
             }
-            String notice = result;
+            boolean completed = saved;
             if (Gdx.app != null) {
-                Gdx.app.postRunnable(() -> {
-                    showTableToast(notice, 2f);
-                });
+                Gdx.app.postRunnable(() -> postTableNotice(
+                        completed ? GdxTableChatFeed.Kind.SUCCESS
+                                : GdxTableChatFeed.Kind.WARNING, "",
+                        gameText.translate(completed ? "gdx.screenshot.saved"
+                                : "gdx.screenshot.save_failed")));
             }
         }, "coronapoker-gdx-screenshot");
         writer.setDaemon(true);
@@ -23557,8 +23523,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (completed && afterSuccess != null) afterSuccess.run();
                     String key = completed ? successKey : failureKey;
                     if (key != null && !key.isBlank()) {
-                        showTableToast(uppercase(gameText.translate(key)),
-                                1.8f);
+                        postTableNotice(completed ? GdxTableChatFeed.Kind.SUCCESS
+                                : GdxTableChatFeed.Kind.WARNING, "",
+                                gameText.translate(key));
                     }
                 });
             }
@@ -23695,56 +23662,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 BASE_WIDTH - 104f, 869f);
     }
 
-    private void drawScreenshotToast() {
-        advanceTableToast();
-        if (screenshotToast.isBlank() || totalTime >= screenshotToastUntil) {
-            return;
-        }
-        float remaining = MathUtils.clamp(
-                (screenshotToastUntil - totalTime) / 0.22f, 0f, 1f);
-        float alpha = Interpolation.fade.apply(remaining);
-        float worldWidth = viewport.getWorldWidth();
-        float worldHeight = viewport.getWorldHeight();
-        boolean viewer = uiLayer == UI_SCREENSHOTS;
-        glyph.setText(actionFont, screenshotToast);
-        float desiredWidth = GdxTransientNoticeLayout.contentWidth(
-                glyph.width, 0f, 36f, 220f,
-                TABLE_NOTIFICATION_MAX_WIDTH, worldWidth - 40f);
-        Rectangle bounds = viewer
-                ? new Rectangle((worldWidth - desiredWidth) / 2f,
-                        (worldHeight - BASE_HEIGHT) / 2f + 875f,
-                        desiredWidth, 64f)
-                : tableNotificationBounds(worldWidth, worldHeight,
-                        desiredWidth);
-        float x = bounds.x;
-        float y = bounds.y;
-        float width = bounds.width;
-        float height = bounds.height;
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.88f * alpha);
-        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 11f);
-        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f * alpha);
-        roundedRect(x, y, width, height, 9f);
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(actionFont, screenshotToast,
-                x + 18f, y + 6f, width - 36f, height - 12f,
-                Color.WHITE, alpha);
-        batch.end();
-    }
-
-    private void showTableToast(String value, float durationSeconds) {
-        if (value == null || value.isBlank()) return;
-        float duration = Float.isFinite(durationSeconds)
-                ? Math.max(0.25f, durationSeconds) : 2f;
-        advanceTableToast();
-        if (!screenshotToast.isBlank() && totalTime < screenshotToastUntil) {
-            pendingTableToasts.addLast(new TableToast(value, duration));
-            return;
-        }
-        screenshotToast = value;
-        screenshotToastUntil = totalTime + duration;
+    private void postTableNotice(GdxTableChatFeed.Kind kind, String sender,
+            String text) {
+        if (disposed || text == null || text.isBlank()) return;
+        chatFeed.add(GdxTableChatFeed.Line.notice(kind, sender, text),
+                totalTime, true);
     }
 
     private void showShortcutToast(String status) {
@@ -23753,26 +23675,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case "conflict" -> "gdx.settings.shortcut.status.conflict";
             default -> "gdx.settings.shortcut.status.unsupported";
         };
-        showTableToast(gameText.translate(key), 2.8f);
+        postTableNotice("updated".equals(status) ? GdxTableChatFeed.Kind.SUCCESS
+                : GdxTableChatFeed.Kind.WARNING, "", gameText.translate(key));
     }
 
     private void showSettingsDefaultsRestoredToast() {
-        showTableToast(gameText.translate(
-                "gdx.settings.defaults_restored"), 2.8f);
-    }
-
-    private void advanceTableToast() {
-        if (!screenshotToast.isBlank() && totalTime < screenshotToastUntil) {
-            return;
-        }
-        TableToast next = pendingTableToasts.pollFirst();
-        if (next == null) {
-            screenshotToast = "";
-            screenshotToastUntil = 0f;
-            return;
-        }
-        screenshotToast = next.text();
-        screenshotToastUntil = totalTime + next.durationSeconds();
+        postTableNotice(GdxTableChatFeed.Kind.SUCCESS, "",
+                gameText.translate("gdx.settings.defaults_restored"));
     }
 
     private static float dialogAmountAlpha(GdxTableDialog dialog) {
@@ -23782,56 +23691,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return 0.34f;
         }
         return 1f;
-    }
-
-    static Rectangle tableNotificationBounds(float worldWidth,
-            float worldHeight) {
-        return tableNotificationBounds(worldWidth, worldHeight,
-                TABLE_NOTIFICATION_MAX_WIDTH);
-    }
-
-    static Rectangle tableNotificationBounds(float worldWidth,
-            float worldHeight, float desiredWidth) {
-        return GdxTransientNoticeLayout.topCentered(worldWidth, worldHeight,
-                desiredWidth, TABLE_NOTIFICATION_HEIGHT,
-                TABLE_NOTIFICATION_TOP_INSET, 40f);
-    }
-
-    private void drawVolumeOverlay() {
-        if (totalTime >= volumeOverlayUntil) return;
-        float width = GdxVolumeOverlayStyle.WIDTH;
-        float height = GdxVolumeOverlayStyle.HEIGHT;
-        float x = (viewport.getWorldWidth() - width) / 2f;
-        float y = (viewport.getWorldHeight() - height) / 2f;
-        float volume = effectsVolume;
-        boolean outputAvailable = audioOutputAvailable();
-        Color accent = outputAvailable && volume > 0f ? CYAN : FOLD_RED;
-        float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
-        float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
-        float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
-        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
-        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
-        roundedRect(x, y, width, height, 13f);
-        shapes.setColor(0.15f, 0.20f, 0.28f, 1f);
-        roundedRect(barX, barY, barW,
-                GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
-        if (volume > 0f) {
-            shapes.setColor(accent);
-            roundedRect(barX, barY, barW * volume,
-                    GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
-        }
-        shapes.end();
-        batch.begin();
-        batch.setColor(outputAvailable ? Color.WHITE : FOLD_RED);
-        batch.draw(outputAvailable && volume > 0f ? soundIcon : muteIcon,
-                x + 22f, y + 21f, 58f, 58f);
-        drawFittedCenteredInBox(uiFont, Math.round(volume * 100f) + "%",
-                barX, barY, barW, GdxVolumeOverlayStyle.BAR_HEIGHT,
-                Color.WHITE, 1f);
-        batch.end();
     }
 
     private void drawActiveDialog() {
@@ -25136,6 +24995,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return liveGameRuleAccess();
     }
 
+    private SettingsRowAccess straddleTimeoutAccess() {
+        return dependentAccess(SettingsRowAccess.EDITABLE,
+                GdxLiveSettingsPolicy.canEditStraddleOnTimeout(liveSettingsDraft));
+    }
+
     private static SettingsRowAccess dependentAccess(
             SettingsRowAccess parent, boolean dependencyEnabled) {
         if (parent != SettingsRowAccess.EDITABLE) return parent;
@@ -25845,8 +25709,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else {
                 if (purge) {
                     setVoiceStatusText(gameText.translate(
-                            "audio.purgar_notas_resultado", deleted),
-                            VOICE_STATUS_SECONDS);
+                            "audio.purgar_notas_resultado", deleted));
                 }
                 reloadTableVoiceNotes();
             }
@@ -26148,7 +26011,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_STRADDLE_TIMEOUT_ROW);
             drawLiveSettingsToggleShape(timeout.x, timeout.y, timeout.width,
-                    settingsStraddleTimeoutDraft, SettingsRowAccess.EDITABLE,
+                    settingsStraddleTimeoutDraft, straddleTimeoutAccess(),
                     alpha);
             drawLiveSettingsActionShape(manage.x, manage.y, manage.width,
                     SettingsRowAccess.LIVE_LOCKED, alpha);
@@ -27135,7 +26998,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsGameText("row.straddle_on_timeout"),
                     GdxSettingsContract.booleanStatusLabel(
                             settingsStraddleTimeoutDraft, false, gameText),
-                    SettingsRowAccess.EDITABLE, alpha);
+                    straddleTimeoutAccess(), alpha);
             drawLiveSettingsActionText(manage.x, manage.y, manage.width,
                     settingsGameText("row.manage_structures"),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
@@ -27508,8 +27371,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void copySettingsDebugLog() {
         Gdx.app.getClipboard().setContents(DebugLog.snapshot());
-        showTableToast(uppercase(gameText.translate(
-                "gdx.settings.debug.copied")), 1.5f);
+        postTableNotice(GdxTableChatFeed.Kind.SUCCESS, "",
+                gameText.translate("gdx.settings.debug.copied"));
     }
 
     private void drawSettingsRowText(float x, float y, float width,
@@ -29224,6 +29087,184 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawTableChatFeed() {
+        List<GdxTableChatFeed.Visible> lines = booleanPreference(tableProperties,
+                GdxSettingsContract.TABLE_CHAT_FEED_KEY, true)
+                        ? chatFeed.visible(totalTime) : List.of();
+        if (uiLayer == UI_CHAT && !chatImageMode) return;
+        if (lines.isEmpty() && !voiceLive) {
+            feedGlyphs.clear();
+            newestFeedLine = null;
+            return;
+        }
+        float worldWidth = viewport.getWorldWidth();
+        float bottom = Math.max(LOCAL_HUD_SAFE_TOP,
+                FAST_BAR_Y + FAST_BUTTON_SIZE + 2f * FAST_BAR_PADDING + 14f);
+        float top = bottom + GdxTableChatFeed.VISIBLE_LIMIT
+                * (smallFont.getCapHeight() + smallFont.getLineHeight() + 9f);
+        // The lower left seats occupy the chat lane on fuller tables. Keep
+        // the feed inside the left half, with a clear lane beside those pods.
+        float right = worldWidth * 0.39f;
+        int obstacles = 0;
+        for (int index = 1; index < seats.length; index++) {
+            Seat seat = seats[index];
+            if (seat == null || seatPresenceAlpha(index) <= 0f
+                    || seat.podY > top || seat.y + AVATAR_OUTER_RADIUS < bottom
+                    || seat.podX - 12f >= right) {
+                continue;
+            }
+            feedSeatObstacles[obstacles++] = seat.podX - 12f;
+        }
+        Arrays.sort(feedSeatObstacles, 0, obstacles);
+        float x = QUICK_CHAT_SCREEN_MARGIN;
+        float laneWidth = 0f;
+        float laneStart = x;
+        for (int index = 0; index <= obstacles; index++) {
+            float laneEnd = index == obstacles ? right : feedSeatObstacles[index];
+            if (laneEnd - laneStart > laneWidth) {
+                x = laneStart;
+                laneWidth = laneEnd - laneStart;
+            }
+            laneStart = Math.max(laneStart, laneEnd + PLAYER_POD_WIDTH + 24f);
+        }
+        float width = Math.max(1f, Math.min(quickChatWidth(),
+                Math.min(590f, laneWidth)));
+        if (feedGlyphFont != smallFont || feedGlyphWidth != width) {
+            feedGlyphs.clear();
+            feedGlyphFont = smallFont;
+            feedGlyphWidth = width;
+        }
+        feedGlyphs.keySet().removeIf(line -> lines.stream()
+                .noneMatch(visible -> visible.line() == line));
+        if (!lines.isEmpty() && newestFeedLine != lines.get(lines.size() - 1)) {
+            newestFeedLine = lines.get(lines.size() - 1);
+            feedSlideStartedAt = totalTime;
+        }
+        float slide = Interpolation.fade.apply(MathUtils.clamp(
+                (totalTime - feedSlideStartedAt) / 0.16f, 0f, 1f));
+        clipChatText(x, bottom, width, viewport.getWorldHeight() - bottom);
+        batch.begin();
+        float rowBottom = bottom;
+        if (voiceLive) {
+            int remaining = Math.max(0, (int) Math.ceil(
+                    VOICE_RECORD_MAX_SECONDS - (totalTime - voiceLiveAt)));
+            GdxTableChatFeed.Line recording = GdxTableChatFeed.Line.notice(
+                    GdxTableChatFeed.Kind.WARNING, "", gameText.translate(
+                            "gdx.table.chat.voice_recording") + " (" + remaining + " s)");
+            layoutChatLine(chatLineGlyph, recording, recording.text(), width);
+            drawChatLine(chatLineGlyph, x, rowBottom + chatLineGlyph.height + 5f, 1f);
+            rowBottom += chatLineGlyph.height + 10f;
+        }
+        for (int index = lines.size() - 1; index >= 0; index--) {
+            GdxTableChatFeed.Visible visible = lines.get(index);
+            GlyphLayout layout = feedGlyphs.computeIfAbsent(visible.line(),
+                    line -> layoutFeedLine(line, width));
+            float rowHeight = layout.height + 9f;
+            if (index == lines.size() - 1) rowBottom -= (1f - slide) * rowHeight;
+            drawChatLine(layout, x, rowBottom + rowHeight - 4f,
+                    visible.alpha(totalTime));
+            rowBottom += rowHeight;
+        }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private GlyphLayout layoutFeedLine(GdxTableChatFeed.Line line, float width) {
+        GlyphLayout layout = new GlyphLayout();
+        String text = line.text();
+        int codePoints = text.codePointCount(0, text.length());
+        int limit = Math.min(codePoints, 240);
+        float maxHeight = smallFont.getCapHeight() + smallFont.getLineHeight() + 1f;
+        layoutChatLine(layout, line, chatPreview(text, codePoints, limit), width);
+        if (layout.height <= maxHeight) return layout;
+        int low = 0;
+        int high = limit;
+        while (low < high) {
+            int mid = (low + high + 1) / 2;
+            layoutChatLine(layout, line, chatPreview(text, codePoints, mid), width);
+            if (layout.height <= maxHeight) low = mid;
+            else high = mid - 1;
+        }
+        layoutChatLine(layout, line, chatPreview(text, codePoints, low), width);
+        return layout;
+    }
+
+    private static String chatPreview(String text, int length, int limit) {
+        return limit >= length ? text
+                : text.substring(0, text.offsetByCodePoints(0, limit)).stripTrailing() + "...";
+    }
+
+    private void layoutChatLine(GlyphLayout layout, GdxTableChatFeed.Line line,
+            String text, float width) {
+        var data = smallFont.getData();
+        boolean markup = data.markupEnabled;
+        data.markupEnabled = true;
+        try {
+            layout.setText(smallFont, line.markup(text), Color.WHITE,
+                    width, Align.left, true);
+        } finally {
+            data.markupEnabled = markup;
+        }
+    }
+
+    private void drawChatLine(GlyphLayout layout, float x, float y, float alpha) {
+        GdxPixelText.draw(smallFont, batch, layout, x, y,
+                chatLineTint.set(1f, 1f, 1f, alpha), viewport);
+    }
+
+    private void clipChatText(float x, float y, float width, float height) {
+        float sx = viewport.getScreenWidth() / viewport.getWorldWidth();
+        float sy = viewport.getScreenHeight() / viewport.getWorldHeight();
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        HdpiUtils.glScissor(viewport.getScreenX() + Math.round(x * sx),
+                viewport.getScreenY() + Math.round(y * sy),
+                Math.max(1, Math.round(width * sx)), Math.max(1, Math.round(height * sy)));
+    }
+
+    private static float quickChatTextWidth(float historyWidth,
+            GdxTableChatFeed.Line line) {
+        return Math.max(1f, historyWidth - (line.isVoice() ? 130f : 50f));
+    }
+
+    private float quickChatContentHeight() {
+        return quickChatRowEnds.isEmpty() ? 0f
+                : quickChatRowEnds.get(quickChatRowEnds.size() - 1);
+    }
+
+    private float quickChatContentTop(Rectangle history) {
+        return history.y + 8f + Math.max(history.height - 16f,
+                quickChatContentHeight()) - quickChatScroll;
+    }
+
+    private int quickChatRowAt(float offset) {
+        int index = Collections.binarySearch(quickChatRowEnds, offset);
+        return index >= 0 ? index + 1 : -index - 1;
+    }
+
+    private void updateQuickChatRows(List<GdxTableChatFeed.Line> messages,
+            float width, float viewportHeight) {
+        boolean rebuild = quickChatRowFont != smallFont || quickChatRowWidth != width;
+        if (rebuild) {
+            quickChatRowEnds.clear();
+            quickChatRowFont = smallFont;
+            quickChatRowWidth = width;
+        }
+        float previousHeight = quickChatContentHeight();
+        float height = previousHeight;
+        for (int index = quickChatRowEnds.size(); index < messages.size(); index++) {
+            GdxTableChatFeed.Line message = messages.get(index);
+            layoutChatLine(chatLineGlyph, message, message.text(),
+                    quickChatTextWidth(width, message));
+            height += Math.max(30f, chatLineGlyph.height + 10f);
+            quickChatRowEnds.add(height);
+        }
+        if (!rebuild && quickChatScroll > 0f) {
+            quickChatScroll += height - previousHeight;
+        }
+        quickChatScrollMaximum = Math.max(0f, height - viewportHeight);
+        quickChatScroll = MathUtils.clamp(quickChatScroll, 0f, quickChatScrollMaximum);
+    }
+
     private void drawQuickChatDialog() {
         float alpha = uiFade();
         float panelX = QUICK_CHAT_SCREEN_MARGIN;
@@ -29236,16 +29277,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float historyH = panelH - 114f;
         Rectangle scrollTrack = quickChatScrollbarTrack();
         float inputY = panelY + 14f;
-        List<LobbyChatMessage> messages = visibleTableChatMessages();
+        List<GdxTableChatFeed.Line> messages = chatFeed.history();
+        Rectangle history = quickChatHistoryBounds();
         float historyViewportH = Math.max(0f, historyH - 16f);
-        quickChatScrollMaximum = quickChatMaximumPixelScroll(messages.size(),
-                historyViewportH);
-        if (messages.size() > quickChatMessageCount && quickChatScroll > 0f) {
-            quickChatScroll += (messages.size() - quickChatMessageCount) * 30f;
-        }
-        quickChatMessageCount = messages.size();
-        quickChatScroll = MathUtils.clamp(quickChatScroll, 0f,
-                quickChatScrollMaximum);
+        updateQuickChatRows(messages, historyW, historyViewportH);
+        float contentTop = quickChatContentTop(history);
+        int first = quickChatRowAt(contentTop - (historyY + historyH - 8f));
+        int end = Math.min(messages.size(),
+                quickChatRowAt(contentTop - (historyY + 8f)) + 1);
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -29298,15 +29337,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(scrollTrack.x, thumbY,
                     scrollTrack.width, thumbH, 7f);
         }
-        for (int line = 0; line < messages.size(); line++) {
-            LobbyChatMessage message = messages.get(line);
-            if (message.type() != LobbyChatMessage.Type.VOICE) continue;
-            float rowY = anchoredPixelRowY(messages.size(), line, 30f,
-                    historyY + 8f, historyViewportH, quickChatScroll,
-                    quickChatScrollMaximum);
-            if (rowY + 30f < historyY + 8f
-                    || rowY > historyY + historyH - 8f) continue;
-            boolean active = quickChatVoiceSequence == message.sequence();
+        shapes.end();
+
+        clipChatText(historyX + 8f, historyY + 8f, historyW - 36f,
+                historyViewportH);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        for (int line = first; line < end; line++) {
+            GdxTableChatFeed.Line message = messages.get(line);
+            if (!message.isVoice()) continue;
+            float rowY = contentTop - quickChatRowEnds.get(line);
+            boolean active = quickChatVoiceSequence == message.voiceSequence();
             float playX = historyX + historyW - 112f;
             shapes.setColor(active ? CYAN : Color.WHITE);
             if (active && !quickChatVoicePaused) {
@@ -29321,19 +29361,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shapes.rect(historyX + historyW - 55f, rowY + 7f, 17f, 17f);
         }
         shapes.end();
-
-        int screenX = Math.round(viewport.getScreenX()
-                + (historyX + 8f) * viewport.getScreenWidth()
-                / viewport.getWorldWidth());
-        int screenY = Math.round(viewport.getScreenY()
-                + (historyY + 8f) * viewport.getScreenHeight()
-                / viewport.getWorldHeight());
-        int screenWidth = Math.max(1, Math.round((historyW - 36f)
-                * viewport.getScreenWidth() / viewport.getWorldWidth()));
-        int screenHeight = Math.max(1, Math.round(historyViewportH
-                * viewport.getScreenHeight() / viewport.getWorldHeight()));
-        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        HdpiUtils.glScissor(screenX, screenY, screenWidth, screenHeight);
         batch.begin();
         if (messages.isEmpty()) {
             drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
@@ -29341,18 +29368,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     historyX + 12f, historyY + historyH / 2f - 14f,
                     historyW - 24f, 28f, Color.GRAY, alpha);
         } else {
-            for (int line = 0; line < messages.size(); line++) {
-                float rowY = anchoredPixelRowY(messages.size(), line, 30f,
-                        historyY + 8f, historyViewportH, quickChatScroll,
-                        quickChatScrollMaximum);
-                if (rowY + 30f < historyY + 8f
-                        || rowY > historyY + historyH - 8f) continue;
-                LobbyChatMessage message = messages.get(line);
-                String text = quickChatHistoryText(message, gameText);
-                drawLeftInBox(smallFont, text, historyX + 12f,
-                        rowY, historyW - (message.type()
-                                == LobbyChatMessage.Type.VOICE ? 130f : 50f),
-                        28f, Color.WHITE, alpha);
+            for (int line = first; line < end; line++) {
+                GdxTableChatFeed.Line message = messages.get(line);
+                float top = line == 0 ? contentTop
+                        : contentTop - quickChatRowEnds.get(line - 1);
+                layoutChatLine(chatLineGlyph, message, message.text(),
+                        quickChatTextWidth(historyW, message));
+                drawChatLine(chatLineGlyph, historyX + 12f, top - 5f, alpha);
             }
         }
         batch.end();
@@ -29369,49 +29391,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLeftInBox(smallFont, draft, panelX + 27f, inputY + 3f,
                 panelW - 54f, 36f,
                 chatDraft.isEmpty() ? Color.GRAY : Color.WHITE, alpha);
-        if (!chatError.isBlank()) {
-            drawLeftInBox(smallFont, chatError, panelX + 18f,
-                    panelY + panelH - 30f, panelW - 36f, 24f,
-                    FOLD_RED, alpha);
-        }
         batch.end();
     }
 
-    static String quickChatHistoryText(LobbyChatMessage message,
+    static String quickChatMessageBody(LobbyChatMessage message,
             GdxGameText gameText) {
-        String content = switch (message.type()) {
+        return switch (message.type()) {
             case IMAGE -> gameText.translate("gdx.table.chat.image_label");
             case VOICE -> gameText.translate("gdx.table.chat.voice_label");
             default -> message.content();
         };
-        return message.nickname() + ": " + content;
     }
 
     static float quickChatAutoCloseSwitchX(float panelX, float panelWidth,
             float labelWidth) {
         float afterLabel = panelX + 18f + Math.max(0f, labelWidth) + 12f;
         return Math.min(panelX + panelWidth - 58f, afterLabel);
-    }
-
-    static float seatChatNoticeDuration(LobbyChatMessage.Type type,
-            String content) {
-        if (type == LobbyChatMessage.Type.IMAGE) return 9f;
-        if (type == LobbyChatMessage.Type.VOICE) return 60f;
-        String spoken = GdxTextToSpeechPlayback.cleanChatMessage(content);
-        int length = spoken.codePointCount(0, spoken.length());
-        return Math.max(3f, (float) Math.ceil(length / 25d));
-    }
-
-    /** Last-resort visual timeout when an audio completion callback is lost. */
-    static float seatChatPlaybackWatchdog(LobbyChatMessage.Type type,
-            String content) {
-        if (type == LobbyChatMessage.Type.VOICE) {
-            return VoiceWavContract.MAX_SECONDS + 1f;
-        }
-        // Text visuals are deliberately independent from TTS. Keeping this
-        // fallback equal to the normal duration prevents future call sites
-        // from reintroducing the old 7.5-18 second stuck-icon behaviour.
-        return seatChatNoticeDuration(type, content);
     }
 
     /** Mirrors the Swing TTS watchdog rule for voice-note seat notices. */
@@ -29423,44 +29418,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static boolean shouldShowSeatNotice(LobbyChatMessage.Type type,
-            boolean notificationsEnabled, boolean chatImagesInGame,
-            boolean voiceNoticeEnabled, boolean senderMediaBlocked,
-            boolean ownMessage) {
-        if (type == null) return false;
+            boolean chatImagesInGame, boolean voiceNoticeEnabled,
+            boolean senderMediaBlocked) {
+        if (type == null || senderMediaBlocked) return false;
         return switch (type) {
-            case TEXT -> notificationsEnabled;
-            // ChatImageDialog enqueues the sender's own image directly while
-            // playing, outside CHAT_GAME_NOTIFICATIONS. It is the local send
-            // confirmation and therefore must survive that remote-notice gate.
-            case IMAGE -> (notificationsEnabled || ownMessage)
-                    && chatImagesInGame && !senderMediaBlocked;
-            case VOICE -> (notificationsEnabled || ownMessage)
-                    && voiceNoticeEnabled && !senderMediaBlocked;
-            case PLAYER_JOINED, PLAYER_LEFT -> false;
+            case IMAGE -> chatImagesInGame;
+            case VOICE -> voiceNoticeEnabled;
+            case TEXT, PLAYER_JOINED, PLAYER_LEFT -> false;
         };
     }
 
-    static boolean shouldDisplaySeatNotice(LobbyChatMessage.Type type,
-            boolean eligibleNotice, boolean spokenText) {
-        // Spoken text gets a seat acknowledgement immediately; its lifecycle
-        // must never depend on an OpenAL device or a TTS callback. Muted,
-        // disabled or blocked TTS still uses the separate silent notice.
-        return eligibleNotice
-                && (type != LobbyChatMessage.Type.TEXT || spokenText);
-    }
-
-    static boolean shouldShowSilentTextNotice(LobbyChatMessage.Type type,
-            boolean eligibleNotice, boolean spokenText) {
-        return type == LobbyChatMessage.Type.TEXT && eligibleNotice
-                && !spokenText;
-    }
-
-    /** Same gates evaluated by Swing's in-game TTS watchdog. */
     static boolean shouldSpeakTableChat(LobbyChatMessage.Type type,
-            boolean notificationsEnabled, boolean soundEnabled,
-            boolean textToSpeechEnabled, boolean textToSpeechBlocked,
-            boolean senderBlocked) {
-        return type == LobbyChatMessage.Type.TEXT && notificationsEnabled
+            boolean soundEnabled, boolean textToSpeechEnabled,
+            boolean textToSpeechBlocked, boolean senderBlocked) {
+        return type == LobbyChatMessage.Type.TEXT
                 && soundEnabled && textToSpeechEnabled
                 && !textToSpeechBlocked && !senderBlocked;
     }
@@ -29531,14 +29502,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float tableTextWidth(BitmapFont font, String value) {
         glyph.setText(font, value);
         return glyph.width;
-    }
-
-    private List<LobbyChatMessage> visibleTableChatMessages() {
-        if (tableChat == null) return List.of();
-        return tableChat.history().stream().filter(message ->
-                message.type() == LobbyChatMessage.Type.TEXT
-                || message.type() == LobbyChatMessage.Type.IMAGE
-                || message.type() == LobbyChatMessage.Type.VOICE).toList();
     }
 
     private void preloadVisibleChatEmojiTextures(
@@ -30933,7 +30896,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(communityStraddleIcon);
         disposeSafely(soundIcon);
         disposeSafely(muteIcon);
-        disposeSafely(blockedSoundIcon);
         disposeSafely(lightsOnIcon);
         disposeSafely(lightsOffIcon);
         disposeSafely(pauseIcon);
@@ -31210,7 +31172,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeScreenshotTexture();
         soundIcon.dispose();
         muteIcon.dispose();
-        blockedSoundIcon.dispose();
         lightsOnIcon.dispose();
         lightsOffIcon.dispose();
         pauseIcon.dispose();
@@ -31235,8 +31196,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         tableAvatarTextures.clear();
         for (SeatChatNotice notice : seatChatNotices.values()) notice.dispose();
         seatChatNotices.clear();
-        silentChatNotices.clear();
-        pendingTableToasts.clear();
+        chatFeed.clear();
+        feedGlyphs.clear();
+        newestFeedLine = null;
+        quickChatRowEnds.clear();
         blockedSeatMediaNotices.clear();
         if (tableChat != null) tableChat.close();
     }
@@ -31256,27 +31219,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (preparation != null) preparation.cancel(true);
         preparedRecovery = null;
         preparedRecoveryPath = "";
-    }
-
-    private static final class SilentChatNotice {
-
-        final String nickname;
-        final String content;
-        final boolean senderBlocked;
-        final float duration;
-        float startedAt = -1f;
-        float expiresAt = Float.POSITIVE_INFINITY;
-
-        SilentChatNotice(String nickname, String content,
-                boolean senderBlocked, float duration) {
-            this.nickname = nickname;
-            this.content = content;
-            this.senderBlocked = senderBlocked;
-            this.duration = duration;
-        }
-    }
-
-    private record TableToast(String text, float durationSeconds) {
     }
 
     private static final class LiveAudioPlayback {

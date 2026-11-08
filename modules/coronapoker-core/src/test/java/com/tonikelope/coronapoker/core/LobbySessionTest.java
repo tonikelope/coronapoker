@@ -35,7 +35,7 @@ final class LobbySessionTest {
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
                 List.of(participant("José", true, true, false),
                         participant(decomposed, false, false, false)),
-                List.of(), null, false, true));
+                List.of(), null, false));
     }
 
     @Test
@@ -186,7 +186,7 @@ final class LobbySessionTest {
                 phase, "", participants,
                 List.of(new LobbyChatMessage(0L, Instant.EPOCH, "Host",
                         LobbyChatMessage.Type.TEXT, "Bienvenido")),
-                null, false, true);
+                null, false);
     }
 
     private static LobbyParticipant participant(String nickname, boolean local,

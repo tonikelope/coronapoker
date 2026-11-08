@@ -81,21 +81,6 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void tableNotificationsShareOneTopCentredBand() {
-        Rectangle fullHd = CoronaPokerGdxTable.tableNotificationBounds(
-                1_920f, 1_080f);
-        Rectangle compact = CoronaPokerGdxTable.tableNotificationBounds(
-                1_360f, 768f);
-
-        assertEquals(550f, fullHd.x, 0.001f);
-        assertEquals(890f, fullHd.y, 0.001f);
-        assertEquals(820f, fullHd.width, 0.001f);
-        assertEquals(92f, fullHd.height, 0.001f);
-        assertEquals((1_360f - compact.width) / 2f, compact.x, 0.001f);
-        assertEquals(578f, compact.y, 0.001f);
-    }
-
-    @Test
     void cardsUseTheTextureFilterAndModeProfilesSelectedInTheLab() {
         assertTrue(CoronaPokerGdxTable.cardMipMapsEnabled());
         assertEquals(TextureFilter.MipMapLinearNearest,
@@ -1529,25 +1514,23 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void tableTtsUsesTheSameNotificationGatesAsSwing() {
+    void tableTtsFollowsAudioAndTextToSpeechSettings() {
         assertTrue(CoronaPokerGdxTable.chatAudioAvailable(true, true));
         assertFalse(CoronaPokerGdxTable.chatAudioAvailable(true, false),
-                "a missing physical output must select the mute notice and skip TTS");
+                "a missing physical output must skip TTS");
         assertFalse(CoronaPokerGdxTable.chatAudioAvailable(false, true));
         assertTrue(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, true, true, true, false, false));
+                LobbyChatMessage.Type.TEXT, true, true, false, false));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, false, true, true, false, false));
+                LobbyChatMessage.Type.TEXT, false, true, false, false));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, true, false, true, false, false));
+                LobbyChatMessage.Type.TEXT, true, false, false, false));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, true, true, false, false, false));
+                LobbyChatMessage.Type.TEXT, true, true, true, false));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, true, true, true, true, false));
+                LobbyChatMessage.Type.TEXT, true, true, false, true));
         assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.TEXT, true, true, true, false, true));
-        assertFalse(CoronaPokerGdxTable.shouldSpeakTableChat(
-                LobbyChatMessage.Type.IMAGE, true, true, true, false, false));
+                LobbyChatMessage.Type.IMAGE, true, true, false, false));
     }
 
     @Test
@@ -3282,8 +3265,6 @@ final class GdxTableViewStateTest {
 
     @Test
     void quickChatScrollMovesByPixelsAndMapsTheWholeDragTrack() {
-        assertEquals(180f, CoronaPokerGdxTable
-                .quickChatMaximumPixelScroll(10, 120f));
         assertEquals(36f, CoronaPokerGdxTable
                 .quickChatPixelScrollAfterWheel(0f, 180f, -1f));
         assertEquals(0f, CoronaPokerGdxTable

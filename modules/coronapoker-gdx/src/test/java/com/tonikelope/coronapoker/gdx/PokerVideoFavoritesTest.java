@@ -140,11 +140,14 @@ class PokerVideoFavoritesTest {
         }
     }
 
-    @Test void manuallyEnablingVideosLaterStillOpensEvenWhenStartupIsOff() throws Exception {
+    @Test void manuallyEnablingVideosLaterWaitsForAnIconClick() throws Exception {
         try (var overlay = new PokerVideoOverlay(new PokerVideoFavorites(
                 directory.resolve("favorites.properties")), ignored -> { }, false)) {
             overlay.update(true, false, true, "es", "shorts", 1920f, 1080f);
-            prepare(overlay, 260f);
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+            assertEquals(true, value(overlay, "minimized"));
+            assertEquals(false, value(overlay, "initializationStarted"));
+            click(overlay, "iconBounds");
             assertEquals(false, value(overlay, "minimized"));
         }
     }

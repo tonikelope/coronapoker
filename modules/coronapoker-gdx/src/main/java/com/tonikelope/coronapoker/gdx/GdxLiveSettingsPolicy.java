@@ -36,6 +36,11 @@ final class GdxLiveSettingsPolicy {
                 && configuration.rebuy();
     }
 
+    static boolean canEditStraddleOnTimeout(
+            GameConfigCodecV1.Configuration configuration) {
+        return configuration != null && configuration.straddle();
+    }
+
     static int minimumHandLimit(int currentHand) {
         return (int) Math.min(MAXIMUM_HAND_LIMIT,
                 Math.max(1L, (long) currentHand + 1L));

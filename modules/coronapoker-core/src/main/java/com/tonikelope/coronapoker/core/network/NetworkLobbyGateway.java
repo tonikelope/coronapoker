@@ -361,7 +361,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile Connection serverConnection;
         private volatile LobbySession session;
         private String serverNickname;
-        private boolean chatNotifications = true;
 
         private Transport(boolean host, NewGameRequest request, Path coronaDirectory,
                 ExecutorService executor, byte[] sessionId, PlayerIdentity identity,
@@ -1015,7 +1014,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     else if (command instanceof LobbyCommand.SetHotJoinPolicy policy) {
                         setHotJoinPolicy(policy.enabled());
                     }
-                    else if (command instanceof LobbyCommand.SetChatNotifications notifications) setNotifications(notifications.enabled());
                     else if (command instanceof LobbyCommand.StartGame) startGame();
                     else if (command instanceof LobbyCommand.Leave) leave();
                 } catch (Exception failure) {
@@ -1219,11 +1217,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     // or prevent healthy peers from receiving it.
                 }
             }
-        }
-
-        private synchronized void setNotifications(boolean enabled) {
-            chatNotifications = enabled;
-            publishCurrent();
         }
 
         private void leave() {
@@ -2233,7 +2226,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             peer.botAutomaticRebuy)).toList();
             return new LobbySnapshot(localNickname, serverNickname, endpoint,
                     host, phase, effectiveDetail == null ? "" : effectiveDetail,
-                    participants, List.copyOf(chat), tableSettings, recovering, chatNotifications);
+                    participants, List.copyOf(chat), tableSettings, recovering);
         }
 
         private synchronized void publish(LobbySnapshot.Phase phase, String detail) {

@@ -2,10 +2,8 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -32,46 +30,18 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     @Test
-    void hostPublishesChangedTableAndChatNotificationSettings() {
+    void onlyChangedHostTableSettingsRequireALobbyCommand() {
         NewGameTableDraft table = new NewGameTableDraft();
         NewGameTableDraft.Settings original = table.snapshot();
         table.setThinkSeconds(original.thinkSeconds() + 1);
         NewGameTableDraft.Settings changed = table.snapshot();
 
-        List<LobbyCommand> commands = GdxFrontendScreen
-                .lobbySettingsCommands(snapshot(true, original, true),
-                        changed, false);
-
-        assertEquals(2, commands.size());
-        assertEquals(changed, assertInstanceOf(
-                LobbyCommand.UpdateTableSettings.class, commands.get(0))
-                .settings());
-        assertEquals(false, assertInstanceOf(
-                LobbyCommand.SetChatNotifications.class, commands.get(1))
-                .enabled());
-    }
-
-    @Test
-    void clientPublishesOnlyItsLocalChatNotificationPreference() {
-        NewGameTableDraft.Settings settings =
-                new NewGameTableDraft().snapshot();
-
-        List<LobbyCommand> commands = GdxFrontendScreen
-                .lobbySettingsCommands(snapshot(false, settings, true),
-                        settings, false);
-
-        assertEquals(1, commands.size());
-        assertInstanceOf(LobbyCommand.SetChatNotifications.class,
-                commands.get(0));
-    }
-
-    @Test
-    void unchangedLobbySettingsDoNotProduceNetworkWork() {
-        NewGameTableDraft.Settings settings =
-                new NewGameTableDraft().snapshot();
-
-        assertEquals(List.of(), GdxFrontendScreen.lobbySettingsCommands(
-                snapshot(true, settings, true), settings, true));
+        assertTrue(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
+                snapshot(true, original), changed));
+        assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
+                snapshot(false, original), changed));
+        assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
+                snapshot(true, original), original));
     }
 
     @Test
@@ -646,7 +616,8 @@ final class GdxFrontendSettingsWiringTest {
                     "shortcut results must never remain embedded in settings");
         }
         assertTrue(frontend.contains("showToast(gameText.translate("));
-        assertTrue(table.contains("showTableToast(gameText.translate("));
+        assertTrue(table.contains("postTableNotice(GdxTableChatFeed.Kind.SUCCESS"));
+        assertTrue(table.contains("chatFeed.add(GdxTableChatFeed.Line.notice("));
     }
 
     @Test
@@ -864,7 +835,7 @@ final class GdxFrontendSettingsWiringTest {
     }
 
     private static LobbySnapshot snapshot(boolean host,
-            NewGameTableDraft.Settings settings, boolean notifications) {
+            NewGameTableDraft.Settings settings) {
         LobbyParticipant local = new LobbyParticipant(
                 host ? "server" : "client", null, true, host, false, true,
                 false, true, LobbyParticipant.NO_LATENCY,
@@ -876,7 +847,6 @@ final class GdxFrontendSettingsWiringTest {
         return new LobbySnapshot(local.nickname(), "server",
                 "localhost:2345", host,
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
-                List.of(local, remote), List.of(), settings, false,
-                notifications);
+                List.of(local, remote), List.of(), settings, false);
     }
 }

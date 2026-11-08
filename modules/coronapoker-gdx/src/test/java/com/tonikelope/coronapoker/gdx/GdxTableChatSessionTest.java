@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,14 +107,14 @@ final class GdxTableChatSessionTest {
         LobbyChatMessage voice = new LobbyChatMessage(2L, Instant.EPOCH,
                 "Luis", LobbyChatMessage.Type.VOICE, "UklGRg==");
 
-        assertEquals("Ana: [IMAGEN]", CoronaPokerGdxTable
-                .quickChatHistoryText(image, new GdxGameText("es")));
-        assertEquals("Luis: [NOTA DE VOZ]", CoronaPokerGdxTable
-                .quickChatHistoryText(voice, new GdxGameText("es")));
-        assertEquals("Ana: [IMAGE]", CoronaPokerGdxTable
-                .quickChatHistoryText(image, new GdxGameText("en")));
-        assertEquals("Luis: [VOICE MESSAGE]", CoronaPokerGdxTable
-                .quickChatHistoryText(voice, new GdxGameText("en")));
+        assertEquals("[IMAGEN]", CoronaPokerGdxTable
+                .quickChatMessageBody(image, new GdxGameText("es")));
+        assertEquals("[NOTA DE VOZ]", CoronaPokerGdxTable
+                .quickChatMessageBody(voice, new GdxGameText("es")));
+        assertEquals("[IMAGE]", CoronaPokerGdxTable
+                .quickChatMessageBody(image, new GdxGameText("en")));
+        assertEquals("[VOICE MESSAGE]", CoronaPokerGdxTable
+                .quickChatMessageBody(voice, new GdxGameText("en")));
     }
 
     @Test
@@ -165,28 +166,6 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
-    void textNoticeUsesTheSwingThreeSecondMinimumAndVoiceTracksPlayback() {
-        assertEquals(3f, CoronaPokerGdxTable.seatChatNoticeDuration(
-                LobbyChatMessage.Type.TEXT, "#12#"));
-        assertEquals(4f, CoronaPokerGdxTable.seatChatNoticeDuration(
-                LobbyChatMessage.Type.TEXT, "x".repeat(76)));
-        assertEquals(3f, CoronaPokerGdxTable.seatChatNoticeDuration(
-                LobbyChatMessage.Type.TEXT, "#12# ".repeat(30)));
-        assertEquals(60f, CoronaPokerGdxTable.seatChatNoticeDuration(
-                LobbyChatMessage.Type.VOICE, "UklGRg=="));
-    }
-
-    @Test
-    void textIndicatorNeverInheritsTheLongAudioWatchdog() {
-        assertEquals(3f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
-                LobbyChatMessage.Type.TEXT, "hola"));
-        assertEquals(4f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
-                LobbyChatMessage.Type.TEXT, "x".repeat(76)));
-        assertEquals(16f, CoronaPokerGdxTable.seatChatPlaybackWatchdog(
-                LobbyChatMessage.Type.VOICE, "UklGRg=="));
-    }
-
-    @Test
     void audioSeatIndicatorKeepsAQuarterSecondIdentificationTail() {
         assertEquals(0.25f,
                 CoronaPokerGdxTable.SEAT_CHAT_AUDIO_TAIL_SECONDS);
@@ -212,85 +191,23 @@ final class GdxTableChatSessionTest {
     }
 
     @Test
-    void textSeatIconOnlyExistsWhileTtsActuallyPlays() {
-        assertTrue(CoronaPokerGdxTable.shouldDisplaySeatNotice(
-                LobbyChatMessage.Type.TEXT, true, true));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldDisplaySeatNotice(
-                        LobbyChatMessage.Type.TEXT, true, false));
-        assertTrue(CoronaPokerGdxTable.shouldDisplaySeatNotice(
-                LobbyChatMessage.Type.VOICE, true, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldDisplaySeatNotice(
-                        LobbyChatMessage.Type.TEXT, false, true));
-    }
-
-    @Test
-    void mutedOrBlockedTextUsesSilentNoticeInsteadOfTalkIcon() {
-        assertTrue(CoronaPokerGdxTable.shouldShowSilentTextNotice(
-                LobbyChatMessage.Type.TEXT, true, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSilentTextNotice(
-                        LobbyChatMessage.Type.TEXT, true, true));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSilentTextNotice(
-                        LobbyChatMessage.Type.VOICE, true, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSilentTextNotice(
-                        LobbyChatMessage.Type.TEXT, false, false));
-    }
-
-    @Test
-    void seatNoticesRespectTheSwingChatImagePreference() {
+    void seatNoticesFollowTheirMediaSettingAndSenderBlock() {
         assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
-                LobbyChatMessage.Type.TEXT, true, false, false, true,
-                false));
+                LobbyChatMessage.Type.IMAGE, true, false, false));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.IMAGE, false, true, false));
         assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
-                LobbyChatMessage.Type.IMAGE, true, true, false, false,
-                false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.IMAGE, true, false, false,
-                        false, false));
-        assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
-                LobbyChatMessage.Type.VOICE, true, false, true, false,
-                false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.VOICE, true, true, false,
-                        false, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.TEXT, false, true, true,
-                        false, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.PLAYER_JOINED,
-                        true, true, true, false, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.IMAGE,
-                        true, true, true, true, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.VOICE,
-                        true, true, true, true, false));
-        assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
-                LobbyChatMessage.Type.IMAGE,
-                false, true, false, false, true),
-                "Swing always shows the sender's own image as confirmation");
-        assertTrue(CoronaPokerGdxTable.shouldShowSeatNotice(
-                LobbyChatMessage.Type.VOICE,
-                false, true, true, false, true),
-                "Playing an own voice note is independent from remote chat notifications");
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.IMAGE,
-                        false, true, false, false, false));
-        org.junit.jupiter.api.Assertions.assertFalse(
-                CoronaPokerGdxTable.shouldShowSeatNotice(
-                        LobbyChatMessage.Type.VOICE,
-                        false, true, true, false, false));
+                LobbyChatMessage.Type.VOICE, false, true, false));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.VOICE, true, false, false));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.IMAGE, true, true, true));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.VOICE, true, true, true));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.TEXT, true, true, false));
+        assertFalse(CoronaPokerGdxTable.shouldShowSeatNotice(
+                LobbyChatMessage.Type.PLAYER_JOINED, true, true, false));
     }
 
     private static LobbySession lobby() {
@@ -305,7 +222,7 @@ final class GdxTableChatSessionTest {
                         false, true, false, true,
                         LobbyParticipant.NO_LATENCY,
                         LobbyParticipant.NO_LATENCY)),
-                messages, null, false, true);
+                messages, null, false);
     }
 
     private static LobbyChatMessage message(long sequence, String text) {

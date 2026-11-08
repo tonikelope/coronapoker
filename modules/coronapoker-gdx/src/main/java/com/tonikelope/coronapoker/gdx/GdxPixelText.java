@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -81,6 +82,21 @@ final class GdxPixelText {
         font.setUseIntegerPositions(false);
         try {
             font.draw(batch, glyph, snapX(x, viewport), snapY(y, viewport));
+        } finally {
+            font.setUseIntegerPositions(integerPositions);
+        }
+    }
+
+    static void draw(BitmapFont font, Batch batch, GlyphLayout glyph,
+            float x, float y, Color tint, Viewport viewport) {
+        var cache = font.getCache();
+        cache.clear();
+        boolean integerPositions = font.usesIntegerPositions();
+        font.setUseIntegerPositions(false);
+        try {
+            cache.addText(glyph, snapX(x, viewport), snapY(y, viewport));
+            cache.tint(tint);
+            cache.draw(batch);
         } finally {
             font.setUseIntegerPositions(integerPositions);
         }

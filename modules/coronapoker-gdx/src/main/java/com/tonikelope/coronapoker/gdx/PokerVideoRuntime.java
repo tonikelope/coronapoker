@@ -108,7 +108,9 @@ final class PokerVideoRuntime implements AutoCloseable {
     private boolean loggedFirstUpload;
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
-    private boolean orderedPlaylist;
+    private long discoveryRevisionFloor;
+    private volatile long discoveryRequestRevision = -1L;
+    private volatile boolean orderedPlaylist;
     private volatile String pageUrl;
     private volatile String refererOrigin;
 
@@ -212,7 +214,8 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     private void installHandlers(String osName) {
-        if (osName.toLowerCase(Locale.ROOT).startsWith("windows")) {
+        String platform = osName.toLowerCase(Locale.ROOT);
+        if (platform.startsWith("windows") || platform.startsWith("linux")) {
             // Navigation focus in the windowless browser can re-enter JCEF's
             // focus callbacks on the AWT thread and exhaust its stack.
             // Explicit focus requested by player input is still allowed.
@@ -446,6 +449,12 @@ final class PokerVideoRuntime implements AutoCloseable {
                     return true;
                 }
                 if (request.startsWith("PROGRESS|")) stalledPlayback.compareAndSet(source, null);
+                long revision = playlistRevision;
+                if (request.equals("DISCOVER|" + revision) && !orderedPlaylist) {
+                    discoveryRequestRevision = revision;
+                    callback.success("wait");
+                    return true;
+                }
                 boolean handled = handlePlayerMessage(request);
                 if (handled) callback.success("ok");
                 return handled;
@@ -494,6 +503,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             loadingKey = switch (request.substring("LOADING|".length())) {
                 case "connecting" -> "gdx.video.loading.connecting";
                 case "reconnecting" -> "gdx.video.loading.reconnecting";
+                case "discovery" -> "gdx.video.loading.search";
                 case "video" -> "gdx.video.loading.video";
                 case "" -> null;
                 default -> loadingKey;
@@ -589,8 +599,6 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (!playerReady || videos.isEmpty() || browser == null) return;
         int direction = delta < 0 ? -1 : 1;
         logStage("select direction=" + direction);
-        resumeSeconds = 0;
-        state = "CARGANDO";
         browser.executeJavaScript("window.coronaSelectRelative && "
                 + "window.coronaSelectRelative(" + direction + ");",
                 pageUrl, 0);
@@ -620,6 +628,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         setCurrentIndex(nextIndex);
         resumeSeconds = 0;
         playlistRevision++;
+        discoveryRevisionFloor = playlistRevision;
+        discoveryRequestRevision = -1L;
         String nextLanguage = PokerVideoSearch.languageCode(language);
         if (!playerLanguage.equals(nextLanguage)) {
             playerLanguage = nextLanguage;
@@ -627,6 +637,28 @@ final class PokerVideoRuntime implements AutoCloseable {
             return;
         }
         synchronizeBrowserPlaylist();
+    }
+
+    boolean discoveryRequested() {
+        return discoveryRequestRevision == playlistRevision;
+    }
+
+    synchronized void extendDiscovery(List<PokerVideoSearch.Video> extended) {
+        if (orderedPlaylist || closed.get()) return;
+        int index = extended.indexOf(selection.video());
+        if (index < 0) return;
+        if (videos.equals(extended)) {
+            if (discoveryRequested() && browser != null) {
+                browser.executeJavaScript("window.coronaDiscoveryUnavailable("
+                        + playlistRevision + ");", pageUrl, 0);
+            }
+        } else {
+            videos = extended;
+            setCurrentIndex(index);
+            playlistRevision++;
+            synchronizeBrowserPlaylist();
+        }
+        discoveryRequestRevision = -1L;
     }
 
     private synchronized void synchronizeBrowserPlaylist() {
@@ -641,10 +673,13 @@ final class PokerVideoRuntime implements AutoCloseable {
             ids.append('\'').append(snapshot.get(index).id()).append('\'');
         }
         ids.append(']');
-        current.executeJavaScript("window.coronaReplaceVideos && "
-                + "window.coronaReplaceVideos(" + ids + "," + orderedPlaylist + ","
-                + revision + "," + currentIndex + ");",
-                pageUrl, 0);
+        boolean extending = !orderedPlaylist && browserPlaylistRevision >= discoveryRevisionFloor
+                && browserPlaylistRevision < revision;
+        String command = extending
+                ? "window.coronaExtendVideos(" + ids + "," + revision + "," + currentIndex + ");"
+                : "window.coronaReplaceVideos(" + ids + "," + orderedPlaylist + ","
+                        + revision + "," + currentIndex + ");";
+        current.executeJavaScript(command, pageUrl, 0);
         browserPlaylistRevision = revision;
     }
 

@@ -37,6 +37,12 @@ final class PokerVideoSearch {
     static final String TYPE_NORMAL = "normal";
     static final int MAX_RESULTS = 40;
     private static final int MAX_RESPONSE_BYTES = 12 * 1024 * 1024;
+    private static final List<String> TOPICS = List.of(
+            "torneos", "manos épicas", "mesa final", "faroles", "cash game",
+            "jugadas", "high stakes", "partidas en vivo", "all in", "estrategia");
+    private static final List<String> ENGLISH_TOPICS = List.of(
+            "tournaments", "best hands", "final table", "bluffs", "cash game",
+            "highlights", "high stakes", "live poker", "all in", "strategy");
     private static final Pattern FALLBACK_SHORT_ID = Pattern.compile(
             "\\\"url\\\"\\s*:\\s*\\\"/shorts/([A-Za-z0-9_-]{11})");
     private static final Pattern FALLBACK_NORMAL_ID = Pattern.compile(
@@ -68,6 +74,11 @@ final class PokerVideoSearch {
 
     static List<Video> fetch(String language, String videoType)
             throws IOException, InterruptedException {
+        return fetch(language, videoType, 0);
+    }
+
+    static List<Video> fetch(String language, String videoType, int variant)
+            throws IOException, InterruptedException {
         String acceptedLanguage = languageCode(language);
         String fallbackLanguage = "es".equals(acceptedLanguage)
                 ? "en" : "es";
@@ -77,7 +88,7 @@ final class PokerVideoSearch {
                 .build();
         String normalizedType = videoType(videoType);
         HttpRequest request = HttpRequest.newBuilder(searchUri(language,
-                normalizedType))
+                normalizedType, variant))
                 .timeout(Duration.ofSeconds(15))
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         + "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -141,11 +152,23 @@ final class PokerVideoSearch {
     }
 
     static URI searchUri(String language, String videoType) {
+        return searchUri(language, videoType, 0);
+    }
+
+    static URI searchUri(String language, String videoType, int variant) {
         String code = languageCode(language);
+        boolean spanish = "es".equals(code);
         boolean shorts = TYPE_SHORTS.equals(videoType(videoType));
-        String query = "es".equals(code)
+        String query = spanish
                 ? shorts ? "póker shorts español" : "vídeos de póker español"
                 : shorts ? "poker shorts english" : "poker videos english";
+        if (variant > 0) {
+            List<String> topics = spanish ? TOPICS : ENGLISH_TOPICS;
+            int topic = (variant - 1) % topics.size();
+            int year = java.time.Year.now().getValue() - (variant - 1) / topics.size() % 8;
+            query = (spanish ? "póker " : "poker ") + topics.get(topic)
+                    + (shorts ? " shorts " : " ") + year + (spanish ? " español" : " english");
+        }
         return URI.create(SEARCH_BASE + URLEncoder.encode(query,
                 StandardCharsets.UTF_8) + "&hl=" + code);
     }

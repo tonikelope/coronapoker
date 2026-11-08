@@ -48,6 +48,10 @@ function playerPage(options = {}) {
         }
       }
       if (query.request.startsWith('RETRY_API|') && options.dropRecoveryAck) return;
+      if (query.request.startsWith('DISCOVER|') && options.discovery) {
+        query.onSuccess('wait');
+        return;
+      }
       if (query.request.startsWith('RETRY_API_MANUAL|')) { budget.attempts = 0; query.onSuccess('reload'); }
       else if (query.request.startsWith('RETRY_API|')) query.onSuccess(budget.attempts++ < 1 ? 'reload' : 'stop');
       else query.onSuccess('ok');
@@ -151,6 +155,58 @@ test('favorite navigation keeps the saved order across wrap and reports the new 
   assert.ok(page.messages.includes('INDEX|0:0:7'));
   page.context.coronaReportPosition();
   assert.ok(page.messages.includes('POSITION|0:0:7'));
+});
+
+test('discovery extends a playing queue without reloading and keeps previous navigation', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.native.emit(1);
+  qa.native.unMute();
+  qa.native.setVolume(63);
+  qa.native.seconds = 42;
+  const loads = qa.loads.length;
+  const fresh = 'abcdefghijk';
+  qa.context.coronaExtendVideos([...ids, fresh], 1, 0);
+  assert.equal(qa.loads.length, loads);
+  assert.equal(qa.native.seconds, 42);
+  qa.context.coronaSelectRelative(1);
+  qa.context.coronaSelectRelative(1);
+  qa.context.coronaSelectRelative(1);
+  assert.equal(qa.native.id, fresh);
+  assert.equal(qa.native.muted, false);
+  assert.equal(qa.native.volume, 63);
+  qa.context.coronaSelectRelative(-1);
+  assert.equal(qa.native.id, ids[2]);
+});
+
+test('the end waits for more discovery results and advances without replaying an old video', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.context.coronaSelectVideo(2);
+  qa.native.emit(0);
+  assert.equal(qa.native.id, ids[2]);
+  assert.ok(qa.messages.includes('DISCOVER|0'));
+  qa.context.coronaExtendVideos([ids[1], ids[2], 'abcdefghijk'], 1, 1);
+  assert.equal(qa.native.id, 'abcdefghijk');
+  assert.ok(qa.messages.includes('INDEX|2:2:1'));
+  qa.context.coronaSelectRelative(1);
+  qa.context.coronaDiscoveryUnavailable(1);
+  assert.equal(qa.native.id, ids[1]);
+});
+
+test('a timed-out search can wrap and an obsolete discovery response cannot replace favorites', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.context.coronaSelectVideo(2);
+  qa.context.coronaSelectRelative(1);
+  qa.tick(16000);
+  assert.equal(qa.native.id, ids[0]);
+  qa.context.coronaReplaceVideos([ids[1], ids[0]], true, 2, 0);
+  qa.context.coronaExtendVideos([...ids, 'abcdefghijk'], 1, 0);
+  qa.context.coronaSelectRelative(1);
+  assert.equal(qa.native.id, ids[0]);
+  qa.context.coronaSelectRelative(1);
+  assert.equal(qa.native.id, ids[1]);
 });
 
 test('API ready without first playback retries, skips and terminates with a retry action', () => {

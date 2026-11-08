@@ -51,6 +51,24 @@ class PokerVideoFavoritesTest {
         }
     }
 
+    @Test void discoveryKeepsRecentHistoryAndDeduplicatesRetiredVideos() {
+        var catalog = new PokerVideoCatalog(new PokerVideoFavorites(
+                directory.resolve("favorites.properties")));
+        var initial = java.util.stream.IntStream.range(0, 200)
+                .mapToObj(i -> new PokerVideoSearch.Video("v%010d".formatted(i), "Video " + i))
+                .toList();
+        catalog.replaceNormal(initial, "normal");
+        long revision = catalog.revision();
+        var renamed = new PokerVideoSearch.Video(initial.get(0).id(), "Renamed video");
+        var extended = catalog.extendNormal(List.of(renamed, FIRST, FIRST), 199);
+        assertEquals(initial.get(79), extended.get(0));
+        assertEquals(initial.get(199), extended.get(120));
+        assertEquals(FIRST, extended.get(121));
+        assertEquals(122, extended.size());
+        assertSame(extended, catalog.extendNormal(List.of(renamed), 120));
+        assertEquals(revision, catalog.revision());
+    }
+
     @Test void corruptFavoritesCannotOverwriteTheExistingFile() throws Exception {
         Path file = directory.resolve("favorites.properties");
         String corrupt = "order=shorts.ABCDEFGHIJK\nshorts.ABCDEFGHIJK=\\uZZZZ\n";

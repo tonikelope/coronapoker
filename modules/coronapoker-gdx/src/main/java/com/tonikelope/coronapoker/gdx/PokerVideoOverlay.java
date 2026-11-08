@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -78,6 +79,10 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final AtomicLong initializationGeneration = new AtomicLong();
     private final Object initializationLock = new Object();
     private Future<?> initializationTask;
+    private Future<List<PokerVideoSearch.Video>> discoveryTask;
+    private long discoveryCatalogRevision;
+    private long nextDiscoverySearch;
+    private int discoveryVariant;
     private volatile long nativeStartupSince;
     private final GlyphLayout glyph = new GlyphLayout();
     private final Rectangle iconBounds = new Rectangle();
@@ -319,6 +324,14 @@ final class PokerVideoOverlay implements AutoCloseable {
             current.resize(Math.round(videoWidth), Math.round(videoHeight),
                     displayScale());
         }
+        if (shouldRun && current != null && current.ready() && !favoritesMode
+                && catalogKey.equals(requestedCatalogKey)
+                && appliedCatalogRevision == catalog.revision()) {
+            updateDiscovery(current, languageCode, normalizedType);
+        } else if (discoveryTask != null) {
+            discoveryTask.cancel(true);
+            discoveryTask = null;
+        }
         if (!hostVisible) {
             finishWindowTransition();
             cancelHiddenCapture();
@@ -384,6 +397,8 @@ final class PokerVideoOverlay implements AutoCloseable {
         catalogLoading = true;
         loadingError = null;
         requestedCatalogKey = catalogKey;
+        discoveryVariant = 0;
+        nextDiscoverySearch = 0L;
         long generation = initializationGeneration.incrementAndGet();
         synchronized (initializationLock) {
         initializationTask = initializer.submit(() -> {
@@ -457,6 +472,39 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
         });
         }
+    }
+
+    private void updateDiscovery(PokerVideoRuntime current, String language, String type) {
+        var selection = current.selection();
+        long now = System.nanoTime();
+        if (discoveryTask != null) {
+            if (!discoveryTask.isDone()) return;
+            try {
+                var additions = discoveryTask.get();
+                if (discoveryCatalogRevision == catalog.revision()) {
+                    var extended = catalog.extendNormal(additions, selection.index());
+                    current.extendDiscovery(extended);
+                    nextDiscoverySearch = now + TimeUnit.SECONDS.toNanos(2);
+                }
+            } catch (ExecutionException failure) {
+                nextDiscoverySearch = now + TimeUnit.SECONDS.toNanos(20);
+                current.extendDiscovery(catalog.videos());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } finally {
+                discoveryTask = null;
+            }
+            return;
+        }
+        if (!current.discoveryRequested() && selection.total() - selection.index() > 8) return;
+        if (nextDiscoverySearch != 0L && now - nextDiscoverySearch < 0L) {
+            if (current.discoveryRequested()) current.extendDiscovery(catalog.videos());
+            return;
+        }
+        discoveryCatalogRevision = catalog.revision();
+        int variant = ++discoveryVariant;
+        discoveryTask = initializer.submit(() -> PokerVideoSearch.shuffled(
+                PokerVideoSearch.fetch(language, type, variant), ThreadLocalRandom.current()));
     }
 
     private void updateBounds() {

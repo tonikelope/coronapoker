@@ -44,6 +44,7 @@
     let lastReportedVolume = null;
     const failedVideoIds = new Set();
     let skipTimer = null;
+    let discoveryTimer = null;
     let autoplayRetryTimer = null;
     const API_TIMEOUT_MS = 30000;
     const COLD_DOCUMENT_LOAD_TIMEOUT_MS = 3000;
@@ -72,6 +73,7 @@
     const loadingMessages = {
       connecting: text('Conectando con el reproductor…', 'Connecting to the player…'),
       reconnecting: text('Reconectando con el reproductor…', 'Reconnecting to the player…'),
+      discovery: text('Buscando más vídeos…', 'Finding more videos…'),
       video: text('Cargando vídeo…', 'Loading video…')
     };
 
@@ -206,6 +208,7 @@
 
     function selectOrderPosition(position, recovery = false, startSeconds = 0) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
+      cancelDiscoveryWait();
       if (playbackAllowed) cancelLoadTimers();
       playbackGeneration += 1;
       if (!recovery) playbackRecoveries = 0;
@@ -244,24 +247,12 @@
       selectOrderPosition(position < 0 ? 0 : position);
     }
 
-    function shuffleForNextCycle() {
-      for (let index = playOrder.length - 1; index > 0; index -= 1) {
-        const swap = Math.floor(Math.random() * (index + 1));
-        [playOrder[index], playOrder[swap]] = [playOrder[swap], playOrder[index]];
-      }
-      if (playOrder.length > 1 && playOrder[0] === currentIndex) {
-        [playOrder[0], playOrder[1]] = [playOrder[1], playOrder[0]];
-      }
-      orderPosition = -1;
-    }
-
-    function nextPlayableOrderPosition(direction) {
+    function nextPlayableOrderPosition(direction, wrap) {
       const step = direction < 0 ? -1 : 1;
-      if (!orderedPlaylist && step > 0 && orderPosition >= playOrder.length - 1) {
-        shuffleForNextCycle();
-      }
       for (let offset = 1; offset <= VIDEO_IDS.length; offset += 1) {
-        const candidatePosition = ((orderPosition + step * offset)
+        const position = orderPosition + step * offset;
+        if (!wrap && (position < 0 || position >= playOrder.length)) return -1;
+        const candidatePosition = (position
           % playOrder.length + playOrder.length) % playOrder.length;
         const candidateIndex = playOrder[candidatePosition];
         if (!failedVideoIds.has(VIDEO_IDS[candidateIndex])) return candidatePosition;
@@ -269,13 +260,35 @@
       return -1;
     }
 
-    function selectRelative(delta) {
-      const nextPosition = nextPlayableOrderPosition(delta);
-      if (nextPosition < 0) {
-        showError('No se han encontrado vídeos reproducibles.');
-        return;
+    function cancelDiscoveryWait() {
+      if (discoveryTimer !== null) clearTimeout(discoveryTimer);
+      discoveryTimer = null;
+    }
+
+    function finishDiscovery(revision, wrap) {
+      if (revision !== playlistRevision || discoveryTimer === null) return;
+      cancelDiscoveryWait();
+      if (!active) return;
+      const position = nextPlayableOrderPosition(1, wrap);
+      if (position >= 0) selectOrderPosition(position);
+      else showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
+    }
+
+    function selectRelative(delta, recovery = false) {
+      const nextPosition = nextPlayableOrderPosition(delta, orderedPlaylist);
+      if (nextPosition >= 0) {
+        selectOrderPosition(nextPosition, recovery);
+      } else if (orderedPlaylist) {
+        showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
+      } else if (delta > 0 && discoveryTimer === null) {
+        const revision = playlistRevision;
+        const fallback = () => finishDiscovery(revision, true);
+        loading('discovery');
+        discoveryTimer = setTimeout(fallback, 16000);
+        report('DISCOVER', revision, response => {
+          if (response !== 'wait') fallback();
+        }, fallback);
       }
-      selectOrderPosition(nextPosition);
     }
 
     function skipUnavailable(errorCode) {
@@ -283,16 +296,11 @@
       cancelLoadTimers();
       failedVideoIds.add(VIDEO_IDS[currentIndex]);
       report('FAILED', currentIndex + ':' + errorCode);
-      const nextPosition = nextPlayableOrderPosition(1);
-      if (nextPosition < 0) {
-        showError('No se han encontrado vídeos reproducibles.');
-        return;
-      }
       loading('video');
       report('STATE', 'VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
-        selectOrderPosition(nextPosition, true);
+        selectRelative(1, true);
       }, 100);
     }
 
@@ -364,6 +372,7 @@
       const valid = ids.filter(id => typeof id === 'string'
         && /^[A-Za-z0-9_-]{11}$/.test(id));
       if (valid.length === 0) return;
+      cancelDiscoveryWait();
       VIDEO_IDS = valid;
       orderedPlaylist = ordered;
       playlistRevision = revision;
@@ -374,6 +383,24 @@
       if (player && ready) selectOrderPosition(orderPosition);
       else reportIndex();
     };
+    window.coronaExtendVideos = function (ids, revision, fallbackIndex) {
+      if (orderedPlaylist || revision <= playlistRevision) return;
+      const index = ids.indexOf(VIDEO_IDS[currentIndex]);
+      if (index < 0) {
+        window.coronaReplaceVideos(ids, false, revision, fallbackIndex);
+        return;
+      }
+      VIDEO_IDS = ids;
+      playlistRevision = revision;
+      playOrder = VIDEO_IDS.map((ignored, position) => position);
+      orderPosition = currentIndex = index;
+      for (const id of failedVideoIds) {
+        if (!VIDEO_IDS.includes(id)) failedVideoIds.delete(id);
+      }
+      reportIndex();
+      finishDiscovery(revision, false);
+    };
+    window.coronaDiscoveryUnavailable = revision => finishDiscovery(revision, true);
     window.coronaSetActive = function (enabled) {
       active = Boolean(enabled);
       if (!active) cancelLoadTimers();

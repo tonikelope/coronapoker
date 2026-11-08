@@ -119,8 +119,20 @@ h3 { font-size: .95rem; line-height: 1.2; }
   letter-spacing: .095em;
 }
 .section-mark + h2 { margin-top: .22rem; }
-.filter-panel { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .38rem; margin-bottom: var(--gap); }
+.filter-panel, .period-filter { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .44rem; }
+.filter-panel { padding: .52rem var(--edge) .64rem; border-top: 1px solid #263b55; }
 .filter-panel label { display: grid; min-width: 0; gap: .18rem; color: var(--muted); font-size: .76rem; }
+.filter-panel .scope-game { width: clamp(13.5rem, 25vw, 27rem); max-width: 100%; }
+.filter-panel .scope-hand { display: grid; width: 15rem; max-width: 100%; gap: .18rem; }
+.hand-select-row { display: grid; grid-template-columns: 2rem minmax(0, 1fr) 2rem; gap: .22rem; }
+.hand-select-row button { padding: 0; font-size: 1.28rem; line-height: 1; }
+.filter-panel .scope-player { width: clamp(11.25rem, 13vw, 14rem); }
+.filter-panel :is(.scope-game, .scope-hand, .scope-player) select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
 select { min-width: 6.3rem; max-width: 14rem; }
 input { width: 8.7rem; font-variant-numeric: tabular-nums; }
 input[aria-invalid=true] { border-color: var(--loss); }

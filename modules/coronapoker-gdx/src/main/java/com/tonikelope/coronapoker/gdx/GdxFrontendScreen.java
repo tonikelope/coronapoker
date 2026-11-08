@@ -439,7 +439,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final RecoverableGameRepository recoverableGames;
     private final StatsRepository statsRepository;
     private static final Rectangle STATS_WEB_BOUNDS =
-            new Rectangle(76f, 60f, 1768f, 750f);
+            new Rectangle(76f, 60f, 1768f, 875f);
     private PokerStatsBrowser statsBrowser;
     private boolean statsBrowserFocused;
     private final ExecutorService recoveryExecutor;
@@ -2623,7 +2623,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSortHandScope = false;
         resetStatsResultScroll();
         openStatsDashboard();
-        loadStatsGames();
+        if (statsBrowser == null) loadStatsGames();
         syncMusicForSurface();
     }
 
@@ -2950,6 +2950,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void loadStatsGames() {
+        loadStatsGames(null);
+    }
+
+    private void loadStatsGames(PokerStatsBrowser.Selection restore) {
         long generation = ++statsLoadGeneration;
         statsLoading = true;
         statsError = "";
@@ -2974,8 +2978,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             .distinct()
                             .sorted(String.CASE_INSENSITIVE_ORDER)
                             .toList();
+                    if (restore != null) {
+                        String player = restore.player();
+                        boolean playerInGame = restore.gameId() == 0 || games.stream()
+                                .anyMatch(game -> game.id() == restore.gameId()
+                                        && game.players().contains(player));
+                        statsPlayerFilter = playerInGame && statsPlayers.contains(player)
+                                ? player : "";
+                    }
                     applyStatsPlayerFilter();
-                    if (!statsPlayerFilter.isBlank()) {
+                    if (restore != null && restore.gameId() > 0) {
+                        for (int index = 0; index < statsGames.size(); index++) {
+                            if (statsGames.get(index).id() != restore.gameId()) continue;
+                            statsGameIndex = index;
+                            if (restore.handId() > 0) statsMode = StatsMode.BALANCE;
+                            loadStatsScope(restore.handId() > 0 ? restore.handId() : null);
+                            return;
+                        }
+                    } else if (restore == null && !statsPlayerFilter.isBlank()) {
                         statsGameIndex = statsGames.isEmpty() ? -1 : 0;
                         statsBalances = List.of();
                         statsBalanceHistory = List.of();
@@ -3040,9 +3060,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || index >= statsHands.size()) return;
         statsHandIndex = index;
         statsSummaryPlayersScroll = statsSummaryPlayersScrollTarget = 0f;
-        if (index >= 0 && statsBrowser != null) {
-            statsMode = StatsMode.BALANCE;
-        }
         statsPicker = StatsPicker.NONE;
         resetStatsResultScroll();
         loadStatsScope();
@@ -3116,17 +3133,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void loadStatsScope() {
+        loadStatsScope(statsHandIndex < 0 ? null : statsHands.get(statsHandIndex).id());
+    }
+
+    private void loadStatsScope(Integer requestedHandId) {
         long generation = ++statsLoadGeneration;
         statsLoading = true;
         statsError = "";
         Integer gameId = statsGameIndex < 0 ? null
                 : statsGames.get(statsGameIndex).id();
-        Integer handId = statsHandIndex < 0 ? null
-                : statsHands.get(statsHandIndex).id();
         CompletableFuture.runAsync(() -> {
             try {
                 List<StatsRepository.HandSummary> hands = gameId == null
                         ? List.of() : statsRepository.hands(gameId);
+                int matchingIndex = -1;
+                if (requestedHandId != null) {
+                    for (int index = 0; index < hands.size(); index++) {
+                        if (hands.get(index).id() == requestedHandId) {
+                            matchingIndex = index;
+                            break;
+                        }
+                    }
+                }
+                int handIndex = matchingIndex;
+                Integer handId = handIndex < 0 ? null : hands.get(handIndex).id();
                 List<StatsRepository.BalanceRow> balances =
                         statsRepository.balances(gameId, handId);
                 List<StatsRepository.BalancePoint> balanceHistory =
@@ -3146,7 +3176,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Gdx.app.postRunnable(() -> {
                     if (disposed || generation != statsLoadGeneration) return;
                     statsHands = hands;
-                    if (statsHandIndex >= hands.size()) statsHandIndex = -1;
+                    statsHandIndex = handIndex;
                     statsBalances = balances;
                     statsBalanceHistory = balanceHistory;
                     statsShowdown = showdown;
@@ -3258,18 +3288,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!PokerVideoPlatformSupport.isAvailable() || statsBrowser != null) return;
         statsBrowserFocused = false;
         statsBrowser = new PokerStatsBrowser(statsRepository,
-                statsPlayerFilter.isBlank() ? connection.nickname() : statsPlayerFilter,
+                connection.nickname(),
                 "en".equalsIgnoreCase(gameText.language()),
-                preferenceBoolean("animaciones", true), statsDashboardGame(),
-                statsDashboardHand(), statsBrowserWidth(), statsBrowserHeight());
-    }
-
-    private int statsDashboardGame() {
-        return statsGameIndex < 0 ? 0 : statsGames.get(statsGameIndex).id();
-    }
-
-    private int statsDashboardHand() {
-        return statsHandIndex < 0 ? 0 : statsHands.get(statsHandIndex).id();
+                preferenceBoolean("animaciones", true), statsBrowserWidth(), statsBrowserHeight());
     }
 
     private int statsBrowserWidth() {
@@ -3289,7 +3310,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawStatsDashboard() {
         Rectangle bounds = STATS_WEB_BOUNDS;
-        statsBrowser.setScope(statsDashboardGame(), statsDashboardHand());
         Texture rendered = statsBrowser.texture(statsBrowserWidth(), statsBrowserHeight());
         if (rendered != null) {
             // Snap the OSR texture to physical pixels to preserve Chromium's
@@ -3331,7 +3351,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSummaryPlayersViewport.set(0f, 0f, 0f, 0f);
         statsSummaryPlayersScrollTrack.set(0f, 0f, 0f, 0f);
         if (statsBrowser != null && statsBrowser.failed()) {
+            PokerStatsBrowser.Selection selection = statsBrowser.selection();
             closeStatsDashboard();
+            loadStatsGames(selection);
         }
         panel(20f, 20f, 1880f, 1040f, "");
         textFit(titleFont, gameText.translate("ui.estadisticas"), 62f,
@@ -3340,6 +3362,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("ui.volver"), ButtonTone.NEUTRAL,
                 this::closeStats, true);
         drawStatsSyncControls();
+
+        if (statsBrowser != null) {
+            panel(60f, 44f, 1800f, 907f, "");
+            drawStatsDashboard();
+            return;
+        }
 
         String gameLabel = statsGameIndex < 0
                 ? gameText.translate("gdx.stats.all_games")
@@ -3356,22 +3384,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.stats.hand"), handLabel,
                 () -> openStatsPicker(StatsPicker.HAND),
                 !statsLoading && statsGameIndex >= 0 && !statsHands.isEmpty()
-                        && (statsBrowser != null || statsMode.supportsHandScope()));
-        String playerLabel = statsBrowser != null && statsHandIndex < 0
-                ? gameText.translate("gdx.stats.dashboard.player")
-                : statsPlayerFilter.isBlank()
-                        ? gameText.translate("gdx.stats.all_players")
-                        : statsPlayerFilter;
+                        && statsMode.supportsHandScope());
+        String playerLabel = statsPlayerFilter.isBlank()
+                ? gameText.translate("gdx.stats.all_players") : statsPlayerFilter;
         choice(1280f, 840f, 580f,
                 gameText.translate("gdx.stats.player_filter"), playerLabel,
                 () -> openStatsPicker(StatsPicker.PLAYER),
-                statsBrowser == null && !statsLoading && !statsPlayers.isEmpty());
-
-        if (statsBrowser != null) {
-            panel(60f, 44f, 1800f, 782f, "");
-            drawStatsDashboard();
-            return;
-        }
+                !statsLoading && !statsPlayers.isEmpty());
 
         panel(60f, 70f, 400f, 710f,
                 statsHandIndex >= 0

@@ -6,6 +6,8 @@ const strings = {
     stats:'Estadísticas', overview:'Resumen', sessions:'Sesiones', analysis:'Análisis',
     compare:'Comparativas', classics:'Clásicas',
     player:'Jugador', from:'Desde', through:'Hasta', apply:'Aplicar', allTime:'Todo',
+    game:'Partida', allGames:'Todas las partidas', allHands:'Todas las manos', allPlayers:'Todos los jugadores',
+    previousHand:'Mano anterior', nextHand:'Mano siguiente',
     performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
     perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo, en fichas.',
     profile:'PERFIL DE JUEGO', behavior:'Estadísticas clave', sessionResults:'Resultados por sesión',
@@ -65,6 +67,8 @@ const strings = {
     stats:'Statistics', overview:'Overview', sessions:'Sessions', analysis:'Analysis',
     compare:'Compare', classics:'Classics',
     player:'Player', from:'From', through:'To', apply:'Apply', allTime:'All time',
+    game:'Game', allGames:'All games', allHands:'All hands', allPlayers:'All players',
+    previousHand:'Previous hand', nextHand:'Next hand',
     performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
     perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period, in chips.',
     profile:'PLAYER PROFILE', behavior:'Key statistics', sessionResults:'Session results',
@@ -153,6 +157,7 @@ const t = key => strings[locale][key];
 let number, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
+let catalogueLoaded = false, hasGames = false, handOptions = [], selectedHand = 0;
 let handView, tabBeforeHand = 'overview';
 let appliedRange = ['', ''], classic, classicKey = '', classicRequest = 0, classicPage = 0;
 const reducedMotion = query.get('motion') === '0' || matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -164,6 +169,10 @@ function translate() {
   $('tabs').setAttribute('aria-label', t('stats'));
   $('zoom-tools').setAttribute('aria-label', t('zoom'));
   for (const [id, label] of [['zoom-in','zoomIn'], ['zoom-out','zoomOut'], ['zoom-reset','zoomReset']]) {
+    $(id).setAttribute('aria-label', t(label));
+    $(id).title = t(label);
+  }
+  for (const [id, label] of [['previous-hand','previousHand'], ['next-hand','nextHand']]) {
     $(id).setAttribute('aria-label', t(label));
     $(id).title = t(label);
   }
@@ -211,7 +220,23 @@ function notice(message, error = false) {
 }
 function controls(enabled) {
   for (const id of ['from', 'through', 'apply', 'reset']) $(id).disabled = !enabled;
-  $('player').disabled = !enabled || !hasPlayers;
+  $('game').disabled = !enabled || !hasGames;
+  $('hand-select').disabled = !enabled || !handOptions.length;
+  $('previous-hand').disabled = !enabled || !neighborHand(1);
+  $('next-hand').disabled = !enabled || !neighborHand(-1);
+  $('player').disabled = !enabled || !hasPlayers || selectedHand !== 0;
+}
+
+// The list mirrors the native history, with the newest hand first.
+function neighborHand(offset) {
+  if (!selectedHand) return undefined;
+  const index = handOptions.findIndex(hand => hand.id === selectedHand);
+  return index < 0 ? undefined : handOptions[index + offset];
+}
+
+function navigateHand(offset) {
+  const hand = neighborHand(offset);
+  if (ready && hand) loadScope(scope, hand.id);
 }
 function selectTab(id, focus = false) {
   if (activeTab !== id) window.scrollTo(0, 0);
@@ -554,8 +579,9 @@ function renderCards(cell, cards) {
 function setHandMode(selected) {
   if (selected && activeTab !== 'hand') tabBeforeHand = activeTab;
   for (const tab of tabs) tab.hidden = selected !== (tab.dataset.tab === 'hand');
-  $('filters').hidden = selected;
+  $('period-filters').hidden = selected;
   if (selected || activeTab === 'hand') selectTab(selected ? 'hand' : tabBeforeHand);
+  else render();
 }
 
 function showHand() {
@@ -745,7 +771,7 @@ function validDate(value) {
 }
 
 async function applyFilters() {
-  if (!ready) return;
+  if (!ready || selectedHand !== 0) return;
   const from = $('from').value.trim();
   const through = $('through').value.trim();
   const reversed = from && through && from > through;
@@ -789,50 +815,83 @@ async function initialize() {
     return;
   }
   await send('ready');
-  await loadScope();
+  await loadCatalogue();
 }
 
-async function loadScope() {
+async function loadCatalogue() {
+  notice(t('loading'));
+  try {
+    const games = JSON.parse(await send('games'));
+    const options = document.createDocumentFragment();
+    options.append(new Option(t('allGames'), '0'));
+    for (const game of games) {
+      const name = game.server || t('game');
+      const caption = game.startedAtMillis > 0 ? name + ' (' + date.format(game.startedAtMillis) + ')' : name;
+      options.append(new Option(caption, game.id));
+    }
+    $('game').replaceChildren(options);
+    catalogueLoaded = true;
+    hasGames = games.length > 0;
+    await loadScope(0, 0);
+  } catch (failure) {
+    $('apply').disabled = false;
+    notice(t('error'), true);
+  }
+}
+
+async function loadScope(gameId, handId) {
   const sequence = ++requestNumber;
-  const previous = $('player').selectedOptions[0]?.textContent;
+  const previousReady = ready;
+  const focus = document.activeElement;
   ready = false;
-  hasPlayers = false;
-  view = undefined;
-  handView = undefined;
-  page = 0;
-  classic = undefined;
-  classicKey = '';
   classicRequest++;
-  render();
   controls(false);
   notice(t('loading'));
   try {
-    const data = JSON.parse(await send('init'));
+    const data = JSON.parse(await send(['select', gameId, handId].join('\t')));
     if (sequence !== requestNumber) return;
+    view = undefined;
+    handView = data.detail;
+    page = 0;
+    classic = undefined;
+    classicKey = '';
+    const gameChanged = scope !== data.scope;
     scope = data.scope;
-    setHandMode(data.handId > 0);
-    if (data.handId > 0) {
-      const detail = JSON.parse(await send(['hand', scope, data.handId].join('\t')));
-      if (sequence !== requestNumber) return;
-      handView = detail;
-      render();
-      notice(detail ? '' : t('noHand'));
-      return;
+    selectedHand = data.handId;
+    handOptions = data.hands;
+    $('game').value = String(scope);
+    if (gameChanged) {
+      $('hand-select').replaceChildren(new Option(t('allHands'), '0'), ...handOptions.map(hand =>
+        new Option(t('handNumber') + ' ' + integer.format(hand.counter), hand.id)));
     }
-    $('player').replaceChildren(...data.players.map((player, i) => new Option(player, i)));
-    hasPlayers = data.players.length > 0;
+    $('hand-select').value = String(selectedHand);
+    if (selectedHand) {
+      $('player').replaceChildren(new Option(t('allPlayers'), ''));
+    } else {
+      $('player').replaceChildren(...data.players.map((player, i) => new Option(player, i)));
+      if (data.players.length) $('player').selectedIndex = data.selected;
+    }
+    hasPlayers = !selectedHand && data.players.length > 0;
+    setHandMode(selectedHand !== 0);
     ready = true;
     controls(true);
-    if (hasPlayers) {
-      const remembered = data.players.indexOf(previous);
-      $('player').selectedIndex = remembered >= 0 ? remembered : data.selected;
+    if ((focus === $('previous-hand') || focus === $('next-hand')) && !focus.disabled) {
+      focus.focus({preventScroll:true});
     }
-    await applyFilters();
+    if (selectedHand) {
+      notice(handView ? '' : t('noHand'));
+    } else {
+      await applyFilters();
+    }
   } catch (failure) {
     if (sequence !== requestNumber) return;
-    ready = false;
+    $('game').value = String(scope);
+    $('hand-select').value = String(selectedHand);
+    ready = previousReady;
+    classicKey = '';
+    controls(ready);
     $('apply').disabled = false;
-    notice(t(activeTab === 'hand' ? 'handError' : 'error'), true);
+    notice(t(handId ? 'handError' : 'error'), true);
   }
 }
 
@@ -844,7 +903,6 @@ function changeZoom(delta) {
   $('zoom-in').disabled = zoom === 160;
 }
 
-window.coronaStatsScope = loadScope;
 for (const tab of tabs) tab.addEventListener('click', () => selectTab(tab.dataset.tab));
 $('tabs').addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -863,12 +921,20 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   changeZoom(event.key === '0' ? 0 : event.key === '-' ? -10 : 10);
 });
-$('apply').addEventListener('click', () => ready ? applyFilters() : loadScope());
+$('apply').addEventListener('click', () => {
+  if (ready) applyFilters();
+  else if (catalogueLoaded) loadScope(scope, selectedHand);
+  else loadCatalogue();
+});
 $('reset').addEventListener('click', () => {
   $('from').value = $('through').value = '';
   applyFilters();
 });
 $('player').addEventListener('change', applyFilters);
+$('game').addEventListener('change', () => loadScope(Number($('game').value), 0));
+$('hand-select').addEventListener('change', () => loadScope(scope, Number($('hand-select').value)));
+$('previous-hand').addEventListener('click', () => navigateHand(1));
+$('next-hand').addEventListener('click', () => navigateHand(-1));
 $('prev').addEventListener('click', () => { page--; showSessions(); });
 $('next').addEventListener('click', () => { page++; showSessions(); });
 $('trend-metric').addEventListener('change', showCompare);

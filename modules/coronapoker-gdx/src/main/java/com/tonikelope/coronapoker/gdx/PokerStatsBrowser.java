@@ -13,6 +13,7 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
@@ -80,19 +81,21 @@ final class PokerStatsBrowser implements AutoCloseable {
     private volatile boolean ready;
     private volatile boolean failed;
     private volatile LibGdxCefBrowser browser;
-    private volatile Scope selection;
+    private volatile Selection selection = new Selection(0, 0, "");
     private CefClient client;
     private StatsDashboard snapshot;
+    private List<GameOption> games;
+    private int handsGameId = -1;
+    private List<HandOption> hands = List.of();
     private boolean pressed;
     private double scrollRemainder;
     private int width;
     private int height;
 
     PokerStatsBrowser(StatsRepository repository, String player, boolean english,
-            boolean animate, int gameId, int handId, int width, int height) {
+            boolean animate, int width, int height) {
         this.repository = repository;
         preferredPlayer = player;
-        selection = new Scope(gameId, handId);
         this.width = width;
         this.height = height;
         pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es")
@@ -254,55 +257,7 @@ final class PokerStatsBrowser implements AutoCloseable {
     private void answer(String request, CefQueryCallback reply) {
         if (closed) return;
         try {
-            String response;
-            if ("init".equals(request)) {
-                Scope scope = selection;
-                List<String> players = List.of();
-                if (scope.handId == 0) {
-                    if (snapshot == null) snapshot = repository.dashboard();
-                    players = snapshot.players(scope.gameId);
-                }
-                response = json.toJson(new Setup(scope.gameId, scope.handId, players,
-                        Math.max(0, players.indexOf(preferredPlayer))));
-            } else {
-                String[] parts = request.split("\\t", -1);
-                if (parts.length == 3 && "hand".equals(parts[0])) {
-                    Scope requested = new Scope(Integer.parseInt(parts[1]),
-                            Integer.parseInt(parts[2]));
-                    if (!selection.equals(requested) || requested.gameId <= 0 || requested.handId <= 0) {
-                        throw new IllegalArgumentException("Unknown hand selection");
-                    }
-                    StatsRepository.HandDetail detail = repository.handDetail(
-                            requested.gameId, requested.handId);
-                    if (!closed) reply.success(detail == null ? "null" : json.toJson(detail));
-                    return;
-                }
-                if (snapshot == null || parts.length != 5) {
-                    reply.failure(400, "Unknown statistics request");
-                    return;
-                }
-                int scope = Integer.parseInt(parts[1]);
-                LocalDate from = parseDate(parts[3]);
-                LocalDate through = parseDate(parts[4]);
-                if (scope < 0 || from != null && through != null && through.isBefore(from)) {
-                    reply.failure(400, "Invalid statistics filter");
-                    return;
-                }
-                response = switch (parts[0]) {
-                    case "classic" -> json.toJson(repository.classic(
-                            StatsRepository.ClassicMode.valueOf(parts[2]),
-                            scope == 0 ? null : scope, from, through));
-                    case "view" -> {
-                        int player = Integer.parseInt(parts[2]);
-                        List<String> players = snapshot.players(scope);
-                        if (player < 0 || player >= players.size()) {
-                            throw new IllegalArgumentException("Unknown player");
-                        }
-                        yield json.toJson(snapshot.view(players.get(player), scope, from, through));
-                    }
-                    default -> throw new IllegalArgumentException("Unknown statistics request");
-                };
-            }
+            String response = responseFor(request);
             if (!closed) reply.success(response);
         } catch (DateTimeParseException | IllegalArgumentException invalid) {
             if (!closed) reply.failure(400, "Invalid statistics filter");
@@ -312,6 +267,76 @@ final class PokerStatsBrowser implements AutoCloseable {
                 reply.failure(500, "Could not read poker statistics");
             }
         }
+    }
+
+    private String responseFor(String request) throws SQLException {
+        if ("games".equals(request)) return json.toJson(gameOptions());
+        String[] parts = request.split("\\t", -1);
+        if (parts.length == 3 && "select".equals(parts[0])) {
+            return json.toJson(select(Integer.parseInt(parts[1]), Integer.parseInt(parts[2])));
+        }
+        if (snapshot == null || parts.length != 5) {
+            throw new IllegalArgumentException("Unknown statistics request");
+        }
+        int scope = Integer.parseInt(parts[1]);
+        LocalDate from = parseDate(parts[3]);
+        LocalDate through = parseDate(parts[4]);
+        if (scope != selection.gameId || selection.handId != 0
+                || from != null && through != null && through.isBefore(from)) {
+            throw new IllegalArgumentException("Invalid statistics filter");
+        }
+        return switch (parts[0]) {
+            case "classic" -> json.toJson(repository.classic(
+                    StatsRepository.ClassicMode.valueOf(parts[2]),
+                    scope == 0 ? null : scope, from, through));
+            case "view" -> {
+                int index = Integer.parseInt(parts[2]);
+                List<String> players = snapshot.players(scope);
+                if (index < 0 || index >= players.size()) {
+                    throw new IllegalArgumentException("Unknown player");
+                }
+                String player = players.get(index);
+                String result = json.toJson(snapshot.view(player, scope, from, through));
+                selection = new Selection(scope, 0, player);
+                yield result;
+            }
+            default -> throw new IllegalArgumentException("Unknown statistics request");
+        };
+    }
+
+    private List<GameOption> gameOptions() throws SQLException {
+        if (games == null) {
+            games = repository.games().stream().map(game ->
+                    new GameOption(game.id(), game.server(), game.startedAtMillis())).toList();
+        }
+        return games;
+    }
+
+    private Setup select(int gameId, int handId) throws SQLException {
+        if (gameId < 0 || handId < 0 || gameId == 0 && handId != 0
+                || gameId > 0 && gameOptions().stream().noneMatch(game -> game.id == gameId)) {
+            throw new IllegalArgumentException("Unknown game selection");
+        }
+        if (handsGameId != gameId) {
+            hands = gameId == 0 ? List.of() : repository.hands(gameId).stream()
+                    .map(hand -> new HandOption(hand.id(), hand.counter())).toList();
+            handsGameId = gameId;
+        }
+        String previousPlayer = selection.player;
+        if (handId != 0) {
+            if (hands.stream().noneMatch(hand -> hand.id == handId)) {
+                throw new IllegalArgumentException("Unknown hand selection");
+            }
+            StatsRepository.HandDetail detail = repository.handDetail(gameId, handId);
+            selection = new Selection(gameId, handId, previousPlayer);
+            return new Setup(gameId, handId, hands, List.of(), 0, detail);
+        }
+        if (snapshot == null) snapshot = repository.dashboard();
+        List<String> players = snapshot.players(gameId);
+        int previous = players.indexOf(previousPlayer);
+        int selected = previous >= 0 ? previous : Math.max(0, players.indexOf(preferredPlayer));
+        selection = new Selection(gameId, 0, players.isEmpty() ? "" : players.get(selected));
+        return new Setup(gameId, 0, hands, players, selected, null);
     }
 
     private static LocalDate parseDate(String value) {
@@ -326,13 +351,8 @@ final class PokerStatsBrowser implements AutoCloseable {
         return failed || !interactive() && System.nanoTime() - started > STARTUP_TIMEOUT;
     }
 
-    void setScope(int gameId, int handId) {
-        if (selection.gameId == gameId && selection.handId == handId) return;
-        selection = new Scope(gameId, handId);
-        LibGdxCefBrowser current = browser;
-        if (ready && current != null) {
-            current.executeJavaScript("window.coronaStatsScope?.()", pageUrl, 0);
-        }
+    Selection selection() {
+        return selection;
     }
 
     Texture texture(int width, int height) {
@@ -470,9 +490,14 @@ final class PokerStatsBrowser implements AutoCloseable {
         }
     }
 
-    private record Scope(int gameId, int handId) { }
+    record Selection(int gameId, int handId, String player) { }
 
-    private record Setup(int scope, int handId, List<String> players, int selected) { }
+    private record GameOption(int id, String server, long startedAtMillis) { }
+
+    private record HandOption(int id, int counter) { }
+
+    private record Setup(int scope, int handId, List<HandOption> hands,
+            List<String> players, int selected, StatsRepository.HandDetail detail) { }
 
     private record Asset(byte[] bytes, String mimeType) { }
 

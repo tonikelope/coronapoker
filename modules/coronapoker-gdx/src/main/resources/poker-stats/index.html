@@ -26,16 +26,27 @@
       <button id="zoom-in" class="ghost" type="button">+</button>
     </div>
   </div>
-</header>
-<main>
   <div class="filter-panel" id="filters">
-      <label id="classic-filter" class="classic-select" hidden><span data-t="metric">Métrica</span><select id="classic-metric"></select></label>
-      <label><span data-t="player">Jugador</span><select id="player" disabled></select></label>
+    <label class="scope-game"><span data-t="game">Partida</span><select id="game" disabled><option value="0" data-t="allGames">Todas las partidas</option></select></label>
+    <div class="scope-hand">
+      <label for="hand-select" data-t="handNumber">Mano</label>
+      <div class="hand-select-row">
+        <button id="previous-hand" type="button" class="ghost" aria-label="Mano anterior" disabled>‹</button>
+        <select id="hand-select" disabled><option value="0" data-t="allHands">Todas las manos</option></select>
+        <button id="next-hand" type="button" class="ghost" aria-label="Mano siguiente" disabled>›</button>
+      </div>
+    </div>
+    <label class="scope-player"><span data-t="player">Jugador</span><select id="player" disabled></select></label>
+    <label id="classic-filter" class="classic-select" hidden><span data-t="metric">Métrica</span><select id="classic-metric"></select></label>
+    <div class="period-filter" id="period-filters">
       <label><span data-t="from">Desde</span><input id="from" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
       <label><span data-t="through">Hasta</span><input id="through" inputmode="numeric" maxlength="10" placeholder="AAAA-MM-DD" autocomplete="off" disabled></label>
       <button id="apply" class="primary" data-t="apply" disabled>Aplicar</button>
       <button id="reset" class="ghost" data-t="allTime" disabled>Todo</button>
+    </div>
   </div>
+</header>
+<main>
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
   <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
     <div class="kpis" id="kpis"></div>

@@ -1807,10 +1807,13 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void quickChatClearsTheCanonicalVersionSignature() {
+    void quickChatClearsTheVersionSignatureAndLocalHud() {
         assertTrue(CoronaPokerGdxTable.QUICK_CHAT_PANEL_Y
                 >= GdxProductVersionBrand.top()
                 + GdxProductVersionBrand.QUICK_ACCESS_GAP);
+        var hud = CoronaPokerGdxTable.localHudLayout(1920f);
+        assertTrue(CoronaPokerGdxTable.QUICK_CHAT_PANEL_Y
+                > hud.y() + hud.height());
     }
 
     @Test

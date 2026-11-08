@@ -99,6 +99,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private volatile String appliedLanguage = "es";
     private boolean favoriteSaveFailed;
     private boolean documentErrorVisible;
+    private boolean recreatedAfterTimeout;
     private volatile PokerVideoRuntime runtime;
     private Texture loadingSpade;
     private Texture minimizedLogo;
@@ -223,6 +224,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             minimized = true;
         } else if (!wasEnabled) {
             minimized = firstUpdate && !openOnStartup;
+            recreatedAfterTimeout = false;
         }
         String normalizedType = PokerVideoSearch.videoType(videoType);
         catalog.setType(normalizedType);
@@ -240,8 +242,13 @@ final class PokerVideoOverlay implements AutoCloseable {
                 loadingError = startupError;
                 documentErrorVisible = false;
             } else {
-                current.pollDocumentLoad(hostVisible && enabled && !minimized
+                boolean timedOut = current.pollDocumentLoad(hostVisible && enabled && !minimized
                         && !releasedForTable && !catalogLoading);
+                if (timedOut && !recreatedAfterTimeout) {
+                    recreatedAfterTimeout = true;
+                    // Reuse the same close/reopen path as the video window.
+                    releaseBrowserSession(true);
+                }
                 if (current.documentLoadError() != null) {
                     loadingError = current.documentLoadError();
                     documentErrorVisible = true;
@@ -348,6 +355,10 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void start(String language, String videoType,
             String catalogKey) {
+        if (runtime == null) {
+            java.util.logging.Logger.getLogger(PokerVideoOverlay.class.getName())
+                    .info("Poker video | game OpenGL renderer=" + GdxGraphicsInfo.renderer());
+        }
         initializationStarted = true;
         catalogLoading = true;
         loadingError = null;
@@ -786,6 +797,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void retryInitialization() {
         if (!canRetry()) return;
+        recreatedAfterTimeout = false;
         PokerVideoRuntime current = runtime;
         if (current != null && current.documentLoadError() != null) releaseBrowserSession(true);
         documentErrorVisible = false;
@@ -974,6 +986,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             case ICON -> {
                 if (iconBounds.contains(pointerX, pointerY)) {
                     minimized = false;
+                    recreatedAfterTimeout = false;
                     beginWindowTransition();
                     clampWindow();
                     if (canRetry()) retryInitialization();

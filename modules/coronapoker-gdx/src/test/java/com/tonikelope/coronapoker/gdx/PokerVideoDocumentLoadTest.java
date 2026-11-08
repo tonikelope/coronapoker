@@ -6,29 +6,48 @@ import org.junit.jupiter.api.Test;
 class PokerVideoDocumentLoadTest {
     @Test void nativeDocumentHasABoundedVisibleLoadTime() {
         var load = new PokerVideoDocumentLoad();
-        assertFalse(load.poll(true, 1));
-        assertFalse(load.poll(true, PokerVideoDocumentLoad.TIMEOUT_NANOS));
-        assertTrue(load.poll(true, PokerVideoDocumentLoad.TIMEOUT_NANOS + 1));
+        assertFalse(load.poll(true, false, 1));
+        assertFalse(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS));
+        assertTrue(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS + 1));
         assertNotNull(load.error());
-        assertFalse(load.poll(true, PokerVideoDocumentLoad.TIMEOUT_NANOS * 3));
+        assertFalse(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS * 3));
     }
 
     @Test void hidingThePlayerSuspendsItsDocumentDeadline() {
         var load = new PokerVideoDocumentLoad();
-        load.poll(true, 1);
-        assertFalse(load.poll(false, PokerVideoDocumentLoad.TIMEOUT_NANOS * 2));
-        assertFalse(load.poll(true, PokerVideoDocumentLoad.TIMEOUT_NANOS * 3));
+        load.poll(true, false, 1);
+        assertFalse(load.poll(false, false, PokerVideoDocumentLoad.TIMEOUT_NANOS * 2));
+        assertFalse(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS * 3));
         assertNull(load.error());
     }
 
-    @Test void bootOrNewSessionClearsAStaleDocumentError() {
+    @Test void aNewSessionClearsThePreviousError() {
         var load = new PokerVideoDocumentLoad();
         load.failed("load failed");
         load.loaded();
-        assertNull(load.error());
-        assertFalse(load.poll(true, Long.MAX_VALUE));
+        assertEquals("load failed", load.error());
         load.reset();
-        load.poll(true, 1);
-        assertTrue(load.poll(true, PokerVideoDocumentLoad.TIMEOUT_NANOS + 1));
+        assertNull(load.error());
+        assertFalse(load.poll(true, false, Long.MAX_VALUE));
+    }
+
+    @Test void aBootedDocumentCanStopRespondingAfterTheFirstFrame() {
+        var load = new PokerVideoDocumentLoad();
+        long timeout = PokerVideoDocumentLoad.TIMEOUT_NANOS;
+        load.loaded();
+        assertFalse(load.poll(true, true, 1));
+        load.pulse();
+        assertFalse(load.poll(true, true, timeout + 1));
+        assertTrue(load.poll(true, true, timeout * 2 + 1));
+        assertTrue(load.error().contains("dejó de responder"));
+    }
+
+    @Test void aLiveBridgeCannotHideAStallBeforeTheFirstFrame() {
+        var load = new PokerVideoDocumentLoad();
+        load.loaded();
+        assertFalse(load.poll(true, false, 1));
+        load.pulse();
+        assertTrue(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS + 1));
+        assertTrue(load.error().contains("primera imagen"));
     }
 }

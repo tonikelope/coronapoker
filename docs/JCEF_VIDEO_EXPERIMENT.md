@@ -57,12 +57,27 @@ uses the public results document and limits each download to 12 MiB and
 If the network or search format fails, the panel offers a retry while the
 rest of the game remains available.
 
-The local document and YouTube API each have a 30-second load timeout.
-The readiness handshake has 10 seconds, playback has 20 seconds to start,
-and a subsequent buffering stall has 45 seconds. The player retries or
-skips videos within these limits. After three recovery attempts it offers
-a manual retry. Pausing playback or opening a modal does not count as a
-loading failure.
+If the visible browser goes 30 seconds without a bridge response or its
+first uploaded frame, the game recreates that browser once. If it still
+fails, the window offers a manual retry. The YouTube API has a separate
+30-second timeout. The readiness and recovery replies have 10 seconds,
+playback has 20 seconds to start, and a subsequent buffering stall has
+45 seconds. The player retries or skips videos within these limits and
+offers a manual retry when it runs out of attempts. Pausing playback or
+opening a modal does not count as a loading failure.
+
+## Diagnosing a startup stall
+
+The CoronaPoker debug console and the GDX debug file include native Chromium
+warnings, browser console messages, browser and YouTube readiness, playback
+progress, and counts of frames copied and uploaded. On Windows the debug
+file is under `%USERPROFILE%\.coronapoker\Debug`. If the player stalls,
+leave it visible until the recovery is logged so that the file records both
+browser sessions.
+
+To compare startup with hardware video decoding disabled, pass
+`-Dcoronapoker.video.softwareDecode=true` before `-jar`. The setting
+applies to Chromium video decoding.
 
 ## Integration
 

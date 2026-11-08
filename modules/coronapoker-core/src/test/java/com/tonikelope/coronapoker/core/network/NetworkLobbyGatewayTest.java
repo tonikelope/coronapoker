@@ -1368,10 +1368,8 @@ class NetworkLobbyGatewayTest {
         AtomicInteger statsStarts = new AtomicInteger();
         CountDownLatch firstReconnectFinishing = new CountDownLatch(1);
         CountDownLatch releaseFirstReconnect = new CountDownLatch(1);
-        StatsSyncService stats = new StatsSyncService(
-                statsDatabase("reconnect-stats.db"),
-                () -> false, () -> java.util.Set.of());
-        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+        try (DatabaseService database = statsDatabase("reconnect-stats.db");
+                NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
                     temporary.resolve("reconnect-host"), tables);
                 NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
                     temporary.resolve("reconnect-client"), tables,
@@ -1381,7 +1379,8 @@ class NetworkLobbyGatewayTest {
                             awaitUnchecked(releaseFirstReconnect);
                         }
                         return false;
-                    }, () -> false, stats)) {
+                    }, () -> false, new StatsSyncService(
+                            database, () -> false, () -> java.util.Set.of()))) {
             LobbySession host = hostGateway.open(request(false, "Anfitrion", port))
                     .get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(request(true, "Invitado", port))

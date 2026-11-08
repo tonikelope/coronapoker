@@ -34,6 +34,7 @@ function playerPage(options = {}) {
       messages.push(query.request);
       if (options.bridgeThrows) throw new Error('bridge unavailable');
       if (query.request.startsWith('READY|') && options.dropReadyAck) return;
+      if (query.request.startsWith('RETRY_API|') && options.dropRecoveryAck) return;
       if (query.request.startsWith('RETRY_API_MANUAL|')) { budget.attempts = 0; query.onSuccess('reload'); }
       else if (query.request.startsWith('RETRY_API|')) query.onSuccess(budget.attempts++ < 1 ? 'reload' : 'stop');
       else query.onSuccess('ok');
@@ -51,9 +52,12 @@ function playerPage(options = {}) {
         loadVideoById(value) {
           if (this.throwLoad) throw new Error('load failed');
           this.id = typeof value === 'string' ? value : value.videoId;
-          this.seconds = typeof value === 'string' ? 0 : value.startSeconds;
-          this.state = -1;
-          loads.push({ id: this.id, seconds: this.seconds });
+          const startSeconds = typeof value === 'string' ? 0 : value.startSeconds;
+          if (!options.stalePlaying) {
+            this.seconds = startSeconds;
+            this.state = -1;
+          }
+          loads.push({ id: this.id, seconds: startSeconds });
         },
         emit(state) { this.state = state; this.setup.events.onStateChange({ data: state, target: this }); }
       };
@@ -137,6 +141,14 @@ test('a missing READY acknowledgment cannot remain loading forever', () => {
   assert.equal(page.status.className, 'error'); page.retry(); assert.equal(page.reloads, 1);
 });
 
+test('a missing recovery acknowledgment also exposes an explicit retry', () => {
+  const page = playerPage({ dropRecoveryAck: true });
+  page.tick(40000);
+  assert.equal(page.status.className, 'error');
+  page.retry();
+  assert.equal(page.reloads, 1);
+});
+
 test('a modal during the READY handshake resumes its deadline on return', () => {
   const page = playerPage({ dropReadyAck: true }); page.ready();
   page.context.coronaSetActive(false); page.tick(90000);
@@ -157,6 +169,17 @@ test('manually selecting another video cancels the old video deadline', () => {
   page.context.coronaSelectRelative(1); page.tick(15000);
   assert.equal(page.loads.length, 1); assert.equal(page.loads[0].id, ids[1]);
   page.tick(5000); assert.equal(page.loads[1].id, ids[1]);
+});
+
+test('a stale PLAYING state cannot stop the watchdog for the newly selected video', () => {
+  const page = playerPage({ stalePlaying: true });
+  page.ready();
+  page.native.emit(1);
+  page.native.seconds = 84;
+  page.context.coronaSelectRelative(1);
+  page.tick(20000);
+  assert.deepEqual(page.loads, [{ id: ids[1], seconds: 0 }, { id: ids[1], seconds: 0 }]);
+  assert.ok(page.messages.some(message => message.startsWith('RECOVERY|playback timeout 1')));
 });
 
 test('a hidden modal suspends load deadlines and resumes them only when visible', () => {

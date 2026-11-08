@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -24,6 +25,7 @@ import org.cef.callback.CefContextMenuParams;
 import org.cef.callback.CefMenuModel;
 import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefContextMenuHandlerAdapter;
+import org.cef.handler.CefDisplayHandlerAdapter;
 import org.cef.handler.CefLifeSpanHandlerAdapter;
 import org.cef.handler.CefLoadHandler.ErrorCode;
 import org.cef.handler.CefLoadHandlerAdapter;
@@ -38,6 +40,7 @@ import org.cef.network.CefRequest;
 /** Owns the isolated windowless browser used by the frontend video overlay. */
 final class PokerVideoRuntime implements AutoCloseable {
 
+    private static final Logger LOG = Logger.getLogger(PokerVideoRuntime.class.getName());
     static final String JCEF_MAVEN_VERSION = "152.0.6";
     // Read-only observer of the native control: Shorts may recreate it after
     // loadVideoById without reflecting an already-muted media element. Signal
@@ -82,6 +85,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
     private PokerVideoLocalServer localServer;
     private CefApp cefApp;
+    private PokerVideoChromiumLog chromiumLog;
     private CefClient client;
     private CefMessageRouter messageRouter;
     private volatile LibGdxCefBrowser browser;
@@ -100,6 +104,11 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean restoreAudioOnNextSession;
     private int apiRecoveryAttempts;
     private final PokerVideoDocumentLoad documentLoad = new PokerVideoDocumentLoad();
+    private volatile int sessionNumber;
+    private long sessionStartNanos;
+    private long copiedAtOpen;
+    private long uploadedAtOpen;
+    private boolean loggedFirstUpload;
     private volatile long playlistRevision;
     private volatile long browserPlaylistRevision;
     private boolean orderedPlaylist;
@@ -166,6 +175,9 @@ final class PokerVideoRuntime implements AutoCloseable {
         // overlay. The player itself decides whether a recreated browser is a
         // fresh muted opening or a table-transition restoration.
         builder.addJcefArgs("--autoplay-policy=no-user-gesture-required");
+        // Diagnostic A/B test for the hardware video decoder, independent of game OpenGL.
+        boolean softwareDecode = Boolean.getBoolean("coronapoker.video.softwareDecode");
+        if (softwareDecode) builder.addJcefArgs("--disable-accelerated-video-decode");
         // Quiet native QA keeps the player's own mute/API state observable.
         if (Boolean.getBoolean("coronapoker.video.silentOutput")) builder.addJcefArgs("--mute-audio");
         CefSettings settings = builder.getCefSettings();
@@ -175,8 +187,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         // YouTube caption preference from turning subtitles on by default in
         // a later CoronaPoker run.
         settings.cache_path = "";
-        settings.log_file = logDirectory.resolve("poker-video-cef.log")
-                .toAbsolutePath().toString();
+        Path nativeLog = logDirectory.resolve("poker-video-cef.log").toAbsolutePath();
+        settings.log_file = nativeLog.toString();
         settings.log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING;
         settings.background_color = settings.new ColorType(255, 5, 8, 12);
         builder.setAppHandler(new MavenCefAppHandlerAdapter() {
@@ -186,6 +198,10 @@ final class PokerVideoRuntime implements AutoCloseable {
             }
         });
 
+        LOG.log(Level.INFO, "Poker video Chromium start | {0} | OS {1} {2} | softwareDecode={3} | native log={4}",
+                new Object[]{PokerVideoPlatformSupport.NATIVES_VERSION, osName,
+                    System.getProperty("os.version"), softwareDecode, nativeLog});
+        chromiumLog = new PokerVideoChromiumLog(nativeLog);
         cefApp = builder.build();
         client = cefApp.createClient();
         installHandlers();
@@ -194,13 +210,12 @@ final class PokerVideoRuntime implements AutoCloseable {
 
     void onCefStateChanged(CefAppState appState) {
         if (closed.get()) return;
+        LOG.log(Level.INFO, "Poker video CEF state: {0}", appState);
         if (appState == CefAppState.INITIALIZATION_FAILED
                 || appState == CefAppState.TERMINATED) {
             initializationFailed("en".equals(playerLanguage)
                     ? "Chromium could not start or stopped unexpectedly."
                     : "Chromium no pudo arrancar o se cerró inesperadamente.");
-            Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
-                    "Poker video CEF state: {0}", appState);
         }
     }
 
@@ -227,6 +242,13 @@ final class PokerVideoRuntime implements AutoCloseable {
         refererOrigin = localServer.origin();
         CefBrowserSettings browserSettings = new CefBrowserSettings();
         browserSettings.windowless_frame_rate = 30;
+        sessionNumber++;
+        sessionStartNanos = System.nanoTime();
+        copiedAtOpen = frameBuffer.copiedFrames();
+        uploadedAtOpen = frameBuffer.uploadedFrames();
+        loggedFirstUpload = false;
+        logStage("open " + width + "x" + height + " scale=" + scaleFactor
+                + " index=" + currentIndex);
         browser = new LibGdxCefBrowser(client, pageUrl, null,
                 browserSettings, frameBuffer, width, height);
         active = true;
@@ -236,6 +258,32 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     private void installHandlers() {
+        client.addDisplayHandler(new CefDisplayHandlerAdapter() {
+            private long windowStarted = System.nanoTime();
+            private int lines;
+
+            @Override
+            public boolean onConsoleMessage(CefBrowser source, CefSettings.LogSeverity severity,
+                    String message, String origin, int line) {
+                if (source != browser || closed.get()) return false;
+                Level level = switch (severity) {
+                    case LOGSEVERITY_WARNING -> Level.WARNING;
+                    case LOGSEVERITY_ERROR, LOGSEVERITY_FATAL -> Level.SEVERE;
+                    default -> null;
+                };
+                if (level == null) return false;
+                long now = System.nanoTime();
+                if (now - windowStarted >= TimeUnit.SECONDS.toNanos(10)) {
+                    windowStarted = now;
+                    lines = 0;
+                }
+                if (lines++ < 12) {
+                    LOG.log(level, "Chromium console | session {0} | line {1} | {2}",
+                            new Object[]{sessionNumber, line, PokerVideoChromiumLog.clean(message)});
+                }
+                return false;
+            }
+        });
         client.addLifeSpanHandler(new CefLifeSpanHandlerAdapter() {
             @Override
             public boolean onBeforePopup(CefBrowser source, CefFrame frame,
@@ -247,6 +295,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onAfterCreated(CefBrowser created) {
                 if (created != browser) return;
+                logStage("browser created");
                 browserCreated = true;
                 created.setWindowlessFrameRate(30);
                 created.setWindowVisibility(active);
@@ -255,6 +304,7 @@ final class PokerVideoRuntime implements AutoCloseable {
 
             @Override
             public void onBeforeClose(CefBrowser closing) {
+                logStage("browser closed");
                 browserClosing = false;
                 if (closing == browser) {
                     browserCreated = false;
@@ -276,8 +326,11 @@ final class PokerVideoRuntime implements AutoCloseable {
             @Override
             public void onLoadStart(CefBrowser loaded, CefFrame frame,
                     org.cef.network.CefRequest.TransitionType transition) {
-                if (loaded == browser && frame != null && frame.isMain()) playerReady = false;
-                if (loaded == browser && frame != null && frame.isMain()) documentLoad.reset();
+                if (loaded == browser && frame != null && frame.isMain()) {
+                    playerReady = false;
+                    documentLoad.loading();
+                    logStage("document load started");
+                }
             }
 
             @Override
@@ -290,6 +343,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                             frame.getURL(), 0);
                 }
                 if (loaded == browser && frame != null && frame.isMain()) {
+                    logStage("document HTTP " + statusCode);
                     loaded.executeJavaScript("window.coronaSetActive && "
                             + "window.coronaSetActive(" + active + ");",
                             pageUrl, 0);
@@ -335,7 +389,8 @@ final class PokerVideoRuntime implements AutoCloseable {
                 playerReady = false;
                 documentLoad.failed("El proceso del vídeo se interrumpió. Pulsa Reintentar.");
                 Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
-                        "Poker video renderer terminated: {0} ({1})", new Object[]{status, errorCode});
+                        "Poker video session {0} renderer terminated: {1} ({2}) {3}",
+                        new Object[]{sessionNumber, status, errorCode, PokerVideoChromiumLog.clean(errorString)});
             }
 
             @Override
@@ -389,7 +444,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                     callback.success("ok");
                     return true;
                 }
-                if (!frame.isMain()) {
+                if (!frame.isMain() || !pageUrl.equals(frame.getURL())) {
                     return false;
                 }
                 if (request.startsWith("RETRY_API_MANUAL|")) {
@@ -413,6 +468,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                     // game considers the player ready. Subsequent sessions
                     // use the already initialized renderer directly.
                     coldPlayerBootstrapPending = false;
+                    logStage("YouTube ready, reloading cold document once");
                     callback.success("reload");
                     return true;
                 }
@@ -427,7 +483,16 @@ final class PokerVideoRuntime implements AutoCloseable {
     private boolean handlePlayerMessage(String request) {
         if (request.startsWith("BOOT|")) {
             documentLoad.loaded();
+            logStage("JS boot " + request.substring("BOOT|".length()));
             state = "CONECTANDO CON EL REPRODUCTOR";
+            return true;
+        }
+        if (request.equals("HEARTBEAT|")) {
+            documentLoad.pulse();
+            return true;
+        }
+        if (request.startsWith("PLAYING|") || request.startsWith("PROGRESS|")) {
+            logStage(request);
             return true;
         }
         if (request.startsWith("RECOVERY|")) {
@@ -442,6 +507,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                 browserPlaylistRevision = -1L;
             }
             playerReady = true;
+            logStage("YouTube ready");
             synchronizeBrowserPlaylist();
             state = "REPRODUCIENDO EN SILENCIO";
             return true;
@@ -461,6 +527,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             return true;
         }
         if (request.startsWith("POSITION|")) {
+            documentLoad.pulse();
             updateSelection(request.substring("POSITION|".length()), true);
             return true;
         }
@@ -536,6 +603,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     void selectRelative(int delta) {
         if (!playerReady || videos.isEmpty() || browser == null) return;
         int direction = delta < 0 ? -1 : 1;
+        logStage("select direction=" + direction);
         resumeSeconds = 0;
         state = "CARGANDO";
         browser.executeJavaScript("window.coronaSelectRelative && "
@@ -626,13 +694,32 @@ final class PokerVideoRuntime implements AutoCloseable {
         return initializationError;
     }
 
-    void pollDocumentLoad(boolean running) {
-        if (documentLoad.poll(running && browser != null && !closed.get(), System.nanoTime())) {
-            Logger.getLogger(PokerVideoRuntime.class.getName()).warning(documentLoad.error());
+    synchronized boolean pollDocumentLoad(boolean running) {
+        if (!running || closed.get() || (browser == null && !browserClosing)) {
+            documentLoad.poll(false, false, System.nanoTime());
+            return false;
         }
+        boolean hasFrame = frameBuffer.copiedFrames() > copiedAtOpen
+                && frameBuffer.uploadedFrames() > uploadedAtOpen;
+        if (!loggedFirstUpload && hasFrame) {
+            loggedFirstUpload = true;
+            logStage("first frame uploaded");
+        }
+        if (!documentLoad.poll(true, hasFrame || browserClosing, System.nanoTime())) return false;
+        LOG.log(Level.WARNING, "Poker video session {0} watchdog | {1} | created={2}, closing={3}, ready={4}, frames={5}/{6}",
+                new Object[]{sessionNumber, documentLoad.error(), browserCreated, browserClosing,
+                    playerReady, frameBuffer.copiedFrames() - copiedAtOpen,
+                    frameBuffer.uploadedFrames() - uploadedAtOpen});
+        return browser != null;
     }
 
     String documentLoadError() { return documentLoad.error(); }
+
+    private void logStage(String stage) {
+        LOG.log(Level.INFO, "Poker video session {0} +{1}ms | {2} | frames copied/uploaded={3}/{4}",
+                new Object[]{sessionNumber, Long.toString((System.nanoTime() - sessionStartNanos) / 1_000_000),
+                    stage, frameBuffer.copiedFrames() - copiedAtOpen, frameBuffer.uploadedFrames() - uploadedAtOpen});
+    }
 
     synchronized void releaseBrowserSession(boolean preserveAudioForResume) {
         boolean hadSession = browser != null || documentLoad.error() != null;
@@ -649,6 +736,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         playerReady = false;
         active = false;
         if (current != null) {
+            logStage("closing browser preserveAudio=" + preserveAudioForResume);
             browserClosing = true;
             try {
                 current.executeJavaScript("window.coronaReportSession && "
@@ -687,6 +775,10 @@ final class PokerVideoRuntime implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         releaseBrowserSession(false);
-        if (cefApp != null) cefApp.dispose();
+        try {
+            if (cefApp != null) cefApp.dispose();
+        } finally {
+            if (chromiumLog != null) chromiumLog.close();
+        }
     }
 }

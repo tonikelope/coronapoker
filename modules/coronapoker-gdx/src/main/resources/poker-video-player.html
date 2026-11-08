@@ -50,10 +50,11 @@
     const BUFFER_TIMEOUT_MS = 45000;
     let apiTimer = null;
     let playbackTimer = null;
-    let apiRecoveryPending = false;
+    let apiRecoveryRequest = null;
     let playbackGeneration = 0;
     let playbackRecoveries = 0;
     let playedCurrentVideo = false;
+    let firstPlaybackPosition = null;
     let loadStopped = false;
     let loadStartSeconds = START_SECONDS;
 
@@ -87,6 +88,7 @@
 
     function showError(message) {
       loadStopped = true;
+      apiRecoveryRequest = null;
       cancelLoadTimers();
       if (autoplayRetryTimer !== null) clearTimeout(autoplayRetryTimer);
       autoplayRetryTimer = null;
@@ -103,23 +105,33 @@
     }
 
     function recoverApi(manual) {
-      if (apiRecoveryPending) return;
-      apiRecoveryPending = true;
+      if (apiRecoveryRequest !== null) return;
+      const request = Symbol();
+      apiRecoveryRequest = request;
       cancelLoadTimers();
       loading(text('Reconectando con el reproductor…', 'Reconnecting to the player…'));
+      armApiTimeout();
       const failed = () => {
-        apiRecoveryPending = false;
-        showError(text('No se pudo conectar con YouTube. Comprueba la conexión y reintenta.',
-          'Could not connect to YouTube. Check your connection and retry.'));
+        if (apiRecoveryRequest === request) failApiRecovery();
       };
       report(manual ? 'RETRY_API_MANUAL' : 'RETRY_API', 'API unavailable', response => {
+        if (apiRecoveryRequest !== request) return;
         if (response === 'reload') window.location.reload();
         else failed();
       }, failed);
     }
 
+    function failApiRecovery() {
+      showError(text('No se pudo conectar con YouTube. Comprueba la conexión y reintenta.',
+        'Could not connect to YouTube. Check your connection and retry.'));
+    }
+
     function armApiTimeout() {
-      if (!active || loadStopped || apiTimer !== null || apiRecoveryPending) return;
+      if (!active || loadStopped || apiTimer !== null) return;
+      if (apiRecoveryRequest !== null) {
+        apiTimer = setTimeout(failApiRecovery, 10000);
+        return;
+      }
       if (ready) {
         if (!playbackAllowed) apiTimer = setTimeout(() => {
           apiTimer = null;
@@ -136,19 +148,25 @@
 
     function armPlaybackTimeout(delay = PLAYBACK_TIMEOUT_MS) {
       if (!ready || !playbackAllowed || !active || loadStopped || playbackTimer !== null) return;
-      if (player.getPlayerState && player.getPlayerState() === 1) return;
+      const waitingForFirstPlayback = !playedCurrentVideo;
+      // loadVideoById can leave getPlayerState() reporting PLAYING for the
+      // previous video while the new command is still pending in the iframe.
+      const playbackResumed = () => waitingForFirstPlayback ? playedCurrentVideo
+        : player.getPlayerState && player.getPlayerState() === 1;
+      if (playbackResumed()) return;
       const generation = playbackGeneration;
       playbackTimer = setTimeout(() => {
         playbackTimer = null;
         if (!active || generation !== playbackGeneration || loadStopped) return;
-        if (player.getPlayerState && player.getPlayerState() === 1) return;
+        if (playbackResumed()) return;
         playbackRecoveries += 1;
         report('RECOVERY', 'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]);
         if (playbackRecoveries >= 3) {
           showError(text('El vídeo no responde. Comprueba la conexión y pulsa Reintentar.',
             'The video is not responding. Check your connection and press Retry.'));
         } else if (playbackRecoveries === 1) {
-          const seconds = Math.max(loadStartSeconds, player.getCurrentTime ? player.getCurrentTime() || 0 : 0);
+          const seconds = waitingForFirstPlayback ? loadStartSeconds
+            : Math.max(loadStartSeconds, player.getCurrentTime ? player.getCurrentTime() || 0 : 0);
           selectOrderPosition(orderPosition, true, seconds);
         } else {
           skipUnavailable('timeout');
@@ -173,10 +191,11 @@
 
     function selectOrderPosition(position, recovery = false, startSeconds = 0) {
       if (!player || !ready || VIDEO_IDS.length === 0) return;
-      cancelLoadTimers();
+      if (playbackAllowed) cancelLoadTimers();
       playbackGeneration += 1;
       if (!recovery) playbackRecoveries = 0;
       playedCurrentVideo = false;
+      firstPlaybackPosition = null;
       loadStopped = false;
       loadStartSeconds = Math.max(0, Math.floor(startSeconds));
       if (skipTimer !== null) {
@@ -389,6 +408,7 @@
         events: {
           onReady: event => {
             try {
+            if (apiRecoveryRequest !== null) return;
             ready = true;
             cancelLoadTimers();
             loading(text('Cargando vídeo…', 'Loading video…'));
@@ -418,8 +438,12 @@
             }
           },
           onStateChange: event => {
-            if (event.data === 1) {
+            if (event.data === 1 && playbackAllowed) {
               cancelLoadTimers();
+              if (!playedCurrentVideo) {
+                firstPlaybackPosition = event.target.getCurrentTime ? event.target.getCurrentTime() : 0;
+                report('PLAYING', 'index=' + currentIndex + ' time=' + firstPlaybackPosition);
+              }
               playedCurrentVideo = true;
               loadStopped = false;
               playbackRecoveries = 0;
@@ -465,8 +489,12 @@
 
     function reportPosition() {
       if (!player || !ready || typeof player.getCurrentTime !== 'function') return;
-      report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(player.getCurrentTime()))
-        + ':' + playlistRevision);
+      const seconds = player.getCurrentTime();
+      if (firstPlaybackPosition !== null && seconds >= firstPlaybackPosition + 1) {
+        report('PROGRESS', 'index=' + currentIndex + ' time=' + seconds.toFixed(2));
+        firstPlaybackPosition = null;
+      }
+      report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(seconds)) + ':' + playlistRevision);
     }
     function reportSession() {
       captureStableAudioState();
@@ -474,11 +502,16 @@
     }
     window.coronaReportPosition = reportPosition;
     window.coronaReportSession = reportSession;
-    setInterval(reportPosition, 750);
+    setInterval(() => {
+      if (!active) return;
+      if (playedCurrentVideo && player && typeof player.getCurrentTime === 'function') reportPosition();
+      else report('HEARTBEAT', '');
+    }, 750);
     setInterval(monitorAudioState, 250);
 
     loading(text('Conectando con el reproductor…', 'Connecting to the player…'));
-    report('BOOT', '1');
+    report('BOOT', 'viewport=' + window.innerWidth + 'x' + window.innerHeight
+      + ' dpr=' + window.devicePixelRatio);
     armApiTimeout();
 
     const script = document.createElement('script');

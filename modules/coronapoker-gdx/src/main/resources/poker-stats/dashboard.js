@@ -12,7 +12,7 @@ const strings = {
     humanPlayers:'Jugadores humanos',
     previousHand:'Mano anterior', nextHand:'Mano siguiente',
     performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
-    perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo, en fichas.',
+    perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo.',
     profile:'PERFIL DE JUEGO', behavior:'Estadísticas clave', sessionResults:'Resultados por sesión',
     prev:'Anterior', next:'Siguiente', heatmaps:'MAPAS DE CALOR', startingHands:'Manos iniciales',
     cardsNote:'Solo manos con cartas registradas. Pasa el cursor para ver la muestra.',
@@ -21,7 +21,7 @@ const strings = {
     compareMark:'COMPARATIVAS', trends:'Evolución de estadísticas', metric:'Métrica',
     playerCompare:'Jugadores en las mismas sesiones',
     net:'Beneficio neto', hourly:'Ganancia por hora', hands:'Manos jugadas',
-    sessionCount:'Sesiones', chips:'fichas', perHour:'fichas/h', settled:'Manos liquidadas',
+    sessionCount:'Sesiones', settled:'Manos liquidadas',
     timed:'de mesa registradas', profitable:'con beneficio', noBalance:'Sin saldo registrado',
     noDuration:'Sin duración registrada', loading:'Consultando el historial local…',
     emptyHistory:'Las estadísticas aparecerán cuando haya manos liquidadas en el historial.',
@@ -82,7 +82,7 @@ const strings = {
     humanPlayers:'Human players',
     previousHand:'Previous hand', nextHand:'Next hand',
     performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
-    perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period, in chips.',
+    perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period.',
     profile:'PLAYER PROFILE', behavior:'Key statistics', sessionResults:'Session results',
     prev:'Previous', next:'Next', heatmaps:'HEATMAPS', startingHands:'Starting hands',
     cardsNote:'Hands with recorded cards only. Hover over a cell to see its sample.',
@@ -91,7 +91,7 @@ const strings = {
     compareMark:'COMPARISONS', trends:'Stats over time', metric:'Metric',
     playerCompare:'Players in the same sessions',
     net:'Net profit', hourly:'Profit per hour', hands:'Hands played', sessionCount:'Sessions',
-    chips:'chips', perHour:'chips/h', settled:'Settled hands', timed:'of recorded table time',
+    settled:'Settled hands', timed:'of recorded table time',
     profitable:'profitable', noBalance:'No recorded balance', noDuration:'No recorded duration',
     loading:'Reading local history…', emptyHistory:'Statistics appear once your history contains settled hands.',
     emptyFilter:'This player has no sessions in the selected period.',
@@ -293,15 +293,16 @@ function statCard(label, value, caption, icon, hero, cls) {
   const glyph = create('span', icon, 'kpi-icon');
   glyph.setAttribute('aria-hidden', 'true');
   top.append(glyph);
-  card.append(top, create('strong', value, cls), create('small', caption));
+  card.append(top, create('strong', value, cls));
+  if (caption) card.append(create('small', caption));
   return card;
 }
 
 function showOverview() {
   const v = view;
   $('kpis').replaceChildren(
-    statCard(t('net'), signed(v?.net), v?.net == null ? t('noBalance') : t('chips'), '↗', true, tone(v?.net)),
-    statCard(t('hourly'), signed(v?.hourly), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed') + ' / ' + t('perHour'), '◷', false, tone(v?.hourly)),
+    statCard(t('net'), signed(v?.net), v?.net == null ? t('noBalance') : '', '↗', true, tone(v?.net)),
+    statCard(t('hourly'), signed(v?.hourly), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed'), '◷', false, tone(v?.hourly)),
     statCard(t('hands'), v ? integer.format(v.hands) : '–', t('settled'), '♠', false, ''),
     statCard(t('sessionCount'), v ? integer.format(v.sessionCount) : '–',
       v?.sessionsWithBalance ? integer.format(v.winningSessions) + '/' + integer.format(v.sessionsWithBalance) + ' ' + t('profitable') : t('noBalance'), '▤', false, '')

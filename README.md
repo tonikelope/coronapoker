@@ -19,8 +19,7 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
-<img width="2560" height="1440" alt="CoronaPoker GDX table during a showdown" src="docs/screenshots/coronapoker-table-gdx.png" />
-
+<img width="2560" height="1440" alt="coronapoker_screenshot_1794135757102" src="https://github.com/user-attachments/assets/c5a2849c-fe70-4520-96be-17221cdc8a97" />
 
 
 # Features

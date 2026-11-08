@@ -34,6 +34,10 @@ const strings = {
     position:'Posición', perHand:'Por mano', sample:'Muestra mínima', page:'Página',
     comparisonNote:'Los puntos se muestran en sesiones con al menos {n} manos y muestra para la métrica.',
     zoom:'Zoom del panel', zoomIn:'Ampliar texto y panel', zoomOut:'Reducir texto y panel', zoomReset:'Restablecer zoom',
+    chartResize:'Ajustar el tamaño de la gráfica',
+    chartResizeHint:'Arrastra o usa las flechas para ajustar el ancho y el alto.',
+    chartReset:'Restablecer el tamaño de la gráfica',
+    chartResetAll:'Restaurar gráficas',
     noPlayers:'Todavía no hay jugadores con la muestra mínima en estas sesiones.',
     coverage:'Cobertura de los datos', coverageNote:'Los denominadores cuentan las muestras registradas para el jugador y el periodo. El intervalo se aplica a la fecha de inicio de las sesiones.',
     coveredNet:'Sesiones con saldo', coveredTime:'Sesiones cerradas con duración y saldo',
@@ -94,6 +98,10 @@ const strings = {
     position:'Position', perHand:'Per hand', sample:'Minimum sample', page:'Page',
     comparisonNote:'Points require at least {n} hands in the session and a sample for the selected metric.',
     zoom:'Dashboard zoom', zoomIn:'Enlarge text and dashboard', zoomOut:'Shrink text and dashboard', zoomReset:'Reset zoom',
+    chartResize:'Resize chart',
+    chartResizeHint:'Drag or use the arrow keys to adjust the width and height.',
+    chartReset:'Reset chart size',
+    chartResetAll:'Reset charts',
     noPlayers:'No players reach the minimum sample in these sessions yet.',
     coverage:'Data coverage', coverageNote:'Denominators count recorded samples for the player and period. The date range applies to session start dates.',
     coveredNet:'Sessions with a balance', coveredTime:'Closed sessions with duration and balance',
@@ -137,6 +145,7 @@ const paint = {mint:'#71e7a8', gain:'#3f9a75', loss:'#f08596', muted:'#bdcbdd',
   axis:'#395673', grid:'#29415b', cyan:'#36d9ff', amber:'#ffe07a', violet:'#b7a3ff'};
 const tabs = [...document.querySelectorAll('[role=tab]')];
 const charts = new Map();
+const chartResets = new Map();
 const $ = id => document.getElementById(id);
 const create = (tag, text, cls) => {
   const el = document.createElement(tag);
@@ -239,7 +248,7 @@ function navigateHand(offset) {
   if (ready && hand) loadScope(scope, hand.id);
 }
 function selectTab(id, focus = false) {
-  if (activeTab !== id) window.scrollTo(0, 0);
+  if (activeTab !== id) $('stats-view').scrollTo(0, 0);
   activeTab = id;
   $('classic-filter').hidden = id !== 'classics';
   for (const tab of tabs) {
@@ -366,9 +375,88 @@ function tooltip() {
     borderColor:paint.axis, textStyle:{color:'#edf5f1', fontSize:chartFont(.86)}, padding:12};
 }
 
+function addChartResize(plot) {
+  const panel = plot.closest('.panel');
+  const frame = create('div', null, 'chart-frame');
+  const slot = create('div', null, 'chart-slot');
+  const tools = create('div', null, 'chart-tools');
+  const grip = create('button', null, 'chart-resizer');
+  const resetButton = create('button', '↺', 'ghost chart-reset');
+  grip.type = 'button';
+  resetButton.type = 'button';
+  grip.title = t('chartResizeHint');
+  resetButton.title = t('chartReset');
+  resetButton.hidden = true;
+  grip.setAttribute('aria-label', t('chartResize'));
+  resetButton.setAttribute('aria-label', t('chartReset'));
+  grip.setAttribute('aria-controls', plot.id);
+  plot.before(frame);
+  frame.append(slot, tools);
+  tools.append(resetButton, grip);
+  slot.append(plot);
+
+  function resize(width, height) {
+    if (width != null) {
+      const available = $('stats-view').clientWidth;
+      const maxWidth = Math.max(available, Math.min(4096, available * 3));
+      const pixels = Math.round(Math.max(Math.min(300, slot.clientWidth), Math.min(maxWidth, width)));
+      // The two layout measurements can round in opposite directions.
+      const panelChrome = panel.offsetWidth - slot.clientWidth + 1;
+      panel.style.minWidth = (pixels + panelChrome) + 'px';
+      panel.classList.add('chart-panel-resized');
+      plot.style.width = pixels + 'px';
+    }
+    if (height != null) plot.style.height = Math.round(Math.max(130, Math.min(1100, height))) + 'px';
+    chartResets.set(plot, reset);
+    $('reset-charts').hidden = false;
+    resetButton.hidden = false;
+  }
+
+  function reset() {
+    plot.style.removeProperty('width');
+    plot.style.removeProperty('height');
+    panel.style.removeProperty('min-width');
+    panel.classList.remove('chart-panel-resized');
+    chartResets.delete(plot);
+    $('reset-charts').hidden = chartResets.size === 0;
+    if (document.activeElement === resetButton) grip.focus({preventScroll:true});
+    resetButton.hidden = true;
+  }
+
+  let drag;
+  grip.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    grip.setPointerCapture(event.pointerId);
+    const width = plot.offsetWidth;
+    drag = {x:event.clientX, y:event.clientY, dx:0, dy:0, width, height:plot.offsetHeight,
+      scale:plot.getBoundingClientRect().width / width};
+  });
+  grip.addEventListener('pointermove', event => {
+    if (!drag || !grip.hasPointerCapture(event.pointerId)) return;
+    const dx = (event.clientX - drag.x) / drag.scale;
+    const dy = (event.clientY - drag.y) / drag.scale;
+    if (dx === drag.dx && dy === drag.dy) return;
+    resize(dx !== drag.dx ? drag.width + dx : null, dy !== drag.dy ? drag.height + dy : null);
+    drag.dx = dx;
+    drag.dy = dy;
+  });
+  grip.addEventListener('lostpointercapture', () => { drag = undefined; });
+  resetButton.addEventListener('click', reset);
+  grip.addEventListener('keydown', event => {
+    const step = event.shiftKey ? 96 : 24;
+    const dx = event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0;
+    const dy = event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0;
+    if (event.key === 'Home') reset();
+    else if (dx || dy) resize(dx ? plot.offsetWidth + dx : null, dy ? plot.offsetHeight + dy : null);
+    else return;
+    event.preventDefault();
+  });
+}
+
 function draw(id, options, empty) {
   let chart = charts.get(id);
   if (!chart) {
+    addChartResize($(id));
     chart = echarts.init($(id));
     charts.set(id, chart);
     new ResizeObserver(() => {
@@ -916,6 +1004,11 @@ $('tabs').addEventListener('keydown', event => {
 $('zoom-out').addEventListener('click', () => changeZoom(-10));
 $('zoom-in').addEventListener('click', () => changeZoom(10));
 $('zoom-reset').addEventListener('click', () => changeZoom(0));
+$('reset-charts').addEventListener('click', () => {
+  for (const reset of chartResets.values()) reset();
+  $('stats-view').scrollLeft = 0;
+  $('zoom-reset').focus({preventScroll:true});
+});
 document.addEventListener('keydown', event => {
   if (!(event.ctrlKey || event.metaKey) || !['+', '=', '-', '0'].includes(event.key)) return;
   event.preventDefault();

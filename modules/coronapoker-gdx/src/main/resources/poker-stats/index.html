@@ -21,6 +21,7 @@
       <button role="tab" id="tab-hand" aria-selected="false" aria-controls="hand" tabindex="-1" data-tab="hand" data-t="handDetail" hidden>Detalle de la mano</button>
     </nav>
     <div class="zoom-tools" role="group" id="zoom-tools">
+      <button id="reset-charts" class="ghost" type="button" data-t="chartResetAll" hidden>Restaurar gráficas</button>
       <button id="zoom-out" class="ghost" type="button">−</button>
       <button id="zoom-reset" class="ghost" type="button">100%</button>
       <button id="zoom-in" class="ghost" type="button">+</button>
@@ -46,7 +47,7 @@
     </div>
   </div>
 </header>
-<main>
+<main id="stats-view">
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
   <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
     <div class="kpis" id="kpis"></div>

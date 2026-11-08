@@ -45,6 +45,7 @@
     const failedVideoIds = new Set();
     let skipTimer = null;
     let discoveryTimer = null;
+    let discoveryPending = false;
     let autoplayRetryTimer = null;
     const API_TIMEOUT_MS = 30000;
     const COLD_DOCUMENT_LOAD_TIMEOUT_MS = 3000;
@@ -260,31 +261,39 @@
       return -1;
     }
 
-    function cancelDiscoveryWait() {
+    function suspendDiscoveryWait() {
       if (discoveryTimer !== null) clearTimeout(discoveryTimer);
       discoveryTimer = null;
     }
 
+    function cancelDiscoveryWait() {
+      suspendDiscoveryWait();
+      discoveryPending = false;
+    }
+
     function finishDiscovery(revision, wrap) {
-      if (revision !== playlistRevision || discoveryTimer === null) return;
+      if (!active || revision !== playlistRevision || !discoveryPending) return;
       cancelDiscoveryWait();
-      if (!active) return;
       const position = nextPlayableOrderPosition(1, wrap);
       if (position >= 0) selectOrderPosition(position);
       else showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
     }
 
     function selectRelative(delta, recovery = false) {
-      const nextPosition = nextPlayableOrderPosition(delta, orderedPlaylist);
+      const nextPosition = nextPlayableOrderPosition(delta, orderedPlaylist || delta < 0);
       if (nextPosition >= 0) {
         selectOrderPosition(nextPosition, recovery);
       } else if (orderedPlaylist) {
         showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
-      } else if (delta > 0 && discoveryTimer === null) {
+      } else if (active && delta > 0 && !discoveryPending) {
         const revision = playlistRevision;
-        const fallback = () => finishDiscovery(revision, true);
+        const fallback = () => {
+          if (discoveryTimer === timer) finishDiscovery(revision, true);
+        };
+        discoveryPending = true;
         loading('discovery');
-        discoveryTimer = setTimeout(fallback, 16000);
+        const timer = setTimeout(fallback, 16000);
+        discoveryTimer = timer;
         report('DISCOVER', revision, response => {
           if (response !== 'wait') fallback();
         }, fallback);
@@ -403,10 +412,17 @@
     window.coronaDiscoveryUnavailable = revision => finishDiscovery(revision, true);
     window.coronaSetActive = function (enabled) {
       active = Boolean(enabled);
-      if (!active) cancelLoadTimers();
-      else armApiTimeout();
+      if (!active) {
+        cancelLoadTimers();
+        suspendDiscoveryWait();
+      } else armApiTimeout();
       if (!player || !ready) return;
       if (active) {
+        if (discoveryPending) {
+          cancelDiscoveryWait();
+          selectRelative(1);
+          return;
+        }
         playVideo(player);
         armPlaybackTimeout();
       } else {

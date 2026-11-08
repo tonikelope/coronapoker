@@ -79,6 +79,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final AtomicLong initializationGeneration = new AtomicLong();
     private final Object initializationLock = new Object();
     private Future<?> initializationTask;
+    private final PokerVideoTitles titles = new PokerVideoTitles();
     private Future<List<PokerVideoSearch.Video>> discoveryTask;
     private long discoveryCatalogRevision;
     private long nextDiscoverySearch;
@@ -216,6 +217,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         String languageCode = PokerVideoSearch.languageCode(language);
         if (!text.language().equals(languageCode)) text.setLanguage(languageCode);
         if (!available) {
+            titles.update(null);
             if (wasAvailable) {
                 initializationGeneration.incrementAndGet();
                 cancelInitializationTask();
@@ -308,6 +310,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         boolean shouldRun = hostVisible && !minimized && !emptyFavorites()
                 && !catalogLoading && loadingError == null;
+        titles.update(shouldRun && displayedSelection != null ? displayedSelection.video() : null);
         if (current != null && !enabled && current.browser() != null) {
             releaseBrowserSession(false);
         }
@@ -792,7 +795,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         boolean favoritesMode = catalog.favoritesMode();
         var selection = displayedSelection;
-        String title = selection != null ? selection.video().title()
+        String title = selection != null ? titles.title(selection.video())
                 : emptyFavorites() ? text.translate("gdx.video.favorites.label") : "VÍDEOS DE PÓKER";
         float titleX = nextBounds.x + nextBounds.width + 12f;
         if (favoritesMode) {
@@ -880,7 +883,9 @@ final class PokerVideoOverlay implements AutoCloseable {
     private void toggleFavorite() {
         if (!actionEnabled(Capture.FAVORITE)) return;
         try {
-            catalog.toggleFavorite(displayedSelection.video());
+            var video = displayedSelection.video();
+            catalog.toggleFavorite(video.hasTitle() ? video
+                    : new PokerVideoSearch.Video(video.id(), titles.title(video), video.type()));
             favoriteSaveFailed = false;
         } catch (IOException failure) {
             favoriteSaveFailed = true;
@@ -1539,6 +1544,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         saveWindowGeometry();
         if (capture == Capture.OPACITY) saveOpacity();
         initializer.shutdownNow();
+        titles.close();
         PokerVideoRuntime current = runtime;
         if (current != null) current.close();
         if (loadingSpade != null) loadingSpade.dispose();

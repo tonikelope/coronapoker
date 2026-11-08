@@ -194,6 +194,44 @@ test('the end waits for more discovery results and advances without replaying an
   assert.equal(qa.native.id, ids[1]);
 });
 
+test('previous can wrap as before, while forward at the end asks for new videos', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.context.coronaSelectRelative(-1);
+  assert.equal(qa.native.id, ids[2]);
+  assert.ok(!qa.messages.some(message => message.startsWith('DISCOVER|')));
+  qa.context.coronaSelectRelative(1);
+  assert.ok(qa.messages.includes('DISCOVER|0'));
+});
+
+test('a hidden player resumes its pending advance without replaying the last video', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.context.coronaSelectVideo(2);
+  qa.native.emit(0);
+  qa.context.coronaSetActive(false);
+  qa.tick(17000);
+  const loads = qa.loads.length;
+  qa.context.coronaExtendVideos([...ids, 'abcdefghijk'], 1, 2);
+  assert.equal(qa.loads.length, loads);
+  qa.context.coronaSetActive(true);
+  assert.equal(qa.native.id, 'abcdefghijk');
+  assert.equal(qa.loads.length, loads + 1);
+});
+
+test('an advance still waiting for results requests them again when the player is shown', () => {
+  const qa = playerPage({ discovery: true });
+  qa.ready();
+  qa.context.coronaSelectVideo(2);
+  qa.native.emit(0);
+  qa.context.coronaSetActive(false);
+  qa.tick(17000);
+  qa.context.coronaSetActive(true);
+  assert.equal(qa.messages.filter(message => message === 'DISCOVER|0').length, 2);
+  qa.context.coronaExtendVideos([...ids, 'abcdefghijk'], 1, 2);
+  assert.equal(qa.native.id, 'abcdefghijk');
+});
+
 test('a timed-out search can wrap and an obsolete discovery response cannot replace favorites', () => {
   const qa = playerPage({ discovery: true });
   qa.ready();

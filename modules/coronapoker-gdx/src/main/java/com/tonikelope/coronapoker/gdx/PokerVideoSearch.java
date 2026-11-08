@@ -36,7 +36,10 @@ final class PokerVideoSearch {
     static final String TYPE_SHORTS = "shorts";
     static final String TYPE_NORMAL = "normal";
     static final int MAX_RESULTS = 40;
+    private static final String UNTITLED = "Vídeo de póker";
     private static final int MAX_RESPONSE_BYTES = 12 * 1024 * 1024;
+    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
     private static final List<String> TOPICS = List.of(
             "torneos", "manos épicas", "mesa final", "faroles", "cash game",
             "jugadas", "high stakes", "partidas en vivo", "all in", "estrategia");
@@ -59,9 +62,20 @@ final class PokerVideoSearch {
                 throw new IllegalArgumentException("Invalid YouTube video id");
             }
             title = title == null || title.isBlank()
-                    ? "Vídeo de póker" : title.strip();
+                    ? UNTITLED : title.strip();
             type = videoType(type);
         }
+
+        boolean hasTitle() {
+            return !UNTITLED.equals(title);
+        }
+    }
+
+    private static final class Http {
+        private static final HttpClient CLIENT = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(8))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
     }
 
     private PokerVideoSearch() {
@@ -82,28 +96,47 @@ final class PokerVideoSearch {
         String acceptedLanguage = languageCode(language);
         String fallbackLanguage = "es".equals(acceptedLanguage)
                 ? "en" : "es";
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(8))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
         String normalizedType = videoType(videoType);
         HttpRequest request = HttpRequest.newBuilder(searchUri(language,
                 normalizedType, variant))
                 .timeout(Duration.ofSeconds(15))
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        + "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        + "Chrome/152.0.0.0 Safari/537.36")
+                .header("User-Agent", USER_AGENT)
                 .header("Accept-Language", acceptedLanguage + ","
                         + fallbackLanguage + ";q=0.8")
                 .header("Accept", "text/html,application/xhtml+xml")
                 .GET()
                 .build();
-        List<Video> videos = parse(fetchBody(client, request, MAX_RESPONSE_BYTES),
+        List<Video> videos = parse(fetchBody(Http.CLIENT, request, MAX_RESPONSE_BYTES),
                 normalizedType);
         if (videos.isEmpty()) {
             throw new IOException("YouTube search did not expose playable videos");
         }
         return videos;
+    }
+
+    static String fetchTitle(Video video) throws IOException, InterruptedException {
+        URI uri = URI.create("https://www.youtube.com/oembed"
+                + "?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D"
+                + video.id() + "&format=json");
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(5))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        return embedTitle(fetchBody(Http.CLIENT, request, 32 * 1024));
+    }
+
+    static String embedTitle(String body) throws IOException {
+        try {
+            JsonValue title = new JsonReader().parse(body).get("title");
+            if (title != null && title.isString() && !title.asString().isBlank()) {
+                return title.asString().strip();
+            }
+        } catch (RuntimeException malformed) {
+            throw new IOException("Invalid YouTube title response", malformed);
+        }
+        throw new IOException("YouTube did not provide a video title");
     }
 
     static String fetchBody(HttpClient client, HttpRequest request, int maxBytes)
@@ -207,7 +240,7 @@ final class PokerVideoSearch {
                     ? FALLBACK_SHORT_ID : FALLBACK_NORMAL_ID).matcher(html);
             while (matcher.find() && ordered.size() < MAX_RESULTS) {
                 String id = matcher.group(1);
-                ordered.putIfAbsent(id, new Video(id, "Vídeo de póker", normalizedType));
+                ordered.putIfAbsent(id, new Video(id, null, normalizedType));
             }
         }
         return List.copyOf(ordered.values());
@@ -244,11 +277,7 @@ final class PokerVideoSearch {
 
     private static void addNormalRenderer(JsonValue renderer,
             Map<String, Video> ordered) {
-        String id = renderer.getString("videoId", "");
-        if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
-            return;
-        }
-        ordered.put(id, new Video(id, rendererTitle(renderer)));
+        addVideo(ordered, renderer.getString("videoId", ""), rendererTitle(renderer), TYPE_NORMAL);
     }
 
     private static void addLockup(JsonValue lockup,
@@ -257,39 +286,38 @@ final class PokerVideoSearch {
                 "reelWatchEndpoint");
         String id = endpoint == null ? ""
                 : endpoint.getString("videoId", "");
-        if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
-            return;
-        }
         JsonValue primaryText = nested(lockup, "overlayMetadata",
                 "primaryText");
         String title = primaryText == null ? ""
                 : primaryText.getString("content", "");
-        ordered.put(id, new Video(id, title, TYPE_SHORTS));
+        addVideo(ordered, id, title, TYPE_SHORTS);
     }
 
     private static void addLegacyRenderer(JsonValue renderer,
             Map<String, Video> ordered) {
-        String id = renderer.getString("videoId", "");
-        if (!id.matches("[A-Za-z0-9_-]{11}") || ordered.containsKey(id)) {
-            return;
+        addVideo(ordered, renderer.getString("videoId", ""), rendererTitle(renderer), TYPE_SHORTS);
+    }
+
+    private static void addVideo(Map<String, Video> ordered, String id, String title, String type) {
+        if (!id.matches("[A-Za-z0-9_-]{11}")) return;
+        Video previous = ordered.get(id);
+        if (previous == null || !previous.hasTitle() && title != null && !title.isBlank()) {
+            ordered.put(id, new Video(id, title, type));
         }
-        ordered.put(id, new Video(id, rendererTitle(renderer), TYPE_SHORTS));
     }
 
     private static String rendererTitle(JsonValue renderer) {
         JsonValue title = renderer.get("title");
-        if (title == null) return "Vídeo de póker";
+        if (title == null) return null;
         String simple = title.getString("simpleText", "");
         if (!simple.isBlank()) return simple;
         JsonValue runs = title.get("runs");
-        if (runs == null) return "Vídeo de póker";
-        ArrayList<String> fragments = new ArrayList<>();
+        if (runs == null) return null;
+        var fragments = new StringBuilder();
         for (JsonValue run = runs.child; run != null; run = run.next) {
-            String text = run.getString("text", "");
-            if (!text.isBlank()) fragments.add(text);
+            fragments.append(run.getString("text", ""));
         }
-        String joined = String.join("", fragments).strip();
-        return joined.isBlank() ? "Vídeo de póker" : joined;
+        return fragments.toString();
     }
 
     private static JsonValue nested(JsonValue root, String... names) {

@@ -130,6 +130,7 @@ class PokerVideoSearchTest {
 
         assertEquals(List.of("ABCDEFGHIJK", "LMNOPQRSTUV"),
                 videos.stream().map(PokerVideoSearch.Video::id).toList());
+        assertTrue(videos.stream().noneMatch(PokerVideoSearch.Video::hasTitle));
     }
 
     @Test
@@ -148,6 +149,34 @@ class PokerVideoSearchTest {
         assertEquals(List.of("ABCDEFGHIJK"),
                 videos.stream().map(PokerVideoSearch.Video::id).toList());
         assertEquals("Normal poker video", videos.get(0).title());
+    }
+
+    @Test
+    void aDuplicateWithMetadataFillsInTheTitleInTheOriginalOrder() {
+        String html = """
+                <script>var ytInitialData = {"contents":[
+                  {"videoRenderer":{"videoId":"ABCDEFGHIJK"}},
+                  {"videoRenderer":{"videoId":"LMNOPQRSTUV","title":{"simpleText":"Final table"}}},
+                  {"videoRenderer":{"videoId":"ABCDEFGHIJK","title":{"runs":[
+                    {"text":"Adrián"},{"text":" "},{"text":"Mateos ♠"}
+                  ]}}}
+                ]};</script>
+                """;
+        var videos = PokerVideoSearch.parse(html, PokerVideoSearch.TYPE_NORMAL);
+        assertEquals(List.of("ABCDEFGHIJK", "LMNOPQRSTUV"),
+                videos.stream().map(PokerVideoSearch.Video::id).toList());
+        assertEquals(List.of("Adrián Mateos ♠", "Final table"),
+                videos.stream().map(PokerVideoSearch.Video::title).toList());
+    }
+
+    @Test
+    void acceptsOnlyANonEmptyTitleFromEmbedMetadata() throws Exception {
+        assertEquals("Adrián Mateos ♠", PokerVideoSearch.embedTitle("""
+                {"title":"  Adrián Mateos ♠  ","html":"<iframe></iframe>"}
+                """));
+        assertThrows(IOException.class, () -> PokerVideoSearch.embedTitle("{\"title\":{}}"));
+        assertThrows(IOException.class, () -> PokerVideoSearch.embedTitle("{\"title\":\"  \"}"));
+        assertThrows(IOException.class, () -> PokerVideoSearch.embedTitle("<html>Unavailable</html>"));
     }
 
     @Test

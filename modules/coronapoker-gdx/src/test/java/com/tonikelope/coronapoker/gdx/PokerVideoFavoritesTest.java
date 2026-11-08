@@ -42,8 +42,7 @@ class PokerVideoFavoritesTest {
             assertEquals(true, value(overlay, "minimized"));
             assertEquals(false, value(overlay, "initializationStarted"));
             assertNull(value(overlay, "runtime"));
-            overlay.releaseForTable();
-            overlay.restoreAfterTable();
+            overlay.minimizeForTable();
             overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertEquals(true, value(overlay, "minimized"));
             assertEquals(false, value(overlay, "initializationStarted"));
@@ -319,6 +318,48 @@ class PokerVideoFavoritesTest {
         }
     }
 
+    @Test void maximizesBothFormatsAndShowsTheButtonAgainAfterShrinking()
+            throws Exception {
+        var favorites = new PokerVideoFavorites(directory.resolve("favorites.properties"));
+        var preferences = new Properties();
+        var saves = new java.util.concurrent.atomic.AtomicInteger();
+        try (var overlay = new PokerVideoOverlay(favorites, ignored -> { }, true,
+                preferences, saves::incrementAndGet)) {
+            set(overlay, "initializationStarted", true);
+            int expectedSaves = 0;
+            for (String type : List.of("normal", "shorts")) {
+                set(overlay, "requestedCatalogKey", "es:" + type);
+                overlay.update(true, true, true, "es", type, 1920f, 1080f);
+                Rectangle before = new Rectangle(bounds(overlay, "panelBounds"));
+                assertTrue(hasMaximizeTooltip(overlay));
+
+                click(overlay, "maximizeBounds");
+                Rectangle panel = bounds(overlay, "panelBounds");
+                assertTrue(panel.width > before.width);
+                assertEquals(1080f - 16f, panel.height, 0.01f);
+                assertEquals(1920f / 2f, panel.x + panel.width / 2f, 0.01f);
+                assertEquals(1080f / 2f, panel.y + panel.height / 2f, 0.01f);
+                assertFalse(hasMaximizeTooltip(overlay));
+                assertNotNull(preferences.getProperty("poker_video_window_" + type));
+                assertEquals(++expectedSaves, saves.get());
+
+                float edgeX = panel.x + panel.width - 2f;
+                float edgeY = panel.y + panel.height / 2f;
+                assertTrue(overlay.touchDown(edgeX, edgeY, 0, 0));
+                assertTrue(overlay.touchDragged(edgeX - 40f, edgeY, 0));
+                assertTrue(overlay.touchUp(edgeX - 40f, edgeY, 0, 0));
+                assertTrue(hasMaximizeTooltip(overlay));
+                assertEquals(++expectedSaves, saves.get());
+            }
+        }
+    }
+
+    private static boolean hasMaximizeTooltip(PokerVideoOverlay overlay) {
+        List<String> keys = new java.util.ArrayList<>();
+        overlay.addTooltips((bounds, key) -> keys.add(key));
+        return keys.contains("gdx.video.maximize");
+    }
+
     private static void moveAndResize(PokerVideoOverlay overlay, float shift) throws Exception {
         Rectangle panel = bounds(overlay, "panelBounds");
         float titleX = panel.x + panel.width / 2f;
@@ -352,7 +393,7 @@ class PokerVideoFavoritesTest {
             assertTrue(overlay.touchDown(titleX, titleY, 0, 0));
             assertTrue(overlay.touchDragged(titleX - 80f, titleY + 40f, 0));
             Rectangle moved = new Rectangle(panel);
-            overlay.releaseForTable();
+            overlay.minimizeForTable();
             assertFalse(overlay.capturesPointer());
             assertEquals(1, saves.get());
             overlay.restoreAfterTable();

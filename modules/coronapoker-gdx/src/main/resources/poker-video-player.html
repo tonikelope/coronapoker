@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <div id="status">Cargando reproductor…</div>
+  <div id="status"></div>
   <div id="player"></div>
   <script>
     'use strict';
@@ -46,6 +46,7 @@
     let skipTimer = null;
     let autoplayRetryTimer = null;
     const API_TIMEOUT_MS = 30000;
+    const COLD_DOCUMENT_LOAD_TIMEOUT_MS = 3000;
     const PLAYBACK_TIMEOUT_MS = 20000;
     const BUFFER_TIMEOUT_MS = 45000;
     let apiTimer = null;
@@ -68,9 +69,21 @@
       apiTimer = playbackTimer = null;
     }
 
-    function loading(message) {
+    const loadingMessages = {
+      connecting: text('Conectando con el reproductor…', 'Connecting to the player…'),
+      reconnecting: text('Reconectando con el reproductor…', 'Reconnecting to the player…'),
+      video: text('Cargando vídeo…', 'Loading video…')
+    };
+
+    function loading(phase) {
       statusBox.className = '';
-      statusBox.textContent = message;
+      statusBox.textContent = typeof window.cefQuery === 'function' ? '' : loadingMessages[phase];
+      report('LOADING', phase);
+    }
+
+    function hideStatus() {
+      statusBox.className = 'hidden';
+      report('LOADING', '');
     }
 
     function report(kind, detail, onSuccess, onFailure) {
@@ -109,7 +122,7 @@
       const request = Symbol();
       apiRecoveryRequest = request;
       cancelLoadTimers();
-      loading(text('Reconectando con el reproductor…', 'Reconnecting to the player…'));
+      loading('reconnecting');
       armApiTimeout();
       const failed = () => {
         if (apiRecoveryRequest === request) failApiRecovery();
@@ -160,7 +173,9 @@
         if (!active || generation !== playbackGeneration || loadStopped) return;
         if (playbackResumed()) return;
         playbackRecoveries += 1;
-        report('RECOVERY', 'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]);
+        const firstStartTimeout = waitingForFirstPlayback && playbackRecoveries === 1;
+        report(firstStartTimeout ? 'PLAYBACK_STALLED' : 'RECOVERY',
+          'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]);
         if (playbackRecoveries >= 3) {
           showError(text('El vídeo no responde. Comprueba la conexión y pulsa Reintentar.',
             'The video is not responding. Check your connection and press Retry.'));
@@ -204,7 +219,7 @@
       }
       orderPosition = ((Number(position) % playOrder.length) + playOrder.length) % playOrder.length;
       currentIndex = playOrder[orderPosition];
-      loading(text('Cargando vídeo…', 'Loading video…'));
+      loading('video');
       captureStableAudioState();
       audioRestorePending = true;
       if (autoplayRetryTimer !== null) {
@@ -273,8 +288,7 @@
         showError('No se han encontrado vídeos reproducibles.');
         return;
       }
-      statusBox.className = '';
-      statusBox.textContent = 'Cargando vídeo…';
+      loading('video');
       report('STATE', 'VÍDEO NO REPRODUCIBLE; PASANDO AL SIGUIENTE');
       skipTimer = setTimeout(() => {
         skipTimer = null;
@@ -375,6 +389,41 @@
       }
     };
 
+    function reloadAfterDocumentLoad(target) {
+      if (document.readyState === 'complete') {
+        window.location.reload();
+        return;
+      }
+      // Reloading during the first iframe's load can leave YouTube playing
+      // in the new document without delivering its playback state events.
+      const onLoad = () => {
+        clearTimeout(fallback);
+        if (!loadStopped) window.location.reload();
+      };
+      const fallback = setTimeout(() => {
+        window.removeEventListener('load', onLoad);
+        if (!loadStopped) requestPlayback(target);
+      }, COLD_DOCUMENT_LOAD_TIMEOUT_MS);
+      window.addEventListener('load', onLoad, { once: true });
+    }
+
+    function requestPlayback(target) {
+      armApiTimeout();
+      report('READY', playlistRevision, response => {
+        cancelLoadTimers();
+        if (response === 'reload') {
+          reloadAfterDocumentLoad(target);
+          return;
+        }
+        playbackAllowed = true;
+        loadStopped = false;
+        playVideo(target);
+        armPlaybackTimeout();
+        reportIndex();
+      }, () => showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
+        'Could not start the player. Press Retry.')));
+    }
+
     window.onYouTubeIframeAPIReady = function () {
       try {
       player = new YT.Player('player', {
@@ -411,27 +460,12 @@
             if (apiRecoveryRequest !== null) return;
             ready = true;
             cancelLoadTimers();
-            loading(text('Cargando vídeo…', 'Loading video…'));
+            loading('video');
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
             audioRestorePending = true;
             applyDesiredAudio(event.target);
-            armApiTimeout();
-            report('READY', playlistRevision, response => {
-              cancelLoadTimers();
-              if (response === 'reload') {
-                window.location.reload();
-                return;
-              }
-              playbackAllowed = true;
-              loadStopped = false;
-              playVideo(event.target);
-              armPlaybackTimeout();
-              reportIndex();
-              report('STATE', INITIAL_MUTED
-                ? 'REPRODUCIENDO EN SILENCIO' : 'RESTAURANDO AUDIO');
-            }, () => showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
-              'Could not start the player. Press Retry.')));
+            requestPlayback(event.target);
             } catch (failure) {
               showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
                 'Could not start the player. Press Retry.'));
@@ -454,11 +488,17 @@
                 clearTimeout(autoplayRetryTimer);
                 autoplayRetryTimer = null;
               }
-              statusBox.className = 'hidden';
+              hideStatus();
               if (!active) event.target.pauseVideo();
             }
-            if (event.data === 2 && (playedCurrentVideo || !active)) cancelLoadTimers();
-            if (event.data === 3) armPlaybackTimeout(playedCurrentVideo ? BUFFER_TIMEOUT_MS : PLAYBACK_TIMEOUT_MS);
+            if (event.data === 2 && (playedCurrentVideo || !active)) {
+              cancelLoadTimers();
+              if (playedCurrentVideo && !loadStopped) hideStatus();
+            }
+            if (event.data === 3) {
+              armPlaybackTimeout(playedCurrentVideo ? BUFFER_TIMEOUT_MS : PLAYBACK_TIMEOUT_MS);
+              if (playbackTimer !== null && statusBox.className === 'hidden') loading('video');
+            }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
               '2': 'PAUSA', '3': 'CARGANDO', '5': 'PREPARADO' };
             report('STATE', names[String(event.data)] || ('ESTADO ' + event.data));
@@ -504,12 +544,18 @@
     window.coronaReportSession = reportSession;
     setInterval(() => {
       if (!active) return;
-      if (playedCurrentVideo && player && typeof player.getCurrentTime === 'function') reportPosition();
-      else report('HEARTBEAT', '');
+      if (playedCurrentVideo && player && typeof player.getCurrentTime === 'function') {
+        // If the iframe resumes without a state-change event, reveal it as
+        // soon as the player API reports that playback has resumed.
+        if (statusBox.className === '' && player.getPlayerState && player.getPlayerState() === 1) {
+          hideStatus();
+        }
+        reportPosition();
+      } else report('HEARTBEAT', '');
     }, 750);
     setInterval(monitorAudioState, 250);
 
-    loading(text('Conectando con el reproductor…', 'Connecting to the player…'));
+    loading('connecting');
     report('BOOT', 'viewport=' + window.innerWidth + 'x' + window.innerHeight
       + ' dpr=' + window.devicePixelRatio);
     armApiTimeout();

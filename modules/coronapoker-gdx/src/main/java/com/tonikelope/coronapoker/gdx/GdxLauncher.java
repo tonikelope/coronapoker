@@ -18,7 +18,6 @@ import com.tonikelope.coronapoker.core.SqlIdentityTrustStore;
 import com.tonikelope.coronapoker.core.network.NetworkLobbyGateway;
 import com.tonikelope.coronapoker.CoreGameTableFactory;
 import com.tonikelope.coronapoker.Crupier;
-import com.tonikelope.coronapoker.DebugLog;
 import com.tonikelope.coronapoker.StatsSync;
 import com.tonikelope.coronapoker.core.game.ClasspathGameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
@@ -44,7 +43,6 @@ public final class GdxLauncher {
     public static void main(String[] args) {
         if (GdxMacFirstThread.relaunchIfRequired(args)) return;
         Path debugFile = GdxDebugFile.install();
-        DebugLog.install();
         Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,
                 "GDX debug log: {0}", debugFile);
         CoronaPokerApplication application = CoronaPokerBootstrap.createApplication();

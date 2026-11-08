@@ -334,9 +334,7 @@ class PokerVideoSearchTest {
                 + "PokerVideoOverlay.java"));
         assertTrue(overlaySource.contains("releaseBrowserSession(false);"));
         assertTrue(overlaySource.contains(
-                "releaseBrowserSession(restoreWindowAfterTable);"));
-        assertTrue(overlaySource.contains(
-                "hostVisible = visible && enabled && !releasedForTable;"));
+                "hostVisible = visible && enabled;"));
         assertTrue(overlaySource.contains("case CLOSE ->"));
         assertFalse(overlaySource.contains("featurePreferenceChanged"));
         assertFalse(runtimeSource.contains("notifyVideoInteraction"));
@@ -524,8 +522,7 @@ class PokerVideoSearchTest {
             assertTrue(overlay.touchUp(closeX, closeY, 0, 0));
             overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertFalse(started.getBoolean(overlay));
-            overlay.releaseForTable();
-            overlay.restoreAfterTable();
+            overlay.minimizeForTable();
             overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             assertFalse(started.getBoolean(overlay));
             assertTrue(overlay.hostVisible());
@@ -542,7 +539,7 @@ class PokerVideoSearchTest {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, false, true,
                     "es", "shorts", 1920f, 1080f);
-            overlay.releaseForTable();
+            overlay.minimizeForTable();
             overlay.restoreAfterTable();
             overlay.update(true, false, true,
                     "es", "shorts", 1920f, 1080f);
@@ -554,42 +551,63 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void hiddenOpenWindowStillPreservesItsSessionForTheTableReturn()
+    void enteringTableClosesOpenPlayerAndRestoresItOnReturnUnlessUsedAtTable()
             throws Exception {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
             overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
-            assertFalse(overlay.hostVisible());
-            overlay.releaseForTable();
-            var restore = PokerVideoOverlay.class.getDeclaredField(
-                    "restoreWindowAfterTable");
-            restore.setAccessible(true);
-            assertTrue(restore.getBoolean(overlay));
+            var minimized = PokerVideoOverlay.class.getDeclaredField("minimized");
+            minimized.setAccessible(true);
+            assertFalse(minimized.getBoolean(overlay));
+
+            overlay.minimizeForTable();
+            assertTrue(minimized.getBoolean(overlay));
             overlay.restoreAfterTable();
+            assertFalse(minimized.getBoolean(overlay));
+
+            overlay.minimizeForTable();
+            var started = PokerVideoOverlay.class.getDeclaredField("initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField("requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:shorts");
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+            assertTrue(overlay.touchDown(1805f, 40f, 0, 0));
+            assertTrue(overlay.touchUp(1805f, 40f, 0, 0));
+
+            var close = PokerVideoOverlay.class.getDeclaredField("closeBounds");
+            close.setAccessible(true);
+            Rectangle button = (Rectangle) close.get(overlay);
+            assertTrue(overlay.touchDown(button.x + 4f, button.y + 4f, 0, 0));
+            assertTrue(overlay.touchUp(button.x + 4f, button.y + 4f, 0, 0));
+
+            overlay.restoreAfterTable();
+            assertTrue(minimized.getBoolean(overlay));
+        }
+    }
+
+    @Test
+    void tableModalTemporarilyHidesAnOpenPlayer() throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            var started = PokerVideoOverlay.class.getDeclaredField("initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField("requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:shorts");
+
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
             overlay.update(true, true, false, "es", "shorts", 1920f, 1080f);
             assertFalse(overlay.hostVisible());
-        }
-    }
-
-    @Test
-    void mainNavigationIsConfinedToTheLocalPlayer() {
-        String player = "http://127.0.0.1:43123/player/";
-        assertTrue(PokerVideoRuntime.allowedMainNavigation(player, player));
-        assertTrue(PokerVideoRuntime.allowedMainNavigation("about:blank", player));
-        assertFalse(PokerVideoRuntime.allowedMainNavigation("about:settings", player));
-        assertFalse(PokerVideoRuntime.allowedMainNavigation("https://www.youtube.com/watch?v=ABCDEFGHIJK", player));
-        assertFalse(PokerVideoRuntime.allowedMainNavigation("http://127.0.0.1:43124/player/", player));
-        assertFalse(PokerVideoRuntime.allowedMainNavigation("http://127.0.0.1:43123/other", player));
-        assertFalse(PokerVideoRuntime.allowedMainNavigation("javascript:alert(1)", player));
-    }
-
-    @Test
-    void unavailablePlatformShowsNothingAndAcceptsNoIconInput() {
-        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
-            overlay.update(false, true, true,
-                    "es", "shorts", 1920f, 1080f);
-
-            assertFalse(overlay.hostVisible());
             assertFalse(overlay.touchDown(1805f, 40f, 0, 0));
+
+            overlay.update(true, true, true, "es", "shorts", 1920f, 1080f);
+            assertTrue(overlay.hostVisible());
+            var minimized = PokerVideoOverlay.class.getDeclaredField("minimized");
+            minimized.setAccessible(true);
+            assertFalse(minimized.getBoolean(overlay));
+            assertTrue(started.getBoolean(overlay));
         }
     }
+
 }

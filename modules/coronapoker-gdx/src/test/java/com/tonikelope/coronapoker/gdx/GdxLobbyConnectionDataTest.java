@@ -96,14 +96,19 @@ class GdxLobbyConnectionDataTest {
     void gameLogShowsBothHostEndpointsButOnlyTheServerForClients() {
         GdxGameText spanish = new GdxGameText("es");
         LobbySnapshot host = new LobbySnapshot("host", "host",
-                "192.168.1.20:21339", true,
+                "localhost:21339", true,
                 LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
                 List.of(participant("host", true, true)), List.of(),
                 null, false, true);
+        String localEndpoint = GdxLocalServerAddresses.displayEndpoint(
+                host.host(), host.serverAddress(), "192.168.1.20");
+        assertEquals("localhost:21339", host.serverAddress());
+        assertEquals("[CoronaPoker] 192.168.1.20:21339",
+                GdxFrontendScreen.lobbyConnectionClipboardText(true, localEndpoint, ""));
         assertEquals(List.of(
-                "IP PRIVADA / PUERTO: 192.168.1.20:21339",
-                "IP PÚBLICA / PUERTO: 83.39.59.168:21339"),
-                GdxApplicationShell.tableConnectionEndpointLines(host,
+                "IP PRIVADA:PUERTO --> 192.168.1.20:21339",
+                "IP PÚBLICA:PUERTO --> 83.39.59.168:21339"),
+                GdxApplicationShell.tableConnectionEndpointLines(host.host(), localEndpoint,
                         "83.39.59.168", spanish));
 
         LobbySnapshot client = new LobbySnapshot("client", "host",
@@ -113,8 +118,20 @@ class GdxLobbyConnectionDataTest {
                         participant("client", true, false)),
                 List.of(), null, true, true);
         assertEquals(List.of("SERVIDOR IP / PUERTO: 83.39.59.168:21339"),
-                GdxApplicationShell.tableConnectionEndpointLines(client,
+                GdxApplicationShell.tableConnectionEndpointLines(client.host(),
+                        GdxLocalServerAddresses.displayEndpoint(
+                                client.host(), client.serverAddress(), "192.168.1.20"),
                         "203.0.113.9", spanish));
+    }
+
+    @Test
+    void displaysTheConfiguredEndpointForGuestsAndHostsWithAnExplicitAddress() {
+        assertEquals("localhost:2345",
+                GdxLocalServerAddresses.displayEndpoint(false, "localhost:2345", "192.168.1.20"));
+        assertEquals("localhost:2345",
+                GdxLocalServerAddresses.displayEndpoint(true, "localhost:2345", "localhost"));
+        assertEquals("10.0.0.8:2345",
+                GdxLocalServerAddresses.displayEndpoint(true, "10.0.0.8:2345", "192.168.1.20"));
     }
 
     private static LobbyParticipant participant(String nickname,

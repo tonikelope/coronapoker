@@ -124,10 +124,6 @@ final class GdxDebugLogFormatter {
         return List.copyOf(result);
     }
 
-    static String clipboardText(List<String> source) {
-        return String.join(System.lineSeparator(), source);
-    }
-
     private static int fittingPrefix(Run style, String value,
             float maximumWidth, ToDoubleFunction<Run> width) {
         int cursor = 0;

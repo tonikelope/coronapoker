@@ -6,14 +6,15 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
-/** Shared minimized video button for the menu and waiting room. */
+/** Shared minimized video button for the menu, waiting room and table. */
 final class PokerVideoIcon {
 
     private static final float SOUND_GAP = 12f;
     // The slot uses the painted size of the shared sound control.
-    private static final float SIZE = 48f;
-    private static final float BOTTOM = 16f;
-    private static final float SOUND_RIGHT_MARGIN = 31f;
+    private static final float SIZE = GdxFrontendScreen.MENU_SOUND_SIZE + 8f;
+    private static final float BOTTOM = GdxFrontendScreen.MENU_SOUND_BOTTOM_MARGIN - 4f;
+    private static final float SOUND_RIGHT_MARGIN =
+            GdxFrontendScreen.MENU_SOUND_RIGHT_MARGIN - 4f;
 
     private PokerVideoIcon() {
     }

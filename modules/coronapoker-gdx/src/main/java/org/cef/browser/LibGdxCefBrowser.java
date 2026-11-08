@@ -14,9 +14,11 @@ import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.cef.CefBrowserSettings;
 import org.cef.CefClient;
+import org.cef.OS;
 import org.cef.callback.CefDragData;
 import org.cef.handler.CefRenderHandler;
 import org.cef.handler.CefScreenInfo;
@@ -34,6 +36,7 @@ public final class LibGdxCefBrowser extends CefBrowser_N implements CefRenderHan
     private final Canvas eventSource = new Canvas();
     private final CopyOnWriteArrayList<Consumer<CefPaintEvent>> paintListeners =
             new CopyOnWriteArrayList<>();
+    private final AtomicBoolean requestedFocus = new AtomicBoolean();
     private volatile Rectangle viewRect;
     private volatile double deviceScaleFactor = 1.0;
 
@@ -88,6 +91,20 @@ public final class LibGdxCefBrowser extends CefBrowser_N implements CefRenderHan
         deviceScaleFactor = safeScale;
         viewRect = new Rectangle(0, 0, safeWidth, safeHeight);
         wasResized(safeWidth, safeHeight);
+    }
+
+    @Override
+    public void setFocus(boolean enable) {
+        // CefClient.onGotFocus calls setFocus(true) again. On Windows the
+        // windowless browser can re-enter that callback before JNI unwinds.
+        if (OS.isWindows() && !requestedFocus.compareAndSet(!enable, enable)) return;
+        super.setFocus(enable);
+    }
+
+    @Override
+    public void setWindowVisibility(boolean visible) {
+        if (!visible) requestedFocus.set(false);
+        super.setWindowVisibility(visible);
     }
 
     public void requestRepaint() {

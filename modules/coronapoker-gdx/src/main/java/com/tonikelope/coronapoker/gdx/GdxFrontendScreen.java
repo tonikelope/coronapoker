@@ -159,9 +159,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_QUOTE_SIDE_MARGIN = 24f;
     static final float MENU_QUOTE_MAX_WIDTH = WIDTH
             - 2f * MENU_QUOTE_SIDE_MARGIN;
-    static final float MENU_QUOTE_SINGLE_BASELINE = 88f;
-    static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE = 112f;
     static final float MENU_QUOTE_LINE_HEIGHT = 24f;
+    static final float MENU_QUOTE_SINGLE_BASELINE = 88f + MENU_QUOTE_LINE_HEIGHT;
+    static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE =
+            MENU_QUOTE_SINGLE_BASELINE + MENU_QUOTE_LINE_HEIGHT;
     static final int MENU_QUOTE_MAX_LINES = 2;
     static final float LOBBY_LEFT_ACTION_X = 55f;
     static final float LOBBY_LEFT_ACTION_WIDTH = 390f;
@@ -370,6 +371,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new Color(0xef3340ff);
 
     private final FitViewport viewport = new FitViewport(WIDTH, HEIGHT);
+    private final Rectangle footerSound = mainMenuSoundBounds();
+    private final Rectangle footerSoundHit = new Rectangle(footerSound.x - 8f,
+            footerSound.y - 6f, footerSound.width + 16f, footerSound.height + 12f);
     private final List<TextItem> texts = new ArrayList<>();
     private final List<LobbyAvatarItem> lobbyAvatars = new ArrayList<>();
     private final List<UiImageItem> uiImages = new ArrayList<>();
@@ -612,6 +616,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private NetworkBlock networkBlockUnblockConfirmation;
     private String networkBlockPendingAddress;
     private String networkBlockError = "";
+    private String lobbyLocalAddress = GdxLocalServerAddresses.LOOPBACK_NAME;
     private String lobbyPublicAddress = "";
     private String cachedLobbyPublicAddress = "";
     private boolean lobbyPublicAddressLoading;
@@ -696,7 +701,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture aboutEasterEggTexture;
     private final GdxHandGeneratorModel handGenerator =
             new GdxHandGeneratorModel();
-    private boolean updateCheckInFlight;
+    private CompletableFuture<UpdateService.CheckResult> updateCheck;
     private boolean updateInstalling;
     private UpdateService.CheckResult updateResult;
     private boolean updatePromptOpen;
@@ -1214,6 +1219,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      */
     void reclaimAfterExternalScene() {
         captureFrontendModalInput();
+        resetMediaInput();
         hoverAnimations.clear();
         refreshPointerFromDevice();
         appliedSystemCursor = null;
@@ -1283,21 +1289,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         audioPreview.update(frameDelta);
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
-        boolean pokerVideosAvailable = PokerVideoIcon.systemEnabled(
-                PokerVideoPlatformSupport.isAvailable(),
-                preferenceBoolean("animaciones", true));
-        pokerVideoOverlay.updateWindowAnimation(preferenceBoolean(
-                GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY, true),
-                frameDelta);
-        pokerVideoOverlay.update(pokerVideosAvailable,
-                pokerVideosAvailable && preferenceBoolean(
-                        GdxSettingsContract.POKER_VIDEOS_KEY, true),
-                (surface == Surface.MENU || surface == Surface.LOBBY)
-                        && !lobbyLoadingOverlay
-                        && !hasBlockingFrontendModal(),
-                gameText.language(), initialProperties.getProperty(
-                        GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
-                        PokerVideoSearch.TYPE_NORMAL), WIDTH, HEIGHT);
+        updatePokerVideo((surface == Surface.MENU || surface == Surface.LOBBY)
+                && !lobbyLoadingOverlay && !hasBlockingFrontendModal(), frameDelta);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {
@@ -1940,14 +1933,64 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
     }
 
-    /** Releases the browser/video surface before the table owns the GPU. */
-    void releasePokerVideoForTable() {
-        pokerVideoOverlay.releaseForTable();
+    void updatePokerVideo(boolean visible, float delta) {
+        boolean pokerVideosAvailable = PokerVideoIcon.systemEnabled(
+                PokerVideoPlatformSupport.isAvailable(),
+                preferenceBoolean("animaciones", true));
+        pokerVideoOverlay.updateWindowAnimation(preferenceBoolean(
+                GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY, true),
+                delta);
+        pokerVideoOverlay.update(pokerVideosAvailable,
+                pokerVideosAvailable && preferenceBoolean(
+                        GdxSettingsContract.POKER_VIDEOS_KEY, true),
+                visible,
+                gameText.language(), initialProperties.getProperty(
+                        GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
+                        PokerVideoSearch.TYPE_NORMAL), WIDTH, HEIGHT);
     }
 
-    /** Allows the previous menu player state to return after the table closes. */
-    void restorePokerVideoAfterTable() {
-        pokerVideoOverlay.restoreAfterTable();
+    void resetMediaInput() {
+        pokerVideoOverlay.resetHostInput();
+        tooltipDelay.clear();
+    }
+
+    PokerVideoOverlay pokerVideoOverlay() {
+        return pokerVideoOverlay;
+    }
+
+    Vector2 tableMediaPointer(int screenX, int screenY) {
+        return viewport.unproject(pointer.set(screenX, screenY));
+    }
+
+    boolean footerSoundContains(Vector2 position) {
+        return footerSoundHit.contains(position);
+    }
+
+    /** Draw the same footer in the same viewport over the live table. */
+    void drawTableMedia(boolean soundPressed) {
+        refreshFontQualityIfDue();
+        refreshPointerFromDevice();
+        prepareFrontendGraphicsState();
+        viewport.apply();
+        viewport.getCamera().update();
+        shapes.setProjectionMatrix(viewport.getCamera().combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        tooltipHits.clear();
+
+        boolean outputAvailable = audioOutputAvailable();
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawFooterSoundSurface(outputAvailable, footerSoundContains(pointer),
+                soundPressed);
+        shapes.end();
+        batch.begin();
+        UiImageItem image = footerSoundImage(outputAvailable);
+        batch.setColor(image.tint);
+        batch.draw(image.texture, image.x, image.y, image.width, image.height);
+        batch.setColor(Color.WHITE);
+        batch.end();
+        addFooterSoundTooltip(outputAvailable);
+        drawPokerVideoTopLayer();
+        drawTooltipTopLayer();
     }
 
     /** Draws deferred circular avatars in whichever composition pass owns them. */
@@ -2149,7 +2192,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void prepareInitialMenu(boolean skipped) {
         startupMenuWasSkipped = skipped;
-        if (updateCheckInFlight && updateResult == null) {
+        if (updateCheck != null) {
             startupMenuWaitingForUpdate = true;
             menuRevealStartedAt = Float.POSITIVE_INFINITY;
             captureFrontendModalInput();
@@ -2159,8 +2202,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void resolveStartupUpdateGate() {
-        if (!startupMenuWaitingForUpdate
-                || updateCheckInFlight && updateResult == null) return;
+        if (!startupMenuWaitingForUpdate || updateCheck != null) return;
         finishStartupUpdateGate();
     }
 
@@ -2212,6 +2254,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         selectedParticipant = null;
         lastLobbyNoticeIdentity = "";
+        if (lobby.host()) {
+            List<String> addresses = hostAddressOptions.size() > 1
+                    ? hostAddressOptions : GdxLocalServerAddresses.discover();
+            lobbyLocalAddress = GdxLocalServerAddresses.preferredAddress(addresses);
+        }
         loadLobbyPublicAddress(lobby.host());
         clearActiveField();
         activateSurface(Surface.LOBBY);
@@ -4984,15 +5031,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void checkForUpdates() {
-        if (updateCheckInFlight || disposed) return;
-        updateCheckInFlight = true;
+        if (updateCheck != null || disposed) return;
         updateResult = null;
         try {
-            updateService.checkLatest().whenComplete((result, failure) -> {
+            CompletableFuture<UpdateService.CheckResult> check = updateService.checkLatest();
+            updateCheck = check;
+            check.whenComplete((result, failure) -> {
                 if (disposed) return;
                 Gdx.app.postRunnable(() -> {
-                    if (disposed) return;
-                    updateCheckInFlight = false;
+                    if (disposed || updateCheck != check) return;
+                    updateCheck = null;
                     if (failure != null) {
                         LOGGER.log(Level.WARNING,
                                 "GDX update check failed", failure);
@@ -5004,7 +5052,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 });
             });
         } catch (RuntimeException failure) {
-            updateCheckInFlight = false;
+            updateCheck = null;
             updateResult = new UpdateService.CheckResult(
                     UpdateService.Status.UNAVAILABLE, null);
             LOGGER.log(Level.WARNING, "GDX update check failed", failure);
@@ -5045,7 +5093,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean updateCheckingModalVisible() {
         return surface == Surface.MENU && updateCheckingModalVisible(
-                updateCheckInFlight, updateResult);
+                updateCheck != null, updateResult);
+    }
+
+    private void cancelUpdateCheck() {
+        CompletableFuture<UpdateService.CheckResult> check = updateCheck;
+        if (check == null) return;
+        updateCheck = null;
+        check.cancel(true);
+        LOGGER.info("Startup update check cancelled");
+        hits.clear();
+        resolveStartupUpdateGate();
+        syncMusicForSurface();
     }
 
     private void dismissUpdatePrompt() {
@@ -5260,16 +5319,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawUpdateCheckingDialog() {
         hits.clear();
         float panelX = 560f;
-        float panelY = 386f;
+        float panelY = 366f;
         float panelW = 800f;
-        float panelH = 270f;
+        float panelH = 310f;
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
                 CYAN_DARK, 1f);
         textFit(headingFont, uppercase(gameText.translate(
                 "ui.comprobando_actualizacion")),
-                WIDTH / 2f, panelY + 174f, GOLD, true, panelW - 100f);
-        drawIndeterminateProgressBar(panelX + 100f, panelY + 68f,
+                WIDTH / 2f, panelY + 222f, GOLD, true, panelW - 100f);
+        drawIndeterminateProgressBar(panelX + 100f, panelY + 135f,
                 panelW - 200f, 18f, 170f, 0.52f, 9f);
+        themedButton(WIDTH / 2f - 140f, panelY + 35f, 280f, 62f,
+                uppercase(gameText.translate("ui.cancelar")),
+                ButtonTone.NEUTRAL, this::cancelUpdateCheck, true);
     }
 
     private void drawUpnpOpeningDialog() {
@@ -5633,7 +5695,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean menuRevealBlocksInteraction() {
         return menuRevealBlocksInteraction(surface == Surface.MENU,
-                menuRevealProgress(), aboutOpen || updatePromptOpen);
+                menuRevealProgress(), aboutOpen || updatePromptOpen || updateCheckingModalVisible());
     }
 
     private Rectangle aboutModIconBounds(float coronaLogoHeight) {
@@ -5818,7 +5880,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float connectionLabelX = LOBBY_LEFT_CONTENT_X + 16f;
         float connectionValueX = connectionLayout.valueX();
         float serverBaseline = 733f;
-        text(tinyFont, uppercase(gameText.translate("ui.servidor")),
+        text(tinyFont, uppercase(gameText.translate(
+                state.host() ? "gdx.lobby.local_address" : "ui.servidor")),
                 connectionLabelX, serverBaseline, MUTED, false);
         if (connectionLayout.statusVisible()) {
             String networkStatus = lobbyNetworkStatusText(
@@ -5832,7 +5895,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     serverBaseline - 2f, new Color(0x76f0adff), true,
                     connectionLayout.statusWidth() - 12f);
         }
-        textFit(smallFont, state.serverAddress(), connectionValueX,
+        String serverEndpoint = displayedLobbyEndpoint(state);
+        textFit(smallFont, serverEndpoint, connectionValueX,
                 serverBaseline,
                 Color.WHITE, false, connectionLayout.valueWidth());
         if (state.host()) {
@@ -5841,7 +5905,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     LOBBY_PUBLIC_ADDRESS_BASELINE,
                     MUTED, false);
             String publicEndpoint = lobbyPublicAddressEndpoint(
-                    state.serverAddress(), lobbyPublicAddress);
+                    serverEndpoint, lobbyPublicAddress);
             String publicAddress = lobbyPublicAddressLoading
                     ? gameText.translate("gdx.loading")
                     : publicEndpoint.isBlank()
@@ -7041,11 +7105,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         LobbySnapshot state = lobby;
         String value = lobbyConnectionClipboardText(
                 state != null && state.host(),
-                state == null ? "" : state.serverAddress(),
+                state == null ? "" : displayedLobbyEndpoint(state),
                 lobbyPublicAddress);
         if (value.isEmpty()) return;
         Gdx.app.getClipboard().setContents(value);
         showToast(gameText.translate("conn.datos_de_conexion_copiados_en"));
+    }
+
+    String displayedLobbyEndpoint(LobbySnapshot state) {
+        return GdxLocalServerAddresses.displayEndpoint(
+                state.host(), state.serverAddress(), lobbyLocalAddress);
     }
 
     static String lobbyConnectionClipboardText(boolean host,
@@ -10628,8 +10697,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void copySettingsDebugLog() {
-        Gdx.app.getClipboard().setContents(GdxDebugLogFormatter.clipboardText(
-                debugLines()));
+        Gdx.app.getClipboard().setContents(DebugLog.snapshot());
         showToast(gameText.translate("gdx.settings.debug.copied"));
     }
 
@@ -10817,42 +10885,37 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawFooterSoundControl() {
-        Rectangle sound = mainMenuSoundBounds();
-        drawSoundControl(sound.x, sound.y, sound.width, sound.height, false);
+        boolean outputAvailable = audioOutputAvailable();
+        drawFooterSoundSurface(outputAvailable, hovered(footerSoundHit.x,
+                footerSoundHit.y, footerSoundHit.width, footerSoundHit.height),
+                pressed(footerSoundHit.x, footerSoundHit.y,
+                        footerSoundHit.width, footerSoundHit.height));
+        uiImages.add(footerSoundImage(outputAvailable));
+        hit(footerSoundHit.x, footerSoundHit.y, footerSoundHit.width,
+                footerSoundHit.height, this::toggleMasterSound);
+        addFooterSoundTooltip(outputAvailable);
     }
 
-    private void drawSoundControl(float x, float y, float w, float h,
-            boolean showLabel) {
-        float iconSize = Math.min(52f, h);
-        if (showLabel) {
-            textFit(smallFont,
-                    uppercase(gameText.translate("audio.sonidos")),
-                    x, y + h * 0.66f, MUTED, false,
-                    Math.max(0f, w - iconSize - 12f));
-        }
-        float iconX = showLabel ? x + w - iconSize
-                : x + (w - iconSize) / 2f;
-        boolean outputAvailable = audioOutputAvailable();
-        float iconY = y + (h - iconSize) / 2f;
-        float hitX = showLabel ? x - 12f : x - 8f;
-        float hitW = showLabel ? w + 24f : w + 16f;
-        boolean hover = outputAvailable
-                && hovered(hitX, y - 6f, hitW, h + 12f);
-        GdxUiButtonStyle.draw(shapes, iconX - 4f, iconY - 4f,
-                iconSize + 8f, iconSize + 8f,
+    private void drawFooterSoundSurface(boolean outputAvailable, boolean hover,
+            boolean pressed) {
+        GdxUiButtonStyle.draw(shapes, footerSound.x - 4f, footerSound.y - 4f,
+                footerSound.width + 8f, footerSound.height + 8f,
                 GdxUiButtonStyle.Tone.NEUTRAL, outputAvailable,
-                hover ? 1f : 0f,
-                outputAvailable && pressed(hitX, y - 6f, hitW, h + 12f),
-                1f);
-        uiImages.add(new UiImageItem(outputAvailable && audioControl.enabled()
-                ? soundIcon : muteIcon, iconX,
-                iconY, iconSize, iconSize,
-                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED));
-        hit(hitX, y - 6f, hitW, h + 12f,
-                this::toggleMasterSound);
+                outputAvailable && hover ? 1f : 0f,
+                outputAvailable && hover && pressed, 1f);
+    }
+
+    private UiImageItem footerSoundImage(boolean outputAvailable) {
+        return new UiImageItem(outputAvailable && audioControl.enabled()
+                ? soundIcon : muteIcon, footerSound.x, footerSound.y,
+                footerSound.width, footerSound.height,
+                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED);
+    }
+
+    private void addFooterSoundTooltip(boolean outputAvailable) {
         if (!outputAvailable) {
-            tooltip(hitX, y - 6f, hitW, h + 12f,
-                    "gdx.audio.no_output_device");
+            tooltip(footerSoundHit.x, footerSoundHit.y, footerSoundHit.width,
+                    footerSoundHit.height, "gdx.audio.no_output_device");
         }
     }
 
@@ -16346,6 +16409,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
+        if (updateCheckingModalVisible()) {
+            if (GdxDialogKeyboard.isCancel(keycode)) cancelUpdateCheck();
+            return true;
+        }
         if (surface == Surface.LOBBY
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
@@ -17100,6 +17167,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void dispose() {
         disposed = true;
+        if (updateCheck != null) updateCheck.cancel(true);
         pokerVideoOverlay.close();
         cancelAndReleaseUpnp();
         recoveryLoadGeneration++;

@@ -12,6 +12,8 @@ function playerPage(options = {}) {
   let now = 0, serial = 0, reloads = 0;
   const timers = new Map(), messages = [], loads = [];
   const budget = options.budget || { attempts: 0 };
+  const loadEvents = new Map();
+  let primeDocument = Boolean(options.primeDocument);
   const status = { className: '', children: [], _text: '',
     get textContent() { return this._text; },
     set textContent(value) { this._text = value; this.children = []; },
@@ -23,9 +25,13 @@ function playerPage(options = {}) {
   };
   let native;
   const context = {
-    console, document: { getElementById: () => status,
+    console, document: { readyState: options.readyState || 'complete', getElementById: () => status,
       createElement: tag => ({ tag }), head: { appendChild: script => { context.apiScript = script; } } },
     location: { reload: () => { reloads++; } },
+    addEventListener: (type, callback, { once }) => loadEvents.set(callback, { type, once }),
+    removeEventListener: (type, callback) => {
+      if (loadEvents.get(callback)?.type === type) loadEvents.delete(callback);
+    },
     setTimeout: (callback, delay) => schedule(callback, delay),
     clearTimeout: id => timers.delete(id),
     setInterval: (callback, delay) => schedule(callback, delay, true),
@@ -33,7 +39,14 @@ function playerPage(options = {}) {
     cefQuery: query => {
       messages.push(query.request);
       if (options.bridgeThrows) throw new Error('bridge unavailable');
-      if (query.request.startsWith('READY|') && options.dropReadyAck) return;
+      if (query.request.startsWith('READY|')) {
+        if (options.dropReadyAck) return;
+        if (primeDocument) {
+          primeDocument = false;
+          query.onSuccess('reload');
+          return;
+        }
+      }
       if (query.request.startsWith('RETRY_API|') && options.dropRecoveryAck) return;
       if (query.request.startsWith('RETRY_API_MANUAL|')) { budget.attempts = 0; query.onSuccess('reload'); }
       else if (query.request.startsWith('RETRY_API|')) query.onSuccess(budget.attempts++ < 1 ? 'reload' : 'stop');
@@ -76,6 +89,14 @@ function playerPage(options = {}) {
     context, status, messages, loads, budget,
     get native() { return native; }, get reloads() { return reloads; },
     ready() { context.onYouTubeIframeAPIReady(); if (native) native.setup.events.onReady({ target: native }); },
+    completeDocument() {
+      context.document.readyState = 'complete';
+      for (const [callback, event] of loadEvents) {
+        if (event.type !== 'load') continue;
+        if (event.once) loadEvents.delete(callback);
+        callback();
+      }
+    },
     retry() { assert.equal(status.children.length, 1); status.children[0].onclick(); },
     tick(milliseconds) {
       const until = now + milliseconds;
@@ -93,6 +114,26 @@ function playerPage(options = {}) {
     }
   };
 }
+
+test('embedded loading messages use the game overlay and clear on playback', () => {
+  const page = playerPage();
+  const phase = () => page.messages.filter(message => message.startsWith('LOADING|')).at(-1);
+  assert.equal(phase(), 'LOADING|connecting');
+  assert.equal(page.status.textContent, '');
+  page.ready();
+  assert.equal(phase(), 'LOADING|video');
+  assert.equal(page.status.textContent, '');
+  page.native.emit(1);
+  assert.equal(phase(), 'LOADING|');
+  page.native.emit(3);
+  assert.equal(phase(), 'LOADING|video');
+  page.native.state = 1;
+  page.tick(750);
+  assert.equal(phase(), 'LOADING|');
+  assert.equal(page.status.className, 'hidden');
+  page.context.coronaSelectRelative(1);
+  assert.equal(phase(), 'LOADING|video');
+});
 
 test('favorite navigation keeps the saved order across wrap and reports the new playlist revision', () => {
   const page = playerPage({ ordered: true });
@@ -115,9 +156,12 @@ test('favorite navigation keeps the saved order across wrap and reports the new 
 test('API ready without first playback retries, skips and terminates with a retry action', () => {
   const page = playerPage(); page.ready(); page.tick(20000);
   assert.deepEqual(page.loads, [{ id: ids[0], seconds: 17 }]);
+  assert.ok(page.messages.includes('HEARTBEAT|'), 'The document is alive during the playback stall');
+  assert.ok(page.messages.includes('PLAYBACK_STALLED|playback timeout 1 video ' + ids[0]));
   page.tick(41000);
   assert.equal(page.loads.at(-1).id, ids[1]);
   assert.equal(page.status.className, 'error');
+  assert.equal(page.messages.filter(message => message.startsWith('PLAYBACK_STALLED|')).length, 1);
   const count = page.loads.length; page.tick(120000);
   assert.equal(page.loads.length, count, 'Fatal error must not run an endless recovery loop');
   page.retry(); assert.equal(page.loads.length, count + 1);
@@ -134,6 +178,30 @@ test('API initialization retries only once across documents and supports an expl
 test('failed script download uses the same bounded API recovery', () => {
   const page = playerPage(); page.context.apiScript.onerror();
   assert.equal(page.reloads, 1); page.tick(60000); assert.equal(page.reloads, 1);
+});
+
+test('cold priming waits for the document to finish before reloading', () => {
+  const page = playerPage({ primeDocument: true, readyState: 'interactive' });
+  page.ready();
+  assert.equal(page.reloads, 0);
+  assert.equal(page.native.plays, 0);
+  page.completeDocument();
+  page.tick(5000);
+  assert.equal(page.reloads, 1);
+  assert.equal(page.native.plays, 0);
+});
+
+test('cold priming uses the ready iframe if the document load remains pending', () => {
+  const page = playerPage({ primeDocument: true, readyState: 'interactive' });
+  page.ready();
+  page.tick(3000);
+  assert.equal(page.reloads, 0);
+  assert.equal(page.native.plays, 1);
+  assert.equal(page.native.muted, true);
+  page.native.emit(1);
+  assert.equal(page.status.className, 'hidden');
+  page.completeDocument();
+  assert.equal(page.reloads, 0);
 });
 
 test('a missing READY acknowledgment cannot remain loading forever', () => {
@@ -179,7 +247,7 @@ test('a stale PLAYING state cannot stop the watchdog for the newly selected vide
   page.context.coronaSelectRelative(1);
   page.tick(20000);
   assert.deepEqual(page.loads, [{ id: ids[1], seconds: 0 }, { id: ids[1], seconds: 0 }]);
-  assert.ok(page.messages.some(message => message.startsWith('RECOVERY|playback timeout 1')));
+  assert.ok(page.messages.some(message => message.startsWith('PLAYBACK_STALLED|playback timeout 1')));
 });
 
 test('a hidden modal suspends load deadlines and resumes them only when visible', () => {
@@ -198,6 +266,8 @@ test('buffer recovery preserves the current position and chosen audible state', 
   page.native.unMute(); page.tick(250); page.native.seconds = 83; page.native.emit(3);
   page.tick(44999); assert.equal(page.loads.length, 0);
   page.tick(1); assert.deepEqual(page.loads[0], { id: ids[0], seconds: 83 });
+  assert.ok(page.messages.some(message => message.startsWith('RECOVERY|playback timeout 1')));
+  assert.ok(!page.messages.some(message => message.startsWith('PLAYBACK_STALLED|')));
   assert.equal(page.native.muted, false); assert.equal(page.native.volume, 100);
 });
 

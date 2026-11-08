@@ -42,8 +42,8 @@ public final class CoronaPokerBootstrap {
                 UpdateService.forLatestRelease(
                         ApplicationMetadata.LATEST_RELEASE_URI,
                         ApplicationMetadata.VERSION,
-                        3,
-                        Duration.ofSeconds(10)),
+                        2,
+                        Duration.ofSeconds(4)),
                 UpdaterService.production(
                         ApplicationMetadata.UPDATER_URI,
                         java.nio.file.Path.of(System.getProperty("java.io.tmpdir")),

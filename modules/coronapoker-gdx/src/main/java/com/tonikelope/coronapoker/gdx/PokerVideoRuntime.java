@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import me.friwi.jcefmaven.CefAppBuilder;
@@ -26,6 +27,7 @@ import org.cef.callback.CefMenuModel;
 import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefContextMenuHandlerAdapter;
 import org.cef.handler.CefDisplayHandlerAdapter;
+import org.cef.handler.CefFocusHandlerAdapter;
 import org.cef.handler.CefLifeSpanHandlerAdapter;
 import org.cef.handler.CefLoadHandler.ErrorCode;
 import org.cef.handler.CefLoadHandlerAdapter;
@@ -90,6 +92,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private CefMessageRouter messageRouter;
     private volatile LibGdxCefBrowser browser;
     private volatile String state = "INICIALIZANDO REPRODUCTOR";
+    private volatile String loadingKey = "gdx.video.loading.player";
     private volatile String initializationError;
     private volatile boolean browserCreated;
     private volatile boolean browserClosing;
@@ -104,6 +107,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile boolean restoreAudioOnNextSession;
     private int apiRecoveryAttempts;
     private final PokerVideoDocumentLoad documentLoad = new PokerVideoDocumentLoad();
+    private final AtomicReference<CefBrowser> stalledPlayback = new AtomicReference<>();
     private volatile int sessionNumber;
     private long sessionStartNanos;
     private long copiedAtOpen;
@@ -204,7 +208,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         chromiumLog = new PokerVideoChromiumLog(nativeLog);
         cefApp = builder.build();
         client = cefApp.createClient();
-        installHandlers();
+        installHandlers(osName);
         openBrowserSession(width, height, scaleFactor);
     }
 
@@ -238,6 +242,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         browserPlaylistRevision = playlistRevision;
         apiRecoveryAttempts = 0;
         documentLoad.reset();
+        loadingKey = "gdx.video.loading.player";
         pageUrl = localServer.playerUrl();
         refererOrigin = localServer.origin();
         CefBrowserSettings browserSettings = new CefBrowserSettings();
@@ -257,7 +262,18 @@ final class PokerVideoRuntime implements AutoCloseable {
         browser.resizeBrowser(width, height, scaleFactor);
     }
 
-    private void installHandlers() {
+    private void installHandlers(String osName) {
+        if (osName.toLowerCase(Locale.ROOT).startsWith("windows")) {
+            // Navigation focus in the windowless browser can re-enter JCEF's
+            // focus callbacks on the AWT thread and exhaust its stack.
+            // Explicit focus requested by player input is still allowed.
+            client.addFocusHandler(new CefFocusHandlerAdapter() {
+                @Override
+                public boolean onSetFocus(CefBrowser source, FocusSource focusSource) {
+                    return focusSource == FocusSource.FOCUS_SOURCE_NAVIGATION;
+                }
+            });
+        }
         client.addDisplayHandler(new CefDisplayHandlerAdapter() {
             private long windowStarted = System.nanoTime();
             private int lines;
@@ -328,6 +344,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                     org.cef.network.CefRequest.TransitionType transition) {
                 if (loaded == browser && frame != null && frame.isMain()) {
                     playerReady = false;
+                    loadingKey = "gdx.video.loading.player";
                     documentLoad.loading();
                     logStage("document load started");
                 }
@@ -472,6 +489,14 @@ final class PokerVideoRuntime implements AutoCloseable {
                     callback.success("reload");
                     return true;
                 }
+                if (request.startsWith("PLAYBACK_STALLED|")) {
+                    logStage("iframe playback stalled | "
+                            + request.substring("PLAYBACK_STALLED|".length()) + " | state=" + state);
+                    stalledPlayback.set(source);
+                    callback.success("ok");
+                    return true;
+                }
+                if (request.startsWith("PROGRESS|")) stalledPlayback.compareAndSet(source, null);
                 boolean handled = handlePlayerMessage(request);
                 if (handled) callback.success("ok");
                 return handled;
@@ -509,14 +534,25 @@ final class PokerVideoRuntime implements AutoCloseable {
             playerReady = true;
             logStage("YouTube ready");
             synchronizeBrowserPlaylist();
-            state = "REPRODUCIENDO EN SILENCIO";
+            state = "CARGANDO";
             return true;
         }
         if (request.startsWith("STATE|")) {
             state = request.substring("STATE|".length());
             return true;
         }
+        if (request.startsWith("LOADING|")) {
+            loadingKey = switch (request.substring("LOADING|".length())) {
+                case "connecting" -> "gdx.video.loading.connecting";
+                case "reconnecting" -> "gdx.video.loading.reconnecting";
+                case "video" -> "gdx.video.loading.video";
+                case "" -> null;
+                default -> loadingKey;
+            };
+            return true;
+        }
         if (request.startsWith("ERROR|")) {
+            loadingKey = null;
             state = request.substring("ERROR|".length());
             Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
                     "Poker video player error: {0}", state);
@@ -679,6 +715,10 @@ final class PokerVideoRuntime implements AutoCloseable {
         return state;
     }
 
+    String loadingKey() {
+        return loadingKey;
+    }
+
     record Selection(PokerVideoSearch.Video video, int index, int total) { }
 
     Selection selection() {
@@ -694,7 +734,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         return initializationError;
     }
 
-    synchronized boolean pollDocumentLoad(boolean running) {
+    synchronized boolean pollRecovery(boolean running) {
         if (!running || closed.get() || (browser == null && !browserClosing)) {
             documentLoad.poll(false, false, System.nanoTime());
             return false;
@@ -705,12 +745,15 @@ final class PokerVideoRuntime implements AutoCloseable {
             loggedFirstUpload = true;
             logStage("first frame uploaded");
         }
-        if (!documentLoad.poll(true, hasFrame || browserClosing, System.nanoTime())) return false;
-        LOG.log(Level.WARNING, "Poker video session {0} watchdog | {1} | created={2}, closing={3}, ready={4}, frames={5}/{6}",
-                new Object[]{sessionNumber, documentLoad.error(), browserCreated, browserClosing,
-                    playerReady, frameBuffer.copiedFrames() - copiedAtOpen,
-                    frameBuffer.uploadedFrames() - uploadedAtOpen});
-        return browser != null;
+        boolean documentTimedOut = documentLoad.poll(true, hasFrame || browserClosing, System.nanoTime());
+        if (documentTimedOut) {
+            LOG.log(Level.WARNING, "Poker video session {0} watchdog | {1} | created={2}, closing={3}, ready={4}, frames={5}/{6}",
+                    new Object[]{sessionNumber, documentLoad.error(), browserCreated, browserClosing,
+                        playerReady, frameBuffer.copiedFrames() - copiedAtOpen,
+                        frameBuffer.uploadedFrames() - uploadedAtOpen});
+        }
+        CefBrowser stalled = stalledPlayback.getAndSet(null);
+        return browser != null && (documentTimedOut || stalled == browser);
     }
 
     String documentLoadError() { return documentLoad.error(); }
@@ -724,6 +767,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     synchronized void releaseBrowserSession(boolean preserveAudioForResume) {
         boolean hadSession = browser != null || documentLoad.error() != null;
         documentLoad.reset();
+        stalledPlayback.set(null);
         frameBuffer.setAcceptingFrames(false);
         LibGdxCefBrowser current = browser;
         restoreAudioOnNextSession = preserveAudioForResume && hadSession;

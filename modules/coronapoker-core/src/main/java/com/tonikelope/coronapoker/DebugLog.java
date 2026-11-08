@@ -37,13 +37,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
+import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 /**
  * Root-logger {@link Handler} that buffers formatted log records in memory
- * (capped, oldest dropped first) and optionally forwards each one live to a
- * single subscriber. Backs the in-app debug console
+ * (capped, oldest dropped first) and can persist the same records in order.
+ * Optionally forwards each one live to a single subscriber. Backs the in-app debug console
  * ({@code DebugSettingsPanel}), which reads {@link #snapshot()} on open and
  * {@link #subscribe(Consumer)} for live updates.
  */
@@ -83,6 +84,7 @@ public final class DebugLog {
     };
 
     private static final StringBuilder BUFFER = new StringBuilder(8192);
+    private static Consumer<String> diskSink = record -> {};
     // Only one listener at a time: the debug console is the sole subscriber.
     private static volatile Consumer<String> listener = null;
 
@@ -94,15 +96,17 @@ public final class DebugLog {
             }
             String formatted;
             try {
-                formatted = FORMATTER.format(record);
+                formatted = FORMATTER.format(record).replace("\r\n", "\n").replace('\r', '\n');
             } catch (Exception ex) {
                 return;
             }
             synchronized (BUFFER) {
+                diskSink.accept(formatted);
                 BUFFER.append(formatted);
                 // Cap memory use: keep only the most recent MAX_CHARS characters.
                 if (BUFFER.length() > MAX_CHARS) {
-                    BUFFER.delete(0, BUFFER.length() - MAX_CHARS);
+                    int boundary = BUFFER.indexOf("\n", BUFFER.length() - MAX_CHARS - 1);
+                    BUFFER.delete(0, boundary + 1);
                 }
             }
             Consumer<String> l = listener;
@@ -138,8 +142,30 @@ public final class DebugLog {
      * Attaches the buffering handler to the root logger. Call once at startup.
      */
     public static void install() {
+        install(null);
+    }
+
+    /** Installs the shared handler and optionally persists its canonical records. */
+    public static synchronized void install(Consumer<String> persist) {
         Logger root = java.util.logging.LogManager.getLogManager().getLogger("");
+        if (persist != null) {
+            synchronized (BUFFER) {
+                diskSink = persist;
+            }
+        }
+        // Initialize JUL's console handler before GDX wraps System.err.
+        // The original console output would otherwise re-enter this debug log.
+        for (Handler handler : root.getHandlers()) {
+            if (handler == HANDLER) return;
+        }
         root.addHandler(HANDLER);
+    }
+
+    /** Records one complete stdout or stderr line alongside JUL messages. */
+    public static void appendConsoleLine(String source, Level level, String text) {
+        LogRecord record = new LogRecord(level, text);
+        record.setSourceClassName(source);
+        HANDLER.publish(record);
     }
 
     /**

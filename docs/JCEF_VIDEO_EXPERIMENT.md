@@ -25,9 +25,11 @@ The player depends on the **Use animations and effects** switch.
   controls the transition between these states.
 - Opening the window from the icon starts playback muted and resumes the
   video from its last known position in the session. YouTube's controls
-  change the audio and captions. Modal dialogs pause playback. The game
-  releases the browser when you enter a table and restores the video
-  session when you leave if the player was open.
+  change the audio and captions. Starting a game closes the video
+  window. You can reopen it from the icon at the live table. On return
+  to the frontend, the player restores its previous open state if the
+  icon was left untouched during the game. Modal dialogs pause playback
+  until the player is visible again.
 
 The window renders at the game's actual scale, including at 4K. YouTube
 selects the video quality based on size, connection and device. The IFrame
@@ -57,9 +59,11 @@ uses the public results document and limits each download to 12 MiB and
 If the network or search format fails, the panel offers a retry while the
 rest of the game remains available.
 
-If the visible browser goes 30 seconds without a bridge response or its
-first uploaded frame, the game recreates that browser once. If it still
-fails, the window offers a manual retry. The YouTube API has a separate
+The game can recreate the visible browser once per opening. It does so
+after 30 seconds without a bridge response or its first uploaded frame,
+or when YouTube is ready and the selected video has not started after
+20 seconds. Further playback timeouts use the player's retry and skip
+logic. The YouTube API has a separate
 30-second timeout. The readiness and recovery replies have 10 seconds,
 playback has 20 seconds to start, and a subsequent buffering stall has
 45 seconds. The player retries or skips videos within these limits and
@@ -68,10 +72,11 @@ opening a modal does not count as a loading failure.
 
 ## Diagnosing a startup stall
 
-The CoronaPoker debug console and the GDX debug file include native Chromium
-warnings, browser console messages, browser and YouTube readiness, playback
-progress, and counts of frames copied and uploaded. On Windows the debug
-file is under `%USERPROFILE%\.coronapoker\Debug`. If the player stalls,
+The GDX debug file keeps the full session. The CoronaPoker debug console
+shows the latest part of the same log, including Java stdout and stderr,
+Chromium warnings, browser console messages, browser and YouTube readiness,
+playback progress, and counts of frames copied and uploaded. On Windows the
+debug file is under `%USERPROFILE%\.coronapoker\Debug`. If the player stalls,
 leave it visible until the recovery is logged so that the file records both
 browser sessions.
 
@@ -89,7 +94,7 @@ the YouTube iframe and blocks pop-ups and external top-level navigation.
 JCEF renders to an off-screen BGRA buffer. The CEF callback copies pixels,
 and the libGDX thread updates the texture. The native CEF instance stays
 alive until CoronaPoker exits. The game releases each browser and its
-texture when the player closes or you enter a table.
+texture when the player closes or the game starts.
 
 The document loads the iframe with autoplay disabled and mutes the player
 before starting the video. The first `READY` in a fresh process warms up

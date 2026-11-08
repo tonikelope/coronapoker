@@ -382,7 +382,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
         CoronaPokerGdxTable current = table;
         if (current != null) {
             current.resize(width, height);
-        } else if (menu != null) {
+        }
+        if (menu != null) {
             menu.resize(width, height);
         }
     }
@@ -402,12 +403,13 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             CoronaPokerGdxTable candidate = null;
             try {
-                menu.releasePokerVideoForTable();
                 gameLog.reset();
                 LobbySnapshot lobbyState = lobby == null
                         ? null : lobby.snapshot();
                 for (String endpointLine : tableConnectionEndpointLines(
-                        lobbyState, menu.tablePublicAddress(), gameText)) {
+                        lobbyState != null && lobbyState.host(),
+                        lobbyState == null ? "unknown" : menu.displayedLobbyEndpoint(lobbyState),
+                        menu.tablePublicAddress(), gameText)) {
                     gameLog.print(endpointLine);
                     LOGGER.log(Level.INFO, endpointLine);
                 }
@@ -417,6 +419,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         () -> opened.accept(table), gameLog, preferences, lobby,
                         presentationSettings, identityTrust);
                 candidate.shareBackgroundMusic(menu.tableBackgroundMusic());
+                candidate.shareMediaFrontend(menu);
                 candidate.beginCreate();
                 pendingTableOpen = new PendingTableOpen(candidate,
                         openingBarrier);
@@ -431,7 +434,6 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 }
                 table = null;
                 restoreFrontendInput();
-                menu.restorePokerVideoAfterTable();
                 menu.showSessionError(gameText.translate(
                         "gdx.table.open_failed_detail", rootMessage(error)));
                 openingBarrier.completeExceptionally(error);
@@ -455,6 +457,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 case 2 -> flushPendingIdentityGameLogNotices();
                 case 3 -> {
                     table = pending.table;
+                    menu.pokerVideoOverlay().minimizeForTable();
                     // The lobby keeps its last hit map while the table is
                     // visible. Leaving it installed would make one table click
                     // reach the raw table input on press and a hidden lobby
@@ -481,7 +484,6 @@ final class GdxApplicationShell extends ApplicationAdapter {
             }
             table = null;
             restoreFrontendInput();
-            menu.restorePokerVideoAfterTable();
             menu.resumeMusic();
             menu.showSessionError(gameText.translate(
                     "gdx.table.open_failed_detail", rootMessage(error)));
@@ -489,11 +491,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
         }
     }
 
-    static List<String> tableConnectionEndpointLines(LobbySnapshot state,
-            String publicAddress, GdxGameText text) {
+    static List<String> tableConnectionEndpointLines(boolean host,
+            String endpoint, String publicAddress, GdxGameText text) {
         Objects.requireNonNull(text, "text");
-        String endpoint = state == null ? "unknown" : state.serverAddress();
-        if (state == null || !state.host()) {
+        if (!host) {
             return List.of(MessageFormat.format(text.translate(
                     "gdx.table.server_connection_endpoint"), endpoint));
         }
@@ -522,7 +523,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 table = null;
                 menu.refreshFeltFromSettings();
                 restoreFrontendInput();
-                menu.restorePokerVideoAfterTable();
+                menu.pokerVideoOverlay().restoreAfterTable();
                 long menuReady = System.nanoTime();
                 LobbySession completedLobby = lobby;
                 if (statsRequested && completedLobby != null) {
@@ -596,7 +597,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         table = null;
         suspendedFinalTable = null;
         restoreFrontendInput();
-        menu.restorePokerVideoAfterTable();
+        menu.pokerVideoOverlay().restoreAfterTable();
         LobbySession completedLobby = lobby;
         if (completedLobby != null) {
             if (continueRequested) {
@@ -630,10 +631,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
      * return route from subtly behaving differently.
      */
     private void restoreFrontendInput() {
-        // resize() reapplies the frontend viewport too. While the table owns
-        // the window, resize notifications intentionally target only the
-        // table, so returning without this step can leave stale screen bounds
-        // for hit testing after a display-mode or monitor change.
+        // Reapply the current window size before handing input back.
         menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         menu.reclaimAfterExternalScene();
         Gdx.input.setInputProcessor(menu);

@@ -83,6 +83,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private final Rectangle previousBounds = new Rectangle();
     private final Rectangle nextBounds = new Rectangle();
     private final Rectangle closeBounds = new Rectangle();
+    private final Rectangle maximizeBounds = new Rectangle();
     private final Rectangle favoriteBounds = new Rectangle();
     private final Rectangle favoritesModeBounds = new Rectangle();
     private final Rectangle videoTypeBounds = new Rectangle();
@@ -103,21 +104,20 @@ final class PokerVideoOverlay implements AutoCloseable {
     private volatile PokerVideoRuntime runtime;
     private Texture loadingSpade;
     private Texture minimizedLogo;
-    private volatile String loadingState = "BUSCANDO VÍDEOS";
+    private volatile String loadingState = "gdx.video.loading.search";
     private volatile String loadingError;
     private boolean initializationStarted;
     private volatile boolean featureEnabled;
     private volatile boolean systemAvailable;
     private volatile boolean hostVisible;
     private volatile boolean minimized;
+    private boolean restoreWindowAfterTable;
     private boolean animateWindow;
     private float transitionElapsed = WINDOW_TRANSITION_SECONDS;
     private boolean geometryInitialized;
     private boolean geometryDirty;
     private boolean runtimeActive;
     private boolean browserFocused;
-    private volatile boolean releasedForTable;
-    private boolean restoreWindowAfterTable;
     private volatile String requestedCatalogKey;
     private String selectedVideoType = PokerVideoSearch.TYPE_NORMAL;
     private PokerVideoRuntime.Selection displayedSelection;
@@ -199,6 +199,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 if (runtime == null) initializationStarted = false;
             }
             featureEnabled = false;
+            restoreWindowAfterTable = false;
             minimized = true;
             hostVisible = false;
             finishWindowTransition();
@@ -214,6 +215,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         boolean wasEnabled = featureEnabled;
         featureEnabled = enabled;
         if (!enabled) {
+            restoreWindowAfterTable = false;
             if (wasEnabled) {
                 initializationGeneration.incrementAndGet();
                 cancelInitializationTask();
@@ -231,7 +233,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         // A disabled feature is fully absent. "Minimized" is only a runtime
         // window state while the feature remains enabled; it must not turn a
         // disabled preference back into a floating activation icon.
-        hostVisible = visible && enabled && !releasedForTable;
+        hostVisible = visible && enabled;
         String catalogKey = PokerVideoSearch.languageCode(language) + ":"
                 + normalizedType;
         boolean favoritesMode = catalog.favoritesMode();
@@ -242,9 +244,9 @@ final class PokerVideoOverlay implements AutoCloseable {
                 loadingError = startupError;
                 documentErrorVisible = false;
             } else {
-                boolean timedOut = current.pollDocumentLoad(hostVisible && enabled && !minimized
-                        && !releasedForTable && !catalogLoading);
-                if (timedOut && !recreatedAfterTimeout) {
+                boolean needsRecovery = current.pollRecovery(hostVisible && !minimized
+                        && !catalogLoading && !emptyFavorites());
+                if (needsRecovery && !recreatedAfterTimeout) {
                     recreatedAfterTimeout = true;
                     // Reuse the same close/reopen path as the video window.
                     releaseBrowserSession(true);
@@ -280,8 +282,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                 || !favoritesMode && !catalogKey.equals(requestedCatalogKey))) {
             start(language, normalizedType, catalogKey);
         }
-        boolean shouldRun = hostVisible && enabled && !minimized
-                && !releasedForTable && !emptyFavorites() && !catalogLoading && loadingError == null;
+        boolean shouldRun = hostVisible && !minimized && !emptyFavorites()
+                && !catalogLoading && loadingError == null;
         if (current != null && !enabled && current.browser() != null) {
             releaseBrowserSession(false);
         }
@@ -368,7 +370,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         initializationTask = initializer.submit(() -> {
             try {
                 if (closed.get() || generation != initializationGeneration.get()) return;
-                loadingState = "BUSCANDO VÍDEOS";
+                loadingState = "gdx.video.loading.search";
                 boolean favoritesMode = catalog.favoritesMode();
                 List<PokerVideoSearch.Video> searched = favoritesMode
                         ? null : PokerVideoSearch.shuffled(
@@ -381,7 +383,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 if (searched != null) catalog.replaceNormal(searched, videoType);
                 var videos = catalog.videos();
                 if (videos.isEmpty()) return;
-                loadingState = "INICIALIZANDO REPRODUCTOR";
+                loadingState = "gdx.video.loading.player";
                 PokerVideoRuntime current = runtime;
                 if (current != null) {
                     loadingError = null;
@@ -409,7 +411,6 @@ final class PokerVideoOverlay implements AutoCloseable {
                 loadingError = created.initializationError();
                 runtimeActive = true;
                 if (!systemAvailable || !featureEnabled || minimized
-                        || releasedForTable
                         || generation != initializationGeneration.get()) {
                     runtimeActive = false;
                     created.releaseBrowserSession(false);
@@ -469,6 +470,8 @@ final class PokerVideoOverlay implements AutoCloseable {
         previousBounds.set(x + 8f, headerBounds.y + 7f, 40f, 38f);
         nextBounds.set(x + 53f, headerBounds.y + 7f, 40f, 38f);
         closeBounds.set(x + videoWidth - 48f, headerBounds.y + 7f, 40f, 38f);
+        maximizeBounds.set(closeBounds.x - 45f, closeBounds.y,
+                closeBounds.width, closeBounds.height);
         float starWidth = videoWidth < 420f ? 32f : 40f;
         float available = videoWidth - 26f - starWidth;
         float modeWidth = Math.min(catalog.favoritesMode() ? 174f : 156f, available * 0.55f);
@@ -565,6 +568,10 @@ final class PokerVideoOverlay implements AutoCloseable {
             drawButton(shapes, pointer, videoTypeBounds,
                     GdxUiButtonStyle.Tone.NEUTRAL, Capture.VIDEO_TYPE, false);
         }
+        if (canMaximize()) {
+            drawButton(shapes, pointer, maximizeBounds,
+                    GdxUiButtonStyle.Tone.NEUTRAL, Capture.MAXIMIZE, false);
+        }
         drawButton(shapes, pointer, closeBounds,
                 GdxUiButtonStyle.Tone.DANGER, Capture.CLOSE, false);
     }
@@ -591,6 +598,13 @@ final class PokerVideoOverlay implements AutoCloseable {
                     bounds.y + bounds.height / 2f,
                     Math.min(bounds.width, bounds.height) * 0.44f,
                     iconColor, 1f);
+        } else if (action == Capture.MAXIMIZE) {
+            float size = Math.min(bounds.width, bounds.height) * 0.40f;
+            shapes.setColor(iconColor);
+            GdxAntialiasedRoundedRect.outline(shapes,
+                    bounds.x + (bounds.width - size) / 2f,
+                    bounds.y + (bounds.height - size) / 2f,
+                    size, size, 2f, 1.8f);
         } else if (action == Capture.FAVORITE) {
             drawStar(shapes, bounds.x + bounds.width / 2f,
                     bounds.y + bounds.height / 2f, 10f,
@@ -662,22 +676,26 @@ final class PokerVideoOverlay implements AutoCloseable {
                     iconBounds.contains(pointer), capture == Capture.ICON);
             return;
         }
+        PokerVideoRuntime current = runtime;
+        String playerLoading = current == null ? null : current.loadingKey();
         Texture texture = frameBuffer.texture();
+        boolean empty = emptyFavorites();
         String displayedError = loadingError;
         if (displayedError == null && catalogLoading
                 && nativeStartupTimedOut(nativeStartupSince, System.nanoTime())) {
             displayedError = text.translate("gdx.video.startup_timeout");
         }
-        if (texture != null && !emptyFavorites() && !catalogLoading && displayedError == null) {
+        if (texture != null && playerLoading == null && !empty && !catalogLoading && displayedError == null) {
             batch.setColor(Color.WHITE);
             batch.draw(texture, videoBounds.x, videoBounds.y,
                     videoBounds.width, videoBounds.height);
         } else {
-            tinyFont.setColor(displayedError == null || emptyFavorites() ? MUTED : Color.SALMON);
-            String message = emptyFavorites() ? text.translate("gdx.video.favorites.empty")
-                    : displayedError == null ? loadingState
+            tinyFont.setColor(displayedError == null || empty ? MUTED : Color.SALMON);
+            String message = empty ? text.translate("gdx.video.favorites.empty")
+                    : displayedError == null
+                    ? text.translate(catalogLoading || playerLoading == null ? loadingState : playerLoading)
                     : "REPRODUCTOR NO DISPONIBLE\n" + displayedError;
-            if (displayedError == null && !emptyFavorites()) {
+            if (displayedError == null && !empty) {
                 Texture spade = loadingSpade();
                 float size = 34f;
                 batch.setColor(Color.WHITE);
@@ -696,7 +714,6 @@ final class PokerVideoOverlay implements AutoCloseable {
                         Align.center, false, viewport);
             }
         }
-        PokerVideoRuntime current = runtime;
         boolean favoritesMode = catalog.favoritesMode();
         var selection = displayedSelection;
         String title = selection != null ? selection.video().title()
@@ -710,7 +727,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             GdxPixelText.draw(tinyFont, batch, counter, titleX, headerBounds.y + 32f, viewport);
             titleX += counterWidth + 12f;
         }
-        float titleWidth = Math.max(0f, closeBounds.x - titleX - 8f);
+        float titleWidth = Math.max(0f, headerControlsLeft() - titleX - 8f);
         font.setColor(GOLD);
         GdxPixelText.draw(font, batch, ellipsize(font, title, titleWidth),
                 titleX, headerBounds.y + 33f, viewport);
@@ -746,6 +763,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private boolean actionEnabled(Capture action) {
         if (action == Capture.CLOSE) return true;
+        if (action == Capture.MAXIMIZE) return canMaximize();
         if (action == Capture.RETRY) return canRetry();
         if (catalogLoading) return false;
         if (action == Capture.FAVORITES_MODE) return true;
@@ -758,6 +776,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     void addTooltips(BiConsumer<Rectangle, String> add) {
         if (!hostVisible || minimized || windowTransitionActive()) return;
+        if (canMaximize()) add.accept(maximizeBounds, "gdx.video.maximize");
         add.accept(favoriteBounds, favoriteSaveFailed ? "gdx.video.favorite.error"
                 : currentIsFavorite() ? "gdx.video.favorite.remove" : "gdx.video.favorite.add");
         add.accept(favoritesModeBounds, catalog.favoritesMode()
@@ -898,6 +917,10 @@ final class PokerVideoOverlay implements AutoCloseable {
                         pointerX, pointerY);
                 return true;
             }
+            if (canMaximize() && maximizeBounds.contains(pointerX, pointerY)) {
+                capture(Capture.MAXIMIZE, pointerIndex, button, pointerX, pointerY);
+                return true;
+            }
             if (previousBounds.contains(pointerX, pointerY)) {
                 capture(Capture.PREVIOUS, pointerIndex, button,
                         pointerX, pointerY);
@@ -922,7 +945,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
             Rectangle draggable = new Rectangle(headerBounds);
             draggable.x = nextBounds.x + nextBounds.width + 4f;
-            draggable.width = closeBounds.x - draggable.x - 4f;
+            draggable.width = headerControlsLeft() - draggable.x - 4f;
             if (draggable.contains(pointerX, pointerY)) {
                 capture(Capture.MOVE, pointerIndex, button,
                         pointerX, pointerY);
@@ -985,6 +1008,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             case MOVE, RESIZE -> saveWindowGeometry();
             case ICON -> {
                 if (iconBounds.contains(pointerX, pointerY)) {
+                    restoreWindowAfterTable = false;
                     minimized = false;
                     recreatedAfterTimeout = false;
                     beginWindowTransition();
@@ -1001,6 +1025,11 @@ final class PokerVideoOverlay implements AutoCloseable {
                     blurBrowser();
                     if (windowTransitionActive()) stopBrowserSession(false);
                     else releaseBrowserSession(false);
+                }
+            }
+            case MAXIMIZE -> {
+                if (canMaximize() && maximizeBounds.contains(pointerX, pointerY)) {
+                    maximizeWindow();
                 }
             }
             case PREVIOUS -> {
@@ -1199,25 +1228,28 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     private void restoreBrowserSession() {
         PokerVideoRuntime current = runtime;
-        if (current == null || releasedForTable || emptyFavorites()) return;
+        if (current == null || emptyFavorites()) return;
         current.resumeBrowserSession(Math.round(videoWidth),
                 Math.round(videoHeight), displayScale());
         runtimeActive = true;
     }
 
-    void releaseForTable() {
-        restoreWindowAfterTable = systemAvailable && featureEnabled
-                && !minimized;
-        releasedForTable = true;
-        hostVisible = false;
-        finishWindowTransition();
+    void resetHostInput() {
         cancelHiddenCapture();
         blurBrowser();
-        releaseBrowserSession(restoreWindowAfterTable);
+    }
+
+    void minimizeForTable() {
+        resetHostInput();
+        finishWindowTransition();
+        restoreWindowAfterTable = systemAvailable && featureEnabled && !minimized;
+        if (!restoreWindowAfterTable) return;
+        minimized = true;
+        cancelPendingInitialization();
+        releaseBrowserSession(true);
     }
 
     void restoreAfterTable() {
-        releasedForTable = false;
         if (restoreWindowAfterTable) minimized = false;
         restoreWindowAfterTable = false;
     }
@@ -1278,6 +1310,24 @@ final class PokerVideoOverlay implements AutoCloseable {
                                 / (double) Math.max(1f, worldWidth),
                         Gdx.graphics.getBackBufferHeight()
                                 / (double) Math.max(1f, worldHeight)));
+    }
+
+    private boolean canMaximize() {
+        return videoWidth < maximumVideoWidth();
+    }
+
+    private float headerControlsLeft() {
+        return canMaximize() ? maximizeBounds.x : closeBounds.x;
+    }
+
+    private void maximizeWindow() {
+        videoWidth = maximumVideoWidth();
+        videoHeight = videoWidth / videoAspect;
+        x = (worldWidth - videoWidth) / 2f;
+        y = (worldHeight - videoHeight - CHROME_HEIGHT) / 2f;
+        clampWindow();
+        geometryDirty = true;
+        saveWindowGeometry();
     }
 
     private float maximumVideoWidth() {
@@ -1369,7 +1419,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private enum Capture {
-        NONE, ICON, CLOSE, PREVIOUS, NEXT, FAVORITE, FAVORITES_MODE, VIDEO_TYPE, RETRY, MOVE, RESIZE, VIDEO
+        NONE, ICON, CLOSE, MAXIMIZE, PREVIOUS, NEXT, FAVORITE,
+        FAVORITES_MODE, VIDEO_TYPE, RETRY, MOVE, RESIZE, VIDEO
     }
 
     enum ResizeHandle {

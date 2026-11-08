@@ -1,15 +1,18 @@
 package com.tonikelope.coronapoker.core;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.logging.Level;
@@ -48,23 +51,30 @@ public final class UpdateService implements ApplicationService {
     private static final Logger LOGGER = Logger.getLogger(UpdateService.class.getName());
     private static final Pattern VERSION_PATTERN = Pattern.compile("([0-9]+)\\.([0-9]+)$");
     private static final Pattern RELEASE_LOCATION_PATTERN
-            = Pattern.compile("releases/tag/v?([0-9]+\\.[0-9]+)");
+            = Pattern.compile("/releases/tag/v?([0-9]+\\.[0-9]+)$");
 
     private final String currentVersion;
     private final int attempts;
     private final LatestVersionSource source;
+    private final Duration overallTimeout;
     private ExecutorService executor;
     private CompletableFuture<CheckResult> currentCheck;
     private boolean started;
     private boolean closed;
 
     public UpdateService(String currentVersion, int attempts, LatestVersionSource source) {
+        this(currentVersion, attempts, source, null);
+    }
+
+    private UpdateService(String currentVersion, int attempts,
+            LatestVersionSource source, Duration overallTimeout) {
         this.currentVersion = requireVersion(currentVersion, "currentVersion");
         if (attempts < 1) {
             throw new IllegalArgumentException("attempts must be positive");
         }
         this.attempts = attempts;
         this.source = Objects.requireNonNull(source, "source");
+        this.overallTimeout = overallTimeout;
     }
 
     public static UpdateService forLatestRelease(
@@ -75,7 +85,8 @@ public final class UpdateService implements ApplicationService {
             throw new IllegalArgumentException("timeout must be positive");
         }
         return new UpdateService(currentVersion, attempts,
-                () -> readLatestVersion(latestReleaseUri, timeout));
+                () -> readLatestVersion(latestReleaseUri, timeout),
+                timeout.multipliedBy(attempts).plusSeconds(1));
     }
 
     @Override
@@ -100,10 +111,22 @@ public final class UpdateService implements ApplicationService {
         if (currentCheck != null && !currentCheck.isDone()) {
             return currentCheck;
         }
-        CompletableFuture<CheckResult> check
-                = CompletableFuture.supplyAsync(this::checkWithRetries, executor);
+        CompletableFuture<CheckResult> check = new CompletableFuture<>();
+        Future<?> worker = executor.submit(() -> {
+            try {
+                check.complete(checkWithRetries());
+            } catch (Throwable failure) {
+                check.completeExceptionally(failure);
+            }
+        });
         currentCheck = check;
-        check.whenComplete((ignoredResult, ignoredFailure) -> clearCompleted(check));
+        if (overallTimeout != null) {
+            check.orTimeout(overallTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        }
+        check.whenComplete((ignoredResult, failure) -> {
+            if (check.isCancelled() || failure instanceof TimeoutException) worker.cancel(true);
+            clearCompleted(check);
+        });
         return check;
     }
 
@@ -146,7 +169,7 @@ public final class UpdateService implements ApplicationService {
             Thread.currentThread().interrupt();
             return null;
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, ex.getMessage());
+            LOGGER.log(Level.WARNING, "Release check attempt failed: {0}", ex.toString());
             return null;
         }
     }
@@ -175,21 +198,18 @@ public final class UpdateService implements ApplicationService {
                 .uri(uri)
                 .timeout(timeout)
                 .header("Cache-Control", "no-cache")
-                .GET()
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
                 .build();
-        HttpResponse<String> response = client.send(
-                request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        String candidate = null;
-        if (response.statusCode() >= 300 && response.statusCode() < 400) {
-            candidate = response.headers().firstValue("Location").orElse(null);
-        } else {
-            candidate = response.body();
+        HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+        if (response.statusCode() < 300 || response.statusCode() >= 400) {
+            throw new IOException("Latest release returned HTTP " + response.statusCode());
         }
-        if (candidate == null) {
-            return null;
+        String location = response.headers().firstValue("Location").orElse("");
+        Matcher matcher = RELEASE_LOCATION_PATTERN.matcher(uri.resolve(location).getPath());
+        if (!matcher.find()) {
+            throw new IOException("Latest release returned an invalid tag redirect");
         }
-        Matcher matcher = RELEASE_LOCATION_PATTERN.matcher(candidate);
-        return matcher.find() ? matcher.group(1) : null;
+        return matcher.group(1);
     }
 
     private static int compareVersions(String left, String right) {

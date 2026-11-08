@@ -1084,8 +1084,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Color callCostPulseTint = new Color();
     private final GdxTooltipDelay latencyTooltipDelay =
             new GdxTooltipDelay();
-    private final GdxTooltipDelay audioOutputTooltipDelay =
-            new GdxTooltipDelay();
     private final GdxTooltipDelay fastAccessTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay pendingRebuyTooltipDelay =
@@ -1293,6 +1291,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean voiceLive;
     private boolean voiceStopping;
     private final GdxPointerHold voicePointer = new GdxPointerHold();
+    private final GdxPointerHold mediaPointer = new GdxPointerHold();
+    private GdxFrontendScreen mediaFrontend;
+    private boolean mediaSoundPressed;
+    private boolean mediaPressedThisFrame;
     private float voiceLiveAt;
     private float voiceStatusAt;
     private float voiceStatusSeconds = VOICE_STATUS_SECONDS;
@@ -1675,10 +1677,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float communityPauseY = Float.NaN;
     private float communityPauseWidth;
     private float communityPauseHeight;
-    private float communitySoundX = Float.NaN;
-    private float communitySoundY = Float.NaN;
-    private float communitySoundWidth;
-    private float communitySoundHeight;
     private float communityLightsX = Float.NaN;
     private float communityLightsY = Float.NaN;
     private float communityLightsWidth;
@@ -1892,6 +1890,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean scrolled(float amountX, float amountY) {
+            if (tableMediaVisible()) {
+                Vector2 position = mediaFrontend.tableMediaPointer(
+                        Gdx.input.getX(), Gdx.input.getY());
+                if (mediaFrontend.pokerVideoOverlay().scrolled(
+                        position.x, position.y, amountY)) return true;
+            }
             if (tableImageClearConfirmation) return true;
             if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
@@ -1968,7 +1972,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (tableScrollPointer.active()
-                    || gameLogWindowPointer.active()) return true;
+                    || gameLogWindowPointer.active()
+                    || voicePointer.active() || mediaPointer.active()) return true;
+            if (tableMediaVisible() && beginMediaPointer(screenX, screenY,
+                    pointerIndex, button)) return true;
             if (button == Input.Buttons.LEFT
                     && (uiLayer == UI_NONE || uiLayer == UI_GAME_LOG)
                     && fastBarExpanded && liveState != null
@@ -2107,6 +2114,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
+            if (mediaPointer.active()) {
+                if (tableMediaVisible()) {
+                    Vector2 position = mediaFrontend.tableMediaPointer(screenX, screenY);
+                    mediaFrontend.pokerVideoOverlay().touchDragged(
+                            position.x, position.y, pointerIndex);
+                }
+                return true;
+            }
             if (voicePointer.owns(pointerIndex, Input.Buttons.LEFT)) return true;
             if (tableImageClearConfirmation
                     || tableVoiceConfirmationVisible()) return true;
@@ -2162,6 +2177,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (mediaPointer.release(pointerIndex, button)) {
+                PokerVideoOverlay video = mediaFrontend.pokerVideoOverlay();
+                if (tableMediaVisible()) {
+                    Vector2 position = mediaFrontend.tableMediaPointer(screenX, screenY);
+                    video.touchUp(position.x, position.y, pointerIndex, button);
+                    if (mediaSoundPressed && mediaFrontend.footerSoundContains(position)) {
+                        toggleMasterSound();
+                    }
+                } else {
+                    video.cancelTouch(pointerIndex, button);
+                }
+                mediaSoundPressed = false;
+                return true;
+            }
             if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(false);
                 fastBarExpanded = false;
@@ -2231,6 +2260,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
+            if (mediaPointer.release(pointerIndex, button)) {
+                mediaFrontend.resetMediaInput();
+                mediaSoundPressed = false;
+                return true;
+            }
             if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(true);
                 fastBarExpanded = false;
@@ -2255,9 +2289,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean mouseMoved(int screenX, int screenY) {
+            if (tableMediaVisible()) {
+                Vector2 position = mediaFrontend.tableMediaPointer(screenX, screenY);
+                if (mediaFrontend.pokerVideoOverlay().mouseMoved(
+                        position.x, position.y)) return true;
+            }
             return blockingTablePointerSurface();
         }
     };
+
+    private boolean tableMediaVisible() {
+        return mediaFrontend != null && !intro && finalSummary == null
+                && uiLayer == UI_NONE && !blockingTablePointerSurface()
+                && !tableVoiceConfirmationVisible();
+    }
+
+    private boolean beginMediaPointer(int screenX, int screenY,
+            int pointerIndex, int button) {
+        Vector2 position = mediaFrontend.tableMediaPointer(screenX, screenY);
+        boolean videoPress = mediaFrontend.pokerVideoOverlay().touchDown(
+                position.x, position.y, pointerIndex, button);
+        if (!videoPress && !mediaFrontend.footerSoundContains(position)) return false;
+        mediaPointer.capture(pointerIndex, button);
+        mediaSoundPressed = !videoPress && button == Input.Buttons.LEFT;
+        mediaPressedThisFrame = true;
+        feltClickCandidate = false;
+        return true;
+    }
 
     private boolean handleChatEditingKey(int keycode) {
         chatEdit.focus("tableChat", chatDraft);
@@ -3886,6 +3944,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (music == null) return;
         backgroundMusic = music;
         sharedBackgroundMusic = true;
+    }
+
+    void shareMediaFrontend(GdxFrontendScreen frontend) {
+        mediaFrontend = frontend;
     }
 
     void activateBackgroundMusic() {
@@ -6368,7 +6430,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxPixelText.beginFrame();
         refreshFontQualityIfDue();
         float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
-        updateTableSystemCursor();
         if (startupIntroOnly && !introVisibleSignalled) {
             // Window/context creation must never consume the two-second dark
             // beat. Start its clock on the first visible frame.
@@ -6429,6 +6490,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
+        mediaPressedThisFrame = false;
+        boolean showMedia = tableMediaVisible();
+        if (mediaFrontend != null) {
+            mediaFrontend.updatePokerVideo(showMedia, delta);
+            if (!showMedia) mediaSoundPressed = false;
+        }
+        updateTableSystemCursor();
         // Rendering consumers share one world-space pointer snapshot.  Input
         // handlers still unproject on discrete clicks, but the table, board
         // HUD and local HUD no longer repeat the same conversion every frame.
@@ -6558,6 +6626,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawPerformanceCounter(viewport.getWorldWidth(),
                     viewport.getWorldHeight());
         }
+        if (showMedia) mediaFrontend.drawTableMedia(mediaSoundPressed);
         if (screenshotRequested) {
             screenshotRequested = false;
             captureScreenshot();
@@ -6826,6 +6895,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return;
         }
+        // Consuming the raw press does not hide libGDX's polled button state.
+        if (mediaPressedThisFrame) return;
         if (preparationPhase != TableVisualEvent.PreparationStatus.Phase.READY) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
                     || ((Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
@@ -9166,12 +9237,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             toggleUserLights();
             return;
         }
-        if (contains(pointer.x, pointer.y, communitySoundX,
-                communitySoundY, communitySoundWidth,
-                communitySoundHeight)) {
-            toggleMasterSound();
-            return;
-        }
         if (tableHost && contains(pointer.x, pointer.y, communityHandX,
                 communityHandY, communityHandWidth,
                 communityHandHeight)) {
@@ -10269,6 +10334,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void updatePointerButtonTransitions() {
         boolean down = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
         leftButtonReleasedThisFrame = primaryPointer.update(down);
+        if (mediaPressedThisFrame || mediaPointer.active()) {
+            primaryPointer.capturePressedGesture();
+        }
     }
 
     private boolean beginPointerRepeat(RepeatOwner owner) {
@@ -11343,7 +11411,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawSilentChatNotice();
         drawStackViewerTooltip();
         drawLatencyTooltip();
-        drawAudioOutputUnavailableTooltip();
         drawVoiceRecordingOverlay(width, height);
         drawAvatarZoomOverlay(width, height);
     }
@@ -14287,37 +14354,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawAudioOutputUnavailableTooltip() {
-        if (audioOutputAvailable() || liveState == null
-                || uiLayer != UI_NONE || blocksTableUtilities(activeDialog)
-                || !contains(pointer.x, pointer.y, communitySoundX,
-                        communitySoundY, communitySoundWidth,
-                        communitySoundHeight)) {
-            audioOutputTooltipDelay.clear();
-            return;
-        }
-        if (!audioOutputTooltipDelay.ready("table-no-audio-output")) return;
-        String label = gameText.translate("gdx.audio.no_output_device");
-        glyph.setText(settingsSmallFont, label);
-        float width = Math.max(210f, glyph.width + 30f);
-        float height = 40f;
-        float x = MathUtils.clamp(pointer.x - width / 2f, 10f,
-                viewport.getWorldWidth() - width - 10f);
-        float y = communitySoundY + communitySoundHeight + 12f;
-
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f);
-        roundedRect(x, y, width, height, 8f);
-        shapes.end();
-
-        batch.begin();
-        drawFittedCenteredInBox(settingsSmallFont, label,
-                x + 10f, y + 5f,
-                width - 20f, height - 10f, Color.WHITE, 1f);
-        batch.end();
-    }
-
     private boolean audioOutputAvailable() {
         GdxApplicationShell shell = GdxApplicationShell.active();
         return shell == null || shell.audioOutputAvailable();
@@ -16000,12 +16036,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communityHudWidth = width;
         communityHudHeight = height;
         float padding = 6f;
-        float soundWidth = 46f;
         float lightsWidth = 54f;
         float pauseWidth = Math.min(166f, width * 0.25f);
         float handWidth = Math.min(150f, width * 0.22f);
-        float blindsWidth = width - pauseWidth - handWidth - soundWidth
-                - lightsWidth - padding * 4f;
+        float blindsWidth = width - pauseWidth - handWidth
+                - lightsWidth - padding * 3f;
         boolean showGameClock = tablePreference("show_time", false);
         String gameClock = showGameClock
                 ? formatPlayTime(liveState.playTimeSeconds()) : "";
@@ -16031,17 +16066,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communityLightsY = y;
         communityLightsWidth = lightsWidth;
         communityLightsHeight = height;
-        communitySoundX = communityLightsX - padding - soundWidth;
-        communitySoundY = y;
-        communitySoundWidth = soundWidth;
-        communitySoundHeight = height;
         boolean pauseHover = contains(pointer.x, pointer.y,
                 communityPauseX, communityPauseY,
                 communityPauseWidth, communityPauseHeight);
-        boolean outputAvailable = audioOutputAvailable();
-        boolean soundHover = outputAvailable && contains(pointer.x, pointer.y,
-                communitySoundX, communitySoundY,
-                communitySoundWidth, communitySoundHeight);
         boolean paused = liveState.snapshot().paused();
         boolean lightsHover = !paused && contains(pointer.x, pointer.y,
                 communityLightsX, communityLightsY,
@@ -16065,10 +16092,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(handX + 3f, y + 3f,
                     handWidth - 7f, height - 6f, 7f);
         }
-        drawHudActionSurface(communitySoundX, communitySoundY,
-                communitySoundWidth, communitySoundHeight,
-                outputAvailable ? SEAT_RIM : LATENCY_RED,
-                soundHover, false, outputAvailable);
         drawHudActionSurface(communityLightsX, communityLightsY,
                 communityLightsWidth, communityLightsHeight,
                 userLightsOff ? ORANGE : SEAT_RIM, lightsHover,
@@ -16111,13 +16134,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(actionFont, hand,
                 handX + 4f, y + 5f, handWidth - 12f, height - 10f,
                 Color.WHITE, 1f);
-        Texture masterSoundIcon = outputAvailable && audioControl.enabled()
-                ? soundIcon : muteIcon;
-        batch.setColor(outputAvailable ? Color.WHITE : LATENCY_RED);
-        float soundIconSize = height - 4f;
-        batch.draw(masterSoundIcon,
-                communitySoundX + (communitySoundWidth - soundIconSize) / 2f,
-                communitySoundY + 2f, soundIconSize, soundIconSize);
         Texture lightsIcon = userLightsOff ? lightsOffIcon : lightsOnIcon;
         float lightsAspect = lightsIcon.getWidth()
                 / (float) lightsIcon.getHeight();
@@ -21315,6 +21331,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             ? gameLogResizeHandle
                             : gameLogResizeHandleUnderPointer();
             desired = systemCursorFor(handle);
+        } else if (tableMediaVisible()) {
+            Vector2 position = mediaFrontend.tableMediaPointer(
+                    Gdx.input.getX(), Gdx.input.getY());
+            desired = mediaFrontend.pokerVideoOverlay().systemCursor(
+                    position.x, position.y);
         }
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);
@@ -27477,8 +27498,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void copySettingsDebugLog() {
-        Gdx.app.getClipboard().setContents(GdxDebugLogFormatter.clipboardText(
-                settingsDebugLines()));
+        Gdx.app.getClipboard().setContents(DebugLog.snapshot());
         showTableToast(uppercase(gameText.translate(
                 "gdx.settings.debug.copied")), 1.5f);
     }

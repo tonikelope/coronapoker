@@ -28,12 +28,6 @@ class GdxDebugLogFormatterTest {
     }
 
     @Test
-    void clipboardKeepsTheOriginalUnwrappedLog() {
-        assertEquals("one" + System.lineSeparator() + "two",
-                GdxDebugLogFormatter.clipboardText(List.of("one", "two")));
-    }
-
-    @Test
     void mirrorsSwingHeaderLevelAndContinuationHierarchy() {
         List<GdxDebugLogFormatter.Line> lines = GdxDebugLogFormatter.format(
                 List.of(

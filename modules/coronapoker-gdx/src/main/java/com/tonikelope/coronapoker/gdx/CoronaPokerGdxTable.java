@@ -411,10 +411,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float POT_STACK_CHIP_DEPTH_RISE_RATIO = 0.60f;
     private static final int STACK_CHIP_MAX_COMPRESSED_LEVELS = 24;
     private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
-    private static final float POT_PANEL_WIDTH = 390f;
-    private static final float POT_CHIP_RACK_CENTER_OFFSET = 52f;
-    private static final float POT_PLAYER_COUNT_WIDTH = 58f;
-    private static final float POT_PLAYER_COUNT_HEIGHT_RATIO = 0.70f;
+    private static final float POT_PANEL_WIDTH = 300f;
+    private static final float POT_CHIP_RACK_CENTER_OFFSET = 46f;
+    private static final float POT_CHIP_RACK_SCALE = 0.85f;
+    private static final float POT_CONTENT_BOTTOM_INSET = 5f;
+    private static final float POT_PLAYER_COUNT_WIDTH = 48f;
+    private static final float POT_PLAYER_COUNT_HEIGHT = 40f;
+    private static final float POT_AMOUNT_TOP_OFFSET = 54f;
     private static final float POT_PLAYER_COUNT_INSET = 8f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
@@ -439,7 +442,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static final float RIVAL_MONEY_CELL_X = 63f;
     static final float RIVAL_MONEY_CELL_WIDTH = 105f;
     static final float RIVAL_MONEY_CELL_GAP = 6f;
-    private static final float POT_PANEL_HEIGHT = 82f;
+    private static final float POT_PANEL_HEIGHT = 90f;
     private static final float POT_BOARD_GAP = 24f;
     private static final float LAST_HAND_BADGE_HEIGHT = 31f;
     private static final float LAST_HAND_CARD_CLEARANCE = 3f;
@@ -1389,7 +1392,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean chipRackCompositeUnavailable;
 
     private BitmapFont uiFont;
-    private BitmapFont potFont;
+    private BitmapFont mediumUiFont;
     private BitmapFont smallFont;
     private BitmapFont versionFont;
     private BitmapFont playerNameFont;
@@ -1565,8 +1568,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float potCenterX;
     private float potCenterY;
     private double lastPotValue = Double.NaN;
-    private String lastPotPrefix = "";
-    private String potText = "BOTE: 0";
+    private PotPanelText potText = new PotPanelText("", "0");
 
     private float totalTime;
     private float sceneTime;
@@ -3775,7 +3777,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsStyle.SMALL_FONT_SIZE, 0f);
             case 18 -> settingsTinyFont = font(creationFontGenerator,
                     GdxSettingsStyle.TINY_FONT_SIZE, 0f);
-            case 19 -> potFont = font(creationFontGenerator, 38, 0f);
+            case 19 -> mediumUiFont = font(creationFontGenerator, 38, 0f);
             case 20 -> dialogAmountFont = font(creationFontGenerator, 100, 0f);
             case 21 -> localOutcomeMediumFont = cacheLocalOutcomeFont(53,
                     localOutcomeFont(creationFontGenerator, 53));
@@ -4413,7 +4415,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             uiFont = replaceFont(uiFont, font(generator,
                     GdxVolumeOverlayStyle.FONT_SIZE,
                     GdxVolumeOverlayStyle.FONT_BORDER, profile));
-            potFont = replaceFont(potFont,
+            mediumUiFont = replaceFont(mediumUiFont,
                     font(generator, 38, 0f, profile));
             smallFont = replaceFont(smallFont,
                     font(generator, 21, 0.8f, profile));
@@ -4551,7 +4553,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         nativeTextTiers.clear();
         BitmapFont[] standard = {
             finalTitleFont, settingsTitleFont, dialogAmountFont,
-            potFont, settingsStepperSignFont, finalDetailFont,
+            mediumUiFont, settingsStepperSignFont, finalDetailFont,
             seatActionFont, uiFont, settingsHeadingFont,
             settingsActionFont, finalButtonFont, stackFont,
             settingsBodyFont, playerNameFont, actionFont, smallFont,
@@ -7535,9 +7537,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         communityHudWidth + 5f, communityHudHeight + 6f)) {
             return true;
         }
-        if (contains(x, y, potCenterX - 197f,
+        if (contains(x, y, potCenterX - POT_PANEL_WIDTH / 2f - 2f,
                 potCenterY - POT_PANEL_HEIGHT / 2f - 2f,
-                394f, POT_PANEL_HEIGHT + 4f)) {
+                POT_PANEL_WIDTH + 4f, POT_PANEL_HEIGHT + 4f)) {
             return true;
         }
         float avatarRadiusSquared = AVATAR_OUTER_RADIUS * AVATAR_OUTER_RADIUS;
@@ -15504,12 +15506,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawPotPanelSurface(float alpha) {
         float opacity = MathUtils.clamp(alpha, 0f, 1f);
         double currentPot = Math.max(0d, livePot());
-        String currentPotPrefix = communityPotPrefix(gameText,
+        String currentPotTitle = communityPotTitle(gameText,
                 liveState.runItTwicePotPrefix());
         if (Double.compare(currentPot, lastPotValue) != 0
-                || !currentPotPrefix.equals(lastPotPrefix)) {
+                || !currentPotTitle.equals(potText.title())) {
             lastPotValue = currentPot;
-            lastPotPrefix = currentPotPrefix;
             potText = communityPotText(gameText,
                     liveState.runItTwicePotPrefix(), currentPot);
         }
@@ -15518,13 +15519,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelHeight = POT_PANEL_HEIGHT;
         float panelX = potCenterX - panelWidth / 2f;
         float panelY = potCenterY - panelHeight / 2f;
-        float iconCenterX = panelX + POT_CHIP_RACK_CENTER_OFFSET;
+        float iconCenterX = potChipRackCenterX(potCenterX);
         boolean showPotCount = tablePreference(
                 GdxSettingsContract.POT_PLAYER_COUNT_KEY, true);
-        float countHeight = panelHeight * POT_PLAYER_COUNT_HEIGHT_RATIO;
+        float bottomInset = potContentBottomInset();
+        float amountY = panelY + bottomInset;
+        float amountHeight = POT_AMOUNT_TOP_OFFSET - bottomInset;
         float countX = panelX + panelWidth - POT_PLAYER_COUNT_INSET
                 - POT_PLAYER_COUNT_WIDTH;
-        float countY = panelY + (panelHeight - countHeight) / 2f;
+        float countY = amountY + 1f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -15536,8 +15539,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(panelX, panelY, panelWidth, panelHeight, 11f);
         if (showPotCount) {
             shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, opacity);
-            roundedRect(countX, countY, POT_PLAYER_COUNT_WIDTH, countHeight,
-                    9f);
+            roundedRect(countX, countY, POT_PLAYER_COUNT_WIDTH,
+                    POT_PLAYER_COUNT_HEIGHT, 7f);
         }
         shapes.end();
 
@@ -15553,19 +15556,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFadingChipRack(iconCenterX, iconBaseY, potLayout,
                     physicalCounts, opacity, potGeometry, 0x504f54);
         }
-        float textLeft = panelX + 98f;
+        float textLeft = panelX + 88f;
         float textRight = panelX + panelWidth - 14f;
         if (showPotCount) {
             textRight = countX - POT_PLAYER_COUNT_INSET;
-            drawFittedCenteredInBox(settingsTitleFont,
+            drawFittedCenteredInBox(mediumUiFont,
                     Integer.toString(liveState.potContenderCount()),
-                    countX + 4f, countY + 8f,
-                    POT_PLAYER_COUNT_WIDTH - 8f, countHeight - 16f,
+                    countX + 4f, countY + 4f,
+                    POT_PLAYER_COUNT_WIDTH - 8f, POT_PLAYER_COUNT_HEIGHT - 8f,
                     Color.BLACK, opacity);
         }
-        drawFittedCenteredAtVisualY(potFont, potText,
-                (textLeft + textRight) / 2f, panelY + panelHeight / 2f,
-                textRight - textLeft, POT_GOLD, opacity);
+        float textWidth = textRight - textLeft;
+        drawFittedCenteredInBox(stackFont, potText.title(),
+                textLeft, panelY + panelHeight - 27f, textWidth, 20f,
+                POT_GOLD, opacity);
+        drawFittedCenteredInBox(localOutcomeMediumFont, potText.amount(),
+                textLeft, amountY, textWidth, amountHeight,
+                POT_GOLD, opacity);
         batch.setColor(Color.WHITE);
         batch.end();
 
@@ -15578,16 +15585,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private StackChipRackGeometry animatedPotChipRackGeometry() {
         float pulse = liveAnimationsEnabled()
                 ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
-        return scaledStackChipRackGeometry(potChipRackGeometry(), pulse);
+        return scaledStackChipRackGeometry(potChipRackGeometry(),
+                POT_CHIP_RACK_SCALE * pulse);
     }
 
     private float potChipRackBaseY(StackChipRackGeometry geometry) {
         float panelY = potCenterY - POT_PANEL_HEIGHT / 2f;
         float edgeDepth = stackChipPhysicalThickness(geometry.chipSize());
-        float rackBottom = panelY + edgeDepth
-                + (POT_PANEL_HEIGHT - geometry.maximumHeight()
-                        - edgeDepth) / 2f;
-        return rackBottom + geometry.chipSize() / 2f;
+        return panelY + potContentBottomInset() + edgeDepth
+                + geometry.chipSize() / 2f;
+    }
+
+    private float potContentBottomInset() {
+        float badgeOverlap = LAST_HAND_BADGE_HEIGHT + LAST_HAND_CARD_CLEARANCE
+                - POT_BOARD_GAP;
+        return POT_CONTENT_BOTTOM_INSET + (liveState.lastHand() ? badgeOverlap : 0f);
     }
 
     /** Exact on-screen contact point for one denomination in the table pot. */
@@ -16226,17 +16238,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return cachedCommunityHandText;
     }
 
-    static String communityPotText(GdxGameText text,
+    record PotPanelText(String title, String amount) {}
+
+    static PotPanelText communityPotText(GdxGameText text,
             String runItTwicePrefix, double amount) {
-        return communityPotPrefix(text, runItTwicePrefix) + " "
-                + formatAmount(Math.max(0d, amount));
+        return new PotPanelText(communityPotTitle(text, runItTwicePrefix),
+                formatAmount(Math.max(0d, amount)));
     }
 
-    private static String communityPotPrefix(GdxGameText text,
+    private static String communityPotTitle(GdxGameText text,
             String runItTwicePrefix) {
-        return runItTwicePrefix == null || runItTwicePrefix.isBlank()
+        String title = runItTwicePrefix == null || runItTwicePrefix.isBlank()
                 ? uppercase(text.translate("game.bote"), text)
-                : runItTwicePrefix;
+                : runItTwicePrefix.strip();
+        return title.endsWith(":")
+                ? title.substring(0, title.length() - 1).stripTrailing()
+                : title;
     }
 
     static String communityHandText(GdxGameText text, int handNumber,
@@ -30963,7 +30980,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(screenshotSound);
         disposeSafely(feltChangeSound);
         disposeSafely(uiFont);
-        disposeSafely(potFont);
+        disposeSafely(mediumUiFont);
         disposeSafely(smallFont);
         disposeSafely(versionFont);
         disposeSafely(playerNameFont);
@@ -31160,7 +31177,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             chipRackCompositeLayer.dispose();
         }
         uiFont.dispose();
-        potFont.dispose();
+        mediumUiFont.dispose();
         smallFont.dispose();
         versionFont.dispose();
         playerNameFont.dispose();

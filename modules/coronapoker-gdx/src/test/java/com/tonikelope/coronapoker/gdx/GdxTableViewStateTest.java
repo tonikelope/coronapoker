@@ -911,7 +911,7 @@ final class GdxTableViewStateTest {
                 "pot depth rows must keep neighbouring piles disjoint");
         assertTrue(pot.maximumHeight() * 1.035f < 82f,
                 "the pulsing pot rack must retain vertical panel margins");
-        assertEquals(857f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
+        assertEquals(896f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
                 0.000_001f,
                 "pot flights must contact the left rack, not panel centre");
         assertEquals(0.62f,
@@ -2317,17 +2317,15 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals("BOTE: 12.5", CoronaPokerGdxTable.communityPotText(
-                spanish, "", 12.5d));
-        assertEquals("BOTE-A: 7.45",
-                CoronaPokerGdxTable.communityPotText(
-                        spanish, "BOTE-A:", 7.45d));
-        assertEquals("BOTE-B: 7.45",
-                CoronaPokerGdxTable.communityPotText(
-                        spanish, "BOTE-B:", 7.45d));
-        assertEquals("POT: 12.5", CoronaPokerGdxTable.communityPotText(
-                english, "", 12.5d));
-        assertEquals("POT-B: 7.45",
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE", "12.5"),
+                CoronaPokerGdxTable.communityPotText(spanish, "", 12.5d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-A", "7.45"),
+                CoronaPokerGdxTable.communityPotText(spanish, "BOTE-A:", 7.45d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-B", "7.45"),
+                CoronaPokerGdxTable.communityPotText(spanish, "BOTE-B:", 7.45d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("POT", "12.5"),
+                CoronaPokerGdxTable.communityPotText(english, "", 12.5d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("POT-B", "7.45"),
                 CoronaPokerGdxTable.communityPotText(english,
                         english.translate("runittwice.pot_label_full",
                                 english.translate("runittwice.pot_label_b")),

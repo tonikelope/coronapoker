@@ -177,16 +177,15 @@ final class GdxFunctionalLabelOracle {
             }
         }
 
-        String visiblePot = CoronaPokerGdxTable.communityPotText(text,
-                projection.runItTwicePotPrefix(), projection.snapshot().pot());
-        assertFalse(visiblePot.isBlank(), "GDX pot label cannot be blank");
-        assertTrue(visiblePot.endsWith(CoronaPokerGdxTable.formatAmount(
-                projection.snapshot().pot())),
-                "GDX pot label omits the projected amount: " + visiblePot);
-        if (!projection.runItTwicePotPrefix().isBlank()) {
-            assertTrue(visiblePot.startsWith(
-                    projection.runItTwicePotPrefix()),
-                    "GDX pot label lost its active RIT board: " + visiblePot);
+        String boardPrefix = projection.runItTwicePotPrefix();
+        var visiblePot = CoronaPokerGdxTable.communityPotText(text,
+                boardPrefix, projection.snapshot().pot());
+        assertFalse(visiblePot.title().isBlank(), "GDX pot label cannot be blank");
+        assertEquals(CoronaPokerGdxTable.formatAmount(projection.snapshot().pot()),
+                visiblePot.amount(), "GDX pot amount must match the projection");
+        if (!boardPrefix.isBlank()) {
+            assertEquals(boardPrefix.replace(":", ""), visiblePot.title(),
+                    "GDX pot label lost its active RIT board");
         }
     }
 }

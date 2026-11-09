@@ -105,7 +105,6 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, with Previous/Next controls and keyboard navigation |
 
-![English game table with the pot amount, player count and dimmed folded seats](docs/screenshots/table-en.png)
 
 ### 📜 Robert's Rules of Poker compliance
 

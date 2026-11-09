@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.Bot;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,7 +24,7 @@ final class AlbertaGameBotService implements GameBotService {
 
     @Override
     public GameOpponentStats opponent(String nickname) {
-        return opponents.computeIfAbsent(nickname, ignored -> new MutableStats());
+        return opponents.computeIfAbsent(nickname, ignored -> new Bot.OpponentTracker());
     }
 
     @Override
@@ -70,46 +71,5 @@ final class AlbertaGameBotService implements GameBotService {
     public int compareHands(org.alberta.poker.Hand first,
             org.alberta.poker.Hand second) {
         return evaluator.compareHands(first, second);
-    }
-
-    private static final class MutableStats implements GameOpponentStats {
-        private int handsPlayed;
-        private int voluntarilyPutInPot;
-        private int preflopRaises;
-        private int postFlopBetsAndRaises;
-        private int postFlopCalls;
-        private int lastVpipHand = -1;
-        private int lastPfrHand = -1;
-
-        @Override
-        public void recordHandPlayed() {
-            handsPlayed++;
-        }
-
-        @Override
-        public void recordVPIP(int handId) {
-            if (lastVpipHand != handId) {
-                voluntarilyPutInPot++;
-                lastVpipHand = handId;
-            }
-        }
-
-        @Override
-        public void recordPFR(int handId) {
-            if (lastPfrHand != handId) {
-                preflopRaises++;
-                lastPfrHand = handId;
-            }
-        }
-
-        @Override
-        public void recordPostFlopBetOrRaise() {
-            postFlopBetsAndRaises++;
-        }
-
-        @Override
-        public void recordPostFlopCall() {
-            postFlopCalls++;
-        }
     }
 }

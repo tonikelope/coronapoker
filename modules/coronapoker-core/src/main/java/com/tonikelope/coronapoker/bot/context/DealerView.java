@@ -13,6 +13,7 @@
  */
 package com.tonikelope.coronapoker.bot.context;
 
+import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import java.util.List;
 
 /**
@@ -61,6 +62,21 @@ public interface DealerView {
     String getStraddleUtgNick();
 
     BotPlayerView getLast_aggressor();
+
+    /** Last seat to increase the preflop wager in this hand. */
+    default String getPreflopAggressorNick() {
+        return null;
+    }
+
+    /** Observations owned by this table. */
+    default GameOpponentStats getOpponentStats(String nickname) {
+        return null;
+    }
+
+    /** Whether the seat still contests the pot, including all-in players. */
+    default boolean isContender(BotPlayerView player) {
+        return player.isActivo();
+    }
 
     int getJugadoresActivos();
 

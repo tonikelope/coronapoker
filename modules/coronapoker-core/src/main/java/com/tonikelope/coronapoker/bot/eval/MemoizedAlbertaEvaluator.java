@@ -71,6 +71,11 @@ public final class MemoizedAlbertaEvaluator implements BotEvaluator {
     }
 
     @Override
+    public boolean isOnePair(int[] cards) {
+        return delegate.isOnePair(cards);
+    }
+
+    @Override
     public int rankHand(int[] cards) {
         return delegate.rankHand(cards);
     }

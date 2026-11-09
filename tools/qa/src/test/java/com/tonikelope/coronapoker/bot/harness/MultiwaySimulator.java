@@ -178,7 +178,7 @@ public final class MultiwaySimulator {
         for (int i = 0; i < numSeats; i++) {
             players[i].setHoleCards(deck[i], deck[i + numSeats]);
             players[i].setActivo(true);
-            players[i].setBet(0f);
+            players[i].resetHandContribution();
         }
         int[] runout = {
             deck[2 * numSeats], deck[2 * numSeats + 1], deck[2 * numSeats + 2],
@@ -602,8 +602,7 @@ public final class MultiwaySimulator {
     }
 
     private void chargeBet(TestBotPlayer p, double amount) {
-        p.setStack(p.getStack() - amount);
-        p.setBet(p.getBet() + amount);
+        p.commit(amount);
     }
 
     private int[] shuffledDeck() {

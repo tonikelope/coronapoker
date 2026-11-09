@@ -13,4 +13,24 @@ public interface GameOpponentStats {
     void recordPostFlopBetOrRaise();
 
     void recordPostFlopCall();
+
+    default boolean hasEnoughData() {
+        return false;
+    }
+
+    default boolean isStation() {
+        return false;
+    }
+
+    default boolean looksPassiveStation() {
+        return false;
+    }
+
+    default boolean isNit() {
+        return false;
+    }
+
+    default boolean isManiac() {
+        return false;
+    }
 }

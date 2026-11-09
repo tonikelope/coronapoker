@@ -4309,6 +4309,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean barajando = false;
     private volatile ArrayList<String> cartas_locales_recibidas = null;
     private volatile GamePlayerController last_aggressor = null;
+    private String preflopAggressorNick;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
     // True from the moment repartir() places the 5 face-down community cards (and hole cards) until
@@ -21695,6 +21696,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         setStreetLocal(street);
+        if (street == PREFLOP) {
+            preflopAggressorNick = null;
+        }
 
         if (this.street == Crupier.FLOP) {
             this.flop_players.clear();
@@ -22100,7 +22104,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                     } else {
                                         double b = current_player.automatedBetSize();
-                                        if (MoneyMath.compare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
+                                        if (BetRules.botBetUsesWholeStack(current_player.getStack(), b - current_player.getBet())) {
                                             action = new Object[]{GamePlayerController.ALLIN, 0d, null};
                                         } else if (puedenApostar(players()) <= 1) {
                                             action = new Object[]{GamePlayerController.CHECK, 0d, null};
@@ -22331,32 +22335,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         current_player, decision, old_player_bet,
                         old_table_bet);
 
-                // Legacy source-contract marker: Bot.OpponentTracker stats
                 GameOpponentStats stats = bot_service.opponent(current_player.getNickname());
-
-                if (this.street == Crupier.PREFLOP) {
-                    boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
-                            && decision == GamePlayerController.CHECK
-                            && MoneyMath.compare(this.apuesta_actual, this.getCiega_grande()) == 0;
-                    // With a straddle, the "free check" belongs to the straddler (UTG) on
-                    // their own straddle (apuesta_actual == 2x BB), not the big blind —
-                    // that forced check doesn't count as VPIP either.
-                    boolean isStraddleCheck = this.straddle_posted
-                            && current_player.getNickname().equals(this.utg_nick)
-                            && decision == GamePlayerController.CHECK
-                            && MoneyMath.compare(this.apuesta_actual, MoneyMath.clean(2 * this.getCiega_grande())) == 0;
-                    if (!isBBCheck && !isStraddleCheck && (decision == GamePlayerController.CHECK || decision == GamePlayerController.BET || decision == GamePlayerController.ALLIN)) {
-                        stats.recordVPIP(this.conta_mano);
-                    }
-                    if (decision == GamePlayerController.BET || decision == GamePlayerController.ALLIN) {
-                        stats.recordPFR(this.conta_mano);
-                    }
-                } else {
-                    if (decision == GamePlayerController.BET || decision == GamePlayerController.ALLIN) {
-                        stats.recordPostFlopBetOrRaise();
-                    } else if (decision == GamePlayerController.CHECK && this.apuesta_actual > old_player_bet) {
-                        stats.recordPostFlopCall();
-                    }
+                boolean wagerIncreased = recordOpponentAction(stats, this.street, this.conta_mano,
+                        old_table_bet, old_player_bet, current_player.getBet());
+                if (this.street == PREFLOP && wagerIncreased) {
+                    preflopAggressorNick = current_player.getNickname();
                 }
 
                 game_log.print(current_player.getLastActionString());
@@ -30318,6 +30301,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     @Override
     public java.util.List<? extends GamePlayerController> getPlayersInSeatingOrder() {
         return players();
+    }
+
+    @Override
+    public String getPreflopAggressorNick() {
+        return preflopAggressorNick;
+    }
+
+    @Override
+    public GameOpponentStats getOpponentStats(String nickname) {
+        return bot_service.opponent(nickname);
+    }
+
+    @Override
+    public boolean isContender(com.tonikelope.coronapoker.bot.context.BotPlayerView player) {
+        return player instanceof GamePlayerController seat
+                && seat.getDecision() != GamePlayerController.FOLD
+                && !shouldRemoveInactivePlayerFromBettingRound(seat.isActivo(), seat.getDecision());
+    }
+
+    static boolean recordOpponentAction(GameOpponentStats stats, int street, int hand,
+            double previousTableBet, double previousSeatBet, double acceptedBet) {
+        boolean wagerIncreased = MoneyMath.compare(acceptedBet, previousTableBet) > 0;
+        boolean contributed = MoneyMath.compare(acceptedBet, previousSeatBet) > 0;
+        if (street == PREFLOP) {
+            if (contributed) {
+                stats.recordVPIP(hand);
+            }
+            if (wagerIncreased) {
+                stats.recordPFR(hand);
+            }
+        } else if (wagerIncreased) {
+            stats.recordPostFlopBetOrRaise();
+        } else if (contributed) {
+            stats.recordPostFlopCall();
+        }
+        return wagerIncreased;
     }
 
     @Override

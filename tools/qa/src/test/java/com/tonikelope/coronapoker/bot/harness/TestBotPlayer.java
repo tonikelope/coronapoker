@@ -21,6 +21,7 @@ public final class TestBotPlayer implements BotPlayerView {
     private final String nickname;
     private double stack;
     private double bet;
+    private double committed;
     private boolean activo;
     private int holeCard1Index = -1;
     private int holeCard2Index = -1;
@@ -42,6 +43,22 @@ public final class TestBotPlayer implements BotPlayerView {
 
     public void setBet(double bet) {
         this.bet = bet;
+    }
+
+    void resetHandContribution() {
+        bet = 0;
+        committed = 0;
+    }
+
+    void commit(double amount) {
+        stack -= amount;
+        bet += amount;
+        committed += amount;
+    }
+
+    @Override
+    public double getBote() {
+        return committed;
     }
 
     public void setActivo(boolean activo) {

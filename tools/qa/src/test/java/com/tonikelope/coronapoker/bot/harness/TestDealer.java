@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.bot.harness;
 
+import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public final class TestDealer implements DealerView {
     private String bbNick;
     private String utgNick;
     private BotPlayerView lastAggressor;
+    private String preflopAggressorNick;
     private final List<BotPlayerView> seating = new ArrayList<>();
     private final int[] boardCards = new int[]{-1, -1, -1, -1, -1};
     private int boardSize;
@@ -45,6 +47,9 @@ public final class TestDealer implements DealerView {
 
     public void setStreet(int street) {
         this.street = street;
+        if (street == Crupier.PREFLOP) {
+            preflopAggressorNick = null;
+        }
     }
 
     public void setPot(double pot) {
@@ -69,6 +74,14 @@ public final class TestDealer implements DealerView {
 
     public void setLastAggressor(BotPlayerView lastAggressor) {
         this.lastAggressor = lastAggressor;
+        if (lastAggressor != null && street == Crupier.PREFLOP) {
+            preflopAggressorNick = lastAggressor.getNickname();
+        }
+    }
+
+    @Override
+    public String getPreflopAggressorNick() {
+        return preflopAggressorNick;
     }
 
     public void setRoles(String dealer, String sb, String bb, String utg) {

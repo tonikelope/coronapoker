@@ -142,6 +142,13 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
     }
 
     @Override
+    public boolean isOnePair(int[] cards) {
+        // Alberta encodes the category above five base-13 rank digits.
+        int categorySize = 13 * 13 * 13 * 13 * 13;
+        return rankHand(cards) / categorySize == 1;
+    }
+
+    @Override
     public int rankHand(int[] cards) {
         return he.rankHand(toHand(cards));
     }

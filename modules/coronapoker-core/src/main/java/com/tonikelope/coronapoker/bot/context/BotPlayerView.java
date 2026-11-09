@@ -30,6 +30,11 @@ public interface BotPlayerView {
 
     double getBet();
 
+    /** Total chips committed during this hand. */
+    default double getBote() {
+        return getBet();
+    }
+
     boolean isActivo();
 
     /**

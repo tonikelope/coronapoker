@@ -29,6 +29,9 @@ public interface HandRankResolver {
      */
     int rankHand(int[] cards);
 
+    /** Whether the best five-card hand has exactly one pair. */
+    boolean isOnePair(int[] cards);
+
     /**
      * Compare two 5-7 card hands.
      *

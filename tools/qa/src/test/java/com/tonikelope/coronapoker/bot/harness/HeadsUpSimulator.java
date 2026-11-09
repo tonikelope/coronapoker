@@ -166,8 +166,8 @@ public final class HeadsUpSimulator {
 
         p1.setActivo(true);
         p2.setActivo(true);
-        p1.setBet(0f);
-        p2.setBet(0f);
+        p1.resetHandContribution();
+        p2.resetHandContribution();
         dealer.resetBoard();
 
         // Reset per-hand stat flags
@@ -533,8 +533,7 @@ public final class HeadsUpSimulator {
     }
 
     private void chargeBet(TestBotPlayer p, double amount) {
-        p.setStack(p.getStack() - amount);
-        p.setBet(p.getBet() + amount);
+        p.commit(amount);
     }
 
     private HandResult showdown() {

@@ -15,7 +15,7 @@ class BettingReducerFailureContainmentTest {
                 .replace("\r\n", "\n");
         String failure = slice(source,
                 "if (!applyBettingRoundAction(current_player, decision)) {",
-                "Bot.OpponentTracker stats", 0);
+                "GameOpponentStats stats = bot_service.opponent", 0);
 
         assertTrue(failure.contains("containTableFailure("),
                 "a reducer divergence must terminate the table and preserve the open hand");

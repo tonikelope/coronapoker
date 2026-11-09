@@ -177,7 +177,9 @@ action from **position × profile × bet level**:
   trash steals, and (heads-up) a wide button-open / BB-defend matrix tuned by a
   per-difficulty *looseness offset* (see §8).
 - Tiers are also nudged by table size (an early-position tier-3 tightens at a full
-  ring, marginal hands loosen short-handed).
+  ring, marginal hands loosen short-handed). Expensive marginal calls
+  require better pot odds or sufficient effective stacks. Small pairs
+  facing a 3-bet use a separate implied-odds check.
 
 ### 5.2 Postflop
 
@@ -187,7 +189,8 @@ does not recompute invariants):
 1. **`strength`** ← `handStrengthVsN` (cached per street + opponent count).
 2. **`PPot` / `NPot`** ← `potential` (cached per street, the river is `0`).
 3. **`effective strength`** ← the formula in §3, minus overcard / weak-kicker
-   penalties, floored at `0.10`.
+   penalties, floored at `0.10`. The overcard penalty only applies when the
+   best five-card hand is still one pair.
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
    than `0.15` flags a scare card (and can downgrade an aggressive plan).
 5. **`winProb` adjustments** to the raw equity for the *context*. The whole
@@ -198,12 +201,19 @@ does not recompute invariants):
      scare cards), −0.03 out of position.
    - opponent read (when there is enough data): −0.18 vs a nit, +0.12 vs a
      maniac, −0.03 vs a station.
-   - a small shark edge on HARD/MEDIUM, and a touch of random noise on EASY.
-6. **Expected value:** `EV(call)`, `EV(raise)` and **fold equity** are computed.
-   Safe draws get an implied-odds bonus, and fold equity is forced to `0` against
-   a calling station.
+   - a touch of random noise on EASY.
+6. **Expected value:** a call compares the contestable pot, including bets
+   already made, with the additional chips at risk. Safe draws can get an
+   implied-odds bonus capped by the effective stack behind. A raise
+   estimates the odds that every opponent folds, the chips callers add,
+   and how much of the raise they can match. Fold probabilities depend on
+   size, board and opponent reads. This is an estimate using independent
+   fold probabilities and the original multiway equity when called.
 7. **Pot commitment:** at low SPR with a strong hand the bot treats itself as
    committed and stops folding.
+
+Postflop position follows the acting order of the seats still able to bet.
+Flop continuation bets use the last seat to increase the preflop wager.
 
 The result routes to one of two sub-routines:
 
@@ -256,9 +266,9 @@ abandoned if the opponent overbets or a nit applies real pressure.
 
 ## 7. Opponent modelling
 
-Every opponent gets an **`OpponentTracker`** kept in the session-wide
-`TRACKER_MEMORY` map (keyed by nick, persisting across hands). The dealer records
-each player's actions into it. The bot reads it back.
+Each table owns an **`OpponentTracker`** per nickname across hands. The
+dealer records accepted actions and the bot reads the same observations.
+An all-in that only matches an existing bet counts as a call.
 
 - **VPIP** (voluntarily put money in pot), **PFR** (preflop raise) and **AF**
   (aggression factor) are the headline stats.
@@ -315,13 +325,15 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
   the time instead of always checking (a barrel that only ever means "I have it"
   is a transparent tell). A busted draw or a hand that has been barrelling tells
   the most credible story and bluffs a little more often. Fold equity is `0`
-  against a station, so the bot never bluffs a player who never folds.
+  against a station. The bot remembers the previous street's draw potential
+  and checks whether the bet beats the EV of checking, with a smaller
+  candidate if the planned size is too expensive.
 - **Street-aware semi-bluffs**: strong draws bet for fold equity + improvement.
   The PPot threshold is lower on the turn (one card to come) so the turn is not
   played face-up.
 - **Preflop 3-bet bluffs and squeezes** with blocker hands.
-- **Floats**: calling in position on the flop to take the pot away on a later
-  street.
+- **Floats**: calling in position on the flop to take the pot away on the
+  turn when the action and expected value still support a bluff.
 - **Reading the calling station**: the single biggest "human" fix: the bot
   detects a non-folder (even early, via `looksPassiveStation()`) and switches from
   bluffing to thin value-betting, exactly as a thinking player would.

@@ -16,6 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.MoneyMath;
+
 /**
  * Pure No-Limit Texas Hold'em betting-minimum rules, free of any game/Swing
  * state so they can be unit-tested in isolation (same spirit as BuyinRules /
@@ -39,6 +41,10 @@ package com.tonikelope.coronapoker;
 public final class BetRules {
 
     private BetRules() {
+    }
+
+    static boolean botBetUsesWholeStack(double stack, double newChips) {
+        return MoneyMath.compare(stack * 0.75, newChips) <= 0;
     }
 
     /**

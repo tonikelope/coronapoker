@@ -12,7 +12,7 @@ class IdentityWindowsAclPrincipalTest {
     @Test
     void aclUsesTheCreatedFilesOwnerInsteadOfTheUserNameProperty() throws Exception {
         String text = Files.readString(sourceRoot().resolve("PlayerIdentity.java"));
-        int method = text.indexOf("private static void restrictToOwner(Path path)");
+        int method = text.indexOf("void restrictToOwner(Path path)");
         int end = text.lastIndexOf('}');
         assertTrue(method >= 0 && end > method);
 

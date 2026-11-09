@@ -19,13 +19,17 @@ final class GdxDebugFile {
 
     private static final DateTimeFormatter FILE_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
+    private static PrintStream disk;
+    private static CapturedConsole stdout;
+    private static CapturedConsole stderr;
+
     static Path install() {
         Path directory = debugDirectory(System.getProperty("user.home"));
         Path file = directory.resolve("coronapoker_debug_gdx_"
                 + FILE_TIME.format(LocalDateTime.now()) + ".log");
         try {
             Files.createDirectories(directory);
-            PrintStream disk = new PrintStream(Files.newOutputStream(file,
+            disk = new PrintStream(Files.newOutputStream(file,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE), true, StandardCharsets.UTF_8);
             DebugLog.install(disk::print);
         } catch (Exception failure) {
@@ -34,15 +38,32 @@ final class GdxDebugFile {
                     "Unable to create GDX debug log in " + directory, failure);
             file = null;
         }
-        var stdout = new CapturedConsole(System.out, "stdout", Level.INFO);
-        var stderr = new CapturedConsole(System.err, "stderr", Level.WARNING);
+        var capturedOut = new CapturedConsole(System.out, "stdout", Level.INFO);
+        var capturedErr = new CapturedConsole(System.err, "stderr", Level.WARNING);
+        stdout = capturedOut;
+        stderr = capturedErr;
         System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
         System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            stdout.finishLine();
-            stderr.finishLine();
+            capturedOut.finishLine();
+            capturedErr.finishLine();
         }, "CoronaPoker-debug-console"));
         return file;
+    }
+
+    static void close() {
+        if (stdout == null || stderr == null) return;
+        System.setOut(stdout.console);
+        System.setErr(stderr.console);
+        stdout.finishLine();
+        stderr.finishLine();
+        stdout = null;
+        stderr = null;
+        DebugLog.install(record -> {});
+        if (disk != null) {
+            disk.close();
+            disk = null;
+        }
     }
 
     static Path debugDirectory(String userHome) {

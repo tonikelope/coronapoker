@@ -172,6 +172,8 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 ### Waiting room chat
 Full chat while the game is being set up, with a built-in **emoji picker (~1.800 emojis with recent-use history)**, inline **GIF support** and **automatic image previews** for URLs pasted into the chat.
 
+![English waiting room with the table setup, game chat and connected players](docs/screenshots/waiting-room-en.png)
+
 ### In-game fast chat
 Chat messages and game notices appear in a color-coded feed at the left of the table. Fast chat keeps the full session history, and messages appear as they arrive while **text-to-speech** reads them in order. The **Table** appearance settings control the feed and the speaking emoji independently.
 
@@ -195,6 +197,8 @@ Watch YouTube poker videos on the main menu, in the waiting room and at the
 live table. Starting a game closes the player from the waiting room. Use the
 video icon to reopen it during play. Playback starts muted, with YouTube's
 audio and caption controls available.
+
+![English poker video player with the carousel, favorites and opacity controls](docs/screenshots/poker-video-en.png)
 
 - **Carousel**. Start with regular videos by default or switch to Shorts.
   Search prioritises the game's language. The carousel shuffles each batch,
@@ -258,6 +262,21 @@ can safely overlay the supported presentation assets:
 - **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.
 
 ![English Appearance settings showing the table display options](docs/screenshots/appearance-table-en.png)
+
+### Profile backup and restore
+
+Use **Export** and **Import** in Settings from the main menu. The
+checkboxes cover settings and video favorites, the game and statistics
+database, player identity keys, logs, and other files such as avatars,
+screenshots and voice notes. Select every category to back up the full
+`.coronapoker` folder.
+
+Export shows the full path to a dated ZIP before you confirm. It starts in
+your home folder. Use **Change folder** to choose another destination.
+CoronaPoker restarts after the operation. Import
+replaces the selected categories, preserves the others, and shows where
+the previous profile was saved. Keep the ZIP private because it can
+contain your identity keys and game history.
 
 ---
 

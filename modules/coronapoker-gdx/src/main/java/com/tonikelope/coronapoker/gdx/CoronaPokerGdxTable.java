@@ -411,12 +411,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float POT_STACK_CHIP_DEPTH_RISE_RATIO = 0.60f;
     private static final int STACK_CHIP_MAX_COMPRESSED_LEVELS = 24;
     private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
-    private static final float POT_PANEL_WIDTH = 300f;
+    private static final float POT_PANEL_WIDTH = 330f;
     private static final float POT_CHIP_RACK_CENTER_OFFSET = 46f;
     private static final float POT_CHIP_RACK_SCALE = 0.85f;
     private static final float POT_CONTENT_BOTTOM_INSET = 5f;
-    private static final float POT_PLAYER_COUNT_WIDTH = 48f;
-    private static final float POT_PLAYER_COUNT_HEIGHT = 40f;
+    private static final float POT_PLAYER_COUNT_WIDTH = 44f;
+    private static final float POT_PLAYER_COUNT_HEIGHT = 36f;
     private static final float POT_AMOUNT_TOP_OFFSET = 54f;
     private static final float POT_PLAYER_COUNT_INSET = 8f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
@@ -15569,10 +15569,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float textWidth = textRight - textLeft;
         drawFittedCenteredInBox(stackFont, potText.title(),
                 textLeft, panelY + panelHeight - 27f, textWidth, 20f,
-                POT_GOLD, opacity);
+                Color.WHITE, opacity);
         drawFittedCenteredInBox(localOutcomeMediumFont, potText.amount(),
                 textLeft, amountY, textWidth, amountHeight,
-                POT_GOLD, opacity);
+                Color.WHITE, opacity);
         batch.setColor(Color.WHITE);
         batch.end();
 

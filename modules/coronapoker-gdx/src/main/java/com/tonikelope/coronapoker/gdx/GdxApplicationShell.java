@@ -59,6 +59,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private Boolean independentWakeLockRequired;
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
+    private GdxProfileBackupTransfer.Request profileBackupRequest;
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private volatile CoronaPokerGdxTable table;
@@ -93,6 +94,17 @@ final class GdxApplicationShell extends ApplicationAdapter {
 
     static GdxApplicationShell active() {
         return ACTIVE.get();
+    }
+
+    void exitForProfileBackup(GdxProfileBackupTransfer.Request request) {
+        if (table != null || pendingTableOpen != null || lobby != null
+                || profileBackupRequest != null) return;
+        profileBackupRequest = Objects.requireNonNull(request);
+        Gdx.app.exit();
+    }
+
+    GdxProfileBackupTransfer.Request profileBackupRequest() {
+        return profileBackupRequest;
     }
 
     static GdxApplicationShell requireActive() {
@@ -751,6 +763,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
             if (skipped) menu.completeStartupReveal();
             else menu.beginStartupReveal();
             menu.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+            var backupResult = GdxProfileBackupTransfer.Result.fromEnvironment();
+            if (backupResult != null) menu.showProfileBackupResult(backupResult);
             restoreFrontendInput();
         }
     }

@@ -911,7 +911,7 @@ final class GdxTableViewStateTest {
                 "pot depth rows must keep neighbouring piles disjoint");
         assertTrue(pot.maximumHeight() * 1.035f < 82f,
                 "the pulsing pot rack must retain vertical panel margins");
-        assertEquals(896f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
+        assertEquals(881f, CoronaPokerGdxTable.potChipRackCenterX(1_000f),
                 0.000_001f,
                 "pot flights must contact the left rack, not panel centre");
         assertEquals(0.62f,

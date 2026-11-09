@@ -798,6 +798,15 @@ final class GdxSettingsLayout {
                     360f, FOOTER_BUTTON_HEIGHT);
         }
 
+        Rectangle profileBackupButton(boolean importing) {
+            Rectangle restore = restoreButton();
+            Rectangle save = saveButton();
+            float gap = 16f;
+            float width = Math.min(205f, (save.x - restore.x - restore.width - 3f * gap) / 2f);
+            return new Rectangle(restore.x + restore.width + gap
+                    + (importing ? width + gap : 0f), restore.y, width, restore.height);
+        }
+
         Rectangle saveButton() {
             return new Rectangle(panel.x + panel.width - 250f,
                     panel.y + FOOTER_BOTTOM_INSET,

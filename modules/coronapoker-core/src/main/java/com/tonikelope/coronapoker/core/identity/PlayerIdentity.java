@@ -70,7 +70,11 @@ public final class PlayerIdentity implements GameIdentity {
             byte[] rawPublic = rawPublicKey(pair.getPublic().getEncoded());
             Files.deleteIfExists(privatePath);
             Files.createFile(privatePath);
-            restrictToOwner(privatePath);
+            try {
+                restrictToOwner(privatePath);
+            } catch (Exception failure) {
+                LOGGER.log(Level.WARNING, "Could not restrict identity key permissions on " + privatePath, failure);
+            }
             Files.write(privatePath, pair.getPrivate().getEncoded(), StandardOpenOption.WRITE);
             Files.write(publicPath, rawPublic, StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
@@ -237,23 +241,20 @@ public final class PlayerIdentity implements GameIdentity {
         }
     }
 
-    private static void restrictToOwner(Path path) {
-        try {
-            if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
-                return;
-            }
-            AclFileAttributeView view = Files.getFileAttributeView(path, AclFileAttributeView.class);
-            if (view != null) {
-                AclEntry owner = AclEntry.newBuilder()
-                        .setType(AclEntryType.ALLOW)
-                        .setPrincipal(Files.getOwner(path))
-                        .setPermissions(EnumSet.allOf(AclEntryPermission.class))
-                        .build();
-                view.setAcl(List.of(owner));
-            }
-        } catch (Exception failure) {
-            LOGGER.log(Level.WARNING, "Could not restrict identity key permissions on " + path, failure);
+    /** Restricts a private key or an archive that can contain private keys. */
+    public static void restrictToOwner(Path path) throws IOException {
+        if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
+            return;
+        }
+        AclFileAttributeView view = Files.getFileAttributeView(path, AclFileAttributeView.class);
+        if (view != null) {
+            AclEntry owner = AclEntry.newBuilder()
+                    .setType(AclEntryType.ALLOW)
+                    .setPrincipal(Files.getOwner(path))
+                    .setPermissions(EnumSet.allOf(AclEntryPermission.class))
+                    .build();
+            view.setAcl(List.of(owner));
         }
     }
 }

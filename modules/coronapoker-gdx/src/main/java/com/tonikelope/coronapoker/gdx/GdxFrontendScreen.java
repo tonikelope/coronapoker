@@ -61,11 +61,8 @@ import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import com.tonikelope.coronapoker.core.network.LobbyConnectionRefusedException;
 import com.tonikelope.coronapoker.DebugLog;
 import org.dosse.upnp.UPnP;
-import java.awt.FileDialog;
-import java.awt.Frame;
 import java.awt.Desktop;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.net.BindException;
 import java.net.ConnectException;
@@ -91,6 +88,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.IdentityHashMap;
@@ -651,6 +649,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int hostAddressLoadGeneration;
     private String presetNameDraft = "";
     private Surface settingsReturnSurface = Surface.MENU;
+    private boolean settingsBackupPending;
+    private ProfileBackupSelection profileBackupSelection;
+
+    private record ProfileBackupSelection(boolean importing, Path archive,
+            Set<GdxProfileBackup.Category> available, EnumSet<GdxProfileBackup.Category> selected) {
+
+        ProfileBackupSelection(boolean importing, Path archive,
+                Set<GdxProfileBackup.Category> categories) {
+            this(importing, archive, EnumSet.copyOf(categories), EnumSet.copyOf(categories));
+        }
+
+        String actionKey() {
+            return importing ? "gdx.backup.import" : "gdx.backup.export";
+        }
+    }
     private final GdxSettingsSession settingsSession =
             new GdxSettingsSession();
     private int settingsAppearancePage;
@@ -1548,7 +1561,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     pointer.set(managerPointerX, managerPointerY);
                 }
             } else if (surface == Surface.SETTINGS) {
-                if (settingsAutoCallDialog != null) {
+                if (profileBackupSelection != null) {
+                    drawProfileBackupSelection(profileBackupSelection);
+                } else if (settingsAutoCallDialog != null) {
                     drawSettingsAutoCallDialog();
                 } else {
                     drawSettingsDiscardConfirmation();
@@ -2122,6 +2137,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !customBotManagerOpen
                 && frontendNoticeMessage.isBlank()
                 && !settingsDiscardConfirmation
+                && profileBackupSelection == null
                 && settingsAutoCallDialog == null
                 && !voiceNotesOpen
                 && blindStructureDialog == BlindStructureDialog.NONE;
@@ -2188,6 +2204,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean settingsScrollBlockedByChildDialog() {
         return customBotManagerOpen || settingsRestartNotice
                 || settingsDiscardConfirmation
+                || profileBackupSelection != null || settingsBackupPending
                 || settingsAutoCallDialog != null
                 || voiceNotesOpen
                 || blindStructureDialog != BlindStructureDialog.NONE;
@@ -5532,8 +5549,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 this::acceptModAdultContent, true);
     }
 
+    private boolean fileChooserPending() {
+        return settingsBackupPending || avatarSelectionPending || customBotAvatarSelectionPending;
+    }
+
     void requestApplicationExit() {
-        if (applicationExitConfirmation) return;
+        if (applicationExitConfirmation || fileChooserPending()) return;
+        if (profileBackupSelection != null) {
+            closeProfileBackupSelection();
+            return;
+        }
         dropdown = Dropdown.NONE;
         editMenu = null;
         clearActiveField();
@@ -6284,7 +6309,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, participant.nickname(), x + 68f, y + 35f,
                 participant.asyncWaiting() ? DISABLED : Color.WHITE,
                 false, w - 190f);
-        String role = participant.local() ? "TU"
+        String role = participant.local() ? gameText.translate("gdx.lobby.you")
                 : participant.host() ? "HOST" : participant.bot() ? "BOT" : "";
         if (!role.isEmpty()) {
             textFit(tinyFont, role, x + w - 90f, y + 35f,
@@ -9153,6 +9178,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         this::restoreCurrentFrontendSettingsSectionDefaults);
             }
         }
+        if (settingsReturnSurface == Surface.MENU) {
+            boolean backupEnabled = !saveEnabled && !settingsBackupPending;
+            drawProfileBackupButton(frame, false, backupEnabled);
+            drawProfileBackupButton(frame, true, backupEnabled);
+        }
         Rectangle save = frame.saveButton();
         crispButtonTextInBox(actionFont,
                 lobbyCommandPending
@@ -9164,6 +9194,206 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             hit(save.x, save.y, save.width, save.height,
                     () -> closeSettings(true));
         }
+    }
+
+    private void drawProfileBackupButton(GdxSettingsLayout.Frame frame,
+            boolean importing, boolean enabled) {
+        Rectangle bounds = frame.profileBackupButton(importing);
+        GdxSettingsChrome.drawFooterButton(shapes, bounds,
+                GdxUiButtonStyle.Tone.NEUTRAL, pointer, enabled, 1f);
+        String key = importing ? "gdx.backup.import" : "gdx.backup.export";
+        pixelSnappedTextInBox(actionFont, uppercase(gameText.translate(key)),
+                bounds.x, bounds.y, bounds.width, bounds.height, enabled ? GOLD : DISABLED);
+        if (enabled) {
+            hit(bounds.x, bounds.y, bounds.width, bounds.height,
+                    () -> chooseProfileBackup(importing));
+        }
+    }
+
+    private void chooseProfileBackup(boolean importing) {
+        if (settingsBackupPending || profileBackupSelection != null
+                || settingsHavePendingChanges()) return;
+        if (!importing) {
+            Path archive = GdxProfileBackupTransfer.exportPath(GdxProfileBackup.profile(),
+                    java.time.LocalDateTime.now());
+            profileBackupSelection = new ProfileBackupSelection(false, archive,
+                    EnumSet.allOf(GdxProfileBackup.Category.class));
+            captureFrontendModalInput();
+            return;
+        }
+
+        settingsBackupPending = true;
+        captureFrontendModalInput();
+        var application = Gdx.app;
+        String title = gameText.translate("gdx.backup.import");
+        String select = gameText.translate("ui.aceptar");
+        GdxFileChooser.chooseFile(GdxProfileBackup.profile().getParent(),
+                title, select, "ZIP", "zip").thenApplyAsync(archive -> {
+            if (archive == null) return null;
+            try {
+                var categories = GdxProfileBackup.categories(archive);
+                if (categories.isEmpty()) throw new IOException(gameText.translate("gdx.backup.empty"));
+                return new ProfileBackupSelection(true, archive, categories);
+            } catch (Exception failure) {
+                throw new CompletionException(failure);
+            }
+        }).whenComplete((selection, failure) -> application.postRunnable(() -> {
+            settingsBackupPending = false;
+            if (disposed || surface != Surface.SETTINGS || settingsReturnSurface != Surface.MENU
+                    || settingsHavePendingChanges() || applicationExitConfirmation) return;
+            if (failure != null) {
+                Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+                showProfileBackupResult(new GdxProfileBackupTransfer.Result(
+                        "gdx.backup.failed", Objects.toString(cause.getMessage(), cause.toString())));
+            } else if (selection != null) {
+                profileBackupSelection = selection;
+                captureFrontendModalInput();
+            }
+        }));
+    }
+
+    private void chooseProfileBackupDirectory(ProfileBackupSelection selection) {
+        if (settingsBackupPending || selection.importing()) return;
+        settingsBackupPending = true;
+        captureFrontendModalInput();
+        var application = Gdx.app;
+        String title = gameText.translate("gdx.backup.change_folder");
+        String select = gameText.translate("ui.aceptar");
+        GdxFileChooser.chooseDirectory(selection.archive().getParent(), title, select)
+                .thenApplyAsync(folder -> {
+            if (folder == null) return null;
+            try {
+                Path directory = GdxProfileBackup.exportDirectory(GdxProfileBackup.profile(), folder);
+                if (!Files.isWritable(directory)) throw new IOException(directory.toString());
+                return GdxProfileBackupTransfer.availableExportPath(
+                        directory.resolve(selection.archive().getFileName()));
+            } catch (Exception failure) {
+                throw new CompletionException(failure);
+            }
+        }).whenComplete((archive, failure) -> application.postRunnable(() -> {
+            settingsBackupPending = false;
+            if (disposed || profileBackupSelection != selection) return;
+            captureFrontendModalInput();
+            if (failure != null) {
+                LOGGER.log(Level.WARNING, "Cannot select the backup export folder", failure);
+                showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                        gameText.translate("gdx.backup.invalid_folder"), true);
+            } else if (archive != null) {
+                profileBackupSelection = new ProfileBackupSelection(false, archive,
+                        selection.available(), selection.selected());
+            }
+        }));
+    }
+
+    private void drawProfileBackupSelection(ProfileBackupSelection selection) {
+        float width = 1140f;
+        List<String> pathLines = selection.importing() ? List.of()
+                : profileBackupPathLines(selection.archive().toString(), width - 88f, 5);
+        float height = (selection.importing() ? 324f : 462f)
+                + selection.available().size() * 62f
+                + Math.max(0, pathLines.size() - 1) * 26f;
+        float x = (WIDTH - width) / 2f;
+        float y = (HEIGHT - height) / 2f;
+        float top = y + height;
+        float center = x + width / 2f;
+        GdxUiDialogStyle.drawPanel(shapes, x, y, width, height, CYAN_DARK, 1f);
+        String action = uppercase(gameText.translate(selection.actionKey()));
+        textFit(headingFont, action, center, top - 56f, GOLD, true, width - 88f);
+        textFit(actionFont, gameText.translate(selection.importing()
+                ? "gdx.backup.import_select" : "gdx.backup.export_select"),
+                center, top - 92f, Color.WHITE, true, width - 88f);
+
+        float rowY = top - 178f;
+        float rowWidth = width - 88f;
+        for (var category : selection.available()) {
+            boolean checked = selection.selected().contains(category);
+            float rowX = x + 44f;
+            GdxUiButtonStyle.draw(shapes, rowX, rowY, rowWidth, 52f,
+                    GdxUiButtonStyle.Tone.NEUTRAL, true,
+                    hovered(rowX, rowY, rowWidth, 52f) ? 1f : 0f,
+                    pressed(rowX, rowY, rowWidth, 52f), 1f);
+            GdxUiButtonStyle.draw(shapes, rowX + 16f, rowY + 10f, 32f, 32f,
+                    checked ? GdxUiButtonStyle.Tone.POSITIVE : GdxUiButtonStyle.Tone.NEUTRAL,
+                    true, 0f, false, 1f);
+            if (checked) {
+                shapes.setColor(GOLD);
+                shapes.rectLine(rowX + 23f, rowY + 25f, rowX + 29f, rowY + 19f, 3f);
+                shapes.rectLine(rowX + 29f, rowY + 19f, rowX + 41f, rowY + 33f, 3f);
+            }
+            textFit(actionFont, gameText.translate(category.textKey()),
+                    rowX + 66f, rowY + 38f, Color.WHITE, false, rowWidth - 84f);
+            hit(rowX, rowY, rowWidth, 52f, () -> {
+                if (checked) selection.selected().remove(category);
+                else selection.selected().add(category);
+                playFrontendSwitchSound(!checked);
+            });
+            rowY -= 62f;
+        }
+
+        float notesY = rowY + 28f;
+        textFit(smallFont, gameText.translate("gdx.backup.restarts_game"),
+                center, notesY, Color.WHITE, true, width - 88f);
+        textFit(smallFont, gameText.translate(selection.importing()
+                ? "gdx.backup.keeps_profile" : "gdx.backup.private_zip"),
+                center, notesY - 32f, MUTED, true, width - 88f);
+        if (!selection.importing()) {
+            textFit(smallFont, gameText.translate("gdx.backup.destination"),
+                    center, notesY - 70f, GOLD, true, width - 88f);
+            for (int index = 0; index < pathLines.size(); index++) {
+                text(smallFont, pathLines.get(index),
+                        center, notesY - 102f - index * 26f, Color.WHITE, true);
+            }
+            themedButton(center - 145f, y + 116f, 290f, 48f,
+                    uppercase(gameText.translate("gdx.backup.change_folder")),
+                    ButtonTone.NEUTRAL, () -> chooseProfileBackupDirectory(selection),
+                    !settingsBackupPending, smallFont);
+        }
+        themedButton(center - 316f, y + 32f, 290f, 62f,
+                uppercase(gameText.translate("ui.cancelar")), ButtonTone.NEUTRAL,
+                this::closeProfileBackupSelection, !settingsBackupPending);
+        themedButton(center + 26f, y + 32f, 290f, 62f,
+                action, ButtonTone.POSITIVE, () -> confirmProfileBackup(selection),
+                !settingsBackupPending && !selection.selected().isEmpty());
+    }
+
+    private void closeProfileBackupSelection() {
+        profileBackupSelection = null;
+        captureFrontendModalInput();
+    }
+
+    private void confirmProfileBackup(ProfileBackupSelection selection) {
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        if (shell == null || selection.selected().isEmpty() || settingsHavePendingChanges()) return;
+        shell.exitForProfileBackup(new GdxProfileBackupTransfer.Request(
+                selection.importing(), selection.archive(), selection.selected()));
+    }
+
+    private List<String> profileBackupPathLines(String path, float width, int maxLines) {
+        List<String> lines = new ArrayList<>();
+        while (lines.size() < maxLines - 1 && !fits(smallFont, path, width)) {
+            int end = 0;
+            while (end < path.length()) {
+                int next = path.offsetByCodePoints(end, 1);
+                if (!fits(smallFont, path.substring(0, next), width)) break;
+                end = next;
+            }
+            if (end == 0) break;
+            int separator = Math.max(path.lastIndexOf('/', end - 1),
+                    path.lastIndexOf('\\', end - 1));
+            if (separator >= 0 && separator + 1 >= end * 0.8f) end = separator + 1;
+            lines.add(path.substring(0, end));
+            path = path.substring(end);
+        }
+        lines.add(ellipsize(smallFont, path, width));
+        return lines;
+    }
+
+    void showProfileBackupResult(GdxProfileBackupTransfer.Result result) {
+        String detail = result.error() ? result.detail()
+                : String.join("\n", profileBackupPathLines(result.detail(),
+                        GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT).message().width, 4));
+        showFrontendNotice(gameText.translate(result.error() ? "gdx.dialog.error" : "settings.ajustes"),
+                gameText.translate(result.messageKey()) + "\n" + detail, result.error());
     }
 
     private void drawAudioSettings(float x, float y, float w, float h) {
@@ -12867,9 +13097,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void selectCustomBotAvatar() {
         if (customBotAvatarSelectionPending) return;
         customBotAvatarSelectionPending = true;
-        String title = gameText.translate("gdx.custom_bots.avatar.select");
-        CompletableFuture.supplyAsync(() -> openAvatarFileDialog(title),
-                recoveryExecutor).whenComplete((selected, failure) ->
+        chooseAvatarFile("gdx.custom_bots.avatar.select").whenComplete((selected, failure) ->
                 Gdx.app.postRunnable(() -> {
                     customBotAvatarSelectionPending = false;
                     if (disposed || !customBotManagerOpen) return;
@@ -15325,9 +15553,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (avatarSelectionPending || connection == null) return;
         avatarSelectionPending = true;
         NewGameConnectionDraft target = connection;
-        String title = gameText.translate("gdx.avatar.select");
-        CompletableFuture.supplyAsync(() -> openAvatarFileDialog(title),
-                recoveryExecutor).whenComplete((selected, failure) ->
+        chooseAvatarFile("gdx.avatar.select").whenComplete((selected, failure) ->
                 Gdx.app.postRunnable(() -> completeAvatarSelection(target,
                         selected, failure)));
     }
@@ -15536,26 +15762,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private static Path openAvatarFileDialog(String title) {
-        FileDialog dialog = new FileDialog((Frame) null,
-                title, FileDialog.LOAD);
-        dialog.setMultipleMode(false);
-        dialog.setDirectory(System.getProperty("user.home"));
-        dialog.setFilenameFilter((directory, name) -> {
-            String lower = name.toLowerCase(Locale.ROOT);
-            return lower.endsWith(".png") || lower.endsWith(".jpg")
-                    || lower.endsWith(".jpeg") || lower.endsWith(".gif")
-                    || lower.endsWith(".bmp") || lower.endsWith(".webp");
-        });
-        try {
-            dialog.setVisible(true);
-            String file = dialog.getFile();
-            String directory = dialog.getDirectory();
-            return file == null || directory == null ? null
-                    : new File(directory, file).toPath();
-        } finally {
-            dialog.dispose();
-        }
+    private CompletableFuture<Path> chooseAvatarFile(String titleKey) {
+        String title = gameText.translate(titleKey);
+        String select = gameText.translate("ui.aceptar");
+        String images = gameText.translate("gdx.avatar.image_files");
+        return GdxFileChooser.chooseFile(Path.of(System.getProperty("user.home")),
+                title, select, images, "png", "jpg", "jpeg", "gif", "bmp", "webp");
     }
 
     private void outerBox(float x, float y, float w, float h, Color border,
@@ -15910,6 +16122,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointerIndex, int button) {
+        if (fileChooserPending()) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
@@ -16524,6 +16737,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
+        if (fileChooserPending()) return true;
+        if (profileBackupSelection != null && frontendNoticeMessage.isBlank()) {
+            if (keycode == Input.Keys.ESCAPE) closeProfileBackupSelection();
+            return true;
+        }
         if (statsBrowserInput() && statsBrowserFocused && keycode != Input.Keys.ESCAPE) {
             statsBrowser.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED);
             return true;
@@ -17497,6 +17715,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (fileChooserPending()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {

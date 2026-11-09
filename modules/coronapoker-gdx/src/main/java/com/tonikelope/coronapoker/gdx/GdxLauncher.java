@@ -23,6 +23,7 @@ import com.tonikelope.coronapoker.core.game.ClasspathGameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.GameCinematicAssets;
 import com.tonikelope.coronapoker.core.game.ModAwareGameCinematicAssets;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
+import java.io.IOException;
 import java.util.Arrays;
 import java.nio.file.Path;
 import java.util.logging.Level;
@@ -40,8 +41,23 @@ public final class GdxLauncher {
     private GdxLauncher() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         if (GdxMacFirstThread.relaunchIfRequired(args)) return;
+        Path profile = GdxProfileBackup.profile();
+        GdxProfileBackupTransfer.Request backup;
+        try (var lock = GdxProfileBackup.lock(profile, true)) {
+            backup = runApplication(args);
+            if (backup != null) GdxDebugFile.close();
+        }
+        if (backup != null) {
+            var result = backup.run(profile);
+            var restart = GdxMacFirstThread.applicationProcess(args);
+            result.writeTo(restart);
+            restart.start();
+        }
+    }
+
+    private static GdxProfileBackupTransfer.Request runApplication(String[] args) {
         Path debugFile = GdxDebugFile.install();
         Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,
                 "GDX debug log: {0}", debugFile);
@@ -54,7 +70,7 @@ public final class GdxLauncher {
         try {
             application.start();
             application.menuReady();
-            launchWindow(args, application);
+            return launchWindow(args, application);
         } catch (Throwable failure) {
             application.fail(failure);
             if (failure instanceof RuntimeException runtimeFailure) {
@@ -69,7 +85,7 @@ public final class GdxLauncher {
         }
     }
 
-    private static void launchWindow(String[] args,
+    private static GdxProfileBackupTransfer.Request launchWindow(String[] args,
             CoronaPokerApplication application) {
         boolean silent = java.util.Arrays.stream(args)
                 .anyMatch("--silent"::equalsIgnoreCase);
@@ -190,6 +206,7 @@ public final class GdxLauncher {
                 }
             });
             new Lwjgl3Application(shell, config);
+            return shell.profileBackupRequest();
         }
     }
 

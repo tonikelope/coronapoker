@@ -119,7 +119,7 @@ final class GdxSettingsChrome {
         drawFooterButton(shapes, bounds, tone, pointer, true, alpha);
     }
 
-    private static void drawFooterButton(ShapeRenderer shapes,
+    static void drawFooterButton(ShapeRenderer shapes,
             Rectangle bounds, GdxUiButtonStyle.Tone tone, Vector2 pointer,
             boolean enabled, float alpha) {
         GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y,

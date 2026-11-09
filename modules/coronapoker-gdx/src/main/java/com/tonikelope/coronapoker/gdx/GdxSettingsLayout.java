@@ -557,7 +557,7 @@ final class GdxSettingsLayout {
 
     static Rectangle debugCopyButton(Rectangle content) {
         return new Rectangle(content.x + content.width - 248f,
-                content.y + 14f, 230f, 54f);
+                content.y + CONTENT_VERTICAL_INSET + 4f, 230f, 54f);
     }
 
     static Rectangle debugPerformanceRow(Rectangle content) {
@@ -568,9 +568,12 @@ final class GdxSettingsLayout {
 
     /** Complete debug-console geometry shared by menu, lobby and table. */
     static DebugArea debugArea(Rectangle content) {
+        Rectangle copy = debugCopyButton(content);
+        float consoleBottom = copy.y + copy.height + 14f;
+        float consoleTop = debugPerformanceRow(content).y - 22f;
         Rectangle console = new Rectangle(content.x + 24f,
-                content.y + 82f, content.width - 48f,
-                Math.max(0f, content.height - ROW_HEIGHT - 132f));
+                consoleBottom, content.width - 48f,
+                Math.max(0f, consoleTop - consoleBottom));
         // The debug stream uses the same inset, text lane and scrollbar lane
         // as the in-game log instead of looking like an unrelated terminal.
         Rectangle viewport = new Rectangle(console.x + 14f,

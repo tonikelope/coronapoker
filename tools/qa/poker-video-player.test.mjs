@@ -280,6 +280,7 @@ test('cold priming waits for the document to finish before reloading', () => {
   page.ready();
   assert.equal(page.reloads, 0);
   assert.equal(page.native.plays, 0);
+  assert.ok(!page.messages.includes('LOADING|video'));
   page.completeDocument();
   page.tick(5000);
   assert.equal(page.reloads, 1);
@@ -293,6 +294,7 @@ test('cold priming uses the ready iframe if the document load remains pending', 
   assert.equal(page.reloads, 0);
   assert.equal(page.native.plays, 1);
   assert.equal(page.native.muted, true);
+  assert.ok(page.messages.includes('LOADING|video'));
   page.native.emit(1);
   assert.equal(page.status.className, 'hidden');
   page.completeDocument();

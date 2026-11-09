@@ -304,6 +304,8 @@ The host gathers receipts from the currently expected human signers and relays t
 
 Every consensus anomaly is logged into `disputed_hands` (`DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_NO_PROOF`, `DECK_UNVERIFIED`). A local conservation failure occurs earlier and emits no receipt. In all settlement-consensus gating cases, the hand is preserved open rather than unwound, providing recoverable state without risking a double settlement.
 
+A voluntary table exit interrupts a pending hand verification and leaves the hand open for recovery. The host orders the closing verdict and the exit broadcast through the same transport lock. If the closing verdict is confirmed first, the dealer can finish persisting the settlement during teardown. Verified evidence of a security incident still follows the incident contract below.
+
 ### 6.1 Fatal Zero Trust incident contract
 
 Fatal security exits share one product contract even though their financial

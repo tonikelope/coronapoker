@@ -465,6 +465,7 @@
         }
         playbackAllowed = true;
         loadStopped = false;
+        loading('video');
         playVideo(target);
         armPlaybackTimeout();
         reportIndex();
@@ -508,7 +509,6 @@
             if (apiRecoveryRequest !== null) return;
             ready = true;
             cancelLoadTimers();
-            loading('video');
             desiredMuted = INITIAL_MUTED;
             desiredVolume = INITIAL_VOLUME;
             audioRestorePending = true;

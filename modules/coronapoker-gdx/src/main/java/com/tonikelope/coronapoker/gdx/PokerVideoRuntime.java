@@ -507,7 +507,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         }
         if (request.startsWith("LOADING|")) {
             loadingKey = switch (request.substring("LOADING|".length())) {
-                case "connecting" -> "gdx.video.loading.connecting";
+                case "connecting" -> "gdx.video.loading.player";
                 case "reconnecting" -> "gdx.video.loading.reconnecting";
                 case "discovery" -> "gdx.video.loading.search";
                 case "video" -> "gdx.video.loading.video";

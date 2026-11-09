@@ -90,6 +90,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 |---|---|
 | **Players** | 2 to 10, any mix of humans and bots |
 | **ALL-IN & side pots** | Fully supported with correct pot splits |
+| **Table display** | The pot can show how many players have contributed and remain eligible to win. Folded opponents can be dimmed until the next hand. Both options are enabled by default in Appearance > Table. |
 | **Dead-button rule** | BB / SB / Button handled correctly when players leave |
 | **Action timer** | Per-turn thinking time with on-screen countdown bar |
 | **Buy-in** | Fixed (everyone starts with the same stack) or variable, where each player chooses their own when they sit down. The host sets the allowed range in big blinds and a per-table stack ceiling nobody can ever exceed. |

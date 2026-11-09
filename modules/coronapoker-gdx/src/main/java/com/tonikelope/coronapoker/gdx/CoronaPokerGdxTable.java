@@ -229,6 +229,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // overlap. Turn and river remain single-card reveals.
     private static final float COMMUNITY_FLIP_STAGGER_SECONDS = 0.200f;
     private static final float FOLD_DISABLE_SECONDS = 0.36f;
+    private static final float FOLDED_REMOTE_SEAT_ALPHA = 0.35f;
     static final float REMOTE_SEAT_ENTRY_SECONDS = 0.42f;
     static final float REMOTE_SEAT_ENTRY_STAGGER_SECONDS = 0.09f;
     private static final float REMOTE_SEAT_ENTRY_DISTANCE = 56f;
@@ -412,6 +413,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float STACK_CHIP_COMPRESSION_CURVE = 4f;
     private static final float POT_PANEL_WIDTH = 390f;
     private static final float POT_CHIP_RACK_CENTER_OFFSET = 52f;
+    private static final float POT_PLAYER_COUNT_WIDTH = 58f;
+    private static final float POT_PLAYER_COUNT_HEIGHT_RATIO = 0.70f;
+    private static final float POT_PLAYER_COUNT_INSET = 8f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
@@ -1381,6 +1385,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private FrameBuffer disabledHoleCardsLayer;
     private FrameBuffer chipRackCompositeLayer;
     private final Matrix4 chipRackCompositeProjection = new Matrix4();
+    private final Rectangle chipRackCompositeBounds = new Rectangle();
     private boolean chipRackCompositeUnavailable;
 
     private BitmapFont uiFont;
@@ -6634,12 +6639,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (preparationModal) drawPreparationOverlay();
-        if (nestedTableModal) {
-            renderNestedTableModal();
-        } else {
-            drawUiLayer();
-            drawActiveDialog();
-        }
+        if (!nestedTableModal) drawUiLayer();
         drawTerminationOverlay();
         drawChipCatalogDialog();
         drawTableIdentityDialog();
@@ -6656,6 +6656,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (videoOwnsHover) pointer.set(livePointerX, livePointerY);
         if (showMedia) mediaFrontend.drawTableMedia(mediaSoundPressed);
+        if (nestedTableModal) {
+            renderNestedTableModal();
+        } else {
+            drawActiveDialog();
+        }
         if (screenshotRequested) {
             screenshotRequested = false;
             captureScreenshot();
@@ -6726,11 +6731,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.set(livePointerX, livePointerY);
             }
             drawUnifiedModalBackdrop();
-            if (tableImageClearConfirmation) {
-                drawTableImageClearConfirmation();
-            } else {
-                drawActiveDialog();
-            }
+            drawNestedTableModalForeground();
             return;
         }
         nestedModalBackdropBlur.beginCapture(
@@ -6764,10 +6765,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 camera.combined, BACKGROUND_BOTTOM);
         restoreDefaultTableRenderState();
         drawUnifiedModalBackdrop();
-        if (tableImageClearConfirmation) {
-            drawTableImageClearConfirmation();
-        } else {
+        drawNestedTableModalForeground();
+    }
+
+    private void drawNestedTableModalForeground() {
+        if (activeDialog != null) {
             drawActiveDialog();
+        } else if (tableImageClearConfirmation) {
+            drawTableImageClearConfirmation();
         }
     }
 
@@ -6926,19 +6931,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         // Consuming the raw press does not hide libGDX's polled button state.
         if (mediaPressedThisFrame) return;
-        if (preparationPhase != TableVisualEvent.PreparationStatus.Phase.READY) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
-                    || ((Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
-                    || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT))
-                    && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
-                toggleFullscreen();
-            }
-            return;
-        }
-        if (tableIdentityDialog != null) {
-            handleTableIdentityDialogInput();
-            return;
-        }
         // A visible confirmation is always the topmost modal surface. In
         // particular, an OS close request from the final summary opens this
         // dialog; routing final-summary input first made its buttons visible
@@ -6973,6 +6965,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         } else {
             dialogInputGate.accepts(null, false);
+        }
+        if (preparationPhase != TableVisualEvent.PreparationStatus.Phase.READY) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
+                    || ((Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT))
+                    && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+                toggleFullscreen();
+            }
+            return;
+        }
+        if (tableIdentityDialog != null) {
+            handleTableIdentityDialogInput();
+            return;
         }
         if (chipCatalogVisible) {
             handleChipCatalogInput();
@@ -7699,7 +7704,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
         closeChipCatalog();
-        if (activeDialog == null) {
+        if (activeDialog == null
+                || request.isZeroTrust() && !activeDialog.isZeroTrust()) {
+            // A security notice can require acknowledgement before teardown.
+            // It must not wait behind an ordinary decision or confirmation.
+            if (activeDialog != null) dialogQueue.addFirst(activeDialog);
             activeDialog = request;
             request.opened(totalTime);
             focusAutoCallAmount(request, true);
@@ -11887,6 +11896,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 seat - 1);
     }
 
+    private float seatFoldAlpha(Seat seat) {
+        if (seat.index == 0 || !liveState.foldedThisHand(seat.name)
+                || !tablePreference(GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY,
+                        true)) return 1f;
+        float progress = liveHoleFold != null
+                && liveHoleFold.event.nickname().equals(seat.name)
+                ? liveHoleFold.progress : 1f;
+        return remoteFoldSeatAlpha(progress);
+    }
+
+    static float remoteFoldSeatAlpha(float progress) {
+        return MathUtils.lerp(FOLDED_REMOTE_SEAT_ALPHA, 1f,
+                foldCardAlpha(progress, false));
+    }
+
     private void applyRemoteSeatMotion(Seat seat, float width,
             float height) {
         if (seat.index == 0 || !liveSeatEntryAnimationEnabled()) return;
@@ -12006,7 +12030,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean folded = shouldDimSeat(livePlayer == null
                     || livePlayer.active(), settledShowdown,
                     liveState.foldedThisHand(seat.name));
-            float visualPresence = presence;
+            float visualPresence = presence * seatFoldAlpha(seat);
             boolean timedOut = livePlayer != null && livePlayer.timedOut();
             String actionLabel = lastActionLabelForSeat(seat.index);
             boolean showActionSurface = seat.index == 0
@@ -12090,7 +12114,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             Texture avatar = tableAvatar(seat.name);
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            float visualPresence = presence;
+            float visualPresence = presence * seatFoldAlpha(seat);
             batch.setColor(1f, 1f, 1f, visualPresence);
             batch.flush();
             batch.setShader(avatarShader);
@@ -12213,15 +12237,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         StackChipRackGeometry geometry = stackChipRackGeometry(
                 seat.index == 0);
         int rackSeed = seat.name.hashCode();
-        drawChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
+        drawFadingChipRack(seat.stackX, seat.stackY, layout, physicalCounts,
                 alpha, geometry, rackSeed);
     }
 
-    static boolean shouldCompositePotChipRack(float alpha) {
-        return shouldCompositeChipRack(alpha);
+    private void drawFadingChipRack(float centerX, float centerY,
+            GdxStackChipLayout.Layout layout, float[] physicalCounts,
+            float alpha, StackChipRackGeometry geometry, int rackSeed) {
+        boolean composite = shouldCompositeChipRack(alpha)
+                && hasVisibleStackChips(physicalCounts)
+                && beginChipRackComposite(centerX, centerY);
+        drawChipRack(centerX, centerY, layout, physicalCounts,
+                composite ? 1f : alpha, geometry, rackSeed);
+        if (composite) finishChipRackComposite(alpha);
     }
 
-    private static boolean shouldCompositeChipRack(float alpha) {
+    static boolean shouldCompositeChipRack(float alpha) {
         return alpha > 0f && alpha < 1f;
     }
 
@@ -12240,14 +12271,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private boolean beginChipRackComposite(float centerX, float centerY) {
         batch.end();
-        int parentWidth = activeParentFramebufferWidth();
-        int parentHeight = activeParentFramebufferHeight();
-        int layerWidth = Math.max(1, MathUtils.ceil(
-                CHIP_RACK_COMPOSITE_WIDTH * parentWidth
-                        / Math.max(1f, viewport.getWorldWidth())));
-        int layerHeight = Math.max(1, MathUtils.ceil(
-                CHIP_RACK_COMPOSITE_HEIGHT * parentHeight
-                        / Math.max(1f, viewport.getWorldHeight())));
+        float pixelsPerX = activeParentFramebufferWidth()
+                / Math.max(1f, viewport.getWorldWidth());
+        float pixelsPerY = activeParentFramebufferHeight()
+                / Math.max(1f, viewport.getWorldHeight());
+        // Allow for the pixel-aligned origin without reallocating as a rack moves.
+        int layerWidth = MathUtils.ceil(CHIP_RACK_COMPOSITE_WIDTH * pixelsPerX) + 1;
+        int layerHeight = MathUtils.ceil(CHIP_RACK_COMPOSITE_HEIGHT * pixelsPerY) + 1;
         if (!ensureChipRackComposite(layerWidth, layerHeight)) {
             restoreParentFramebufferAfterNestedPass();
             batch.setProjectionMatrix(camera.combined);
@@ -12256,16 +12286,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
 
-        float layerX = centerX - CHIP_RACK_COMPOSITE_WIDTH / 2f;
-        float layerY = centerY - CHIP_RACK_COMPOSITE_BOTTOM_OFFSET;
+        // Match the parent pixel grid so the composite does not resample the chip edges.
+        float layerX = MathUtils.floor(
+                (centerX - CHIP_RACK_COMPOSITE_WIDTH / 2f) * pixelsPerX) / pixelsPerX;
+        float layerY = MathUtils.floor(
+                (centerY - CHIP_RACK_COMPOSITE_BOTTOM_OFFSET) * pixelsPerY) / pixelsPerY;
+        chipRackCompositeBounds.set(layerX, layerY,
+                layerWidth / pixelsPerX, layerHeight / pixelsPerY);
         chipRackCompositeLayer.begin();
         Gdx.gl.glViewport(0, 0, chipRackCompositeLayer.getWidth(),
                 chipRackCompositeLayer.getHeight());
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         chipRackCompositeProjection.setToOrtho2D(layerX, layerY,
-                CHIP_RACK_COMPOSITE_WIDTH,
-                CHIP_RACK_COMPOSITE_HEIGHT);
+                chipRackCompositeBounds.width, chipRackCompositeBounds.height);
         batch.setProjectionMatrix(chipRackCompositeProjection);
         batch.setShader(null);
         batch.setColor(Color.WHITE);
@@ -12275,8 +12309,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     /** Restores the parent table target and fades the complete crisp rack. */
-    private void finishChipRackComposite(float centerX, float centerY,
-            float alpha) {
+    private void finishChipRackComposite(float alpha) {
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.end();
@@ -12289,10 +12322,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         batch.setColor(alpha, alpha, alpha, alpha);
         batch.draw(layer,
-                centerX - CHIP_RACK_COMPOSITE_WIDTH / 2f,
-                centerY - CHIP_RACK_COMPOSITE_BOTTOM_OFFSET,
-                CHIP_RACK_COMPOSITE_WIDTH,
-                CHIP_RACK_COMPOSITE_HEIGHT,
+                chipRackCompositeBounds.x, chipRackCompositeBounds.y,
+                chipRackCompositeBounds.width, chipRackCompositeBounds.height,
                 0, 0, layer.getWidth(), layer.getHeight(), false, true);
         batch.setColor(Color.WHITE);
         batch.end();
@@ -12311,13 +12342,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private int activeParentFramebufferWidth() {
         if (cardSmaaRenderer.isActive()) return cardSmaaRenderer.activeWidth();
         if (modalBackdropCaptureActive) return modalBackdropBlur.captureWidth();
-        return Math.max(1, Gdx.graphics.getBackBufferWidth());
+        return Math.max(1, HdpiUtils.toBackBufferX(viewport.getScreenWidth()));
     }
 
     private int activeParentFramebufferHeight() {
         if (cardSmaaRenderer.isActive()) return cardSmaaRenderer.activeHeight();
         if (modalBackdropCaptureActive) return modalBackdropBlur.captureHeight();
-        return Math.max(1, Gdx.graphics.getBackBufferHeight());
+        return Math.max(1, HdpiUtils.toBackBufferY(viewport.getScreenHeight()));
     }
 
     private boolean ensureChipRackComposite(int width, int height) {
@@ -12326,14 +12357,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && chipRackCompositeLayer.getHeight() == height) {
             return true;
         }
-        if (chipRackCompositeUnavailable) {
-            return chipRackCompositeLayer != null;
-        }
+        if (chipRackCompositeUnavailable) return false;
         try {
             FrameBuffer replacement = new FrameBuffer(Pixmap.Format.RGBA8888,
                     width, height, false);
             replacement.getColorBufferTexture().setFilter(
-                    TextureFilter.Linear, TextureFilter.Linear);
+                    TextureFilter.Nearest, TextureFilter.Nearest);
             if (chipRackCompositeLayer != null) {
                 chipRackCompositeLayer.dispose();
             }
@@ -12345,7 +12374,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "Unable to create chip-rack composite layer. "
                             + "falling back to direct rendering",
                     failure);
-            return chipRackCompositeLayer != null;
+            return false;
         }
     }
 
@@ -14176,7 +14205,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         for (Seat seat : seats) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            float presence = seatPresenceAlpha(seat.index);
+            float presence = seatPresenceAlpha(seat.index)
+                    * seatFoldAlpha(seat);
             if (player == null || presence <= 0f) {
                 continue;
             }
@@ -14199,7 +14229,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         for (Seat seat : seats) {
             TableSnapshot.PlayerSnapshot player = livePlayer(seat);
-            float presence = seatPresenceAlpha(seat.index);
+            float presence = seatPresenceAlpha(seat.index)
+                    * seatFoldAlpha(seat);
             if (player == null || player.reconnectionCount() <= 0
                     || presence <= 0f) {
                 continue;
@@ -15089,7 +15120,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         List<TableSnapshot.CardSnapshot> cards = player.holeCards();
-        float alpha = foldCardAlpha(liveHoleFold.progress(),
+        float alpha = foldCardAlpha(liveHoleFold.progress,
                 foldedCardsRemainVisible(cards));
         if (alpha <= 0f) {
             return;
@@ -15487,6 +15518,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelHeight = POT_PANEL_HEIGHT;
         float panelX = potCenterX - panelWidth / 2f;
         float panelY = potCenterY - panelHeight / 2f;
+        float iconCenterX = panelX + POT_CHIP_RACK_CENTER_OFFSET;
+        boolean showPotCount = tablePreference(
+                GdxSettingsContract.POT_PLAYER_COUNT_KEY, true);
+        float countHeight = panelHeight * POT_PLAYER_COUNT_HEIGHT_RATIO;
+        float countX = panelX + panelWidth - POT_PLAYER_COUNT_INSET
+                - POT_PLAYER_COUNT_WIDTH;
+        float countY = panelY + (panelHeight - countHeight) / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -15496,11 +15534,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 panelWidth + 4f, panelHeight + 4f, 13f);
         shapes.setColor(PANEL.r, PANEL.g, PANEL.b, 0.94f * opacity);
         roundedRect(panelX, panelY, panelWidth, panelHeight, 11f);
+        if (showPotCount) {
+            shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, opacity);
+            roundedRect(countX, countY, POT_PLAYER_COUNT_WIDTH, countHeight,
+                    9f);
+        }
         shapes.end();
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, opacity);
-        float iconCenterX = panelX + POT_CHIP_RACK_CENTER_OFFSET;
         List<VisualChipSpec> potChips = displayedPotVisualChips(currentPot);
         if (!potChips.isEmpty()) {
             StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
@@ -15508,23 +15550,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxStackChipLayout.Layout potLayout =
                     potVisualChipLayout(potChips);
             float[] physicalCounts = displayedPotChipCounts(potLayout);
-            boolean composite = hasVisibleStackChips(physicalCounts)
-                    && shouldCompositePotChipRack(opacity)
-                    && beginChipRackComposite(iconCenterX, iconBaseY);
-            drawChipRack(iconCenterX, iconBaseY, potLayout,
-                    physicalCounts, composite ? 1f : opacity, potGeometry,
-                    0x504f54);
-            if (composite) {
-                finishChipRackComposite(iconCenterX, iconBaseY,
-                        opacity);
-            }
+            drawFadingChipRack(iconCenterX, iconBaseY, potLayout,
+                    physicalCounts, opacity, potGeometry, 0x504f54);
         }
-        float textAreaX = panelX + 98f;
-        float textAreaWidth = panelWidth - 112f;
+        float textLeft = panelX + 98f;
+        float textRight = panelX + panelWidth - 14f;
+        if (showPotCount) {
+            textRight = countX - POT_PLAYER_COUNT_INSET;
+            drawFittedCenteredInBox(settingsTitleFont,
+                    Integer.toString(liveState.potContenderCount()),
+                    countX + 4f, countY + 8f,
+                    POT_PLAYER_COUNT_WIDTH - 8f, countHeight - 16f,
+                    Color.BLACK, opacity);
+        }
         drawFittedCenteredAtVisualY(potFont, potText,
-                textAreaX + textAreaWidth / 2f,
-                panelY + panelHeight / 2f,
-                textAreaWidth, POT_GOLD, opacity);
+                (textLeft + textRight) / 2f, panelY + panelHeight / 2f,
+                textRight - textLeft, POT_GOLD, opacity);
         batch.setColor(Color.WHITE);
         batch.end();
 
@@ -15876,7 +15917,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Visible acknowledgement of the real dealer/network shutdown path. */
     private void drawTerminationOverlay() {
-        if (!terminationRequested || finalSummary != null || intro) return;
+        if (!terminationRequested || finalSummary != null || intro
+                || activeDialog != null || tableImageClearConfirmation) return;
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float panelW = Math.min(760f, width - 80f);
@@ -17988,7 +18030,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void updateLiveHoleFold() {
         LiveHoleFold active = liveHoleFold;
-        if (active == null || active.progress() < 1f) {
+        if (active == null || active.updateProgress() < 1f) {
             return;
         }
         try {
@@ -31799,6 +31841,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final TableVisualEvent.FoldHoleCards event;
         final long startedAtNanos;
         final CompletableFuture<Void> barrier;
+        float progress;
 
         LiveHoleFold(TableVisualEvent.FoldHoleCards event,
                 long startedAtNanos, CompletableFuture<Void> barrier) {
@@ -31807,10 +31850,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.barrier = barrier;
         }
 
-        float progress() {
+        float updateProgress() {
             float elapsed = Math.max(0L, System.nanoTime() - startedAtNanos)
                     / 1_000_000_000f;
-            return Math.min(1f, elapsed / FOLD_DISABLE_SECONDS);
+            progress = Math.min(1f, elapsed / FOLD_DISABLE_SECONDS);
+            return progress;
         }
     }
 

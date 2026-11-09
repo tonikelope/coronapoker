@@ -151,6 +151,10 @@ final class GdxSettingsTooltips {
             case "show_time" -> "gdx.settings.tooltip.show_time";
             case "mostrar_coste_igualar" ->
                 "gdx.settings.tooltip.show_call_cost";
+            case GdxSettingsContract.POT_PLAYER_COUNT_KEY ->
+                "gdx.settings.tooltip.pot_player_count";
+            case GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY ->
+                "gdx.settings.tooltip.dim_folded_opponents";
             case "resaltar_jugada_showdown" ->
                 "tooltip.cfg.resaltar_jugada_showdown";
             case "resaltar_avatares" ->

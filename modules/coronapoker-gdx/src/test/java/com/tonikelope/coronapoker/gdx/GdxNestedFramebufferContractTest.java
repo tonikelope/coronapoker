@@ -61,22 +61,16 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
-    void allInPotFadesItsCompleteCrispRackOnlyAfterComposition()
-            throws IOException {
+    void seatAndPotRacksFadeOnlyAfterComposition() throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));
-        int method = table.indexOf(
-                "private void drawPotPanelSurface(float alpha)");
-        int begin = table.indexOf(
-                "beginChipRackComposite(iconCenterX, iconBaseY)",
-                method);
-        int opaqueRack = table.indexOf(
-                "physicalCounts, composite ? 1f : opacity", begin);
-        int finish = table.indexOf(
-                "finishChipRackComposite(iconCenterX, iconBaseY,",
-                opaqueRack);
+        assertTrue(table.contains("drawFadingChipRack(seat.stackX, seat.stackY,"));
+        assertTrue(table.contains("drawFadingChipRack(iconCenterX, iconBaseY,"));
+        int method = table.indexOf("private void drawFadingChipRack(");
+        int begin = table.indexOf("beginChipRackComposite(centerX, centerY)", method);
+        int opaqueRack = table.indexOf("composite ? 1f : alpha", begin);
+        int finish = table.indexOf("finishChipRackComposite(alpha)", opaqueRack);
 
-        assertTrue(method >= 0 && begin > method,
-                "the translucent all-in pot must capture its chip rack");
+        assertTrue(method >= 0 && begin > method);
         assertTrue(opaqueRack > begin && finish > opaqueRack,
                 "the rack must remain opaque until the completed layer fades");
     }

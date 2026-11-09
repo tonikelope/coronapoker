@@ -70,6 +70,8 @@ final class GdxSettingsContract {
             "auto_action_buttons", "auto_call_enabled",
             "auto_action_persist", "modo_auto_confirm", "confirmar_todo",
             AUTO_REBUY_KEY);
+    static final String POT_PLAYER_COUNT_KEY = "mostrar_jugadores_bote";
+    static final String DIM_FOLDED_OPPONENTS_KEY = "atenuar_jugadores_foldeados";
     static final String TABLE_CHAT_FEED_KEY = "gdx_table_chat_feed";
     static final String TABLE_SPEAKING_EMOJI_KEY = "gdx_table_speaking_emoji";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -345,6 +347,11 @@ final class GdxSettingsContract {
                     false, Gate.NONE),
             option("mostrar_coste_igualar", "COSTE DE IGUALAR", true,
                     Gate.NONE),
+            option(POT_PLAYER_COUNT_KEY,
+                    "MOSTRAR CONTADOR DE JUGADORES EN EL BOTE", true,
+                    Gate.NONE),
+            option(DIM_FOLDED_OPPONENTS_KEY,
+                    "ATENUAR JUGADORES REMOTOS FOLDEADOS", true, Gate.NONE),
             option("resaltar_jugada_showdown",
                     "RESALTAR JUGADA EN SHOWDOWN", true, Gate.NONE),
             option("resaltar_avatares", "RESALTAR AVATARES", false,
@@ -657,7 +664,7 @@ final class GdxSettingsContract {
             "audio_voice_note_retention_days",
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "gdx_show_cpu_memory",
-            "mostrar_coste_igualar",
+            "mostrar_coste_igualar", POT_PLAYER_COUNT_KEY, DIM_FOLDED_OPPONENTS_KEY,
             "chat_images_ingame",
             TABLE_CHAT_FEED_KEY, TABLE_SPEAKING_EMOJI_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
@@ -738,7 +745,7 @@ final class GdxSettingsContract {
                     "animacion_destape", "animacion_apuestas",
                     "animacion_efecto_ganador", HALO_EFFECT_KEY,
                     GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
-            case POKER_VIDEO_WINDOW_ANIMATION_KEY,
+            case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
                     "animacion_ciegas_dealer", "animacion_contadores",
                     "animacion_entrada_asientos", "animacion_swap",
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY,

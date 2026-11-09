@@ -643,10 +643,13 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void tableMessagesAndSpeakingEmojiDefaultOnAndResetWithAppearance() {
+    void tableDisplayOptionsDefaultOnAndReset() {
         Properties properties = new Properties();
-        for (String key : List.of(GdxSettingsContract.TABLE_CHAT_FEED_KEY,
-                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY)) {
+        List<String> keys = List.of(GdxSettingsContract.TABLE_CHAT_FEED_KEY,
+                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY,
+                GdxSettingsContract.POT_PLAYER_COUNT_KEY,
+                GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY);
+        for (String key : keys) {
             GdxSettingsContract.ToggleOption option = GdxSettingsContract
                     .appearanceTablePage().options().stream()
                     .filter(row -> row.key().equals(key)).findFirst().orElseThrow();
@@ -655,10 +658,9 @@ final class GdxSettingsContractTest {
             properties.setProperty(key, "false");
         }
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 0, false);
-        assertEquals("true", properties.getProperty(
-                GdxSettingsContract.TABLE_CHAT_FEED_KEY));
-        assertEquals("true", properties.getProperty(
-                GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY));
+        for (String key : keys) {
+            assertEquals("true", properties.getProperty(key));
+        }
     }
 
     @Test

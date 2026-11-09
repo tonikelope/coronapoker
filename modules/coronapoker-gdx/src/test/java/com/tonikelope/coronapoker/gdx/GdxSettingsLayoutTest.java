@@ -441,7 +441,9 @@ final class GdxSettingsLayoutTest {
                 <= content.y + content.height);
         assertEquals(content.x + content.width - 18f,
                 button.x + button.width);
-        assertEquals(content.y + 14f, button.y);
+        Rectangle clip = GdxSettingsLayout.contentClip(content);
+        assertTrue(clip.contains(button));
+        assertTrue(button.y - clip.y >= 4f);
     }
 
     @Test
@@ -452,10 +454,12 @@ final class GdxSettingsLayoutTest {
                 GdxSettingsLayout.debugArea(content);
 
         assertEquals(content.x + 24f, debug.console().x);
-        assertEquals(content.y + 82f, debug.console().y);
+        Rectangle button = GdxSettingsLayout.debugCopyButton(content);
+        assertEquals(button.y + button.height + 14f, debug.console().y);
         assertEquals(content.width - 48f, debug.console().width);
-        assertEquals(content.height - GdxSettingsLayout.ROW_HEIGHT - 132f,
-                debug.console().height);
+        Rectangle performance = GdxSettingsLayout.debugPerformanceRow(content);
+        assertEquals(performance.y - 22f,
+                debug.console().y + debug.console().height);
         assertEquals(debug.console().x + 14f, debug.viewport().x);
         assertEquals(debug.console().y + 14f, debug.viewport().y);
         assertEquals(debug.console().width - 44f,

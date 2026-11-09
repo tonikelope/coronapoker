@@ -197,6 +197,38 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void potCountsOnlyPaidContendersIncludingDepartedAllIns() {
+        TableSnapshot.PlayerSnapshot allIn = new TableSnapshot.PlayerSnapshot(
+                "all-in", 0d, 0d, 10d, false, false, true, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                TableSnapshot.Decision.ALL_IN, TableSnapshot.ActionKind.ALL_IN,
+                "", "", List.of(), 10, 0, false);
+        TableSnapshot.PlayerSnapshot folded = new TableSnapshot.PlayerSnapshot(
+                "folded", 9d, 0d, 1d, true, false, false, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
+                TableSnapshot.Decision.FOLD, TableSnapshot.ActionKind.FOLD,
+                "", "", List.of(), 10, 0, false);
+        GdxTableViewState state = new GdxTableViewState(snapshotWithPlayers(
+                false, "", player("ana", TableSnapshot.Position.DEALER),
+                timedOutPlayer("connected-seat"), allIn, folded,
+                playerWithAvailability("observer", false, true, false, false),
+                playerWithAvailability("left", false, false, true, false)));
+
+        assertEquals(1, state.potContenderCount(),
+                "uncommitted seats and folded contributions do not count");
+        state.apply(new TableVisualEvent.PlayerAction(1L, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "VA",
+                1d, 1d, 999d, 1d, 11d));
+        assertEquals(2, state.potContenderCount());
+        state.apply(new TableVisualEvent.FoldHoleCards(2L, "ana"));
+        assertEquals(1, state.potContenderCount());
+        assertEquals(0, new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.WAITING)).potContenderCount());
+        assertEquals(0, new GdxTableViewState(snapshotAt(
+                TableSnapshot.Street.FINISHED)).potContenderCount());
+    }
+
+    @Test
     void foldedPlayerKeepsTheHandPositionChipThroughoutRunItTwice() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
 
@@ -345,11 +377,11 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.seatActionSurfaceAlpha(false),
                 0.000_001f,
                 "folding is not an opacity input for the action surface");
-        assertTrue(CoronaPokerGdxTable.shouldCompositePotChipRack(0.50f),
+        assertTrue(CoronaPokerGdxTable.shouldCompositeChipRack(0.50f),
                 "the half-opacity all-in pot must fade after composition");
-        assertFalse(CoronaPokerGdxTable.shouldCompositePotChipRack(0f),
+        assertFalse(CoronaPokerGdxTable.shouldCompositeChipRack(0f),
                 "an invisible pot rack needs no off-screen pass");
-        assertFalse(CoronaPokerGdxTable.shouldCompositePotChipRack(1f),
+        assertFalse(CoronaPokerGdxTable.shouldCompositeChipRack(1f),
                 "the ordinary opaque pot keeps the direct rendering path");
         assertEquals(0.28f, CoronaPokerGdxTable.DISABLED_CARD_ALPHA,
                 0.000_001f,

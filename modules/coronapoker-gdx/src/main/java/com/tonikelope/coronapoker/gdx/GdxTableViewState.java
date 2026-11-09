@@ -275,6 +275,28 @@ final class GdxTableViewState {
         return lateShownHands.contains(nickname);
     }
 
+    int potContenderCount() {
+        if (snapshot.street() == TableSnapshot.Street.WAITING
+                || snapshot.street() == TableSnapshot.Street.FINISHED) {
+            return 0;
+        }
+        int contenders = 0;
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (MoneyMath.compare(player.potContribution(), 0d) <= 0
+                    || player.spectator()
+                    || player.decision() == TableSnapshot.Decision.FOLD
+                    || foldedThisHand(player.nickname())) {
+                continue;
+            }
+            // An all-in remains eligible even if the player leaves the table.
+            if (player.decision() == TableSnapshot.Decision.ALL_IN
+                    || (player.active() && !player.exited())) {
+                contenders++;
+            }
+        }
+        return contenders;
+    }
+
     boolean foldedThisHand(String nickname) {
         return foldedThisHand.contains(nickname);
     }

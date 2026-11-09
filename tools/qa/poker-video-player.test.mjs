@@ -85,7 +85,8 @@ function playerPage(options = {}) {
   vm.createContext(context);
   let script = inline;
   const replacements = { VIDEO_IDS: ids.map(id => `'${id}'`).join(','), ORIGIN: 'http://127.0.0.1:10000',
-    PLAYER_LANGUAGE: 'es', INITIAL_INDEX: '0', START_SECONDS: '17', INITIAL_MUTED: 'true', INITIAL_VOLUME: '100',
+    PLAYER_LANGUAGE: 'es', INITIAL_INDEX: '0', START_SECONDS: String(options.startSeconds ?? 17),
+    INITIAL_MUTED: 'true', INITIAL_VOLUME: '100',
     ORDERED_PLAYLIST: String(Boolean(options.ordered)), PLAYLIST_REVISION: '0' };
   for (const [key, value] of Object.entries(replacements)) script = script.replaceAll(`@@${key}@@`, value);
   vm.runInContext(script, context);
@@ -350,6 +351,37 @@ test('a hidden modal suspends load deadlines and resumes them only when visible'
   page.context.coronaSetActive(true); page.tick(20000); assert.equal(page.loads.length, 1);
 });
 
+test('PLAYING without any movement of the media clock triggers recovery', () => {
+  const page = playerPage({ startSeconds: 0 });
+  page.ready();
+  page.native.seconds = 0.05;
+  page.native.emit(1);
+  page.tick(4000);
+  page.native.emit(1);
+  page.tick(3999);
+  assert.equal(page.loads.length, 0);
+  page.tick(1);
+  assert.deepEqual(page.loads, [{ id: ids[0], seconds: 0 }]);
+  assert.ok(page.messages.some(message => message.startsWith('PLAYBACK_STALLED|playback timeout 1')));
+  page.native.seconds = 0.05;
+  page.native.emit(1);
+  page.tick(8100);
+  assert.deepEqual(page.loads.at(-1), { id: ids[1], seconds: 0 });
+  assert.ok(page.messages.some(message => message.startsWith('RECOVERY|playback timeout 2')));
+});
+
+test('actual playback progress clears the first-progress deadline', () => {
+  const page = playerPage({ startSeconds: 0 });
+  page.ready();
+  page.native.seconds = 0.05;
+  page.native.emit(1);
+  page.tick(1000);
+  page.native.seconds = 1.2;
+  page.tick(15000);
+  assert.equal(page.loads.length, 0);
+  assert.ok(page.messages.includes('PROGRESS|index=0 time=1.20'));
+});
+
 test('a user pause after playback is not mistaken for a load failure', () => {
   const page = playerPage(); page.ready(); page.native.emit(1); page.native.emit(2); page.tick(180000);
   assert.equal(page.loads.length, 0); assert.equal(page.status.className, 'hidden');
@@ -357,7 +389,7 @@ test('a user pause after playback is not mistaken for a load failure', () => {
 
 test('buffer recovery preserves the current position and chosen audible state', () => {
   const page = playerPage(); page.ready(); page.native.emit(1);
-  page.native.unMute(); page.tick(250); page.native.seconds = 83; page.native.emit(3);
+  page.native.unMute(); page.native.seconds = 83; page.tick(750); page.native.emit(3);
   page.tick(44999); assert.equal(page.loads.length, 0);
   page.tick(1); assert.deepEqual(page.loads[0], { id: ids[0], seconds: 83 });
   assert.ok(page.messages.some(message => message.startsWith('RECOVERY|playback timeout 1')));

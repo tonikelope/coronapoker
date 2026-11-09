@@ -50,6 +50,7 @@
     const API_TIMEOUT_MS = 30000;
     const COLD_DOCUMENT_LOAD_TIMEOUT_MS = 3000;
     const PLAYBACK_TIMEOUT_MS = 20000;
+    const FIRST_PROGRESS_TIMEOUT_MS = 8000;
     const BUFFER_TIMEOUT_MS = 45000;
     let apiTimer = null;
     let playbackTimer = null;
@@ -57,6 +58,7 @@
     let playbackGeneration = 0;
     let playbackRecoveries = 0;
     let playedCurrentVideo = false;
+    let playbackAdvanced = false;
     let firstPlaybackPosition = null;
     let loadStopped = false;
     let loadStartSeconds = START_SECONDS;
@@ -162,14 +164,15 @@
       }, API_TIMEOUT_MS);
     }
 
-    function armPlaybackTimeout(delay = PLAYBACK_TIMEOUT_MS) {
+    function armPlaybackTimeout(delay) {
       if (!ready || !playbackAllowed || !active || loadStopped || playbackTimer !== null) return;
-      const waitingForFirstPlayback = !playedCurrentVideo;
-      // loadVideoById can leave getPlayerState() reporting PLAYING for the
-      // previous video while the new command is still pending in the iframe.
-      const playbackResumed = () => waitingForFirstPlayback ? playedCurrentVideo
+      const waitingForFirstPlayback = !playbackAdvanced;
+      // A PLAYING event can arrive before the media clock starts moving.
+      const playbackResumed = () => waitingForFirstPlayback ? playbackAdvanced
         : player.getPlayerState && player.getPlayerState() === 1;
       if (playbackResumed()) return;
+      const timeout = delay ?? (waitingForFirstPlayback && playedCurrentVideo
+        ? FIRST_PROGRESS_TIMEOUT_MS : PLAYBACK_TIMEOUT_MS);
       const generation = playbackGeneration;
       playbackTimer = setTimeout(() => {
         playbackTimer = null;
@@ -178,7 +181,8 @@
         playbackRecoveries += 1;
         const firstStartTimeout = waitingForFirstPlayback && playbackRecoveries === 1;
         report(firstStartTimeout ? 'PLAYBACK_STALLED' : 'RECOVERY',
-          'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]);
+          'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]
+          + (waitingForFirstPlayback && playedCurrentVideo ? ' (PLAYING without progress)' : ''));
         if (playbackRecoveries >= 3) {
           showError(text('El vídeo no responde. Comprueba la conexión y pulsa Reintentar.',
             'The video is not responding. Check your connection and press Retry.'));
@@ -189,7 +193,7 @@
         } else {
           skipUnavailable('timeout');
         }
-      }, delay);
+      }, timeout);
     }
 
     function retryLoad() {
@@ -214,6 +218,7 @@
       playbackGeneration += 1;
       if (!recovery) playbackRecoveries = 0;
       playedCurrentVideo = false;
+      playbackAdvanced = false;
       firstPlaybackPosition = null;
       loadStopped = false;
       loadStartSeconds = Math.max(0, Math.floor(startSeconds));
@@ -516,14 +521,17 @@
           },
           onStateChange: event => {
             if (event.data === 1 && playbackAllowed) {
-              cancelLoadTimers();
               if (!playedCurrentVideo) {
+                cancelLoadTimers();
                 firstPlaybackPosition = event.target.getCurrentTime ? event.target.getCurrentTime() : 0;
                 report('PLAYING', 'index=' + currentIndex + ' time=' + firstPlaybackPosition);
               }
               playedCurrentVideo = true;
               loadStopped = false;
-              playbackRecoveries = 0;
+              if (playbackAdvanced) {
+                cancelLoadTimers();
+                playbackRecoveries = 0;
+              } else armPlaybackTimeout();
               // Confirm the applied audio state at first playback, before a
               // fast native-control click can precede the polling interval.
               monitorAudioState();
@@ -539,7 +547,7 @@
               if (playedCurrentVideo && !loadStopped) hideStatus();
             }
             if (event.data === 3) {
-              armPlaybackTimeout(playedCurrentVideo ? BUFFER_TIMEOUT_MS : PLAYBACK_TIMEOUT_MS);
+              armPlaybackTimeout(playbackAdvanced ? BUFFER_TIMEOUT_MS : undefined);
               if (playbackTimer !== null && statusBox.className === 'hidden') loading('video');
             }
             const names = { '-1': 'SIN INICIAR', '0': 'FINALIZADO', '1': 'REPRODUCIENDO',
@@ -576,6 +584,10 @@
       if (firstPlaybackPosition !== null && seconds >= firstPlaybackPosition + 1) {
         report('PROGRESS', 'index=' + currentIndex + ' time=' + seconds.toFixed(2));
         firstPlaybackPosition = null;
+        playbackAdvanced = true;
+        playbackRecoveries = 0;
+        cancelLoadTimers();
+        if (player.getPlayerState && player.getPlayerState() === 3) armPlaybackTimeout(BUFFER_TIMEOUT_MS);
       }
       report('POSITION', currentIndex + ':' + Math.max(0, Math.floor(seconds)) + ':' + playlistRevision);
     }

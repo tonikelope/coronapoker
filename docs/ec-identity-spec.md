@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Identity: Specification
 
 Cryptographic identity, action signing and hand-integrity layer for CoronaPoker. For the higher-level security overview see [`SECURITY.md`](SECURITY.md). This file is the deeper reference for the identity, action-record, hash-chain and receipt machinery.
@@ -358,6 +360,11 @@ The outcomes, in descending priority (only the strongest is surfaced):
 
 Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout. The open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
 
+A voluntary exit can interrupt the receipt exchange and leave the hand open
+for recovery. When the final verdict has already been confirmed, the dealer
+can finish persisting the settlement during teardown. See
+[Receipts and consensus](SECURITY.md#6-receipts--consensus).
+
 #### What divergence proves
 
 Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. Byte-different `H_final` values therefore prove that the peers did not receive or apply one identical ordered history. Host manipulation is one explanation. A serious relay or state-machine defect is another. The evidence is sufficient to stop durable close, but it does not by itself distinguish malicious intent from a software fault. `MISSING` remains ambiguous and is classified separately.
@@ -458,3 +465,5 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 - **Receipt**: Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)**: A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).
 - **NFC / NFD**: Unicode Normalization Forms (Composed / Decomposed). The same logical character can be byte-different across systems unless normalized.
+
+</div>

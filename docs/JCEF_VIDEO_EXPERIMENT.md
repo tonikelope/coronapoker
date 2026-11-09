@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Poker videos with JCEF
 
 The player is available on the main menu, in the waiting room and at the table. Open
@@ -67,7 +69,9 @@ uses the public results document and limits each download to 12 MiB and
 When a search or saved favorite only has a video ID, the player looks up
 the title in the background.
 If the network or search format fails, the panel offers a retry while the
-rest of the game remains available.
+rest of the game remains available. The player shows its initialization status
+while the browser and YouTube API start. The video loading message begins
+when playback is requested for the selected video.
 
 The game can recreate the visible browser once per opening. It does so
 after 30 seconds without a bridge response or its first uploaded frame,
@@ -87,7 +91,8 @@ The GDX debug file keeps the full session. The CoronaPoker debug console
 shows the latest part of the same log, including Java stdout and stderr,
 Chromium warnings, browser console messages, browser and YouTube readiness,
 playback progress, and counts of frames copied and uploaded. On Windows the
-debug file is under `%USERPROFILE%\.coronapoker\Debug`. If the player stalls,
+debug file is under `%USERPROFILE%\.coronapoker\Debug`. Use **Copy Log** under
+**Settings > Debug** to copy the log shown in the game. If the player stalls,
 leave it visible until the recovery is logged so that the file records both
 browser sessions.
 
@@ -115,3 +120,5 @@ mute state. The page preserves subsequent user choices.
 
 For a silent native test, `-Dcoronapoker.video.silentOutput=true` suppresses
 Chromium's audio output while preserving the audio control and API state.
+
+</div>

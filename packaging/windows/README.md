@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Windows installer
 
 CoronaPoker publishes a portable JAR per supported platform and additionally a
@@ -139,3 +141,5 @@ not as a replacement for the portable package. For every release:
    the current Windows JAR in `target` until final publication.
 6. Keep only the newest public GitHub release and the historical 24.10
    release, after verifying the new release. Preserve historical Git tags.
+
+</div>

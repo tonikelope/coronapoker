@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Diagram sources and PNG exports
 
 Every diagram in this directory has a Draw.io source with the same base name.
@@ -32,3 +34,5 @@ The crypto and bot generators under `tools/diagrams` follow the same rule.
 Export at the dimensions in the table and compare the final PNG dimensions
 before committing. This preserves small labels and connector detail in the
 rendered documentation.
+
+</div>

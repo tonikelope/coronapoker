@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Headless protocol simulator
 
 This lane is separate from the bot-quality simulator. Every simulated peer owns
@@ -122,3 +124,5 @@ integration guarantees from this headless campaign by itself.
 
 Those items are added incrementally by composing or extracting production
 components. Protocol logic must not be copied into a parallel implementation.
+
+</div>

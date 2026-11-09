@@ -1,3 +1,5 @@
+<div align="justify">
+
 # CoronaPoker architecture
 
 CoronaPoker is a libGDX desktop application. Poker rules, network
@@ -262,3 +264,5 @@ Earlier implementations remain available in Git history for behavioral
 comparison. They are not part of the active source tree, Maven reactor,
 distribution or runtime. Behavior still being matched must be expressed as a
 core or GDX scenario so it remains executable in the current product.
+
+</div>

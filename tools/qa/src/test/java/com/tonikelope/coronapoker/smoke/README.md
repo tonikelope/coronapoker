@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Smoke harness: fast refactoring invariants
 
 This package contains the invariant smoke tests run before code changes are
@@ -77,3 +79,5 @@ Before adding one, use the layer selector in
 [Adding test scenarios](../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md).
 A normal domain regression usually belongs beside its package. A flow requiring
 real sockets or `Crupier` belongs in the multi-JVM simulator.
+
+</div>

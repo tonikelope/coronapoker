@@ -464,3 +464,5 @@ Selected avatars pass the same bounded image validation used for player
 avatars, are copied into CoronaPoker-owned durable storage, and travel through
 the existing lobby avatar channel. The catalogue is host-local and lives in the
 normal preferences, not in a MOD pack or in authoritative game state.
+
+</div>

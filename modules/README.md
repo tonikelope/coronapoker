@@ -1,3 +1,5 @@
+<div align="justify">
+
 # CoronaPoker product modules
 
 This directory contains the Maven reactor for the CoronaPoker desktop
@@ -67,3 +69,5 @@ execution and `../docs/ADDING_TEST_SCENARIOS.md` for authoring.
 A successful automated build does not validate visual fidelity, audio quality
 or frame pacing. Those release checks require a manual run on the supported
 display configurations.
+
+</div>

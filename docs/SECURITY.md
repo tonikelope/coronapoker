@@ -315,6 +315,10 @@ in `disputed_hands`, mirrors the exact report to
 `logs/zero_trust_evidence_<timestamp>.log`, prints it between explicit evidence
 delimiters in the persistent game log and debug output, classifies the session
 as `FAILURE`, and waits for the player to acknowledge the Zero Trust alert.
+The alert takes priority over preparation and closing overlays and other
+table dialogs.
+
+![Example Zero Trust alert in English on a CoronaPoker table](screenshots/zero-trust-en.png)
 
 | Detection family | Example | Hand state after rejection | Multiprocess certification |
 |---|---|---|---|
@@ -540,3 +544,5 @@ If you want to follow any of the above end-to-end:
 - Identicons: [`IdenticonFingerprint.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/core/IdenticonFingerprint.java) and the GDX view in [`GdxFrontendScreen.java`](../modules/coronapoker-gdx/src/main/java/com/tonikelope/coronapoker/gdx/GdxFrontendScreen.java)
 
 Deepest spec (motivation, design rationale, wire encoding tables) for the identity layer: [`ec-identity-spec.md`](ec-identity-spec.md).
+
+</div>

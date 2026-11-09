@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Contributors
 
 CoronaPoker is developed by [@tonikelope](https://github.com/tonikelope).
@@ -18,3 +20,5 @@ mid-game joiners, repeated recovery flows) and the quality of the debug
 logs attached to every report were essential to pinpoint root causes that
 would otherwise have been extremely hard to reproduce.
 Thanks for caring about the project at this level.
+
+</div>

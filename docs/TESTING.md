@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Testing and certification
 
 CoronaPoker separates code verification from gameplay certification. Use this
@@ -486,3 +488,5 @@ Do not infer the authoring workflow from the runner. The separate
 [Adding test scenarios](ADDING_TEST_SCENARIOS.md) guide explains layer choice,
 semantic gates, registration, process isolation, replay and the definition of
 done.
+
+</div>

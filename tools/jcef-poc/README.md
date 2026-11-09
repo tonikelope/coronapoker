@@ -1,3 +1,5 @@
+<div align="justify">
+
 # CoronaPoker JCEF / libGDX OSR PoC
 
 This standalone proof of concept tests whether an official YouTube player can
@@ -132,3 +134,5 @@ tools to measure those processes when evaluating a production integration.
 - [JCEF](https://github.com/chromiumembedded/java-cef)
 - [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
 - [YouTube client identity and Referer](https://developers.google.com/youtube/terms/required-minimum-functionality#api-client-identity-and-credentials)
+
+</div>

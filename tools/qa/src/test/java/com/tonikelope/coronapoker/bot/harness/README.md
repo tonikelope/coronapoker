@@ -1,3 +1,5 @@
+<div align="justify">
+
 # CoronaPoker Bot Testing Suite
 
 This directory contains the complete off-line testing infrastructure used
@@ -562,3 +564,5 @@ testing methodology). The mistake-injection difficulty pattern is the
 same approach the Stockfish chess engine uses for sub-elite skill
 levels and that the major sports video games (FIFA, NBA 2K, Madden)
 use for AI difficulty differentiation.
+
+</div>

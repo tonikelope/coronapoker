@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Adding test scenarios
 
 This guide is for contributors who need new automated gameplay coverage. Read
@@ -227,3 +229,5 @@ failing product green.
 
 Manual visual, audio-device, Internet, NAT and operating-system checks still
 complement the automated certificate.
+
+</div>

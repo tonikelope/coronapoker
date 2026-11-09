@@ -105,6 +105,8 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, with Previous/Next controls and keyboard navigation |
 
+![English game table with the pot amount, player count and dimmed folded seats](docs/screenshots/table-en.png)
+
 ### 📜 Robert's Rules of Poker compliance
 
 CoronaPoker follows **Robert's Rules of Poker**, the de-facto standard cardroom rulebook, for every rule a digital game can meaningfully enforce. The betting engine cites the specific rules right in its source (`BetRules.java`). The table below maps the implementation to the rulebook's *play* rules. (A lot of the casino-floor rules only make sense in a brick-and-mortar room and simply don't apply to a peer-to-peer digital table: rake and collection, cash on the table, physically protecting your hand, verbal-in-turn etiquette, foreign-language and waiting-list policy. On top of that, the verifiable-deck protocol already makes most of the frauds they exist to prevent impossible by construction.)
@@ -189,10 +191,10 @@ Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdo
 
 ## 🎥 Poker videos
 
-Watch YouTube poker videos in a floating player on the main menu or in the
-waiting room. Playback starts muted, with YouTube's audio and caption
-controls available. If you leave the player open, the game restores your
-video session when you return from the table.
+Watch YouTube poker videos on the main menu, in the waiting room and at the
+live table. Starting a game closes the player from the waiting room. Use the
+video icon to reopen it during play. Playback starts muted, with YouTube's
+audio and caption controls available.
 
 - **Carousel**. Start with regular videos by default or switch to Shorts.
   Search prioritises the game's language. The carousel shuffles each batch,
@@ -201,8 +203,9 @@ video session when you return from the table.
   Browse with the arrow buttons and see your position in the list. The
   player adapts to each video's format.
 - **Resizable window**. Drag or resize the player. It remembers its position
-  and size separately for each format across restarts. Close it to minimise
-  it to the icon next to the volume control.
+  and size separately for each format across restarts. Maximise it from the
+  title bar or adjust the opacity with the slider below the video. Close the
+  window to minimise it to the icon next to the volume control.
 - **Startup and animations**. Choose whether the player opens at startup
   and whether its window animates when opening or closing.
 
@@ -253,6 +256,8 @@ can safely overlay the supported presentation assets:
 - **Straddle timeout** is a personal setting under Game Settings > Blinds. By default the player declines when time runs out.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.
 - **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.
+
+![English Appearance settings showing the table display options](docs/screenshots/appearance-table-en.png)
 
 ---
 
@@ -498,3 +503,5 @@ release gates. Contributors extending the catalogue should use
 ## 🙌 Contributors
 
 CoronaPoker is developed by [@tonikelope](https://github.com/tonikelope), with a heartfelt thank-you to the bug reporters and testers whose detailed reports keep the project moving forward. The full list lives in **[`CONTRIBUTORS.md`](CONTRIBUTORS.md)**.
+
+</div>

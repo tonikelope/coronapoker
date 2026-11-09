@@ -79,7 +79,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private final PokerVideoFrameBuffer frameBuffer;
     private volatile String playerLanguage;
     private final AtomicBoolean closed = new AtomicBoolean();
-    private PokerVideoLocalServer localServer;
+    private volatile PokerVideoPage localPage;
     private final java.util.function.Consumer<CefAppState> cefStateListener = this::onCefStateChanged;
     private CefClient client;
     private CefMessageRouter messageRouter;
@@ -186,16 +186,17 @@ final class PokerVideoRuntime implements AutoCloseable {
         boolean restoreAudio = restoreAudioOnNextSession;
         boolean initialMuted = restoreAudio ? resumeMuted : true;
         int initialVolume = restoreAudio ? resumeVolume : 100;
-        localServer = PokerVideoLocalServer.start(videos, currentIndex,
+        PokerVideoPage page = PokerVideoPage.create(videos, currentIndex,
                 resumeSeconds, initialMuted, initialVolume, playerLanguage,
                 orderedPlaylist, playlistRevision);
+        localPage = page;
         restoreAudioOnNextSession = false;
         browserPlaylistRevision = playlistRevision;
         apiRecoveryAttempts = 0;
         documentLoad.reset();
         loadingKey = "gdx.video.loading.player";
-        pageUrl = localServer.playerUrl();
-        refererOrigin = localServer.origin();
+        pageUrl = page.playerUrl();
+        refererOrigin = page.origin();
         CefBrowserSettings browserSettings = new CefBrowserSettings();
         browserSettings.windowless_frame_rate = 30;
         sessionNumber++;
@@ -390,6 +391,11 @@ final class PokerVideoRuntime implements AutoCloseable {
                     CefBrowser source, CefFrame frame, CefRequest request,
                     boolean isNavigation, boolean isDownload,
                     String requestInitiator, BoolRef disableDefaultHandling) {
+                PokerVideoPage page = localPage;
+                if (source == browser && page != null && page.owns(request.getURL())) {
+                    disableDefaultHandling.set(true);
+                    return page;
+                }
                 return isYouTubeHost(request.getURL()) ? refererHandler : null;
             }
         });
@@ -775,9 +781,9 @@ final class PokerVideoRuntime implements AutoCloseable {
             } catch (RuntimeException ignored) {
             }
         }
-        if (localServer != null) {
-            localServer.close();
-            localServer = null;
+        if (localPage != null) {
+            localPage.close();
+            localPage = null;
         }
         state = "REPRODUCTOR EN REPOSO";
     }

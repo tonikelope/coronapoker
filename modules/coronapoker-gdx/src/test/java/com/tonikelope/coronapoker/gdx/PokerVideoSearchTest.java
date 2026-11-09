@@ -4,17 +4,19 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.badlogic.gdx.math.Rectangle;
 import com.sun.net.httpserver.HttpServer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.cef.misc.IntRef;
 import org.junit.jupiter.api.Test;
 
 class PokerVideoSearchTest {
@@ -196,49 +199,43 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void idleSpeculativeConnectionDoesNotBlockThePlayerDocument() throws Exception {
-        try (PokerVideoLocalServer server = PokerVideoLocalServer.start(List.of(
-                new PokerVideoSearch.Video("ABCDEFGHIJK", "First")), 0, 0, true, 100, "es")) {
-            URI origin = URI.create(server.origin());
-            try (var idle = new java.net.Socket(origin.getHost(), origin.getPort())) {
-                idle.getOutputStream().write("GET /player/ HTTP/1.1\r\n".getBytes(StandardCharsets.US_ASCII));
-                var response = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
-                        URI.create(server.playerUrl())).timeout(Duration.ofMillis(1500)).GET().build(),
-                        HttpResponse.BodyHandlers.ofString());
-                assertEquals(200, response.statusCode());
-                assertTrue(response.body().contains("ABCDEFGHIJK"));
-            }
+    void eachPlayerPageHasItsOwnOriginWithoutAListeningServer() throws Exception {
+        var videos = List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "First"));
+        try (var first = PokerVideoPage.create(videos, 0, 0, true, 100, "es", false, 0);
+                var second = PokerVideoPage.create(videos, 0, 0, true, 100, "es", false, 0);
+                var socket = new Socket()) {
+            assertNotEquals(first.origin(), second.origin());
+            URI origin = URI.create(first.origin());
+            assertEquals("127.0.0.1", origin.getHost());
+            assertThrows(IOException.class, () -> socket.connect(
+                    new InetSocketAddress(origin.getHost(), origin.getPort()), 500));
         }
     }
 
     @Test
-    void localPlayerOnlyServesItsDocumentAndClosesPendingConnections()
-            throws Exception {
-        PokerVideoLocalServer server = PokerVideoLocalServer.start(List.of(
-                new PokerVideoSearch.Video("ABCDEFGHIJK", "First")),
-                0, 0, true, 100, "es");
-        URI origin = URI.create(server.origin());
-        try (server) {
-            HttpClient client = HttpClient.newHttpClient();
-            assertEquals(404, client.send(HttpRequest.newBuilder(origin.resolve("/other"))
-                    .GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode());
-            assertEquals(405, client.send(HttpRequest.newBuilder(origin.resolve("/player/"))
-                    .POST(HttpRequest.BodyPublishers.noBody()).build(),
-                    HttpResponse.BodyHandlers.discarding()).statusCode());
-            assertEquals(204, client.send(HttpRequest.newBuilder(origin.resolve("/favicon.ico"))
-                    .GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode());
-            var head = client.send(HttpRequest.newBuilder(URI.create(server.playerUrl()))
-                    .method("HEAD", HttpRequest.BodyPublishers.noBody()).build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, head.statusCode());
-            assertEquals("", head.body());
-            try (var pending = new java.net.Socket(origin.getHost(), origin.getPort())) {
-                pending.setSoTimeout(2000);
-                pending.getOutputStream().write("GET /player/ HTTP/1.1\r\n".getBytes(StandardCharsets.US_ASCII));
-                server.close();
-                assertEquals(-1, pending.getInputStream().read());
-            }
+    void playerPageOnlyServesItsMainDocumentAndCanBeReloaded() throws Exception {
+        try (var page = PokerVideoPage.create(List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "First")),
+                0, 0, true, 100, "es", false, 0)) {
+            assertTrue(page.owns(page.playerUrl()));
+            assertFalse(page.owns("https://www.youtube.com/embed/ABCDEFGHIJK"));
+            assertNull(page.resource(page.origin() + "/favicon.ico", "GET", true));
+            assertNull(page.resource(page.playerUrl(), "POST", true));
+            assertNull(page.resource(page.playerUrl(), "GET", false));
+            String document = readPage(page);
+            assertTrue(document.contains("ABCDEFGHIJK"));
+            assertEquals(document, readPage(page));
         }
+    }
+
+    private static String readPage(PokerVideoPage page) {
+        var response = page.resource(page.playerUrl(), "GET", true);
+        var body = new ByteArrayOutputStream();
+        byte[] chunk = new byte[1024];
+        var length = new IntRef();
+        while (response.readResponse(chunk, chunk.length, length, null)) {
+            body.write(chunk, 0, length.get());
+        }
+        return body.toString(StandardCharsets.UTF_8);
     }
 
     @Test
@@ -247,15 +244,9 @@ class PokerVideoSearchTest {
         List<PokerVideoSearch.Video> videos = List.of(
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"),
                 new PokerVideoSearch.Video("LMNOPQRSTUV", "Second"));
-        try (PokerVideoLocalServer server = PokerVideoLocalServer.start(videos,
-                1, 73, false, 64, "en")) {
-            HttpResponse<String> response = HttpClient.newHttpClient().send(
-                    HttpRequest.newBuilder(URI.create(server.playerUrl())).GET()
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
-
-            String html = response.body().replace("\r\n", "\n");
-            assertEquals(200, response.statusCode());
+        try (var page = PokerVideoPage.create(videos, 1, 73, false, 64, "en", false, 0)) {
+            String html = readPage(page).replace("\r\n", "\n");
+            assertTrue(html.contains("const ORIGIN = '" + page.origin() + "'"));
             assertTrue(html.contains(
                     "let VIDEO_IDS = ['ABCDEFGHIJK','LMNOPQRSTUV']"));
             assertTrue(html.contains("let currentIndex = 1"));
@@ -312,8 +303,10 @@ class PokerVideoSearchTest {
             assertTrue(html.contains(
                     "if (event.data === 0) selectRelative(1)"));
             assertEquals("strict-origin-when-cross-origin",
-                    response.headers().firstValue("Referrer-Policy")
-                            .orElseThrow());
+                    PokerVideoPage.HEADERS.get("Referrer-Policy"));
+            assertEquals("no-store", PokerVideoPage.HEADERS.get("Cache-Control"));
+            assertEquals("autoplay=(self \"https://www.youtube.com\")",
+                    PokerVideoPage.HEADERS.get("Permissions-Policy"));
         }
     }
 
@@ -322,12 +315,8 @@ class PokerVideoSearchTest {
             throws Exception {
         List<PokerVideoSearch.Video> videos = List.of(
                 new PokerVideoSearch.Video("ABCDEFGHIJK", "First"));
-        try (PokerVideoLocalServer server = PokerVideoLocalServer.start(videos,
-                0, 0, true, 100, "es")) {
-            String body = HttpClient.newHttpClient().send(
-                    HttpRequest.newBuilder(URI.create(server.playerUrl())).GET()
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString()).body();
+        try (var page = PokerVideoPage.create(videos, 0, 0, true, 100, "es", false, 0)) {
+            String body = readPage(page);
 
             assertTrue(body.contains("const INITIAL_MUTED = true"));
             assertTrue(body.contains("let desiredMuted = INITIAL_MUTED"));

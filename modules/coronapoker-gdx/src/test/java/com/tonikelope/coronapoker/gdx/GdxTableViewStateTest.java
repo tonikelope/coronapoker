@@ -197,35 +197,62 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void potCountsOnlyPaidContendersIncludingDepartedAllIns() {
-        TableSnapshot.PlayerSnapshot allIn = new TableSnapshot.PlayerSnapshot(
-                "all-in", 0d, 0d, 10d, false, false, true, false,
+    void potCountsPlayersWhoCanStillActInTheHand() {
+        TableSnapshot.PlayerSnapshot warming = new TableSnapshot.PlayerSnapshot(
+                "warming", 10d, 0d, 0d, false, true, false, false,
                 -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
-                TableSnapshot.Decision.ALL_IN, TableSnapshot.ActionKind.ALL_IN,
-                "", "", List.of(), 10, 0, false);
-        TableSnapshot.PlayerSnapshot folded = new TableSnapshot.PlayerSnapshot(
-                "folded", 9d, 0d, 1d, true, false, false, false,
-                -2, -2, 0, 0L, false, false, TableSnapshot.Position.NONE,
-                TableSnapshot.Decision.FOLD, TableSnapshot.ActionKind.FOLD,
-                "", "", List.of(), 10, 0, false);
+                TableSnapshot.Decision.NONE, TableSnapshot.ActionKind.NONE,
+                "", "", List.of(), 10, 0, true);
         GdxTableViewState state = new GdxTableViewState(snapshotWithPlayers(
-                false, "", player("ana", TableSnapshot.Position.DEALER),
-                timedOutPlayer("connected-seat"), allIn, folded,
+                false, "", potCountSeat("ana", 4d, TableSnapshot.Position.DEALER),
+                potCountSeat("small", 1d, TableSnapshot.Position.SMALL_BLIND),
+                potCountSeat("big", 2d, TableSnapshot.Position.BIG_BLIND),
+                timedOutPlayer("pending"), player("folding", TableSnapshot.Position.NONE), warming,
                 playerWithAvailability("observer", false, true, false, false),
                 playerWithAvailability("left", false, false, true, false)));
 
-        assertEquals(1, state.potContenderCount(),
-                "uncommitted seats and folded contributions do not count");
-        state.apply(new TableVisualEvent.PlayerAction(1L, "ana",
-                TableVisualEvent.PlayerAction.ActionKind.CALL, "VA",
-                1d, 1d, 999d, 1d, 11d));
-        assertEquals(2, state.potContenderCount());
-        state.apply(new TableVisualEvent.FoldHoleCards(2L, "ana"));
-        assertEquals(1, state.potContenderCount());
-        assertEquals(0, new GdxTableViewState(snapshotAt(
-                TableSnapshot.Street.WAITING)).potContenderCount());
-        assertEquals(0, new GdxTableViewState(snapshotAt(
-                TableSnapshot.Street.FINISHED)).potContenderCount());
+        state.apply(new TableVisualEvent.PlayerAction(1L, "small",
+                TableVisualEvent.PlayerAction.ActionKind.SMALL_BLIND, "",
+                .1d, .1d, .9d, .1d, .1d));
+        state.apply(new TableVisualEvent.PlayerAction(2L, "big",
+                TableVisualEvent.PlayerAction.ActionKind.BIG_BLIND, "",
+                .2d, .2d, 1.8d, .2d, .2d));
+        assertEquals(5, state.playersAbleToAct(),
+                "all dealt players with chips count, including those waiting to act");
+        state.apply(new TableVisualEvent.PlayerAction(3L, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.RAISE, "",
+                2d, 2d, 2d, 2d, 2d));
+        assertEquals(5, state.playersAbleToAct(),
+                "players can still respond even when they can only call all-in");
+        state.apply(new TableVisualEvent.FoldHoleCards(4L, "folding"));
+        assertEquals(4, state.playersAbleToAct(), "folding removes the player from the count");
+        state.apply(new TableVisualEvent.PlayerAction(5L, "small",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "",
+                1d, .9d, 0d, 1d, 1d));
+        assertEquals(3, state.playersAbleToAct(), "a short all-in cannot act again");
+        state.apply(new TableVisualEvent.PlayerAction(6L, "big",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "",
+                2d, 1.8d, 0d, 2d, 2d));
+        assertEquals(2, state.playersAbleToAct(), "a matched all-in cannot act again either");
+        state.apply(new TableVisualEvent.PlayerAction(7L, "pending",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "",
+                1000d, 1000d, 0d, 1000d, 1000d));
+        assertEquals(1, state.playersAbleToAct(), "only the player facing the all-in can act");
+        state.apply(new TableVisualEvent.PlayerAction(8L, "ana",
+                TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "",
+                4d, 2d, 0d, 4d, 4d));
+        assertEquals(0, state.playersAbleToAct(), "an all-in runout has no players able to act");
+        for (var street : List.of(TableSnapshot.Street.WAITING,
+                TableSnapshot.Street.SHOWDOWN, TableSnapshot.Street.FINISHED)) {
+            assertEquals(0, new GdxTableViewState(snapshotAt(street)).playersAbleToAct());
+        }
+    }
+
+    private static TableSnapshot.PlayerSnapshot potCountSeat(String nickname,
+            double stack, TableSnapshot.Position position) {
+        return new TableSnapshot.PlayerSnapshot(nickname, stack, 0d, 0d,
+                true, false, false, false, -2, -2, 0, 0L,
+                false, position, "", "", List.of());
     }
 
     @Test

@@ -15520,8 +15520,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelX = potCenterX - panelWidth / 2f;
         float panelY = potCenterY - panelHeight / 2f;
         float iconCenterX = potChipRackCenterX(potCenterX);
-        boolean showPotCount = tablePreference(
-                GdxSettingsContract.POT_PLAYER_COUNT_KEY, true);
+        int actingPlayers = tablePreference(
+                GdxSettingsContract.POT_PLAYER_COUNT_KEY, true)
+                ? liveState.playersAbleToAct() : 0;
+        boolean showPotCount = actingPlayers > 0;
         float bottomInset = potContentBottomInset();
         float amountY = panelY + bottomInset;
         float amountHeight = POT_AMOUNT_TOP_OFFSET - bottomInset;
@@ -15556,17 +15558,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFadingChipRack(iconCenterX, iconBaseY, potLayout,
                     physicalCounts, opacity, potGeometry, 0x504f54);
         }
-        float textLeft = panelX + 88f;
-        float textRight = panelX + panelWidth - 14f;
         if (showPotCount) {
-            textRight = countX - POT_PLAYER_COUNT_INSET;
             drawFittedCenteredInBox(mediumUiFont,
-                    Integer.toString(liveState.potContenderCount()),
+                    Integer.toString(actingPlayers),
                     countX + 4f, countY + 4f,
                     POT_PLAYER_COUNT_WIDTH - 8f, POT_PLAYER_COUNT_HEIGHT - 8f,
                     Color.BLACK, opacity);
         }
-        float textWidth = textRight - textLeft;
+        // Match the chip lane on both sides to keep the text on the panel axis.
+        float textInset = 88f;
+        float textLeft = panelX + textInset;
+        float textWidth = panelWidth - 2f * textInset;
         drawFittedCenteredInBox(stackFont, potText.title(),
                 textLeft, panelY + panelHeight - 27f, textWidth, 20f,
                 Color.WHITE, opacity);

@@ -275,26 +275,23 @@ final class GdxTableViewState {
         return lateShownHands.contains(nickname);
     }
 
-    int potContenderCount() {
-        if (snapshot.street() == TableSnapshot.Street.WAITING
-                || snapshot.street() == TableSnapshot.Street.FINISHED) {
+    int playersAbleToAct() {
+        var street = snapshot.street();
+        if (street == TableSnapshot.Street.WAITING || street == TableSnapshot.Street.SHOWDOWN
+                || street == TableSnapshot.Street.FINISHED) {
             return 0;
         }
-        int contenders = 0;
+        int count = 0;
         for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
-            if (MoneyMath.compare(player.potContribution(), 0d) <= 0
-                    || player.spectator()
-                    || player.decision() == TableSnapshot.Decision.FOLD
-                    || foldedThisHand(player.nickname())) {
-                continue;
-            }
-            // An all-in remains eligible even if the player leaves the table.
-            if (player.decision() == TableSnapshot.Decision.ALL_IN
-                    || (player.active() && !player.exited())) {
-                contenders++;
+            if (player.active() && !player.spectator() && !player.warming()
+                    && !player.exited() && player.stack() > 0d
+                    && player.decision() != TableSnapshot.Decision.FOLD
+                    && player.decision() != TableSnapshot.Decision.ALL_IN
+                    && !foldedThisHand(player.nickname())) {
+                count++;
             }
         }
-        return contenders;
+        return count;
     }
 
     boolean foldedThisHand(String nickname) {

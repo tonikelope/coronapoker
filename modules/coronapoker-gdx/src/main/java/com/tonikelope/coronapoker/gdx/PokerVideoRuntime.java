@@ -719,9 +719,8 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     synchronized boolean pollRecovery(boolean running) {
-        long now = System.nanoTime();
         if (!running || closed.get() || (browser == null && !browserClosing)) {
-            documentLoad.poll(false, false, now);
+            documentLoad.poll(false, false, System.nanoTime());
             return false;
         }
         boolean hasFrame = frameBuffer.copiedFrames() > copiedAtOpen
@@ -730,7 +729,7 @@ final class PokerVideoRuntime implements AutoCloseable {
             loggedFirstUpload = true;
             logStage("first frame uploaded");
         }
-        boolean documentTimedOut = documentLoad.poll(true, hasFrame || browserClosing, now);
+        boolean documentTimedOut = documentLoad.poll(true, hasFrame || browserClosing, System.nanoTime());
         if (documentTimedOut) {
             LOG.log(Level.WARNING, "Poker video session {0} watchdog | {1} | created={2}, closing={3}, ready={4}, frames={5}/{6}",
                     new Object[]{sessionNumber, documentLoad.error(), browserCreated, browserClosing,
@@ -738,15 +737,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                         frameBuffer.uploadedFrames() - uploadedAtOpen});
         }
         CefBrowser stalled = stalledPlayback.getAndSet(null);
-        LibGdxCefBrowser current = browser;
-        if (current == null) return false;
-        if (documentTimedOut || stalled == current) return true;
-        if (browserCreated && documentLoad.takeInitialNavigationRetry(now)) {
-            logStage("retrying local page navigation");
-            current.stopLoad();
-            current.loadURL(pageUrl);
-        }
-        return false;
+        return browser != null && (documentTimedOut || stalled == browser);
     }
 
     String documentLoadError() { return documentLoad.error(); }

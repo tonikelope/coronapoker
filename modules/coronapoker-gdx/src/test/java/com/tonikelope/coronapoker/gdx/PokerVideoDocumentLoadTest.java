@@ -4,39 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class PokerVideoDocumentLoadTest {
-    @Test void aPendingInitialNavigationCanBeRetriedOnlyOncePerBrowser() {
-        var load = new PokerVideoDocumentLoad();
-        long retry = PokerVideoDocumentLoad.INITIAL_NAVIGATION_RETRY_NANOS;
-        assertFalse(load.takeInitialNavigationRetry(1));
-        assertFalse(load.takeInitialNavigationRetry(retry));
-        assertTrue(load.takeInitialNavigationRetry(retry + 1));
-        assertFalse(load.takeInitialNavigationRetry(retry * 2 + 1));
-        load.reset();
-        assertFalse(load.takeInitialNavigationRetry(1));
-        assertTrue(load.takeInitialNavigationRetry(retry + 1));
-    }
-
-    @Test void anObservedDocumentOrBridgePreventsAnInitialNavigationRetry() {
-        var load = new PokerVideoDocumentLoad();
-        long retry = PokerVideoDocumentLoad.INITIAL_NAVIGATION_RETRY_NANOS;
-        load.takeInitialNavigationRetry(1);
-        load.loading();
-        assertFalse(load.takeInitialNavigationRetry(retry + 1));
-        load.reset();
-        load.takeInitialNavigationRetry(1);
-        load.loaded();
-        assertFalse(load.takeInitialNavigationRetry(retry + 1));
-    }
-
-    @Test void hidingThePlayerSuspendsTheInitialNavigationRetry() {
-        var load = new PokerVideoDocumentLoad();
-        long retry = PokerVideoDocumentLoad.INITIAL_NAVIGATION_RETRY_NANOS;
-        load.takeInitialNavigationRetry(1);
-        load.poll(false, false, retry * 2);
-        assertFalse(load.takeInitialNavigationRetry(retry * 3));
-        assertTrue(load.takeInitialNavigationRetry(retry * 4));
-    }
-
     @Test void nativeDocumentHasABoundedVisibleLoadTime() {
         var load = new PokerVideoDocumentLoad();
         assertFalse(load.poll(true, false, 1));

@@ -78,6 +78,11 @@ public interface DealerView {
         return player.isActivo();
     }
 
+    /** Whether the betting round has reopened for this seat. */
+    default boolean canPlayerRaise(String nickname) {
+        return true;
+    }
+
     int getJugadoresActivos();
 
     /**

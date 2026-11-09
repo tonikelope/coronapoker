@@ -85,6 +85,7 @@ class BotBenchmarkTest {
             Bot.TRACKER_MEMORY.clear();
             long seed = BASE_SEED ^ (difficulty.ordinal() * 0xA5A5A5L) ^ (session * 0x10001L);
             HeadsUpSimulator sim = new HeadsUpSimulator(seed, STARTING_STACK, BIG_BLIND, evaluator);
+            sim.setBotDifficulties(difficulty, difficulty);
             for (int i = 0; i < HANDS_PER_SESSION; i++) {
                 sim.resetStacks();
                 sim.playOneHand(i % 2 == 0);

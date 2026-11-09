@@ -186,29 +186,32 @@ action from **position × profile × bet level**:
 The postflop branch builds the picture in stages (all cached so a betting round
 does not recompute invariants):
 
-1. **`strength`** ← `handStrengthVsN` (cached per street + opponent count).
-2. **`PPot` / `NPot`** ← `potential` (cached per street, the river is `0`).
-3. **`effective strength`** ← the formula in §3, minus overcard / weak-kicker
-   penalties, floored at `0.10`. The overcard penalty only applies when the
-   best five-card hand is still one pair.
+1. **`strength`** comes from heads-up win and tie frequencies cached for the
+   street. Against multiple opponents it estimates the share of the pot,
+   including fractional shares when more than two players tie.
+2. **`PPot` / `NPot`** come from `potential`, cached per street and zero on
+   the river. Before the river, the bot applies the draw adjustment heads-up
+   before combining the estimates for multiple opponents.
+3. **`effective strength`** includes one-pair overcard and weak-kicker
+   penalties. The `0.10` floor is used for style thresholds only.
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
    than `0.15` flags a scare card (and can downgrade an aggressive plan).
 5. **`winProb` adjustments** to the raw equity for the *context*. The whole
    block applies **only to non-`RECREATIONAL` skills**: a `RECREATIONAL` bot
    skips every adjustment below and only gets a `+0.10` nudge when on tilt.
-   - −0.10 in a 3-bet-or-larger pot, −0.04 per extra multiway opponent,
-     −0.12 on a scare card (skipped for a LAG profile, which does not flinch at
+   - −0.10 when facing a postflop raise, −0.12 on a scare card (skipped for
+     a LAG profile, which does not flinch at
      scare cards), −0.03 out of position.
    - opponent read (when there is enough data): −0.18 vs a nit, +0.12 vs a
      maniac, −0.03 vs a station.
    - a touch of random noise on EASY.
-6. **Expected value:** a call compares the contestable pot, including bets
-   already made, with the additional chips at risk. Safe draws can get an
-   implied-odds bonus capped by the effective stack behind. A raise
-   estimates the odds that every opponent folds, the chips callers add,
-   and how much of the raise they can match. Fold probabilities depend on
-   size, board and opponent reads. This is an estimate using independent
-   fold probabilities and the original multiway equity when called.
+6. **Expected value:** the bot prices checks, calls and legal raises using
+   each pot's contributions and eligible players. It treats excess
+   uncalled chips as a refund and uses the expected share for each pot.
+   Safe draws can get an implied-odds bonus capped by the effective stack
+   behind. Raise outcomes use independent fold estimates based on bet size,
+   board and opponent reads. Showdown equity uses uniform opponent hands
+   and approximates multiway outcomes as independent.
 7. **Pot commitment:** at low SPR with a strong hand the bot treats itself as
    committed and stops folding.
 
@@ -332,8 +335,10 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
   The PPot threshold is lower on the turn (one card to come) so the turn is not
   played face-up.
 - **Preflop 3-bet bluffs and squeezes** with blocker hands.
-- **Floats**: calling in position on the flop to take the pot away on the
-  turn when the action and expected value still support a bluff.
+- **Floats**: calling in position on the flop when the price leaves enough
+  expected value for a possible turn bluff. The bot discounts the projected
+  gain, compares it with the available flop actions and checks the price
+  and action again on the turn.
 - **Reading the calling station**: the single biggest "human" fix: the bot
   detects a non-folder (even early, via `looksPassiveStation()`) and switches from
   bluffing to thin value-betting, exactly as a thinking player would.
@@ -387,6 +392,17 @@ slow non-bot lanes.
 ```
 mvn -f tools/reactor/pom.xml verify -P qa-bots
 ```
+
+The offline betting rounds use the table's raise reducer and settle side pots
+with `CoreGamePot`. A street that exhausts its action limit fails the test.
+PFR counts any player who raised preflop. The final preflop aggressor is tracked
+separately for continuation-bet statistics. A seeded regression also plays an
+uneven-stack session until the first bust or the end of the sample.
+
+The statistical matchups reset to the same stacks each hand so the sample
+compares decisions at a controlled depth. Fixed-strategy opponents are
+benchmarks, and the TAG result is reported separately. The difficulty checks
+require a minimum observed margin and evidence of an advantage over zero.
 
 The other QA profiles and their intended use are defined in
 [Testing and certification](TESTING.md).

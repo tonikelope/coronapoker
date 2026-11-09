@@ -60,6 +60,7 @@ class BluffBalanceTest {
             HeadsUpSimulator sim = new HeadsUpSimulator(seed, STARTING_STACK, BIG_BLIND, evaluator);
             boolean hardIsA = (session % 2 == 0);
             Bot hardBot = new Bot(hardIsA ? sim.playerA() : sim.playerB());
+            hardBot.setRng(new java.util.Random(seed ^ 0xD3C1510AL));
             hardBot.setDifficulty(Bot.Difficulty.HARD);
             FixedStrategyBot oppBot = new FixedStrategyBot(
                     hardIsA ? sim.playerB() : sim.playerA(), opp, seed ^ 0xF1ED000DEAL);

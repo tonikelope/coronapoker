@@ -50,10 +50,11 @@ public final class TestBotPlayer implements BotPlayerView {
         committed = 0;
     }
 
-    void commit(double amount) {
-        stack -= amount;
-        bet += amount;
-        committed += amount;
+    public void commit(double amount) {
+        long chips = SimulatedBettingRound.cents(amount);
+        stack = SimulatedBettingRound.money(SimulatedBettingRound.cents(stack) - chips);
+        bet = SimulatedBettingRound.money(SimulatedBettingRound.cents(bet) + chips);
+        committed = SimulatedBettingRound.money(SimulatedBettingRound.cents(committed) + chips);
     }
 
     @Override

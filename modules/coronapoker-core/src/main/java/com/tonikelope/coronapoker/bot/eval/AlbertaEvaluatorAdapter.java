@@ -44,18 +44,20 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
 
     @Override
     public double handStrength(int hole1, int hole2, int[] board) {
-        org.alberta.poker.Card c1 = new org.alberta.poker.Card(hole1);
-        org.alberta.poker.Card c2 = new org.alberta.poker.Card(hole2);
-        return he.handRank(c1, c2, toHand(board));
+        return showdownOdds(hole1, hole2, board).equity(1);
     }
 
     @Override
-    public double handStrengthVsN(int hole1, int hole2, int[] board, int opponents) {
+    public synchronized ShowdownOdds showdownOdds(int hole1, int hole2, int[] board) {
         requireCardIndex(hole1, "hole1");
         requireCardIndex(hole2, "hole2");
         org.alberta.poker.Card c1 = new org.alberta.poker.Card(hole1);
         org.alberta.poker.Card c2 = new org.alberta.poker.Card(hole2);
-        return he.handRank(c1, c2, toHand(board), opponents);
+        he.handRank(c1, c2, toHand(board));
+        int won = he.getNumWorse();
+        int tied = he.getNumTied();
+        double total = won + tied + he.getNumBetter();
+        return new ShowdownOdds(won / total, tied / total);
     }
 
     @Override

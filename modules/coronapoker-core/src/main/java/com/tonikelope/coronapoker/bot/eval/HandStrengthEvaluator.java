@@ -32,13 +32,29 @@ public interface HandStrengthEvaluator {
      */
     double handStrength(int hole1, int hole2, int[] board);
 
-    /**
-     * Approximation of beating {@code opponents} independent random hands.
-     * Equivalent to {@code handStrength^opponents} when opponents act
-     * independently; concrete implementations are free to use a tighter
-     * estimator.
-     */
-    double handStrengthVsN(int hole1, int hole2, int[] board, int opponents);
+    /** Heads-up outcome probabilities on the current board. */
+    record ShowdownOdds(double win, double tie) {
+
+        /** Expected share of one pot under independent random opponent hands. */
+        public double equity(int opponents) {
+            // Average of (win + tie * x)^opponents over x in [0, 1].
+            // Each outcome with k ties receives 1 / (k + 1) of the pot.
+            double unbeaten = win + tie;
+            double equitySum = 1;
+            double winPower = 1;
+            for (int i = 0; i < opponents; i++) {
+                winPower *= win;
+                equitySum = equitySum * unbeaten + winPower;
+            }
+            return equitySum / (opponents + 1);
+        }
+    }
+
+    ShowdownOdds showdownOdds(int hole1, int hole2, int[] board);
+
+    default double handStrengthVsN(int hole1, int hole2, int[] board, int opponents) {
+        return showdownOdds(hole1, hole2, board).equity(opponents);
+    }
 
     /**
      * Probability that the given two-card hand beats an opponent whose range is

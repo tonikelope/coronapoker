@@ -42,9 +42,7 @@ import java.util.Set;
  *
  * <p>
  * Mirrors {@link HeadsUpSimulator} for blind posting, action recording, c-bet
- * detection, OpponentTracker feeding, and showdown resolution. Showdown selects
- * winners by pairwise comparison; the pot is split evenly if multiple seats
- * tie.</p>
+ * detection, OpponentTracker feeding and settlement with the table's side pots.</p>
  */
 public final class MultiwaySimulator {
 
@@ -107,9 +105,8 @@ public final class MultiwaySimulator {
         this.dealer.setBlinds(smallBlind, bigBlind);
         this.dealer.setSeating(seating);
         for (int i = 0; i < numSeats; i++) {
-            bots[i] = new Bot(players[i]);
+            bots[i] = new Bot(players[i], new Random(seed ^ (0x10001L * (i + 1))));
             bots[i].setContext(dealer, evaluator);
-            bots[i].setRng(new Random(seed ^ (0x10001L * (i + 1))));
         }
         this.buttonIdx = 0;
     }
@@ -204,10 +201,10 @@ public final class MultiwaySimulator {
                 players[utgIdx].getNickname());
         dealer.setStreet(Crupier.PREFLOP);
 
-        chargeBet(players[sbIdx], smallBlind);
-        chargeBet(players[bbIdx], bigBlind);
-        dealer.setPot(smallBlind + bigBlind);
-        dealer.setCurrentBet(bigBlind);
+        players[sbIdx].commit(Math.min(smallBlind, players[sbIdx].getStack()));
+        players[bbIdx].commit(Math.min(bigBlind, players[bbIdx].getStack()));
+        dealer.setPot(players[sbIdx].getBet() + players[bbIdx].getBet());
+        dealer.setCurrentBet(Math.max(players[sbIdx].getBet(), players[bbIdx].getBet()));
         dealer.setLastRaise(bigBlind);
         dealer.setBetCount(0);
         dealer.setLimpersCount(0);
@@ -230,15 +227,18 @@ public final class MultiwaySimulator {
                 openStreet(runout, street);
                 if (street == Crupier.FLOP) {
                     for (int i = 0; i < numSeats; i++) {
-                        handCbetOpp[i] = handRaisedPreflop[i] && players[i].isActivo();
+                        handCbetOpp[i] = players[i].isActivo()
+                                && players[i].getStack() > 0
+                                && players[i].getNickname().equals(dealer.getPreflopAggressorNick());
                     }
                 }
             }
 
             int firstToAct = (street == Crupier.PREFLOP) ? utgIdx : sbIdx;
-            BettingResult result = runBettingRound(firstToAct, street == Crupier.PREFLOP);
+            boolean foldedOut = SimulatedBettingRound.play(dealer, players, bots, firstToAct,
+                    MAX_ACTIONS_PER_STREET, this::recordAction);
 
-            if (result == BettingResult.HAND_OVER_FOLD) {
+            if (foldedOut) {
                 int aliveIdx = findOnlyActive();
                 double pot = dealer.getBote_total();
                 players[aliveIdx].setStack(players[aliveIdx].getStack() + pot);
@@ -251,7 +251,7 @@ public final class MultiwaySimulator {
             if (countActive() <= 1) {
                 break;
             }
-            if (allActiveAllIn()) {
+            if (noMoreBetting()) {
                 while (dealer.getBoardSize() < 5) {
                     int nextIdx = Math.min(dealer.getBoardSize(), 4);
                     dealer.appendBoardCard(runout[nextIdx]);
@@ -260,13 +260,9 @@ public final class MultiwaySimulator {
             }
         }
 
-        winners = resolveShowdown();
+        winners = SimulatedShowdown.settle(players, dealer, evaluator);
         handReachedShowdown = true;
         double pot = dealer.getBote_total();
-        double share = pot / winners.size();
-        for (int idx : winners) {
-            players[idx].setStack(players[idx].getStack() + share);
-        }
         finalizeHandStats(startStacks, handReachedShowdown, winners);
         rotateButton();
         return new HandResult(winners, pot);
@@ -295,9 +291,10 @@ public final class MultiwaySimulator {
         return n;
     }
 
-    private boolean allActiveAllIn() {
-        for (int i = 0; i < numSeats; i++) {
-            if (players[i].isActivo() && players[i].getStack() > 0f) {
+    private boolean noMoreBetting() {
+        int withChips = 0;
+        for (TestBotPlayer player : players) {
+            if (player.isActivo() && player.getStack() > 0 && ++withChips > 1) {
                 return false;
             }
         }
@@ -323,176 +320,23 @@ public final class MultiwaySimulator {
         }
     }
 
-    private BettingResult runBettingRound(int firstToAct, boolean preflop) {
-        Set<Integer> needToAct = new HashSet<>();
-        for (int i = 0; i < numSeats; i++) {
-            if (players[i].isActivo()) {
-                needToAct.add(i);
+    private void recordAction(int seat, boolean folded, boolean raised, long paid, long toCall) {
+        int street = dealer.getStreet();
+        if (street == Crupier.PREFLOP) {
+            if (raised) {
+                recordPreflopRaise(seat);
+            } else if (paid > 0) {
+                recordPreflopVoluntary(seat);
             }
+        } else if (folded) {
+            recordPostflopFold(seat);
+        } else if (raised) {
+            recordPostflopBetRaise(seat, street, SimulatedBettingRound.money(toCall));
+        } else if (paid > 0) {
+            recordPostflopCall(seat);
+        } else {
+            recordPostflopCheck(seat);
         }
-        int toAct = firstToAct;
-        // iterations counts every loop pass so the safety net catches
-        // pathological scenarios (e.g. all remaining players all-in
-        // without exiting via allActiveAllIn check above) regardless
-        // of whether the pass corresponded to a real decision.
-        int iterations = 0;
-
-        while (iterations < MAX_ACTIONS_PER_STREET) {
-            iterations++;
-            if (countActive() <= 1) {
-                return BettingResult.HAND_OVER_FOLD;
-            }
-            if (needToAct.isEmpty() && allActiveMatched()) {
-                return BettingResult.STREET_DONE;
-            }
-            if (allActiveAllIn()) {
-                // No one left who can act: ship the street.
-                return BettingResult.STREET_DONE;
-            }
-            if (!players[toAct].isActivo()) {
-                toAct = (toAct + 1) % numSeats;
-                continue;
-            }
-            if (players[toAct].getStack() <= 0f) {
-                needToAct.remove(toAct);
-                toAct = (toAct + 1) % numSeats;
-                continue;
-            }
-            if (!needToAct.contains(toAct) && allActiveMatched()) {
-                toAct = (toAct + 1) % numSeats;
-                continue;
-            }
-
-            int decision = bots[toAct].calculateBotDecision(countActive() - 1);
-            double currentBet = dealer.getApuesta_actual();
-            double toCall = currentBet - players[toAct].getBet();
-            int street = dealer.getStreet();
-
-            if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD) {
-                if (toCall <= 0f) {
-                    // "FOLD" with nothing to call → treat as check (no state change).
-                    needToAct.remove(toAct);
-                    if (!preflop) {
-                        recordPostflopCheck(toAct);
-                    }
-                } else {
-                    players[toAct].setActivo(false);
-                    needToAct.remove(toAct);
-                    if (!preflop) {
-                        recordPostflopFold(toAct);
-                    }
-                }
-            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK) {
-                if (toCall > 0f) {
-                    double pay = Math.min(toCall, players[toAct].getStack());
-                    chargeBet(players[toAct], pay);
-                    dealer.setPot(dealer.getBote_total() + pay);
-                    if (preflop) {
-                        recordPreflopVoluntary(toAct);
-                    } else {
-                        recordPostflopCall(toAct);
-                    }
-                } else if (!preflop) {
-                    recordPostflopCheck(toAct);
-                }
-                needToAct.remove(toAct);
-            } else if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.BET) {
-                double newBet = bots[toAct].getBetSize();
-                double maxAffordable = players[toAct].getBet() + players[toAct].getStack();
-                if (newBet > maxAffordable) {
-                    newBet = maxAffordable;
-                }
-                if (newBet <= currentBet) {
-                    if (toCall > 0f) {
-                        double pay = Math.min(toCall, players[toAct].getStack());
-                        chargeBet(players[toAct], pay);
-                        dealer.setPot(dealer.getBote_total() + pay);
-                        if (preflop) {
-                            recordPreflopVoluntary(toAct);
-                        } else {
-                            recordPostflopCall(toAct);
-                        }
-                    } else if (!preflop) {
-                        recordPostflopCheck(toAct);
-                    }
-                    needToAct.remove(toAct);
-                } else {
-                    double raiseSize = newBet - currentBet;
-                    double pay = newBet - players[toAct].getBet();
-                    pay = Math.min(pay, players[toAct].getStack());
-                    chargeBet(players[toAct], pay);
-                    dealer.setPot(dealer.getBote_total() + pay);
-                    dealer.setCurrentBet(players[toAct].getBet());
-                    dealer.setLastRaise(raiseSize);
-                    dealer.setBetCount(dealer.getConta_bet() + 1);
-                    dealer.setLastAggressor(players[toAct]);
-                    if (preflop) {
-                        recordPreflopRaise(toAct);
-                    } else {
-                        recordPostflopBetRaise(toAct, street, toCall);
-                    }
-                    needToAct.clear();
-                    for (int i = 0; i < numSeats; i++) {
-                        if (i != toAct && players[i].isActivo() && players[i].getStack() > 0f) {
-                            needToAct.add(i);
-                        }
-                    }
-                }
-            }
-            toAct = (toAct + 1) % numSeats;
-        }
-        return BettingResult.STREET_DONE;
-    }
-
-    private boolean allActiveMatched() {
-        double c = dealer.getApuesta_actual();
-        for (int i = 0; i < numSeats; i++) {
-            if (players[i].isActivo() && players[i].getStack() > 0f
-                    && Math.abs(players[i].getBet() - c) > 0.0001f) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private Set<Integer> resolveShowdown() {
-        Set<Integer> winners = new HashSet<>();
-        int[] activeIndices = new int[numSeats];
-        int activeCount = 0;
-        for (int i = 0; i < numSeats; i++) {
-            if (players[i].isActivo()) {
-                activeIndices[activeCount++] = i;
-            }
-        }
-        if (activeCount == 0) {
-            throw new IllegalStateException("Showdown with no active players");
-        }
-        int boardSize = dealer.getBoardSize();
-        winners.add(activeIndices[0]);
-        for (int k = 1; k < activeCount; k++) {
-            int candidate = activeIndices[k];
-            int representative = winners.iterator().next();
-            int cmp = evaluator.compareHands(
-                    buildHand(representative, boardSize),
-                    buildHand(candidate, boardSize));
-            if (cmp == 2) {
-                winners.clear();
-                winners.add(candidate);
-            } else if (cmp == 0) {
-                winners.add(candidate);
-            }
-        }
-        return winners;
-    }
-
-    private int[] buildHand(int seat, int boardSize) {
-        int[] hand = new int[2 + boardSize];
-        hand[0] = players[seat].getHoleCard1Index();
-        hand[1] = players[seat].getHoleCard2Index();
-        for (int i = 0; i < boardSize; i++) {
-            hand[2 + i] = dealer.getBoardCardIndex(i);
-        }
-        return hand;
     }
 
     private void finalizeHandStats(double[] startStacks, boolean reachedShowdown, Set<Integer> winners) {
@@ -536,11 +380,6 @@ public final class MultiwaySimulator {
     private void recordPreflopRaise(int seat) {
         handVoluntary[seat] = true;
         handRaisedPreflop[seat] = true;
-        for (int i = 0; i < numSeats; i++) {
-            if (i != seat) {
-                handRaisedPreflop[i] = false;
-            }
-        }
         Bot.OpponentTracker t = trackerFor(players[seat]);
         t.recordVPIP(handCounter);
         t.recordPFR(handCounter);
@@ -601,10 +440,6 @@ public final class MultiwaySimulator {
         stats[seat].postflopFolds++;
     }
 
-    private void chargeBet(TestBotPlayer p, double amount) {
-        p.commit(amount);
-    }
-
     private int[] shuffledDeck() {
         int[] deck = new int[52];
         for (int i = 0; i < 52; i++) {
@@ -630,8 +465,5 @@ public final class MultiwaySimulator {
         }
     }
 
-    private enum BettingResult {
-        STREET_DONE,
-        HAND_OVER_FOLD
-    }
+
 }

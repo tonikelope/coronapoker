@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.bot.harness;
 
+import com.tonikelope.coronapoker.BetRules;
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
@@ -62,7 +63,7 @@ public final class FixedStrategyBot extends Bot {
     private double lastTargetSize = 0;
 
     public FixedStrategyBot(BotPlayerView player, Strategy strategy, long seed) {
-        super(player);
+        super(player, new java.util.Random(seed ^ 0xA110CA7EL));
         this.strategy = strategy;
         this.localRng = new java.util.Random(seed);
     }
@@ -88,23 +89,26 @@ public final class FixedStrategyBot extends Bot {
         boolean pair = rank1 == rank2;
         boolean suited = (hole1 / 13) == (hole2 / 13);
 
-        switch (strategy) {
-            case STATION:
-                return decideStation(toCall);
-            case ROCK:
-                return decideRock(preflop, toCall, pair, high, low, suited, d);
-            case MANIAC:
-                return decideManiac(preflop, toCall, d);
-            case TAG:
-                return decideTag(preflop, toCall, pair, high, low, suited, d);
-            default:
-                throw new IllegalStateException();
+        int decision = switch (strategy) {
+            case STATION -> decideStation(toCall);
+            case ROCK -> decideRock(preflop, toCall, pair, high, low, suited, d);
+            case MANIAC -> decideManiac(preflop, toCall, d);
+            case TAG -> decideTag(preflop, toCall, pair, high, low, suited, d);
+        };
+        if (decision == com.tonikelope.coronapoker.core.game.GamePlayerController.BET
+                && !d.canPlayerRaise(me.getNickname())) {
+            return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
         }
+        return decision;
     }
 
     @Override
     public double getBetSize() {
-        return (double) lastTargetSize;
+        DealerView table = dealer();
+        double wager = table.getApuesta_actual();
+        double minimum = wager == 0 ? table.getCiega_grande()
+                : BetRules.minRaiseTo(wager, table.getUltimo_raise(), table.getCiega_grande());
+        return Math.max(lastTargetSize, minimum);
     }
 
     private int decideStation(double toCall) {

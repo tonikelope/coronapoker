@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.bot.harness;
 
+import com.tonikelope.coronapoker.BettingRoundState;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
@@ -22,6 +23,8 @@ import java.util.List;
  */
 public final class TestDealer implements DealerView {
 
+    private boolean raiseAllowed = true;
+    private BettingRoundState bettingRound;
     private int street;
     private double pot;
     private double currentBet;
@@ -49,6 +52,28 @@ public final class TestDealer implements DealerView {
         this.street = street;
         if (street == Crupier.PREFLOP) {
             preflopAggressorNick = null;
+        }
+    }
+
+    public void setRaiseAllowed(boolean raiseAllowed) {
+        this.raiseAllowed = raiseAllowed;
+    }
+
+    @Override
+    public boolean canPlayerRaise(String nickname) {
+        return raiseAllowed && (bettingRound == null || bettingRound.legalActions(nickname).canRaise());
+    }
+
+    void setBettingRound(BettingRoundState bettingRound) {
+        this.bettingRound = bettingRound;
+    }
+
+    void recordRaise(BotPlayerView player, boolean fullRaise) {
+        if (fullRaise) {
+            lastAggressor = player;
+        }
+        if (street == Crupier.PREFLOP) {
+            preflopAggressorNick = player.getNickname();
         }
     }
 

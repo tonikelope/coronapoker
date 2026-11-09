@@ -47,8 +47,8 @@ public final class MemoizedAlbertaEvaluator implements BotEvaluator {
     }
 
     @Override
-    public double handStrengthVsN(int hole1, int hole2, int[] board, int opponents) {
-        return delegate.handStrengthVsN(hole1, hole2, board, opponents);
+    public ShowdownOdds showdownOdds(int hole1, int hole2, int[] board) {
+        return delegate.showdownOdds(hole1, hole2, board);
     }
 
     @Override

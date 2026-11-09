@@ -16530,7 +16530,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    /** The single entitlement gate consumed by UI, live remote and recovery paths. */
+    /** The single entitlement gate consumed by UI, bots, live remote and recovery paths. */
+    @Override
     public boolean canPlayerRaise(String nick) {
         BettingRoundState state = this.betting_round_state;
         return state != null && state.legalActions(nick).canRaise();

@@ -60,6 +60,7 @@ final class NewGameTableDraftTest {
         draft.setEconomyLocked(true);
 
         assertThrows(IllegalStateException.class, () -> draft.setAnte(true));
+        assertThrows(IllegalStateException.class, () -> draft.setAnteMode(AnteMode.BIG_BLIND));
         assertThrows(IllegalStateException.class, () -> draft.setFixedBuyin(false));
         assertThrows(IllegalStateException.class, () -> draft.setBlindLevelIndex(1));
         draft.setRebuy(false);
@@ -227,6 +228,7 @@ final class NewGameTableDraftTest {
         draft.setThinkSeconds(65);
         draft.setShowdownSeconds(25);
         draft.setAnte(true);
+        draft.setAnteMode(AnteMode.SMALL_BLIND);
         draft.setStraddle(true);
         draft.setIwtsth(true);
         draft.setRunItTwice(true);

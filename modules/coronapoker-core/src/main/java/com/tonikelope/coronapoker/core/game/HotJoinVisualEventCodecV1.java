@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -299,6 +300,10 @@ public final class HotJoinVisualEventCodecV1 {
                     out.writeInt(value.blindIncreaseInterval());
                     out.writeInt(value.blindIncreaseType());
                     out.writeInt(value.blindIncreaseCount());
+                    if (value.anteRuleKnown()) {
+                        AnteMode mode = value.handAnteMode();
+                        out.writeByte(mode == null ? 0 : mode.ordinal() + 1);
+                    }
                 } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus value) {
                     out.writeByte(IMMEDIATE_REBUY_STATUS);
                     writeText(out, value.nickname());
@@ -485,10 +490,7 @@ public final class HotJoinVisualEventCodecV1 {
                             readText(in));
                 case SWAP_HOLE_CARDS -> new TableVisualEvent.SwapHoleCards(
                         sequence, readText(in), in.readBoolean());
-                case TABLE_INFO -> new TableVisualEvent.TableInfo(sequence,
-                        finite(in.readDouble(), "small blind"),
-                        finite(in.readDouble(), "big blind"), in.readInt(),
-                        in.readInt(), in.readInt(), in.readInt());
+                case TABLE_INFO -> readTableInfo(in, sequence);
                 case CALL_COST -> new TableVisualEvent.CallCost(sequence,
                         readText(in), readText(in));
                 case IMMEDIATE_REBUY_STATUS ->
@@ -527,6 +529,24 @@ public final class HotJoinVisualEventCodecV1 {
             throw new IllegalArgumentException(
                     "Truncated hot-join visual event", invalid);
         }
+    }
+
+    private static TableVisualEvent.TableInfo readTableInfo(
+            DataInputStream in, long sequence) throws IOException {
+        double smallBlind = finite(in.readDouble(), "small blind");
+        double bigBlind = finite(in.readDouble(), "big blind");
+        int hand = in.readInt();
+        int interval = in.readInt();
+        int type = in.readInt();
+        int count = in.readInt();
+        int anteCode = in.available() == 0 ? -1 : in.readUnsignedByte();
+        AnteMode[] modes = AnteMode.values();
+        if (anteCode > modes.length) {
+            throw new IllegalArgumentException("Invalid hand ante mode");
+        }
+        return new TableVisualEvent.TableInfo(sequence, smallBlind, bigBlind,
+                hand, interval, type, count, anteCode >= 0,
+                anteCode > 0 ? modes[anteCode - 1] : null);
     }
 
     private static TableVisualEvent.RabbitCards readRabbitCards(

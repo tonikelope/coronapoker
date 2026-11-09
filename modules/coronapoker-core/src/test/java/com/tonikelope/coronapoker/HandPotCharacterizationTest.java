@@ -62,6 +62,63 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void foldedSinglePayerAnteIsContestableByEveryLiveHandInTheMainPot() {
+        CorePlayerController payer = p("payer", 5d, GamePlayerController.FOLD, true);
+        CorePlayerController shortStack = p("short", 1d, GamePlayerController.ALLIN, true);
+        CorePlayerController left = p("left", 4d, GamePlayerController.CHECK, true);
+        CorePlayerController right = p("right", 4d, GamePlayerController.CHECK, true);
+        CoreGamePot main = new CoreGamePot(0d);
+        for (CorePlayerController player : java.util.List.of(payer, shortStack, left, right)) {
+            main.addPlayerController(player);
+        }
+        main.recordTableAnte(payer, 4d);
+        main.genSidePots();
+
+        assertEquals(1d, main.getBet(), EPS);
+        assertEquals(8d, main.getTotal(), EPS);
+        assertEquals(1, main.getSide_pot_count());
+        assertEquals(6d, main.getSidePot().getTotal(), EPS);
+        assertEquals(java.util.List.of(left, right), main.getSidePot().getPlayerControllers());
+        assertEquals(14d, sumAllPots(main), EPS);
+    }
+
+    @Test
+    void anteOnlyAllInPlaysForTheAnteWhileOtherPlayersContestTheBets() {
+        CorePlayerController payer = p("button", 0.15d, GamePlayerController.ALLIN, true);
+        CorePlayerController smallBlind = p("small", 0.20d, GamePlayerController.CHECK, true);
+        CorePlayerController bigBlind = p("big", 0.20d, GamePlayerController.CHECK, true);
+        CoreGamePot main = new CoreGamePot(0d);
+        for (CorePlayerController player : java.util.List.of(payer, smallBlind, bigBlind)) {
+            main.addPlayerController(player);
+        }
+        main.recordTableAnte(payer, 0.15d);
+        main.genSidePots();
+
+        assertEquals(0d, main.getBet(), EPS);
+        assertEquals(0.15d, main.getTotal(), EPS);
+        assertTrue(main.getPlayerControllers().contains(payer));
+        assertEquals(java.util.List.of(smallBlind, bigBlind),
+                main.getSidePot().getPlayerControllers());
+        assertEquals(0.40d, main.getSidePot().getTotal(), EPS);
+        assertEquals(0.55d, sumAllPots(main), EPS);
+    }
+
+    @Test
+    void aPartialBigBlindAnteNeverComesBackAsAnUncalledBet() {
+        CorePlayerController payer = p("big", 0.30d, GamePlayerController.ALLIN, true);
+        CorePlayerController other = p("small", 0.10d, GamePlayerController.ALLIN, true);
+        CoreGamePot main = new CoreGamePot(0d);
+        main.addPlayerController(payer);
+        main.addPlayerController(other);
+        main.recordTableAnte(payer, 0.10d);
+        main.genSidePots();
+
+        assertEquals(0.30d, main.getTotal(), EPS);
+        assertEquals(0.10d, main.getSidePot().getUncalledBet(), EPS);
+        assertEquals(0.40d, sumAllPots(main), EPS);
+    }
+
+    @Test
     void noAllInNoSidePots() {
         // Three players who all reached the same committed amount: a single pot.
         CoreGamePot pot = topPot(

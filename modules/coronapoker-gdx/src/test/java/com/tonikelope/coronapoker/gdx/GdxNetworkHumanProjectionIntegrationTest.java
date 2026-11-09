@@ -4167,14 +4167,14 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 }
                 assertEquals(CoronaPokerGdxTable.communityBlindsText(
                         new GdxGameText("es"), info.smallBlind(),
-                        info.bigBlind(), false,
+                        info.bigBlind(), null,
                         info.blindIncreaseInterval(),
                         info.blindIncreaseType(),
                         info.blindIncreaseCount()),
                         CoronaPokerGdxTable.communityBlindsText(
                                 new GdxGameText("es"),
                                 projection.smallBlind(),
-                                projection.bigBlind(), false,
+                                projection.bigBlind(), null,
                                 projection.blindIncreaseInterval(),
                                 projection.blindIncreaseType(),
                                 projection.blindIncreaseCount()));

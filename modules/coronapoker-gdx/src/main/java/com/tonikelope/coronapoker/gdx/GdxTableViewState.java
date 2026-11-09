@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.AnteMode;
+
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
@@ -50,6 +52,8 @@ final class GdxTableViewState {
     private boolean lastHand;
     private int maximumHands = -1;
     private GameConfigCodecV1.Configuration gameConfiguration;
+    private boolean handAnteKnown;
+    private AnteMode handAnteMode;
     // Fail closed until the dealer publishes the authoritative table rules.
     // The renderer must never grant a capability from a local/demo default.
     private boolean runItTwiceLocked = true;
@@ -235,8 +239,10 @@ final class GdxTableViewState {
         return blindIncreaseCount;
     }
 
-    boolean anteEnabled() {
-        return gameConfiguration != null && gameConfiguration.ante();
+    AnteMode activeAnteMode() {
+        if (handAnteKnown) return handAnteMode;
+        return gameConfiguration != null && gameConfiguration.ante()
+                ? gameConfiguration.anteMode() : null;
     }
 
     boolean straddleEnabled() {
@@ -608,8 +614,10 @@ final class GdxTableViewState {
             blindIncreaseInterval = info.blindIncreaseInterval();
             blindIncreaseType = info.blindIncreaseType();
             blindIncreaseCount = info.blindIncreaseCount();
+            handAnteKnown = info.anteRuleKnown();
+            handAnteMode = info.handAnteMode();
         } else if (event instanceof TableVisualEvent.CallCost callCost) {
-            callCostText = callCost.text();
+            callCostText = GdxChipAmountText.compactLabel(callCost.text());
             callCostAggressorNickname = callCost.aggressorNickname();
         } else if (event instanceof TableVisualEvent.ActionControls controls) {
             actionControls = controls.state();
@@ -619,7 +627,7 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PlayerAction action) {
             clearActionsInvalidatedByPriceIncrease(action);
             actionKinds.put(action.nickname(), action.kind());
-            actionLabels.put(action.nickname(), action.label());
+            actionLabels.put(action.nickname(), GdxChipAmountText.actionLabel(action.label()));
             replacePlayer(action.nickname(), player -> copyPlayerAction(player,
                     action.stackAfter(), action.streetBetAfter(),
                     action.potContributionAfter(),
@@ -1103,11 +1111,11 @@ final class GdxTableViewState {
                 String publicActionLabel
                         = player.presentation().publicActionLabel();
                 if (!publicActionLabel.isBlank()) {
-                    actionLabels.put(player.nickname(), publicActionLabel);
+                    actionLabels.put(player.nickname(), GdxChipAmountText.actionLabel(publicActionLabel));
                 } else if (!player.lastAction().isBlank()) {
                     // Compatibility fallback for snapshots predating the
                     // explicit public caption field.
-                    actionLabels.put(player.nickname(), player.lastAction());
+                    actionLabels.put(player.nickname(), GdxChipAmountText.actionLabel(player.lastAction()));
                 }
                 if (kind == TableVisualEvent.PlayerAction.ActionKind.FOLD) {
                     foldedThisHand.add(player.nickname());

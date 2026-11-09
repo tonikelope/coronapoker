@@ -45,6 +45,7 @@ import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
 import com.tonikelope.coronapoker.core.BotNickname;
@@ -1375,7 +1376,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String cachedCommunityTextLanguage;
     private double cachedCommunitySmallBlind = Double.NaN;
     private double cachedCommunityBigBlind = Double.NaN;
-    private boolean cachedCommunityAnte;
+    private AnteMode cachedCommunityAnte;
     private int cachedCommunityBlindInterval = Integer.MIN_VALUE;
     private int cachedCommunityBlindType = Integer.MIN_VALUE;
     private int cachedCommunityBlindCount = Integer.MIN_VALUE;
@@ -5006,10 +5007,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String formatAmount(double amount) {
-        return java.math.BigDecimal.valueOf(amount)
-                .setScale(2, java.math.RoundingMode.HALF_UP)
-                .stripTrailingZeros()
-                .toPlainString();
+        return GdxChipAmountText.format(amount);
     }
 
     static String callLabel(ActionControlState controls, GdxGameText text) {
@@ -16172,14 +16170,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String communityBlindsText(GdxGameText text, double smallBlind,
-            double bigBlind, boolean ante, int blindIncreaseInterval,
+            double bigBlind, AnteMode ante, int blindIncreaseInterval,
             int blindIncreaseType, int blindIncreaseCount) {
         String title = uppercase(text.translate("blinds.ciegas_titulo"), text);
         if (smallBlind <= 0d || bigBlind <= 0d) {
             return title + "  -";
         }
         StringBuilder label = new StringBuilder(title).append("  ")
-                .append(ante ? "(A) " : "")
+                .append(ante == null ? "" : ante.marker() + " ")
                 .append(formatAmount(smallBlind)).append(" / ")
                 .append(formatAmount(bigBlind));
         if (blindIncreaseInterval > 0) {
@@ -16196,7 +16194,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String language = gameText.language();
         double smallBlind = liveState.smallBlind();
         double bigBlind = liveState.bigBlind();
-        boolean ante = liveState.anteEnabled();
+        AnteMode ante = liveState.activeAnteMode();
         int interval = liveState.blindIncreaseInterval();
         int type = liveState.blindIncreaseType();
         int count = liveState.blindIncreaseCount();
@@ -20961,7 +20959,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static String pendingRebuyStackText(String displayedStack,
             int pendingRebuy) {
         return pendingRebuy > 0
-                ? displayedStack + " + " + pendingRebuy : displayedStack;
+                ? displayedStack + " + " + formatAmount(pendingRebuy) : displayedStack;
     }
 
     private void drawPendingRebuyTooltip(Rectangle namePlate, int amount) {
@@ -21833,6 +21831,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boolean enabled = liveSettingsDraft.ante();
                 runSwitchAction(enabled, () -> liveSettingsDraft =
                         liveSettingsDraft.withAnte(!enabled));
+                return;
+            }
+            Rectangle anteMode = settingsGameRowBounds(contentX, rowW,
+                    rows, 0, BLIND_ROW_COUNT, GdxSettingsContract.BLIND_ANTE_MODE_ROW);
+            if (liveSettingsDraft.ante() && anteMode.contains(x, y)) {
+                openSettingsSelectionList(SettingsSelectionList.ANTE_MODE);
                 return;
             }
             if (straddle.contains(x, y)) {
@@ -24016,7 +24020,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle pot = runItTwiceLayout.pot();
             drawFittedCenteredInBox(actionFont, uppercase(
                     gameText.translate("gdx.runittwice.pot",
-                            dialog.runItTwicePotText())),
+                            GdxChipAmountText.compactLabel(dialog.runItTwicePotText()))),
                     pot.x + 18f, pot.y + 4f, pot.width - 36f,
                     pot.height - 8f, POT_GOLD, 1f);
             drawRunItTwiceTallyCard(runItTwiceLayout.onceVotes(),
@@ -24081,13 +24085,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             selected.setColor(Color.WHITE);
         }
         if (dialog.hasAmount()) {
+            boolean editingAutoCall = dialog.isAutoCall() && dialog.autoCallAmountEditable()
+                    && dialogAmountEdit.focused("autoCallAmount");
             String amountText = dialog.isHandLimit() && dialog.noLimit()
                     ? uppercase(gameText.translate("auto_call.sin_limite"))
-                    : dialog.isAutoCall() ? dialog.amountText()
-                    : Integer.toString(dialog.amount());
-            if (dialog.isAutoCall() && dialog.autoCallAmountEditable()
-                    && dialogAmountEdit.focused("autoCallAmount")
-                    && ((int) (totalTime * 2f) & 1) == 0) {
+                    : editingAutoCall || dialog.isHandLimit() ? dialog.amountText()
+                    : GdxChipAmountText.compactLabel(dialog.amountText());
+            if (editingAutoCall && ((int) (totalTime * 2f) & 1) == 0) {
                 amountText += "|";
             }
             if (dialog.isAutoCall()) {
@@ -24981,6 +24985,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_ANTE_ROW),
                         settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
+                                GdxSettingsContract.BLIND_ANTE_MODE_ROW),
+                        settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                                 GdxSettingsContract.BLIND_STRADDLE_ROW));
             }
             return null;
@@ -25101,6 +25107,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         CARD_RENDERING,
         APPEARANCE_CHOICE,
         BLIND_UNIT,
+        ANTE_MODE,
         BOT_DIFFICULTY,
         RABBIT
     }
@@ -25353,7 +25360,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (contentPage == 3) {
             String[] keys = {"structure", "initial_blinds",
                 "blind_structures", "increase_blinds", "blind_unit",
-                "blind_interval", "blind_cap", "blind_cap_level", "ante",
+                "blind_interval", "blind_cap", "blind_cap_level", "ante", "ante_mode",
                 "straddle", GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY};
             GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
                     firstY, 0, keys.length, settingsGameScroll);
@@ -26123,6 +26130,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.BLIND_CAP_ROW);
             Rectangle ante = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_ANTE_ROW);
+            Rectangle anteMode = settingsGameRowBounds(x, width, rows, 0,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_ANTE_MODE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
                     BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRADDLE_ROW);
             drawLiveSettingsDropdownShape(structure.x, structure.y,
@@ -26132,6 +26141,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsToggleShape(ante.x, ante.y, ante.width,
                     liveSettingsDraft != null && liveSettingsDraft.ante(),
                     access, alpha);
+            drawLiveSettingsDropdownShape(anteMode.x, anteMode.y, anteMode.width,
+                    dependentAccess(access, liveSettingsDraft != null
+                            && liveSettingsDraft.ante()), alpha);
             drawLiveSettingsToggleShape(straddle.x, straddle.y,
                     straddle.width,
                     liveSettingsDraft != null && liveSettingsDraft.straddle(),
@@ -27094,6 +27106,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxSettingsContract.BLIND_CAP_ROW);
             Rectangle ante = settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                     GdxSettingsContract.BLIND_ANTE_ROW);
+            Rectangle anteMode = settingsGameRowBounds(x, width, rows, 0,
+                    BLIND_ROW_COUNT, GdxSettingsContract.BLIND_ANTE_MODE_ROW);
             Rectangle straddle = settingsGameRowBounds(x, width, rows, 0,
                     BLIND_ROW_COUNT, GdxSettingsContract.BLIND_STRADDLE_ROW);
             drawLiveSettingsDropdownText(structure.x, structure.y,
@@ -27115,6 +27129,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsGameText("row.ante"),
                     GdxSettingsContract.booleanStatusLabel(anteValue, false,
                             gameText), access, alpha);
+            drawLiveSettingsDropdownText(anteMode.x, anteMode.y, anteMode.width,
+                    settingsGameText("row.ante_mode"),
+                    liveSettingsDraft == null ? ""
+                            : gameText.translate(liveSettingsDraft.anteMode().labelKey()),
+                    dependentAccess(access, anteValue), alpha);
             drawLiveSettingsToggleText(straddle.x, straddle.y,
                     straddle.width,
                     settingsGameText("row.straddle"),
@@ -27197,7 +27216,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsStepperText(initialBuyin.x, initialBuyin.y,
                     initialBuyin.width, settingsGameText("row.initial_buyin"),
                     liveSettingsDraft == null ? "-"
-                            : Integer.toString(liveSettingsDraft.buyin()),
+                            : formatAmount(liveSettingsDraft.buyin()),
                     SettingsRowAccess.LIVE_LOCKED, alpha);
             drawLiveSettingsStepperText(minimumBuyin.x, minimumBuyin.y,
                     minimumBuyin.width,
@@ -27939,6 +27958,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 settingsSelectionAppearanceChoice,
                                                 index, gameText))
                                 .toList();
+            case ANTE_MODE -> GdxSettingsContract.anteModeLabels(gameText);
             case BLIND_UNIT -> List.of(
                     gameText.translate("gdx.settings.game.value.minutes"),
                     gameText.translate("gdx.settings.game.value.hands"));
@@ -27988,6 +28008,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         : GdxAppearanceOptions.selectedIndex(
                                 settingsSelectionAppearanceChoice,
                                 tableSettingsProperties());
+            case ANTE_MODE -> liveSettingsDraft == null ? -1
+                    : liveSettingsDraft.anteMode().ordinal();
             case BLIND_UNIT -> liveSettingsDraft == null ? -1
                     : liveSettingsDraft.blindsDoubleType() == 2 ? 1 : 0;
             case BOT_DIFFICULTY -> liveBotDifficultyDraft == null ? -1
@@ -28015,12 +28037,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 yield settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
                         GdxSettingsContract.BLIND_STRUCTURE_ROW);
             }
-            case BLIND_UNIT -> {
+            case BLIND_UNIT, ANTE_MODE -> {
                 if (settingsContentPage() != 3) yield null;
                 GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
                         frame.firstRowY(), 0, BLIND_ROW_COUNT, settingsGameScroll);
-                yield settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT,
-                        GdxSettingsContract.BLIND_UNIT_ROW);
+                int row = settingsSelectionList == SettingsSelectionList.ANTE_MODE
+                        ? GdxSettingsContract.BLIND_ANTE_MODE_ROW
+                        : GdxSettingsContract.BLIND_UNIT_ROW;
+                yield settingsGameRowBounds(x, width, rows, 0, BLIND_ROW_COUNT, row);
             }
             case BOT_DIFFICULTY -> {
                 if (settingsContentPage() != 6) yield null;
@@ -28344,6 +28368,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxAppearanceOptions.select(
                             settingsSelectionAppearanceChoice,
                             tableSettingsProperties(), option);
+                }
+            }
+            case ANTE_MODE -> {
+                AnteMode[] values = AnteMode.values();
+                if (liveSettingsDraft != null && liveSettingsDraft.ante()
+                        && option >= 0 && option < values.length) {
+                    liveSettingsDraft = liveSettingsDraft.withAnteMode(values[option]);
                 }
             }
             case BLIND_UNIT -> {

@@ -118,7 +118,7 @@ final class GdxFunctionalLabelOracle {
                     "visible blind-rise count is stale");
             String visibleBlinds = CoronaPokerGdxTable.communityBlindsText(
                     text, projection.smallBlind(), projection.bigBlind(),
-                    projection.anteEnabled(),
+                    projection.activeAnteMode(),
                     projection.blindIncreaseInterval(),
                     projection.blindIncreaseType(),
                     projection.blindIncreaseCount());

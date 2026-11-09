@@ -63,6 +63,7 @@ final class RecoverableGameRepositoryTest {
         assertEquals(45, settings.thinkSeconds());
         assertEquals(12, settings.showdownSeconds());
         assertTrue(settings.ante());
+        assertEquals(AnteMode.TRADITIONAL, settings.anteMode());
         assertTrue(settings.straddle());
         assertTrue(settings.iwtsth());
         assertTrue(settings.runItTwice());
@@ -164,6 +165,7 @@ final class RecoverableGameRepositoryTest {
         draft.setHandLimit(true);
         draft.setHandLimitCount(123);
         draft.setAnte(true);
+        draft.setAnteMode(AnteMode.BUTTON);
         draft.setStraddle(true);
         draft.setIwtsth(true);
         draft.setRunItTwice(true);
@@ -185,6 +187,7 @@ final class RecoverableGameRepositoryTest {
         assertEquals(source.handLimitCount(), recovered.handLimitCount());
         assertEquals(source.botDifficulty(), recovered.botDifficulty());
         assertEquals(source.ante(), recovered.ante());
+        assertEquals(source.anteMode(), recovered.anteMode());
         assertEquals(source.straddle(), recovered.straddle());
         assertTrue(encoded.contains("#VOICEMSG=0#TTS=1#"));
     }

@@ -588,8 +588,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (windowTransitionActive()) {
             float alpha = updateTransitionBounds();
             if (alpha > 0f) {
-                float backingAlpha = frameBuffer.texture() == null ? alpha
-                        : alpha * videoOpacity / MAX_OPACITY;
+                float backingAlpha = alpha * videoAlpha();
                 shapes.setColor(HEADER.r, HEADER.g, HEADER.b, HEADER.a * backingAlpha);
                 GdxAntialiasedRoundedRect.fill(shapes, transitionBounds.x,
                         transitionBounds.y, transitionBounds.width,
@@ -599,8 +598,9 @@ final class PokerVideoOverlay implements AutoCloseable {
             return;
         }
         if (minimized) return;
-        if (videoOpacity == MAX_OPACITY || visibleVideoTexture() == null) {
-            shapes.setColor(Color.BLACK);
+        float backdropAlpha = videoBackdropAlpha();
+        if (backdropAlpha > 0f) {
+            shapes.setColor(0f, 0f, 0f, backdropAlpha);
             shapes.rect(videoBounds.x, videoBounds.y, videoBounds.width, videoBounds.height);
         }
         shapes.setColor(HEADER);
@@ -756,7 +756,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         }
         Texture texture = visibleVideoTexture();
         if (texture != null) {
-            batch.setColor(1f, 1f, 1f, videoOpacity / (float) MAX_OPACITY);
+            batch.setColor(1f, 1f, 1f, videoAlpha());
             batch.draw(texture, videoBounds.x, videoBounds.y,
                     videoBounds.width, videoBounds.height);
             batch.setColor(Color.WHITE);
@@ -823,6 +823,16 @@ final class PokerVideoOverlay implements AutoCloseable {
                     text.translate(PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType)
                             ? "gdx.settings.choice.tipo_videos_poker.normal"
                             : "gdx.settings.choice.tipo_videos_poker.shorts"));
+    }
+
+    float videoBackdropAlpha() {
+        // With a translucent frame the texture itself supplies the only layer.
+        return videoOpacity == MAX_OPACITY || visibleVideoTexture() == null
+                ? videoAlpha() : 0f;
+    }
+
+    private float videoAlpha() {
+        return videoOpacity / (float) MAX_OPACITY;
     }
 
     private Texture visibleVideoTexture() {
@@ -964,7 +974,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                     videoAreaHeight / frame.getHeight());
             float width = frame.getWidth() * scale;
             float height = frame.getHeight() * scale;
-            batch.setColor(1f, 1f, 1f, alpha * videoOpacity / MAX_OPACITY);
+            batch.setColor(1f, 1f, 1f, alpha * videoAlpha());
             batch.draw(frame, transitionBounds.x + (transitionBounds.width - width) / 2f,
                     transitionBounds.y + FOOTER_HEIGHT * verticalScale
                     + (videoAreaHeight - height) / 2f, width, height);

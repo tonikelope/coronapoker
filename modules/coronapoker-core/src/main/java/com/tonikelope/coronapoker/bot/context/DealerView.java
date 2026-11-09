@@ -31,6 +31,11 @@ public interface DealerView {
 
     double getBote_total();
 
+    /** Contribution that sets side-pot eligibility. Shared money stays in the pot total. */
+    default double matchedContribution(BotPlayerView player) {
+        return player.getBote();
+    }
+
     double getApuesta_actual();
 
     double getUltimo_raise();

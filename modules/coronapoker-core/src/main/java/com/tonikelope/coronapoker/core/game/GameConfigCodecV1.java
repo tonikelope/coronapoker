@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import java.io.ByteArrayInputStream;
@@ -24,13 +25,14 @@ import java.util.Objects;
 
 /**
  * UI-free owner of the exact strict configuration packet used by INIT and
- * UPDATEBLINDS. The packet format is deliberately unchanged from 24.10.
+ * UPDATEBLINDS. Default packets with ante disabled retain the original wire format.
  */
 public final class GameConfigCodecV1 {
 
     private static final int MAGIC = 0x43504743; // CPGC
     private static final int VERSION = 1;
     private static final int CAPABILITIES = 1;
+    private static final int CAPABILITIES_WITH_ANTE_MODE = 3;
     private static final int MAX_PACKET_BYTES = 64 * 1024;
     private static final int MAX_SESSION_BYTES = 4096;
     private static final int MAX_STRUCTURE_BYTES = 48 * 1024;
@@ -45,7 +47,8 @@ public final class GameConfigCodecV1 {
             DataOutputStream out = new DataOutputStream(bytes);
             out.writeInt(MAGIC);
             out.writeInt(VERSION);
-            out.writeInt(CAPABILITIES);
+            boolean extendedAnte = value.ante() || value.anteMode() != AnteMode.TRADITIONAL;
+            out.writeInt(extendedAnte ? CAPABILITIES_WITH_ANTE_MODE : CAPABILITIES);
             out.writeInt(value.buyin());
             out.writeLong(toCents(value.smallBlind()));
             out.writeLong(toCents(value.bigBlind()));
@@ -72,6 +75,9 @@ public final class GameConfigCodecV1 {
             out.writeInt(value.showdownTime());
             writeBoolean(out, value.botBalanceToHumans());
             writeString(out, levelsToString(value.blindStructure()));
+            if (extendedAnte) {
+                out.writeByte(value.anteMode().ordinal());
+            }
             out.flush();
             byte[] encoded = bytes.toByteArray();
             if (encoded.length > MAX_PACKET_BYTES) {
@@ -106,8 +112,11 @@ public final class GameConfigCodecV1 {
         }
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(encoded));
-            if (in.readInt() != MAGIC || in.readInt() != VERSION
-                    || in.readInt() != CAPABILITIES) {
+            if (in.readInt() != MAGIC || in.readInt() != VERSION) {
+                return Result.error("unsupported configuration version or capabilities");
+            }
+            int capabilities = in.readInt();
+            if (capabilities != CAPABILITIES && capabilities != CAPABILITIES_WITH_ANTE_MODE) {
                 return Result.error("unsupported configuration version or capabilities");
             }
             Configuration value = new Configuration(
@@ -119,7 +128,16 @@ public final class GameConfigCodecV1 {
                     readBoolean(in), readBoolean(in), readBoolean(in),
                     readBoolean(in), in.readInt(), in.readInt(), readBoolean(in),
                     in.readInt(), readBoolean(in),
-                    parseLevels(readString(in, MAX_STRUCTURE_BYTES)));
+                    parseLevels(readString(in, MAX_STRUCTURE_BYTES)),
+                    capabilities == CAPABILITIES_WITH_ANTE_MODE
+                            ? readExtendedAnteMode(in) : AnteMode.TRADITIONAL);
+            if (value.ante() && capabilities == CAPABILITIES) {
+                return Result.error("legacy ante rules are incompatible");
+            }
+            if (capabilities == CAPABILITIES_WITH_ANTE_MODE
+                    && !value.ante() && value.anteMode() == AnteMode.TRADITIONAL) {
+                return Result.error("unexpected ante mode extension");
+            }
             if (in.available() != 0) {
                 return Result.error("trailing configuration data");
             }
@@ -154,7 +172,7 @@ public final class GameConfigCodecV1 {
                 settings.ante(), settings.straddle(), settings.iwtsth(),
                 settings.runItTwice(), settings.rabbitHunting().ordinal(),
                 settings.thinkSeconds(), settings.thinkTime(), settings.showdownSeconds(),
-                settings.botBalanceToHumans(), structure));
+                settings.botBalanceToHumans(), structure, settings.anteMode()));
     }
 
     public static byte[] canonicalHash(Configuration configuration) {
@@ -231,6 +249,15 @@ public final class GameConfigCodecV1 {
         return BigDecimal.valueOf(cents, 2).doubleValue();
     }
 
+    private static AnteMode readExtendedAnteMode(DataInputStream in) throws Exception {
+        int code = in.readUnsignedByte();
+        AnteMode[] values = AnteMode.values();
+        if (code >= values.length) {
+            throw new IllegalArgumentException("invalid extended ante mode");
+        }
+        return values[code];
+    }
+
     private static void writeBoolean(DataOutputStream out, boolean value) throws Exception {
         out.writeByte(value ? 1 : 0);
     }
@@ -297,10 +324,27 @@ public final class GameConfigCodecV1 {
             int rebuyCapPolicy, boolean ante, boolean straddle, boolean iwtsth,
             boolean runItTwice, int rabbitHunting, int thinkTime,
             boolean thinkTimeEnabled, int showdownTime, boolean botBalanceToHumans,
-            List<BlindLevel> blindStructure) {
+            List<BlindLevel> blindStructure, AnteMode anteMode) {
+        public Configuration(int buyin, double smallBlind, double bigBlind,
+                int blindsDouble, int blindsDoubleType, boolean recover, String sessionId,
+                boolean rebuy, int hands, double blindCap, int rebuyLimit,
+                boolean botRebuy, boolean fixedBuyin, int buyinMinBb, int buyinMaxBb,
+                int rebuyCapPolicy, boolean ante, boolean straddle, boolean iwtsth,
+                boolean runItTwice, int rabbitHunting, int thinkTime,
+                boolean thinkTimeEnabled, int showdownTime, boolean botBalanceToHumans,
+                List<BlindLevel> blindStructure) {
+            this(buyin, smallBlind, bigBlind, blindsDouble, blindsDoubleType,
+                    recover, sessionId, rebuy, hands, blindCap, rebuyLimit,
+                    botRebuy, fixedBuyin, buyinMinBb, buyinMaxBb, rebuyCapPolicy,
+                    ante, straddle, iwtsth, runItTwice, rabbitHunting, thinkTime,
+                    thinkTimeEnabled, showdownTime, botBalanceToHumans,
+                    blindStructure, AnteMode.TRADITIONAL);
+        }
+
         public Configuration {
             sessionId = Objects.requireNonNull(sessionId, "sessionId");
             blindStructure = List.copyOf(blindStructure);
+            Objects.requireNonNull(anteMode, "anteMode");
         }
 
         public Configuration withIwtsth(boolean value) {
@@ -329,11 +373,15 @@ public final class GameConfigCodecV1 {
         }
 
         public Configuration withAnte(boolean value) {
-            return withBlindFlags(value, straddle);
+            return withBlindFlags(value, straddle, anteMode);
         }
 
         public Configuration withStraddle(boolean value) {
-            return withBlindFlags(ante, value);
+            return withBlindFlags(ante, value, anteMode);
+        }
+
+        public Configuration withAnteMode(AnteMode value) {
+            return withBlindFlags(ante, straddle, value);
         }
 
         public Configuration withBlindUpdate(Configuration source) {
@@ -344,7 +392,7 @@ public final class GameConfigCodecV1 {
                     botRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
                     rebuyCapPolicy, source.ante, source.straddle, iwtsth,
                     runItTwice, rabbitHunting, thinkTime, thinkTimeEnabled,
-                    showdownTime, botBalanceToHumans, source.blindStructure);
+                    showdownTime, botBalanceToHumans, source.blindStructure, source.anteMode);
         }
 
         /**
@@ -363,7 +411,7 @@ public final class GameConfigCodecV1 {
                     straddle, iwtsth, runItTwice, rabbitHunting, thinkTime,
                     thinkTimeEnabled, showdownTime, botBalanceToHumans,
                     Objects.requireNonNull(nextBlindStructure,
-                            "nextBlindStructure"));
+                            "nextBlindStructure"), anteMode);
         }
 
         public Configuration withHands(int value) {
@@ -372,7 +420,7 @@ public final class GameConfigCodecV1 {
                     rebuyLimit, botRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
                     rebuyCapPolicy, ante, straddle, iwtsth, runItTwice,
                     rabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
-                    botBalanceToHumans, blindStructure);
+                    botBalanceToHumans, blindStructure, anteMode);
         }
 
         public Configuration withRecoveredBuyin(int nextBuyin, boolean nextRebuy) {
@@ -382,7 +430,7 @@ public final class GameConfigCodecV1 {
                     buyinMinBb, buyinMaxBb, rebuyCapPolicy, ante, straddle,
                     iwtsth, runItTwice, rabbitHunting, thinkTime,
                     thinkTimeEnabled, showdownTime, botBalanceToHumans,
-                    blindStructure);
+                    blindStructure, anteMode);
         }
 
         public Configuration withRecover(boolean value) {
@@ -392,7 +440,7 @@ public final class GameConfigCodecV1 {
                     buyinMinBb, buyinMaxBb, rebuyCapPolicy, ante, straddle,
                     iwtsth, runItTwice, rabbitHunting, thinkTime,
                     thinkTimeEnabled, showdownTime, botBalanceToHumans,
-                    blindStructure);
+                    blindStructure, anteMode);
         }
 
         private Configuration withLiveRules(boolean nextIwtsth,
@@ -403,18 +451,18 @@ public final class GameConfigCodecV1 {
                     rebuyLimit, nextBotRebuy, fixedBuyin, buyinMinBb, buyinMaxBb,
                     rebuyCapPolicy, ante, straddle, nextIwtsth, nextRunItTwice,
                     nextRabbitHunting, thinkTime, thinkTimeEnabled, showdownTime,
-                    nextBotBalanceToHumans, blindStructure);
+                    nextBotBalanceToHumans, blindStructure, anteMode);
         }
 
         private Configuration withBlindFlags(boolean nextAnte,
-                boolean nextStraddle) {
+                boolean nextStraddle, AnteMode nextAnteMode) {
             return new Configuration(buyin, smallBlind, bigBlind,
                     blindsDouble, blindsDoubleType, recover, sessionId, rebuy,
                     hands, blindCap, rebuyLimit, botRebuy, fixedBuyin,
                     buyinMinBb, buyinMaxBb, rebuyCapPolicy, nextAnte,
                     nextStraddle, iwtsth, runItTwice, rabbitHunting,
                     thinkTime, thinkTimeEnabled, showdownTime,
-                    botBalanceToHumans, blindStructure);
+                    botBalanceToHumans, blindStructure, nextAnteMode);
         }
     }
 

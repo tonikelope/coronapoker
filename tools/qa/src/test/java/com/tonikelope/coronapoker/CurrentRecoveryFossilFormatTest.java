@@ -38,6 +38,21 @@ class CurrentRecoveryFossilFormatTest {
     }
 
     @Test
+    void validatesAnteSnapshotsWhileAllowingPreviouslySavedHands() {
+        String legacy = "ORDER@ring#HAND_ID@" + HAND_ID + "#RIT@false,false,-1#STRADDLE@false";
+        assertTrue(Crupier.isCurrentRecoveryFossil(legacy));
+        for (String rule : new String[]{"OFF", "LEGACY,10", "TRADITIONAL,2", "BIG_BLIND,20",
+                "BUTTON,20", "SMALL_BLIND,20"}) {
+            assertTrue(Crupier.isCurrentRecoveryFossil(legacy + "#ANTE@" + rule), rule);
+        }
+        for (String rule : new String[]{"", "OTHER,20", "BIG_BLIND", "BIG_BLIND,0",
+                "BUTTON,-1", "BUTTON,+20", "SMALL_BLIND,2.1", "SMALL_BLIND,400000001",
+                "OFF#ANTE@OFF"}) {
+            assertFalse(Crupier.isCurrentRecoveryFossil(legacy + "#ANTE@" + rule), rule);
+        }
+    }
+
+    @Test
     void bothActiveRecoveryRolesEnforceTheCurrentFossilBeforeParsing() throws Exception {
         Path root = projectRoot();
         String source = Files.readString(root.resolve(

@@ -283,8 +283,10 @@ class PokerVideoFavoritesTest {
             float centerY = slider.y + slider.height / 2f;
             assertTrue(overlay.touchDown(slider.x + slider.width / 2f, centerY, 0, 0));
             assertEquals(55, value(overlay, "videoOpacity"));
+            assertEquals(0.55f, overlay.videoBackdropAlpha(), 0.0001f);
             assertTrue(overlay.touchDragged(slider.x - 20f, centerY, 0));
             assertEquals(10, value(overlay, "videoOpacity"));
+            assertEquals(0.10f, overlay.videoBackdropAlpha(), 0.0001f);
             assertEquals(0, saves.get());
             assertTrue(overlay.touchUp(slider.x - 20f, centerY, 0, 0));
             assertEquals(1, saves.get());
@@ -298,6 +300,7 @@ class PokerVideoFavoritesTest {
             assertTrue(overlay.touchDown(slider.x + slider.width - 1f, centerY, 0, 0));
             assertTrue(overlay.touchUp(slider.x + slider.width + 20f, centerY, 0, 0));
             assertEquals(100, value(overlay, "videoOpacity"));
+            assertEquals(1f, overlay.videoBackdropAlpha(), 0.0001f);
             assertEquals(2, saves.get());
         }
     }

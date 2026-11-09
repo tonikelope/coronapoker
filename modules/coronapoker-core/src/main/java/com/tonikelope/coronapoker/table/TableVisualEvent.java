@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.table;
 
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.List;
@@ -447,10 +448,21 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     /** Values shown by the central community-card HUD. */
     record TableInfo(long sequence, double smallBlind, double bigBlind,
             int handNumber, int blindIncreaseInterval,
-            int blindIncreaseType, int blindIncreaseCount)
+            int blindIncreaseType, int blindIncreaseCount,
+            boolean anteRuleKnown, AnteMode handAnteMode)
             implements TableVisualEvent {
 
+        public TableInfo(long sequence, double smallBlind, double bigBlind,
+                int handNumber, int blindIncreaseInterval, int blindIncreaseType,
+                int blindIncreaseCount) {
+            this(sequence, smallBlind, bigBlind, handNumber, blindIncreaseInterval,
+                    blindIncreaseType, blindIncreaseCount, false, null);
+        }
+
         public TableInfo {
+            if (!anteRuleKnown && handAnteMode != null) {
+                throw new IllegalArgumentException("Hand ante requires a known ante rule");
+            }
             requireMoney(smallBlind, "Small blind");
             requireMoney(bigBlind, "Big blind");
             if (handNumber < 0) {

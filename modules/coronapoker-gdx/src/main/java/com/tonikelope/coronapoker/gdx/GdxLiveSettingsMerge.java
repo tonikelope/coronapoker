@@ -51,6 +51,9 @@ final class GdxLiveSettingsMerge {
         if (edited.ante() != opened.ante()) {
             merged = merged.withAnte(edited.ante());
         }
+        if (edited.anteMode() != opened.anteMode()) {
+            merged = merged.withAnteMode(edited.anteMode());
+        }
         if (edited.straddle() != opened.straddle()) {
             merged = merged.withStraddle(edited.straddle());
         }

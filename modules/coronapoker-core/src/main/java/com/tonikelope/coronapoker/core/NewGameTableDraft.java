@@ -59,6 +59,7 @@ public final class NewGameTableDraft {
     private int showdownSeconds = 10;
     private boolean allowHotJoin = true;
     private boolean ante;
+    private AnteMode anteMode = AnteMode.TRADITIONAL;
     private boolean straddle;
     private boolean iwtsth;
     private boolean runItTwice;
@@ -100,6 +101,7 @@ public final class NewGameTableDraft {
         draft.setShowdownSeconds(settings.showdownSeconds());
         draft.setAllowHotJoin(settings.allowHotJoin());
         draft.setAnte(settings.ante());
+        draft.setAnteMode(settings.anteMode());
         draft.setStraddle(settings.straddle());
         draft.setIwtsth(settings.iwtsth());
         draft.setRunItTwice(settings.runItTwice());
@@ -208,6 +210,11 @@ public final class NewGameTableDraft {
     public void setAllowHotJoin(boolean value) { allowHotJoin = value; }
     public boolean ante() { return ante; }
     public void setAnte(boolean value) { requireEconomyEditable(); ante = value; }
+    public AnteMode anteMode() { return anteMode; }
+    public void setAnteMode(AnteMode value) {
+        requireEconomyEditable();
+        anteMode = java.util.Objects.requireNonNull(value, "anteMode");
+    }
     public boolean straddle() { return straddle; }
     public void setStraddle(boolean value) { requireEconomyEditable(); straddle = value; }
     public boolean iwtsth() { return iwtsth; }
@@ -232,7 +239,7 @@ public final class NewGameTableDraft {
                 blindCapRaises, fixedBuyin, buyin, minBuyinBb, maxBuyinBb,
                 rebuy, rebuyLimit, rebuyLimitCount, botRebuy,
                 botBalanceToHumans, rebuyCapPolicy, handLimit, handLimitCount,
-                thinkTime, thinkSeconds, showdownSeconds, ante, straddle,
+                thinkTime, thinkSeconds, showdownSeconds, ante, anteMode, straddle,
                 iwtsth, runItTwice, rabbitHunting, botDifficulty,
                 allowHotJoin, customBots, customBotsOnly);
     }
@@ -283,12 +290,14 @@ public final class NewGameTableDraft {
             int rebuyLimitCount, boolean botRebuy, boolean botBalanceToHumans,
             RebuyCapPolicy rebuyCapPolicy, boolean handLimit, int handLimitCount,
             boolean thinkTime, int thinkSeconds, int showdownSeconds,
-            boolean ante, boolean straddle, boolean iwtsth, boolean runItTwice,
+            boolean ante, AnteMode anteMode, boolean straddle, boolean iwtsth,
+            boolean runItTwice,
             RabbitHunting rabbitHunting, BotDifficulty botDifficulty,
             boolean allowHotJoin, boolean customBots,
             boolean customBotsOnly) {
         public Settings {
             blindLevels = List.copyOf(blindLevels);
+            java.util.Objects.requireNonNull(anteMode, "anteMode");
         }
 
         public BlindLevel selectedBlindLevel() {
@@ -335,6 +344,7 @@ public final class NewGameTableDraft {
                     + "#BCAP=" + blindCapValue
                     + "#MANOS=" + handLimitValue
                     + "#ANTE=" + bool(ante)
+                    + (anteMode == AnteMode.TRADITIONAL ? "" : "#ANTE_MODE=" + anteMode.name())
                     + "#STR=" + bool(straddle)
                     + "#IWTSTH=" + bool(iwtsth)
                     + "#RIT=" + bool(runItTwice)
@@ -414,6 +424,8 @@ public final class NewGameTableDraft {
                 draft.setHandLimit(hands >= 0);
                 if (hands >= 0) draft.setHandLimitCount(hands);
                 draft.setAnte(one(values, "ANTE"));
+                draft.setAnteMode(AnteMode.valueOf(values.getOrDefault(
+                        "ANTE_MODE", AnteMode.TRADITIONAL.name())));
                 draft.setStraddle(one(values, "STR"));
                 draft.setIwtsth(one(values, "IWTSTH"));
                 draft.setRunItTwice(one(values, "RIT"));

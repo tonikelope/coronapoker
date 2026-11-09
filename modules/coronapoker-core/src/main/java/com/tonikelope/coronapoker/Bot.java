@@ -1347,7 +1347,8 @@ public class Bot {
 
     private RaiseEvaluation evaluatePotAction(double cost, double target, double[] equity,
             BoardTexture texture, int betCount, int street, double pot) {
-        List<? extends BotPlayerView> tableSeats = dealer().getPlayersInSeatingOrder();
+        DealerView table = dealer();
+        List<? extends BotPlayerView> tableSeats = table.getPlayersInSeatingOrder();
         List<BotPotOdds.Seat> seats = new ArrayList<>(tableSeats.size());
         double allFold = 1;
         for (BotPlayerView seat : tableSeats) {
@@ -1357,10 +1358,11 @@ public class Bot {
             boolean live = isOpponentInHand(seat);
             double added = live && target > 0 ? Math.max(0, Math.min(seat.getStack(), target - seat.getBet())) : 0;
             double fold = live ? foldProbability(seat, texture, betCount, street, pot, added) : 1;
-            seats.add(new BotPotOdds.Seat(PotMath.toCents(seat.getBote()), PotMath.toCents(added), fold));
+            seats.add(new BotPotOdds.Seat(PotMath.toCents(table.matchedContribution(seat)),
+                    PotMath.toCents(added), fold));
             allFold *= fold;
         }
-        double ev = BotPotOdds.ev(PotMath.toCents(cpuPlayer.getBote()), PotMath.toCents(cost),
+        double ev = BotPotOdds.ev(PotMath.toCents(table.matchedContribution(cpuPlayer)), PotMath.toCents(cost),
                 PotMath.toCents(pot), seats, equity);
         return new RaiseEvaluation(ev, allFold);
     }
@@ -1438,15 +1440,17 @@ public class Bot {
     }
 
     private double contestablePot(double extraChips) {
-        double covered = cpuPlayer.getBote() + extraChips;
-        double pot = dealer().getBote_total();
+        DealerView table = dealer();
+        double covered = table.matchedContribution(cpuPlayer) + extraChips;
+        double pot = table.getBote_total();
         double excess = 0;
         boolean deeperOpponent = false;
-        for (BotPlayerView seat : dealer().getPlayersInSeatingOrder()) {
+        for (BotPlayerView seat : table.getPlayersInSeatingOrder()) {
+            double committed = table.matchedContribution(seat);
             if (!cpuPlayer.getNickname().equals(seat.getNickname())
-                    && MoneyMath.compare(seat.getBote(), covered) > 0) {
-                excess += seat.getBote() - covered;
-                deeperOpponent |= dealer().isContender(seat);
+                    && MoneyMath.compare(committed, covered) > 0) {
+                excess += committed - covered;
+                deeperOpponent |= table.isContender(seat);
             }
         }
         // The highest eligible layer also contains folded players' excess.

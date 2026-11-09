@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +29,33 @@ class GameConfigCodecV1Test {
         assertTrue(decoded.isOk(), decoded.error());
         assertEquals(original, decoded.value());
         assertArrayEquals(encoded, GameConfigCodecV1.encode(decoded.value()));
+    }
+
+    @Test
+    void allAnteModesSurviveWireAndUnrelatedUpdatesEvenWhenDisabled() {
+        for (AnteMode mode : AnteMode.values()) {
+            for (boolean enabled : new boolean[]{false, true}) {
+                GameConfigCodecV1.Configuration config = defaultConfiguration()
+                        .withAnteMode(mode).withAnte(enabled)
+                        .withStraddle(true).withHands(5).withRecover(true)
+                        .withBotBalanceToHumans(true);
+                byte[] bytes = GameConfigCodecV1.encode(config);
+                assertEquals(config, GameConfigCodecV1.decode(bytes).value());
+                assertEquals(mode, defaultConfiguration().withBlindUpdate(config).anteMode());
+                assertEquals(mode, config.withBlindSettings(0.2, 0.4, 0, 1,
+                        0, List.of()).anteMode());
+            }
+        }
+    }
+
+    @Test
+    void anOldNetworkPeerCannotUseThePreviousTraditionalAnteAmount() {
+        byte[] current = GameConfigCodecV1.encode(defaultConfiguration().withAnte(true));
+        byte[] legacy = Arrays.copyOf(current, current.length - 1);
+        legacy[11] = 1;
+        assertFalse(GameConfigCodecV1.decode(legacy).isOk());
+        current[current.length - 1] = 99;
+        assertFalse(GameConfigCodecV1.decode(current).isOk());
     }
 
     @Test

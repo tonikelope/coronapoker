@@ -440,7 +440,15 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
-        assertTrue(method.contains("button(470f, 320f, 590f, 70f,"));
+        assertTrue(method.contains("panel(leftPanelX, panelY, panelWidth, panelHeight,"));
+        assertTrue(method.contains("panel(rightPanelX, panelY, panelWidth, panelHeight,"));
+        assertTrue(method.contains("button(leftX, 435f, rowWidth, 70f,"));
+        int antePanel = method.indexOf("plainPanel(leftX, modeY - 8f, rowWidth,");
+        int anteToggle = method.indexOf("toggle(anteX, anteY, anteWidth,");
+        int anteList = method.indexOf("settingsDropdownChoice(anteX, modeY, anteWidth, rowHeight,");
+        assertTrue(method.contains("toggle(leftX, straddleY, rowWidth,"));
+        assertTrue(antePanel >= 0 && antePanel < anteToggle && anteToggle < anteList);
+        assertTrue(method.contains("openDropdown(Dropdown.ANTE_MODE"));
         assertTrue(method.contains(
                 "settingsGameText(\"row.manage_structures\")"));
         assertFalse(method.contains("row.default_structure"));

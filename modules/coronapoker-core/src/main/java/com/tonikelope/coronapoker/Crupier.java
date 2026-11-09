@@ -94,6 +94,7 @@ import com.tonikelope.coronapoker.core.game.GamePot;
 import com.tonikelope.coronapoker.core.game.GamePotFactory;
 import com.tonikelope.coronapoker.core.game.GameRuntimeEnvironment;
 import com.tonikelope.coronapoker.core.game.GameValueFormatter;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 
@@ -502,10 +503,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public java.util.List<TableVisualEvent> publicHotJoinStatusEvents() {
         GameConfigCodecV1.Configuration current = configuration();
         return java.util.List.of(
-                new TableVisualEvent.TableInfo(1L,
-                        this.ciega_pequeña, this.ciega_grande,
-                        this.conta_mano, current.blindsDouble(),
-                        current.blindsDoubleType(), this.ciegas_double),
+                tableInfo(1L, current),
                 new TableVisualEvent.LastHandStatus(1L, isLast_hand()),
                 new TableVisualEvent.HandLimitStatus(1L, current.hands()),
                 new TableVisualEvent.GameConfigurationStatus(1L, current),
@@ -4401,6 +4399,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Double beneficio_bote_principal = null;
+    // Snapshot the ante rule at the hand boundary, including for recovery.
+    private volatile HandAnte hand_ante;
+
+    private record HandAnte(AnteMode mode, double amount, boolean legacy) {
+        private static final HandAnte OFF = new HandAnte(null, 0d, false);
+
+        private String encode() {
+            if (mode == null) return "OFF";
+            String format = legacy ? "LEGACY" : mode.name();
+            return format + "," + settlementAmountToCents(amount);
+        }
+    }
     private volatile boolean iwtsth = false;
     private volatile boolean iwtsthing = false;
     private volatile boolean iwtsthing_request = false;
@@ -7134,8 +7144,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return game_recovered;
     }
 
-    // Prepares the pot-chip animation for the hand's FORCED bets at start (big blind,
-    // small blind, and straddle if any; with ante, ALL players in one single batch).
+    private String singleAntePayer(AnteMode mode) {
+        return switch (mode) {
+            case BIG_BLIND -> this.big_blind_nick;
+            case BUTTON -> this.dealer_nick;
+            case SMALL_BLIND -> this.small_blind_nick;
+            case TRADITIONAL -> null;
+        };
+    }
+
+    private HandAnte startingHandAnte(AnteMode mode, boolean legacyReplay) {
+        if (mode == null) return HandAnte.OFF;
+        // Fossils written before ante modes used one small blind per player.
+        return legacyReplay ? new HandAnte(AnteMode.TRADITIONAL, this.ciega_pequeña, true)
+                : new HandAnte(mode, mode.amount(this.ciega_grande), false);
+    }
+
+    private void postHandAntes(HandAnte ante) {
+        AnteMode mode = ante.mode();
+        if (mode == null) return;
+
+        // Position handling has already posted the blinds, including on replay.
+        // postAnte takes only the remaining stack and leaves the street bet intact.
+        boolean traditional = mode == AnteMode.TRADITIONAL;
+        String payer = singleAntePayer(mode);
+        boolean deferCounters = shouldDeferCountersToChip() && this.game_recovered == 0;
+        for (GamePlayerController player : players()) {
+            if (!player.isActivo() || (!traditional && !player.getNickname().equals(payer))
+                    || MoneyMath.compare(player.getStack(), 0d) <= 0) {
+                continue;
+            }
+            if (deferCounters) {
+                player.setCounterRollDeferred(true);
+            }
+            double paid = player.postAnte(ante.amount());
+            this.bote_total += paid;
+            if (!traditional && MoneyMath.compare(paid, 0d) > 0) {
+                this.bote.recordTableAnte(player, paid);
+            }
+        }
+    }
+
+    // Prepares one chip per player who posted a blind or ante at hand start.
     // Defers the pot value: increments pot_chips_in_flight BEFORE
     // actualizarContadoresTapete so the pot doesn't jump all at once and instead
     // visibly INCREMENTS as chips land (same as bet/call). Chips actually fly later
@@ -7151,19 +7201,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         java.util.List<GamePlayerController> contributors = new java.util.ArrayList<>();
 
-        if (configuration().ante()) {
-            // Everyone anted (+ blinds/straddle): one chip per active player.
-            for (GamePlayerController p : players()) {
-                if (p.isActivo()) {
-                    contributors.add(p);
-                }
+        AnteMode mode = this.hand_ante.mode();
+        if (mode == AnteMode.TRADITIONAL) {
+            for (GamePlayerController player : players()) {
+                addForcedBetContributor(contributors, player);
             }
         } else {
-            // Blinds only: the straddle is VOLUNTARY and decided after dealing
-            // (resolveVoluntaryStraddle), so it's never posted in this pre-deal batch
-            // — its chip and money fly separately, after the decision.
-            addForcedBetContributor(contributors, this.big_blind_nick);
-            addForcedBetContributor(contributors, this.small_blind_nick);
+            addForcedBetContributor(contributors, playerForForcedBet(this.big_blind_nick));
+            addForcedBetContributor(contributors, playerForForcedBet(this.small_blind_nick));
+            if (mode == AnteMode.BUTTON) {
+                addForcedBetContributor(contributors, playerForForcedBet(this.dealer_nick));
+            }
         }
 
         if (contributors.isEmpty()) {
@@ -7184,15 +7232,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void addForcedBetContributor(java.util.List<GamePlayerController> list, String nick) {
-        if (nick == null) {
-            return;
-        }
-        for (GamePlayerController p : players()) {
-            if (p.getNickname().equals(nick) && p.isActivo() && !list.contains(p)) {
-                list.add(p);
-                return;
-            }
+    private GamePlayerController playerForForcedBet(String nickname) {
+        return nickname == null ? null : nick2player.get(nickname);
+    }
+
+    private void addForcedBetContributor(java.util.List<GamePlayerController> list,
+            GamePlayerController player) {
+        if (player != null && player.isActivo() && MoneyMath.compare(player.getBote(), 0d) > 0
+                && !list.contains(player)) {
+            list.add(player);
         }
     }
 
@@ -7781,33 +7829,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void applyBlindConfigurationState(
             GameConfigCodecV1.Configuration update) {
-        GameConfigCodecV1.Configuration current = configuration();
-        boolean deferredChange = Double.compare(current.smallBlind(),
-                update.smallBlind()) != 0
-                || Double.compare(current.bigBlind(), update.bigBlind()) != 0
-                || current.blindsDouble() != update.blindsDouble()
-                || current.blindsDoubleType() != update.blindsDoubleType()
-                || current.ante() != update.ante()
-                || current.straddle() != update.straddle()
-                || Double.compare(current.blindCap(),
-                        update.blindCap()) != 0
-                || !current.blindStructure().equals(
-                        update.blindStructure());
-        if (deferredChange) {
-            synchronized (lock_ciegas) {
+        synchronized (lock_ciegas) {
+            GameConfigCodecV1.Configuration current = configuration();
+            boolean deferredChange = Double.compare(current.smallBlind(),
+                    update.smallBlind()) != 0
+                    || Double.compare(current.bigBlind(), update.bigBlind()) != 0
+                    || current.blindsDouble() != update.blindsDouble()
+                    || current.blindsDoubleType() != update.blindsDoubleType()
+                    || current.ante() != update.ante()
+                    || current.anteMode() != update.anteMode()
+                    || current.straddle() != update.straddle()
+                    || Double.compare(current.blindCap(),
+                            update.blindCap()) != 0
+                    || !current.blindStructure().equals(
+                            update.blindStructure());
+            if (deferredChange) {
                 if (pending_blind_configuration_before == null) {
                     pending_blind_configuration_before = current;
                 }
                 pending_blind_configuration_after = update;
+                this.ante_straddle_update = true;
             }
+            actualizarCiegasManualmente(update.smallBlind(), update.bigBlind(),
+                    update.blindsDouble(), update.blindsDoubleType());
+            gameSession().applyBlindUpdate(update);
         }
-        if (deferredChange) {
-            marcarCambioAnteStraddle();
-        }
-        actualizarCiegasManualmente(update.smallBlind(), update.bigBlind(),
-                update.blindsDouble(), update.blindsDoubleType());
-        gameSession().applyBlindUpdate(update);
         publishGameConfigurationStatus();
+    }
+
+    private String anteConfigurationText(GameConfigCodecV1.Configuration config) {
+        return config.ante() ? game_text.translate(config.anteMode().labelKey())
+                : enabledText(false);
     }
 
     private String blindConfigurationChangeMessage(
@@ -7832,9 +7884,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             changes.add(game_text.translate("blinds.change.interval",
                     blindIntervalText(before), blindIntervalText(after)));
         }
-        if (before.ante() != after.ante()) {
+        if (before.ante() != after.ante() || before.anteMode() != after.anteMode()) {
             changes.add(game_text.translate("blinds.change.ante",
-                    enabledText(before.ante()), enabledText(after.ante())));
+                    anteConfigurationText(before), anteConfigurationText(after)));
         }
         if (before.straddle() != after.straddle()) {
             changes.add(game_text.translate("blinds.change.straddle",
@@ -9195,11 +9247,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (print) {
                 game_log.print(status.toString());
 
-                // Ante-active indicator: the ante is symmetric (everyone antes), not a
-                // per-nick role like straddle, so it gets its own line with the chip icon
-                // ("(A )" token).
-                if (configuration().ante()) {
-                    game_log.print("(A ) " + game_text.translate("game.antes_activos", value_formatter.money(this.ciega_pequeña)));
+                HandAnte ante = this.hand_ante;
+                if (ante != null && ante.mode() != null) {
+                    AnteMode mode = ante.mode();
+                    String amount = value_formatter.money(ante.amount());
+                    game_log.print("(A ) " + (mode == AnteMode.TRADITIONAL
+                            ? game_text.translate("game.antes_activos", amount)
+                            : game_text.translate("game.ante_single", amount,
+                                    game_text.translate(mode.labelKey()))));
                 }
             }
 
@@ -10127,10 +10182,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void publishTableInfo() {
-        table_events.publishIfAttached(sequence -> new TableVisualEvent.TableInfo(
-                sequence, this.ciega_pequeña, this.ciega_grande,
-                this.conta_mano, configuration().blindsDouble(),
-                configuration().blindsDoubleType(), this.ciegas_double));
+        table_events.publishIfAttached(sequence -> tableInfo(sequence, configuration()));
+    }
+
+    private TableVisualEvent.TableInfo tableInfo(long sequence,
+            GameConfigCodecV1.Configuration config) {
+        HandAnte ante = this.hand_ante;
+        return new TableVisualEvent.TableInfo(sequence, this.ciega_pequeña,
+                this.ciega_grande, this.conta_mano, config.blindsDouble(),
+                config.blindsDoubleType(), this.ciegas_double, ante != null,
+                ante == null ? null : ante.mode());
     }
 
     // Optional overlay on the community cards: how much the local player would need to put in
@@ -11314,6 +11375,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } catch (Exception ex) {
                                     LOGGER.log(Level.WARNING, "RIT@ unparseable: {0}", part);
                                 }
+                            } else if (part.startsWith("ANTE@")) {
+                                this.hand_ante = decodeHandAnte(part.substring("ANTE@".length()));
                             } else if (part.startsWith("STRADDLE@")) {
                                 // Voluntary straddle: if the replayed hand had it posted, the
                                 // host restores it in resolveVoluntaryStraddle (post-deal) and
@@ -11696,6 +11759,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (NumberFormatException nfe) {
                                 LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
                             }
+                        } else if (part.startsWith("ANTE@")) {
+                            this.hand_ante = decodeHandAnte(part.substring("ANTE@".length()));
                         } else if (part.startsWith("STRADDLE@")) {
                             // Recover zero-trust cross-check (client): whether OUR OWN fossil
                             // recorded the straddle as posted this hand. Compared against the
@@ -14092,8 +14157,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
-        if (this.ciegas_update != null || this.ante_straddle_update) {
-            synchronized (lock_ciegas) {
+        final AnteMode configuredHandAnte;
+        synchronized (lock_ciegas) {
+            if (this.ciegas_update != null || this.ante_straddle_update) {
                 GameConfigCodecV1.Configuration before
                         = pending_blind_configuration_before;
                 GameConfigCodecV1.Configuration after
@@ -14119,6 +14185,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameDialogSink.Icon.BLINDS));
                 });
             }
+            GameConfigCodecV1.Configuration handConfig = configuration();
+            configuredHandAnte = handConfig.ante() ? handConfig.anteMode() : null;
+            this.hand_ante = null;
         }
 
         rabbit_players.clear();
@@ -14623,30 +14692,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.bote_total += this.apuestas;
 
-            // Symmetric ante: every active player posts the ante (= small blind) to the pot as
-            // dead money. It doesn't count as an amount to call (apuesta_actual stays the big
-            // blind) — it goes through postAnte (not setBet), so it's excluded from the getBet()
-            // sum and added straight to bote_total. genSidePots/getTotal still split it correctly
-            // since they key off getBote() (which includes the ante). Also applies on a
-            // RECOVERED hand: the ante is dead money the replay doesn't reproduce (it's not an
-            // action), so it's re-posted here (runs after refreshPos, before the replay). No-op
-            // if ANTE is off.
-            if (configuration().ante()) {
-                double total_antes = 0f;
-                for (GamePlayerController jugador : players()) {
-                    if (jugador.isActivo()) {
-                        // The ante flies to the pot: postAnte doesn't roll its stack/bet counters
-                        // — that's deferred, and rollCountersToModel rolls it together with the
-                        // pot once its chip lands. Gate includes game_recovered==0 (the recover
-                        // block has already run by then).
-                        if (shouldDeferCountersToChip() && this.game_recovered == 0) {
-                            jugador.setCounterRollDeferred(true);
-                        }
-                        total_antes += jugador.postAnte(this.ciega_pequeña);
-                    }
-                }
-                this.bote_total += total_antes;
+            if (saltar_primera_mano || this.hand_ante == null) {
+                boolean legacyReplay = recoveryRequestedForThisHand && !saltar_primera_mano;
+                this.hand_ante = startingHandAnte(configuredHandAnte, legacyReplay);
             }
+            postHandAntes(this.hand_ante);
 
             // Prepare the chips-to-pot animation for the forced bets BEFORE showing the pot:
             // defer its value so it appears to increase as the chips land, not all at once. The
@@ -14663,7 +14713,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             animateChipRotation();
 
             // After the position chips rotate and BEFORE the shuffle: the forced bets
-            // (blinds/straddle, and every ante if enabled) fly to the pot in one batch,
+            // (blinds and antes) fly to the pot in one batch,
             // identical to bet/call (fly + pot increases + yellow flash). Blocks until landing,
             // same as the position chip rotation.
             flyForcedBetsToPot();
@@ -18170,6 +18220,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // the felt. Keeping settlement on the opening x1 chip also guarantees
         // that every canonical payout can be represented by the GDX rack; an
         // indivisible residue remains in bote_sobrante for the next hand.
+        HandAnte ante = this.hand_ante;
+        if (ante != null && ante.mode() == AnteMode.TRADITIONAL && !ante.legacy()) {
+            // The 10% ante can introduce smaller chips than the opening small blind.
+            return PotMath.smallestChipDenomination(initial_small_blind, ante.amount());
+        }
         return initial_small_blind;
     }
 
@@ -22733,6 +22788,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Voluntary straddle: whether UTG posted it this hand, so a recovered
             // hand restores it (the host rebroadcasts the decision, doesn't re-ask).
             fosil.append("#STRADDLE@").append(this.straddle_recovered_posted);
+
+            // The current hand can differ from settings already saved for the next one.
+            HandAnte ante = this.hand_ante;
+            if (ante != null) {
+                fosil.append("#ANTE@").append(ante.encode());
+            }
 
             hand_state_repository.save(this.sqlite_id_game, fosil.toString());
             return true;
@@ -27728,9 +27789,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Accepts only the one recovery-fossil decision shape written by this
-     * protocol version. Missing, duplicated or permissively parsed fields are
-     * rejected instead of being interpreted as an older/default state.
+     * Validates the recovery-fossil decisions. The ante snapshot is optional
+     * for hands saved before ante modes were introduced.
      */
     public static boolean isCurrentRecoveryFossil(String fossil) {
         if (fossil == null || fossil.isEmpty()) {
@@ -27738,6 +27798,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         int ritFields = 0;
         int straddleFields = 0;
+        int anteFields = 0;
         int handIdFields = 0;
         for (String part : fossil.split("#", -1)) {
             if (part.startsWith("HAND_ID@")) {
@@ -27766,6 +27827,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } catch (NumberFormatException ex) {
                     return false;
                 }
+            } else if (part.startsWith("ANTE@")) {
+                if (++anteFields > 1) return false;
+                try {
+                    decodeHandAnte(part.substring("ANTE@".length()));
+                } catch (IllegalArgumentException invalidMode) {
+                    return false;
+                }
             } else if (part.startsWith("STRADDLE@")) {
                 straddleFields++;
                 if (!isStrictBoolean(part.substring("STRADDLE@".length()))) {
@@ -27774,6 +27842,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         return handIdFields == 1 && ritFields == 1 && straddleFields == 1;
+    }
+
+    private static HandAnte decodeHandAnte(String value) {
+        if ("OFF".equals(value)) return HandAnte.OFF;
+        String[] parts = value.split(",", -1);
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("invalid hand ante");
+        }
+        boolean legacy = "LEGACY".equals(parts[0]);
+        AnteMode mode = legacy ? AnteMode.TRADITIONAL : AnteMode.valueOf(parts[0]);
+        MoneyCents amount = MoneyCents.ofCents(Long.parseLong(parts[1]));
+        if (amount.cents() == 0 || amount.cents() > settlementAmountToCents(BlindStructureRules.MAX_BLIND)
+                || !Long.toString(amount.cents()).equals(parts[1])) {
+            throw new IllegalArgumentException("invalid hand ante amount");
+        }
+        return new HandAnte(mode, amount.toDecimal().doubleValue(), legacy);
     }
 
     static boolean shouldLoadLocalRecoveryFossil(boolean handInProgress,
@@ -30382,6 +30466,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     @Override
     public GameOpponentStats getOpponentStats(String nickname) {
         return bot_service.opponent(nickname);
+    }
+
+    @Override
+    public double matchedContribution(com.tonikelope.coronapoker.bot.context.BotPlayerView player) {
+        GamePot pot = this.bote;
+        return pot != null && player instanceof GamePlayerController controller
+                ? pot.matchedContribution(controller) : player.getBote();
     }
 
     @Override

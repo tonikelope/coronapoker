@@ -48,6 +48,7 @@ import com.tonikelope.coronapoker.core.NewGameSubmissionCoordinator;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.BlindStructureCatalog;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.BlindStructureRules;
 import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.core.CustomBotProfile;
@@ -134,6 +135,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static final float WIDTH = 1920f;
     private static final float HEIGHT = 1080f;
+    private static final float BLINDS_PANEL_BOTTOM = 166f;
     static final float NEW_GAME_GAME_TOP_ROW_Y = 625f;
     static final float NEW_GAME_GAME_SECOND_ROW_Y = 505f;
     static final float NEW_GAME_GAME_LABELLED_ROW_Y = 345f;
@@ -7186,12 +7188,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<LobbyInfoItem> rows = List.of(
                 new LobbyInfoItem(gameText.translate("ui.compra"),
                         settings.fixedBuyin()
-                                ? Integer.toString(settings.buyin())
+                                ? GdxChipAmountText.format(settings.buyin())
                                 : gameText.translate(
                                         "gdx.settings.game.summary.value.variable")),
                 new LobbyInfoItem(gameText.translate("blinds.ciegas"),
-                        money(blind.smallBlind()) + " / "
-                                + money(blind.bigBlind())),
+                        GdxChipAmountText.format(blind.smallBlind(), 2) + " / "
+                                + GdxChipAmountText.format(blind.bigBlind(), 2)),
                 new LobbyInfoItem(gameText.translate("game.manos"),
                         settings.handLimit()
                                 ? Integer.toString(settings.handLimitCount())
@@ -10351,6 +10353,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsBooleanToggle(row.x, row.y, row.width,
                 settingsGameText("row.ante"), settingsTable.ante(), false,
                 () -> settingsTable.setAnte(!settingsTable.ante()), enabled);
+        int anteModeIndex = GdxSettingsContract.BLIND_ANTE_MODE_ROW;
+        row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(anteModeIndex),
+                rowWidth, anteModeIndex, groups, BLIND_ROW_COUNT);
+        settingsDropdownChoice(row.x, row.y, row.width, row.height,
+                settingsGameText("row.ante_mode"),
+                gameText.translate(settingsTable.anteMode().labelKey()),
+                Dropdown.ANTE_MODE, enabled && settingsTable.ante());
+        Rectangle anteTooltip = clippedSettingsHit(row.x, row.y, row.width, row.height);
+        if (anteTooltip != null) settingsTooltip(anteTooltip, "tooltip.cfg.ante_mode");
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_STRADDLE_ROW), rowWidth,
                 GdxSettingsContract.BLIND_STRADDLE_ROW, groups, BLIND_ROW_COUNT);
@@ -10427,9 +10438,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_INITIAL_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_INITIAL_ROW, groups, 8);
-        settingsStepper(row.x, row.y, row.width,
+        settingsStepper(row.x, row.y, row.width, row.height,
                 settingsGameText("row.initial_buyin"),
-                settingsTable.buyin(),
+                GdxChipAmountText.format(settingsTable.buyin()),
                 () -> settingsTable.setBuyin(settingsTable.buyin() - 1),
                 () -> settingsTable.setBuyin(settingsTable.buyin() + 1),
                 economyEditable && settingsTable.fixedBuyin());
@@ -10953,7 +10964,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsStepper(amount.bounds().x, amount.bounds().y,
                 amount.bounds().width, amount.bounds().height,
                 uppercase(settingsGameText("value.maximum")),
-                dialog.amountText(), () -> dialog.changeAmount(-1),
+                GdxChipAmountText.compactLabel(dialog.amountText()), () -> dialog.changeAmount(-1),
                 () -> dialog.changeAmount(1),
                 dialog.optionEnabled() && !dialog.noLimit());
         float buttonY = panelY + 34f;
@@ -12108,71 +12119,99 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawBlindsPage() {
-        panel(430f, 185f, 670f, 625f,
+        float leftPanelX = 430f;
+        float panelY = BLINDS_PANEL_BOTTOM;
+        float panelWidth = 697f;
+        float panelHeight = 660f;
+        float rightPanelX = leftPanelX + panelWidth + 31f;
+        panel(leftPanelX, panelY, panelWidth, panelHeight,
                 settingsGameText("blinds"));
-        panel(1130f, 185f, 725f, 625f,
+        panel(rightPanelX, panelY, panelWidth, panelHeight,
                 settingsGameText("row.increase_blinds"));
 
-        dropdownChoice(470f, 610f, 590f,
+        float leftX = leftPanelX + 40f;
+        float rightX = rightPanelX + 40f;
+        float rowWidth = panelWidth - 80f;
+        float rowHeight = GdxSettingsLayout.ROW_HEIGHT;
+        boolean editable = !table.economyLocked();
+
+        float structureY = 641f;
+        dropdownChoice(leftX, structureY, rowWidth,
                 gameText.translate("gdx.settings.game.row.blind_structure"),
                 table.structureName() == null
                         ? gameText.translate("gdx.settings.value.default")
                         : table.structureName(),
                 () -> openDropdown(Dropdown.BLIND_STRUCTURE,
-                        470f, 610f, 590f, 72f),
-                !table.economyLocked());
-        tooltip(470f, 610f, 590f, 72f, "tooltip.cfg.structure");
-        bidirectionalChoice(470f, 460f, 590f,
+                        leftX, structureY, rowWidth, 72f), editable);
+        tooltip(leftX, structureY, rowWidth, 72f, "tooltip.cfg.structure");
+
+        float initialY = 522f;
+        bidirectionalChoice(leftX, initialY, rowWidth,
                 gameText.translate("gdx.settings.game.row.initial_blinds"),
                 formatBlindLevel(), this::previousBlindLevel,
-                this::nextBlindLevel, !table.economyLocked());
-        tooltip(470f, 460f, 590f, 72f, "tooltip.cfg.blinds_level");
-        button(470f, 320f, 590f, 70f,
+                this::nextBlindLevel, editable);
+        tooltip(leftX, initialY, rowWidth, 72f, "tooltip.cfg.blinds_level");
+        button(leftX, 435f, rowWidth, 70f,
                 settingsGameText("row.manage_structures"), false,
-                this::openBlindStructureEditor, !table.economyLocked());
-        toggle(470f, 205f, 280f, settingsGameText("row.ante"), table.ante(),
-                () -> table.setAnte(!table.ante()), !table.economyLocked());
-        tooltip(470f, 205f, 280f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.ante");
-        toggle(780f, 205f, 280f, settingsGameText("row.straddle"),
-                table.straddle(),
-                () -> table.setStraddle(!table.straddle()),
-                !table.economyLocked());
-        tooltip(780f, 205f, 280f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.straddle");
+                this::openBlindStructureEditor, editable);
 
-        toggle(1170f, 610f, 645f,
-                settingsGameText("row.increase_blinds"),
-                table.increaseBlinds(),
-                () -> table.setIncreaseBlinds(!table.increaseBlinds()), !table.economyLocked());
-        tooltip(1170f, 610f, 645f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.double_blinds");
-        dropdownChoice(1170f, 460f, 305f,
+        float modeY = 266f;
+        float anteY = modeY + rowHeight + 8f;
+        plainPanel(leftX, modeY - 8f, rowWidth, rowHeight * 2f + 24f);
+        float anteInset = 14f;
+        float anteX = leftX + anteInset;
+        float anteWidth = rowWidth - 2f * anteInset;
+        toggle(anteX, anteY, anteWidth, settingsGameText("row.ante"), table.ante(),
+                () -> table.setAnte(!table.ante()), editable);
+        tooltip(anteX, anteY, anteWidth, rowHeight, "tooltip.cfg.ante");
+        settingsDropdownChoice(anteX, modeY, anteWidth, rowHeight,
+                settingsGameText("row.ante_mode"),
+                gameText.translate(table.anteMode().labelKey()),
+                () -> openDropdown(Dropdown.ANTE_MODE,
+                        anteX, modeY, anteWidth, rowHeight),
+                editable && table.ante());
+        tooltip(anteX, modeY, anteWidth, rowHeight, "tooltip.cfg.ante_mode");
+
+        float straddleY = 177f;
+        toggle(leftX, straddleY, rowWidth, settingsGameText("row.straddle"),
+                table.straddle(), () -> table.setStraddle(!table.straddle()), editable);
+        tooltip(leftX, straddleY, rowWidth, rowHeight, "tooltip.cfg.straddle");
+
+        float increaseY = 645f;
+        toggle(rightX, increaseY, rowWidth,
+                settingsGameText("row.increase_blinds"), table.increaseBlinds(),
+                () -> table.setIncreaseBlinds(!table.increaseBlinds()), editable);
+        tooltip(rightX, increaseY, rowWidth, rowHeight, "tooltip.cfg.double_blinds");
+
+        float intervalY = 503f;
+        float halfWidth = (rowWidth - 30f) / 2f;
+        dropdownChoice(rightX, intervalY, halfWidth,
                 settingsGameText("row.unit"),
                 table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
                         ? gameText.translate("gdx.settings.game.value.minutes")
                         : gameText.translate("gdx.settings.game.value.hands"),
                 () -> openDropdown(Dropdown.BLIND_UNIT,
-                        1170f, 460f, 305f, 72f),
-                table.increaseBlinds() && !table.economyLocked());
-        stepper(1510f, 460f, 305f,
+                        rightX, intervalY, halfWidth, 72f),
+                editable && table.increaseBlinds());
+        stepper(rightX + halfWidth + 30f, intervalY, halfWidth,
                 settingsGameText("row.interval"),
                 table.blindInterval(), 1, Integer.MAX_VALUE,
                 () -> table.setBlindInterval(table.blindInterval() - 1),
                 () -> table.setBlindInterval(table.blindInterval() + 1),
-                table.increaseBlinds() && !table.economyLocked());
-        toggle(1170f, 325f, 645f,
+                editable && table.increaseBlinds());
+
+        float capToggleY = 345f;
+        toggle(rightX, capToggleY, rowWidth,
                 settingsGameText("row.blind_cap"), table.blindCap(),
                 () -> table.setBlindCap(!table.blindCap()),
-                table.blindCapControlEnabled() && !table.economyLocked());
-        tooltip(1170f, 325f, 645f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.blind_cap");
-        stepper(1170f, 205f, 645f,
+                editable && table.blindCapControlEnabled());
+        tooltip(rightX, capToggleY, rowWidth, rowHeight, "tooltip.cfg.blind_cap");
+        stepper(rightX, 194f, rowWidth,
                 settingsGameText("row.cap"), table.blindCapRaises(),
                 1, table.maxBlindCapRaises(),
                 () -> table.setBlindCapRaises(table.blindCapRaises() - 1),
                 () -> table.setBlindCapRaises(table.blindCapRaises() + 1),
-                table.blindCapRaisesEnabled() && !table.economyLocked());
+                editable && table.blindCapRaisesEnabled());
     }
 
     private String formatBlindLevel() {
@@ -12567,8 +12606,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "tooltip.cfg.buyin_fixed");
         stepper(470f, 480f, 590f,
                 settingsGameText("row.initial_buyin"),
-                table.buyin(),
-                table.minimumBuyin(), table.maximumBuyin(),
+                GdxChipAmountText.format(table.buyin()),
                 () -> table.setBuyin(table.buyin() - 1),
                 () -> table.setBuyin(table.buyin() + 1),
                 table.fixedBuyin() && !table.economyLocked());
@@ -14286,6 +14324,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void stepper(float x, float y, float w, String label, int value,
             int min, int max, Runnable minus, Runnable plus, boolean enabled) {
+        stepper(x, y, w, label, Integer.toString(value), minus, plus, enabled);
+    }
+
+    private void stepper(float x, float y, float w, String label, String value,
+            Runnable minus, Runnable plus, boolean enabled) {
         textFit(smallFont, label, x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
         GdxSettingsStyle.drawRow(shapes, x, y, w, 72f, enabled,
@@ -14297,7 +14340,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled);
         text(headingFont, "-", x + 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
         text(headingFont, "+", x + w - 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
-        textFit(headingFont, Integer.toString(value), x + w / 2f, y + 49f,
+        textFit(headingFont, value, x + w / 2f, y + 49f,
                 enabled ? GOLD : DISABLED, true,
                 Math.max(0f, w - 2f * side - 24f));
         if (enabled) {
@@ -14443,6 +14486,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
                     : GdxAppearanceOptions.selectedIndex(
                             dropdownAppearanceChoice, initialProperties);
+            case ANTE_MODE -> dropdownTableTarget().anteMode().ordinal();
             case BLIND_UNIT -> dropdownTableTarget().blindIncreaseType()
                     .ordinal();
             case REBUY_CAP -> dropdownTableTarget().rebuyCapPolicy().ordinal();
@@ -14559,6 +14603,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             .mapToObj(index -> GdxAppearanceOptions.labelAt(
                                     dropdownAppearanceChoice, index, gameText))
                             .toList();
+            case ANTE_MODE -> GdxSettingsContract.anteModeLabels(gameText);
             case BLIND_UNIT -> List.of(
                     gameText.translate("gdx.settings.game.value.minutes"),
                     gameText.translate("gdx.settings.game.value.hands"));
@@ -14661,6 +14706,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 if (dropdownAppearanceChoice != null) {
                     GdxAppearanceOptions.select(dropdownAppearanceChoice,
                             initialProperties, option);
+                }
+            }
+            case ANTE_MODE -> {
+                NewGameTableDraft draft = dropdownTableTarget();
+                AnteMode[] values = AnteMode.values();
+                if (!draft.economyLocked() && draft.ante()
+                        && option >= 0 && option < values.length) {
+                    draft.setAnteMode(values[option]);
                 }
             }
             case BLIND_UNIT -> {
@@ -14790,8 +14843,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float rowH = GdxSettingsLayout.POPUP_ROW_HEIGHT;
         float listHeight = visible * rowH;
         if (dropdownAnchored) {
+            float lowerLimit = surface == Surface.NEW_GAME && dropdown == Dropdown.ANTE_MODE
+                    ? BLINDS_PANEL_BOTTOM : 20f;
             top = GdxSettingsLayout.popupListTop(dropdownAnchor, listHeight,
-                    20f, HEIGHT - 20f);
+                    lowerLimit, HEIGHT - 20f);
         }
         float y = top - visible * rowH;
         dropdownClip.set(x, y, w, visible * rowH);
@@ -18095,7 +18150,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
         AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION, WINDOW_MODE, FPS_LIMIT,
         MSAA, CARD_RENDERING,
-        APPEARANCE_CHOICE, BLIND_UNIT, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
+        APPEARANCE_CHOICE, BLIND_UNIT, ANTE_MODE, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
         CUSTOM_BOT_DIFFICULTY, CUSTOM_BOT_PERSONALITY
     }
 

@@ -11,16 +11,23 @@ public final class CoreGamePot implements GamePot {
     private final ArrayList<GamePlayerController> players = new ArrayList<>();
     private final ArrayList<GamePlayerController> deadMoney = new ArrayList<>();
     private final double difference;
+    private final boolean mainPot;
+    private GamePlayerController tableAntePayer;
+    private double tableAnte;
     private double bet;
     private CoreGamePot sidePot;
 
     public CoreGamePot(double difference) {
         this.difference = difference;
+        this.mainPot = true;
     }
 
-    private CoreGamePot(List<? extends GamePlayerController> players,
-            double difference) {
-        this(difference);
+    private CoreGamePot(List<GamePlayerController> players, double difference,
+            GamePlayerController tableAntePayer, double tableAnte) {
+        this.difference = difference;
+        this.mainPot = false;
+        this.tableAntePayer = tableAntePayer;
+        this.tableAnte = tableAnte;
         players.forEach(this::addPlayerController);
     }
 
@@ -28,7 +35,7 @@ public final class CoreGamePot implements GamePot {
 
     @Override
     public double getTotal() {
-        double total = 0d;
+        double total = mainPot ? tableAnte : 0d;
         for (GamePlayerController player : players) {
             total += competes(player) ? bet : deadContribution(player);
         }
@@ -67,44 +74,60 @@ public final class CoreGamePot implements GamePot {
 
     @Override
     public void addPlayerController(GamePlayerController player) {
-        if (MoneyMath.compare(bet, player.getBote() - difference) < 0) {
-            bet = MoneyMath.clean(player.getBote() - difference);
+        if (MoneyMath.compare(bet, matchedContribution(player) - difference) < 0) {
+            bet = MoneyMath.clean(matchedContribution(player) - difference);
         }
         if (!players.contains(player)) players.add(player);
     }
 
     @Override
+    public void recordTableAnte(GamePlayerController payer, double amount) {
+        tableAntePayer = payer;
+        tableAnte = amount;
+        // postAnte registers the full amount for stack/refund accounting.
+        // Recompute the live contribution ceiling with the shared ante removed.
+        bet = players.stream().mapToDouble(this::matchedContribution)
+                .max().orElse(0d);
+    }
+
+    @Override
+    public double matchedContribution(GamePlayerController player) {
+        return player == tableAntePayer
+                ? MoneyMath.clean(player.getBote() - tableAnte) : player.getBote();
+    }
+
+    @Override
     public void genSidePots() {
         if (players.size() <= 1 || sidePot != null) return;
-        players.sort(Comparator.comparingDouble(GamePlayerController::getBote));
+        players.sort(Comparator.comparingDouble(this::matchedContribution));
         int firstCompetitor = 0;
         while (firstCompetitor < players.size()
                 && !competes(players.get(firstCompetitor))) firstCompetitor++;
         if (firstCompetitor >= players.size()) return;
 
         double lowest = MoneyMath.clean(
-                players.get(firstCompetitor).getBote() - difference);
+                matchedContribution(players.get(firstCompetitor)) - difference);
         if (MoneyMath.compare(lowest, bet) >= 0) return;
         bet = lowest;
 
         ArrayList<GamePlayerController> deeper = new ArrayList<>();
         for (GamePlayerController player : players) {
             if (competes(player)
-                    && MoneyMath.compare(bet, player.getBote() - difference) < 0) {
+                    && MoneyMath.compare(bet, matchedContribution(player) - difference) < 0) {
                 deeper.add(player);
             }
         }
         if (deeper.isEmpty()) return;
 
         double ceiling = MoneyMath.clean(bet + difference);
-        sidePot = new CoreGamePot(deeper, ceiling);
+        sidePot = new CoreGamePot(deeper, ceiling, tableAntePayer, tableAnte);
         for (GamePlayerController player : players) {
-            if (!competes(player) && MoneyMath.compare(player.getBote(), ceiling) > 0) {
+            if (!competes(player) && MoneyMath.compare(matchedContribution(player), ceiling) > 0) {
                 sidePot.addDeadMoney(player);
             }
         }
         for (GamePlayerController player : deadMoney) {
-            if (MoneyMath.compare(player.getBote(), ceiling) > 0) {
+            if (MoneyMath.compare(matchedContribution(player), ceiling) > 0) {
                 sidePot.addDeadMoney(player);
             }
         }
@@ -119,7 +142,7 @@ public final class CoreGamePot implements GamePot {
 
     private double deadContribution(GamePlayerController player) {
         double contribution = Math.max(0d,
-                MoneyMath.clean(player.getBote() - difference));
+                MoneyMath.clean(matchedContribution(player) - difference));
         return sidePot == null ? contribution : Math.min(contribution, bet);
     }
 

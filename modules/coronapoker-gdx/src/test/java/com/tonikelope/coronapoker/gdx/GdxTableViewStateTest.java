@@ -20,6 +20,7 @@ import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
@@ -2278,8 +2279,27 @@ final class GdxTableViewStateTest {
         assertEquals(activeBigBlind, state.bigBlind(),
                 "pending configuration must not change the active hand");
         assertEquals(30, state.maximumHands());
-        assertTrue(state.anteEnabled());
+        assertEquals(AnteMode.TRADITIONAL, state.activeAnteMode());
         assertTrue(state.straddleEnabled());
+    }
+
+    @Test
+    void communityHudKeepsTheAnteOfTheOpenHandUntilTheNextDeal() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        var pending = GameConfigCodecV1.fromSettings(new NewGameTableDraft().snapshot(),
+                false, "ante-hud").withAnte(true).withAnteMode(AnteMode.BUTTON);
+        state.apply(new TableVisualEvent.TableInfo(1, 0.1d, 0.2d, 1, 0, 1, 0,
+                true, AnteMode.BIG_BLIND));
+        state.apply(new TableVisualEvent.GameConfigurationStatus(2, pending));
+        assertEquals(AnteMode.BIG_BLIND, state.activeAnteMode());
+
+        state.apply(new TableVisualEvent.TableInfo(3, 0.1d, 0.2d, 2, 0, 1, 0,
+                true, null));
+        assertNull(state.activeAnteMode());
+
+        state.apply(new TableVisualEvent.TableInfo(4, 0.1d, 0.2d, 3, 0, 1, 0,
+                true, AnteMode.BUTTON));
+        assertEquals(AnteMode.BUTTON, state.activeAnteMode());
     }
 
     @Test
@@ -2288,13 +2308,22 @@ final class GdxTableViewStateTest {
 
         assertEquals("CIEGAS  (A) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
-                        spanish, 0.1d, 0.2d, true, 0, 1, 0));
+                        spanish, 0.1d, 0.2d, AnteMode.TRADITIONAL, 0, 1, 0));
+        assertEquals("CIEGAS  (BBA) 0.1 / 0.2",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 0.1d, 0.2d, AnteMode.BIG_BLIND, 0, 1, 0));
+        assertEquals("CIEGAS  (BA) 0.1 / 0.2",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 0.1d, 0.2d, AnteMode.BUTTON, 0, 1, 0));
+        assertEquals("CIEGAS  (SBA) 0.1 / 0.2",
+                CoronaPokerGdxTable.communityBlindsText(
+                        spanish, 0.1d, 0.2d, AnteMode.SMALL_BLIND, 0, 1, 0));
         assertEquals("CIEGAS  0.2 / 0.4 @ 3* (2)",
                 CoronaPokerGdxTable.communityBlindsText(
-                        spanish, 0.2d, 0.4d, false, 3, 2, 2));
+                        spanish, 0.2d, 0.4d, null, 3, 2, 2));
         assertEquals("CIEGAS  1 / 2 @ 15'",
                 CoronaPokerGdxTable.communityBlindsText(
-                        spanish, 1d, 2d, false, 15, 1, 0));
+                        spanish, 1d, 2d, null, 15, 1, 0));
         assertEquals("MANO 10/60",
                 CoronaPokerGdxTable.communityHandText(
                         spanish, 10, 60, false));

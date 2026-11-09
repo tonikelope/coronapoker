@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.CoreGameTableFactory;
 import com.tonikelope.coronapoker.Crupier;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
@@ -43,6 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /** Proves consecutive human-vs-human hands over the real native channel. */
 class NetworkHumanGameTableIntegrationTest {
@@ -135,8 +138,10 @@ class NetworkHumanGameTableIntegrationTest {
         }
     }
 
-    @Test
-    void anteIsPostedByEveryHumanAsDeadMoneyInARealNetworkHand()
+    @ParameterizedTest
+    @CsvSource({"TRADITIONAL,false", "BIG_BLIND,false", "BIG_BLIND,true",
+        "BUTTON,true", "SMALL_BLIND,true"})
+    void antePostsByPositionWithoutChangingPreflopBets(AnteMode mode, boolean addBot)
             throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -154,11 +159,13 @@ class NetworkHumanGameTableIntegrationTest {
              NetworkLobbyGateway clientGateway = gateway(
                      temporary.resolve("ante-client"), clientDb)) {
             LobbySession host = hostGateway.open(anteRequest(false,
-                    "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+                    "Anfitrion", port, mode)).get(5, TimeUnit.SECONDS);
             LobbySession client = clientGateway.open(anteRequest(true,
-                    "Invitado", port)).get(5, TimeUnit.SECONDS);
+                    "Invitado", port, mode)).get(5, TimeUnit.SECONDS);
             try {
-                await(() -> host.snapshot().participants().size() == 2,
+                if (addBot) host.submit(new LobbyCommand.AddBot())
+                        .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                await(() -> host.snapshot().participants().size() == (addBot ? 3 : 2),
                         Duration.ofSeconds(5));
                 host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
                         .get(5, TimeUnit.SECONDS);
@@ -175,8 +182,10 @@ class NetworkHumanGameTableIntegrationTest {
 
                 await(() -> hostRenderer.closed.get()
                         && clientRenderer.closed.get(), Duration.ofSeconds(18));
-                hostRenderer.assertAnteTransfer();
-                clientRenderer.assertAnteTransfer();
+                hostRenderer.assertAnteTransfer(mode, addBot);
+                clientRenderer.assertAnteTransfer(mode, addBot);
+                assertEquals(hostRenderer.forcedBets.get().transfers(),
+                        clientRenderer.forcedBets.get().transfers());
             } finally {
                 client.close();
                 host.close();
@@ -674,8 +683,11 @@ class NetworkHumanGameTableIntegrationTest {
                 "clave de prueba");
     }
 
-    @Test
-    void stoppedBotHandCanBeLoadedAndCompletedFromPersistedRecovery()
+    @ParameterizedTest
+    @CsvSource(value = {"BIG_BLIND,BUTTON,false", "TRADITIONAL,TRADITIONAL,true",
+        "TRADITIONAL,SMALL_BLIND,false", "OFF,BIG_BLIND,false"}, nullValues = "OFF")
+    void stoppedBotHandRecoversItsOriginalAnteRule(
+            AnteMode startingMode, AnteMode pendingMode, boolean legacyFossil)
             throws Exception {
         int firstPort;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -687,9 +699,15 @@ class NetworkHumanGameTableIntegrationTest {
         database.start();
         try (database) {
             try (NetworkLobbyGateway gateway = gateway(data, database)) {
-                LobbySession host = gateway.open(terminationRequest(false,
-                        "Anfitrion", firstPort, "clave recuperacion"))
-                        .get(5, TimeUnit.SECONDS);
+                NewGameRequest request = terminationRequest(false,
+                        "Anfitrion", firstPort, "clave recuperacion");
+                NewGameTableDraft draft = NewGameTableDraft.from(request.table());
+                if (startingMode != null) {
+                    draft.setAnte(true);
+                    draft.setAnteMode(startingMode);
+                }
+                LobbySession host = gateway.open(new NewGameRequest(
+                        request.connection(), draft.snapshot())).get(5, TimeUnit.SECONDS);
                 try {
                     host.submit(new LobbyCommand.AddBot()).toCompletableFuture()
                             .get(5, TimeUnit.SECONDS);
@@ -703,6 +721,13 @@ class NetworkHumanGameTableIntegrationTest {
                     table.attach(renderer).toCompletableFuture()
                             .get(5, TimeUnit.SECONDS);
                     await(renderer.ready::get, Duration.ofSeconds(8));
+                    GameConfigCodecV1.Configuration active = renderer.configuration.get();
+                    assertTrue(active != null);
+                    table.commands().submit(new TableCommand.ApplyGameConfiguration(
+                            active.withAnte(true).withAnteMode(pendingMode)));
+                    await(() -> renderer.configuration.get().ante()
+                            && renderer.configuration.get().anteMode() == pendingMode,
+                            Duration.ofSeconds(5));
                     table.commands().submit(new TableCommand.StopGame());
                     await(renderer.closedByGame::get, Duration.ofSeconds(8));
                 } finally {
@@ -715,6 +740,27 @@ class NetworkHumanGameTableIntegrationTest {
                             .orElseThrow();
             assertTrue(recovered.id() > 0);
             assertEquals(20, recovered.settings().handLimitCount());
+            assertTrue(recovered.settings().ante());
+            assertEquals(pendingMode, recovered.settings().anteMode());
+            try (var query = database.connection().prepareStatement(
+                    "SELECT payload FROM hand_state WHERE id_game=?")) {
+                query.setLong(1, recovered.id());
+                try (var result = query.executeQuery()) {
+                    assertTrue(result.next(), "stopped hand must have a recovery fossil");
+                    String expected = startingMode == null ? "OFF"
+                            : startingMode.name() + (startingMode == AnteMode.TRADITIONAL ? ",2" : ",20");
+                    assertTrue(result.getString(1).endsWith("#ANTE@" + expected));
+                }
+            }
+            if (legacyFossil) {
+                // Model an interrupted hand produced before ante snapshots existed.
+                try (var update = database.connection().prepareStatement(
+                        "UPDATE hand_state SET payload=replace(payload,?, '') WHERE id_game=?")) {
+                    update.setString(1, "#ANTE@TRADITIONAL,2");
+                    update.setLong(2, recovered.id());
+                    assertEquals(1, update.executeUpdate());
+                }
+            }
 
             int recoveryPort;
             try (ServerSocket reservation = new ServerSocket(0)) {
@@ -726,7 +772,17 @@ class NetworkHumanGameTableIntegrationTest {
                             "clave recuperacion", "127.0.0.1",
                             Integer.toString(recoveryPort), null, false, true,
                             recovered.id());
-            try (NetworkLobbyGateway gateway = gateway(data, database)) {
+            List<String> anteLog = new CopyOnWriteArrayList<>();
+            GameText recoveryText = (key, arguments) -> {
+                if ("game.ante_single".equals(key) || "game.antes_activos".equals(key)) {
+                    anteLog.add(key + " " + java.util.Arrays.toString(arguments));
+                }
+                return key;
+            };
+            CoreGameTableFactory tables = new CoreGameTableFactory(database, recoveryText,
+                    GameLogSink.noop(), GameDialogSink.noop(), GameDecisionSink.noop(),
+                    acceleratedSettings(), testCinematicAssets());
+            try (NetworkLobbyGateway gateway = new NetworkLobbyGateway(data, tables)) {
                 LobbySession host = gateway.open(new NewGameRequest(connection,
                         recovered.settings())).get(5, TimeUnit.SECONDS);
                 try {
@@ -748,6 +804,11 @@ class NetworkHumanGameTableIntegrationTest {
                     assertTrue(renderer.completedHands.get() >= 1,
                             "the recovered open hand must complete");
                     assertTrue(renderer.sawLastHand.get());
+                    List<String> expectedLog = startingMode == null ? List.of()
+                            : startingMode == AnteMode.TRADITIONAL
+                                    ? List.of("game.antes_activos [" + (legacyFossil ? "0.1" : "0.02") + "]")
+                                    : List.of("game.ante_single [0.2, " + startingMode.labelKey() + "]");
+                    assertEquals(expectedLog, anteLog);
                 } finally {
                     host.close();
                 }
@@ -1266,7 +1327,7 @@ class NetworkHumanGameTableIntegrationTest {
     }
 
     private static NewGameRequest anteRequest(boolean joining, String nickname,
-            int port) {
+            int port, AnteMode mode) {
         NewGameConnectionDraft.Submission connection
                 = new NewGameConnectionDraft.Submission(
                         joining ? NewGameConnectionDraft.Mode.JOIN
@@ -1281,6 +1342,7 @@ class NetworkHumanGameTableIntegrationTest {
         table.setHandLimitCount(1);
         table.setThinkTime(false);
         table.setAnte(true);
+        table.setAnteMode(mode);
         return new NewGameRequest(connection, table.snapshot());
     }
 
@@ -1474,23 +1536,43 @@ class NetworkHumanGameTableIntegrationTest {
             return CompletableFuture.completedFuture(null);
         }
 
-        void assertAnteTransfer() {
+        void assertAnteTransfer(AnteMode mode, boolean threePlayers) {
             TableVisualEvent.CollectBets collect = forcedBets.get();
             assertTrue(collect != null, "forced blind/ante collection is required");
             assertEquals(0d, collect.potBefore(), 0.001d);
-            assertEquals(0.50d, collect.potAfterLanding(), 0.001d);
-            assertEquals(2, collect.transfers().size());
+            double smallBlindAnte = switch (mode) {
+                case TRADITIONAL -> 0.02d;
+                case BIG_BLIND -> 0d;
+                case BUTTON -> threePlayers ? 0d : 0.20d;
+                case SMALL_BLIND -> 0.20d;
+            };
+            double bigBlindAnte = switch (mode) {
+                case TRADITIONAL -> 0.02d;
+                case BIG_BLIND -> 0.20d;
+                case BUTTON, SMALL_BLIND -> 0d;
+            };
+            boolean buttonOnly = threePlayers && mode == AnteMode.BUTTON;
+            double buttonAnte = buttonOnly ? 0.20d : 0d;
+            assertEquals(0.30d + smallBlindAnte + bigBlindAnte + buttonAnte,
+                    collect.potAfterLanding(), 0.001d);
+            assertEquals(buttonOnly ? 3 : 2, collect.transfers().size());
             List<TableVisualEvent.ChipTransfer> ordered = collect.transfers()
                     .stream()
                     .sorted(java.util.Comparator.comparingDouble(
                             TableVisualEvent.ChipTransfer::streetBetAfter))
                     .toList();
-            assertEquals(0.10d, ordered.get(0).streetBetAfter(), 0.001d);
-            assertEquals(0.20d, ordered.get(0).potContributionAfter(), 0.001d);
-            assertEquals(9.80d, ordered.get(0).stackAfter(), 0.001d);
-            assertEquals(0.20d, ordered.get(1).streetBetAfter(), 0.001d);
-            assertEquals(0.30d, ordered.get(1).potContributionAfter(), 0.001d);
-            assertEquals(9.70d, ordered.get(1).stackAfter(), 0.001d);
+            if (buttonOnly) {
+                assertForcedContribution(ordered.get(0), 0d, buttonAnte);
+            }
+            assertForcedContribution(ordered.get(ordered.size() - 2), 0.10d, smallBlindAnte);
+            assertForcedContribution(ordered.get(ordered.size() - 1), 0.20d, bigBlindAnte);
+        }
+
+        private static void assertForcedContribution(TableVisualEvent.ChipTransfer transfer,
+                double blind, double ante) {
+            assertEquals(blind, transfer.streetBetAfter(), 0.001d);
+            assertEquals(blind + ante, transfer.potContributionAfter(), 0.001d);
+            assertEquals(10d - blind - ante, transfer.stackAfter(), 0.001d);
         }
 
         @Override public void close() { }
@@ -1836,6 +1918,8 @@ class NetworkHumanGameTableIntegrationTest {
     }
 
     private static final class TerminalRenderer implements TableRenderer {
+        private final AtomicReference<GameConfigCodecV1.Configuration> configuration
+                = new AtomicReference<>();
         private final AtomicBoolean ready = new AtomicBoolean();
         private final AtomicBoolean closedByGame = new AtomicBoolean();
         private final AtomicBoolean sawPaused = new AtomicBoolean();
@@ -1854,6 +1938,8 @@ class NetworkHumanGameTableIntegrationTest {
                     && controls.state().callAction()
                     != ActionControlState.CallAction.DISABLED) {
                 ready.set(true);
+            } else if (event instanceof TableVisualEvent.GameConfigurationStatus status) {
+                configuration.set(status.configuration());
             } else if (event instanceof TableVisualEvent.PauseStatus pause
                     && pause.paused()) {
                 sawPaused.set(true);

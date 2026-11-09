@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.AnteMode;
+
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,8 +57,9 @@ final class GdxSettingsContract {
     static final int BLIND_CAP_TOGGLE_ROW = 6;
     static final int BLIND_CAP_ROW = 7;
     static final int BLIND_ANTE_ROW = 8;
-    static final int BLIND_STRADDLE_ROW = 9;
-    static final int BLIND_STRADDLE_TIMEOUT_ROW = 10;
+    static final int BLIND_ANTE_MODE_ROW = 9;
+    static final int BLIND_STRADDLE_ROW = 10;
+    static final int BLIND_STRADDLE_TIMEOUT_ROW = 11;
     static final int BLIND_ROW_COUNT = BLIND_STRADDLE_TIMEOUT_ROW + 1;
     static final int BUYIN_MINIMUM_ROW = 0;
     static final int BUYIN_MAXIMUM_ROW = 1;
@@ -1170,6 +1173,7 @@ final class GdxSettingsContract {
             case 0 -> List.of(
                     new RowGroup(BLIND_STRUCTURE_ROW, BLIND_MANAGE_ROW, 0),
                     new RowGroup(BLIND_INCREASE_ROW, BLIND_CAP_ROW, 0),
+                    new RowGroup(BLIND_ANTE_ROW, BLIND_ANTE_MODE_ROW, 0),
                     new RowGroup(BLIND_STRADDLE_ROW,
                             BLIND_STRADDLE_TIMEOUT_ROW, 0));
             case 1 -> List.of(
@@ -1181,6 +1185,12 @@ final class GdxSettingsContract {
                     new RowGroup(2, 3, 0));
             default -> List.of();
         };
+    }
+
+    static List<String> anteModeLabels(GdxGameText text) {
+        return java.util.Arrays.stream(AnteMode.values())
+                .map(mode -> text.translate(mode.labelKey()))
+                .toList();
     }
 
     static boolean straddleOnTimeout(Properties properties) {
@@ -1259,12 +1269,7 @@ final class GdxSettingsContract {
 
     /** Decimal presentation shared by menu, lobby and live blind settings. */
     static String blindAmountLabel(double value) {
-        if (value < 1d) {
-            return String.format(Locale.ROOT, "%.2f", value);
-        }
-        return value == Math.rint(value)
-                ? Long.toString((long) value)
-                : Double.toString(value);
+        return GdxChipAmountText.format(value, value < 1d ? 2 : 0);
     }
 
     static String blindLevelLabel(double smallBlind, double bigBlind) {

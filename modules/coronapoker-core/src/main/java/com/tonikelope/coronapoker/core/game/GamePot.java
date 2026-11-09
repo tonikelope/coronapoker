@@ -21,5 +21,11 @@ public interface GamePot {
 
     void addPlayerController(GamePlayerController player);
 
+    /** The portion of a player's contribution used to set side-pot limits. */
+    double matchedContribution(GamePlayerController player);
+
+    /** Marks a single player's posted ante as shared money in the main pot. */
+    void recordTableAnte(GamePlayerController payer, double amount);
+
     void genSidePots();
 }

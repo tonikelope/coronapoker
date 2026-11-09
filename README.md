@@ -95,8 +95,8 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Action timer** | Per-turn thinking time with on-screen countdown bar |
 | **Buy-in** | Fixed (everyone starts with the same stack) or variable, where each player chooses their own when they sit down. The host sets the allowed range in big blinds and a per-table stack ceiling nobody can ever exceed. |
 | **Rebuy** | Mid-game top-up scheduled for the next hand, host-toggleable. Optional per-player rebuy limit, a stack-ceiling policy (capped at the table buy-in or at the current biggest stack) and a master automatic-rebuy policy for bots. Custom bots can opt out individually and remain as spectators until the host manually rebuys them. |
-| **Blinds** | Adjustable by the host live, either a manual change or scheduled escalation, with optional custom blind structures (your own saved ladders of small/big blind levels, big blind free of the 2x default) and an optional cap that stops them climbing past a chosen big blind. Money resolves to the cent and blinds move in 0.05 steps, with exact accounting even on deep-stack tables. |
-| **Ante & Straddle** | Two optional extra bets, off by default and host-toggleable. **Ante**: every active player posts a small dead-money ante (equal to the small blind) into the pot before the blinds. **Straddle** is **voluntary**: right after the deal, with their cards still face down and a 10-second timer (declined by default), the under-the-gun player is asked whether to post a live 2x big blind. If they post it, it buys the option to act last preflop (the "gun" moves on to the real first-to-act). If they decline, their hand simply begins as a normal turn. Both flash chips into the pot like any bet and are flagged on the felt and in the game log. |
+| **Blinds** | Adjustable by the host live, either a manual change or scheduled escalation, with optional custom blind structures (your own saved ladders of small/big blind levels, big blind free of the 2x default) and an optional cap that stops them climbing past a chosen big blind. Money resolves to the cent and blinds move in 0.05 steps, with exact accounting even on deep-stack tables. Large chip amounts use K, M or B in the table HUD and game settings. |
+| **Ante & Straddle** | Two optional forced-bet rules, off by default and host-toggleable. **Ante** offers four modes. Traditional charges each active player 10% of the big blind. Big Blind Ante (BBA), Button Ante and Small Blind Ante charge one big blind to the player in that position. Blinds are paid first and the ante goes directly to the pot. BBA also applies heads-up. **Straddle** is **voluntary**: right after the deal, with their cards still face down and a 10-second timer (declined by default), the under-the-gun player is asked whether to post a live 2x big blind. If they post it, it buys the option to act last preflop (the "gun" moves on to the real first-to-act). If they decline, their hand simply begins as a normal turn. Both flash chips into the pot like any bet and are flagged on the felt and in the game log. |
 | **Saved game presets** | Save an entire new-table setup (initial blinds and the chosen structure, buy-in, rebuy, blind increase/cap, hand limit, ante, straddle and bot difficulty) as a named profile and reload it in one click, just like custom blind ladders. A "Default" entry restores the factory setup. Main-menu game settings provide separate persistent defaults for future tables without being overwritten by lobby or live-table changes. |
 | **Pause & hot join** | Pause anytime. With live hot join enabled, new or returning authenticated players can enter a running table as WARMING UP and become active on the next hand |
 | **IWTSTH** | "I Want To See That Hand"  |
@@ -207,8 +207,9 @@ audio and caption controls available.
   player adapts to each video's format.
 - **Resizable window**. Drag or resize the player. It remembers its position
   and size separately for each format across restarts. Maximise it from the
-  title bar or adjust the opacity with the slider below the video. Close the
-  window to minimise it to the icon next to the volume control.
+  title bar or adjust the opacity with the slider below the video. The same
+  opacity applies to loading and error backgrounds. Close the window to
+  minimise it to the icon next to the volume control.
 - **Startup and animations**. Choose whether the player opens at startup
   and whether its window animates when opening or closing.
 

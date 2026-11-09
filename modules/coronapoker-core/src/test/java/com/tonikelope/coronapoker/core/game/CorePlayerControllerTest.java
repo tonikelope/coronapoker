@@ -96,6 +96,25 @@ class CorePlayerControllerTest {
     }
 
     @Test
+    void bigBlindPostsBeforeAttemptingTheAnteWithAShortStack() {
+        for (double stack : new double[]{0.05d, 0.20d, 0.25d, 0.40d}) {
+            CorePlayerController player = CorePlayerController.local("big");
+            player.setStack(stack);
+            player.bindDealer(new StubDealer(0d));
+
+            player.applyCurrentHandPosition();
+            double posted = player.postAnte(0.20d);
+
+            double blind = Math.min(0.20d, stack);
+            assertEquals(blind, player.getBet());
+            assertEquals(MoneyMath.clean(stack - blind), posted);
+            assertEquals(stack, player.getBote());
+            assertEquals(0d, player.getStack());
+            assertEquals(GamePlayerController.ALLIN, player.getDecision());
+        }
+    }
+
+    @Test
     void shortStackAntePostsOnlyTheRemainingStackAndMarksAllIn() {
         CorePlayerController player = CorePlayerController.local("player");
         player.setStack(0.05d);

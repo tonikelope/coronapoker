@@ -5,6 +5,7 @@ import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.game.GameDecisionSink;
@@ -4166,6 +4167,10 @@ public final class GdxMultiprocessNodeMain {
         table.setHandLimit(true);
         table.setHandLimitCount(config.hands);
         table.setThinkTime(false);
+        if ("double-force-recover".equals(config.scenario)) {
+            table.setAnte(true);
+            table.setAnteMode(AnteMode.BIG_BLIND);
+        }
         if ("reconnect-every-street".equals(config.scenario)) {
             // This scenario must reach a live decision on each street. Its
             // oracle is transport reconnection, not short-stack elimination;

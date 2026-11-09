@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -94,6 +95,10 @@ class HotJoinVisualEventCodecV1Test {
                 new TableVisualEvent.SwapHoleCards(34, "ana", false),
                 new TableVisualEvent.TableInfo(35, 0.1d, 0.2d,
                         7, 5, 2, 1),
+                new TableVisualEvent.TableInfo(36, 0.1d, 0.2d,
+                        2, 0, 1, 0, true, AnteMode.BIG_BLIND),
+                new TableVisualEvent.TableInfo(37, 0.1d, 0.2d,
+                        2, 0, 1, 0, true, null),
                 new TableVisualEvent.ImmediateRebuyStatus(37, "ana", 10),
                 new TableVisualEvent.LastHandStatus(39, true),
                 new TableVisualEvent.HandLimitStatus(40, 100),

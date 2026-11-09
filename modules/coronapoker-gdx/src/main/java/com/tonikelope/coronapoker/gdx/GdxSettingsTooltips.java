@@ -273,6 +273,7 @@ final class GdxSettingsTooltips {
             case "blind_unit" -> "gdx.settings.tooltip.blind_unit";
             case "blind_interval" -> "gdx.settings.tooltip.blind_interval";
             case "ante" -> "tooltip.cfg.ante";
+            case "ante_mode" -> "tooltip.cfg.ante_mode";
             case "straddle" -> "tooltip.cfg.straddle";
             case GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY ->
                 "tooltip.cfg.straddle_on_timeout";

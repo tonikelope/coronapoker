@@ -158,6 +158,8 @@ public final class RecoverableGameRepository {
                 + "#BMAXBB=" + value.buyinMaxBb()
                 + "#RBCAP=" + value.rebuyCapPolicy()
                 + "#ANTE=" + bit(value.ante())
+                + (value.anteMode() == AnteMode.TRADITIONAL ? ""
+                        : "#ANTE_MODE=" + value.anteMode().name())
                 + "#STRADDLE=" + bit(value.straddle())
                 + "#MANOS=" + value.hands()
                 + "#THINKT=" + value.thinkTime()
@@ -221,6 +223,8 @@ public final class RecoverableGameRepository {
         draft.setThinkTime(one(values, "THINKON"));
         draft.setShowdownSeconds(integer(values, "SHOWDOWN"));
         draft.setAnte(one(values, "ANTE"));
+        draft.setAnteMode(AnteMode.valueOf(values.getOrDefault(
+                "ANTE_MODE", AnteMode.TRADITIONAL.name())));
         draft.setStraddle(one(values, "STRADDLE"));
         draft.setIwtsth(one(values, "IWTSTH"));
         draft.setRunItTwice(one(values, "RUNITWICE"));
@@ -242,12 +246,12 @@ public final class RecoverableGameRepository {
                 throw new IllegalArgumentException("Malformed recovered settings");
             }
             String key = pair.substring(0, separator);
-            if (!SETTINGS_KEYS.contains(key)
+            if ((!SETTINGS_KEYS.contains(key) && !"ANTE_MODE".equals(key))
                     || values.putIfAbsent(key, pair.substring(separator + 1)) != null) {
                 throw new IllegalArgumentException("Malformed recovered settings");
             }
         }
-        if (!values.keySet().equals(SETTINGS_KEYS)) {
+        if (!values.keySet().containsAll(SETTINGS_KEYS)) {
             throw new IllegalArgumentException("Incomplete recovered settings");
         }
         return values;

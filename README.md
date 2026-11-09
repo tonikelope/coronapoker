@@ -194,8 +194,8 @@ controls available. If you leave the player open, the game restores your
 video session when you return from the table.
 
 - **Carousel**. Start with regular videos by default or switch to Shorts.
-  Search prioritises the game's language, and the carousel shuffles its
-  results at startup and after each pass.
+  Search prioritises the game's language. The carousel shuffles each batch,
+  fetches more results in the background, and skips recently seen videos.
 - **Favorites**. Save both formats in one list in the order you add them.
   Browse with the arrow buttons and see your position in the list. The
   player adapts to each video's format.

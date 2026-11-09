@@ -442,7 +442,7 @@ node --test tools/qa/poker-video-player.test.mjs
 ```
 
 These cover search extraction, shuffling, bounded/timeout HTTP reception,
-local serving, navigation rules, lifecycle flags, platform detection, native
+in-memory page delivery, navigation rules, lifecycle flags, platform detection, native
 packaging and settings. They do not exercise a real YouTube renderer or prove
 speaker output. Native verification must separately check a cold muted open,
 muted/audible rapid video changes, modal pause/resume, minimized reopening and

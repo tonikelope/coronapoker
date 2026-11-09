@@ -8,8 +8,10 @@ The player depends on the **Use animations and effects** switch.
 
 - The carousel starts with **Normal** videos by default. Use the selector at
   the bottom of the player to switch to **Shorts**. The game remembers your
-  choice across sessions. Search prioritizes the game language, and the
-  carousel shuffles the results at startup and after each full pass.
+  choice across sessions. Search prioritizes the game language. The
+  carousel shuffles each batch and fetches more results in the background
+  as you approach the end. It skips recently seen videos and can replay
+  existing results if YouTube has nothing new to offer.
 - The star adds or removes the current video from **Favorites**. The list
   keeps both formats in the order you saved them and persists after you quit.
   The arrows move through the list, and the counter shows the current
@@ -62,14 +64,17 @@ The game fetches a fresh catalog from YouTube at startup. It keeps the
 results in memory when you minimize the player or enter a table. Search
 uses the public results document and limits each download to 12 MiB and
 15 seconds. The player skips removed, private or incompatible videos.
+When a search or saved favorite only has a video ID, the player looks up
+the title in the background.
 If the network or search format fails, the panel offers a retry while the
 rest of the game remains available.
 
 The game can recreate the visible browser once per opening. It does so
 after 30 seconds without a bridge response or its first uploaded frame,
 or when YouTube is ready and the selected video has not started after
-20 seconds. Further playback timeouts use the player's retry and skip
-logic. The YouTube API has a separate
+20 seconds. Once YouTube reports playback, the player also checks that
+the media clock advances within eight seconds. Further playback timeouts
+use the player's retry and skip logic. The YouTube API has a separate
 30-second timeout. The readiness and recovery replies have 10 seconds,
 playback has 20 seconds to start, and a subsequent buffering stall has
 45 seconds. The player retries or skips videos within these limits and
@@ -92,10 +97,10 @@ applies to Chromium video decoding.
 
 ## Integration
 
-The local HTTP server listens only on loopback and uses sockets from
-`java.base`. It handles two connections at a time with a bounded queue and
-closes the connections when the session is released. The local page hosts
-the YouTube iframe and blocks pop-ups and external top-level navigation.
+Chromium serves the bundled player page directly from memory. Each session
+reserves its own loopback origin for the YouTube iframe and releases it
+when the browser closes. The player blocks pop-ups and external top-level
+navigation.
 
 JCEF renders to an off-screen BGRA buffer. The CEF callback copies pixels,
 and the libGDX thread updates the texture. The native CEF instance stays

@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.40</version>
+        <version>27.41</version>
         <relativePath>../../modules/pom.xml</relativePath>
     </parent>
     <groupId>com.tonikelope.qa</groupId>

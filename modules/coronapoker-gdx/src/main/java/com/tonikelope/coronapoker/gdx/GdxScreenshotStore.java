@@ -1,6 +1,10 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.PixmapIO;
+import com.badlogic.gdx.utils.BufferUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,7 +15,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** Shared screenshot catalog used by every GDX entry point. */
+/** Screenshot storage and catalog for GDX. */
 final class GdxScreenshotStore {
 
     private static final String PREFIX = "coronapoker_screenshot_";
@@ -30,6 +34,22 @@ final class GdxScreenshotStore {
 
     static String filename(long timestamp) {
         return PREFIX + timestamp + SUFFIX;
+    }
+
+    static void writeOpaquePng(Path file, int width, int height, byte[] rgba)
+            throws IOException {
+        Files.createDirectories(file.getParent());
+        // The RGB channels already contain the rendered frame.
+        for (int alpha = 3; alpha < rgba.length; alpha += 4) {
+            rgba[alpha] = (byte) 0xff;
+        }
+        Pixmap pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
+        try {
+            BufferUtils.copy(rgba, 0, pixmap.getPixels(), rgba.length);
+            PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap);
+        } finally {
+            pixmap.dispose();
+        }
     }
 
     static boolean isScreenshotFile(Path file) {

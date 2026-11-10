@@ -1,12 +1,16 @@
 package com.tonikelope.coronapoker.gdx;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.utils.GdxNativesLoader;
+import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +18,27 @@ final class GdxScreenshotStoreTest {
 
     @TempDir
     Path directory;
+
+    @Test
+    void savedPngIsOpaqueAndPreservesRenderedRgb() throws Exception {
+        GdxNativesLoader.load();
+        Path file = directory.resolve("Screenshots")
+                .resolve(GdxScreenshotStore.filename(100L));
+        byte[] rgba = {
+            0x2e, 0x36, 0x44, (byte) 0xc5,
+            (byte) 0xe7, 0x14, 0x7f, 0,
+            0x00, (byte) 0xa3, (byte) 0xff, 1,
+            0x13, 0x38, (byte) 0x91, (byte) 0xff
+        };
+
+        GdxScreenshotStore.writeOpaquePng(file, 2, 2, rgba);
+
+        BufferedImage screenshot = ImageIO.read(file.toFile());
+        assertEquals(2, screenshot.getWidth());
+        assertEquals(2, screenshot.getHeight());
+        assertArrayEquals(new int[]{0xff2e3644, 0xffe7147f, 0xff00a3ff, 0xff133891},
+                screenshot.getRGB(0, 0, 2, 2, null, 0, 2));
+    }
 
     @Test
     void catalogAcceptsOnlyCoronaPokerPngScreenshots() throws Exception {

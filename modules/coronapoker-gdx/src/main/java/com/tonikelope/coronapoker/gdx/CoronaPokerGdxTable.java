@@ -23,7 +23,6 @@ import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.Texture.TextureWrap;
@@ -41,7 +40,6 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
@@ -23435,15 +23433,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Thread writer = new Thread(() -> {
             boolean saved = false;
             try {
-                Files.createDirectories(file.getParent());
-                Pixmap pixmap = new Pixmap(width, height,
-                        Pixmap.Format.RGBA8888);
-                try {
-                    BufferUtils.copy(rgba, 0, pixmap.getPixels(), rgba.length);
-                    PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap);
-                } finally {
-                    pixmap.dispose();
-                }
+                GdxScreenshotStore.writeOpaquePng(file, width, height, rgba);
                 saved = true;
             } catch (RuntimeException | IOException failure) {
                 LOGGER.log(Level.WARNING, "Could not save screenshot", failure);

@@ -8,6 +8,8 @@ The player depends on the **Use animations and effects** switch.
 
 ## Window and controls
 
+![Poker video player over the waiting room with navigation arrows, favorites, the opacity slider and the Shorts selector](screenshots/poker-video-en.png)
+
 - The carousel starts with **Normal** videos by default. Use the selector at
   the bottom of the player to switch to **Shorts**. The game remembers your
   choice across sessions. Search prioritizes the game language. The

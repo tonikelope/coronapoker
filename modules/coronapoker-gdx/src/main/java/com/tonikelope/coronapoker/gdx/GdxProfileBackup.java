@@ -7,11 +7,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -20,6 +23,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.CRC32;
@@ -68,7 +74,19 @@ final class GdxProfileBackup {
     }
 
     static FileChannel lock(Path profile, boolean shared) throws IOException {
-        Path lockFile = profile.resolveSibling(PROFILE + ".lock");
+        Path home = profile.toAbsolutePath().normalize().getParent();
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        Path runtime;
+        if (os.startsWith("windows")) {
+            runtime = home.resolve("AppData/Local/CoronaPoker/runtime");
+        } else if (os.startsWith("mac") || os.startsWith("darwin")) {
+            runtime = home.resolve("Library/Caches/CoronaPoker/runtime");
+        } else {
+            runtime = home.resolve(".cache/coronapoker/runtime");
+        }
+        // Stay outside the profile so import can replace it while the lock is held.
+        Files.createDirectories(runtime);
+        Path lockFile = runtime.resolve("profile.lock");
         FileChannel channel = FileChannel.open(lockFile, StandardOpenOption.CREATE,
                 StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
         try {
@@ -102,23 +120,41 @@ final class GdxProfileBackup {
 
     static void exportProfile(Path profile, Path archive, Set<Category> selected,
             boolean replace) throws IOException {
+        exportProfile(profile, archive, selected, replace, percent -> {});
+    }
+
+    /** Reports 0-99 while compressing and 100 while finalizing the ZIP. */
+    static void exportProfile(Path profile, Path archive, Set<Category> selected,
+            boolean replace, IntConsumer progress) throws IOException {
+        exportProfile(profile, archive, selected, replace, new ExportControl(progress));
+    }
+
+    static void exportProfile(Path profile, Path archive, Set<Category> selected,
+            boolean replace, ExportControl control) throws IOException {
+        control.checkCancelled();
         if (selected.isEmpty()) throw new IOException("No backup categories selected");
         requireDirectory(profile);
         Path destination = archive.toAbsolutePath().normalize();
         Path parent = exportDirectory(profile, destination.getParent());
         destination = parent.resolve(destination.getFileName());
+        List<Path> roots = children(profile).stream()
+                .filter(top -> selected.contains(Category.forName(top.getFileName().toString())))
+                .toList();
+        control.start(exportBytes(roots, control));
+        control.checkCancelled();
         Path temporary = Files.createTempFile(parent, ".coronapoker-export-", ".tmp");
         try {
             PlayerIdentity.restrictToOwner(temporary);
             try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(temporary))) {
                 output.putNextEntry(new ZipEntry(ROOT));
                 output.closeEntry();
-                for (Path top : children(profile)) {
-                    if (selected.contains(Category.forName(top.getFileName().toString()))) {
-                        writeTree(profile, top, output);
-                    }
+                byte[] buffer = new byte[64 * 1024];
+                for (Path top : roots) {
+                    writeTree(profile, top, output, buffer, control);
                 }
+                control.finishWriting();
             }
+            control.beginSave();
             if (replace) {
                 Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE,
                         StandardCopyOption.REPLACE_EXISTING);
@@ -243,12 +279,91 @@ final class GdxProfileBackup {
         }
     }
 
-    private static void writeTree(Path profile, Path top, ZipOutputStream output)
-            throws IOException {
+    private static long exportBytes(List<Path> roots, ExportControl control) throws IOException {
+        class FileSizes extends SimpleFileVisitor<Path> {
+            long total;
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs) {
+                control.checkCancelled();
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                control.checkCancelled();
+                if (attrs.isRegularFile()) total += attrs.size();
+                return FileVisitResult.CONTINUE;
+            }
+        }
+        var sizes = new FileSizes();
+        for (Path top : roots) Files.walkFileTree(top, sizes);
+        return sizes.total;
+    }
+
+    /** One export with a single decision between cancellation and saving. */
+    static final class ExportControl {
+        private enum State { RUNNING, CANCELLED, SAVING }
+
+        private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
+        private final IntConsumer callback;
+        private long total;
+        private long bytes;
+        private int percent;
+
+        ExportControl(IntConsumer callback) {
+            this.callback = callback;
+        }
+
+        boolean cancel() {
+            return state.compareAndSet(State.RUNNING, State.CANCELLED);
+        }
+
+        boolean cancellable() {
+            return state.get() == State.RUNNING;
+        }
+
+        boolean cancelled() {
+            return state.get() == State.CANCELLED;
+        }
+
+        private void checkCancelled() {
+            if (cancelled()) throw new CancellationException();
+        }
+
+        private void beginSave() {
+            if (!state.compareAndSet(State.RUNNING, State.SAVING)) {
+                throw new CancellationException();
+            }
+        }
+
+        private void start(long total) {
+            this.total = Math.max(1, total);
+            callback.accept(0);
+        }
+
+        private void advance(int count) {
+            bytes += count;
+            int next = (int) Math.min(99, bytes * 100.0 / total);
+            if (next > percent) {
+                percent = next;
+                callback.accept(percent);
+            }
+        }
+
+        private void finishWriting() {
+            checkCancelled();
+            callback.accept(100);
+        }
+    }
+
+    private static void writeTree(Path profile, Path top, ZipOutputStream output,
+            byte[] buffer, ExportControl control) throws IOException {
         Path realProfile = profile.toRealPath();
         try (Stream<Path> tree = Files.walk(top)) {
             Iterator<Path> paths = tree.iterator();
             while (paths.hasNext()) {
+                control.checkCancelled();
                 Path path = paths.next();
                 requireWithinProfile(profile, realProfile, path);
                 boolean directory = isDirectoryOrFile(path);
@@ -260,7 +375,12 @@ final class GdxProfileBackup {
                 output.putNextEntry(entry);
                 if (!directory) {
                     try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-                        input.transferTo(output);
+                        int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            control.checkCancelled();
+                            output.write(buffer, 0, count);
+                            control.advance(count);
+                        }
                     }
                 }
                 output.closeEntry();

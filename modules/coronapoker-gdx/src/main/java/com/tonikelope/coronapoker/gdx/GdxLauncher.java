@@ -50,7 +50,8 @@ public final class GdxLauncher {
             if (backup != null) GdxDebugFile.close();
         }
         if (backup != null) {
-            var result = backup.run(profile);
+            var result = backup.importing() ? backup.run(profile, percent -> {})
+                    : GdxProfileExportWindow.run(profile, backup);
             var restart = GdxMacFirstThread.applicationProcess(args);
             result.writeTo(restart);
             restart.start();

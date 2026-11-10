@@ -54,6 +54,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private static final float COMPACT_FAVORITES_WIDTH = 70f;
     private static final float RESIZE_EDGE_HIT = 11f;
     private static final float RESIZE_CORNER_HIT = 22f;
+    private static final float CHROME_RADIUS = 15f;
     private static final float SHORT_ASPECT = 9f / 16f;
     private static final float NORMAL_ASPECT = 16f / 9f;
     private static final float WINDOW_TRANSITION_SECONDS = 0.24f;
@@ -151,6 +152,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float startWindowY;
     private float startWidth;
     private ResizeHandle resizeHandle = ResizeHandle.NONE;
+    private final Vector2 resizeCursor = new Vector2();
     private int pressedButtons;
 
     PokerVideoOverlay() {
@@ -314,9 +316,9 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (current != null && !enabled && current.browser() != null) {
             releaseBrowserSession(false);
         }
+        BrowserSize size = browserSize();
         if (current != null && shouldRun && current.browser() == null) {
-            current.resumeBrowserSession(Math.round(videoWidth),
-                    Math.round(videoHeight), displayScale());
+            current.resumeBrowserSession(size.width(), size.height(), displayScale());
             runtimeActive = true;
         }
         if (current != null && shouldRun != runtimeActive) {
@@ -324,8 +326,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             current.setActive(shouldRun);
         }
         if (current != null && shouldRun) {
-            current.resize(Math.round(videoWidth), Math.round(videoHeight),
-                    displayScale());
+            current.resize(size.width(), size.height(), displayScale());
         }
         if (shouldRun && current != null && current.ready() && !favoritesMode
                 && catalogKey.equals(requestedCatalogKey)
@@ -431,9 +432,10 @@ final class PokerVideoOverlay implements AutoCloseable {
                     if (closed.get() || generation != initializationGeneration.get()) return;
                     nativeStartupSince = System.nanoTime();
                 }
+                BrowserSize initialSize = browserSize();
                 PokerVideoRuntime created = PokerVideoRuntime.initialize(videos,
                         frameBuffer, language, favoritesMode,
-                        Math.round(videoWidth), Math.round(videoHeight),
+                        initialSize.width(), initialSize.height(),
                         displayScale());
                 if (closed.get()) {
                     created.close();
@@ -455,8 +457,8 @@ final class PokerVideoOverlay implements AutoCloseable {
                     runtimeActive = false;
                     created.setActive(false);
                 }
-                created.resize(Math.round(videoWidth),
-                        Math.round(videoHeight), displayScale());
+                BrowserSize currentSize = browserSize();
+                created.resize(currentSize.width(), currentSize.height(), displayScale());
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 if (generation == initializationGeneration.get() && !closed.get()) {
@@ -593,7 +595,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                 GdxAntialiasedRoundedRect.fill(shapes, transitionBounds.x,
                         transitionBounds.y, transitionBounds.width,
                         transitionBounds.height,
-                        15f * transitionBounds.height / panelBounds.height);
+                        CHROME_RADIUS * transitionBounds.height / panelBounds.height);
             }
             return;
         }
@@ -606,11 +608,11 @@ final class PokerVideoOverlay implements AutoCloseable {
         shapes.setColor(HEADER);
         GdxAntialiasedRoundedRect.fill(shapes, headerBounds.x,
                 headerBounds.y, headerBounds.width,
-                headerBounds.height, 15f);
+                headerBounds.height, CHROME_RADIUS);
         shapes.rect(headerBounds.x, headerBounds.y,
                 headerBounds.width, headerBounds.height / 2f);
         GdxAntialiasedRoundedRect.fill(shapes, footerBounds.x, footerBounds.y,
-                footerBounds.width, footerBounds.height, 15f);
+                footerBounds.width, footerBounds.height, CHROME_RADIUS);
         shapes.rect(footerBounds.x, footerBounds.y + footerBounds.height / 2f,
                 footerBounds.width, footerBounds.height / 2f);
         drawOpacitySlider(shapes, pointer);
@@ -653,9 +655,47 @@ final class PokerVideoOverlay implements AutoCloseable {
         shapes.circle(trackX + fill, trackY + 2.5f, 5f, 20);
     }
 
-    void drawForegroundShapes(ShapeRenderer shapes, Vector2 pointer) {
-        // Resize hit areas are intentionally invisible. The system cursor is
-        // the only affordance, keeping the player free of frames and grips.
+    void drawForegroundShapes(ShapeRenderer shapes, Vector2 pointer, Viewport viewport) {
+        ResizeHandle handle = resizeCursorHandle(pointer.x, pointer.y);
+        if (handle == ResizeHandle.NONE) return;
+        if (capture == Capture.RESIZE) {
+            handle.cursorPosition(panelBounds, pointer.x, pointer.y, resizeCursor);
+        } else {
+            resizeCursor.set(pointer);
+        }
+        float unitsPerPixel = viewport.getWorldWidth() / Math.max(1, viewport.getScreenWidth());
+        boolean diagonal = handle.horizontal() && handle.vertical();
+        float axisX = handle.horizontal() ? 1f : 0f;
+        float axisY = handle.vertical() ? 1f : 0f;
+        if (diagonal) {
+            axisX = MathUtils.cosDeg(45f);
+            axisY = handle.left() == handle.top() ? -axisX : axisX;
+        }
+        shapes.setColor(Color.BLACK);
+        drawResizeArrow(shapes, resizeCursor.x, resizeCursor.y,
+                axisX, axisY, unitsPerPixel, 3.2f);
+        shapes.setColor(Color.WHITE);
+        drawResizeArrow(shapes, resizeCursor.x, resizeCursor.y,
+                axisX, axisY, unitsPerPixel, 1.5f);
+    }
+
+    private static void drawResizeArrow(ShapeRenderer shapes, float x, float y,
+            float axisX, float axisY, float unitsPerPixel, float strokePixels) {
+        float reach = 8.5f * unitsPerPixel;
+        float wing = 4f * unitsPerPixel;
+        float stroke = strokePixels * unitsPerPixel;
+        shapes.rectLine(x - reach * axisX, y - reach * axisY,
+                x + reach * axisX, y + reach * axisY, stroke);
+        for (int end = -1; end <= 1; end += 2) {
+            float tipX = x + end * reach * axisX;
+            float tipY = y + end * reach * axisY;
+            float baseX = tipX - end * wing * axisX;
+            float baseY = tipY - end * wing * axisY;
+            shapes.rectLine(tipX, tipY, baseX - wing * axisY,
+                    baseY + wing * axisX, stroke);
+            shapes.rectLine(tipX, tipY, baseX + wing * axisY,
+                    baseY - wing * axisX, stroke);
+        }
     }
 
     private void drawButton(ShapeRenderer shapes, Vector2 pointer,
@@ -877,7 +917,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void addTooltips(BiConsumer<Rectangle, String> add) {
-        if (!hostVisible || windowTransitionActive()) return;
+        if (!hostVisible || windowTransitionActive() || capture == Capture.RESIZE) return;
         if (minimized) {
             add.accept(iconBounds, "gdx.video.open");
             return;
@@ -1016,12 +1056,12 @@ final class PokerVideoOverlay implements AutoCloseable {
         if (button == Input.Buttons.LEFT) {
             ResizeHandle hit = resizeHandleAt(panelBounds, pointerX, pointerY);
             if (hit != ResizeHandle.NONE) {
-                capture(Capture.RESIZE, pointerIndex, button,
-                        pointerX, pointerY);
-                resizeHandle = hit;
                 startWindowX = x;
                 startWindowY = y;
                 startWidth = videoWidth;
+                resizeHandle = hit;
+                capture(Capture.RESIZE, pointerIndex, button,
+                        pointerX, pointerY);
                 return true;
             }
             if (closeBounds.contains(pointerX, pointerY)) {
@@ -1262,7 +1302,9 @@ final class PokerVideoOverlay implements AutoCloseable {
         PokerVideoRuntime current = runtime;
         LibGdxCefBrowser browser = current == null ? null : current.browser();
         if (browser != null) {
-            browser.dispatchWheel(cefX(pointerX), cefY(pointerY),
+            var bounds = browser.getViewRect(browser);
+            browser.dispatchWheel(cefX(pointerX, bounds.width),
+                    cefY(pointerY, bounds.height),
                     modifiers(), amountY > 0f ? 1 : -1);
         }
         return true;
@@ -1276,23 +1318,20 @@ final class PokerVideoOverlay implements AutoCloseable {
         float deltaX = pointerX - captureStartX;
         float deltaY = pointerY - captureStartY;
         float startHeight = startWidth / videoAspect;
-        float horizontal = resizeHandle.left() ? startWidth - deltaX
-                : resizeHandle.right() ? startWidth + deltaX : startWidth;
-        float vertical = resizeHandle.bottom()
-                ? (startHeight - deltaY) * videoAspect
-                : resizeHandle.top()
-                        ? (startHeight + deltaY) * videoAspect : startWidth;
-        float candidate;
+        float horizontal = resizeHandle.left() ? -deltaX : deltaX;
+        float vertical = resizeHandle.bottom() ? -deltaY : deltaY;
+        float widthChange;
         if (resizeHandle.horizontal() && resizeHandle.vertical()) {
-            candidate = Math.abs(horizontal - startWidth)
-                    >= Math.abs(vertical - startWidth)
-                            ? horizontal : vertical;
+            // Project the pointer's movement onto the fixed-aspect diagonal.
+            float heightPerWidth = 1f / videoAspect;
+            widthChange = (horizontal + vertical * heightPerWidth)
+                    / (1f + heightPerWidth * heightPerWidth);
         } else {
-            candidate = resizeHandle.horizontal() ? horizontal : vertical;
+            widthChange = resizeHandle.horizontal() ? horizontal : vertical * videoAspect;
         }
         float maximum = maximumVideoWidth();
-        videoWidth = MathUtils.clamp(candidate, Math.min(MIN_WIDTH, maximum),
-                maximum);
+        videoWidth = MathUtils.clamp(startWidth + widthChange,
+                Math.min(MIN_WIDTH, maximum), maximum);
         videoHeight = videoWidth / videoAspect;
         float startRight = startWindowX + startWidth;
         float startTop = startWindowY + startHeight + CHROME_HEIGHT;
@@ -1310,11 +1349,6 @@ final class PokerVideoOverlay implements AutoCloseable {
         geometryDirty |= x != previousX || y != previousY
                 || videoWidth != previousWidth;
         updateBounds();
-        PokerVideoRuntime current = runtime;
-        if (current != null) {
-            current.resize(Math.round(videoWidth), Math.round(videoHeight),
-                    displayScale());
-        }
     }
 
     private void select(int delta) {
@@ -1378,8 +1412,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private void restoreBrowserSession() {
         PokerVideoRuntime current = runtime;
         if (current == null || emptyFavorites()) return;
-        current.resumeBrowserSession(Math.round(videoWidth),
-                Math.round(videoHeight), displayScale());
+        BrowserSize size = browserSize();
+        current.resumeBrowserSession(size.width(), size.height(), displayScale());
         runtimeActive = true;
     }
 
@@ -1414,20 +1448,25 @@ final class PokerVideoOverlay implements AutoCloseable {
         PokerVideoRuntime current = runtime;
         LibGdxCefBrowser browser = current == null ? null : current.browser();
         if (browser != null) {
-            browser.dispatchMouse(eventId, cefX(pointerX), cefY(pointerY),
+            var bounds = browser.getViewRect(browser);
+            browser.dispatchMouse(eventId, cefX(pointerX, bounds.width),
+                    cefY(pointerY, bounds.height),
                     awtButton, modifiers(), clickCount);
         }
     }
 
-    private int cefX(float pointerX) {
-        return MathUtils.clamp(Math.round(pointerX - videoBounds.x), 0,
-                Math.max(0, Math.round(videoBounds.width) - 1));
+    private int cefX(float pointerX, int width) {
+        return browserCoordinate(pointerX - videoBounds.x, videoBounds.width, width);
     }
 
-    private int cefY(float pointerY) {
-        return MathUtils.clamp(Math.round(videoBounds.y + videoBounds.height
-                - 1f - pointerY), 0,
-                Math.max(0, Math.round(videoBounds.height) - 1));
+    private int cefY(float pointerY, int height) {
+        return browserCoordinate(videoBounds.y + videoBounds.height - pointerY,
+                videoBounds.height, height);
+    }
+
+    static int browserCoordinate(float offset, float renderedSize, int browserSize) {
+        return MathUtils.clamp((int) (offset * browserSize / renderedSize),
+                0, browserSize - 1);
     }
 
     private int modifiers() {
@@ -1459,6 +1498,23 @@ final class PokerVideoOverlay implements AutoCloseable {
                                 / (double) Math.max(1f, worldWidth),
                         Gdx.graphics.getBackBufferHeight()
                                 / (double) Math.max(1f, worldHeight)));
+    }
+
+    BrowserSize browserSize() {
+        // Scale the live texture during the gesture and resize Chromium after release.
+        float width = capture == Capture.RESIZE ? startWidth : videoWidth;
+        return browserSize(width, PokerVideoSearch.TYPE_SHORTS.equals(selectedVideoType));
+    }
+
+    static BrowserSize browserSize(float width, boolean shorts) {
+        // Keep the browser viewport at the exact aspect ratio even between layout pixels.
+        int widthUnit = shorts ? 9 : 16;
+        int heightUnit = shorts ? 16 : 9;
+        int units = Math.max(1, Math.round(width / widthUnit));
+        return new BrowserSize(units * widthUnit, units * heightUnit);
+    }
+
+    record BrowserSize(int width, int height) {
     }
 
     private boolean canMaximize() {
@@ -1541,17 +1597,18 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     Cursor.SystemCursor systemCursor(float pointerX, float pointerY) {
+        return resizeCursorHandle(pointerX, pointerY) == ResizeHandle.NONE
+                ? Cursor.SystemCursor.Arrow : Cursor.SystemCursor.None;
+    }
+
+    private ResizeHandle resizeCursorHandle(float pointerX, float pointerY) {
         if (!hostVisible || minimized || windowTransitionActive()) {
-            return Cursor.SystemCursor.Arrow;
+            return ResizeHandle.NONE;
         }
-        ResizeHandle hovered = capture == Capture.RESIZE ? resizeHandle
-                : resizeHandleAt(panelBounds, pointerX, pointerY);
-        return switch (hovered) {
-            case LEFT, RIGHT -> Cursor.SystemCursor.HorizontalResize;
-            case TOP, BOTTOM -> Cursor.SystemCursor.VerticalResize;
-            case BOTTOM_LEFT, TOP_RIGHT -> Cursor.SystemCursor.NESWResize;
-            case TOP_LEFT, BOTTOM_RIGHT -> Cursor.SystemCursor.NWSEResize;
-            case NONE -> Cursor.SystemCursor.Arrow;
+        return switch (capture) {
+            case RESIZE -> resizeHandle;
+            case NONE -> resizeHandleAt(panelBounds, pointerX, pointerY);
+            default -> ResizeHandle.NONE;
         };
     }
 
@@ -1596,6 +1653,23 @@ final class PokerVideoOverlay implements AutoCloseable {
             this.right = right;
             this.bottom = bottom;
             this.top = top;
+        }
+
+        void cursorPosition(Rectangle bounds, float x, float y, Vector2 result) {
+            float rightEdge = bounds.x + bounds.width;
+            float topEdge = bounds.y + bounds.height;
+            if (horizontal() && vertical()) {
+                // Place the arrow on the curved part of the grabbed corner.
+                float inset = CHROME_RADIUS * (1f - MathUtils.cosDeg(45f));
+                result.set(left ? bounds.x + inset : rightEdge - inset,
+                        bottom ? bounds.y + inset : topEdge - inset);
+            } else if (horizontal()) {
+                result.set(left ? bounds.x : rightEdge,
+                        MathUtils.clamp(y, bounds.y + CHROME_RADIUS, topEdge - CHROME_RADIUS));
+            } else {
+                result.set(MathUtils.clamp(x, bounds.x + CHROME_RADIUS, rightEdge - CHROME_RADIUS),
+                        bottom ? bounds.y : topEdge);
+            }
         }
 
         boolean left() {

@@ -6,13 +6,20 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,6 +64,21 @@ final class GdxProfileBackupTest {
     }
 
     @Test
+    void exportReportsProgressWithinOneLargeSelectedFile() throws Exception {
+        Path profile = Files.createDirectory(home.resolve(".coronapoker"));
+        Files.write(profile.resolve("coronapoker.db"), new byte[256 * 1024]);
+        Files.write(profile.resolve("unselected.bin"), new byte[256 * 1024]);
+        Path zip = home.resolve("progress.zip");
+        List<Integer> progress = new ArrayList<>();
+
+        GdxProfileBackup.exportProfile(profile, zip, Set.of(Category.DATABASE),
+                false, progress::add);
+
+        assertEquals(List.of(0, 25, 50, 75, 99, 100), progress);
+        assertEquals(Set.of(Category.DATABASE), GdxProfileBackup.categories(zip));
+    }
+
+    @Test
     void selectiveRestorePreservesUnselectedCategories() throws Exception {
         Path profile = Files.createDirectory(home.resolve(".coronapoker"));
         write(profile, "coronapoker.properties", "exported");
@@ -72,6 +94,50 @@ final class GdxProfileBackupTest {
         assertEquals("exported", Files.readString(profile.resolve("coronapoker.properties")));
         assertEquals("current database", Files.readString(profile.resolve("coronapoker.db")));
         assertEquals("keep", Files.readString(profile.resolve("voice/note.wav")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 100})
+    void cancellingBeforeSaveRemovesTemporaryZipAndReturnsError(int cancelAt)
+            throws Exception {
+        Path profile = Files.createDirectory(home.resolve(".coronapoker"));
+        Files.write(profile.resolve("coronapoker.db"), new byte[256 * 1024]);
+        Path archive = home.resolve("cancel.zip");
+        var writing = new CountDownLatch(1);
+        var resume = new CountDownLatch(1);
+        var export = new GdxProfileBackup.ExportControl(percent -> {
+            if (percent < cancelAt) return;
+            writing.countDown();
+            try {
+                assertTrue(resume.await(10, TimeUnit.SECONDS), "Export did not resume");
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
+            }
+        });
+        var request = new GdxProfileBackupTransfer.Request(false, archive,
+                Set.of(Category.DATABASE), "en");
+        var result = CompletableFuture.supplyAsync(() -> request.run(profile, export));
+        try {
+            assertTrue(writing.await(10, TimeUnit.SECONDS), "Export did not start writing");
+            try (var paths = Files.list(home)) {
+                assertTrue(paths.anyMatch(path -> path.getFileName().toString()
+                        .startsWith(".coronapoker-export-")));
+            }
+            assertTrue(export.cancel());
+        } finally {
+            resume.countDown();
+        }
+
+        var cancelled = result.get(10, TimeUnit.SECONDS);
+        assertTrue(cancelled.error());
+        assertEquals("gdx.backup.export_cancelled", cancelled.messageKey());
+        assertFalse(Files.exists(archive));
+        assertFalse(Files.exists(home.resolve(".coronapoker.lock")));
+        try (var paths = Files.list(home)) {
+            assertFalse(paths.anyMatch(path -> path.getFileName().toString()
+                    .startsWith(".coronapoker-export-")));
+        }
     }
 
     @Test
@@ -191,6 +257,24 @@ final class GdxProfileBackupTest {
         }
         try (var exclusive = GdxProfileBackup.lock(profile, false)) {
             assertTrue(exclusive.isOpen());
+        }
+        assertFalse(Files.exists(home.resolve(".coronapoker.lock")));
+    }
+
+    @Test
+    void profileReplacementKeepsTheSameLock() throws Exception {
+        Path profile = Files.createDirectory(home.resolve(".coronapoker"));
+        write(profile, "coronapoker.properties", "settings");
+        Path archive = home.resolve("restore.zip");
+        GdxProfileBackup.exportProfile(profile, archive, Set.of(Category.SETTINGS), false);
+
+        try (var exclusive = GdxProfileBackup.lock(profile, false)) {
+            GdxProfileBackup.restoreProfile(profile, archive, Set.of(Category.SETTINGS));
+            assertThrows(IOException.class, () -> GdxProfileBackup.lock(profile, true));
+            assertFalse(Files.exists(home.resolve(".coronapoker.lock")));
+        }
+        try (var openProfile = GdxProfileBackup.lock(profile, true)) {
+            assertTrue(openProfile.isOpen());
         }
     }
 

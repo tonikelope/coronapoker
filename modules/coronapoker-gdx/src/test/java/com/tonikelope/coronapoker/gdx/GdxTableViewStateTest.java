@@ -296,7 +296,7 @@ final class GdxTableViewStateTest {
         assertEquals(before, state.snapshot());
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
-        assertEquals("Iniciando crupier…", CoronaPokerGdxTable
+        assertEquals("Iniciando crupier...", CoronaPokerGdxTable
                 .preparationStatusText(TableVisualEvent.PreparationStatus.Phase
                         .STARTING_DEALER, spanish));
         assertEquals("Sorteando sitios...", CoronaPokerGdxTable
@@ -305,7 +305,7 @@ final class GdxTableViewStateTest {
         assertEquals("Mesa preparada", CoronaPokerGdxTable
                 .preparationStatusText(TableVisualEvent.PreparationStatus.Phase.READY,
                         spanish));
-        assertEquals("Starting dealer…", CoronaPokerGdxTable
+        assertEquals("Starting dealer...", CoronaPokerGdxTable
                 .preparationStatusText(TableVisualEvent.PreparationStatus.Phase
                         .STARTING_DEALER, english));
         assertEquals("Drawing seats...", CoronaPokerGdxTable

@@ -3,7 +3,7 @@
 # Poker videos with JCEF
 
 The player is available on the main menu, in the waiting room and at the table. Open
-**Appearance > Animations and effects > Poker videos** to configure it.
+**Appearance > Table > Poker videos** to configure it.
 The player depends on the **Use animations and effects** switch.
 
 ## Window and controls

@@ -214,7 +214,7 @@ audio and caption controls available.
   default. Turn on **Open video at startup** to open it automatically. You
   can also choose whether its window animates when opening or closing.
 
-Configure it under **Appearance > Animations and effects > Poker videos**.
+Configure it under **Appearance > Table > Poker videos**.
 See the [poker video guide](docs/JCEF_VIDEO_EXPERIMENT.md) for the controls,
 platform requirements and troubleshooting.
 
@@ -274,8 +274,9 @@ screenshots and voice notes. Select every category to back up the full
 
 Export shows the full path to a dated ZIP before you confirm. It starts in
 your home folder. Use **Change folder** to choose another destination.
-CoronaPoker restarts after the operation. Import
-replaces the selected categories, preserves the others, and shows where
+During export, the progress window shows how much data has been compressed.
+**Cancel** discards the temporary ZIP. CoronaPoker restarts after the operation.
+Import replaces the selected categories, preserves the others, and shows where
 the previous profile was saved. Keep the ZIP private because it can
 contain your identity keys and game history.
 

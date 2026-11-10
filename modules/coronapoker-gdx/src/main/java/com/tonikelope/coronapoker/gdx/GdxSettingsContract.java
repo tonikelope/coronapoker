@@ -345,7 +345,7 @@ final class GdxSettingsContract {
             option("tts_server", "VOZ (TTS)", true, Gate.NONE),
             invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
                     Gate.NONE, "tts_server"));
-    private static final TogglePage APPEARANCE_TABLE_PAGE = page(
+    private static final TogglePage APPEARANCE_TABLE_PAGE = withoutUnavailablePokerVideo(page(
             "MESA",
             option("show_time", "MOSTRAR RELOJ DURANTE LA PARTIDA",
                     false, Gate.NONE),
@@ -369,10 +369,6 @@ final class GdxSettingsContract {
             option(TABLE_SPEAKING_EMOJI_KEY, "EMOJI AL HABLAR", true,
                     Gate.NONE),
             option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
-                    Gate.NONE));
-    private static final TogglePage APPEARANCE_ANIMATION_SOURCE = page(
-            "ANIMACIONES Y EFECTOS",
-            option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
                     Gate.NONE),
             option(POKER_VIDEOS_KEY,
                     "MOSTRAR VÍDEOS DE PÓKER",
@@ -381,7 +377,13 @@ final class GdxSettingsContract {
                     DEFAULT_POKER_VIDEO_AUTO_OPEN, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
             option(POKER_VIDEO_WINDOW_ANIMATION_KEY,
                     "ANIMACIÓN AL CERRAR/ABRIR REPRODUCTOR",
-                    true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
+                    true, Gate.ANIMATIONS, POKER_VIDEOS_KEY)));
+    private static final List<RowGroup> APPEARANCE_TABLE_GROUPS = toggleGroups(
+            APPEARANCE_TABLE_PAGE, index -> APPEARANCE_PRIMARY_ROW_COUNT + index);
+    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE = page(
+            "ANIMACIONES Y EFECTOS",
+            option("animaciones", "USAR ANIMACIONES Y EFECTOS", true,
+                    Gate.NONE),
             option(HALO_EFFECT_KEY, "HALOS Y RESPLANDORES", true,
                     Gate.ANIMATIONS),
             option(MODAL_BLUR_KEY, "DESENFOQUE DE DIÁLOGOS", true,
@@ -419,9 +421,6 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_apuestas", "FICHAS VOLADORAS", true,
                     Gate.ANIMATIONS));
-
-    private static final TogglePage APPEARANCE_ANIMATIONS_PAGE =
-            withoutUnavailablePokerVideo(APPEARANCE_ANIMATION_SOURCE);
 
     private static final List<Integer> VOICE_RETENTION_DAYS = List.of(
             7, 15, 30, 90, 0);
@@ -596,12 +595,8 @@ final class GdxSettingsContract {
      * switch that owns it instead of being collected in a detached block.
      */
     private static final List<AppearanceAnimationRow>
-            APPEARANCE_ANIMATION_ROWS = withoutUnavailablePokerVideoRows(
-                    List.of(
+            APPEARANCE_ANIMATION_ROWS = List.of(
                     animationToggle("animaciones"),
-                    animationToggle(POKER_VIDEOS_KEY),
-                    animationToggle(POKER_VIDEO_AUTO_OPEN_KEY),
-                    animationToggle(POKER_VIDEO_WINDOW_ANIMATION_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
                     animationToggle(GLASS_EFFECT_KEY),
@@ -626,7 +621,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_contador_final"),
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
-                    animationToggle("animacion_apuestas")));
+                    animationToggle("animacion_apuestas"));
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -712,17 +707,6 @@ final class GdxSettingsContract {
                         && !POKER_VIDEO_AUTO_OPEN_KEY.equals(option.key())
                         && !POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(option.key()))
                 .toList());
-    }
-
-    private static List<AppearanceAnimationRow>
-            withoutUnavailablePokerVideoRows(
-                    List<AppearanceAnimationRow> rows) {
-        if (PokerVideoPlatformSupport.isAvailable()) return rows;
-        return rows.stream()
-                .filter(row -> !POKER_VIDEOS_KEY.equals(row.key())
-                        && !POKER_VIDEO_AUTO_OPEN_KEY.equals(row.key())
-                        && !POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(row.key()))
-                .toList();
     }
 
     static String controlSettingKey(int row) {
@@ -1201,7 +1185,7 @@ final class GdxSettingsContract {
 
     private static AppearanceAnimationRow animationToggle(String key) {
         return new AppearanceAnimationRow(
-                APPEARANCE_ANIMATION_SOURCE.options().stream()
+                APPEARANCE_ANIMATIONS_PAGE.options().stream()
                         .filter(option -> option.key().equals(key))
                         .findFirst().orElseThrow(
                                 () -> new IllegalStateException(
@@ -1225,6 +1209,10 @@ final class GdxSettingsContract {
     static int appearanceTableRowCount() {
         return APPEARANCE_PRIMARY_ROW_COUNT
                 + APPEARANCE_TABLE_PAGE.options().size();
+    }
+
+    static List<RowGroup> appearanceTableGroups() {
+        return APPEARANCE_TABLE_GROUPS;
     }
 
     static String markDefault(String value, boolean factoryDefault) {

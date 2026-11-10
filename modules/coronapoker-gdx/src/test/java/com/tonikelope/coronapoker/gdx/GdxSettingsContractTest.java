@@ -715,14 +715,11 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(22, page.options().size());
+        assertEquals(19, page.options().size());
         assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
-                "mostrar_videos_poker",
-                "abrir_video_poker_al_arrancar",
-                "animacion_ventana_video_poker",
                 "efecto_halos",
                 "efecto_desenfoque",
                 "efecto_relieve",
@@ -751,12 +748,6 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
-        assertTrue(GdxSettingsContract.visualGroups(
-                GdxSettingsContract.appearanceGroups(page),
-                GdxSettingsContract.appearanceRowCount(page)).stream()
-                .anyMatch(group -> group.parentRow() == 1
-                        && group.lastRow() == 3),
-                "video startup and animation must share the poker video group");
     }
 
     @Test
@@ -775,8 +766,10 @@ final class GdxSettingsContractTest {
 
     @Test
     void startupVideoDefaultsToClosedAndRespectsTheSavedPreference() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(PokerVideoPlatformSupport.isAvailable());
         String key = GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY;
-        var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+        var page = GdxSettingsContract.appearanceTablePage();
+        var option = page.options().stream()
                 .filter(row -> key.equals(row.key())).findFirst().orElseThrow();
         Properties values = new Properties();
         assertFalse(GdxSettingsContract.displayedValue(option, values, true));
@@ -784,18 +777,28 @@ final class GdxSettingsContractTest {
         values.setProperty(key, "true");
         assertTrue(GdxSettingsContract.displayedValue(option, values, true));
         GdxSettingsContract.restoreAppearancePageDefaults(values, 1, true);
+        assertEquals("true", values.getProperty(key));
+        GdxSettingsContract.restoreAppearancePageDefaults(values, 0, true);
         assertEquals("false", values.getProperty(key));
         assertTrue(GdxSettingsContract.displayedValue(
-                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                page.options().stream()
                         .filter(row -> GdxSettingsContract.POKER_VIDEOS_KEY.equals(row.key()))
                         .findFirst().orElseThrow(), values, true));
     }
 
     @Test
     void videoStartupAndWindowAnimationRequireVideosAndAnimations() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(PokerVideoPlatformSupport.isAvailable());
+        var page = GdxSettingsContract.appearanceTablePage();
+        int groupStart = GdxSettingsContract.appearanceTableRowCount() - 3;
+        assertEquals(GdxSettingsContract.POKER_VIDEOS_KEY,
+                page.options().get(groupStart
+                        - GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT).key());
+        assertEquals(List.of(new GdxSettingsContract.RowGroup(
+                groupStart, groupStart + 2, 0)), GdxSettingsContract.appearanceTableGroups());
         for (String key : java.util.List.of(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY,
                 GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY)) {
-            var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+            var option = page.options().stream()
                     .filter(row -> key.equals(row.key())).findFirst().orElseThrow();
             Properties values = new Properties();
             assertEquals(GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(key),

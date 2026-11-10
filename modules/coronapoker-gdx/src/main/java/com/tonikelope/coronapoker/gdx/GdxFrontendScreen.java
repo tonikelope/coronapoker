@@ -1968,7 +1968,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 viewport, pointer);
         batch.end();
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        pokerVideoOverlay.drawForegroundShapes(shapes, pointer);
+        pokerVideoOverlay.drawForegroundShapes(shapes, pointer, viewport);
         shapes.end();
     }
 
@@ -7948,22 +7948,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyLoadingOverlay() {
         hits.clear();
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 386f, 800f, 270f,
-                CYAN_DARK, 1f);
-
+        var layout = GdxUiDialogStyle.preparationLayout(WIDTH, HEIGHT);
+        GdxUiDialogStyle.drawPreparationDialog(shapes, layout, elapsed);
         textFit(headingFont, uppercase(gameText.translate(
-                "game.inicializando_timba")),
-                960f, 560f, GOLD, true, 680f);
-        textFit(smallFont, uppercase(gameText.translate(
                 "gdx.lobby.preparing_table")),
-                960f, 508f, MUTED, true, 620f);
-
-        float trackX = 660f;
-        float trackY = 438f;
-        float trackW = 600f;
-        float trackH = 18f;
-        drawIndeterminateProgressBar(trackX, trackY, trackW, trackH,
-                170f, 0.52f, 9f);
+                layout.centerX(), layout.titleY(), GdxUiDialogStyle.PREPARATION_TITLE,
+                true, layout.labelWidth());
+        textFit(smallFont, gameText.translate("game.inicializando_timba"),
+                layout.centerX(), layout.statusY(), GdxUiDialogStyle.PREPARATION_STATUS,
+                true, layout.labelWidth());
     }
 
     private void drawNewGameSubmissionOverlay() {
@@ -9395,7 +9388,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxApplicationShell shell = GdxApplicationShell.active();
         if (shell == null || selection.selected().isEmpty() || settingsHavePendingChanges()) return;
         shell.exitForProfileBackup(new GdxProfileBackupTransfer.Request(
-                selection.importing(), selection.archive(), selection.selected()));
+                selection.importing(), selection.archive(), selection.selected(),
+                gameText.language()));
     }
 
     private List<String> profileBackupPathLines(String path, float width, int maxLines) {
@@ -9419,11 +9413,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     void showProfileBackupResult(GdxProfileBackupTransfer.Result result) {
-        String detail = result.error() ? result.detail()
-                : String.join("\n", profileBackupPathLines(result.detail(),
-                        GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT).message().width, 4));
+        String message = gameText.translate(result.messageKey());
+        if (!result.detail().isEmpty()) {
+            String detail = result.error() ? result.detail()
+                    : String.join("\n", profileBackupPathLines(result.detail(),
+                            GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT).message().width, 4));
+            message += "\n" + detail;
+        }
         showFrontendNotice(gameText.translate(result.error() ? "gdx.dialog.error" : "settings.ajustes"),
-                gameText.translate(result.messageKey()) + "\n" + detail, result.error());
+                message, result.error());
     }
 
     private void drawAudioSettings(float x, float y, float w, float h) {
@@ -9691,19 +9689,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 0, pages - 1);
         float rowY = y + h - GdxSettingsLayout.CONTENT_ROW_TOP_INSET;
         if (settingsAppearancePage == 0) {
+            var page = GdxSettingsContract.appearanceTablePage();
             int rowCount = GdxSettingsContract.appearanceTableRowCount();
+            var groups = GdxSettingsContract.appearanceTableGroups();
             GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                     rowY, y + GdxSettingsLayout.CONTENT_VERTICAL_INSET,
                     rowY + GdxSettingsLayout.ROW_HEIGHT,
-                    rowCount, settingsAppearanceScroll);
+                    rowCount, settingsAppearanceScroll, groups);
             settingsAppearanceScroll = rows.offset();
             float baseX = x + GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
             float baseWidth = w - 2f
                     * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
+            GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
+                    groups, 1f);
             String[] keys = {"baraja", "trasera", "color_tapete",
                 "nivel_luz"};
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
                 float currentY = rows.rowY(row);
+                Rectangle bounds = GdxSettingsLayout.groupedRow(baseX,
+                        currentY, baseWidth, row, groups, rowCount);
                 if (row == 0) {
                     settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
@@ -9763,24 +9767,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             () -> adjustLightLevel(-1),
                             () -> adjustLightLevel(1));
                 } else {
-                    GdxSettingsContract.ToggleOption option =
-                            GdxSettingsContract.appearanceTablePage()
-                                    .options().get(row
-                                            - GdxSettingsContract
-                                                    .APPEARANCE_PRIMARY_ROW_COUNT);
-                    settingsBooleanToggle(baseX, currentY, baseWidth,
-                            option.label(gameText), preferenceBoolean(
-                                    option.key(), option.fallback()),
+                    var option = page.options().get(row
+                            - GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
+                    boolean enabled = GdxSettingsContract.enabled(option,
+                            initialProperties, audioControl.enabled());
+                    settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
+                            option.label(gameText),
+                            preferenceBoolean(option.key(), option.fallback()),
                             GdxSettingsContract.displayedFallback(option),
-                            () -> togglePreference(option.key(),
-                                    option.fallback()), true);
+                            () -> runSettingsOptionMutation(page,
+                                    () -> togglePreference(option.key(),
+                                            option.fallback())),
+                            enabled, false,
+                            settingsOptionAnimationKey(option.key()));
                 }
                 String key = row < keys.length ? keys[row]
-                        : GdxSettingsContract.appearanceTablePage().options()
+                        : page.options()
                                 .get(row - GdxSettingsContract
                                         .APPEARANCE_PRIMARY_ROW_COUNT).key();
-                settingsTooltip(new Rectangle(baseX, currentY, baseWidth,
-                        GdxSettingsLayout.ROW_HEIGHT), key);
+                settingsTooltip(bounds, key);
             }
             drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w),
                     rows);
@@ -18020,6 +18025,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (section == GdxSettingsContract.Section.APPEARANCE) {
             if (settingsAppearancePage == 0) {
                 totalRows = GdxSettingsContract.appearanceTableRowCount();
+                groups = GdxSettingsContract.appearanceTableGroups();
             } else if (GdxSettingsContract.isAppearanceGraphicsPage(
                     settingsAppearancePage)) {
                 totalRows = GdxSettingsContract

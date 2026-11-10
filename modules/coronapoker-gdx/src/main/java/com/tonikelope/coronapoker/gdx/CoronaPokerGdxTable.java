@@ -1036,7 +1036,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final Color PREPARATION_TRACK = new Color(0x020813ff);
     private static final Color RECONNECT_TEXT = new Color(0xc8d4e2ff);
     private static final Color CLOCK_PANEL = new Color(0x080b0ecc);
     private static final Color CLOCK_ACTIVE = new Color(0xffbd38ff);
@@ -15797,44 +15796,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 == TableVisualEvent.PreparationStatus.Phase.READY) {
             return;
         }
-        float width = viewport.getWorldWidth();
-        float height = viewport.getWorldHeight();
-        float panelW = Math.min(820f, width - 80f);
-        float panelH = 244f;
-        float panelX = (width - panelW) / 2f;
-        float panelY = (height - panelH) / 2f;
-        float trackX = panelX + 82f;
-        float trackY = panelY + 46f;
-        float trackW = panelW - 164f;
-        float trackH = 16f;
-        float segmentW = Math.min(172f, trackW * 0.30f);
-        float travel = Math.max(0f, trackW - segmentW - 8f);
-        float phase = (totalTime * 0.70f) % 2f;
-        float eased = phase <= 1f ? phase : 2f - phase;
-
+        var layout = GdxUiDialogStyle.preparationLayout(
+                viewport.getWorldWidth(), viewport.getWorldHeight());
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, CYAN, 1f);
-        shapes.setColor(PREPARATION_TRACK);
-        roundedRect(trackX, trackY, trackW, trackH, 8f);
-        shapes.setColor(BUTTON_LINE);
-        roundedRect(trackX + 2f, trackY + 2f, trackW - 4f,
-                trackH - 4f, 6f);
-        shapes.setColor(CYAN);
-        roundedRect(trackX + 4f + travel * eased, trackY + 4f,
-                segmentW, trackH - 8f, 4f);
+        GdxUiDialogStyle.drawPreparationDialog(shapes, layout, totalTime);
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(actionFont,
+        drawFittedCentered(settingsHeadingFont,
                 uppercase(gameText.translate("gdx.lobby.preparing_table")),
-                panelX + 44f, panelY + 142f, panelW - 88f, 58f,
-                POT_GOLD, 1f);
-        drawFittedCenteredInBox(uiFont,
+                layout.centerX(), layout.titleY(), layout.labelWidth(),
+                GdxUiDialogStyle.PREPARATION_TITLE, 1f);
+        drawFittedCentered(settingsSmallFont,
                 preparationStatusText(preparationPhase, gameText),
-                panelX + 44f, panelY + 91f, panelW - 88f, 42f,
-                Color.WHITE, 1f);
+                layout.centerX(), layout.statusY(), layout.labelWidth(),
+                GdxUiDialogStyle.PREPARATION_STATUS, 1f);
         batch.end();
     }
 
@@ -21571,17 +21548,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
-                GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                        firstRowY,
-                        GdxSettingsContract.appearanceTableRowCount(),
+                GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
+                        content, firstRowY,
                         settingsAppearanceScroll);
                 settingsAppearanceScroll = rows.offset();
                 Rectangle rowViewport = settingsRowsViewport(content,
                         firstRowY);
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
-                    Rectangle bounds = new Rectangle(contentX, rows.rowY(row),
-                            rowW, GdxSettingsLayout.ROW_HEIGHT);
+                    Rectangle bounds = settingsAppearanceTableRowBounds(
+                            contentX, rowW, rows, row);
                     if (!rowViewport.contains(x, y)
                             || !bounds.contains(x, y)) continue;
                     if (row == 0) {
@@ -21600,12 +21576,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         }
                     } else if (row >= GdxSettingsContract
                             .APPEARANCE_PRIMARY_ROW_COUNT) {
-                        GdxSettingsContract.ToggleOption option =
-                                GdxSettingsContract.appearanceTablePage()
-                                        .options().get(row
-                                                - GdxSettingsContract
-                                                        .APPEARANCE_PRIMARY_ROW_COUNT);
-                        toggleTablePreference(option.key(), option.fallback());
+                        var page = GdxSettingsContract.appearanceTablePage();
+                        var option = page.options().get(row - GdxSettingsContract
+                                .APPEARANCE_PRIMARY_ROW_COUNT);
+                        if (settingsOptionEnabled(option)) {
+                            runTableSettingsOptionMutation(page,
+                                    () -> toggleTablePreference(option.key(),
+                                            option.fallback()));
+                        }
                     }
                     return;
                 }
@@ -22124,6 +22102,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxSettingsContract.appearanceGraphicsGroups());
     }
 
+    private static GdxSettingsLayout.PixelRows settingsAppearanceTableRows(
+            Rectangle content, float firstRowY, float scroll) {
+        return settingsPixelRows(content, firstRowY,
+                GdxSettingsContract.appearanceTableRowCount(), scroll,
+                GdxSettingsContract.appearanceTableGroups());
+    }
+
+    private static Rectangle settingsAppearanceTableRowBounds(float x,
+            float width, GdxSettingsLayout.PixelRows rows, int row) {
+        return GdxSettingsLayout.groupedRow(x, rows.rowY(row), width, row,
+                GdxSettingsContract.appearanceTableGroups(),
+                GdxSettingsContract.appearanceTableRowCount());
+    }
+
     private static Rectangle settingsAppearanceGraphicsRowBounds(float x,
             float width, GdxSettingsLayout.PixelRows rows, int row) {
         return GdxSettingsLayout.groupedRow(x, rows.rowY(row), width, row,
@@ -22491,7 +22483,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             : GdxSettingsContract.appearanceRowCount(
                                     settingsAppearanceTogglePage());
             offset = settingsAppearanceScroll;
-            if (GdxSettingsContract.isAppearanceGraphicsPage(
+            if (settingsAppearancePage == 0) {
+                groups = GdxSettingsContract.appearanceTableGroups();
+            } else if (GdxSettingsContract.isAppearanceGraphicsPage(
                     settingsAppearancePage)) {
                 groups = GdxSettingsContract.appearanceGraphicsGroups();
             } else if (GdxSettingsContract.isAppearanceTogglePage(
@@ -25240,8 +25234,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return null;
         }
         if (contentPage == 1 && settingsAppearancePage == 0) {
-            GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                    firstY, GdxSettingsContract.appearanceTableRowCount(),
+            GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
+                    content, firstY,
                     settingsAppearanceScroll);
             String[] keys = {"baraja", "trasera", "color_tapete",
                 "nivel_luz"};
@@ -25252,8 +25246,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 .get(row - GdxSettingsContract
                                         .APPEARANCE_PRIMARY_ROW_COUNT).key();
                 SettingsTooltipHover hovered = settingsTooltipHover(
-                        new Rectangle(x, rows.rowY(row), width,
-                                GdxSettingsLayout.ROW_HEIGHT), key,
+                        settingsAppearanceTableRowBounds(x, width, rows, row), key,
                         viewportBounds, properties);
                 if (hovered != null) return hovered;
             }
@@ -25855,11 +25848,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
-                GdxSettingsLayout.PixelRows rows = settingsPixelRows(
+                GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
                         currentSettingsContent(), firstY,
-                        GdxSettingsContract.appearanceTableRowCount(),
                         settingsAppearanceScroll);
                 settingsAppearanceScroll = rows.offset();
+                GdxSettingsLayout.drawGroups(shapes, x, width, rows,
+                        GdxSettingsContract.appearanceTableGroups(), alpha);
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
                     float rowY = rows.rowY(row);
@@ -25880,9 +25874,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         .options().get(row
                                                 - GdxSettingsContract
                                                         .APPEARANCE_PRIMARY_ROW_COUNT);
-                        drawSettingsToggleShape(x, rowY, width,
+                        Rectangle bounds = settingsAppearanceTableRowBounds(
+                                x, width, rows, row);
+                        drawSettingsOptionToggleShape(bounds.x, bounds.y, bounds.width,
                                 tablePreference(option.key(),
-                                        option.fallback()), alpha);
+                                        option.fallback()),
+                                settingsOptionEnabled(option), option.key(), alpha);
                     }
                 }
                 drawSettingsRowScrollbarShape(
@@ -26695,9 +26692,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         } else if (contentPage == 1) {
             if (settingsAppearancePage == 0) {
-                GdxSettingsLayout.PixelRows rows = settingsPixelRows(
+                GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
                         currentSettingsContent(), firstY,
-                        GdxSettingsContract.appearanceTableRowCount(),
                         settingsAppearanceScroll);
                 settingsAppearanceScroll = rows.offset();
                 for (int row = rows.firstIndex();
@@ -26778,12 +26774,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 - GdxSettingsContract
                                                         .APPEARANCE_PRIMARY_ROW_COUNT);
                         boolean value = settingsOptionDisplayedValue(option);
-                        drawSettingsToggleText(x, rowY, width,
+                        Rectangle bounds = settingsAppearanceTableRowBounds(
+                                x, width, rows, row);
+                        drawSettingsToggleText(bounds.x, bounds.y, bounds.width,
                                 option.label(gameText),
                                 GdxSettingsContract.booleanStatusLabel(value,
                                         GdxSettingsContract
                                                 .displayedFallback(option),
-                                        gameText), true, alpha);
+                                        gameText), settingsOptionEnabled(option), alpha);
                     }
                 }
             } else if (GdxSettingsContract.isAppearanceGraphicsPage(
@@ -28007,17 +28005,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case DECK, CARD_BACK, FELT -> {
                 if (settingsContentPage() != 1
                         || settingsAppearancePage != 0) yield null;
-                GdxSettingsLayout.PixelRows rows = settingsPixelRows(content,
-                        frame.firstRowY(),
-                        GdxSettingsContract.appearanceTableRowCount(),
+                GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
+                        content, frame.firstRowY(),
                         settingsAppearanceScroll);
                 int row = switch (settingsSelectionList) {
                     case DECK -> 0;
                     case CARD_BACK -> 1;
                     default -> 2;
                 };
-                yield new Rectangle(x, rows.rowY(row), width,
-                        GdxSettingsLayout.ROW_HEIGHT);
+                yield settingsAppearanceTableRowBounds(x, width, rows, row);
             }
             case WINDOW_MODE, FPS_LIMIT, MSAA, CARD_RENDERING -> {
                 if (settingsContentPage() != 1

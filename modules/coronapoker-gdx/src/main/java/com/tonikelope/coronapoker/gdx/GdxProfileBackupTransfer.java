@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.function.IntConsumer;
 
 final class GdxProfileBackupTransfer {
 
@@ -15,22 +17,29 @@ final class GdxProfileBackupTransfer {
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
     private static final String RESULT = "CORONAPOKER_BACKUP_RESULT";
     private static final String DETAIL = "CORONAPOKER_BACKUP_DETAIL";
+    private static final String CANCELLED = "gdx.backup.export_cancelled";
 
     record Request(boolean importing, Path archive,
-            Set<GdxProfileBackup.Category> categories) {
+            Set<GdxProfileBackup.Category> categories, String language) {
 
         Request {
             categories = Set.copyOf(categories);
         }
 
-        Result run(Path profile) {
+        Result run(Path profile, IntConsumer exportProgress) {
+            return run(profile, new GdxProfileBackup.ExportControl(exportProgress));
+        }
+
+        Result run(Path profile, GdxProfileBackup.ExportControl export) {
             try (var lock = GdxProfileBackup.lock(profile, false)) {
                 if (importing) {
                     Path previous = GdxProfileBackup.restoreProfile(profile, archive, categories);
                     return new Result("gdx.backup.import_done", previous.toString());
                 }
-                GdxProfileBackup.exportProfile(profile, archive, categories, false);
+                GdxProfileBackup.exportProfile(profile, archive, categories, false, export);
                 return new Result("gdx.backup.export_done", archive.toString());
+            } catch (CancellationException cancelled) {
+                return new Result(CANCELLED, "");
             } catch (IOException | RuntimeException failure) {
                 return new Result("gdx.backup.failed",
                         failure.getMessage() == null ? failure.toString() : failure.getMessage());
@@ -41,7 +50,7 @@ final class GdxProfileBackupTransfer {
     record Result(String messageKey, String detail) {
 
         boolean error() {
-            return "gdx.backup.failed".equals(messageKey);
+            return "gdx.backup.failed".equals(messageKey) || CANCELLED.equals(messageKey);
         }
 
         void writeTo(ProcessBuilder process) {
@@ -51,6 +60,7 @@ final class GdxProfileBackupTransfer {
 
         static Result fromEnvironment() {
             String key = System.getenv(RESULT);
+            if (CANCELLED.equals(key)) return new Result(key, "");
             String detail = System.getenv(DETAIL);
             if (detail == null || !Set.of("gdx.backup.import_done",
                     "gdx.backup.export_done", "gdx.backup.failed").contains(

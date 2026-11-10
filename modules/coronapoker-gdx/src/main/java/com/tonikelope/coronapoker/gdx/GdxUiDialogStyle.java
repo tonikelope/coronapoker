@@ -17,6 +17,10 @@ final class GdxUiDialogStyle {
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
+    static final Color PREPARATION_TITLE = new Color(GdxSettingsStyle.GOLD_RGBA);
+    static final Color PREPARATION_STATUS = new Color(GdxSettingsStyle.MUTED_RGBA);
+    private static final Color PREPARATION_ACCENT = new Color(0x39d6ffff);
+    private static final Color PREPARATION_TRACK = new Color(0x020813ff);
 
     private GdxUiDialogStyle() {
     }
@@ -69,6 +73,44 @@ final class GdxUiDialogStyle {
 
     record NoticeLayout(Rectangle panel, Rectangle title,
             Rectangle message, Rectangle button) {
+    }
+
+    static PreparationLayout preparationLayout(float worldWidth,
+            float worldHeight) {
+        float panelWidth = Math.min(800f, worldWidth - 80f);
+        float panelHeight = 270f;
+        float centerX = worldWidth / 2f;
+        float bottom = (worldHeight - panelHeight) / 2f;
+        float trackWidth = panelWidth * 0.75f;
+        return new PreparationLayout(
+                new Rectangle(centerX - panelWidth / 2f, bottom,
+                        panelWidth, panelHeight),
+                centerX, bottom + 174f, bottom + 122f, panelWidth - 88f,
+                new Rectangle(centerX - trackWidth / 2f, bottom + 52f,
+                        trackWidth, 18f));
+    }
+
+    record PreparationLayout(Rectangle panel, float centerX, float titleY,
+            float statusY, float labelWidth, Rectangle track) {
+    }
+
+    static void drawPreparationDialog(ShapeRenderer shapes,
+            PreparationLayout layout, float elapsed) {
+        Rectangle panel = layout.panel();
+        drawPanel(shapes, panel.x, panel.y, panel.width, panel.height,
+                PREPARATION_ACCENT, 1f);
+        Rectangle track = layout.track();
+        shapes.setColor(PREPARATION_TRACK);
+        roundedRect(shapes, track.x, track.y, track.width, track.height, 9f);
+        shapes.setColor(LINE);
+        roundedRect(shapes, track.x + 2f, track.y + 2f, track.width - 4f,
+                track.height - 4f, 7f);
+        float segment = Math.min(170f, track.width * 0.30f);
+        float phase = (elapsed * 0.52f) % 2f;
+        float travel = (track.width - segment - 8f) * (1f - Math.abs(phase - 1f));
+        shapes.setColor(PREPARATION_ACCENT);
+        roundedRect(shapes, track.x + 4f + travel, track.y + 4f,
+                segment, track.height - 8f, 5f);
     }
 
     /**

@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.sun.net.httpserver.HttpServer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,6 +30,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.cef.misc.IntRef;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class PokerVideoSearchTest {
 
@@ -360,7 +364,7 @@ class PokerVideoSearchTest {
 
     @Test
     void pokerVideoPreferenceTracksPlatformAvailabilityAndDefaultsOn() {
-        var page = GdxSettingsContract.appearanceTogglePage(1);
+        var page = GdxSettingsContract.appearanceTablePage();
         var option = page.options().stream()
                 .filter(candidate -> GdxSettingsContract.POKER_VIDEOS_KEY
                         .equals(candidate.key()))
@@ -435,6 +439,84 @@ class PokerVideoSearchTest {
     }
 
     @Test
+    void resizeIndicatorStaysOnTheVisibleEdgeAndCorner() {
+        Rectangle frame = new Rectangle(100f, 100f, 300f, 500f);
+        Vector2 indicator = new Vector2();
+        PokerVideoOverlay.ResizeHandle.RIGHT.cursorPosition(frame, 800f, 300f, indicator);
+        assertEquals(new Vector2(400f, 300f), indicator);
+        PokerVideoOverlay.ResizeHandle.TOP_LEFT.cursorPosition(frame, 900f, 0f, indicator);
+        assertEquals(104.39f, indicator.x, 0.02f);
+        assertEquals(595.61f, indicator.y, 0.02f);
+
+        frame.set(140f, 200f, 260f, 350f);
+        PokerVideoOverlay.ResizeHandle.TOP_LEFT.cursorPosition(frame, 900f, 0f, indicator);
+        assertEquals(144.39f, indicator.x, 0.02f);
+        assertEquals(545.61f, indicator.y, 0.02f);
+    }
+
+    @Test
+    void browserResizePreservesExactVideoProportionsAndMouseCoordinates() {
+        for (float width = 260f; width < 1100f; width += 0.75f) {
+            var normal = PokerVideoOverlay.browserSize(width, false);
+            var shorts = PokerVideoOverlay.browserSize(width, true);
+            assertEquals(normal.width() * 9, normal.height() * 16);
+            assertEquals(shorts.width() * 16, shorts.height() * 9);
+            assertTrue(Math.abs(width - normal.width()) <= 8f);
+            assertTrue(Math.abs(width - shorts.width()) <= 4.5f);
+        }
+        assertEquals(0, PokerVideoOverlay.browserCoordinate(0f, 513f, 512));
+        assertEquals(256, PokerVideoOverlay.browserCoordinate(256.5f, 513f, 512));
+        assertEquals(511, PokerVideoOverlay.browserCoordinate(513f, 513f, 512));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"normal", "shorts"})
+    void cornerResizePassesThroughIntermediateSizesWhenAxesDisagree(String type)
+            throws Exception {
+        try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
+            var started = PokerVideoOverlay.class.getDeclaredField("initializationStarted");
+            started.setAccessible(true);
+            started.setBoolean(overlay, true);
+            var key = PokerVideoOverlay.class.getDeclaredField("requestedCatalogKey");
+            key.setAccessible(true);
+            key.set(overlay, "es:" + type);
+            overlay.update(true, true, true, "es", type, 1920f, 1080f);
+            var boundsField = PokerVideoOverlay.class.getDeclaredField("panelBounds");
+            boundsField.setAccessible(true);
+            Rectangle panel = (Rectangle) boundsField.get(overlay);
+
+            float aspect = type.equals("normal") ? 16f / 9f : 9f / 16f;
+            float cornerX = panel.x + 4f;
+            float cornerY = panel.y + panel.height - 4f;
+            float pointerY = cornerY - 56f / aspect;
+            var initialBrowserSize = overlay.browserSize();
+            assertTrue(overlay.touchDown(cornerX, cornerY, 0, 0));
+
+            float[] widths = new float[9];
+            for (int step = 0; step < widths.length; step++) {
+                assertTrue(overlay.touchDragged(cornerX - 52f - step, pointerY, 0));
+                widths[step] = panel.width;
+                assertEquals(initialBrowserSize, overlay.browserSize());
+                if (step > 0) {
+                    float change = widths[step] - widths[step - 1];
+                    assertTrue(change > 0f && change <= 1.01f,
+                            "A one-unit pointer movement resized the panel by " + change);
+                }
+                assertEquals(aspect, panel.width / (panel.height - PokerVideoOverlay.CHROME_HEIGHT),
+                        0.001f);
+            }
+            for (int step = widths.length - 2; step >= 0; step--) {
+                assertTrue(overlay.touchDragged(cornerX - 52f - step, pointerY, 0));
+                assertEquals(widths[step], panel.width, 0.001f);
+            }
+            assertTrue(overlay.touchUp(cornerX - 52f, pointerY, 0, 0));
+            assertNotEquals(initialBrowserSize, overlay.browserSize());
+            assertEquals(PokerVideoOverlay.browserSize(panel.width, type.equals("shorts")),
+                    overlay.browserSize());
+        }
+    }
+
+    @Test
     void landscapeCanFillTheScreenAndStillFitsAfterSwitchingToShorts()
             throws Exception {
         try (PokerVideoOverlay overlay = new PokerVideoOverlay()) {
@@ -453,9 +535,14 @@ class PokerVideoSearchTest {
             Rectangle panel = (Rectangle) boundsField.get(overlay);
             float left = panel.x + 2f;
             float middle = panel.y + panel.height / 2f;
+            assertEquals(Cursor.SystemCursor.None, overlay.systemCursor(left, middle));
             assertTrue(overlay.touchDown(left, middle, 0, 0));
             assertTrue(overlay.touchDragged(left - 10000f, middle, 0));
+            assertEquals(Cursor.SystemCursor.None,
+                    overlay.systemCursor(left - 10000f, middle));
             assertTrue(overlay.touchUp(left - 10000f, middle, 0, 0));
+            assertEquals(Cursor.SystemCursor.Arrow,
+                    overlay.systemCursor(left - 10000f, middle));
             assertTrue(panel.width > 1700f);
             assertTrue(panel.x >= 8f && panel.x + panel.width <= 1912.01f);
             assertTrue(panel.y >= 8f && panel.y + panel.height <= 1072.01f);

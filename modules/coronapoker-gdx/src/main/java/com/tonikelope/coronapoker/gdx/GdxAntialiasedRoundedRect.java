@@ -75,6 +75,11 @@ final class GdxAntialiasedRoundedRect {
 
     static void fill(ShapeRenderer shapes, float x, float y, float width,
             float height, float radius) {
+        fill(shapes, x, y, width, height, radius, coverageWidth());
+    }
+
+    static void fill(ShapeRenderer shapes, float x, float y, float width,
+            float height, float radius, float coverageWidth) {
         if (!valid(width, height)) return;
         float safeRadius = safeRadius(width, height, radius);
         if (safeRadius <= 0f) {
@@ -82,7 +87,7 @@ final class GdxAntialiasedRoundedRect {
             return;
         }
         rememberColor(shapes);
-        float feather = Math.min(coverageWidth(), safeRadius * 1.5f);
+        float feather = Math.min(coverageWidth, safeRadius * 1.5f);
         float half = feather * 0.5f;
         drawContourBand(shapes, x, y, width, height, safeRadius,
                 half, -half, CLEAR, FULL);

@@ -36,7 +36,7 @@ abstract class BotMixedMatchupBase {
     // wall-clock runtime but the calibration signal becomes legible.
     protected static final int SESSIONS_PER_MATCHUP = QaConfig.sessions(200);
     protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
-    protected static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
+    protected static final long BASE_SEED = QaConfig.seed(0xC0C0FEEDDEADBEEFL);
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
 

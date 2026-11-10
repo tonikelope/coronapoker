@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Tag;
  * </pre>
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class BotBenchmarkTest {
 
     // 40 sessions of 25 hands per difficulty: 1000 hands total, 80 personality
@@ -48,7 +49,7 @@ class BotBenchmarkTest {
     // personalities the single-simulator approach happened to roll.
     private static final int SESSIONS_PER_DIFFICULTY = 30;
     private static final int HANDS_PER_SESSION = 8;
-    private static final long BASE_SEED = 0xC0C0AB07DEAD1234L;
+    private static final long BASE_SEED = QaConfig.seed(0xC0C0AB07DEAD1234L);
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;
 

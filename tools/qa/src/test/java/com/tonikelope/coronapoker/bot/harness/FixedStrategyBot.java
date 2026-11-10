@@ -28,6 +28,8 @@ import com.tonikelope.coronapoker.bot.context.DealerView;
  */
 public final class FixedStrategyBot extends Bot {
 
+    private static final int HAND_GROUP_SIZE = 13 * 13 * 13 * 13 * 13;
+
     public enum Strategy {
         /**
          * Calling station: never folds when toCall > 0 (unless all-in), never
@@ -50,8 +52,9 @@ public final class FixedStrategyBot extends Bot {
          */
         MANIAC,
         /**
-         * Simple TAG: open-raises top ~25% preflop, c-bets 65% of flops, folds
-         * to 3bet ~50% of the time, calls down with top-pair+. A reasonable
+         * Simple TAG: opens a 330-combo range, c-bets air 65% of the time
+         * as the preflop aggressor, continues half its non-premium opening
+         * range against a 3-bet, and calls down with top pair or better. A reasonable
          * benchmark opponent — a competent bot should be at most slightly
          * negative against this archetype without opponent modeling.
          */
@@ -173,12 +176,15 @@ public final class FixedStrategyBot extends Bot {
         boolean top25 = isTop25(pair, high, low, suited);
         int betCount = d.getConta_bet();
         if (preflop) {
-            if (toCall <= 0f) {
+            if (betCount == 0) {
                 if (top25) {
-                    lastTargetSize = d.getCiega_grande() * 2.8f;
+                    lastTargetSize = Math.max(d.getCiega_grande() * 2.8f,
+                            d.getApuesta_actual() + d.getCiega_grande() * 1.8f);
                     return com.tonikelope.coronapoker.core.game.GamePlayerController.BET;
                 }
-                return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
+                return toCall <= 0f
+                        ? com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK
+                        : com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
             }
             if (betCount >= 2) {
                 if (pair && high >= 9) {
@@ -189,8 +195,8 @@ public final class FixedStrategyBot extends Bot {
                     }
                     return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
                 }
-                if (localRng.nextInt(100) < 50) {
-                    return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
+                if (top25 && localRng.nextInt(100) >= 50) {
+                    return com.tonikelope.coronapoker.core.game.GamePlayerController.CHECK;
                 }
                 return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
             }
@@ -200,8 +206,7 @@ public final class FixedStrategyBot extends Bot {
             return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
         }
         boolean topPairOrBetter = computeTopPairOrBetter(high, low, pair, d);
-        boolean wasPreflopAggressor = (d.getLast_aggressor() == null
-                || d.getLast_aggressor().getNickname().equals(player().getNickname()));
+        boolean wasPreflopAggressor = player().getNickname().equals(d.getPreflopAggressorNick());
         if (toCall <= 0f) {
             if (d.getStreet() == Crupier.FLOP && wasPreflopAggressor
                     && localRng.nextInt(100) < 65) {
@@ -220,43 +225,64 @@ public final class FixedStrategyBot extends Bot {
         return com.tonikelope.coronapoker.core.game.GamePlayerController.FOLD;
     }
 
-    private boolean isTop25(boolean pair, int high, int low, boolean suited) {
-        if (pair && high >= 4) {
+    static boolean isTop25(boolean pair, int high, int low, boolean suited) {
+        if (pair) {
             return true;
         }
-        if (high == 12 && low >= 8) {
+        if (high == 12 && low >= 6) {
             return true;
         }
-        if (high == 12 && low >= 4 && suited) {
+        if (high == 12 && suited) {
             return true;
         }
-        if (high == 11 && low >= 9) {
+        if (high == 11 && low >= 8) {
             return true;
         }
-        if (high == 11 && low >= 8 && suited) {
+        if (high == 11 && low >= 6 && suited) {
             return true;
         }
-        if (high == 10 && low >= 9) {
+        if (high == 10 && low >= 8) {
             return true;
         }
-        if (high == 10 && low >= 8 && suited) {
+        if (high == 10 && low >= 7 && suited) {
+            return true;
+        }
+        if (high == 9 && low >= 8) {
+            return true;
+        }
+        if (high == 9 && low >= 7 && suited) {
+            return true;
+        }
+        if (suited && (high == 8 && low >= 6
+                || high == 7 && low == 6
+                || high == 6 && low == 5
+                || high == 5 && low == 4)) {
             return true;
         }
         return false;
     }
 
     private boolean computeTopPairOrBetter(int high, int low, boolean pair, DealerView d) {
+        int[] cards = new int[d.getBoardSize() + 2];
+        cards[0] = player().getHoleCard1Index();
+        cards[1] = player().getHoleCard2Index();
         int boardTop = -1;
         for (int i = 0; i < d.getBoardSize(); i++) {
-            int br = d.getBoardCardIndex(i) % 13;
+            int boardCard = d.getBoardCardIndex(i);
+            cards[i + 2] = boardCard;
+            int br = boardCard % 13;
             if (br > boardTop) {
                 boardTop = br;
             }
         }
+        int handGroup = EVALUATOR.rankHand(cards) / HAND_GROUP_SIZE;
+        if (handGroup >= 2) {
+            return true;
+        }
         if (pair && high >= boardTop) {
             return true;
         }
-        if (!pair && (high == boardTop || low == boardTop) && Math.max(high, low) >= 9) {
+        if (!pair && (high == boardTop || low == boardTop)) {
             return true;
         }
         return false;

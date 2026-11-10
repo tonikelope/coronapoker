@@ -25,17 +25,17 @@ const nodes = [
     ['preAct', 40, 250, 430, 132, 'pre', 'box', '<b>calculatePreflopAction</b><br><span style="font-size:9px">position × profile × bet level →<br>open · 3-bet/4-bet/5-bet value · call · fold<br>squeeze · 3-bet bluff (blockers)<br>HU button steal &amp; BB defend (difficulty looseness offset)</span>'],
 
     // postflop spine
-    ['pf1', 510, 270, 480, 52, 'proc', 'box', '<b>handStrengthVsN → strength</b><br><span style="font-size:9px">equity vs N random hands · cached per street</span>'],
-    ['pf2', 510, 352, 480, 52, 'proc', 'box', '<b>potential() → PPot / NPot</b><br><span style="font-size:9px">2-card look-ahead on the flop · river = 0</span>'],
-    ['pf3', 490, 434, 520, 64, 'proc', 'box', '<b>effective strength = strength + (1−s)·PPot − s·NPot</b><br><span style="font-size:9px">− overcard / weak-kicker penalties · floor 0.10</span>'],
+    ['pf1', 510, 270, 480, 52, 'proc', 'box', '<b>showdownOdds</b><br><span style="font-size:9px">Heads-up win and tie frequencies cached per street</span>'],
+    ['pf2', 510, 352, 480, 52, 'proc', 'box', '<b>potential() → PPot / NPot</b><br><span style="font-size:9px">Two cards on the flop, one on the turn, zero on the river</span>'],
+    ['pf3', 490, 434, 520, 64, 'proc', 'box', '<b>Estimate equity, then derive effective strength</b><br><span style="font-size:9px">Flop/turn: apply potential heads-up, then combine across opponents<br>River: estimate pot share from wins and ties<br>Apply one-pair penalties and a style floor of 0.10</span>'],
     ['pf4', 490, 528, 520, 64, 'proc', 'box', '<b>scare-card detection</b> (Δ &lt; −0.15 on a new street)<br><span style="font-size:9px">on the FLOP: generateStreetPlan → { BET·BET·BET | BET·CHK·BET | CHK·CALL | none }</span>'],
-    ['pf5', 490, 622, 520, 70, 'proc', 'box', '<b>winProb adjustments</b><br><span style="font-size:9px">multiway · 3-bet+ pots · scare card · out of position · villain read (nit / maniac / station) · shark edge · EASY noise</span>'],
-    ['pf6', 540, 722, 420, 52, 'proc', 'box', '<b>EV(call) · EV(raise) · fold equity</b><br><span style="font-size:9px">implied odds for safe draws · fold equity = 0 vs a station</span>'],
-    ['decFace', 605, 812, 290, 104, 'dec', 'rhombus', '<b>facing a bet ?</b><br><span style="font-size:9px">betCount &gt; 0</span>'],
+    ['pf5', 490, 622, 520, 70, 'proc', 'box', '<b>Context adjustments for each eligible opponent count</b><br><span style="font-size:9px">Raises, scare cards, position, opponent reads and EASY noise<br>Keep exact river equities</span>'],
+    ['pf6', 540, 722, 420, 52, 'proc', 'box', '<b>Price calls and legal raises by pot layer</b><br><span style="font-size:9px">Account for refunds, fold equity and safe-draw implied odds</span>'],
+    ['decFace', 605, 812, 290, 104, 'dec', 'rhombus', '<b>facing a bet ?</b><br><span style="font-size:9px">callCost &gt; 0</span>'],
 
     // two postflop sub-routines
     ['chkBox', 70, 962, 540, 150, 'chk', 'box', '<b>decisionWhenCheckedTo</b><br><span style="font-size:9px">slow-play trap · flop C-bet (range advantage)<br>semi-bluff (street-aware PPot threshold)<br>river: value · thin value · polarized bluff (fold-equity gated)<br>street-plan barrels · EV value bet<br>→ <b>BET</b> or <b>CHECK</b></span>'],
-    ['facBox', 870, 962, 560, 150, 'fac', 'box', '<b>decisionWhenFacingBet</b><br><span style="font-size:9px">dynamic check-raise · float · pot-committed shove/call<br>value raise · medium raise (heads-up only) · squeeze<br>implied-odds draw call · MDF bluff-catch (HARD)<br>→ <b>BET</b> · <b>CHECK/CALL</b> · <b>FOLD</b></span>'],
+    ['facBox', 870, 962, 560, 150, 'fac', 'box', '<b>decisionWhenFacingBet</b><br><span style="font-size:9px">dynamic check-raise · float · pot-committed shove/call<br>value raise · medium raise (heads-up only) · squeeze<br>implied-odds draw calls and profitable guaranteed chops<br>→ <b>BET</b> · <b>CHECK/CALL</b> · <b>FOLD</b></span>'],
 
     ['raw', 500, 1160, 500, 56, 'proc', 'box', '<b>raw decision</b>: BET / CHECK-CALL / FOLD'],
     ['decMis', 585, 1256, 330, 110, 'dec', 'rhombus', '<b>recreational mistake ?</b><br><span style="font-size:9px">roll &lt; rate · EASY 45% · MEDIUM 22% · HARD 0%</span>'],

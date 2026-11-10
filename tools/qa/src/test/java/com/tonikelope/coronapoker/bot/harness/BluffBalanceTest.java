@@ -33,11 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * polarised-but-sane range a thinking player shows.</p>
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class BluffBalanceTest {
 
     private static final int SESSIONS = 120;
     private static final int HANDS_PER_SESSION = 30;
-    private static final long BASE_SEED = 0xB10FFBA1A0CEL;
+    private static final long BASE_SEED = QaConfig.seed(0xB10FFBA1A0CEL);
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;
 

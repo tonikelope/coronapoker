@@ -156,7 +156,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
   - 💥 **LAG**: loose-aggressive, unpredictable and relentless
 - **Host-managed custom bot profiles**: choose each bot's nickname, validated avatar, individual difficulty, real AI personality and automatic-rebuy preference. Profiles enter in the chosen or shuffled order. The host can forbid standard-bot fallback when the catalogue runs out.
 - **Real poker engine** built on the Alberta hand evaluator + hand-potential (true equity, not lookup tables)
-- Multi-street planning: **c-bets, polarised river & turn bluffs, semi-bluffs, slow-played traps, float plays, scare-card reads, MDF bluff-catching** and range-aware aggression, so they don't play their hand face-up
+- Multi-street planning with **c-bets, polarised river and turn bluffs, semi-bluffs, slow-played traps, float plays and scare-card reads**.
 - **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads): they remember your tendencies and *stop bluffing the player who never folds*
 - **Heads-up vs multi-way awareness**: ranges and bluff frequencies are gated to the table size
 - **Calibrated mistake injection** scaled by difficulty: Hard is razor-sharp, Easy makes human-shaped errors in the right spots

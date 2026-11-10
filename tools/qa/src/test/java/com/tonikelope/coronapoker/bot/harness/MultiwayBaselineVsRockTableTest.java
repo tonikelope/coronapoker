@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
  * HARD must out-steal a 6-max table of five nits (tight rocks).
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class MultiwayBaselineVsRockTableTest extends MultiwayBaselineBase {
 
     @Test

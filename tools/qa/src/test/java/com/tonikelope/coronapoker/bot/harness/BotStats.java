@@ -21,7 +21,7 @@ package com.tonikelope.coronapoker.bot.harness;
  * <li><b>PFR</b> = hands with at least one preflop raise.</li>
  * <li><b>AF</b> = postflop aggression factor = (bets + raises) / calls.</li>
  * <li><b>WTSD</b> = % of hands that reached showdown.</li>
- * <li><b>W$SD</b> = % of showdowns won.</li>
+ * <li><b>W$SD</b> = % of showdowns with a share of a contested pot.</li>
  * <li><b>bb/100</b> = winrate in big blinds per 100 hands.</li>
  * </ul>
  */

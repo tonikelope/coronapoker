@@ -11,11 +11,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("bot-regression")
 class SimulatorRulesTest {
 
     private final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
@@ -48,6 +50,24 @@ class SimulatorRulesTest {
         assertEquals(30, players[0].getStack());
         assertEquals(50, players[1].getStack());
         assertEquals(80, players[2].getStack());
+    }
+
+    @Test
+    void higherStraightFlushWinsTheSimulatedPot() {
+        TestBotPlayer[] players = {
+            paidSeat("six-high", 100, card("2h"), card("8d")),
+            paidSeat("seven-high", 100, card("7h"), card("9c"))
+        };
+        TestDealer dealer = new TestDealer();
+        dealer.setStreet(Crupier.RIVER);
+        dealer.setPot(200);
+        for (String card : new String[]{"3h", "4h", "5h", "6h", "7c"}) {
+            dealer.appendBoardCard(card(card));
+        }
+
+        assertEquals(Set.of(1), SimulatedShowdown.settle(players, dealer, evaluator));
+        assertEquals(0, players[0].getStack());
+        assertEquals(200, players[1].getStack());
     }
 
     @Test
@@ -197,6 +217,10 @@ class SimulatorRulesTest {
         player.setHoleCards(first, second);
         player.commit(chips);
         return player;
+    }
+
+    private static int card(String notation) {
+        return new org.alberta.poker.Card(notation).getIndex();
     }
 
     private static TestDealer river(int pot) {

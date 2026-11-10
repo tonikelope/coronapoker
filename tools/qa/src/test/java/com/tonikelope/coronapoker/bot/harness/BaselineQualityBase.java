@@ -35,7 +35,7 @@ abstract class BaselineQualityBase {
     // complete in roughly half the wall-clock of a serial run.
     protected static final int SESSIONS = QaConfig.sessions(200);
     protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
-    protected static final long BASE_SEED = 0xBA5E11AAACADE000L;
+    protected static final long BASE_SEED = QaConfig.seed(0xBA5E11AAACADE000L);
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
 

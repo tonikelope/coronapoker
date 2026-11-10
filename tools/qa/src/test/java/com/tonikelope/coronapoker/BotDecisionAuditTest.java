@@ -7,8 +7,11 @@ import com.tonikelope.coronapoker.bot.harness.TestBotPlayer;
 import com.tonikelope.coronapoker.bot.harness.TestDealer;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -17,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("bot-regression")
 class BotDecisionAuditTest {
 
     @Test
@@ -91,6 +95,71 @@ class BotDecisionAuditTest {
 
         villain.setStack(25);
         assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+    }
+
+    @Test
+    void smallPairsCanSetMineAtAFavorablePriceAtEveryTableSize() {
+        for (int players = 2; players <= 6; players++) {
+            TestBotPlayer hero = new TestBotPlayer("hero", 500);
+            TestBotPlayer villain = new TestBotPlayer("villain", 500);
+            hero.setHoleCards(3, 16); // 55
+            hero.commit(15);
+            villain.commit(30);
+
+            List<TestBotPlayer> seats = new ArrayList<>(List.of(hero, villain));
+            for (int seat = 2; seat < players; seat++) {
+                TestBotPlayer extra = new TestBotPlayer("extra-" + seat, 500);
+                extra.commit(15);
+                seats.add(extra);
+            }
+
+            TestDealer dealer = new TestDealer();
+            dealer.setBlinds(1, 2);
+            dealer.setRoles("villain", "villain", players > 2 ? "extra-2" : "hero", "villain");
+            dealer.setSeating(seats);
+            dealer.setStreet(Crupier.PREFLOP);
+            dealer.setBetCount(2);
+            dealer.setPot(45 + (players - 2) * 15);
+            dealer.setCurrentBet(30);
+            dealer.setLastRaise(15);
+
+            Bot bot = hardBot(hero, dealer);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(players - 1),
+                    "favorable set-mine should remain available with " + players + " live players");
+            hero.setStack(40);
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(players - 1),
+                    "unfavorable set-mine should fold with " + players + " live players");
+        }
+    }
+
+    @Test
+    void nitOpensPremiumHandsFromTheSmallBlind() {
+        int[][] holdings = {{12, 25}, {11, 24}, {10, 23}, {12, 11}, {12, 24}};
+        String[] labels = {"AA", "KK", "QQ", "AKs", "AKo"};
+        for (int i = 0; i < holdings.length; i++) {
+            TestBotPlayer hero = new TestBotPlayer("hero", 100);
+            TestBotPlayer villain = new TestBotPlayer("villain", 100);
+            hero.setHoleCards(holdings[i][0], holdings[i][1]);
+            hero.commit(1);
+            villain.commit(2);
+            TestDealer dealer = headsUp(hero, villain);
+            dealer.setStreet(Crupier.PREFLOP);
+            dealer.setPot(3);
+            dealer.setCurrentBet(2);
+            dealer.setLastRaise(2);
+
+            Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.NIT, true);
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1), labels[i]);
+
+            TestBotPlayer limper = new TestBotPlayer("limper", 100);
+            limper.commit(2);
+            dealer.setRoles("limper", "hero", "villain", "limper");
+            dealer.setSeating(List.of(limper, hero, villain));
+            dealer.setLimpersCount(1);
+            dealer.setPot(5);
+            bot.resetBot();
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(2), labels[i] + " vs limper");
+        }
     }
 
     @Test
@@ -286,6 +355,91 @@ class BotDecisionAuditTest {
         assertEquals(0.2, odds.equity(4));
     }
 
+    @Test
+    void certainProfitableRiverChopCannotBeFoldedByPersonality() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 700);
+        TestBotPlayer villain = new TestBotPlayer("villain", 700);
+        hero.setHoleCards(13, 26);
+        hero.commit(100);
+        hero.setBet(0);
+        villain.commit(400);
+        villain.setBet(300);
+
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setBlinds(5, 10);
+        dealer.setStreet(Crupier.RIVER);
+        for (int card : new int[]{8, 9, 10, 11, 12}) {
+            dealer.appendBoardCard(card);
+        }
+        dealer.setPot(500);
+        dealer.setCurrentBet(300);
+        dealer.setLastRaise(300);
+        dealer.setBetCount(1);
+        dealer.setLastAggressor(villain);
+
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.NIT, true);
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+
+        // The bot can only call 80. A short all-in plays the main pot and
+        // the bettor's unmatched chips are outside the bot's eligible pots.
+        hero.setStack(80);
+        TestBotPlayer shortStack = new TestBotPlayer("short", 60);
+        shortStack.commit(60);
+        shortStack.setBet(0);
+        dealer.setSeating(List.of(hero, villain, shortStack));
+        dealer.setPot(560);
+        dealer.setBlinds(1, 2);
+        bot.resetBot();
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(2));
+    }
+
+    @Test
+    void recreationalTiltChangesTheProfileInTheSameHand() throws ReflectiveOperationException {
+        TestBotPlayer hero = new TestBotPlayer("hero", 100);
+        TestBotPlayer villain = new TestBotPlayer("villain", 100);
+        hero.setHoleCards(12, 25);
+        TestDealer dealer = headsUp(hero, villain);
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.EASY, Bot.Profile.STATION, false);
+        bot.recordHandResult(false);
+        bot.recordHandResult(false);
+
+        bot.setRng(fixedIntRandom(false));
+        bot.resetBot();
+        assertEquals(true, privateField(bot, "onTilt"));
+        assertEquals(Bot.Profile.LAG, privateField(bot, "currentProfile"));
+
+        bot.setRng(fixedIntRandom(true));
+        bot.resetBot();
+        assertEquals(false, privateField(bot, "onTilt"));
+        assertEquals(Bot.Profile.STATION, privateField(bot, "currentProfile"));
+    }
+
+    @Test
+    void hardSharkRespectsNegativeCallEvAgainstAKnownNit() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("nit-mdf-regression", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 30);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        dealer.setLastAggressor(villain);
+
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.35));
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        for (int hand = 0; hand < 12; hand++) {
+            stats.recordHandPlayed();
+        }
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            assertTrue(stats.isNit());
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
     private static TestDealer postflopFacingBet(TestBotPlayer hero, TestBotPlayer villain, int cost) {
         hero.setHoleCards(11, 23);
         TestDealer dealer = headsUp(hero, villain);
@@ -311,6 +465,21 @@ class BotDecisionAuditTest {
                 return 0;
             }
         });
+    }
+
+    private static Random fixedIntRandom(boolean high) {
+        return new Random(1) {
+            @Override
+            public int nextInt(int bound) {
+                return high ? bound - 1 : 0;
+            }
+        };
+    }
+
+    private static Object privateField(Bot bot, String name) throws ReflectiveOperationException {
+        Field field = Bot.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(bot);
     }
 
     private record FixedOdds(double win) implements BotEvaluator {
@@ -365,14 +534,14 @@ class BotDecisionAuditTest {
     }
 
     private static Bot hardBot(TestBotPlayer hero, TestDealer dealer) {
-        Bot bot = new Bot(hero, new Random(1) {
-            @Override
-            public int nextInt(int bound) {
-                return bound - 1;
-            }
-        });
+        return deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.TAG, true);
+    }
+
+    private static Bot deterministicBot(TestBotPlayer hero, TestDealer dealer,
+            Bot.Difficulty difficulty, Bot.Profile profile, boolean highRolls) {
+        Bot bot = new Bot(hero, fixedIntRandom(highRolls));
         bot.setContext(dealer, null);
-        bot.configure(Bot.Difficulty.HARD, Bot.Profile.TAG);
+        bot.configure(difficulty, profile);
         if (hero.getHoleCard1Index() >= 0) {
             bot.resetBot();
         }

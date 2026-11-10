@@ -30,12 +30,9 @@ import org.alberta.poker.HandEvaluator;
  * — so the production bot decides exactly the same, only quicker.</p>
  *
  * <p>
- * The obvious fix — switching the adapter to {@code HandPotential.ppot} (the
- * cached variant) — is a trap: its {@code getCachedRank} helpers call
- * {@code HandEvaluator.rankHand7}, a <em>native method with no Java
- * fallback</em> ({@code CRankHandFast7}). On Windows that throws
- * {@code UnsatisfiedLinkError}. That is exactly why the adapter uses
- * {@code ppot_raw} in the first place.</p>
+ * The adapter keeps {@code ppot_raw} as the uncached reference for uniform
+ * opponents. Its weighted range path uses {@code HandPotential.ppot},
+ * whose cached ranking supports Java when the native library is absent.</p>
  *
  * <p>
  * This class ports the algorithm into our own package (the {@code org.alberta}
@@ -54,10 +51,10 @@ import org.alberta.poker.HandEvaluator;
  *
  * <p>
  * The counting (AHEAD/TIED/BEHIND tallies, the {@code mult} normaliser of
- * 990/45, the den/num formulas) is identical to {@code ppot_raw}; addition is
+ * 990/45/44, the den/num formulas) is identical to {@code ppot_raw}; addition is
  * commutative so enumeration order is irrelevant.
  * {@code MemoizedHandPotentialTest} asserts ppot/npot equality against the
- * Alberta original over thousands of random spots. <b>Not thread-safe</b>:
+ * Alberta original over seeded random and explicit spots. <b>Not thread-safe</b>:
  * production shares a single instance across all bots, which is safe only
  * because bot decisions are evaluated sequentially.</p>
  */
@@ -184,7 +181,8 @@ final class MemoizedHandPotential {
             }
         }
 
-        int mult = twoCard ? 990 : 45;
+        int unseenAfterOpponent = live.length - 2;
+        int mult = twoCard ? unseenAfterOpponent * (unseenAfterOpponent - 1) / 2 : unseenAfterOpponent;
         double den1 = mult * (HPTotal[BEHIND] + HPTotal[TIED] / 2.0);
         double den2 = mult * (HPTotal[AHEAD] + HPTotal[TIED] / 2.0);
         double ppot = den1 > 0

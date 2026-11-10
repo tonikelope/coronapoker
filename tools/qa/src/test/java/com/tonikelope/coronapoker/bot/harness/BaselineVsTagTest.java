@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
  * Report-only: HARD vs deterministic TAG. Expect roughly -20 to +50 bb/100.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class BaselineVsTagTest extends BaselineQualityBase {
 
     @Test

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
 @Tag("slow")
+@Tag("bot-campaign")
 class Multiway_HardVs5EasyTest extends MultiwayMatchupBase {
 
     @Test

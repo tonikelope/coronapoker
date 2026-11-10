@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
  * suit*13, rank 0..12 = 2..A, suit 0..3 = c,d,h,s.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class MemoizedHandPotentialTest {
 
     private static final int CLUBS = 0, DIAMONDS = 1, HEARTS = 2, SPADES = 3;

@@ -314,7 +314,7 @@ mvn -f tools/reactor/pom.xml verify -P qa-heavy
 mvn -f tools/reactor/pom.xml verify -P qa-crypto
 mvn -f tools/reactor/pom.xml verify -P qa-network
 
-# Statistical bot quality only.
+# Deterministic bot regressions and statistical bot quality.
 mvn -f tools/reactor/pom.xml verify -P qa-bots
 
 # Seeded protocol simulations or the broad non-visual integrity lane.
@@ -331,12 +331,15 @@ mvn -f tools/reactor/pom.xml verify -P qa-headless-all
 | `qa-protocol-sim` | Seeded protocol and lifecycle campaigns |
 | `qa-headless-all` | All non-visual integrity checks except bot quality and the environment-specific ACL smoke |
 | `qa-all` | Fast and slow replayable QA except bot quality |
-| `qa-bots` | Statistical bot matchups, hand-potential sampling and bot game-flow smoke |
+| `qa-bots` | Bot and simulator regressions, statistical matchups, evaluator parity and bot game-flow smoke |
 
 The focused profiles overlap with the aggregate lanes. Do not run `qa-fast`
 immediately before `qa-all` unless the duplicated work is intentional.
-`qa-bots` remains separate because it measures playing strength statistically
-and can consume substantially more CPU.
+The `bot-regression` tag selects the deterministic checks in `qa-bots`,
+including `BotDecisionAuditTest`, `BotPotOddsTest`, `AlbertaEvaluatorAdapterTest`,
+`SimulatorRulesTest` and `FixedStrategyBotTest`. The `bot-campaign` tag
+keeps longer bot checks out of the aggregate QA lanes. Check the Surefire
+summary for the classes and counts that ran.
 
 ## Headless campaigns
 
@@ -365,7 +368,7 @@ Use `.\tools\qa\headless-sim.cmd -Help` for exact ranges and defaults.
 | Socket, reconnect, crash or recovery | Extended QA plus affected multiprocess scenario, then `balanced` |
 | Crypto or signed protocol | Product gate, `qa-crypto`, headless campaign and affected scenarios |
 | Race, watchdog or scheduling semantics | Exact failing seed, complete `fast`, then fresh-seed `stress` |
-| Bot decision quality | Product gate plus `qa-bots` |
+| Bot decision or evaluator change | Product gate plus `qa-bots`. Run `qa-fast` for deterministic feedback during iteration. |
 | Documentation only | Link, formatting and documentation contract checks |
 | Normal release | `.\qa.cmd all balanced` |
 

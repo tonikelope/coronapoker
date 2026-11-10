@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
  * HARD must trap five maniacs and extract value from over-aggression.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class MultiwayBaselineVsManiacTableTest extends MultiwayBaselineBase {
 
     @Test

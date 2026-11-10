@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Tag;
  * Acid test: MEDIUM must outperform EASY by a significant bb/100 margin.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class MixedMatchup_MediumVsEasyTest extends BotMixedMatchupBase {
 
     @Test

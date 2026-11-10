@@ -535,6 +535,15 @@ public class Bot {
     public void resetBot() {
         holeCard1 = new org.alberta.poker.Card(cpuPlayer.getHoleCard1Index());
         holeCard2 = new org.alberta.poker.Card(cpuPlayer.getHoleCard2Index());
+
+        if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
+            onTilt = randInt(100) < (30 + consecutiveLosses * 10);
+            if (onTilt) {
+                logVerbose("Recreational bot has gone on TILT.");
+            }
+        } else {
+            onTilt = false;
+        }
         adjustProfileElasticity();
 
         if (skillLevel == Skill.RECREATIONAL) {
@@ -567,15 +576,6 @@ public class Bot {
         cachedShowdownOdds = null;
         cachedPotentialStreet = -1;
         cachedPotential = null;
-
-        if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
-            onTilt = randInt(100) < (30 + consecutiveLosses * 10);
-            if (onTilt) {
-                logVerbose("Recreational bot has gone on TILT.");
-            }
-        } else {
-            onTilt = false;
-        }
     }
 
     /**
@@ -985,7 +985,7 @@ public class Bot {
         } else {
             decision = decisionWhenFacingBet(effectiveStrength, equity[opponentsCount], evCall, raise,
                     ppot, callPot, callCost, street, betCount, activePlayers, potCommitted, safeDraw,
-                    boardTexture, targetStats, unimprovedPocketPair);
+                    boardTexture, targetStats, unimprovedPocketPair, certainRiver);
         }
 
         lastEffectiveStrength = effectiveStrength;
@@ -1147,7 +1147,7 @@ public class Bot {
     private int decisionWhenFacingBet(double effectiveStrength, double winProb, double evCall,
             RaiseEvaluation raise, double ppot, double pot, double callCost, int street, int betCount,
             int activePlayers, boolean potCommitted, boolean safeDraw, BoardTexture boardTexture,
-            GameOpponentStats targetStats, boolean unimprovedPocketPair) {
+            GameOpponentStats targetStats, boolean unimprovedPocketPair, boolean certainRiver) {
         cBetConsidered = true;
         floatPlay = false;
         boolean raisePays = improvesEv(raise.ev(), Math.max(0, evCall));
@@ -1181,7 +1181,7 @@ public class Bot {
         }
 
         double adjustedEvCall = evCall;
-        if (betRatio > 0.50) {
+        if (!certainRiver && betRatio > 0.50) {
             if (currentProfile == Profile.STATION) {
                 adjustedEvCall += pot * 0.15;
             } else if (currentProfile == Profile.NIT) {
@@ -1190,7 +1190,7 @@ public class Bot {
                 adjustedEvCall -= pot * 0.10;
             }
         }
-        if (skillLevel == Skill.RECREATIONAL && onTilt) {
+        if (!certainRiver && skillLevel == Skill.RECREATIONAL && onTilt) {
             adjustedEvCall += pot * 0.12;
         }
 
@@ -1279,23 +1279,6 @@ public class Bot {
         if (skillLevel == Skill.RECREATIONAL && currentProfile == Profile.STATION && effectiveStrength > 0.25) {
             logVerbose("Station calling out of profile habit despite negative EV.");
             return GamePlayerController.CHECK;
-        }
-
-        // MDF (Minimum Defense Frequency) bluffcatch guard. Only HARD sharks defend
-        // against half-pot-or-smaller river bets when the raw call EV is positive but a
-        // profile-driven penalty (nit, scare card) flipped adjustedEvCall negative.
-        if (skillLevel == Skill.SHARK
-                && effectiveDifficulty() == Difficulty.HARD
-                && evCall > 0 && adjustedEvCall <= 0
-                && street == Crupier.RIVER
-                && betRatio <= 1.0
-                && effectiveStrength > 0.30
-                && currentProfile != Profile.NIT) {
-            double mdf = pot / (pot + callCost);
-            if (effectiveStrength > mdf * 0.45) {
-                logVerbose("MDF bluffcatch: raw call EV positive, defending despite profile adjustment.");
-                return GamePlayerController.CHECK;
-            }
         }
 
         logVerbose("Folding. No profitable action.");
@@ -1624,7 +1607,7 @@ public class Bot {
             double cost = callCost();
             // A pocket pair flops at least a set about 12% of the time.
             // Discount the stack behind because a set rarely wins it all.
-            if (handTier == 3 && skillLevel != Skill.RECREATIONAL && isPair && high <= 4
+            if (skillLevel != Skill.RECREATIONAL && isPair && high <= 4
                     && contestablePot(cost) + 0.5 * effectiveStackBehind() >= 8 * cost) {
                 logVerbose("Preflop Set-mine call vs 3-Bet (small pair).");
                 return GamePlayerController.CHECK;
@@ -1692,7 +1675,8 @@ public class Bot {
         }
 
         if (isSB && betCount == 0) {
-            if (handTier <= 4 && currentProfile != Profile.NIT) {
+            boolean opensFromSmallBlind = currentProfile == Profile.NIT ? handTier <= 3 : handTier <= 4;
+            if (opensFromSmallBlind) {
                 // Tier-4 marginal hands: HARD TAGs/SHARKs fold a slice rather
                 // than open every time, keeping VPIP inside the target band.
                 if (handTier == 4 && currentProfile != Profile.STATION
@@ -1704,7 +1688,7 @@ public class Bot {
                         return GamePlayerController.FOLD;
                     }
                 }
-                logVerbose("Preflop SB folded-to: open wide.");
+                logVerbose("Preflop SB raise without a prior raise.");
                 return GamePlayerController.BET;
             }
             // Heads-up button opens trash wider than full-ring cutoff/button but

@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -13,30 +14,22 @@ import org.junit.jupiter.api.Test;
  */
 class QaLaneWiringTest {
 
-    private static final String[] BOT_SELECTORS = {
-        "**/bot/harness/*Test.java",
-        "**/bot/eval/MemoizedHandPotentialTest.java",
-        "**/smoke/GameFlowSmoke.java"
-    };
-
     @Test
-    void aggregateLanesExcludeStatisticalBotSelectors() throws IOException {
+    void aggregateLanesExcludeBotCampaignsByTag() throws IOException {
         String pom = Files.readString(locateRoot().resolve("tools/qa/pom.xml"))
                 .replace("\r\n", "\n");
 
-        for (String profile : new String[]{"qa-heavy", "qa-all"}) {
-            String profileBlock = profileBlock(pom, profile);
-            for (String selector : BOT_SELECTORS) {
-                assertTrue(profileBlock.contains("<exclude>" + selector + "</exclude>"),
-                        profile + " must exclude " + selector);
-            }
+        for (String profile : new String[]{"qa-heavy", "qa-all", "qa-headless-all"}) {
+            String block = profileBlock(pom, profile);
+            assertTrue(block.contains("<qa.excludedGroups>bot-campaign</qa.excludedGroups>"),
+                    profile + " must exclude bot campaigns");
+            assertFalse(block.contains("<exclude>**/bot/harness/*Test.java</exclude>"),
+                    profile + " must preserve deterministic simulator tests");
         }
 
         String botBlock = profileBlock(pom, "qa-bots");
-        for (String selector : BOT_SELECTORS) {
-            assertTrue(botBlock.contains("<include>" + selector + "</include>"),
-                    "qa-bots must select " + selector);
-        }
+        assertTrue(botBlock.contains("<qa.groups>bot-regression | bot-campaign</qa.groups>"));
+        assertTrue(botBlock.contains("<qa.excludedGroups></qa.excludedGroups>"));
     }
 
     private static String profileBlock(String pom, String profile) {

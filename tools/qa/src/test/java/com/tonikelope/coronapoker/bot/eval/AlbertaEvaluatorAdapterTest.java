@@ -11,7 +11,9 @@ package com.tonikelope.coronapoker.bot.eval;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.Test;
  * Card indices follow the canonical encoding: index = rank + suit * 13, where
  * rank in [0..12] = [2..A] and suit in [0..3] = [c, d, h, s].
  */
+@Tag("bot-regression")
 class AlbertaEvaluatorAdapterTest {
 
     private final AlbertaEvaluatorAdapter eval = new AlbertaEvaluatorAdapter();
@@ -98,6 +101,81 @@ class AlbertaEvaluatorAdapterTest {
         assertEquals(0.0, p.npot(), 1e-9);
     }
 
+    @Test
+    void weightedFullFlopWorksWithoutNativeEvaluator() {
+        int ace = c(14, HEARTS);
+        int king = c(13, HEARTS);
+        int[] board = {c(2, HEARTS), c(7, HEARTS), c(9, CLUBS)};
+        double[][] flat = new double[52][52];
+        for (double[] row : flat) {
+            Arrays.fill(row, 1.0);
+        }
+        Potential uniform = eval.potential(ace, king, board, true);
+        Potential weighted = new MemoizedAlbertaEvaluator().potentialVsRange(ace, king, board, flat, true);
+        assertTrue(uniform.ppot() > 0);
+        assertEquals(uniform.ppot(), weighted.ppot(), 1e-12);
+        assertEquals(uniform.npot(), weighted.npot(), 1e-12);
+    }
+
+    @Test
+    void turnPotentialMatchesExhaustiveTerminalEquity() {
+        assertTurnEquity(c(14, HEARTS), c(13, HEARTS),
+                new int[]{c(2, HEARTS), c(7, HEARTS), c(9, CLUBS), c(4, SPADES)}, 53537);
+        assertTurnEquity(c(14, CLUBS), c(14, DIAMONDS),
+                new int[]{c(3, SPADES), c(7, HEARTS), c(2, CLUBS), c(11, DIAMONDS)}, 81052);
+    }
+
+    private void assertTurnEquity(int h1, int h2, int[] board, int expectedHalfWins) {
+        boolean[] used = new boolean[52];
+        for (int card : board) {
+            used[card] = true;
+        }
+        used[h1] = used[h2] = true;
+        int[] hero = Arrays.copyOf(board, 7);
+        int[] opponent = Arrays.copyOf(board, 7);
+        hero[5] = h1;
+        hero[6] = h2;
+        int outcomes = 0;
+        int halfWins = 0;
+        for (int first = 0; first < 52; first++) {
+            if (used[first]) {
+                continue;
+            }
+            for (int second = first + 1; second < 52; second++) {
+                if (used[second]) {
+                    continue;
+                }
+                opponent[5] = first;
+                opponent[6] = second;
+                for (int river = 0; river < 52; river++) {
+                    if (used[river] || river == first || river == second) {
+                        continue;
+                    }
+                    hero[4] = opponent[4] = river;
+                    int comparison = eval.compareHands(hero, opponent);
+                    halfWins += comparison == 1 ? 2 : comparison == 0 ? 1 : 0;
+                    outcomes++;
+                }
+            }
+        }
+        assertEquals(45540, outcomes);
+        assertEquals(expectedHalfWins, halfWins);
+        double expected = halfWins / (2.0 * outcomes);
+        double[][] flat = new double[52][52];
+        for (double[] row : flat) {
+            Arrays.fill(row, 1.0);
+        }
+        BotEvaluator memoized = new MemoizedAlbertaEvaluator();
+        double strength = eval.handStrength(h1, h2, board);
+        for (Potential p : new Potential[]{
+            eval.potential(h1, h2, board, false),
+            memoized.potential(h1, h2, board, false),
+            memoized.potentialVsRange(h1, h2, board, flat, false)
+        }) {
+            assertEquals(expected, strength + (1 - strength) * p.ppot() - strength * p.npot(), 1e-10);
+        }
+    }
+
     // --- Hand ranking -------------------------------------------------------
     @Test
     @DisplayName("Aces full beats trip kings at showdown")
@@ -120,6 +198,28 @@ class AlbertaEvaluatorAdapterTest {
         int[] hand = {c(14, CLUBS), c(14, DIAMONDS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS),
             c(3, DIAMONDS), c(8, HEARTS)};
         assertEquals(0, eval.compareHands(hand, hand));
+    }
+
+    @Test
+    @DisplayName("Straight flush ranking uses the suited straight high card")
+    void straightFlushRankingUsesItsOwnHighCard() {
+        int[] board = {c(3, HEARTS), c(4, HEARTS), c(5, HEARTS), c(6, HEARTS), c(7, CLUBS)};
+        int[] sixHigh = {c(2, HEARTS), c(8, DIAMONDS),
+            board[0], board[1], board[2], board[3], board[4]};
+        int[] sevenHigh = {c(7, HEARTS), c(9, CLUBS),
+            board[0], board[1], board[2], board[3], board[4]};
+
+        assertTrue(eval.rankHand(sevenHigh) > eval.rankHand(sixHigh));
+        assertEquals(2, eval.compareHands(sixHigh, sevenHigh));
+        assertEquals(946.0 / 990.0,
+                eval.showdownOdds(c(2, HEARTS), c(8, DIAMONDS), board).equity(1), 1e-12);
+
+        int[] wheel = {c(14, HEARTS), c(2, HEARTS), c(3, HEARTS), c(4, HEARTS),
+            c(5, HEARTS), c(6, DIAMONDS), c(7, CLUBS)};
+        int[] sixHighSpades = {c(2, SPADES), c(3, SPADES), c(4, SPADES), c(5, SPADES),
+            c(6, SPADES), c(13, DIAMONDS), c(12, CLUBS)};
+        assertTrue(eval.rankHand(sixHighSpades) > eval.rankHand(wheel));
+        assertEquals(2, eval.compareHands(wheel, sixHighSpades));
     }
 
     // --- Range equity -------------------------------------------------------

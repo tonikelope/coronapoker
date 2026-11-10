@@ -2,19 +2,10 @@
 
 # CoronaPoker Bot Testing Suite
 
-This directory contains the complete off-line testing infrastructure used
-to bring the CoronaPoker poker bot to **AAA video-game quality**: bots that
-play a recognisably solid game across the three difficulty levels
-(`EASY` → `MEDIUM` → `HARD`), distinguishable to a human at the table,
-validated by automated tests that require no human intervention.
-
-> **Validation status (final, 10 000 hands per matchup):** all three
-> baseline-quality matchups pass and all three 6-max gradient matchups pass
-> with t-statistics from 5.4 to 10.9. Every adjacent difficulty pair is
-> clearly distinguishable. (The suite previously shipped four levels. EXPERT
-> and HARD proved statistically indistinguishable in a human-length session
-> (+30 bb/100 at t≈1.0), so they were merged into a single top level, HARD.
-> See § 10.)
+This directory contains the offline rules tests and seeded playing-strength
+benchmarks for `EASY`, `MEDIUM` and `HARD`. Section 10 records historical
+calibration figures. Each current campaign should identify the exact source
+revision, seeds, opponents, volume and raw results.
 
 ---
 
@@ -45,10 +36,9 @@ What we explicitly do **not** promise:
 
 What we **do** deliver:
 
-- A bot that does not commit absurd plays (no shoving with 7-2o, no
-  folding aces preflop).
-- A consistent strength ordering HARD > MEDIUM > EASY
-  observable in bb/100 over thousands of hands.
+- Regressions for specific decision errors, including premium hands in the
+  NIT small blind and profitable guaranteed chops.
+- Seeded matchups that measure differences in bb/100 between difficulty levels.
 - An EASY bot that visibly leaks money in ways a human at the table
   can recognise (sticky calldowns, hero folds, missed value, spewy
   preflop calls).
@@ -107,11 +97,10 @@ harness/
     └── BotBenchmarkTest.java              ← per-difficulty stats dump
 ```
 
-Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
-Surefire lane skips them all. See section 9 for how to run them. This directory is
-the bot-quality lane, not a normal game-code regression suite. It is selected
-only by the explicit `qa-bots` profile. The deterministic evaluator adapter
-test remains in the fast lane, but statistical quality tests never do.
+The statistical tests and smoke tests above carry `slow` and `bot-campaign`.
+The deterministic `SimulatorRulesTest` and `FixedStrategyBotTest` carry
+`bot-regression` and run in the fast and aggregate QA lanes as well as
+`qa-bots`. See section 9 for commands.
 
 The simulators reuse the production `Bot.java` unchanged. They do not
 hook into GDX, the table scene, or any networking code. Everything runs
@@ -181,7 +170,13 @@ play one consistent strategy regardless of context:
 | `STATION` | Never folds when there's a bet to call. Never raises. Always checks postflop with no bet to face.  | A profitable target for value bets, a competent bot should crush this archetype by hundreds of bb/100. |
 | `ROCK`    | Only voluntarily plays AA, KK, QQ, JJ, AKs, AKo. Raises preflop with these. Folds everything else. | Tests blind-stealing efficacy and discipline against tight 3-bet ranges.                                |
 | `MANIAC`  | Raises 100% preflop. Bets pot 100% postflop with any holding.                                      | Tests trapping with strong hands. Punishes calling-down width.                                          |
-| `TAG`     | Open-raises top ~25%, c-bets 65% of flops, folds to 3-bet 50%, calls down with top-pair+.          | A reasonable benchmark opponent, the bot should not lose meaningfully against this archetype.          |
+| `TAG`     | Raises an unraised pot with 330 of 1,326 combos. C-bets 65% of flops without a qualifying made hand as the preflop aggressor. Continues with top pair or better. | Reference opponent for the river-bluff gate and an informational bb/100 comparison. |
+
+TAG opens all pairs, all suited aces, A8o+, KTo+, K8s+, QTo+, Q9s+,
+JTo, J9s+, T9s, T8s, 98s, 87s and 76s. Facing a 3-bet it raises QQ+,
+calls JJ, mixes calls and folds equally with the rest of its opening range,
+and folds hands outside that range. The 50% applies to the mixed portion
+of the range.
 
 `FixedStrategyBot` extends `Bot` so the simulator can mix production
 bots and benchmarks at the same table without any special-casing.
@@ -221,9 +216,8 @@ remaining seats with the "villain" difficulty:
 | `Multiway_MediumVs5EasyTest`            | `MEDIUM`   | 5× EASY  | +30                  | same                                 |
 | `MixedMatchup_*Test` (HU equivalents)   | hi vs lo   | one each | +50                  | DELTA > 50 **AND** \|t\| > 2 |
 
-A failing gradient test means the difficulty ordering inverted or
-collapsed at that level pair, i.e. the user cannot tell two adjacent
-difficulties apart by bb/100 over the sample size.
+A failing gradient test means the observed advantage missed the configured
+margin or statistical threshold in that matchup.
 
 ---
 
@@ -259,7 +253,7 @@ divided by `(handsPlayed × bigBlind)` times 100. Stat definitions:
 | `PFR`   | Hands with at least one preflop raise.                                    |
 | `AF`    | Postflop aggression factor = (bets + raises) / calls.                     |
 | `WTSD`  | % of hands that reached showdown.                                         |
-| `W$SD`  | % of showdowns won (split pots count as half).                            |
+| `W$SD`  | % of showdowns in which the player won any contested pot share. In a split, each recipient counts once. |
 | `cbet`  | % of flops on which the bot's preflop aggressor c-bet.                    |
 | `bb/100`| Net chip change per 100 hands, divided by the big blind.                  |
 
@@ -277,9 +271,10 @@ aggression, looser ranges, more bluffs), the data showed that
 against calling-station mixes bleeds bb/100 regardless of difficulty.
 The pivot to the industry-standard pattern:
 
-> The three difficulty levels share **one identical engine**. They
-> differ only in the probability that the engine's planned decision
-> gets replaced by a recognisable recreational mistake.
+The three levels share one engine. Difficulty controls the mix of skills,
+heads-up steal and defend frequencies, bluff frequencies, some value thresholds,
+and the probability of replacing the planned decision with a recreational
+mistake. See [Bot AI](../../../../../../../../../../docs/BOTS.md).
 
 `Bot.calculateBotDecision()` wraps the raw decision in a thin layer:
 
@@ -299,9 +294,8 @@ Mistake rates:
 | `MEDIUM`   | 22%   | ~17-18%                                                  |
 | `EASY`     | 45%   | ~35-40%                                                  |
 
-The three rates are spaced wide (0 / 22 / 45) so each level is clearly
-distinguishable within a single human session, not only over thousands of
-hands.
+These are the probabilities of attempting a mistake injection. The realized
+frequency depends on how often the relevant situations occur.
 
 `injectRecreationalMistake()` tries four leaks in **cascade order**.
 The first whose spot predicate matches fires:
@@ -319,9 +313,8 @@ own tracker AF and false-flag it as a maniac to its opponents,
 triggering adaptive defenses that would mask the leak. The choice keeps
 the tracker view of each bot honest to the underlying engine.
 
-This pattern delivers the HARD > MEDIUM > EASY ordering by
-**mathematical construction**: lower-difficulty bots commit
-recognisable leaks that the top level simply does not.
+The matchups measure whether those leaks and the other difficulty settings
+produce the intended ordering under the tested conditions.
 
 ---
 
@@ -372,9 +365,10 @@ Lessons we took away:
 ## 9. Running the tests
 
 **Every class in this directory is annotated `@Tag("slow")`.** The default
-Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
-`mvn test` runs **zero** of these harness tests. You must select `qa-bots`
-explicitly, with one of the flows below.
+Surefire's default lane runs the deterministic harness regressions and
+excludes `slow`. Select `qa-bots` to include the campaigns. For an additional
+set of matchup seeds, pass `-Dqa.bot.seedOffset=<long>`. The harness XORs
+that value into its base seeds. Record the offset and volume with the logs.
 
 Only statistical playing-strength regressions belong in this package. Use the
 layer selector in [Adding test scenarios](../../../../../../../../../../docs/ADDING_TEST_SCENARIOS.md)
@@ -388,7 +382,7 @@ suite against it in one pass: no `mvn install` of the jar, no
 `coronapoker.version` pin to keep in sync:
 
 ```sh
-# only the bot-quality lane (statistical bot sims + GameFlowSmoke)
+# bot regressions, statistical bot sims and GameFlowSmoke
 mvn -f tools/reactor/pom.xml verify -P qa-bots
 
 # deterministic suite plus non-bot slow checks
@@ -471,7 +465,11 @@ is deliberately separate from `qa-all` (see `tools/qa/pom.xml`).
 
 ---
 
-## 10. Final validation results
+## 10. Historical calibration results
+
+These figures predate the straight-flush, turn potential and TAG repairs.
+Their exact source snapshot and raw logs are unavailable. Use them as
+historical context for the thresholds.
 
 Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, parallelised
 under `forkCount=0.6C`. With the memoized evaluator the full QA suite
@@ -506,11 +504,9 @@ Each adjacent difficulty pair, hero vs five villains:
 | MEDIUM vs 5× EASY  | **+162.5**   | 23.6   | 6.87    | ✅ PASS   |
 | HARD vs 5× EASY    | **+297.5**   | 27.3   | 10.90   | ✅ PASS   |
 
-Every adjacent pair clears the +30 floor and the |t| > 2 significance gate
-with wide margins (t from 5.4 to 10.9). Merging the old EXPERT/HARD pair
-(which sat at +30 bb/100, t≈1.0, below the significance gate) into a single
-top level removed the only matchup a human could not tell apart, leaving three
-levels that are each clearly distinguishable within a single session.
+Every listed pair cleared the +30 floor and the |t| > 2 gate in that sample.
+The old EXPERT/HARD pair measured about +30 bb/100 at t≈1.0, below the
+significance gate, before it was merged into HARD.
 
 ### 10.3 Stats per difficulty (6-max, 10 000+ hands each)
 

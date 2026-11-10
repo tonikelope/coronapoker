@@ -32,6 +32,10 @@ final class QaConfig {
     private QaConfig() {
     }
 
+    static long seed(long defaultSeed) {
+        return defaultSeed ^ Long.getLong("qa.bot.seedOffset", 0L);
+    }
+
     /**
      * Sessions per matchup, overridable with {@code -Dqa.sessions=N}.
      */

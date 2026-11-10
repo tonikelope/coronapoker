@@ -48,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Target runtime: under 30 seconds for the full class.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class GameFlowSmoke {
 
     private static final double STARTING_STACK = 200f;

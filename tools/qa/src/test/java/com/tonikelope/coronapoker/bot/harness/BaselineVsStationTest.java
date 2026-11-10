@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
  * HARD (the top level) must crush a calling station opponent heads-up.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class BaselineVsStationTest extends BaselineQualityBase {
 
     @Test

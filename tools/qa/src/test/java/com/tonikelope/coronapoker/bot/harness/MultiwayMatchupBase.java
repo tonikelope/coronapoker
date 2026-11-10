@@ -40,7 +40,7 @@ abstract class MultiwayMatchupBase {
     // 9800X3D) in ~4 hours wall-clock for the full nine-test suite.
     protected static final int SESSIONS_PER_MATCHUP = QaConfig.sessions(200);
     protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
-    protected static final long BASE_SEED = 0xC0C0FEEDBA5E4321L;
+    protected static final long BASE_SEED = QaConfig.seed(0xC0C0FEEDBA5E4321L);
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
 

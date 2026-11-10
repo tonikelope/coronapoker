@@ -112,7 +112,7 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
 
     @Override
     public Potential potential(int hole1, int hole2, int[] board, boolean fullLookahead) {
-        if (board == null || board.length >= 5) {
+        if (board == null || board.length < 3 || board.length >= 5) {
             return Potential.ZERO;
         }
         org.alberta.poker.Card c1 = new org.alberta.poker.Card(hole1);
@@ -124,10 +124,10 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
 
     @Override
     public Potential potentialVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights, boolean fullLookahead) {
-        if (board == null || board.length >= 5) {
+        if (board == null || board.length < 3 || board.length >= 5) {
             return Potential.ZERO;
         }
-        if (rangeWeights == null) {
+        if (rangeWeights == null || rangeWeights.length == 0) {
             return potential(hole1, hole2, board, fullLookahead);
         }
         org.alberta.poker.Card c1 = new org.alberta.poker.Card(hole1);

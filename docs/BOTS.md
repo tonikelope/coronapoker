@@ -28,9 +28,9 @@ Three properties follow from that:
 - **Personality.** Every bot is rolled a *skill* and a *style* so a table feels
   like a mix of nits, calling stations and aggressive regulars rather than nine
   copies of one strategy.
-- **A real difficulty gradient.** EASY < MEDIUM < HARD is guaranteed *by
-  construction* (see §8), not by hand-waving. The weaker levels commit
-  recognisable poker mistakes at increasing frequencies.
+- **A measurable difficulty gradient.** The weaker levels commit recognisable
+  poker mistakes at increasing frequencies. Seeded matchups measure the
+  resulting difference in bb/100 under the tested conditions (see §8).
 - **Measurable calibration.** Every behavioural change is validated in an offline
   simulation harness (`tools/qa`) over thousands of hands. The rule is *measure
   before you touch*. Bot "improvements" judged by eye have repeatedly turned out
@@ -87,14 +87,16 @@ The bot reduces every situation to two numbers from the `BotEvaluator`:
   - **NPot** (negative potential): probability a hand currently *ahead* falls
     behind.
 
-These are combined into the single number the rest of the engine reasons about:
+Before the river, the bot combines heads-up equity and potential, then raises
+that estimate to the number of opponents as a multiway approximation:
 
 ```
-effective strength = strength + (1 - strength) * PPot - strength * NPot
+heads-up estimate = heads-up equity + (1 - heads-up equity) * PPot - heads-up equity * NPot
 ```
 
-It is then nudged down by texture-aware penalties (an under-pair facing two
-overcards, a made hand with a weak kicker) and floored at `0.10`.
+On the river, it uses the estimated pot share from win and tie frequencies
+directly. Style thresholds use an effective strength with one-pair penalties
+and a floor of `0.10`. EV calculations use equity for each pot layer.
 
 ### Card encoding
 
@@ -119,11 +121,12 @@ rank look-ups (the bot's own 7-card rank, independent of the opponent's cards,
 plus a primitive open-addressing table for opponent ranks), which is **~8× faster
 on the flop** while producing **numerically identical** PPot/NPot.
 
-`AlbertaEvaluatorAdapter` is deliberately left **uncached and untouched**: it is
-the numeric *oracle* the equivalence test (`MemoizedHandPotentialTest`) compares
-the memoized path against, so the two cannot silently drift. (Switching the
-adapter to the library's own cached `ppot()` is a trap: that path calls the
-native-only `rankHand7`, which has no Java fallback and throws on Windows.)
+`AlbertaEvaluatorAdapter` uses the uncached `ppot_raw` path as a reference
+for uniform opponents. The weighted API uses the cached Alberta path with
+a Java fallback for seven-card ranking. The production decision engine still
+uses uniform opponent hands. With both hole-card pairs fixed, potential
+counts 990 two-card flop runouts, 45 one-card flop continuations, or 44
+possible rivers from the turn.
 
 ---
 
@@ -186,9 +189,9 @@ action from **position × profile × bet level**:
 The postflop branch builds the picture in stages (all cached so a betting round
 does not recompute invariants):
 
-1. **`strength`** comes from heads-up win and tie frequencies cached for the
-   street. Against multiple opponents it estimates the share of the pot,
-   including fractional shares when more than two players tie.
+1. **`showdownOdds`** caches heads-up win and tie frequencies for the street.
+   On the river these frequencies estimate the pot share, including fractional
+   shares when more than two players tie.
 2. **`PPot` / `NPot`** come from `potential`, cached per street and zero on
    the river. Before the river, the bot applies the draw adjustment heads-up
    before combining the estimates for multiple opponents.
@@ -231,11 +234,12 @@ EV-driven value bet.
 (call in position to bluff a later street), pot-committed shoves/calls, **value
 raises** (the threshold drops on HARD so sharks generate real aggression), a
 heads-up-only **medium-strength raise** booster, **squeezes**, implied-odds draw
-calls, an **MDF bluff-catch** guard for HARD sharks, and otherwise a call or fold
-on adjusted EV.
+calls, and otherwise a call or fold on adjusted EV. Personality adjustments
+cannot turn an exact profitable river call into a fold. Calls still use the
+stack-capped cost and the bot's share of eligible pot layers.
 
-> Raises are capped at `MAX_BET_COUNT = 3` bet levels per street, so the bot never
-> builds an infinite re-raise war.
+> Postflop raises are capped at `MAX_BET_COUNT = 3` bet levels per street.
+> The preflop value-raise rules have their own limits.
 
 ### 5.3 Bet sizing
 
@@ -288,8 +292,7 @@ An all-in that only matches an existing bet counts as a call.
 
 ## 8. The difficulty gradient
 
-Mixed personality pools alone do not guarantee `EASY < MEDIUM < HARD`. Three
-mechanisms enforce it:
+Three mechanisms shape the difficulty gradient:
 
 1. **Mistake injection** (the dominant lever). After computing its decision the
    bot may, with a per-difficulty probability, replace it with a recognisable
@@ -313,7 +316,7 @@ mechanisms enforce it:
    (`EASY +25`, `MEDIUM −16`, `HARD −52` percentage points on steal/defend
    frequencies), the **river bluff frequency** (`HARD 38%`, `MEDIUM 14%`,
    `EASY 0%`, EASY plays its river face-up), and HARD-only refinements such as a
-   lower value-raise threshold and the MDF bluff-catch.
+   lower value-raise threshold.
 
 > Note: an `EXPERT` difficulty found in a saved game is loaded as `HARD`.
 
@@ -371,12 +374,13 @@ the opt-in QA reactor, and is documented in
 - **Matchup simulations** pit one difficulty/archetype against five others over
   thousands of hands and report **bb/100** with a *t*-statistic, plus VPIP/PFR and
   legibility metrics (post-flop bluff %, river bluff %, value/bluff split).
-- **The difficulty gradient is a gate:** `HARD > MEDIUM > EASY` must hold with a
-  significant *t* over a full run.
+- **The difficulty matchups are gates:** each measured advantage must clear its
+  margin and statistical threshold at the configured table size and volume.
 - **The evaluator equivalence gate** (`MemoizedHandPotentialTest`) asserts the
   production evaluator's PPot/NPot are identical to the Alberta reference to
-  `1e-9` over edge cases and thousands of random spots, so a performance change to
-  evaluation can never silently change a decision.
+  `1e-9` over 200 seeded turns, 40 seeded flops and seven explicit comparisons.
+  Separate regressions check known straight-flush rankings and turn equity
+  against terminal showdown enumeration.
 - **Determinism, recovery fidelity and full-table invariants** have their own
   smoke tests.
 
@@ -384,10 +388,9 @@ The QA module runs in **tagged lanes** (JUnit 5 `@Tag`, selected by a Maven
 profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
 `qa-heavy` runs the non-bot slow lanes, and `qa-all` combines the fast and
 slow non-bot lanes.
-**Every bot matchup, baseline and difficulty-gradient simulation is tagged
-`slow` and belongs only to `qa-bots`**, so a product build, `qa-fast`,
-`qa-heavy` or `qa-all` runs *none* of them. To calibrate the bot you must select
-`qa-bots` explicitly:
+Bot decision, pot, evaluator and simulator regressions run in `qa-fast`,
+`qa-all`, `qa-headless-all` and `qa-bots`. The statistical campaigns run
+only in the opt-in bot lane:
 
 ```
 mvn -f tools/reactor/pom.xml verify -P qa-bots

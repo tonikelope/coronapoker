@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
  * HARD (the top level) must steal enough blinds from a rock to stay profitable.
  */
 @Tag("slow")
+@Tag("bot-campaign")
 class BaselineVsRockTest extends BaselineQualityBase {
 
     @Test

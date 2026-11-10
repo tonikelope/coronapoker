@@ -11,10 +11,7 @@ distribution format that must be extracted before the game can load it.
 MOD media is decorative. It cannot replace rules, network messages,
 cryptographic receipts, the shuffled deck or any other authoritative state.
 
-![CoronaPoker showdown with the Chilean MOD's character avatars and card artwork](screenshots/coronapoker-table-gdx.png)
-
-The Chilean MOD changes the look and sound of the table. This example shows
-its character avatars and card artwork during a showdown.
+![CoronaPoker showdown with the Chilean MOD enabled, as shown in the lower-left corner](screenshots/coronapoker-table-gdx.png)
 
 ---
 

@@ -12,11 +12,6 @@ The implementation lives almost entirely in
 `bot/eval` and `bot/context` packages. The underlying combinatorics come from the
 University of Alberta Poker Research Group library under `org.alberta.poker`.
 
-![CoronaPoker table on the turn with two CPU seats, the pot and the available betting actions](screenshots/table-en.png)
-
-The two seats named CoronaBot are CPU players. They use the same public
-table state and betting rules as the human seats.
-
 ---
 
 ## 1. Design philosophy
@@ -441,7 +436,11 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 ## 13. Custom bot profiles
 
 The host can enable **Use custom bots** on the Bots page of the game settings
-and open **Manage custom bots**. Each ordered profile contains:
+and open **Manage custom bots**.
+
+![Bot Manager with the bot catalogue, random selection and the new bot profile editor](screenshots/bot-manager-en.png)
+
+Each ordered profile stores the following settings.
 
 - a display nickname
 - the official bot avatar or a validated custom image

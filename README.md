@@ -144,7 +144,7 @@ CoronaPoker follows **Robert's Rules of Poker**, the de-facto standard cardroom 
 
 These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real opponents.
 
-- **3 difficulty levels** (Easy, Medium, Hard), each clearly distinguishable within a single session
+- **3 difficulty levels** (Easy, Normal, Hard), each clearly distinguishable within a single session
 - **3 skill tiers** assigned per bot, weighted by difficulty:
   - 🍿 **Recreational**: loose, emotional, prone to tilt after losses
   - 🛠️ **Regular**: solid fundamentals, occasional mistakes
@@ -171,7 +171,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 ### Waiting room chat
 Full chat while the game is being set up, with a built-in **emoji picker (~1.800 emojis with recent-use history)**, inline **GIF support** and **automatic image previews** for URLs pasted into the chat.
 
-![English waiting room with the table setup, game chat and connected players](docs/screenshots/waiting-room-en.png)
+![Waiting room with the digital clock, table setup, game chat and connected participants](docs/screenshots/waiting-room-en.png)
 
 ### In-game fast chat
 Chat messages and game notices appear in a color-coded feed at the left of the table. Fast chat keeps the full session history, and messages appear as they arrive while **text-to-speech** reads them in order. The **Table** appearance settings control the feed and the speaking emoji independently.
@@ -197,7 +197,7 @@ live table. Starting a game closes the player from the waiting room. Use the
 video icon to reopen it during play. Playback starts muted, with YouTube's
 audio and caption controls available.
 
-![English poker video player with the carousel, favorites and opacity controls](docs/screenshots/poker-video-en.png)
+![Poker video playing at 90% opacity in the lower-right corner of the waiting room](docs/screenshots/poker-video-en.png)
 
 - **Carousel**. Start with regular videos by default or switch to Shorts.
   Search prioritises the game's language. The carousel shuffles each batch,

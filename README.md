@@ -210,8 +210,9 @@ audio and caption controls available.
   title bar or adjust the opacity with the slider below the video. The same
   opacity applies to loading and error backgrounds. Close the window to
   minimise it to the icon next to the volume control.
-- **Startup and animations**. Choose whether the player opens at startup
-  and whether its window animates when opening or closing.
+- **Startup and animations**. The player starts minimized to its icon by
+  default. Turn on **Open video at startup** to open it automatically. You
+  can also choose whether its window animates when opening or closing.
 
 Configure it under **Appearance > Animations and effects > Poker videos**.
 See the [poker video guide](docs/JCEF_VIDEO_EXPERIMENT.md) for the controls,

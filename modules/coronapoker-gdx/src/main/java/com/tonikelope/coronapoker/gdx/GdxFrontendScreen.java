@@ -846,7 +846,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         menuQuotes = new GdxMenuQuotes(this.secureRandom);
         initialProperties = this.preferences.properties();
         pokerVideoOverlay = new PokerVideoOverlay(
-                preferenceBoolean(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY, true), type -> {
+                preferenceBoolean(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY,
+                        GdxSettingsContract.DEFAULT_POKER_VIDEO_AUTO_OPEN), type -> {
             initialProperties.setProperty(GdxSettingsContract.POKER_VIDEO_TYPE_KEY, type);
             this.preferences.saveDeferred();
         }, initialProperties, this.preferences::saveDeferred);

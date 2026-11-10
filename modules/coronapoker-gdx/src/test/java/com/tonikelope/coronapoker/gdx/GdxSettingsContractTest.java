@@ -774,13 +774,32 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void videoStartupPreferenceDefaultsOnAndRequiresVideosAndAnimations() {
+    void startupVideoDefaultsToClosedAndRespectsTheSavedPreference() {
+        String key = GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY;
+        var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                .filter(row -> key.equals(row.key())).findFirst().orElseThrow();
+        Properties values = new Properties();
+        assertFalse(GdxSettingsContract.displayedValue(option, values, true));
+
+        values.setProperty(key, "true");
+        assertTrue(GdxSettingsContract.displayedValue(option, values, true));
+        GdxSettingsContract.restoreAppearancePageDefaults(values, 1, true);
+        assertEquals("false", values.getProperty(key));
+        assertTrue(GdxSettingsContract.displayedValue(
+                GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
+                        .filter(row -> GdxSettingsContract.POKER_VIDEOS_KEY.equals(row.key()))
+                        .findFirst().orElseThrow(), values, true));
+    }
+
+    @Test
+    void videoStartupAndWindowAnimationRequireVideosAndAnimations() {
         for (String key : java.util.List.of(GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY,
                 GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY)) {
             var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options().stream()
                     .filter(row -> key.equals(row.key())).findFirst().orElseThrow();
             Properties values = new Properties();
-            assertTrue(option.fallback());
+            assertEquals(GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY.equals(key),
+                    option.fallback());
             assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(option.key()));
             assertTrue(GdxSettingsContract.enabled(option, values, true));
             values.setProperty(GdxSettingsContract.POKER_VIDEOS_KEY, "false");

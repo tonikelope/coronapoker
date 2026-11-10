@@ -29,9 +29,9 @@ The player depends on the **Use animations and effects** switch.
   translucent. It ranges from 10% to 100%, and the game remembers your
   choice. The player captures mouse movement and clicks over the video at
   every opacity.
-- Closing the window minimizes the player to the icon next to the volume
-  control. **Open video at startup** lets you start with the window open or
-  with only the icon visible. **Animate player opening and closing**
+- The player starts minimized to the icon next to the volume control.
+  Enable **Open video at startup** to open it automatically. Closing the
+  window returns it to the icon. **Animate player opening and closing**
   controls the transition between these states.
 - Opening the window from the icon starts playback muted and resumes the
   video from its last known position in the session. YouTube's controls
@@ -62,8 +62,9 @@ the automated and native checks.
 
 ## Loading and recovery
 
-The game fetches a fresh catalog from YouTube at startup. It keeps the
-results in memory when you minimize the player or enter a table. Search
+The game fetches a fresh catalog from YouTube when the player first
+opens. It keeps the results in memory when you minimize the player or
+enter a table. Search
 uses the public results document and limits each download to 12 MiB and
 15 seconds. The player skips removed, private or incompatible videos.
 When a search or saved favorite only has a video ID, the player looks up

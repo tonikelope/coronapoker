@@ -36,6 +36,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEOS_KEY = "mostrar_videos_poker";
     static final String POKER_VIDEO_TYPE_KEY = "tipo_videos_poker";
     static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
+    static final boolean DEFAULT_POKER_VIDEO_AUTO_OPEN = false;
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
@@ -377,7 +378,7 @@ final class GdxSettingsContract {
                     "MOSTRAR VÍDEOS DE PÓKER",
                     true, Gate.ANIMATIONS),
             option(POKER_VIDEO_AUTO_OPEN_KEY, "ABRIR VÍDEO AL ARRANCAR",
-                    true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
+                    DEFAULT_POKER_VIDEO_AUTO_OPEN, Gate.ANIMATIONS, POKER_VIDEOS_KEY),
             option(POKER_VIDEO_WINDOW_ANIMATION_KEY,
                     "ANIMACIÓN AL CERRAR/ABRIR REPRODUCTOR",
                     true, Gate.ANIMATIONS, POKER_VIDEOS_KEY),

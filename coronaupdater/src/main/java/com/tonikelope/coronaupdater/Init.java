@@ -7,7 +7,6 @@ package com.tonikelope.coronaupdater;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -393,17 +392,13 @@ public class Init extends javax.swing.JFrame {
 
                     zipFile.extractAll(args[0].replaceAll("/mod$", ""));
 
-                    StringBuilder java_bin = new StringBuilder();
-
-                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
-
-                    Runtime.getRuntime().exec(cmdArr);
-
                     Files.deleteIfExists(Paths.get(zip_temp_file));
 
                     Helpers.deleteDirectory(args[0] + "_bak");
+
+                    // El juego solo se relanza cuando la instalacion y la
+                    // limpieza del MOD ya han terminado por completo.
+                    CoronaPokerRelauncher.relaunch(args[2]);
 
                 } catch (Exception ex) {
 
@@ -481,15 +476,9 @@ public class Init extends javax.swing.JFrame {
                         }
                     }
 
-                    // Se lanza el nuevo jar una vez ya colocado y con el viejo
-                    // resuelto, para no competir con el borrado.
-                    StringBuilder java_bin = new StringBuilder();
-
-                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
-
-                    Runtime.getRuntime().exec(cmdArr);
+                    // Se relanza la aplicacion una vez colocado el nuevo jar y
+                    // resuelto el viejo, para no competir con el borrado.
+                    CoronaPokerRelauncher.relaunch(args[2]);
 
                 } catch (Exception ex) {
 
@@ -526,6 +515,11 @@ public class Init extends javax.swing.JFrame {
             }
 
         }
+
+        // No se deja al AutoShutdown de AWT decidir cuando termina el updater.
+        // Tras entregar el control y completar la limpieza ya no queda trabajo
+        // pendiente, y salir explicitamente evita mantener esta JVM mas tiempo.
+        System.exit(0);
 
     }
 

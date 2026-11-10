@@ -12,9 +12,10 @@ Users do not need to install or update Java globally.
 The package deliberately installs per user. Its stable application JAR lives
 at `app/CoronaPoker.jar`, beside the optional `app/mod` directory, and the
 private runtime retains `runtime/bin/java.exe`. This is the layout expected by
-`coronaupdater.jar`: self-update replaces the stable JAR and relaunches it with
-the bundled runtime, without administrator elevation. Installing the game does
-not redirect `user.home`. Both editions use
+`coronaupdater.jar`: self-update replaces the stable JAR and relaunches the
+native `CoronaPoker.exe`, without administrator elevation. Portable editions
+fall back to `java -jar`. Installing the game does not redirect `user.home`.
+Both editions use
 `%USERPROFILE%\.coronapoker` for preferences and user data.
 
 Self-update replaces the application JAR. Run a current Setup to refresh
@@ -52,6 +53,8 @@ The native `.exe` intentionally starts without the legacy JVM splash screen.
 `SplashScreen-Image` manifest entry, which avoids adding a separate splash
 resource and keeps the native startup path as direct as possible. The portable
 JAR continues to show its existing splash when launched with `java -jar`.
+After an installed self-update, the updater relaunches `CoronaPoker.exe`, so
+the restarted application follows the same splash-free path as a shortcut.
 
 Check for the installed Inno Setup command-line compiler before packaging. On
 this project's Windows release machine, the per-user compiler is at

@@ -436,7 +436,7 @@ final class GdxFrontendSettingsWiringTest {
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
                 StandardCharsets.UTF_8);
         int start = frontend.indexOf("private void drawBlindsPage()");
-        int end = frontend.indexOf("private void nextBlindLevel()", start);
+        int end = frontend.indexOf("private static String blindLevelLabel(", start);
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
@@ -449,6 +449,7 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(method.contains("toggle(leftX, straddleY, rowWidth,"));
         assertTrue(antePanel >= 0 && antePanel < anteToggle && anteToggle < anteList);
         assertTrue(method.contains("openDropdown(Dropdown.ANTE_MODE"));
+        assertTrue(method.contains("openDropdown(Dropdown.BLIND_LEVEL"));
         assertTrue(method.contains(
                 "settingsGameText(\"row.manage_structures\")"));
         assertFalse(method.contains("row.default_structure"));
@@ -467,6 +468,7 @@ final class GdxFrontendSettingsWiringTest {
                 StandardCharsets.UTF_8);
 
         assertTrue(frontend.contains("Dropdown.BLIND_STRUCTURE, enabled"));
+        assertTrue(frontend.contains("Dropdown.BLIND_LEVEL, enabled"));
         assertTrue(frontend.contains("Dropdown.BLIND_STRUCTURE_EDITOR"));
         assertTrue(frontend.contains("Dropdown.DECK, true"));
         assertTrue(frontend.contains("Dropdown.FELT, true"));

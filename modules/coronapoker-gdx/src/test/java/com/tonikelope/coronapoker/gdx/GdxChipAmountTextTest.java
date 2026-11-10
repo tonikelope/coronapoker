@@ -1,6 +1,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
+import java.util.OptionalInt;
 import org.junit.jupiter.api.Test;
 
 class GdxChipAmountTextTest {
@@ -16,6 +19,39 @@ class GdxChipAmountTextTest {
         assertEquals("-2.5K", GdxChipAmountText.format(-2_500d));
         assertEquals("200.00005K", GdxChipAmountText.format(200_000.05d));
         assertEquals("1.000001M", GdxChipAmountText.format(1_000_001d));
+    }
+
+    @Test
+    void buyinLabelsStayExactWithoutLongFractionalSuffixes() {
+        assertEquals("200K", GdxChipAmountText.buyinLabel(200_000, "es"));
+        assertEquals("9.99M", GdxChipAmountText.buyinLabel(9_990_000, "es"));
+        assertEquals("9.999.830", GdxChipAmountText.buyinLabel(9_999_830, "es"));
+        assertEquals("9.999.999", GdxChipAmountText.buyinLabel(9_999_999, "es"));
+        assertEquals("9,999,999", GdxChipAmountText.buyinLabel(9_999_999, "en"));
+        assertEquals("10M", GdxChipAmountText.buyinLabel(10_000_000, "es"));
+    }
+
+    @Test
+    void parsesWholeChipsExactlyFromTypedAndPastedAmounts() {
+        assertEquals(OptionalInt.of(200_000), GdxChipAmountText.parseWholeChips("200K", "es"));
+        assertEquals(OptionalInt.of(10_000_000), GdxChipAmountText.parseWholeChips(" 10m ", "es"));
+        assertEquals(OptionalInt.of(10_500_000), GdxChipAmountText.parseWholeChips("10,5M", "es"));
+        assertEquals(OptionalInt.of(9_999_999), GdxChipAmountText.parseWholeChips("9.999999M", "es"));
+        assertEquals(OptionalInt.of(2_000_000_000), GdxChipAmountText.parseWholeChips("2B", "es"));
+        assertEquals(OptionalInt.of(9_999_830), GdxChipAmountText.parseWholeChips("9.999.830", "es"));
+        assertEquals(OptionalInt.of(9_999_830), GdxChipAmountText.parseWholeChips("9,999,830", "en"));
+        assertEquals(OptionalInt.of(9_999_830), GdxChipAmountText.parseWholeChips("9999830", "es"));
+    }
+
+    @Test
+    void rejectsFractionalOverflowAndMalformedChipAmounts() {
+        for (String input : List.of("", " ", "-10M", "1e6", "1.25", "0.0001K",
+                "3B", "2147483648", "1,00,000", "1.234,567", "10M chips",
+                "1 M", "1..2K", "9".repeat(40))) {
+            assertTrue(GdxChipAmountText.parseWholeChips(input, "es").isEmpty(), input);
+        }
+        assertTrue(GdxChipAmountText.parseWholeChips("1.200", "en").isEmpty());
+        assertTrue(GdxChipAmountText.parseWholeChips("1,200", "es").isEmpty());
     }
 
     @Test

@@ -3,6 +3,10 @@ package com.tonikelope.coronapoker.gdx;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
+import java.util.Locale;
+import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
 /** Exact chip amounts for display, including the fractional part of each unit. */
@@ -11,6 +15,14 @@ final class GdxChipAmountText {
     private static final BigDecimal MILLION = BigDecimal.valueOf(1_000_000L);
     private static final BigDecimal BILLION = BigDecimal.valueOf(1_000_000_000L);
     private static final Pattern DECIMAL = Pattern.compile("[+-]?[0-9]+(?:\\.[0-9]+)?");
+
+    private static final Pattern WHOLE_CHIPS = Pattern.compile("[0-9]+");
+    private static final Pattern DOT_GROUPED_CHIPS = Pattern.compile(
+            "[1-9][0-9]{0,2}(?:\\.[0-9]{3})+");
+    private static final Pattern COMMA_GROUPED_CHIPS = Pattern.compile(
+            "[1-9][0-9]{0,2}(?:,[0-9]{3})+");
+    private static final Pattern SUFFIXED_CHIPS = Pattern.compile(
+            "([0-9]+(?:[.,][0-9]+)?)([KMB])", Pattern.CASE_INSENSITIVE);
 
     private GdxChipAmountText() {
     }
@@ -24,6 +36,48 @@ final class GdxChipAmountText {
         if (value.abs().compareTo(THOUSAND) >= 0) return withSuffix(value);
         value = value.stripTrailingZeros();
         return value.setScale(Math.max(minimumDecimals, value.scale())).toPlainString();
+    }
+
+    static String buyinLabel(int amount, String language) {
+        String compact = format(amount);
+        int decimal = compact.indexOf('.');
+        if (decimal < 0 || compact.length() - decimal - 2 <= 2) {
+            return compact;
+        }
+        return NumberFormat.getIntegerInstance(Locale.forLanguageTag(language))
+                .format(amount);
+    }
+
+    static OptionalInt parseWholeChips(String input, String language) {
+        String value = input.strip();
+        if (value.length() > 32) return OptionalInt.empty();
+        try {
+            if (WHOLE_CHIPS.matcher(value).matches()) {
+                return OptionalInt.of(Integer.parseInt(value));
+            }
+            var suffixed = SUFFIXED_CHIPS.matcher(value);
+            if (suffixed.matches()) {
+                int places = switch (suffixed.group(2).toUpperCase(Locale.ROOT)) {
+                    case "K" -> 3;
+                    case "M" -> 6;
+                    default -> 9;
+                };
+                return OptionalInt.of(new BigDecimal(
+                        suffixed.group(1).replace(',', '.'))
+                        .movePointRight(places).intValueExact());
+            }
+            char grouping = DecimalFormatSymbols.getInstance(Locale.forLanguageTag(language))
+                    .getGroupingSeparator();
+            if (grouping == '.' && DOT_GROUPED_CHIPS.matcher(value).matches()) {
+                return OptionalInt.of(Integer.parseInt(value.replace(".", "")));
+            }
+            if (grouping == ',' && COMMA_GROUPED_CHIPS.matcher(value).matches()) {
+                return OptionalInt.of(Integer.parseInt(value.replace(",", "")));
+            }
+        } catch (NumberFormatException | ArithmeticException invalid) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.empty();
     }
 
     static String compactLabel(String label) {

@@ -60,6 +60,7 @@ import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import com.tonikelope.coronapoker.core.network.LobbyConnectionRefusedException;
+import com.tonikelope.coronapoker.BuyinRules;
 import com.tonikelope.coronapoker.DebugLog;
 import org.dosse.upnp.UPnP;
 import java.awt.Desktop;
@@ -98,6 +99,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -634,6 +636,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BlindStructureDialog blindStructureDialog =
             BlindStructureDialog.NONE;
     private String blindStructureNameDraft = "";
+    private String initialBuyinInput;
     private boolean blindStructureSettingsTarget;
     private List<GamePresetCatalog.Entry> gamePresets = List.of();
     private int selectedGamePreset = -1;
@@ -1220,7 +1223,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      */
     private void activateSurface(Surface next) {
         Objects.requireNonNull(next, "next");
-        if (surface != next) hoverAnimations.clear();
+        if (surface != next) {
+            hoverAnimations.clear();
+            if (initialBuyinInput != null) closeInitialBuyinEditor();
+        }
         surface = next;
         pressedHit = null;
         pointerSelectionField = null;
@@ -1544,6 +1550,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawUpdateDialog();
             } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                 drawBlindStructureDialog();
+            } else if (initialBuyinInput != null) {
+                drawInitialBuyinEditor();
             } else if (voiceNotesOpen) {
                 drawVoiceNotesDialog();
             } else if (rootSurfaceModal) {
@@ -2055,6 +2063,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && (customBotManagerOpen || upnpOpenInFlight
                         || submissions.submitting()
                         || presetDialog != PresetDialog.NONE
+                        || initialBuyinInput != null
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
                 && (statsEvidenceOpen
@@ -2122,6 +2131,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     && frontendNoticeMessage.isBlank()
                     && !submissions.submitting()
                     && presetDialog == PresetDialog.NONE
+                    && initialBuyinInput == null
                     && blindStructureDialog == BlindStructureDialog.NONE;
         }
         if (surface == Surface.STATS && statsReturnAction == null) {
@@ -2141,6 +2151,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !settingsDiscardConfirmation
                 && profileBackupSelection == null
                 && settingsAutoCallDialog == null
+                && initialBuyinInput == null
                 && !voiceNotesOpen
                 && blindStructureDialog == BlindStructureDialog.NONE;
     }
@@ -2208,6 +2219,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || settingsDiscardConfirmation
                 || profileBackupSelection != null || settingsBackupPending
                 || settingsAutoCallDialog != null
+                || initialBuyinInput != null
                 || voiceNotesOpen
                 || blindStructureDialog != BlindStructureDialog.NONE;
     }
@@ -7188,7 +7200,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<LobbyInfoItem> rows = List.of(
                 new LobbyInfoItem(gameText.translate("ui.compra"),
                         settings.fixedBuyin()
-                                ? GdxChipAmountText.format(settings.buyin())
+                                ? GdxChipAmountText.buyinLabel(settings.buyin(),
+                                        gameText.language())
                                 : gameText.translate(
                                         "gdx.settings.game.summary.value.variable")),
                 new LobbyInfoItem(gameText.translate("blinds.ciegas"),
@@ -10294,11 +10307,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Dropdown.BLIND_STRUCTURE, enabled);
         row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(1), rowWidth, 1,
                 groups, BLIND_ROW_COUNT);
-        settingsStepper(row.x, row.y, row.width,
-                GdxSettingsLayout.ROW_HEIGHT,
-                settingsGameText("row.initial_blinds"), settingsBlindLevel(),
-                () -> adjustSettingsBlindLevel(-1),
-                () -> adjustSettingsBlindLevel(1), enabled);
+        settingsDropdownChoice(row.x, row.y, row.width, row.height,
+                settingsGameText("row.initial_blinds"),
+                blindLevelLabel(settingsTable.blindLevel()),
+                Dropdown.BLIND_LEVEL, enabled);
         row = GdxSettingsLayout.groupedRow(rowX, rows.rowY(2), rowWidth, 2,
                 groups, BLIND_ROW_COUNT);
         button(row.x, row.y, row.width, GdxSettingsLayout.ROW_HEIGHT,
@@ -10438,12 +10450,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_INITIAL_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_INITIAL_ROW, groups, 8);
-        settingsStepper(row.x, row.y, row.width, row.height,
-                settingsGameText("row.initial_buyin"),
-                GdxChipAmountText.format(settingsTable.buyin()),
-                () -> settingsTable.setBuyin(settingsTable.buyin() - 1),
-                () -> settingsTable.setBuyin(settingsTable.buyin() + 1),
-                economyEditable && settingsTable.fixedBuyin());
+        initialBuyinChoice(row.x, row.y, row.width, row.height,
+                settingsTable, economyEditable);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_REBUY_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_REBUY_ROW, groups, 8);
@@ -10709,19 +10717,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int value, Runnable minus, Runnable plus, boolean enabled) {
         settingsStepper(x, y, w, GdxSettingsLayout.ROW_HEIGHT,
                 label, Integer.toString(value), minus, plus, enabled);
-    }
-
-    private String settingsBlindLevel() {
-        NewGameTableDraft.BlindLevel level = settingsTable.blindLevel();
-        return GdxSettingsContract.blindLevelLabel(level.smallBlind(),
-                level.bigBlind());
-    }
-
-    private void adjustSettingsBlindLevel(int direction) {
-        if (direction == 0 || settingsTable.blindLevels().isEmpty()) return;
-        settingsTable.setBlindLevelIndex(Math.floorMod(
-                settingsTable.blindLevelIndex() + Integer.signum(direction),
-                settingsTable.blindLevels().size()));
     }
 
     private String settingsBlindInterval() {
@@ -12146,10 +12141,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(leftX, structureY, rowWidth, 72f, "tooltip.cfg.structure");
 
         float initialY = 522f;
-        bidirectionalChoice(leftX, initialY, rowWidth,
+        dropdownChoice(leftX, initialY, rowWidth,
                 gameText.translate("gdx.settings.game.row.initial_blinds"),
-                formatBlindLevel(), this::previousBlindLevel,
-                this::nextBlindLevel, editable);
+                blindLevelLabel(table.blindLevel()),
+                () -> openDropdown(Dropdown.BLIND_LEVEL,
+                        leftX, initialY, rowWidth, 72f), editable);
         tooltip(leftX, initialY, rowWidth, 72f, "tooltip.cfg.blinds_level");
         button(leftX, 435f, rowWidth, 70f,
                 settingsGameText("row.manage_structures"), false,
@@ -12214,8 +12210,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 editable && table.blindCapRaisesEnabled());
     }
 
-    private String formatBlindLevel() {
-        NewGameTableDraft.BlindLevel level = table.blindLevel();
+    private static String blindLevelLabel(NewGameTableDraft.BlindLevel level) {
         return GdxSettingsContract.blindLevelLabel(level.smallBlind(),
                 level.bigBlind());
     }
@@ -12224,17 +12219,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return GdxSettingsContract.blindAmountLabel(value);
     }
 
-    private void nextBlindLevel() {
-        selectBlindLevel(1);
-    }
-
-    private void previousBlindLevel() {
-        selectBlindLevel(-1);
-    }
-
-    private void selectBlindLevel(int direction) {
-        table.setBlindLevelIndex(adjacentIndex(table.blindLevelIndex(),
-                table.blindLevels().size(), direction));
+    private void selectBlindLevelOption(int option) {
+        NewGameTableDraft target = dropdownTableTarget();
+        if (!canEditTableEconomy(target) || option == target.blindLevelIndex()
+                || option < 0 || option >= target.blindLevels().size()) {
+            return;
+        }
+        double bigBlind = target.blindLevels().get(option).bigBlind();
+        if (BuyinRules.min(bigBlind, target.minBuyinBb())
+                > BuyinRules.max(bigBlind, target.maxBuyinBb())) {
+            showToast(gameText.translate("gdx.settings.game.blind_level.range"));
+            return;
+        }
+        target.setBlindLevelIndex(option);
     }
 
     private void selectBlindStructureOption(int option) {
@@ -12261,6 +12258,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private NewGameTableDraft dropdownTableTarget() {
         return surface == Surface.SETTINGS ? settingsTable : table;
+    }
+
+    private boolean canEditTableEconomy(NewGameTableDraft target) {
+        return target != null && !target.economyLocked()
+                && (surface == Surface.NEW_GAME || surface == Surface.SETTINGS
+                        && (settingsSession.context() == GdxSettingsSession.Context.MENU
+                                || lobby != null && lobby.host()));
     }
 
     private void selectDefaultBlindStructure(NewGameTableDraft target) {
@@ -12604,13 +12608,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setFixedBuyin(!table.fixedBuyin()), !table.economyLocked());
         tooltip(470f, 625f, 590f, GdxSettingsLayout.ROW_HEIGHT,
                 "tooltip.cfg.buyin_fixed");
-        stepper(470f, 480f, 590f,
-                settingsGameText("row.initial_buyin"),
-                GdxChipAmountText.format(table.buyin()),
-                () -> table.setBuyin(table.buyin() - 1),
-                () -> table.setBuyin(table.buyin() + 1),
-                table.fixedBuyin() && !table.economyLocked());
-        tooltip(470f, 480f, 590f, 102f, "tooltip.cfg.buyin");
+        initialBuyinChoice(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+                table, !table.economyLocked());
+        tooltip(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT, "tooltip.cfg.buyin");
         stepper(470f, 315f, 280f,
                 settingsGameText("row.minimum_range_bb"),
                 table.minBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
@@ -12649,6 +12649,77 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> openDropdown(Dropdown.REBUY_CAP,
                         1170f, 225f, 645f, 72f),
                 table.rebuy());
+    }
+
+    private void initialBuyinChoice(float x, float y, float width, float height,
+            NewGameTableDraft draft, boolean economyEditable) {
+        settingsChoice(x, y, width, height, settingsGameText("row.initial_buyin"),
+                GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
+                this::openInitialBuyinEditor, economyEditable && draft.fixedBuyin());
+    }
+
+    private void openInitialBuyinEditor() {
+        NewGameTableDraft target = dropdownTableTarget();
+        if (!canEditTableEconomy(target) || !target.fixedBuyin()) return;
+        clearModalCompositionState();
+        initialBuyinInput = GdxChipAmountText.buyinLabel(
+                target.buyin(), gameText.language());
+        activateField("initialBuyin");
+        textEdit.selectAll(initialBuyinInput);
+    }
+
+    private void closeInitialBuyinEditor() {
+        initialBuyinInput = null;
+        editMenu = null;
+        clearActiveField();
+    }
+
+    private void submitInitialBuyin() {
+        NewGameTableDraft target = dropdownTableTarget();
+        if (!canEditTableEconomy(target) || !target.fixedBuyin()) return;
+        OptionalInt amount = GdxChipAmountText.parseWholeChips(
+                initialBuyinInput, gameText.language());
+        if (initialBuyinError(target, amount).isEmpty()) {
+            target.setBuyin(amount.getAsInt());
+            closeInitialBuyinEditor();
+        }
+    }
+
+    private static String initialBuyinError(NewGameTableDraft target, OptionalInt amount) {
+        if (amount.isEmpty()) return "gdx.settings.game.buyin_editor.invalid";
+        if (amount.getAsInt() < target.minimumBuyin()
+                || amount.getAsInt() > target.maximumBuyin()) {
+            return "gdx.settings.game.buyin_editor.out_of_range";
+        }
+        return "";
+    }
+
+    private void drawInitialBuyinEditor() {
+        NewGameTableDraft target = dropdownTableTarget();
+        String language = gameText.language();
+        OptionalInt amount = GdxChipAmountText.parseWholeChips(initialBuyinInput, language);
+        String error = initialBuyinError(target, amount);
+        boolean showError = !initialBuyinInput.isBlank() && !error.isEmpty();
+        GdxUiDialogStyle.drawPanel(shapes, 560f, 330f, 800f, 404f,
+                CYAN_DARK, 1f);
+        textFit(headingFont, settingsGameText("row.initial_buyin"),
+                960f, 681f, GOLD, true, 700f);
+        field(660f, 498f, 600f,
+                gameText.translate("gdx.settings.game.buyin_editor.amount"),
+                initialBuyinInput, "initialBuyin", false, !showError);
+        String range = gameText.translate("gdx.settings.game.buyin_editor.range",
+                GdxChipAmountText.buyinLabel(target.minimumBuyin(), language),
+                GdxChipAmountText.buyinLabel(target.maximumBuyin(), language));
+        textFit(smallFont, range, 660f, 479f, MUTED, false, 600f);
+        if (showError) {
+            textFit(smallFont, gameText.translate(error),
+                    660f, 444f, ORANGE, false, 600f);
+        }
+        themedButton(660f, 350f, 270f, 64f, gameText.translate("ui.cancelar"),
+                ButtonTone.NEUTRAL, this::closeInitialBuyinEditor, true);
+        themedButton(990f, 350f, 270f, 64f, uppercase(gameText.translate("ui.aceptar")),
+                ButtonTone.POSITIVE, this::submitInitialBuyin,
+                canEditTableEconomy(target) && target.fixedBuyin() && error.isEmpty());
     }
 
     private void drawGamePage() {
@@ -14457,6 +14528,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return switch (target) {
             case PROFILE -> selectedGamePreset + 1;
             case BLIND_STRUCTURE -> selectedBlindStructureOption();
+            case BLIND_LEVEL -> dropdownTableTarget().blindLevelIndex();
             case BLIND_STRUCTURE_EDITOR ->
                 blindStructureEditor.selectedStructureIndex();
             case DECK -> presentationSettings.availableDecks().indexOf(
@@ -14561,6 +14633,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case HOST_ADDRESS -> hostAddressOptions;
             case SERVER_HISTORY -> connection == null ? List.of()
                     : connection.serverHistory();
+            case BLIND_LEVEL -> dropdownTableTarget().blindLevels().stream()
+                    .map(GdxFrontendScreen::blindLevelLabel).toList();
             case BLIND_STRUCTURE_EDITOR -> blindStructureEditor.entries()
                     .stream().map(BlindStructureCatalog.Entry::name).toList();
             case DECK -> presentationSettings.availableDecks().stream()
@@ -14652,6 +14726,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             case SERVER_HISTORY -> selectServerHistoryOption(option);
             case BLIND_STRUCTURE -> selectBlindStructureOption(option);
+            case BLIND_LEVEL -> selectBlindLevelOption(option);
             case BLIND_STRUCTURE_EDITOR ->
                 selectBlindStructureEditorOption(option);
             case DECK -> selectDeckOption(option);
@@ -16903,6 +16978,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsRestartNotice = false;
                 return true;
             }
+            if (initialBuyinInput != null) {
+                closeInitialBuyinEditor();
+                return true;
+            }
             if (surface == Surface.SETTINGS
                     && settingsAutoCallDialog != null) {
                 closeSettingsAutoCallDialog(false);
@@ -17197,6 +17276,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (!voiceNotesLoading) confirmVoiceNoteDeletion();
             return true;
         }
+        if (initialBuyinInput != null) {
+            submitInitialBuyin();
+            return true;
+        }
         if (surface == Surface.SETTINGS && settingsAutoCallDialog != null) {
             closeSettingsAutoCallDialog(true);
             return true;
@@ -17323,6 +17406,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && newGameTextField(activeField))
                 || (lobbyPasswordDialog
                         && "lobbyPassword".equals(activeField))
+                || (initialBuyinInput != null && "initialBuyin".equals(activeField))
                 || (presetDialog == PresetDialog.NAME
                         && "presetName".equals(activeField))
                 || ((blindStructureDialog == BlindStructureDialog.NAME_NEW
@@ -17470,6 +17554,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft;
             case "presetName" -> presetNameDraft;
             case "blindStructureName" -> blindStructureNameDraft;
+            case "initialBuyin" -> initialBuyinInput;
             case "customBotName" -> customBotNameDraft;
             case "statsExcludeNicks" -> statsExcludeNicksDraft;
             default -> "";
@@ -17502,6 +17587,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft = value;
             case "presetName" -> presetNameDraft = value;
             case "blindStructureName" -> blindStructureNameDraft = value;
+            case "initialBuyin" -> initialBuyinInput = value;
             case "customBotName" -> {
                 customBotNameDraft = value;
                 customBotValidationError = "";
@@ -18146,7 +18232,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum Dropdown {
-        NONE, PROFILE, BLIND_STRUCTURE, BLIND_STRUCTURE_EDITOR,
+        NONE, PROFILE, BLIND_STRUCTURE, BLIND_LEVEL, BLIND_STRUCTURE_EDITOR,
         DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
         AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION, WINDOW_MODE, FPS_LIMIT,
         MSAA, CARD_RENDERING,

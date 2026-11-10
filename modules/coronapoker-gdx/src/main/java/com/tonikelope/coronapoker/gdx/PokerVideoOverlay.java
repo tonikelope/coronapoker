@@ -877,8 +877,15 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void addTooltips(BiConsumer<Rectangle, String> add) {
-        if (!hostVisible || minimized || windowTransitionActive()) return;
+        if (!hostVisible || windowTransitionActive()) return;
+        if (minimized) {
+            add.accept(iconBounds, "gdx.video.open");
+            return;
+        }
+        add.accept(previousBounds, "gdx.video.previous");
+        add.accept(nextBounds, "gdx.video.next");
         if (canMaximize()) add.accept(maximizeBounds, "gdx.video.maximize");
+        add.accept(closeBounds, "gdx.video.minimize");
         add.accept(opacityBounds, "gdx.video.opacity");
         add.accept(favoriteBounds, favoriteSaveFailed ? "gdx.video.favorite.error"
                 : currentIsFavorite() ? "gdx.video.favorite.remove" : "gdx.video.favorite.add");

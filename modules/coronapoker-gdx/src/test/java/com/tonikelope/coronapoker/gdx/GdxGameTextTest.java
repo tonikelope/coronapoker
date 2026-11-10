@@ -43,7 +43,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(812, spanishKeys.size(),
+        assertEquals(817, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -140,7 +140,9 @@ final class GdxGameTextTest {
         assertEquals("Next", text.translate("gdx.lobby.next"));
         assertEquals("Page 2 / 58",
                 text.translate("gdx.lobby.page", 2, 58));
-        assertEquals("Recording - press stop to send",
+        assertEquals("Recording - release to send",
+                text.translate("gdx.lobby.voice_recording"));
+        assertEquals(text.translate("gdx.table.chat.voice_recording"),
                 text.translate("gdx.lobby.voice_recording"));
         assertEquals("The voice message could not be played",
                 text.translate("gdx.lobby.voice_playback_failed"));

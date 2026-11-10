@@ -2,16 +2,41 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
+import java.util.List;
 import java.util.Properties;
 
 /** Shared explanatory text for every settings surface. */
 final class GdxSettingsTooltips {
+
+    private static final List<List<String>> GAME_ROW_KEYS = List.of(
+            List.of("structure", "initial_blinds", "blind_structures",
+                    "increase_blinds", "blind_unit", "blind_interval",
+                    "blind_cap", "blind_cap_level", "ante", "ante_mode",
+                    "straddle", GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY),
+            List.of("minimum_buyin", "maximum_buyin", "fixed_buyin",
+                    "initial_buyin", "rebuy", "player_rebuy_limit",
+                    "maximum_rebuys", "rebuy_cap"),
+            List.of("bot_difficulty", "bot_rebuy", "custom_bots",
+                    "custom_bots_only", "custom_bots_manage", "bot_balance"),
+            List.of("hand_limit", "hand_count", "think_time", "think_seconds",
+                    "showdown_time", "allow_hot_join", "iwtsth",
+                    "run_it_twice", "rabbit_hunting"));
 
     record Content(String text,
             GdxSettingsContract.PerformanceImpact performanceImpact) {
     }
 
     private GdxSettingsTooltips() {
+    }
+
+    static List<String> gameRowKeys(int gamePage) {
+        return GAME_ROW_KEYS.get(gamePage);
+    }
+
+    static String withLock(String description, String lockKey, GdxGameText text) {
+        if (lockKey == null) return description;
+        String lock = text.translate(lockKey);
+        return description.isEmpty() ? lock : description + "\n" + lock;
     }
 
     static Content content(String settingKey, Properties properties,
@@ -278,8 +303,8 @@ final class GdxSettingsTooltips {
             case GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY ->
                 "tooltip.cfg.straddle_on_timeout";
             case "increase_blinds" -> "tooltip.cfg.double_blinds";
-            case "blind_cap", "blind_cap_level" ->
-                "tooltip.cfg.blind_cap";
+            case "blind_cap" -> "tooltip.cfg.blind_cap";
+            case "blind_cap_level" -> "gdx.settings.tooltip.blind_cap_level";
             case "fixed_buyin" -> "tooltip.cfg.buyin_fixed";
             case "initial_buyin" -> "tooltip.cfg.buyin";
             case "minimum_buyin", "maximum_buyin" ->

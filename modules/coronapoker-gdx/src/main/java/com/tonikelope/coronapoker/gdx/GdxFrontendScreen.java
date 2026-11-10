@@ -1952,6 +1952,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawPokerVideoTopLayer() {
         if (!pokerVideoOverlay.hostVisible()) return;
+        if (pokerVideoOverlay.ownsHover(pointer.x, pointer.y)) {
+            tooltipHits.clear();
+        }
         pokerVideoOverlay.addTooltips((bounds, key) ->
                 tooltip(bounds.x, bounds.y, bounds.width, bounds.height, key));
         pokerVideoOverlay.prepareFrame();
@@ -6196,12 +6199,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     false, toggleImages);
         } else {
             compactIconButton(emojiBounds, lobbyEmojiTexture(1),
-                    "gdx.lobby.emoji", toggleEmoji, true, 44f);
+                    lobbyEmojiPickerOpen ? "tooltip.chat.emoji_close"
+                            : "tooltip.chat.emoji_open", toggleEmoji, true, 44f);
             compactIconButton(imageBounds, lobbyImageIcon,
-                    "gdx.lobby.image", toggleImages, true, 44f);
+                    "tooltip.chat.images", toggleImages, true, 44f);
         }
-        boolean voiceEnabled = canUseLobbyVoice() && !lobbyCommandPending
+        boolean voiceAllowed = canUseLobbyVoice();
+        boolean voiceEnabled = voiceAllowed && !lobbyCommandPending
                 && !lobbyVoiceStopping;
+        String voiceTooltip;
+        if (lobbyVoiceLive || lobbyVoiceOpening) {
+            voiceTooltip = "tooltip.chat.voice_release";
+        } else if (!voiceAllowed) {
+            voiceTooltip = "tooltip.chat.voice_disabled";
+        } else {
+            voiceTooltip = voiceEnabled ? "tooltip.chat.voice_hold"
+                    : "tooltip.chat.voice_busy";
+        }
         if (lobbyImageMode) {
             compactButton(voiceBounds.x, voiceBounds.y,
                     voiceBounds.width, voiceBounds.height,
@@ -6210,11 +6224,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     ? "audio.preview_parar"
                                     : "gdx.lobby.voice")), false,
                     () -> { }, voiceEnabled);
+            tooltip(voiceBounds.x, voiceBounds.y, voiceBounds.width,
+                    voiceBounds.height, voiceTooltip);
         } else {
             compactIconButton(voiceBounds, lobbyVoiceIcon,
-                    lobbyVoiceLive || lobbyVoiceOpening
-                            ? "audio.preview_parar" : "gdx.lobby.voice",
-                    () -> { }, voiceEnabled, 46f);
+                    voiceTooltip, () -> { }, voiceEnabled, 46f);
         }
         compactButton(LOBBY_COMPOSER_SEND_X, LOBBY_COMPOSER_Y,
                 LOBBY_COMPOSER_SEND_WIDTH, LOBBY_COMPOSER_HEIGHT,
@@ -10373,8 +10387,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsGameText("row.ante_mode"),
                 gameText.translate(settingsTable.anteMode().labelKey()),
                 Dropdown.ANTE_MODE, enabled && settingsTable.ante());
-        Rectangle anteTooltip = clippedSettingsHit(row.x, row.y, row.width, row.height);
-        if (anteTooltip != null) settingsTooltip(anteTooltip, "tooltip.cfg.ante_mode");
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_STRADDLE_ROW), rowWidth,
                 GdxSettingsContract.BLIND_STRADDLE_ROW, groups, BLIND_ROW_COUNT);
@@ -10391,22 +10403,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsStraddleTimeoutDraft, false,
                 () -> settingsStraddleTimeoutDraft =
                         !settingsStraddleTimeoutDraft, settingsTable.straddle());
-        Rectangle tooltipBounds = clippedSettingsHit(timeoutRow.x,
-                timeoutRow.y, timeoutRow.width, timeoutRow.height);
-        if (tooltipBounds != null) {
-            settingsTooltip(tooltipBounds,
-                    GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY);
-        }
-        if (!enabled) {
-            for (int index = rows.firstIndex();
-                    index < rows.lastExclusive(); index++) {
-                if (index == timeoutIndex) continue;
-                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(index), rowWidth, index, groups, BLIND_ROW_COUNT);
-                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                        lockKey);
-            }
-        }
+        addGameSettingsTooltips(rowX, rowWidth, rows, 0,
+                index -> !enabled && index != timeoutIndex ? lockKey : null);
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
@@ -10493,22 +10491,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 : settingsGameText("value.highest_stack"),
                 Dropdown.REBUY_CAP,
                 editable && settingsTable.rebuy());
-        if (!economyEditable) {
-            for (int index = 0; index < 4; index++) {
-                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(index), rowWidth, index, groups, 8);
-                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                        economyLockKey);
-            }
-        }
-        if (!editable) {
-            for (int index = 4; index < 8; index++) {
-                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(index), rowWidth, index, groups, 8);
-                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                        serverLockKey);
-            }
-        }
+        String purchaseLock = economyEditable ? null : economyLockKey;
+        String rebuyLock = editable ? null : serverLockKey;
+        addGameSettingsTooltips(rowX, rowWidth, rows, 1,
+                index -> index < GdxSettingsContract.BUYIN_REBUY_ROW
+                        ? purchaseLock : rebuyLock);
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
@@ -10532,8 +10519,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsGameText("row.bot_difficulty"),
                     settingsBotDifficulty(), Dropdown.BOT_DIFFICULTY,
                     editable);
-            tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                    "tooltip.cfg.bots");
         }
         if (rows.firstIndex() <= 1 && rows.lastExclusive() > 1) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
@@ -10543,8 +10528,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsTable.botRebuy(), true, () -> settingsTable
                             .setBotRebuy(!settingsTable.botRebuy()),
                     editable && settingsTable.botRebuyEnabled());
-            tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                    "tooltip.cfg.bot_rebuy");
         }
         if (rows.firstIndex() <= 2 && rows.lastExclusive() > 2) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
@@ -10554,8 +10537,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsTable.customBots(), false, () -> settingsTable
                             .setCustomBots(!settingsTable.customBots()),
                     editable);
-            tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                    "tooltip.cfg.custom_bots");
         }
         if (rows.firstIndex() <= 3 && rows.lastExclusive() > 3) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
@@ -10567,8 +10548,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     false, () -> settingsTable.setCustomBotsOnly(
                             !settingsTable.customBotsOnly()),
                     editable && settingsTable.customBots());
-            tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                    "tooltip.cfg.custom_bots.only");
         }
         if (rows.firstIndex() <= 4 && rows.lastExclusive() > 4) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
@@ -10578,8 +10557,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     uppercase(gameText.translate(
                             "gdx.custom_bots.manage")),
                     false, this::openCustomBotManager, settingsTable.customBots());
-            tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                    "tooltip.cfg.custom_bots.manage");
         }
         if (rows.firstIndex() <= 5 && rows.lastExclusive() > 5) {
             settingsBooleanToggle(rowX, rows.rowY(5), rowWidth,
@@ -10587,18 +10564,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsTable.botBalanceToHumans(), false,
                     () -> settingsTable.setBotBalanceToHumans(
                             !settingsTable.botBalanceToHumans()), editable);
-            tooltip(rowX, rows.rowY(5), rowWidth,
-                    GdxSettingsLayout.ROW_HEIGHT, "tooltip.cfg.bot_balance");
         }
-        if (!editable) {
-            for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
-                if (row == 4) continue;
-                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(row), rowWidth, row, groups, 6);
-                tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                        lockKey);
-            }
-        }
+        addGameSettingsTooltips(rowX, rowWidth, rows, 2,
+                index -> !editable && index != 4 ? lockKey : null);
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
@@ -10614,8 +10582,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsGameScroll = rows.offset();
         GdxSettingsLayout.drawGroups(shapes, rowX, rowWidth, rows, groups,
                 1f);
-        Rectangle viewportBounds = new Rectangle(x, rows.viewportBottom(), w,
-                rows.viewportHeight());
         if (rows.firstIndex() <= 0 && rows.lastExclusive() > 0) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
                     rows.rowY(0), rowWidth, 0, groups, 9);
@@ -10671,9 +10637,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsTable.allowHotJoin(), true, () -> settingsTable
                             .setAllowHotJoin(!settingsTable.allowHotJoin()),
                     editable);
-            tooltip(rowX, rows.rowY(5), rowWidth,
-                    GdxSettingsLayout.ROW_HEIGHT,
-                    "tooltip.cfg.allow_hot_join");
         }
         if (rows.firstIndex() <= 6 && rows.lastExclusive() > 6) {
             settingsBooleanToggle(rowX, rows.rowY(6), rowWidth, "IWTSTH",
@@ -10693,24 +10656,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     settingsGameText("row.rabbit_hunting"),
                     settingsRabbitText(), Dropdown.RABBIT, editable);
         }
-        if (!editable) {
-            for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
-                Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
-                        rows.rowY(row), rowWidth, row, groups, 9);
-                if (viewportBounds.overlaps(bounds)) {
-                    tooltip(bounds.x, bounds.y, bounds.width, bounds.height,
-                            lockKey);
-                }
-            }
-        }
+        addGameSettingsTooltips(rowX, rowWidth, rows, 3,
+                index -> editable ? null : lockKey);
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
-    private void addLobbySettingsLockTooltips(float x, float firstY,
-            float width, int rows, String key) {
-        for (int row = 0; row < rows; row++) {
-            tooltip(x, firstY - row * GdxSettingsLayout.ROW_STRIDE, width,
-                    GdxSettingsLayout.ROW_HEIGHT, key);
+    private void addGameSettingsTooltips(float x, float width,
+            GdxSettingsLayout.PixelRows rows, int gamePage,
+            java.util.function.IntFunction<String> lockForRow) {
+        List<String> keys = GdxSettingsTooltips.gameRowKeys(gamePage);
+        List<GdxSettingsContract.RowGroup> groups =
+                GdxSettingsContract.gameGroups(gamePage);
+        for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
+            Rectangle bounds = GdxSettingsLayout.groupedRow(x, rows.rowY(row),
+                    width, row, groups, keys.size());
+            Rectangle clipped = clippedSettingsHit(bounds.x, bounds.y,
+                    bounds.width, bounds.height);
+            if (clipped == null) continue;
+            String description = gameText.translate(
+                    GdxSettingsTooltips.descriptionKey(keys.get(row)));
+            tooltip(clipped.x, clipped.y, clipped.width, clipped.height,
+                    "gdx.settings.tooltip.text", GdxSettingsTooltips.withLock(
+                            description, lockForRow.apply(row), gameText));
         }
     }
 
@@ -11282,7 +11249,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void addFooterSoundTooltip(boolean outputAvailable) {
-        if (!outputAvailable) {
+        if (outputAvailable) {
+            tooltip(footerSoundHit.x, footerSoundHit.y, footerSoundHit.width,
+                    footerSoundHit.height, "tooltip.sound_control",
+                    shortcutBindings.displayFor(GdxShortcutBindings.VOLUME_UP),
+                    shortcutBindings.displayFor(GdxShortcutBindings.VOLUME_DOWN));
+        } else {
             tooltip(footerSoundHit.x, footerSoundHit.y, footerSoundHit.width,
                     footerSoundHit.height, "gdx.audio.no_output_device");
         }
@@ -12139,7 +12111,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : table.structureName(),
                 () -> openDropdown(Dropdown.BLIND_STRUCTURE,
                         leftX, structureY, rowWidth, 72f), editable);
-        tooltip(leftX, structureY, rowWidth, 72f, "tooltip.cfg.structure");
+        gameSettingTooltip(leftX, structureY, rowWidth, 72f, "structure");
 
         float initialY = 522f;
         dropdownChoice(leftX, initialY, rowWidth,
@@ -12147,10 +12119,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 blindLevelLabel(table.blindLevel()),
                 () -> openDropdown(Dropdown.BLIND_LEVEL,
                         leftX, initialY, rowWidth, 72f), editable);
-        tooltip(leftX, initialY, rowWidth, 72f, "tooltip.cfg.blinds_level");
+        gameSettingTooltip(leftX, initialY, rowWidth, 72f, "initial_blinds");
         button(leftX, 435f, rowWidth, 70f,
                 settingsGameText("row.manage_structures"), false,
                 this::openBlindStructureEditor, editable);
+        gameSettingTooltip(leftX, 435f, rowWidth, 70f, "blind_structures");
 
         float modeY = 266f;
         float anteY = modeY + rowHeight + 8f;
@@ -12160,25 +12133,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float anteWidth = rowWidth - 2f * anteInset;
         toggle(anteX, anteY, anteWidth, settingsGameText("row.ante"), table.ante(),
                 () -> table.setAnte(!table.ante()), editable);
-        tooltip(anteX, anteY, anteWidth, rowHeight, "tooltip.cfg.ante");
+        gameSettingTooltip(anteX, anteY, anteWidth, rowHeight, "ante");
         settingsDropdownChoice(anteX, modeY, anteWidth, rowHeight,
                 settingsGameText("row.ante_mode"),
                 gameText.translate(table.anteMode().labelKey()),
                 () -> openDropdown(Dropdown.ANTE_MODE,
                         anteX, modeY, anteWidth, rowHeight),
                 editable && table.ante());
-        tooltip(anteX, modeY, anteWidth, rowHeight, "tooltip.cfg.ante_mode");
+        gameSettingTooltip(anteX, modeY, anteWidth, rowHeight, "ante_mode");
 
         float straddleY = 177f;
         toggle(leftX, straddleY, rowWidth, settingsGameText("row.straddle"),
                 table.straddle(), () -> table.setStraddle(!table.straddle()), editable);
-        tooltip(leftX, straddleY, rowWidth, rowHeight, "tooltip.cfg.straddle");
+        gameSettingTooltip(leftX, straddleY, rowWidth, rowHeight, "straddle");
 
         float increaseY = 645f;
         toggle(rightX, increaseY, rowWidth,
                 settingsGameText("row.increase_blinds"), table.increaseBlinds(),
                 () -> table.setIncreaseBlinds(!table.increaseBlinds()), editable);
-        tooltip(rightX, increaseY, rowWidth, rowHeight, "tooltip.cfg.double_blinds");
+        gameSettingTooltip(rightX, increaseY, rowWidth, rowHeight,
+                "increase_blinds");
 
         float intervalY = 503f;
         float halfWidth = (rowWidth - 30f) / 2f;
@@ -12190,25 +12164,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> openDropdown(Dropdown.BLIND_UNIT,
                         rightX, intervalY, halfWidth, 72f),
                 editable && table.increaseBlinds());
+        gameSettingTooltip(rightX, intervalY, halfWidth, 72f, "blind_unit");
         stepper(rightX + halfWidth + 30f, intervalY, halfWidth,
                 settingsGameText("row.interval"),
                 table.blindInterval(), 1, Integer.MAX_VALUE,
                 () -> table.setBlindInterval(table.blindInterval() - 1),
                 () -> table.setBlindInterval(table.blindInterval() + 1),
                 editable && table.increaseBlinds());
+        gameSettingTooltip(rightX + halfWidth + 30f, intervalY, halfWidth,
+                102f, "blind_interval");
 
         float capToggleY = 345f;
         toggle(rightX, capToggleY, rowWidth,
                 settingsGameText("row.blind_cap"), table.blindCap(),
                 () -> table.setBlindCap(!table.blindCap()),
                 editable && table.blindCapControlEnabled());
-        tooltip(rightX, capToggleY, rowWidth, rowHeight, "tooltip.cfg.blind_cap");
+        gameSettingTooltip(rightX, capToggleY, rowWidth, rowHeight, "blind_cap");
         stepper(rightX, 194f, rowWidth,
                 settingsGameText("row.cap"), table.blindCapRaises(),
                 1, table.maxBlindCapRaises(),
                 () -> table.setBlindCapRaises(table.blindCapRaises() - 1),
                 () -> table.setBlindCapRaises(table.blindCapRaises() + 1),
                 editable && table.blindCapRaisesEnabled());
+        gameSettingTooltip(rightX, 194f, rowWidth, 102f, "blind_cap_level");
     }
 
     private static String blindLevelLabel(NewGameTableDraft.BlindLevel level) {
@@ -12607,11 +12585,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         toggle(470f, 625f, 590f,
                 settingsGameText("row.fixed_buyin"), table.fixedBuyin(),
                 () -> table.setFixedBuyin(!table.fixedBuyin()), !table.economyLocked());
-        tooltip(470f, 625f, 590f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.buyin_fixed");
+        gameSettingTooltip(470f, 625f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+                "fixed_buyin");
         initialBuyinChoice(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
                 table, !table.economyLocked());
-        tooltip(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT, "tooltip.cfg.buyin");
+        gameSettingTooltip(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+                "initial_buyin");
         stepper(470f, 315f, 280f,
                 settingsGameText("row.minimum_range_bb"),
                 table.minBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
@@ -12626,22 +12605,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setMaxBuyinBb(table.maxBuyinBb() - 5),
                 () -> table.setMaxBuyinBb(table.maxBuyinBb() + 5),
                 !table.economyLocked());
-        tooltip(470f, 315f, 590f, 102f, "tooltip.cfg.buyin_range");
+        gameSettingTooltip(470f, 315f, 280f, 102f, "minimum_buyin");
+        gameSettingTooltip(780f, 315f, 280f, 102f, "maximum_buyin");
 
         toggle(1170f, 625f, 645f,
                 settingsGameText("row.rebuy"), table.rebuy(),
                 () -> table.setRebuy(!table.rebuy()), true);
+        gameSettingTooltip(1170f, 625f, 645f, GdxSettingsLayout.ROW_HEIGHT,
+                "rebuy");
         toggle(1170f, 505f, 645f,
                 settingsGameText("row.player_limit"), table.rebuyLimit(),
                 () -> table.setRebuyLimit(!table.rebuyLimit()), table.rebuyLimitEnabled());
-        tooltip(1170f, 505f, 645f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.rebuy_limit");
+        gameSettingTooltip(1170f, 505f, 645f, GdxSettingsLayout.ROW_HEIGHT,
+                "player_rebuy_limit");
         stepper(1170f, 365f, 645f,
                 settingsGameText("row.maximum_rebuys"),
                 table.rebuyLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() - 1),
                 () -> table.setRebuyLimitCount(table.rebuyLimitCount() + 1),
                 table.rebuyLimitCountEnabled());
+        gameSettingTooltip(1170f, 365f, 645f, 102f, "maximum_rebuys");
         dropdownChoice(1170f, 225f, 645f,
                 settingsGameText("row.rebuy_cap"),
                 table.rebuyCapPolicy() == NewGameTableDraft.RebuyCapPolicy.BUY_IN
@@ -12650,6 +12633,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> openDropdown(Dropdown.REBUY_CAP,
                         1170f, 225f, 645f, 72f),
                 table.rebuy());
+        gameSettingTooltip(1170f, 225f, 645f, 72f, "rebuy_cap");
     }
 
     private void initialBuyinChoice(float x, float y, float width, float height,
@@ -12731,9 +12715,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.hand_limit"),
                 table.handLimit(),
                 () -> table.setHandLimit(!table.handLimit()), true);
-        tooltip(470f, NEW_GAME_GAME_TOP_ROW_Y, 590f,
+        gameSettingTooltip(470f, NEW_GAME_GAME_TOP_ROW_Y, 590f,
                 GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.hand_limit");
+                "hand_limit");
         inlineStepper(780f, NEW_GAME_GAME_TOP_ROW_Y, 280f,
                 table.handLimitCount(), 1, Integer.MAX_VALUE,
                 () -> table.setHandLimitCount(table.handLimitCount() - 1),
@@ -12743,9 +12727,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.settings.game.row.think_time"),
                 table.thinkTime(),
                 () -> table.setThinkTime(!table.thinkTime()), true);
-        tooltip(470f, NEW_GAME_GAME_SECOND_ROW_Y, 590f,
+        gameSettingTooltip(470f, NEW_GAME_GAME_SECOND_ROW_Y, 590f,
                 GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.think_time");
+                "think_time");
         inlineStepper(780f, NEW_GAME_GAME_SECOND_ROW_Y, 280f,
                 table.thinkSeconds(), 10, 120,
                 () -> table.setThinkSeconds(table.thinkSeconds() - 5),
@@ -12755,34 +12739,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 table.showdownSeconds(), 5, 30,
                 () -> table.setShowdownSeconds(table.showdownSeconds() - 5),
                 () -> table.setShowdownSeconds(table.showdownSeconds() + 5));
-        tooltip(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f, 102f,
-                "tooltip.cfg.showdown_time");
+        gameSettingTooltip(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f, 102f,
+                "showdown_time");
         toggle(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
                 gameText.translate("gdx.settings.game.row.allow_hot_join"),
                 table.allowHotJoin(),
                 () -> table.setAllowHotJoin(!table.allowHotJoin()), true);
-        tooltip(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
+        gameSettingTooltip(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
                 GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.allow_hot_join");
+                "allow_hot_join");
 
         toggle(1170f, NEW_GAME_GAME_TOP_ROW_Y, 645f, "IWTSTH", table.iwtsth(),
                 () -> table.setIwtsth(!table.iwtsth()), true);
-        tooltip(1170f, NEW_GAME_GAME_TOP_ROW_Y, 645f,
+        gameSettingTooltip(1170f, NEW_GAME_GAME_TOP_ROW_Y, 645f,
                 GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.iwtsth");
+                "iwtsth");
         toggle(1170f, NEW_GAME_GAME_SECOND_ROW_Y, 645f, "RUN IT TWICE",
                 table.runItTwice(),
                 () -> table.setRunItTwice(!table.runItTwice()), true);
-        tooltip(1170f, NEW_GAME_GAME_SECOND_ROW_Y, 645f,
+        gameSettingTooltip(1170f, NEW_GAME_GAME_SECOND_ROW_Y, 645f,
                 GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.rit");
+                "run_it_twice");
         dropdownChoice(1170f, NEW_GAME_GAME_LABELLED_ROW_Y, 645f,
                 settingsGameText("row.rabbit_hunting"),
                 rabbitText(), () -> openDropdown(Dropdown.RABBIT,
                         1170f, NEW_GAME_GAME_LABELLED_ROW_Y,
                         645f, 72f), true);
-        tooltip(1170f, NEW_GAME_GAME_LABELLED_ROW_Y, 645f, 102f,
-                "tooltip.cfg.rabbit");
+        gameSettingTooltip(1170f, NEW_GAME_GAME_LABELLED_ROW_Y, 645f, 102f,
+                "rabbit_hunting");
     }
 
     private String rabbitText() {
@@ -12828,7 +12812,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                         "gdx.settings.game.value.medium"),
                 () -> openDropdown(Dropdown.BOT_DIFFICULTY,
                         580f, 610f, 1110f, 72f), true);
-        tooltip(580f, 610f, 1110f, 102f, "tooltip.cfg.bots");
+        gameSettingTooltip(580f, 610f, 1110f, 102f, "bot_difficulty");
         // Four equal rows share the space below difficulty with comparable
         // top and bottom breathing room inside the panel.
         float botOptionTopY = 505f;
@@ -12841,31 +12825,31 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.custom_bots.use"),
                 table.customBots(),
                 this::toggleCustomBots, true);
-        tooltip(580f, customBotsY, 675f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.custom_bots");
+        gameSettingTooltip(580f, customBotsY, 675f, GdxSettingsLayout.ROW_HEIGHT,
+                "custom_bots");
         button(1280f, customBotsY, 410f, GdxSettingsLayout.ROW_HEIGHT,
                 uppercase(gameText.translate("gdx.custom_bots.manage")),
                 false, this::openCustomBotManager, table.customBots());
-        tooltip(1280f, customBotsY, 410f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.custom_bots.manage");
+        gameSettingTooltip(1280f, customBotsY, 410f, GdxSettingsLayout.ROW_HEIGHT,
+                "custom_bots_manage");
         toggle(580f, customBotsOnlyY, 1110f,
                 gameText.translate("gdx.custom_bots.only"),
                 table.customBots() && table.customBotsOnly(),
                 this::toggleCustomBotsOnly, table.customBots());
-        tooltip(580f, customBotsOnlyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.custom_bots.only");
+        gameSettingTooltip(580f, customBotsOnlyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+                "custom_bots_only");
         toggle(580f, botRebuyY, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_rebuy"),
                 table.botRebuy(),
                 () -> table.setBotRebuy(!table.botRebuy()), table.botRebuyEnabled());
-        tooltip(580f, botRebuyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.bot_rebuy");
+        gameSettingTooltip(580f, botRebuyY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+                "bot_rebuy");
         toggle(580f, botBalanceY, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_balance"),
                 table.botBalanceToHumans(),
                 () -> table.setBotBalanceToHumans(!table.botBalanceToHumans()), true);
-        tooltip(580f, botBalanceY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
-                "tooltip.cfg.bot_balance");
+        gameSettingTooltip(580f, botBalanceY, 1110f, GdxSettingsLayout.ROW_HEIGHT,
+                "bot_balance");
     }
 
     private void nextBotDifficulty() {
@@ -14172,6 +14156,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsContract.PerformanceImpact.NONE));
     }
 
+    private void gameSettingTooltip(float x, float y, float w, float h,
+            String settingKey) {
+        tooltip(x, y, w, h, GdxSettingsTooltips.descriptionKey(settingKey));
+    }
+
     private void settingsTooltip(Rectangle bounds, String settingKey) {
         settingsTooltip(bounds, settingKey, false);
     }
@@ -14207,7 +14196,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (!tooltipDelay.ready(hovered.identity())) return;
         String value = gameText.translate(hovered.key, hovered.arguments);
-        List<String> lines = wrapText(tinyFont, value, 430f, 5);
+        int maxLines = (int) ((HEIGHT - 48f) / 22f);
+        List<String> lines = wrapText(tinyFont, value, 430f, maxLines);
         float widest = 0f;
         for (String line : lines) widest = Math.max(widest,
                 textWidth(tinyFont, line));

@@ -1095,8 +1095,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             new GdxTooltipDelay();
     private final GdxTooltipDelay settingsPerformanceTooltipDelay =
             new GdxTooltipDelay();
-    private final GdxTooltipDelay settingsLockTooltipDelay =
-            new GdxTooltipDelay();
     private final ArrayDeque<GdxTableDialog> dialogQueue = new ArrayDeque<>();
     private final GdxDialogInputGate dialogInputGate =
             new GdxDialogInputGate();
@@ -2961,7 +2959,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void beginTableSettings() {
         settingsPerformanceTooltipDelay.clear();
-        settingsLockTooltipDelay.clear();
         clearTableSettingsToggleAnimations(settingsToggleAnimations);
         settingsToggleTransitions.clear();
         reconcileAcknowledgedSettingsSubmissions();
@@ -3068,7 +3065,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         settingsSelectionList = SettingsSelectionList.NONE;
         settingsSelectionScroll = 0;
         settingsPerformanceTooltipDelay.clear();
-        settingsLockTooltipDelay.clear();
         boolean restartNotice = save && presentationSettings != null
                 && GdxSettingsContract.requiresMsaaRestart(
                         settingsOpenedMsaaSamples,
@@ -11498,6 +11494,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!fastBarExpanded || hovered < 0) {
             fastAccessTooltipDelay.clear();
         }
+        boolean tooltipEnabled = showTooltip && fastButtonEnabled(hovered);
+        String tooltip = "";
+        float tipW = 0f;
+        float tipX = 0f;
+        if (showTooltip) {
+            tooltip = fastButtonTooltip(hovered, tooltipEnabled);
+            glyph.setText(settingsSmallFont, tooltip);
+            tipW = MathUtils.clamp(glyph.width + 32f, 180f, 600f);
+            tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
+                    viewport.getWorldWidth() - tipW - 8f);
+        }
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -11547,11 +11554,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         if (showTooltip) {
-            String hoveredLabel = fastButtonLabel(hovered);
-            float tipW = Math.max(180f,
-                    Math.min(260f, hoveredLabel.length() * 13f));
-            float tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
-                    viewport.getWorldWidth() - tipW - 8f);
             shapes.setColor(0.005f, 0.020f, 0.032f, 0.96f * alpha);
             roundedRect(tipX, FAST_BAR_Y + panelH + 8f,
                     tipW, 36f, 7f);
@@ -11579,20 +11581,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         FAST_BUTTON_SIZE - 10f, FAST_BUTTON_SIZE - 10f);
             }
             if (showTooltip) {
-                String hoveredLabel = fastButtonLabel(hovered);
-                float tipW = Math.max(180f,
-                        Math.min(260f, hoveredLabel.length() * 13f));
-                float tipX = MathUtils.clamp(pointer.x - tipW / 2f, 8f,
-                        viewport.getWorldWidth() - tipW - 8f);
                 drawFittedCenteredInBox(settingsSmallFont,
-                        fastButtonEnabled(hovered)
-                                ? hoveredLabel
-                                : hoveredLabel + " - " + uppercase(
-                                        gameText.translate(
-                                                "gdx.quick.unavailable")),
+                        tooltip,
                         tipX + 8f, FAST_BAR_Y + panelH + 10f,
                         tipW - 16f, 30f,
-                        fastButtonEnabled(hovered) ? Color.WHITE : Color.GRAY,
+                        tooltipEnabled ? Color.WHITE : Color.GRAY,
                         alpha);
             }
         } else {
@@ -11647,14 +11640,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private String fastButtonLabel(int index) {
+    private String fastButtonTooltip(int index, boolean enabled) {
         FastAccessAction action = visibleFastAccessActionAt(index);
-        if (action == FastAccessAction.BLOCKS) {
-            return uppercase(gameText.translate("gdx.network_blocks.button"));
+        if (action == FastAccessAction.NONE) return "";
+        if (enabled && action == FastAccessAction.VOICE) {
+            return gameText.translate(voiceLive || voiceOpening
+                    ? "tooltip.chat.voice_release" : "tooltip.chat.voice_hold");
+        }
+        if (enabled && action == FastAccessAction.IMAGE) {
+            return gameText.translate("tooltip.chat.images");
         }
         int resource = fastButtonResourceIndex(index);
-        return resource < 0 ? "" : uppercase(gameText.translate(
-                FAST_BUTTON_TEXT_KEYS[resource]));
+        String key = action == FastAccessAction.BLOCKS
+                ? "gdx.network_blocks.button" : FAST_BUTTON_TEXT_KEYS[resource];
+        String label = gameText.translate(key);
+        return enabled ? label : label + " - "
+                + gameText.translate("gdx.quick.unavailable");
     }
 
     private void updateLiveShowdownHover(float worldWidth) {
@@ -24901,42 +24902,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (settingsSelectionList == SettingsSelectionList.NONE) {
             drawSettingsTooltip(contentX, firstRowY, contentW, alpha);
-            drawSettingsLockTooltip(contentX, firstRowY, contentW, alpha);
         } else {
             drawSettingsSelectionList(alpha);
         }
         if (voiceNotesOpen) drawTableVoiceNotesDialog();
-    }
-
-    private void drawSettingsLockTooltip(float x, float firstY,
-            float width, float alpha) {
-        SettingsLockHover hovered = settingsLockHover(x, firstY, width);
-        if (hovered == null) {
-            settingsLockTooltipDelay.clear();
-            return;
-        }
-        if (!settingsLockTooltipDelay.ready(hovered.identity())) return;
-        String label = gameText.translate(hovered.key());
-        glyph.setText(settingsSmallFont, label);
-        float boxW = Math.min(620f, Math.max(360f, glyph.width + 42f));
-        float boxH = 48f;
-        float boxX = MathUtils.clamp(pointer.x + 18f, 12f,
-                viewport.getWorldWidth() - boxW - 12f);
-        float boxY = pointer.y - boxH - 18f;
-        if (boxY < 12f) {
-            boxY = Math.min(viewport.getWorldHeight() - boxH - 12f,
-                    pointer.y + 22f);
-        }
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f * alpha);
-        roundedRect(boxX, boxY, boxW, boxH, 8f);
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(settingsSmallFont, label,
-                boxX + 12f, boxY + 5f, boxW - 24f, boxH - 10f,
-                Color.WHITE, alpha);
-        batch.end();
     }
 
     private SettingsLockHover settingsLockHover(float x, float firstY,
@@ -25141,23 +25110,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawSettingsTooltip(float x, float firstY,
             float width, float alpha) {
-        SettingsTooltipHover hovered = settingsTooltipHover(x,
-                firstY, width);
-        if (hovered == null) {
+        SettingsTooltipHover hovered = settingsTooltipHover(x, firstY, width);
+        SettingsLockHover locked = settingsLockHover(x, firstY, width);
+        if (hovered == null && locked == null) {
             settingsPerformanceTooltipDelay.clear();
             return;
         }
+        String identity = hovered == null ? locked.identity()
+                : hovered.settingKey();
         if (!settingsPerformanceTooltipDelay.ready(
-                "settings-tooltip:" + hovered.settingKey())) {
+                "settings-tooltip:" + identity)) {
             return;
         }
-        String label = hovered.content().text();
+        String description = hovered == null ? "" : hovered.content().text();
+        String label = GdxSettingsTooltips.withLock(description,
+                locked == null ? null : locked.key(), gameText);
         float textWidth = 560f;
-        Color textColor = hovered.content().performanceImpact()
-                == GdxSettingsContract.PerformanceImpact.NONE
-                        ? Color.WHITE
-                        : settingsPerformanceImpactColor(
-                                hovered.content().performanceImpact());
+        GdxSettingsContract.PerformanceImpact impact = hovered == null
+                ? GdxSettingsContract.PerformanceImpact.NONE
+                : hovered.content().performanceImpact();
+        Color textColor = impact == GdxSettingsContract.PerformanceImpact.NONE
+                ? Color.WHITE : settingsPerformanceImpactColor(impact);
         glyph.setText(settingsSmallFont, label,
                 settingsTooltipTextColor.set(textColor.r, textColor.g,
                         textColor.b, alpha),
@@ -25347,65 +25320,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return null;
         }
-        if (contentPage == 3) {
-            String[] keys = {"structure", "initial_blinds",
-                "blind_structures", "increase_blinds", "blind_unit",
-                "blind_interval", "blind_cap", "blind_cap_level", "ante", "ante_mode",
-                "straddle", GdxSettingsContract.STRADDLE_ON_TIMEOUT_KEY};
+        int gamePage = switch (contentPage) {
+            case 3 -> 0;
+            case 4 -> 1;
+            case 6 -> 2;
+            case 7 -> 3;
+            default -> -1;
+        };
+        if (gamePage >= 0) {
+            List<String> keys = GdxSettingsTooltips.gameRowKeys(gamePage);
             GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstY, 0, keys.length, settingsGameScroll);
+                    firstY, gamePage, keys.size(), settingsGameScroll);
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
                 SettingsTooltipHover hovered = settingsTooltipHover(
-                        settingsGameRowBounds(x, width, rows, 0, keys.length,
-                                row), keys[row], viewportBounds, properties);
-                if (hovered != null) return hovered;
-            }
-            return null;
-        }
-        if (contentPage == 4) {
-            String[] keys = {"minimum_buyin", "maximum_buyin",
-                "fixed_buyin", "initial_buyin", "rebuy",
-                "player_rebuy_limit", "maximum_rebuys", "rebuy_cap"};
-            GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstY, 1, keys.length, settingsGameScroll);
-            for (int row = rows.firstIndex();
-                    row < rows.lastExclusive(); row++) {
-                SettingsTooltipHover hovered = settingsTooltipHover(
-                        settingsGameRowBounds(x, width, rows, 1, keys.length,
-                                row), keys[row], viewportBounds, properties);
-                if (hovered != null) return hovered;
-            }
-            return null;
-        }
-        if (contentPage == 7) {
-            String[] keys = {"hand_limit", "hand_count", "think_time",
-                "think_seconds", "showdown_time", "allow_hot_join", "iwtsth",
-                "run_it_twice", "rabbit_hunting"};
-            GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstY, 3, keys.length, settingsGameScroll);
-            for (int row = rows.firstIndex();
-                    row < rows.lastExclusive(); row++) {
-                SettingsTooltipHover hovered = settingsTooltipHover(
-                        settingsGameRowBounds(x, width, rows, 3,
-                                keys.length, row), keys[row],
+                        settingsGameRowBounds(x, width, rows, gamePage,
+                                keys.size(), row), keys.get(row),
                         viewportBounds, properties);
                 if (hovered != null) return hovered;
             }
             return null;
-        }
-        if (contentPage == 6) {
-            String[] keys = {"bot_difficulty", "bot_rebuy", "custom_bots",
-                "custom_bots_only", "custom_bots_manage", "bot_balance"};
-            GdxSettingsLayout.PixelRows rows = settingsGameRows(content,
-                    firstY, 2, keys.length, settingsGameScroll);
-            for (int row = 0; row < keys.length; row++) {
-                SettingsTooltipHover hovered = settingsTooltipHover(
-                        settingsGameRowBounds(x, width, rows, 2,
-                                keys.length, row), keys[row],
-                        viewportBounds, properties);
-                if (hovered != null) return hovered;
-            }
         }
         if (contentPage == 9) {
             Rectangle performance = GdxSettingsLayout.debugPerformanceRow(

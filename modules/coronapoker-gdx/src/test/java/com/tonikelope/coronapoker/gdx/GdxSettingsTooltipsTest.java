@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -11,6 +12,45 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 final class GdxSettingsTooltipsTest {
+
+    @Test
+    void everyGameSettingsRowHasSpecificTextInBothLanguages() {
+        List<Integer> rowCounts = List.of(
+                GdxSettingsContract.BLIND_ROW_COUNT, 8, 6, 9);
+        for (int page = 0; page < rowCounts.size(); page++) {
+            List<String> rows = GdxSettingsTooltips.gameRowKeys(page);
+            assertEquals(rowCounts.get(page).intValue(), rows.size());
+            for (String row : rows) {
+                String key = GdxSettingsTooltips.descriptionKey(row);
+                assertNotEquals("gdx.settings.tooltip.generic", key, row);
+                for (String language : List.of("en", "es")) {
+                    assertNotEquals(key, new GdxGameText(language).translate(key),
+                            row + " " + language);
+                }
+            }
+        }
+        assertEquals("ante", GdxSettingsTooltips.gameRowKeys(0).get(
+                GdxSettingsContract.BLIND_ANTE_ROW));
+        assertEquals("ante_mode", GdxSettingsTooltips.gameRowKeys(0).get(
+                GdxSettingsContract.BLIND_ANTE_MODE_ROW));
+    }
+
+    @Test
+    void anteModeExplainsEveryPayerEvenWhenTheSettingIsLocked() {
+        for (String language : List.of("en", "es")) {
+            GdxGameText text = new GdxGameText(language);
+            String description = GdxSettingsTooltips.content(
+                    "ante_mode", new Properties(), text).text();
+            for (String mode : List.of("BBA", "BA", "SBA")) {
+                assertTrue(description.matches(".*\\b" + mode + "\\b.*"),
+                        language + " " + mode);
+            }
+            assertTrue(description.contains("10"));
+            String lockKey = "gdx.settings.game.server_only";
+            assertEquals(description + "\n" + text.translate(lockKey),
+                    GdxSettingsTooltips.withLock(description, lockKey, text));
+        }
+    }
 
     @Test
     void graphicsTooltipsExplainTheSettingAndThenItsImpact() {

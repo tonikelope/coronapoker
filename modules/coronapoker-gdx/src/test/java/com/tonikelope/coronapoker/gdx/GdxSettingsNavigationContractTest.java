@@ -90,11 +90,12 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(source.contains(
                 "gameText.translate(\"gdx.custom_bots.only\")"));
         assertTrue(source.contains(
-                "String[] keys = {\"bot_difficulty\", \"bot_rebuy\", \"custom_bots\","));
+                "GdxSettingsTooltips.gameRowKeys(gamePage)"));
         assertTrue(source.contains(
-                "\"custom_bots_only\", \"custom_bots_manage\", \"bot_balance\"}"));
-        assertTrue(source.replaceAll("\\s+", " ").contains(
-                "settingsGameRows(content, firstY, 2, keys.length,"));
+                "\"gdx.settings.game.locked_during_game\", \"bots-fixed\""));
+        assertEquals(List.of("bot_difficulty", "bot_rebuy", "custom_bots",
+                "custom_bots_only", "custom_bots_manage", "bot_balance"),
+                GdxSettingsTooltips.gameRowKeys(2));
     }
 
     @Test

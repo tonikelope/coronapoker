@@ -6,10 +6,12 @@
     local: 'Favorites', finder: 'Search', clear: 'Clear', cancel: 'Cancel',
     receive: on => 'Received: ' + (on ? 'Yes' : 'No'),
     question: 'Clear all favorites?',
-    purgeCache: 'Clear cache', purgeQuestion: 'Delete the images saved to disk by Search?',
+    purgeCache: 'Clear image cache',
+    purgeQuestion: 'Clear cached images from chat and Search? Favorites are kept.',
     confirmPurge: size => 'Yes, clear the cache (' + size + ')',
-    cacheSizing: 'Calculating size…', cacheSizeFailed: 'Could not read the search cache size',
-    cachePurged: 'Search cache cleared', cacheFailed: 'Could not clear the search cache',
+    cacheSizing: 'Calculating size…', cacheSizeFailed: 'Could not read the image cache size',
+    cacheEmpty: 'There are no cached images to clear',
+    cachePurged: size => 'Cache cleared (' + size + ' freed)', cacheFailed: 'Could not clear the image cache',
     previous: 'Previous', next: 'Next', page: (n, total) => 'Page ' + n + ' / ' + total,
     searchPage: n => 'Page ' + n, loadingMore: 'Looking for more images…',
     moreError: 'Could not load more images. Try again.',
@@ -33,10 +35,12 @@
     local: 'Favoritos', finder: 'Buscador', clear: 'Vaciar', cancel: 'Cancelar',
     receive: on => 'Recibidas: ' + (on ? 'Sí' : 'No'),
     question: '¿Vaciar todas las favoritas?',
-    purgeCache: 'Purgar caché', purgeQuestion: '¿Borrar las imágenes que el Buscador guardó en disco?',
+    purgeCache: 'Purgar caché de imágenes',
+    purgeQuestion: '¿Purgar las imágenes en caché del chat y del Buscador? Se conservan los favoritos.',
     confirmPurge: size => 'Sí, purgar la caché (' + size + ')',
     cacheSizing: 'Calculando tamaño…', cacheSizeFailed: 'No se pudo calcular el tamaño de la caché',
-    cachePurged: 'Caché del Buscador purgada', cacheFailed: 'No se pudo purgar la caché del Buscador',
+    cacheEmpty: 'No hay imágenes temporales que purgar',
+    cachePurged: size => 'Caché purgada (' + size + ' liberados)', cacheFailed: 'No se pudo purgar la caché de imágenes',
     previous: 'Anterior', next: 'Siguiente', page: (n, total) => 'Página ' + n + ' / ' + total,
     searchPage: n => 'Página ' + n, loadingMore: 'Buscando más imágenes…',
     moreError: 'No se pudieron cargar más imágenes. Vuelve a intentarlo.',
@@ -88,6 +92,7 @@
   let drawnRevision;
   let refreshSequence = 0;
   let purgeSizeRequest = 0;
+  let purgeStatusTimer;
 
   function query(request) {
     return new Promise((resolve, reject) => window.cefQuery({
@@ -135,6 +140,14 @@
   function formatCacheSize(bytes) {
     if (bytes > 0 && bytes < 10_000) return '<' + sizeFormat.format(0.01) + ' MB';
     return sizeFormat.format(bytes / 1_000_000) + ' MB';
+  }
+
+  function setPurgeStatus(message, dismiss = false) {
+    clearTimeout(purgeStatusTimer);
+    purgeStatus.textContent = message;
+    if (dismiss) {
+      purgeStatusTimer = setTimeout(() => { purgeStatus.textContent = ''; }, 4_000);
+    }
   }
 
   function imagePreview() {
@@ -665,20 +678,26 @@
   searchNext.addEventListener('click', () => moveSearchPage(1));
   purgeCache.addEventListener('click', async () => {
     const request = ++purgeSizeRequest;
-    purgeStatus.textContent = '';
+    setPurgeStatus('');
     purgeConfirmButton.textContent = copy.cacheSizing;
     purgeConfirmButton.disabled = true;
     purgeConfirm.hidden = false;
     el('cancel-search-cache').focus();
     try {
-      const bytes = Number(await query('search-cache-size'));
+      const bytes = Number(await query('image-cache-size'));
       if (request !== purgeSizeRequest) return;
+      if (!bytes) {
+        closePurgeConfirmation();
+        setPurgeStatus(copy.cacheEmpty, true);
+        purgeCache.focus();
+        return;
+      }
       purgeConfirmButton.textContent = copy.confirmPurge(formatCacheSize(bytes));
       purgeConfirmButton.disabled = false;
     } catch {
       if (request !== purgeSizeRequest) return;
       closePurgeConfirmation();
-      purgeStatus.textContent = copy.cacheSizeFailed;
+      setPurgeStatus(copy.cacheSizeFailed);
       purgeCache.focus();
     }
   });
@@ -690,10 +709,10 @@
     closePurgeConfirmation();
     purgeCache.disabled = true;
     try {
-      await query('purge-search-cache');
-      purgeStatus.textContent = copy.cachePurged;
+      const bytes = Number(await query('purge-image-cache'));
+      setPurgeStatus(bytes ? copy.cachePurged(formatCacheSize(bytes)) : copy.cacheEmpty, true);
     } catch {
-      purgeStatus.textContent = copy.cacheFailed;
+      setPurgeStatus(copy.cacheFailed);
     } finally {
       purgeCache.disabled = false;
       if (!searchView.hidden) purgeCache.focus();

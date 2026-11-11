@@ -402,10 +402,10 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                     beginSearch(request.substring(7).strip(), reply);
                 } else if (request.equals("search-state")) {
                     reply.success(json(searchView()));
-                } else if (request.equals("search-cache-size")) {
-                    searchCacheAction(false, reply);
-                } else if (request.equals("purge-search-cache")) {
-                    searchCacheAction(true, reply);
+                } else if (request.equals("image-cache-size")) {
+                    imageCacheAction(false, reply);
+                } else if (request.equals("purge-image-cache")) {
+                    imageCacheAction(true, reply);
                 } else if (request.startsWith("search-")) {
                     searchTabAction(request.split("\t", -1), reply);
                 } else if (request.startsWith("save\t") || request.startsWith("send-result\t")) {
@@ -434,20 +434,17 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         target.addMessageRouter(router);
     }
 
-    private void searchCacheAction(boolean purge, CefQueryCallback reply) {
+    private void imageCacheAction(boolean purge, CefQueryCallback reply) {
         try {
             worker.execute(() -> {
                 try {
-                    if (purge) {
-                        GdxChatImageLoader.purgeSearchCache();
-                        if (!closed) reply.success("");
-                    } else {
-                        long bytes = GdxChatImageLoader.searchCacheSize();
-                        if (!closed) reply.success(Long.toString(bytes));
-                    }
+                    List<String> favorites = gallery.urls();
+                    long bytes = purge ? GdxChatImageLoader.purgeImageCache(favorites)
+                            : GdxChatImageLoader.imageCacheSize(favorites);
+                    if (!closed) reply.success(Long.toString(bytes));
                 } catch (IOException | RuntimeException failure) {
-                    LOG.log(Level.WARNING, "Could not access the image search cache", failure);
-                    if (!closed) reply.failure(500, "Could not access the image search cache");
+                    LOG.log(Level.WARNING, "Could not access the image cache", failure);
+                    if (!closed) reply.failure(500, "Could not access the image cache");
                 }
             });
         } catch (RejectedExecutionException closing) {
@@ -873,7 +870,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private static String prepareImage(GoogleImageResults.Image image) throws IOException {
         String url = image.original();
         byte[] bytes = GdxChatImageLoader.downloadPublic(url);
-        if (isWebp(bytes)) {
+        if (GdxChatImageLoader.isWebp(bytes)) {
             // The existing chat wire format carries a URL. Use Google's compatible
             // preview for WebP so other players can open it with the current decoder.
             url = image.thumbnail();
@@ -881,12 +878,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         }
         GdxPreparedChatMedia.prepare(bytes, "image-search", 320).dispose();
         return url;
-    }
-
-    private static boolean isWebp(byte[] data) {
-        return data.length >= 12 && data[0] == 'R' && data[1] == 'I'
-                && data[2] == 'F' && data[3] == 'F' && data[8] == 'W'
-                && data[9] == 'E' && data[10] == 'B' && data[11] == 'P';
     }
 
     boolean failed() {
@@ -1226,7 +1217,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                 if (search) {
                     byte[] bytes = GdxChatImageLoader.downloadSearchPreview(url);
                     if (GdxChatImageLoader.isGif(bytes)) asset = new Asset(bytes, "image/gif");
-                    else if (isWebp(bytes)) asset = new Asset(bytes, "image/webp");
+                    else if (GdxChatImageLoader.isWebp(bytes)) asset = new Asset(bytes, "image/webp");
                     else throw new IOException("Search animation is unavailable");
                 } else {
                     asset = previewAsset(GdxChatImageLoader.download(url));

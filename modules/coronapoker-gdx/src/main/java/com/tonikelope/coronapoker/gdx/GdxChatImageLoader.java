@@ -19,10 +19,12 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 
 /**
@@ -30,20 +32,21 @@ import java.util.concurrent.CompletionException;
  *
  * <p>The byte cache deliberately mirrors Swing's {@code ImageCacheManager}:
  * the URL fragment is ignored and chat files survive between sessions.
- * Search previews use a separate directory so they can be cleared independently.</p>
+ * Search previews share the chat directory. The old search directory remains
+ * readable and is included when clearing the cache.</p>
  */
 final class GdxChatImageLoader {
 
     private static final int MAXIMUM_BYTES = 16 * 1024 * 1024;
     private static final long MAXIMUM_MEMORY_BYTES = 32L * 1024 * 1024;
     private static final String CHAT_CACHE = "ChatImagesCache";
-    private static final String SEARCH_CACHE = "SearchImagesCache";
-    private static final Object MEMORY_LOCK = new Object();
-    private static final Object SEARCH_CACHE_LOCK = new Object();
+    private static final String LEGACY_SEARCH_CACHE = "SearchImagesCache";
+    // Guards disk cache access, the memory cache, and writes after a purge.
+    private static final Object CACHE_LOCK = new Object();
     private static final LinkedHashMap<Path, byte[]> MEMORY_CACHE
             = new LinkedHashMap<>(64, 0.75f, true);
     private static long memoryBytes;
-    private static long searchCacheGeneration;
+    private static long cacheGeneration;
 
     private enum Download { CHAT, PUBLIC_CHAT, SEARCH_PREVIEW }
 
@@ -71,26 +74,25 @@ final class GdxChatImageLoader {
             URL url = uri.toURL();
             String cacheKey = cacheFileName(url);
             Path chatFile = cacheDirectory(CHAT_CACHE).resolve(cacheKey);
-            byte[] cached = readCached(chatFile);
-            if (cached != null) return cached;
-
-            Path searchFile = cacheDirectory(SEARCH_CACHE).resolve(cacheKey);
+            Path searchFile = cacheDirectory(LEGACY_SEARCH_CACHE).resolve(cacheKey);
             long generation;
-            synchronized (SEARCH_CACHE_LOCK) {
+            synchronized (CACHE_LOCK) {
+                byte[] cached = readCached(chatFile);
+                if (cached != null) return cached;
                 cached = readCached(searchFile);
-                generation = searchCacheGeneration;
+                if (cached != null) return cached;
+                generation = cacheGeneration;
             }
-            if (mode == Download.SEARCH_PREVIEW && cached != null) return cached;
 
-            byte[] received = cached != null ? cached
-                    : mode == Download.CHAT ? receive(url) : receivePublic(url);
-            if (mode == Download.SEARCH_PREVIEW) {
-                synchronized (SEARCH_CACHE_LOCK) {
-                    // A preview started before a purge may finish without repopulating the cache.
-                    if (generation == searchCacheGeneration) writeCached(searchFile, received);
+            byte[] received = mode == Download.CHAT ? receive(url) : receivePublic(url);
+            if (mode == Download.SEARCH_PREVIEW && !isGif(received) && !isWebp(received)) {
+                throw new IOException("Search animation is unavailable");
+            }
+            synchronized (CACHE_LOCK) {
+                // An in-flight download may finish without repopulating a purged cache.
+                if (generation == cacheGeneration) {
+                    writeCached(chatFile, received);
                 }
-            } else {
-                writeCached(chatFile, received);
             }
             return received;
         } catch (IOException | IllegalArgumentException failure) {
@@ -103,8 +105,8 @@ final class GdxChatImageLoader {
     }
 
     private static byte[] readCached(Path file) throws IOException {
-        byte[] cached = memoryGet(file);
-        if (cached != null || !Files.isRegularFile(file)) return cached;
+        byte[] cached = MEMORY_CACHE.get(file);
+        if (cached != null || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) return cached;
         byte[] data = readBounded(file);
         memoryPut(file, data);
         return data;
@@ -127,43 +129,74 @@ final class GdxChatImageLoader {
         memoryPut(file, data);
     }
 
-    static long searchCacheSize() throws IOException {
-        synchronized (SEARCH_CACHE_LOCK) {
+    static long imageCacheSize(List<String> favorites) throws IOException {
+        Set<String> protectedNames = favoriteCacheNames(favorites);
+        synchronized (CACHE_LOCK) {
             long bytes = 0;
-            for (Path file : searchCacheFiles(cacheDirectory(SEARCH_CACHE))) bytes += Files.size(file);
+            for (Path file : purgeableFiles(cacheDirectories(), protectedNames)) {
+                bytes += Files.size(file);
+            }
             return bytes;
         }
     }
 
-    private static List<Path> searchCacheFiles(Path directory) throws IOException {
-        if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS)) return List.of();
-        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Invalid image search cache directory");
+    private static List<Path> cacheDirectories() {
+        return List.of(cacheDirectory(CHAT_CACHE), cacheDirectory(LEGACY_SEARCH_CACHE));
+    }
+
+    private static Set<String> favoriteCacheNames(List<String> favorites) {
+        Set<String> names = new HashSet<>();
+        for (String url : favorites) {
+            try {
+                names.add(cacheFileName(URI.create(url).toURL()));
+            } catch (IllegalArgumentException | IOException invalid) {
+                // Malformed legacy favorites do not have a corresponding cache key.
+            }
         }
+        return names;
+    }
+
+    private static List<Path> purgeableFiles(List<Path> directories, Set<String> protectedNames)
+            throws IOException {
         List<Path> cached = new ArrayList<>();
-        try (var files = Files.newDirectoryStream(directory)) {
-            for (Path file : files) {
-                if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) cached.add(file);
+        for (Path directory : directories) {
+            if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS)) continue;
+            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException("Invalid image cache directory: " + directory.getFileName());
+            }
+            try (var files = Files.newDirectoryStream(directory)) {
+                for (Path file : files) {
+                    if (!protectedNames.contains(file.getFileName().toString())
+                            && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                        cached.add(file);
+                    }
+                }
             }
         }
         return cached;
     }
 
-    static void purgeSearchCache() throws IOException {
-        Path directory = cacheDirectory(SEARCH_CACHE);
-        synchronized (SEARCH_CACHE_LOCK) {
-            searchCacheGeneration++;
+    static long purgeImageCache(List<String> favorites) throws IOException {
+        Set<String> protectedNames = favoriteCacheNames(favorites);
+        List<Path> directories = cacheDirectories();
+        synchronized (CACHE_LOCK) {
+            cacheGeneration++;
+            long removed = 0;
             try {
-                for (Path file : searchCacheFiles(directory)) Files.deleteIfExists(file);
+                for (Path file : purgeableFiles(directories, protectedNames)) {
+                    long bytes = Files.size(file);
+                    if (Files.deleteIfExists(file)) removed += bytes;
+                }
+                return removed;
             } finally {
-                synchronized (MEMORY_LOCK) {
-                    var entries = MEMORY_CACHE.entrySet().iterator();
-                    while (entries.hasNext()) {
-                        var entry = entries.next();
-                        if (directory.equals(entry.getKey().getParent())) {
-                            memoryBytes -= entry.getValue().length;
-                            entries.remove();
-                        }
+                var entries = MEMORY_CACHE.entrySet().iterator();
+                while (entries.hasNext()) {
+                    var entry = entries.next();
+                    Path file = entry.getKey();
+                    if (directories.contains(file.getParent())
+                            && !protectedNames.contains(file.getFileName().toString())) {
+                        memoryBytes -= entry.getValue().length;
+                        entries.remove();
                     }
                 }
             }
@@ -301,25 +334,17 @@ final class GdxChatImageLoader {
         }
     }
 
-    private static byte[] memoryGet(Path key) {
-        synchronized (MEMORY_LOCK) {
-            return MEMORY_CACHE.get(key);
-        }
-    }
-
     private static void memoryPut(Path key, byte[] data) {
         if (data.length > MAXIMUM_MEMORY_BYTES) return;
-        synchronized (MEMORY_LOCK) {
-            byte[] previous = MEMORY_CACHE.put(key, data);
-            if (previous != null) memoryBytes -= previous.length;
-            memoryBytes += data.length;
-            Iterator<Map.Entry<Path, byte[]>> iterator
-                    = MEMORY_CACHE.entrySet().iterator();
-            while (memoryBytes > MAXIMUM_MEMORY_BYTES && iterator.hasNext()) {
-                Map.Entry<Path, byte[]> eldest = iterator.next();
-                memoryBytes -= eldest.getValue().length;
-                iterator.remove();
-            }
+        byte[] previous = MEMORY_CACHE.put(key, data);
+        if (previous != null) memoryBytes -= previous.length;
+        memoryBytes += data.length;
+        Iterator<Map.Entry<Path, byte[]>> iterator
+                = MEMORY_CACHE.entrySet().iterator();
+        while (memoryBytes > MAXIMUM_MEMORY_BYTES && iterator.hasNext()) {
+            Map.Entry<Path, byte[]> eldest = iterator.next();
+            memoryBytes -= eldest.getValue().length;
+            iterator.remove();
         }
     }
 
@@ -327,6 +352,12 @@ final class GdxChatImageLoader {
         return data.length >= 6 && data[0] == 'G' && data[1] == 'I'
                 && data[2] == 'F' && data[3] == '8'
                 && (data[4] == '7' || data[4] == '9') && data[5] == 'a';
+    }
+
+    static boolean isWebp(byte[] data) {
+        return data.length >= 12 && data[0] == 'R' && data[1] == 'I'
+                && data[2] == 'F' && data[3] == 'F' && data[8] == 'W'
+                && data[9] == 'E' && data[10] == 'B' && data[11] == 'P';
     }
 
     private GdxChatImageLoader() {

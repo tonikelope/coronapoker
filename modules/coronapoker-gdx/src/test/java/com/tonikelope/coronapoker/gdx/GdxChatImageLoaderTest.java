@@ -3,6 +3,8 @@ package com.tonikelope.coronapoker.gdx;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.ResourceLock;
@@ -12,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class GdxChatImageLoaderTest {
 
@@ -37,38 +40,55 @@ final class GdxChatImageLoaderTest {
 
     @Test
     @ResourceLock(Resources.SYSTEM_PROPERTIES)
-    void purgingSearchPreviewsClearsOnlyTheirFilesAndMemory(@TempDir Path home) throws Exception {
+    void purgingBothCachesIncludesGifsReusedFromChatAndPreservesFavorites(@TempDir Path home) throws Exception {
         String previousHome = System.getProperty("user.home");
         System.setProperty("user.home", home.toString());
         try {
-            Path search = Files.createDirectories(home.resolve(".coronapoker/SearchImagesCache"));
+            Path search = home.resolve(".coronapoker/SearchImagesCache");
             Path chat = Files.createDirectories(home.resolve(".coronapoker/ChatImagesCache"));
-            String preview = "https://example.invalid/preview-only.gif";
-            String usedInChat = "https://example.invalid/saved-to-chat.gif";
-            Path previewFile = search.resolve(GdxChatImageLoader.cacheFileName(URI.create(preview).toURL()));
-            String sharedName = GdxChatImageLoader.cacheFileName(URI.create(usedInChat).toURL());
-            byte[] original = {1, 2, 3};
-            assertEquals(0, GdxChatImageLoader.searchCacheSize());
-            Files.write(previewFile, original);
-            Files.write(search.resolve(sharedName), original);
-            Files.createDirectory(search.resolve("ignored-directory"));
-            assertEquals(6, GdxChatImageLoader.searchCacheSize());
-            assertArrayEquals(original, GdxChatImageLoader.downloadSearchPreview(preview));
-            assertArrayEquals(original, GdxChatImageLoader.downloadPublic(usedInChat));
-            assertArrayEquals(original, Files.readAllBytes(chat.resolve(sharedName)));
+            String reused = "https://example.invalid/reused.gif";
+            String preview = "https://example.invalid/search-only.gif";
+            String favorite = "https://example.invalid/favorite.gif";
+            List<String> favorites = List.of(favorite + "#saved");
+            byte[] gif = Base64.getDecoder().decode("R0lGODlhAQABAIAAAAAAAP///yH5BAAKAAAALAAAAAABAAEAAAICRAEAIfkEAAoAAAAsAAAAAAEAAQAAAgJMAQA7");
+            Path chatGif = chat.resolve(cacheFileName(reused));
+            Path searchGif = search.resolve(cacheFileName(preview));
+            Path chatFavorite = chat.resolve(cacheFileName(favorite));
+            Path searchFavorite = search.resolve(cacheFileName(favorite));
 
-            GdxChatImageLoader.purgeSearchCache();
-            assertEquals(0, GdxChatImageLoader.searchCacheSize());
-            assertFalse(Files.exists(previewFile));
-            assertFalse(Files.exists(search.resolve(sharedName)));
-            assertArrayEquals(original, Files.readAllBytes(chat.resolve(sharedName)));
+            assertEquals(0, GdxChatImageLoader.imageCacheSize(favorites));
+            Files.write(chatGif, gif);
+            Files.write(chatFavorite, gif);
+            assertArrayEquals(gif, GdxChatImageLoader.downloadSearchPreview(reused));
+            assertFalse(Files.exists(search));
+            assertEquals(gif.length, GdxChatImageLoader.imageCacheSize(favorites));
+
+            Files.createDirectory(search);
+            Files.createDirectory(search.resolve("ignored-directory"));
+            Files.write(searchGif, gif);
+            Files.write(searchFavorite, gif);
+            assertArrayEquals(gif, GdxChatImageLoader.downloadSearchPreview(preview));
+            assertEquals(2L * gif.length, GdxChatImageLoader.imageCacheSize(favorites));
+            assertEquals(2L * gif.length, GdxChatImageLoader.purgeImageCache(favorites));
+            assertEquals(0, GdxChatImageLoader.imageCacheSize(favorites));
+            assertEquals(0, GdxChatImageLoader.purgeImageCache(favorites));
+            assertFalse(Files.exists(chatGif));
+            assertFalse(Files.exists(searchGif));
+            assertTrue(Files.isDirectory(search.resolve("ignored-directory")));
+            assertArrayEquals(gif, Files.readAllBytes(chatFavorite));
+            assertArrayEquals(gif, Files.readAllBytes(searchFavorite));
 
             byte[] replacement = {4, 5, 6};
-            Files.write(previewFile, replacement);
+            Files.write(chatGif, replacement);
+            Files.write(searchGif, replacement);
+            assertArrayEquals(replacement, GdxChatImageLoader.downloadSearchPreview(reused));
             assertArrayEquals(replacement, GdxChatImageLoader.downloadSearchPreview(preview));
-            assertArrayEquals(original, GdxChatImageLoader.downloadSearchPreview(usedInChat));
         } finally {
             System.setProperty("user.home", previousHome);
         }
+    }
+
+    private static String cacheFileName(String url) throws Exception {
+        return GdxChatImageLoader.cacheFileName(URI.create(url).toURL());
     }
 }

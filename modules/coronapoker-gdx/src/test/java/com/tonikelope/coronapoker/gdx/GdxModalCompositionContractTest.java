@@ -112,8 +112,6 @@ final class GdxModalCompositionContractTest {
         assertTrue(modal > shade);
         assertTrue(signature > modal,
                 "the table signature must remain visible above every modal");
-        assertTrue(source.contains("|| tableImageClearConfirmation"),
-                "a nested chat confirmation is a real blurred modal");
         assertEquals(1, occurrences(source,
                 "GdxUiDialogStyle.drawBackdrop("));
     }

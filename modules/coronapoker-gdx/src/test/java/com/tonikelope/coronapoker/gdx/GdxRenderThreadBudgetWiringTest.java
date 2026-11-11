@@ -84,12 +84,14 @@ final class GdxRenderThreadBudgetWiringTest {
     @Test
     void chatMediaDecodesOffThreadAndKeepsOneStreamingGifTexture()
             throws Exception {
-        String gallery = source("GdxChatGalleryMedia.java");
+        String gallery = source("PokerImageGalleryBrowser.java");
         String frontend = source("GdxFrontendScreen.java");
         String prepared = source("GdxPreparedChatMedia.java");
         String streaming = source("StreamingGifTextureAnimation.java");
 
-        assertTrue(gallery.contains("GdxPreparedChatMedia.prepareAsync("));
+        assertTrue(gallery.contains("executor.submit(() -> loadPreview("));
+        assertTrue(gallery.contains("executor.setRemoveOnCancelPolicy(true)"));
+        assertTrue(gallery.contains("worker.execute(() -> download("));
         assertTrue(frontend.contains("GdxPreparedChatMedia.prepareAsync("));
         assertFalse(gallery.contains("GifTextureAnimation.load("));
         assertFalse(frontend.contains("GifTextureAnimation.load("));

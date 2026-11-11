@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.JsonWriter;
 import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.core.StatsDashboard;
 import com.tonikelope.coronapoker.core.StatsRepository;
+import java.awt.EventQueue;
 import java.awt.event.KeyEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
@@ -84,6 +85,8 @@ final class PokerStatsBrowser implements AutoCloseable {
     private volatile LibGdxCefBrowser browser;
     private volatile Selection selection = new Selection(0, 0, "", false);
     private CefClient client;
+    private boolean creatingBrowser;
+    private boolean closingBrowser;
     private StatsDashboard snapshot;
     private List<GameOption> games;
     private int handsGameId = -1;
@@ -119,7 +122,7 @@ final class PokerStatsBrowser implements AutoCloseable {
             CefClient created = PokerChromium.createClient(null);
             synchronized (this) {
                 if (closed) {
-                    created.dispose();
+                    EventQueue.invokeLater(() -> PokerChromium.disposeClient(created));
                     return;
                 }
                 client = created;
@@ -137,7 +140,18 @@ final class PokerStatsBrowser implements AutoCloseable {
                     throw failure;
                 }
                 frames.setAcceptingFrames(true);
-                browser.createImmediately();
+                creatingBrowser = true;
+                try {
+                    browser.createImmediately();
+                } catch (RuntimeException | LinkageError failure) {
+                    if (creatingBrowser) {
+                        creatingBrowser = false;
+                        LibGdxCefBrowser unregistered = browser;
+                        browser = null;
+                        unregistered.onBeforeClose();
+                    }
+                    throw failure;
+                }
                 browser.resizeBrowser(width, height, scale);
             }
         } catch (Exception | LinkageError failure) {
@@ -187,17 +201,31 @@ final class PokerStatsBrowser implements AutoCloseable {
 
             @Override
             public void onAfterCreated(CefBrowser created) {
-                if (closed) {
-                    created.setCloseAllowed();
-                    created.close(true);
-                } else if (created instanceof LibGdxCefBrowser rendered) {
+                synchronized (PokerStatsBrowser.this) {
+                    creatingBrowser = false;
+                    if (closed) {
+                        EventQueue.invokeLater(PokerStatsBrowser.this::closeBrowserOrClient);
+                        return;
+                    }
+                }
+                if (created instanceof LibGdxCefBrowser rendered) {
                     rendered.requestRepaint();
                 }
             }
 
             @Override
             public void onBeforeClose(CefBrowser closing) {
-                if (!closed) failed = true;
+                synchronized (PokerStatsBrowser.this) {
+                    creatingBrowser = false;
+                    closingBrowser = false;
+                    browser = null;
+                    if (closed) {
+                        EventQueue.invokeLater(PokerStatsBrowser.this::closeBrowserOrClient);
+                    } else {
+                        ready = false;
+                        failed = true;
+                    }
+                }
             }
         });
         target.addLoadHandler(new CefLoadHandlerAdapter() {
@@ -485,18 +513,35 @@ final class PokerStatsBrowser implements AutoCloseable {
     public synchronized void close() {
         if (closed) return;
         closed = true;
+        ready = false;
         worker.shutdownNow();
         frames.setAcceptingFrames(false);
-        LibGdxCefBrowser current = browser;
-        browser = null;
-        if (current != null) {
+        try {
+            EventQueue.invokeLater(this::closeBrowserOrClient);
+        } finally {
+            frames.close();
+        }
+    }
+
+    private void closeBrowserOrClient() {
+        LibGdxCefBrowser current;
+        CefClient disposing = null;
+        synchronized (this) {
+            if (!closed || client == null || creatingBrowser || closingBrowser) return;
+            current = browser;
+            if (current != null) {
+                closingBrowser = true;
+            } else {
+                disposing = client;
+                client = null;
+            }
+        }
+        if (current == null) {
+            PokerChromium.disposeClient(disposing);
+        } else {
             current.setWindowVisibility(false);
             current.setCloseAllowed();
-        }
-        try {
-            if (client != null) client.dispose();
-        } finally {
-            frames.dispose();
+            current.close(true);
         }
     }
 

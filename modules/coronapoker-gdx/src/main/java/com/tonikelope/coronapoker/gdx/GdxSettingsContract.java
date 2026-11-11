@@ -368,7 +368,7 @@ final class GdxSettingsContract {
                     Gate.NONE),
             option(TABLE_SPEAKING_EMOJI_KEY, "EMOJI AL HABLAR", true,
                     Gate.NONE),
-            option("chat_images_ingame", "IMÁGENES DEL CHAT", true,
+            option("chat_images_ingame", "ENVIAR Y RECIBIR IMÁGENES DURANTE LA PARTIDA", true,
                     Gate.NONE),
             option(POKER_VIDEOS_KEY,
                     "MOSTRAR VÍDEOS DE PÓKER",

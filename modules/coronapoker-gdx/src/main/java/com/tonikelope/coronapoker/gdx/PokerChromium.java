@@ -25,6 +25,7 @@ final class PokerChromium {
     private static CefApp app;
     private static PokerVideoChromiumLog chromiumLog;
     private static boolean shuttingDown;
+    private static int openClients;
 
     private PokerChromium() { }
 
@@ -42,7 +43,9 @@ final class PokerChromium {
         if (listener != null) LISTENERS.add(listener);
         try {
             if (app == null) initialize();
-            return app.createClient();
+            CefClient client = app.createClient();
+            openClients++;
+            return client;
         } catch (Exception | LinkageError failure) {
             if (listener != null) LISTENERS.remove(listener);
             throw failure;
@@ -51,6 +54,17 @@ final class PokerChromium {
 
     static void removeListener(Consumer<CefAppState> listener) {
         LISTENERS.remove(listener);
+    }
+
+    static void disposeClient(CefClient client) {
+        try {
+            client.dispose();
+        } finally {
+            synchronized (PokerChromium.class) {
+                openClients--;
+                if (shuttingDown && openClients == 0) disposeApp();
+            }
+        }
     }
 
     private static void initialize() throws Exception {
@@ -94,7 +108,13 @@ final class PokerChromium {
     }
 
     static synchronized void shutdown() {
+        if (shuttingDown) return;
         shuttingDown = true;
+        // Let each owner finish its browser callbacks before shutting down CEF.
+        if (openClients == 0) disposeApp();
+    }
+
+    private static void disposeApp() {
         try {
             if (app != null) app.dispose();
         } finally {

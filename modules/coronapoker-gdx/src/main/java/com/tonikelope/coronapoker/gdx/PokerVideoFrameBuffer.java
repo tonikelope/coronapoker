@@ -36,6 +36,7 @@ public final class PokerVideoFrameBuffer {
     private int dirtyCount;
     private boolean fullDirty;
     private boolean acceptingFrames = true;
+    private boolean closed;
     private boolean popupVisible;
     private Rectangle popupRectangle = new Rectangle();
     private Texture texture;
@@ -226,8 +227,8 @@ public final class PokerVideoFrameBuffer {
 
     public void setAcceptingFrames(boolean accepting) {
         synchronized (lock) {
-            acceptingFrames = accepting;
-            if (!accepting) {
+            acceptingFrames = accepting && !closed;
+            if (!acceptingFrames) {
                 dirtyCount = 0;
                 fullDirty = false;
             } else if (pixels != null) {
@@ -297,6 +298,14 @@ public final class PokerVideoFrameBuffer {
                 texture = null;
             }
             pixels = null;
+        }
+    }
+
+    void close() {
+        synchronized (lock) {
+            closed = true;
+            acceptingFrames = false;
+            dispose();
         }
     }
 }

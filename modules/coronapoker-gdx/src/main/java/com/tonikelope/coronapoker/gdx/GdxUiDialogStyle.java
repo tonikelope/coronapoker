@@ -113,51 +113,6 @@ final class GdxUiDialogStyle {
                 segment, track.height - 8f, 5f);
     }
 
-    /**
-     * Keeps image-gallery header actions large enough for translated labels
-     * and leaves a real gap before the close control.  The same geometry is
-     * consumed by painting and hit testing, so the visible button can never
-     * drift away from its pointer target.
-     */
-    static GalleryHeaderLayout galleryHeaderLayout(float x, float y,
-            float width, float height, boolean includeSearch) {
-        float top = y + height - (includeSearch ? 80f : 158f);
-        float controlHeight = 52f;
-        float gap = 12f;
-        Rectangle close = new Rectangle(x + width - 80f, top,
-                52f, controlHeight);
-        Rectangle clear = new Rectangle(close.x - gap - 142f, top,
-                142f, controlHeight);
-        Rectangle autoReceive = new Rectangle(clear.x - gap - 220f, top,
-                220f, controlHeight);
-        Rectangle search = includeSearch
-                ? new Rectangle(autoReceive.x - gap - 220f, top,
-                        220f, controlHeight)
-                : new Rectangle(autoReceive.x, top, 0f, controlHeight);
-        float actionsLeft = includeSearch ? search.x : x + width - 34f;
-        Rectangle title = new Rectangle(x + 34f,
-                includeSearch ? top + 7f : y + height - 73f,
-                Math.max(0f, actionsLeft - x - 54f), 38f);
-        Rectangle help = new Rectangle(x + 35f,
-                includeSearch ? top - 29f : y + height - 108f,
-                Math.max(0f, actionsLeft - x - 55f), 25f);
-        return new GalleryHeaderLayout(title, help, search, autoReceive,
-                clear, close);
-    }
-
-    record GalleryHeaderLayout(Rectangle title, Rectangle help,
-            Rectangle searchButton, Rectangle autoReceiveButton,
-            Rectangle clearButton, Rectangle closeButton) {
-    }
-
-    /**
-     * Paints the one canonical modal shade.
-     *
-     * <p>The shade deliberately has no transition alpha. A modal owns the
-     * frame from the instant it becomes visible; only its foreground chrome
-     * may animate. Keeping this here also prevents screens from inventing
-     * subtly different darkness values.</p>
-     */
     static void drawBackdrop(ShapeRenderer shapes, float width,
             float height) {
         shapes.setColor(0.008f, 0.018f, 0.038f, BACKDROP_ALPHA);

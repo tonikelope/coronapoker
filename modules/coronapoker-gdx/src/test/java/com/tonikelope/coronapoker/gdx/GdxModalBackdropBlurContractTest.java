@@ -48,8 +48,7 @@ class GdxModalBackdropBlurContractTest {
         assertFalse(source.contains("sharpGraphicsPreview"));
         assertFalse(source.contains("settingsUsesSharpTablePreview"));
         assertTrue(source.contains(
-                "return preparationModal || uiLayerUsesBackdropBlur(uiLayer,")
-                && source.contains("chatImageMode)"),
+                "return preparationModal || uiLayerUsesBackdropBlur(uiLayer)"),
                 "every settings subpage must use the same modal blur path");
     }
 

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CoronaPoker</title>
+  <link rel="stylesheet" href="gallery.css">
+  <script src="gallery.js" defer></script>
+</head>
+<body>
+  <template id="favorite-star">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="12,2 14.65,8.36 21.51,8.91 16.28,13.39 17.88,20.09 12,16.5 6.12,20.09 7.72,13.39 2.49,8.91 9.35,8.36"/>
+    </svg>
+  </template>
+  <header>
+    <nav id="tabs">
+      <button id="search-tab" type="button" aria-pressed="true"></button>
+      <button id="local-tab" type="button" aria-pressed="false"></button>
+    </nav>
+    <div id="search-controls">
+      <span id="search-cache-status" role="status"></span>
+      <button id="purge-search-cache" class="danger" type="button"></button>
+    </div>
+    <div id="local-controls" hidden>
+      <button id="receive" type="button"></button>
+      <button id="clear" type="button"></button>
+    </div>
+  </header>
+  <section id="local" hidden>
+    <div id="clear-confirm" class="notice" hidden>
+      <span id="clear-question"></span>
+      <button id="cancel-clear" type="button"></button>
+      <button id="confirm-clear" class="danger" type="button"></button>
+    </div>
+    <main id="local-content">
+      <div id="local-empty" class="empty">
+        <span class="art" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="9" r="1.5"/><path d="m4 17 5-4 3 2 4-5 4 5"/></svg>
+        </span>
+        <strong id="local-title"></strong>
+        <span id="local-help"></span>
+      </div>
+      <div id="local-results" class="grid" hidden></div>
+    </main>
+    <footer id="pages" hidden>
+      <button id="previous" type="button"></button>
+      <span id="page" role="status"></span>
+      <button id="next" type="button"></button>
+    </footer>
+  </section>
+  <section id="search-view">
+    <div id="search-cache-confirm" class="notice" hidden>
+      <span id="search-cache-question"></span>
+      <button id="cancel-search-cache" type="button"></button>
+      <button id="confirm-search-cache" class="danger" type="button"></button>
+    </div>
+    <form id="search">
+      <label for="query">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.2 15.2 5 5"/></svg>
+      </label>
+      <div class="query-field">
+        <input type="search" id="query" maxlength="160" autocomplete="off">
+        <button id="clear-search" class="icon-button" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10m0-10L7 17"/></svg>
+        </button>
+      </div>
+      <button id="submit" type="submit"></button>
+    </form>
+    <nav id="search-history" hidden></nav>
+    <div class="search-status">
+      <span id="instructions"></span>
+    </div>
+    <main id="content">
+      <div id="status" class="empty" role="status">
+        <strong id="status-title"></strong>
+        <span id="status-detail"></span>
+      </div>
+      <div id="results" hidden></div>
+    </main>
+    <footer id="search-pages" hidden>
+      <button id="search-previous" type="button"></button>
+      <span id="search-page" role="status"></span>
+      <button id="search-next" type="button"></button>
+    </footer>
+  </section>
+</body>
+</html>

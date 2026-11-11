@@ -23,6 +23,22 @@ class GdxChatImageHistoryTest {
     }
 
     @Test
+    void removesOneImageWhileKeepingTheOrderAndReceivePreference() {
+        Properties properties = new Properties();
+        GdxChatImageHistory.setAutoReceive(properties, false);
+        GdxChatImageHistory.remember(properties, "https://one.test/a.png", false);
+        GdxChatImageHistory.remember(properties, "https://two.test/b.gif", false);
+        GdxChatImageHistory.remember(properties, "https://three.test/c.png", false);
+
+        GdxChatImageHistory.remove(properties, "https://two.test/b.gif");
+        GdxChatImageHistory.remove(properties, "https://two.test/b.gif");
+
+        assertEquals(java.util.List.of("https://one.test/a.png",
+                "https://three.test/c.png"), GdxChatImageHistory.read(properties));
+        assertFalse(GdxChatImageHistory.autoReceive(properties));
+    }
+
+    @Test
     void damagedAndNonHttpEntriesStayOutOfGallery() {
         Properties properties = new Properties();
         properties.setProperty(GdxChatImageHistory.HISTORY_KEY,
@@ -33,10 +49,10 @@ class GdxChatImageHistoryTest {
     }
 
     @Test
-    void autoReceiveDefaultsOnAndCanBeChanged() {
+    void autoReceiveDefaultsOffAndSavedChoiceIsRespected() {
         Properties properties = new Properties();
-        assertTrue(GdxChatImageHistory.autoReceive(properties));
-        GdxChatImageHistory.setAutoReceive(properties, false);
         assertFalse(GdxChatImageHistory.autoReceive(properties));
+        GdxChatImageHistory.setAutoReceive(properties, true);
+        assertTrue(GdxChatImageHistory.autoReceive(properties));
     }
 }

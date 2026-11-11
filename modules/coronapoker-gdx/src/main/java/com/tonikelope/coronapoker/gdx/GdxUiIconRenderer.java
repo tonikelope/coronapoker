@@ -26,7 +26,8 @@ final class GdxUiIconRenderer {
         CLOSE,
         SETTINGS,
         INFO,
-        BLOCKED
+        BLOCKED,
+        SHARE
     }
 
     private static final int CIRCLE_SEGMENTS = 40;
@@ -54,8 +55,22 @@ final class GdxUiIconRenderer {
             case SETTINGS -> drawSettings(shapes, centerX, centerY, size);
             case INFO -> drawInfo(shapes, centerX, centerY, size);
             case BLOCKED -> drawBlocked(shapes, centerX, centerY, size);
+            case SHARE -> drawShare(shapes, centerX, centerY, size);
             default -> { }
         }
+    }
+
+    private static void drawShare(ShapeRenderer shapes, float cx, float cy,
+            float size) {
+        float left = cx - size * 0.30f;
+        float right = cx + size * 0.28f;
+        float offset = size * 0.28f;
+        float radius = size * 0.13f;
+        shapes.rectLine(left, cy, right, cy + offset, size * 0.09f);
+        shapes.rectLine(left, cy, right, cy - offset, size * 0.09f);
+        shapes.circle(left, cy, radius, 20);
+        shapes.circle(right, cy + offset, radius, 20);
+        shapes.circle(right, cy - offset, radius, 20);
     }
 
     private static void drawAdd(ShapeRenderer shapes, float cx, float cy,

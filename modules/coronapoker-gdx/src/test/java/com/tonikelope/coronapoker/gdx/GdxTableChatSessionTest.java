@@ -107,11 +107,11 @@ final class GdxTableChatSessionTest {
         LobbyChatMessage voice = new LobbyChatMessage(2L, Instant.EPOCH,
                 "Luis", LobbyChatMessage.Type.VOICE, "UklGRg==");
 
-        assertEquals("[IMAGEN]", CoronaPokerGdxTable
+        assertEquals("envió una imagen", CoronaPokerGdxTable
                 .quickChatMessageBody(image, new GdxGameText("es")));
         assertEquals("[NOTA DE VOZ]", CoronaPokerGdxTable
                 .quickChatMessageBody(voice, new GdxGameText("es")));
-        assertEquals("[IMAGE]", CoronaPokerGdxTable
+        assertEquals("sent an image", CoronaPokerGdxTable
                 .quickChatMessageBody(image, new GdxGameText("en")));
         assertEquals("[VOICE MESSAGE]", CoronaPokerGdxTable
                 .quickChatMessageBody(voice, new GdxGameText("en")));

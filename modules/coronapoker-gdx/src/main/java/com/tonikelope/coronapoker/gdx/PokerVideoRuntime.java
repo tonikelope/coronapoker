@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import java.awt.EventQueue;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
@@ -88,7 +89,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     private volatile String loadingKey = "gdx.video.loading.player";
     private volatile String initializationError;
     private volatile boolean browserCreated;
-    private volatile boolean browserClosing;
+    private volatile LibGdxCefBrowser closingBrowser;
     private volatile boolean playerReady;
     private boolean coldPlayerBootstrapPending = true;
     private volatile boolean active = true;
@@ -181,7 +182,7 @@ final class PokerVideoRuntime implements AutoCloseable {
 
     private synchronized void openBrowserSession(int width, int height,
             double scaleFactor) throws Exception {
-        if (browser != null || browserClosing || closed.get()
+        if (browser != null || closingBrowser != null || closed.get()
                 || initializationError != null) return;
         boolean restoreAudio = restoreAudioOnNextSession;
         boolean initialMuted = restoreAudio ? resumeMuted : true;
@@ -210,7 +211,17 @@ final class PokerVideoRuntime implements AutoCloseable {
                 browserSettings, frameBuffer, width, height);
         active = true;
         frameBuffer.setAcceptingFrames(true);
-        browser.createImmediately();
+        try {
+            browser.createImmediately();
+        } catch (RuntimeException | LinkageError failure) {
+            if (!browserCreated) {
+                LibGdxCefBrowser unregistered = browser;
+                browser = null;
+                unregistered.onBeforeClose();
+            }
+            releaseBrowserSession(false);
+            throw failure;
+        }
         browser.resizeBrowser(width, height, scaleFactor);
     }
 
@@ -263,9 +274,15 @@ final class PokerVideoRuntime implements AutoCloseable {
 
             @Override
             public void onAfterCreated(CefBrowser created) {
-                if (created != browser) return;
-                logStage("browser created");
-                browserCreated = true;
+                synchronized (PokerVideoRuntime.this) {
+                    if (created == closingBrowser) {
+                        EventQueue.invokeLater(PokerVideoRuntime.this::closeReleasedBrowser);
+                        return;
+                    }
+                    if (created != browser) return;
+                    logStage("browser created");
+                    browserCreated = true;
+                }
                 created.setWindowlessFrameRate(30);
                 created.setWindowVisibility(active);
                 if (active && created instanceof LibGdxCefBrowser rendered) rendered.requestRepaint();
@@ -273,14 +290,17 @@ final class PokerVideoRuntime implements AutoCloseable {
 
             @Override
             public void onBeforeClose(CefBrowser closing) {
-                logStage("browser closed");
-                browserClosing = false;
-                if (closing == browser) {
-                    browserCreated = false;
-                    playerReady = false;
-                    browser = null;
-                    if (!closed.get()) documentLoad.failed(
-                            "El navegador del vídeo se cerró. Pulsa Reintentar.");
+                synchronized (PokerVideoRuntime.this) {
+                    logStage("browser closed");
+                    if (closing == closingBrowser) closingBrowser = null;
+                    if (closing == browser) {
+                        browserCreated = false;
+                        playerReady = false;
+                        browser = null;
+                        if (!closed.get()) documentLoad.failed(
+                                "El navegador del vídeo se cerró. Pulsa Reintentar.");
+                    }
+                    if (closed.get()) EventQueue.invokeLater(PokerVideoRuntime.this::disposeClientWhenIdle);
                 }
             }
         });
@@ -590,7 +610,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     void setActive(boolean enabled) {
-        if (active == enabled) return;
+        if (closed.get() || active == enabled) return;
         active = enabled;
         frameBuffer.setAcceptingFrames(enabled);
         LibGdxCefBrowser current = browser;
@@ -725,6 +745,7 @@ final class PokerVideoRuntime implements AutoCloseable {
     }
 
     synchronized boolean pollRecovery(boolean running) {
+        boolean browserClosing = closingBrowser != null;
         if (!running || closed.get() || (browser == null && !browserClosing)) {
             documentLoad.poll(false, false, System.nanoTime());
             return false;
@@ -760,6 +781,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         stalledPlayback.set(null);
         frameBuffer.setAcceptingFrames(false);
         LibGdxCefBrowser current = browser;
+        boolean created = browserCreated;
         restoreAudioOnNextSession = preserveAudioForResume && hadSession;
         if (!restoreAudioOnNextSession) {
             resumeMuted = true;
@@ -771,15 +793,8 @@ final class PokerVideoRuntime implements AutoCloseable {
         active = false;
         if (current != null) {
             logStage("closing browser preserveAudio=" + preserveAudioForResume);
-            browserClosing = true;
-            try {
-                current.executeJavaScript("window.coronaReportSession && "
-                        + "window.coronaReportSession();", pageUrl, 0);
-                current.setWindowVisibility(false);
-                current.setCloseAllowed();
-                current.close(true);
-            } catch (RuntimeException ignored) {
-            }
+            closingBrowser = current;
+            if (created) EventQueue.invokeLater(this::closeReleasedBrowser);
         }
         if (localPage != null) {
             localPage.close();
@@ -788,9 +803,17 @@ final class PokerVideoRuntime implements AutoCloseable {
         state = "REPRODUCTOR EN REPOSO";
     }
 
+    private void closeReleasedBrowser() {
+        LibGdxCefBrowser current = closingBrowser;
+        if (current == null) return;
+        current.setWindowVisibility(false);
+        current.setCloseAllowed();
+        current.close(true);
+    }
+
     synchronized void resumeBrowserSession(int width, int height,
             double scaleFactor) {
-        if (browser != null || browserClosing || closed.get()
+        if (browser != null || closingBrowser != null || closed.get()
                 || initializationError != null) {
             return;
         }
@@ -810,6 +833,17 @@ final class PokerVideoRuntime implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) return;
         releaseBrowserSession(false);
         PokerChromium.removeListener(cefStateListener);
-        if (client != null) client.dispose();
+        EventQueue.invokeLater(this::disposeClientWhenIdle);
+    }
+
+    private void disposeClientWhenIdle() {
+        CefClient disposing;
+        synchronized (this) {
+            if (browser != null || closingBrowser != null || client == null) return;
+            disposing = client;
+            client = null;
+            messageRouter = null;
+        }
+        PokerChromium.disposeClient(disposing);
     }
 }

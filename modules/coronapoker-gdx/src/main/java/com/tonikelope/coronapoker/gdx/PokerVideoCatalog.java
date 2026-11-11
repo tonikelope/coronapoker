@@ -15,6 +15,7 @@ final class PokerVideoCatalog {
     private List<PokerVideoSearch.Video> normal = List.of();
     private String type = PokerVideoSearch.TYPE_NORMAL;
     private boolean favoritesMode;
+    private PokerVideoSearch.Video sharedVideo;
     private long revision;
 
     PokerVideoCatalog(PokerVideoFavorites favorites) {
@@ -55,7 +56,24 @@ final class PokerVideoCatalog {
     }
 
     synchronized void toggleMode() {
+        sharedVideo = null;
         favoritesMode = !favoritesMode;
+        revision++;
+    }
+
+    synchronized void showShared(PokerVideoSearch.Video video) {
+        if (video.equals(sharedVideo)) return;
+        sharedVideo = video;
+        revision++;
+    }
+
+    synchronized boolean sharedMode() {
+        return sharedVideo != null;
+    }
+
+    synchronized void resumeCatalog() {
+        if (sharedVideo == null) return;
+        sharedVideo = null;
         revision++;
     }
 
@@ -72,6 +90,7 @@ final class PokerVideoCatalog {
     synchronized boolean hasNormalVideos() { return !normal.isEmpty(); }
     synchronized long revision() { return revision; }
     synchronized List<PokerVideoSearch.Video> videos() {
+        if (sharedVideo != null) return List.of(sharedVideo);
         return favoritesMode ? favorites.videos() : normal;
     }
 }

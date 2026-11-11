@@ -13,24 +13,26 @@ final class GdxLobbyChatLayoutTest {
 
     @Test
     void lobbyEmojiPickerPreservesBreathingRoomAroundNativeArtwork() {
-        assertEquals(54f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE);
-        assertEquals(32f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE);
+        assertEquals(72, GdxFrontendScreen.EMOJI_PAGE_SIZE);
+        assertEquals(40f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE);
+        assertEquals(38f, GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE);
         assertTrue(GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE
                 < GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE);
-        assertEquals(11f, (GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE
+        assertEquals(1f, (GdxFrontendScreen.LOBBY_EMOJI_PICKER_CELL_SIZE
                 - GdxFrontendScreen.LOBBY_EMOJI_PICKER_IMAGE_SIZE) / 2f);
     }
 
     @Test
-    void lobbyImageGalleryHasAStandardTopRightCloseControl() {
-        Rectangle close = GdxFrontendScreen.lobbyImageGalleryCloseBounds(
-                525f, 315f, 840f, 430f);
-        assertEquals(1285f, close.x);
-        assertEquals(587f, close.y);
-        assertEquals(52f, close.width);
-        assertEquals(52f, close.height);
-        assertEquals(1,
-                GdxFrontendScreen.LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES);
+    void sharedGalleryOpensLargeWithoutCoveringTheLobbyComposer() {
+        Rectangle panel = GdxImageGalleryWindow.initial(1920f, 1080f);
+        Rectangle web = GdxImageGalleryWindow.webBounds(panel);
+        var chrome = GdxFloatingGameLogLayout.layout(panel);
+        assertTrue(panel.width > 1140f);
+        assertTrue(panel.height > 720f);
+        assertTrue(panel.contains(web));
+        assertFalse(web.overlaps(chrome.headerDrag()));
+        assertFalse(web.overlaps(chrome.closeButton()));
+        assertFalse(panel.overlaps(GdxFrontendScreen.lobbyComposerInputBounds()));
     }
 
     @Test
@@ -69,7 +71,7 @@ final class GdxLobbyChatLayoutTest {
     void bubblesAreContentSizedButNeverEscapeTheConversationColumn() {
         assertEquals(300f, GdxFrontendScreen.lobbyMessageWidth(
                 LobbyChatMessage.Type.TEXT, 300f, 792f));
-        assertEquals(250f, GdxFrontendScreen.lobbyMessageWidth(
+        assertEquals(40f, GdxFrontendScreen.lobbyMessageWidth(
                 LobbyChatMessage.Type.TEXT, 40f, 792f));
         assertEquals(792f, GdxFrontendScreen.lobbyMessageWidth(
                 LobbyChatMessage.Type.TEXT, 1200f, 792f));
@@ -95,15 +97,15 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
-    void historyLayerNeverCoversTheImageOrEmojiDialogs() {
+    void historyLayerRemainsVisibleWhenThereIsRoomAndTheEmojiPickerIsClosed() {
         assertTrue(GdxFrontendScreen.shouldDrawLobbyChatLayer(
-                true, false, false, 806f, 420f));
+                true, false, 806f, 420f));
         assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
-                true, true, false, 806f, 420f));
+                false, false, 806f, 420f));
         assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
-                true, false, true, 806f, 420f));
+                true, true, 806f, 420f));
         assertFalse(GdxFrontendScreen.shouldDrawLobbyChatLayer(
-                true, false, false, 0f, 420f));
+                true, false, 0f, 420f));
     }
 
     @Test
@@ -113,18 +115,15 @@ final class GdxLobbyChatLayoutTest {
                 + GdxFrontendScreen.LOBBY_PASSWORD_HEIGHT;
         float infoTop = GdxFrontendScreen.LOBBY_GAME_INFO_Y
                 + GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT;
-        float botTop = GdxFrontendScreen.LOBBY_BOT_BUTTON_Y
-                + GdxFrontendScreen.LOBBY_BOT_BUTTON_HEIGHT;
-        float kickTop = GdxFrontendScreen.LOBBY_KICK_BUTTON_Y
-                + GdxFrontendScreen.LOBBY_KICK_BUTTON_HEIGHT;
+        float addBotTop = GdxFrontendScreen.LOBBY_ADD_BOT_Y
+                + GdxFrontendScreen.LOBBY_ADD_BOT_HEIGHT;
         float playTop = GdxFrontendScreen.LOBBY_PLAY_BUTTON_Y
                 + GdxFrontendScreen.LOBBY_PLAY_BUTTON_HEIGHT;
 
         assertTrue(passwordTop < connectionBottom);
         assertTrue(infoTop < GdxFrontendScreen.LOBBY_PASSWORD_Y);
-        assertTrue(botTop < GdxFrontendScreen.LOBBY_GAME_INFO_Y);
-        assertTrue(kickTop < GdxFrontendScreen.LOBBY_BOT_BUTTON_Y);
-        assertTrue(playTop < GdxFrontendScreen.LOBBY_KICK_BUTTON_Y);
+        assertTrue(addBotTop < GdxFrontendScreen.LOBBY_GAME_INFO_Y);
+        assertTrue(playTop < GdxFrontendScreen.LOBBY_ADD_BOT_Y);
         assertTrue(GdxFrontendScreen.LOBBY_PUBLIC_ADDRESS_BASELINE
                 - connectionBottom >= 28f,
                 "the public IP needs breathing room above the panel edge");
@@ -150,77 +149,47 @@ final class GdxLobbyChatLayoutTest {
 
     @Test
     void lobbyVoiceButtonOwnsOneStablePressAndHoldTarget() {
-        assertEquals(new Rectangle(1190f, 215f, 70f, 70f),
+        assertEquals(new Rectangle(1205f, 198f, 55f, 55f),
                 GdxFrontendScreen.lobbyVoiceButtonBounds());
-        assertEquals(new Rectangle(1175f, 215f, 85f, 70f),
-                GdxFrontendScreen.lobbyVoiceButtonBounds(true));
     }
 
     @Test
     void iconComposerGivesTheMessageFieldTheRecoveredHorizontalSpace() {
         Rectangle textInput = GdxFrontendScreen
-                .lobbyComposerInputBounds(false);
-        Rectangle imageInput = GdxFrontendScreen
-                .lobbyComposerInputBounds(true);
+                .lobbyComposerInputBounds();
         Rectangle emoji = GdxFrontendScreen
-                .lobbyComposerEmojiBounds(false);
+                .lobbyComposerEmojiBounds();
         Rectangle image = GdxFrontendScreen
-                .lobbyComposerImageBounds(false);
-        Rectangle voice = GdxFrontendScreen.lobbyVoiceButtonBounds(false);
+                .lobbyComposerImageBounds();
+        Rectangle voice = GdxFrontendScreen.lobbyVoiceButtonBounds();
 
-        assertEquals(495f, textInput.width);
-        assertEquals(150f, textInput.width - imageInput.width);
+        assertEquals(540f, textInput.width);
         assertEquals(10f, emoji.x - (textInput.x + textInput.width));
         assertEquals(10f, image.x - (emoji.x + emoji.width));
         assertEquals(10f, voice.x - (image.x + image.width));
-        assertEquals(70f, emoji.width);
-        assertEquals(70f, image.width);
-        assertEquals(70f, voice.width);
-    }
-
-    @Test
-    void everyLobbyInformationRowStaysInsideItsFrameAtMaximumOccupancy() {
-        int maximumVisibleRows = 3;
-        float bottom = GdxFrontendScreen.LOBBY_GAME_INFO_Y;
-        float top = bottom + GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT;
-        float previous = Float.POSITIVE_INFINITY;
-        for (int index = 0; index < maximumVisibleRows; index++) {
-            float baseline = GdxFrontendScreen.lobbyInfoRowBaseline(bottom,
-                    GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT,
-                    maximumVisibleRows, index);
-            assertTrue(baseline > bottom + 14f);
-            assertTrue(baseline < top - 14f);
-            assertTrue(baseline < previous);
-            previous = baseline;
+        assertEquals(55f, emoji.width);
+        assertEquals(55f, image.width);
+        assertEquals(55f, voice.width);
+        for (Rectangle control : List.of(textInput, emoji, image,
+                voice)) {
+            assertEquals(GdxFrontendScreen.LOBBY_PLAY_BUTTON_Y, control.y);
+            assertEquals(GdxFrontendScreen.LOBBY_PLAY_BUTTON_HEIGHT,
+                    control.height);
         }
     }
 
     @Test
-    void inTableGalleryKeepsEightLargeThumbnailsInsideItsPanel() {
-        Rectangle panel = new Rectangle(80f, 120f, 1072f, 500f);
-        Rectangle[] cells = new Rectangle[8];
-        for (int index = 0; index < cells.length; index++) {
-            cells[index] = CoronaPokerGdxTable.tableGalleryCellBounds(index,
-                    panel.x, panel.y, panel.width, panel.height);
-            assertTrue(panel.contains(cells[index]));
-            assertTrue(cells[index].width > 240f);
-            assertTrue(cells[index].height > 220f);
-            for (int previous = 0; previous < index; previous++) {
-                assertTrue(!cells[index].overlaps(cells[previous]));
-            }
+    void lobbyInformationRowsFillTheBodyWithEqualPaddingWithOrWithoutBlindCap() {
+        int maximumRows = GdxLobbyGameSummary.MAX_ROWS;
+        for (int rowCount : new int[]{maximumRows - 1, maximumRows}) {
+            float rowHeight = GdxFrontendScreen.lobbyInfoRowHeight(rowCount);
+            assertTrue(rowHeight >= GdxFrontendScreen.LOBBY_GAME_INFO_MIN_ROW_HEIGHT);
+            assertEquals(GdxFrontendScreen.LOBBY_GAME_INFO_HEIGHT,
+                    GdxFrontendScreen.LOBBY_GAME_INFO_HEADER_HEIGHT
+                    + rowHeight * rowCount
+                    + 2f * GdxFrontendScreen.LOBBY_GAME_INFO_BODY_PADDING,
+                    0.01f);
         }
-    }
-
-    @Test
-    void inTableGalleryPresentsCompleteChromeBeforeThumbnailContent() {
-        assertEquals(0.16f,
-                CoronaPokerGdxTable.TABLE_IMAGE_GALLERY_CHROME_SECONDS);
-        assertFalse(CoronaPokerGdxTable.tableImageGalleryContentReady(
-                10f, 10f));
-        assertFalse(CoronaPokerGdxTable.tableImageGalleryContentReady(
-                10f, 10.159f));
-        assertTrue(CoronaPokerGdxTable.tableImageGalleryContentReady(
-                10f, 10.17f));
     }
 
 }

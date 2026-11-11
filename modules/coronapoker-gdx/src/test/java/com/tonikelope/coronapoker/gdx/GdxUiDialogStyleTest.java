@@ -47,9 +47,6 @@ final class GdxUiDialogStyleTest {
         assertMethodSectionUses(table, "private void drawActiveDialog()",
                 "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
-                "private void drawTableImageClearConfirmation()",
-                "GdxUiDialogStyle.drawPanel(");
-        assertMethodSectionUses(table,
                 "private void drawCanonicalConfirmationDialog(",
                 "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
@@ -248,32 +245,6 @@ final class GdxUiDialogStyleTest {
                 signature + " must use " + expected);
     }
 
-    @Test
-    void galleryHeaderKeepsReadableActionsAndAnEmphaticCloseControl() {
-        GdxUiDialogStyle.GalleryHeaderLayout layout
-                = GdxUiDialogStyle.galleryHeaderLayout(
-                        390f, 180f, 1140f, 720f, true);
-
-        assertEquals(220f, layout.searchButton().width);
-        assertEquals(220f, layout.autoReceiveButton().width);
-        assertEquals(142f, layout.clearButton().width);
-        assertEquals(52f, layout.closeButton().width);
-        assertEquals(52f, layout.closeButton().height);
-        assertEquals(168f, GdxUiButtonStyle.labelContentWidth(
-                layout.searchButton().width));
-        assertEquals(107.92f, GdxUiButtonStyle.labelContentWidth(
-                layout.clearButton().width), 0.001f);
-        assertTrue(layout.title().x + layout.title().width
-                < layout.searchButton().x);
-        assertTrue(layout.searchButton().x + layout.searchButton().width
-                < layout.autoReceiveButton().x);
-        assertTrue(layout.autoReceiveButton().x
-                + layout.autoReceiveButton().width
-                < layout.clearButton().x);
-        assertTrue(layout.clearButton().x + layout.clearButton().width
-                < layout.closeButton().x);
-        assertEquals("\u00d7", GdxUiDialogStyle.CLOSE_GLYPH);
-    }
 
     @Test
     void everyRendererUsesTheGeometricallyCenteredCloseIcon()

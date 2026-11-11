@@ -329,23 +329,21 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
-    void quickChatRemainsAPlainTablePanelWhileImageGalleryIsModal() {
+    void quickChatAndTheFloatingLogKeepTheTableSharp() {
         assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_NONE, false));
+                CoronaPokerGdxTable.UI_NONE));
         assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_CHAT, false));
+                CoronaPokerGdxTable.UI_CHAT));
         assertFalse(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_GAME_LOG, false));
+                CoronaPokerGdxTable.UI_GAME_LOG));
         assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_CHAT, true));
-        assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_SETTINGS, false));
+                CoronaPokerGdxTable.UI_SETTINGS));
     }
 
     @Test
     void everySettingsSubpageUsesTheSharedBlurredTableBackdrop() {
         assertTrue(CoronaPokerGdxTable.uiLayerUsesBackdropBlur(
-                CoronaPokerGdxTable.UI_SETTINGS, false));
+                CoronaPokerGdxTable.UI_SETTINGS));
     }
 
     @Test

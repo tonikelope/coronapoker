@@ -26,7 +26,13 @@ final class GdxTableChatFeed {
     }
 
     record Line(Kind kind, String sender, String text, boolean local,
-            long voiceSequence, CompletionStage<GdxVoiceNoteLibrary.Entry> voiceFile) {
+            long voiceSequence, CompletionStage<GdxVoiceNoteLibrary.Entry> voiceFile,
+            PokerVideoSearch.Video video) {
+
+        Line(Kind kind, String sender, String text, boolean local,
+                long voiceSequence, CompletionStage<GdxVoiceNoteLibrary.Entry> voiceFile) {
+            this(kind, sender, text, local, voiceSequence, voiceFile, null);
+        }
 
         static Line notice(Kind kind, String sender, String text) {
             return new Line(kind, sender, text, false, -1, null);

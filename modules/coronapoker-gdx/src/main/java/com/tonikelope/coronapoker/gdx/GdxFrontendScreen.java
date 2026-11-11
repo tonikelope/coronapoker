@@ -20,6 +20,7 @@ import com.badlogic.gdx.graphics.Texture.TextureWrap;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
@@ -32,6 +33,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.IdenticonFingerprint;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
@@ -179,31 +181,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float LOBBY_CONNECTION_RIGHT_PADDING = 16f;
     static final float LOBBY_CONNECTION_STATUS_WIDTH = 98f;
     static final float LOBBY_CONNECTION_STATUS_GAP = 12f;
-    static final float LOBBY_PASSWORD_Y = 608f;
-    static final float LOBBY_PASSWORD_HEIGHT = 48f;
+    static final float LOBBY_PASSWORD_Y = 622f;
+    static final float LOBBY_PASSWORD_HEIGHT = 40f;
     static final float LOBBY_PASSWORD_DIALOG_HINT_Y = 470f;
-    static final float LOBBY_GAME_INFO_Y = 454f;
-    static final float LOBBY_GAME_INFO_HEIGHT = 138f;
-    static final float LOBBY_BOT_BUTTON_Y = 370f;
-    static final float LOBBY_BOT_BUTTON_HEIGHT = 62f;
-    static final float LOBBY_KICK_BUTTON_Y = 292f;
-    static final float LOBBY_KICK_BUTTON_HEIGHT = 62f;
+    static final float LOBBY_GAME_INFO_Y = 320f;
+    static final float LOBBY_GAME_INFO_HEADER_HEIGHT = 42f;
+    static final float LOBBY_GAME_INFO_MIN_ROW_HEIGHT = 22f;
+    static final float LOBBY_GAME_INFO_BODY_PADDING = 5f;
+    static final float LOBBY_GAME_INFO_HEIGHT = LOBBY_GAME_INFO_HEADER_HEIGHT
+            + GdxLobbyGameSummary.MAX_ROWS * LOBBY_GAME_INFO_MIN_ROW_HEIGHT
+            + 2f * LOBBY_GAME_INFO_BODY_PADDING;
+    static final float LOBBY_ADD_BOT_Y = 265f;
+    static final float LOBBY_ADD_BOT_HEIGHT = 44f;
     static final float LOBBY_PLAY_BUTTON_Y = 198f;
-    static final float LOBBY_PLAY_BUTTON_HEIGHT = 76f;
+    static final float LOBBY_PLAY_BUTTON_HEIGHT = 55f;
     static final float LOBBY_CLOCK_Y = 888f;
     static final float LOBBY_ROSTER_TITLE_BASELINE = 795f;
     static final float LOBBY_ROSTER_COUNT_X = 1828f;
     static final float LOBBY_ROSTER_COUNT_BASELINE = 799f;
     static final float LOBBY_ROSTER_COUNT_WIDTH = 72f;
     private static final float LOBBY_COMPOSER_X = 525f;
-    private static final float LOBBY_COMPOSER_Y = 215f;
-    private static final float LOBBY_COMPOSER_HEIGHT = 70f;
+    private static final float LOBBY_COMPOSER_Y = LOBBY_PLAY_BUTTON_Y;
+    private static final float LOBBY_COMPOSER_HEIGHT = LOBBY_PLAY_BUTTON_HEIGHT;
     private static final float LOBBY_COMPOSER_GAP = 10f;
-    private static final float LOBBY_COMPOSER_ICON_WIDTH = 70f;
+    private static final float LOBBY_COMPOSER_ICON_WIDTH = LOBBY_COMPOSER_HEIGHT;
     private static final float LOBBY_COMPOSER_SEND_X = 1270f;
     private static final float LOBBY_COMPOSER_SEND_WIDTH = 95f;
-    private static final float LOBBY_TEXT_INPUT_WIDTH = 495f;
-    private static final float LOBBY_IMAGE_INPUT_WIDTH = 345f;
+    private static final float LOBBY_TEXT_INPUT_WIDTH = LOBBY_COMPOSER_SEND_X
+            - LOBBY_COMPOSER_X - 3f * LOBBY_COMPOSER_ICON_WIDTH
+            - 4f * LOBBY_COMPOSER_GAP;
     private static final float MENU_REVEAL_SECONDS = 0.78f;
     private static final URI PUBLIC_ADDRESS_URI = URI.create(
             "https://api.ipify.org");
@@ -280,13 +286,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Color LATENCY_ORANGE = new Color(0xff9800ff);
     private static final Color LATENCY_RED = new Color(0xf44336ff);
     private static final Color LATENCY_STALE = new Color(0x9e9e9eff);
-    private static final int EMOJI_COUNT = 1826;
-    private static final int EMOJI_COLUMNS = 8;
-    private static final int EMOJI_ROWS = 4;
-    private static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
-    static final float LOBBY_EMOJI_PICKER_CELL_SIZE = 54f;
-    static final float LOBBY_EMOJI_PICKER_IMAGE_SIZE = 32f;
-    static final int LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES = 1;
+    private static final int EMOJI_COUNT = GdxEmojiAtlas.COUNT;
+    private static final int EMOJI_COLUMNS = 12;
+    private static final int EMOJI_ROWS = 6;
+    static final int EMOJI_PAGE_SIZE = EMOJI_COLUMNS * EMOJI_ROWS;
+    static final float LOBBY_EMOJI_PICKER_CELL_SIZE = 40f;
+    static final float LOBBY_EMOJI_PICKER_IMAGE_SIZE = 38f;
     private static final Pattern EMOJI_TOKEN = Pattern.compile("#([0-9]{1,4})#");
     private static final Pattern CHAT_WRAP_TOKEN = Pattern.compile(
             "#[0-9]{1,4}#|\\s+|[^\\s#]+|#");
@@ -302,6 +307,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float CUSTOM_BOT_ROWS_TOP = 792f;
     private static final float COMPOSER_EMOJI_SIZE = 32f;
     private static final float COMPOSER_EMOJI_ADVANCE = 36f;
+    private static final float LOBBY_CHAT_EMOJI_SIZE = 27f;
+    private static final float LOBBY_CHAT_EMOJI_ADVANCE = 31f;
+    private static final float LOBBY_CHAT_BUBBLE_PADDING = 14f;
+    private static final float LOBBY_CHAT_HEADER_AVATAR_OFFSET = 38f;
+    private static final float LOBBY_VIDEO_LINK_TITLE_INSET = 37f;
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
             .ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final DateTimeFormatter LOBBY_CLOCK = DateTimeFormatter
@@ -325,8 +335,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float STATS_SYNC_SHARE_GROUP_X = 950f;
     static final float STATS_SYNC_SHARE_GROUP_WIDTH = 630f;
     private static final float STATS_EVIDENCE_LINE_HEIGHT = 28f;
-    private static final URI GOOGLE_IMAGES_URI = URI.create(
-            "https://images.google.com/");
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
@@ -410,10 +418,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<CustomBotProfile> customBotProfiles =
             new ArrayList<>();
     private final Color customBotSelectionBorder = new Color();
-    private final Map<Integer, Texture> emojiTextures = new HashMap<>();
+    private GdxEmojiAtlas emojiAtlas;
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
-    private final GdxChatGalleryMedia lobbyHistoryMedia =
-            new GdxChatGalleryMedia();
+    private final GdxImageGalleryWindow lobbyGallery = new GdxImageGalleryWindow();
     private final Map<String, Float> toggleAnimations = new HashMap<>();
     private final GdxToggleTransitionStore settingsToggleTransitions =
             new GdxToggleTransitionStore();
@@ -464,8 +471,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture soundIcon;
     private Texture muteIcon;
     private Texture talkIcon;
-    private Texture lobbyImageIcon;
-    private Texture lobbyVoiceIcon;
+    private TextureRegion lobbyImageIcon;
+    private TextureRegion lobbyVoiceIcon;
     private Texture aboutMourningIcon;
     private Texture aboutBookIcon;
     private Texture aboutCrossIcon;
@@ -581,22 +588,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxNetworkBlockCache networkBlockCache;
     private AutoCloseable lobbySubscription;
     private String lobbyChatDraft = "";
+    private final GdxSentChatHistory lobbyChatHistory = new GdxSentChatHistory();
     private long selectedLobbyChatSequence = -1L;
     private float lobbyTextSendAllowedAt;
     private float lobbyChatScroll;
     private int lobbyChatMessageCount;
     private float lobbyChatContentHeight;
+    private LobbyChatLayout lobbyChatLayout;
     private final Rectangle lobbyChatScrollTrack = new Rectangle();
     private final Rectangle lobbyChatViewport = new Rectangle();
     private float lobbyChatScrollThumbHeight;
     private float lobbyChatScrollMaximum;
-    private String lobbyImageDraft = "";
-    private List<String> lobbyImageHistory = List.of();
     private float lobbyImageSendAllowedAt;
     private boolean lobbyEmojiPickerOpen;
-    private boolean lobbyImageMode;
-    private boolean lobbyImageClearConfirmation;
-    private int lobbyImageGalleryContentDelayFrames;
     private int lobbyEmojiPage;
     private volatile GdxVoiceRecorder lobbyVoiceRecorder;
     private boolean lobbyVoiceOpening;
@@ -610,11 +614,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private long lobbyChatVoiceSequence = -1L;
     private boolean lobbyChatVoicePaused;
     private long lastLobbyMediaSequence = -1L;
-    private String selectedParticipant;
     private FingerprintDialog fingerprintDialog;
     private boolean lobbyCommandPending;
     private boolean lobbyGameStarting;
     private LobbyConfirmation lobbyConfirmation;
+    private LobbyParticipant lobbyKickTarget;
     private final ArrayDeque<String> identityChangeNotices =
             new ArrayDeque<>();
     private boolean lobbyPasswordDialog;
@@ -926,8 +930,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon = filteredTexture("images/sound.png");
         muteIcon = filteredTexture("images/mute.png");
         talkIcon = filteredTexture("images/talk.png");
-        lobbyImageIcon = filteredTexture("images/fast_panel/image.png");
-        lobbyVoiceIcon = filteredTexture("images/fast_panel/mic.png");
+        lobbyImageIcon = new TextureRegion(
+                filteredTexture("images/fast_panel/image.png"));
+        lobbyVoiceIcon = new TextureRegion(
+                filteredTexture("images/fast_panel/mic.png"));
+        emojiAtlas = GdxEmojiAtlas.retain();
         aboutMourningIcon = filteredTexture("images/luto.png");
         aboutBookIcon = silhouetteTexture("images/open-book.png",
                 new Color(0xeaf8ffff));
@@ -1126,6 +1133,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         volumeOverlayFont = nextVolume;
         smallFont = nextSmall;
         tinyFont = nextTiny;
+        lobbyChatLayout = null;
         versionFont = nextVersion;
         fpsFont = nextFps;
         debugLogFont = nextDebugLog;
@@ -1225,6 +1233,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void activateSurface(Surface next) {
         Objects.requireNonNull(next, "next");
         if (surface != next) {
+            if (surface == Surface.LOBBY) lobbyGallery.close();
             hoverAnimations.clear();
             if (initialBuyinInput != null) closeInitialBuyinEditor();
         }
@@ -1315,7 +1324,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
         boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
         updatePokerVideo((surface == Surface.MENU || surface == Surface.LOBBY)
-                && !lobbyLoadingOverlay && !hasBlockingFrontendModal(), frameDelta);
+                && !lobbyLoadingOverlay && !hasBlockingFrontendModal(), frameDelta,
+                surface == Surface.LOBBY && lobbySession != null
+                        ? this::shareLobbyVideo : null);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!lobbyLoadingOverlay || !backdropBlurActive) {
@@ -1421,12 +1432,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         batch.begin();
         drawLobbyAvatarsInCurrentBatch();
-        batch.setColor(Color.WHITE);
-        for (UiImageItem item : uiImages) {
-            batch.setColor(item.tint);
-            batch.draw(item.texture, item.x, item.y, item.width, item.height);
-        }
-        batch.setColor(Color.WHITE);
+        drawUiImagesInCurrentBatch();
         for (TextItem item : texts) {
             drawTextItem(item);
         }
@@ -1446,6 +1452,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         drawPokerVideoTopLayer();
 
+        if (surface == Surface.LOBBY && lobbyGallery.isOpen()) {
+            lobbyGallery.draw(shapes, batch, headingFont, smallFont, gameText, pointer.x, pointer.y);
+        }
         drawStartupMenuReveal();
 
         if (blurModalBackdrop) {
@@ -1477,7 +1486,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         if (!rootSurfaceModal) {
-            if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()) {
+            if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()
+                    && !lobbyGallery.contains(pointer.x, pointer.y)) {
                 drawTooltipTopLayer();
             } else if (!customBotManagerOpen
                     || customBotDeleteConfirmation) {
@@ -1617,8 +1627,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawIdentityChangeNotice();
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
-            } else if (lobbyImageClearConfirmation) {
-                drawLobbyImageClearConfirmation();
             } else {
                 drawLobbyLoadingOverlay();
             }
@@ -1639,13 +1647,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawCustomBotManagerImages();
             } else if (rootSurfaceModal) {
                 drawLobbyAvatarsInCurrentBatch();
-                batch.setColor(Color.WHITE);
-                for (UiImageItem item : uiImages) {
-                    batch.setColor(item.tint);
-                    batch.draw(item.texture, item.x, item.y,
-                            item.width, item.height);
-                }
-                batch.setColor(Color.WHITE);
+                drawUiImagesInCurrentBatch();
             } else if (aboutOpen && handGeneratorOpen) {
                 drawHandGeneratorCards();
             } else if (aboutOpen && aboutEasterEggTexture == null) {
@@ -1972,13 +1974,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
     }
 
-    void updatePokerVideo(boolean visible, float delta) {
+    void updatePokerVideo(boolean visible, float delta,
+            Consumer<PokerVideoSearch.Video> shareAction) {
         boolean pokerVideosAvailable = PokerVideoIcon.systemEnabled(
                 PokerVideoPlatformSupport.isAvailable(),
                 preferenceBoolean("animaciones", true));
         pokerVideoOverlay.updateWindowAnimation(preferenceBoolean(
                 GdxSettingsContract.POKER_VIDEO_WINDOW_ANIMATION_KEY, true),
                 delta);
+        pokerVideoOverlay.setShareAction(shareAction);
         pokerVideoOverlay.update(pokerVideosAvailable,
                 pokerVideosAvailable && preferenceBoolean(
                         GdxSettingsContract.POKER_VIDEOS_KEY, true),
@@ -1986,6 +1990,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.language(), initialProperties.getProperty(
                         GdxSettingsContract.POKER_VIDEO_TYPE_KEY,
                         PokerVideoSearch.TYPE_NORMAL), WIDTH, HEIGHT);
+    }
+
+    void openChatVideo(PokerVideoSearch.Video video, Consumer<String> notice) {
+        if (!preferenceBoolean("animaciones", true) || !preferenceBoolean(
+                GdxSettingsContract.POKER_VIDEOS_KEY, true)) {
+            notice.accept(gameText.translate("gdx.video.share.disabled"));
+        } else if (!PokerVideoPlatformSupport.isAvailable()) {
+            notice.accept(gameText.translate("gdx.video.share.unavailable"));
+        } else {
+            pokerVideoOverlay.openSharedVideo(video);
+        }
     }
 
     void resetMediaInput() {
@@ -2045,6 +2060,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.setShader(null);
     }
 
+    private void drawUiImagesInCurrentBatch() {
+        boolean pickerSampling = false;
+        for (UiImageItem item : uiImages) {
+            if (pickerSampling != item.pickerEmoji()) {
+                pickerSampling = item.pickerEmoji();
+                if (pickerSampling) {
+                    emojiAtlas.beginPickerSampling(batch, SPRITE_VERTEX_SHADER,
+                            LOBBY_EMOJI_PICKER_IMAGE_SIZE, viewport);
+                } else {
+                    batch.setShader(null);
+                }
+            }
+            item.drawImage(batch, viewport);
+        }
+        if (pickerSampling) batch.setShader(null);
+        batch.setColor(Color.WHITE);
+    }
+
     private boolean hasVisibleFrontendModal() {
         return applicationExitConfirmation
                 || avatarCropSession != null
@@ -2057,7 +2090,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || (surface == Surface.LOBBY
                 && (lobbyConfirmation != null || lobbyPasswordDialog
                         || networkBlocksOpen
-                        || lobbyImageClearConfirmation
                         || !identityChangeNotices.isEmpty()
                         || lobbyPreparationUsesBackdropBlur(
                                 lobbyGameStarting, lobby)
@@ -2116,8 +2148,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !lobbyPasswordDialog
                 && fingerprintDialog == null
                 && identityChangeNotices.isEmpty()
-                && lobbyConfirmation == null
-                && !lobbyImageClearConfirmation;
+                && lobbyConfirmation == null;
     }
 
     /**
@@ -2285,20 +2316,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyChatScroll = 0;
         lobbyChatMessageCount = lobby.chat().size();
         lobbyChatContentHeight = 0f;
-        lobbyImageDraft = "";
-        lobbyImageHistory = GdxChatImageHistory.read(initialProperties);
         lobbyImageSendAllowedAt = 0f;
         lobbyVoiceStatus = "";
         lastLobbyMediaSequence = lobby.chat().stream()
                 .mapToLong(LobbyChatMessage::sequence).max().orElse(-1L);
         clearLobbyMedia();
-        refreshLobbyHistoryMedia();
         for (LobbyChatMessage message : lobby.chat()) {
             if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 loadLobbyImage(message);
             }
         }
-        selectedParticipant = null;
         lastLobbyNoticeIdentity = "";
         if (lobby.host()) {
             List<String> addresses = hostAddressOptions.size() > 1
@@ -2317,6 +2344,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 LobbySnapshot previous = lobby;
                 playLobbyRosterChange(previous, next);
                 lobby = next;
+                if (next.startingOrStarted()) lobbyGallery.close();
+                if (lobbyConfirmation == LobbyConfirmation.KICK
+                        && !lobbyHasKickTarget(next, lobbyKickTarget)) {
+                    closeLobbyConfirmation();
+                }
                 presentLobbyNotice(previous, next);
                 if (surface == Surface.SETTINGS
                         && settingsReturnSurface == Surface.LOBBY
@@ -6116,10 +6148,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
                     this::copyLobbyConnectionData);
         }
-        drawLobbyGameInfo(state, LOBBY_LEFT_CONTENT_X,
-                state.host() ? LOBBY_GAME_INFO_Y : 516f,
-                LOBBY_LEFT_CONTENT_WIDTH,
-                state.host() ? LOBBY_GAME_INFO_HEIGHT : 138f);
+        drawLobbyGameInfo(state, state.host() ? LOBBY_GAME_INFO_Y
+                : connectionY - 12f - LOBBY_GAME_INFO_HEIGHT);
         if (state.host()) {
             lobbyPasswordButton(LOBBY_LEFT_ACTION_X, LOBBY_PASSWORD_Y,
                     LOBBY_LEFT_ACTION_WIDTH, LOBBY_PASSWORD_HEIGHT,
@@ -6129,21 +6159,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             ? "" : connection.password()),
                     this::openLobbyPasswordDialog,
                     !lobbyCommandPending && !state.startingOrStarted());
-            lobbyBotButton(LOBBY_LEFT_ACTION_X, LOBBY_BOT_BUTTON_Y,
-                    LOBBY_LEFT_ACTION_WIDTH,
-                    LOBBY_BOT_BUTTON_HEIGHT,
+            lobbyBotButton(LOBBY_LEFT_ACTION_X, LOBBY_ADD_BOT_Y,
+                    LOBBY_LEFT_ACTION_WIDTH, LOBBY_ADD_BOT_HEIGHT,
                     uppercase(gameText.translate("ui.anadir_bot")),
                     () -> submitLobbyCommand(new LobbyCommand.AddBot(), null),
                     !lobbyCommandPending && lobbyCanAddBot(state));
-            boolean kickEnabled = selectedRemoteParticipant(state) != null
-                    && !state.startingOrStarted();
-            themedButton(LOBBY_LEFT_ACTION_X, LOBBY_KICK_BUTTON_Y,
-                    LOBBY_LEFT_ACTION_WIDTH,
-                    LOBBY_KICK_BUTTON_HEIGHT,
-                    uppercase(gameText.translate("ui.expulsar_jugador")),
-                    ButtonTone.DANGER,
-                    this::requestKickSelectedParticipant,
-                    !lobbyCommandPending && kickEnabled);
             themedButton(LOBBY_LEFT_ACTION_X, LOBBY_PLAY_BUTTON_Y,
                     LOBBY_LEFT_ACTION_WIDTH,
                     LOBBY_PLAY_BUTTON_HEIGHT,
@@ -6153,57 +6173,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     !lobbyCommandPending && state.participants().size() >= 2
                             && !state.startingOrStarted());
         } else {
-            textFit(uiFont, lobbyPhaseText(state), 250f, 306f,
+            textFit(uiFont, lobbyPhaseText(state), 250f, 350f,
                     MUTED, true, 340f);
         }
 
         lobbyPanel(495f, 180f, 900f, 650f,
                 uppercase(gameText.translate("chat.chat_de_la_timba")));
-        if (lobbyImageMode) {
-            drawLobbyImageGallery(525f, 315f, 840f, 430f);
-        } else if (!lobbyEmojiPickerOpen) {
-            drawLobbyMessages(state.chat(), 525f, 744f, 840f);
+        if (!lobbyEmojiPickerOpen) {
+            drawLobbyMessages(state.chat());
         }
-        Rectangle inputBounds = lobbyComposerInputBounds(lobbyImageMode);
-        Rectangle emojiBounds = lobbyComposerEmojiBounds(lobbyImageMode);
-        Rectangle imageBounds = lobbyComposerImageBounds(lobbyImageMode);
-        Rectangle voiceBounds = lobbyVoiceButtonBounds(lobbyImageMode);
-        drawLobbyChatInput(inputBounds.x, inputBounds.y, inputBounds.width);
+        Rectangle emojiBounds = lobbyComposerEmojiBounds();
+        Rectangle imageBounds = lobbyComposerImageBounds();
+        Rectangle voiceBounds = lobbyVoiceButtonBounds();
+        drawLobbyInput(lobbyComposerInputBounds(), "lobbyChat", lobbyChatDraft,
+                "gdx.lobby.message_placeholder");
         Runnable toggleEmoji = () -> {
-            boolean wasImageMode = lobbyImageMode;
-            lobbyImageMode = false;
-            lobbyImageClearConfirmation = false;
-            lobbyEmojiPickerOpen = !wasImageMode && !lobbyEmojiPickerOpen;
+            lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
             activateField("lobbyChat");
         };
-        Runnable toggleImages = () -> {
-            if (lobbyImageMode) {
-                openGoogleImages();
-                return;
-            }
-            lobbyEmojiPickerOpen = false;
-            lobbyImageMode = true;
-            lobbyImageGalleryContentDelayFrames =
-                    LOBBY_IMAGE_GALLERY_CONTENT_DELAY_FRAMES;
-            activateField("lobbyImage");
-            refreshLobbyHistoryMedia();
-        };
-        if (lobbyImageMode) {
-            compactButton(emojiBounds.x, emojiBounds.y,
-                    emojiBounds.width, emojiBounds.height,
-                    uppercase(gameText.translate("gdx.table.chat.text")),
-                    false, toggleEmoji);
-            compactButton(imageBounds.x, imageBounds.y,
-                    imageBounds.width, imageBounds.height,
-                    uppercase(gameText.translate("gdx.lobby.search_images")),
-                    false, toggleImages);
-        } else {
-            compactIconButton(emojiBounds, lobbyEmojiTexture(1),
-                    lobbyEmojiPickerOpen ? "tooltip.chat.emoji_close"
-                            : "tooltip.chat.emoji_open", toggleEmoji, true, 44f);
-            compactIconButton(imageBounds, lobbyImageIcon,
-                    "tooltip.chat.images", toggleImages, true, 44f);
-        }
+        compactIconButton(emojiBounds, emojiAtlas.emoji(1),
+                lobbyEmojiPickerOpen ? "tooltip.chat.emoji_close"
+                        : "tooltip.chat.emoji_open", toggleEmoji, true, 44f);
+        compactIconButton(imageBounds, lobbyImageIcon,
+                "tooltip.chat.images", this::toggleLobbyImageGallery, true, 44f);
         boolean voiceAllowed = canUseLobbyVoice();
         boolean voiceEnabled = voiceAllowed && !lobbyCommandPending
                 && !lobbyVoiceStopping;
@@ -6216,33 +6208,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             voiceTooltip = voiceEnabled ? "tooltip.chat.voice_hold"
                     : "tooltip.chat.voice_busy";
         }
-        if (lobbyImageMode) {
-            compactButton(voiceBounds.x, voiceBounds.y,
-                    voiceBounds.width, voiceBounds.height,
-                    uppercase(gameText.translate(lobbyVoiceLive
-                            || lobbyVoiceOpening
-                                    ? "audio.preview_parar"
-                                    : "gdx.lobby.voice")), false,
-                    () -> { }, voiceEnabled);
-            tooltip(voiceBounds.x, voiceBounds.y, voiceBounds.width,
-                    voiceBounds.height, voiceTooltip);
-        } else {
-            compactIconButton(voiceBounds, lobbyVoiceIcon,
-                    voiceTooltip, () -> { }, voiceEnabled, 46f);
-        }
+        compactIconButton(voiceBounds, lobbyVoiceIcon,
+                voiceTooltip, () -> { }, voiceEnabled, 46f);
         compactButton(LOBBY_COMPOSER_SEND_X, LOBBY_COMPOSER_Y,
                 LOBBY_COMPOSER_SEND_WIDTH, LOBBY_COMPOSER_HEIGHT,
                 uppercase(gameText.translate("ui.enviar")), true,
-                this::sendLobbyComposer,
-                !lobbyCommandPending && !(lobbyImageMode
-                        ? lobbyImageDraft : lobbyChatDraft).isBlank()
-                        && (lobbyImageMode || lobbyTextSendReady(
-                                elapsed, lobbyTextSendAllowedAt,
-                                lobbyChatDraft)));
+                this::sendLobbyText,
+                !lobbyCommandPending && lobbyTextSendReady(
+                        elapsed, lobbyTextSendAllowedAt, lobbyChatDraft));
         if (lobbyEmojiPickerOpen) {
             drawLobbyEmojiPicker(525f, 315f, 840f, 390f);
         } else if (!lobbyVoiceStatus.isEmpty()) {
-            drawLobbyVoiceStatus(535f, 312f, 820f);
+            drawLobbyVoiceStatus(535f, lobbyGallery.isOpen() ? 132f : 312f,
+                    820f, lobbyGallery.isOpen());
         }
 
         lobbyPanel(1425f, 180f, 460f, 650f, "");
@@ -6257,7 +6235,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.rect(1455f, 759f, 400f, 1f);
         float participantY = 705f;
         for (LobbyParticipant participant : state.participants()) {
-            drawLobbyParticipant(participant, 1450f, participantY, 410f, 54f);
+            drawLobbyParticipant(state, participant, 1450f, participantY,
+                    410f, 54f);
             participantY -= 57f;
         }
 
@@ -6320,12 +6299,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         System.currentTimeMillis()));
     }
 
-    private void drawLobbyParticipant(LobbyParticipant participant, float x,
-            float y, float w, float h) {
-        boolean selected = participant.nickname().equals(selectedParticipant);
-        Color border = selected ? GOLD : participant.secure() ? LINE : ORANGE;
-        outerBox(x, y, w, h, border,
-                selected ? new Color(0x20324cee) : PANEL_LIGHT);
+    private void drawLobbyParticipant(LobbySnapshot state,
+            LobbyParticipant participant, float x, float y, float w, float h) {
+        outerBox(x, y, w, h, participant.secure() ? LINE : ORANGE,
+                PANEL_LIGHT);
         lobbyAvatars.add(new LobbyAvatarItem(lobbyAvatar(participant),
                 x + 8f, y + 6f, 42f));
         shapes.setColor(lobbyLatencyColor(participant));
@@ -6335,21 +6312,41 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(x + 43f, y + h / 2f - 12f, 24f, 24f,
                 "gdx.table.latency_tooltip",
                 effectiveLatency < 0 ? "-" : Integer.toString(effectiveLatency));
-        textFit(smallFont, participant.nickname(), x + 68f, y + 35f,
-                participant.asyncWaiting() ? DISABLED : Color.WHITE,
-                false, w - 190f);
+        float right = x + w - 10f;
+        if (lobbyShowsKickButton(state, participant)) {
+            float buttonSize = 34f;
+            float buttonX = right - buttonSize;
+            float buttonY = y + (h - buttonSize) / 2f;
+            themedButton(buttonX, buttonY, buttonSize, buttonSize,
+                    GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
+                    () -> requestLobbyKick(participant),
+                    !lobbyCommandPending && !state.startingOrStarted());
+            tooltip(buttonX, buttonY, buttonSize, buttonSize,
+                    "ui.expulsar_jugador");
+            right = buttonX - 12f;
+        }
         String role = participant.local() ? gameText.translate("gdx.lobby.you")
                 : participant.host() ? "HOST" : participant.bot() ? "BOT" : "";
+        String latency = participant.latencyAvailable()
+                ? (participant.latency() >= 0 ? participant.latency() : "-") + " ms"
+                : "";
+        float statusWidth = Math.max(textWidth(tinyFont, role),
+                textWidth(tinyFont, latency));
+        float nameX = x + 68f;
+        textFit(smallFont, participant.nickname(), nameX, y + 35f,
+                participant.asyncWaiting() ? DISABLED : Color.WHITE, false,
+                right - statusWidth - 12f - nameX);
+        float statusBaseline = y + (h + tinyFont.getCapHeight()) / 2f;
+        boolean stacked = !role.isEmpty() && !latency.isEmpty();
         if (!role.isEmpty()) {
-            textFit(tinyFont, role, x + w - 90f, y + 35f,
-                    participant.local() ? GOLD : CYAN, true, 70f);
+            text(tinyFont, role, right - textWidth(tinyFont, role),
+                    statusBaseline + (stacked ? 9f : 0f),
+                    participant.local() ? GOLD : CYAN, false);
         }
-        if (participant.latencyAvailable()) {
-            textFit(tinyFont, (participant.latency() >= 0
-                    ? participant.latency() : "-") + " ms",
-                    x + w - 28f, y + 17f, MUTED, true, 52f);
+        if (!latency.isEmpty()) {
+            text(tinyFont, latency, right - textWidth(tinyFont, latency),
+                    statusBaseline - (stacked ? 9f : 0f), MUTED, false);
         }
-        hit(x, y, w, h, () -> selectedParticipant = participant.nickname());
         if (!participant.bot() && (participant.identityPublicKey() != null
                 || participant.sessionFingerprint() != null)) {
             secondaryHit(x, y, w, h, () -> openFingerprintDialog(participant));
@@ -6570,20 +6567,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return texture;
     }
 
-    private void drawLobbyMessages(List<LobbyChatMessage> messages, float x,
-            float top, float width) {
-        final float viewportHeight = 420f;
-        final float scrollbarGutter = 34f;
-        float contentWidth = width - scrollbarGutter;
-        List<LobbyMessageLayout> layouts = new ArrayList<>(messages.size());
-        List<Float> heights = new ArrayList<>(messages.size());
-        for (LobbyChatMessage message : messages) {
-            LobbyMessageLayout layout = lobbyMessageLayout(message,
-                    contentWidth - 48f);
-            layouts.add(layout);
-            heights.add(layout.height());
+    private void drawLobbyMessages(List<LobbyChatMessage> messages) {
+        float x = LOBBY_COMPOSER_X;
+        float right = LOBBY_COMPOSER_SEND_X + LOBBY_COMPOSER_SEND_WIDTH;
+        float top = 744f;
+        float viewportHeight = 420f;
+        float contentWidth = right - x;
+        if (lobbyChatLayout == null || lobbyChatLayout.messages() != messages) {
+            List<LobbyMessageLayout> layouts = new ArrayList<>(messages.size());
+            List<Float> heights = new ArrayList<>(messages.size());
+            for (LobbyChatMessage message : messages) {
+                LobbyMessageLayout layout = lobbyMessageLayout(message,
+                        contentWidth - 48f);
+                layouts.add(layout);
+                heights.add(layout.height());
+            }
+            lobbyChatLayout = new LobbyChatLayout(messages, layouts,
+                    lobbyChatContentHeight(heights));
         }
-        float contentHeight = lobbyChatContentHeight(heights);
+        float contentHeight = lobbyChatLayout.contentHeight();
         if (messages.size() > lobbyChatMessageCount && lobbyChatScroll > 0f) {
             lobbyChatScroll += Math.max(0f,
                     contentHeight - lobbyChatContentHeight);
@@ -6601,7 +6603,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float cursorTop = top + maximumScroll - lobbyChatScroll;
         for (int i = 0; i < messages.size(); i++) {
             LobbyChatMessage message = messages.get(i);
-            LobbyMessageLayout layout = layouts.get(i);
+            LobbyMessageLayout layout = lobbyChatLayout.layouts().get(i);
             float messageHeight = layout.height();
             float y = cursorTop - messageHeight;
             cursorTop = y - 10f;
@@ -6615,10 +6617,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         messageHeight);
                 continue;
             }
-            String header = message.nickname() + "  -  "
-                    + CHAT_TIME.format(message.timestamp());
             float bubbleW = layout.width();
-            float bubbleX = local ? x + contentWidth - bubbleW : x + 48f;
+            float bubbleX = local ? right - bubbleW : x;
             boolean selectedMessage = message.sequence()
                     == selectedLobbyChatSequence;
             Color border = selectedMessage ? GOLD : local ? CYAN_DARK : LINE;
@@ -6626,28 +6626,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     : new Color(0x09131fe8);
             lobbyChatBubbles.add(new LobbyChatBubbleItem(message.sequence(),
                     bubbleX, y, bubbleW, messageHeight, border, fill));
-            float headerX = bubbleX + 14f;
-            float bodyX = bubbleX + 14f;
-            float bodyWidth = bubbleW - 28f;
-            if (local) {
-                lobbyAvatars.add(new LobbyAvatarItem(
-                        lobbyMessageAvatar(message), bubbleX + 10f,
-                        y + messageHeight - 42f, 30f));
-                headerX += 38f;
-            } else {
-                lobbyAvatars.add(new LobbyAvatarItem(
-                        lobbyMessageAvatar(message), x + 4f,
-                        y + messageHeight - 39f, 34f));
-            }
-            textFit(tinyFont, header, headerX,
+            float bodyX = bubbleX + LOBBY_CHAT_BUBBLE_PADDING;
+            float bodyWidth = bubbleW - 2f * LOBBY_CHAT_BUBBLE_PADDING;
+            float headerX = bodyX + LOBBY_CHAT_HEADER_AVATAR_OFFSET;
+            lobbyAvatars.add(new LobbyAvatarItem(lobbyMessageAvatar(message),
+                    bubbleX + 10f, y + messageHeight - 42f, 30f));
+            textFit(tinyFont, layout.header(), headerX,
                     y + messageHeight - 12f,
                     local ? CYAN : GOLD, false,
-                    bubbleX + bubbleW - 14f - headerX);
-            if (message.type() == LobbyChatMessage.Type.TEXT) {
+                    bodyWidth - LOBBY_CHAT_HEADER_AVATAR_OFFSET);
+            if (layout.video() != null) {
+                drawLobbyVideoLink(layout.video(), bodyX, y + 25f, bodyWidth,
+                        new Rectangle(bubbleX, Math.max(y, top - viewportHeight),
+                                bubbleW, Math.min(y + messageHeight, top)
+                                        - Math.max(y, top - viewportHeight)));
+            } else if (message.type() == LobbyChatMessage.Type.TEXT) {
                 float lineY = y + messageHeight - 52f;
-                for (String line : layout.lines()) {
-                    drawLobbyEmojiText(line, bodyX, lineY,
-                            bodyWidth, Color.WHITE);
+                for (List<LobbyTextRun> line : layout.lines()) {
+                    drawLobbyEmojiText(line, bodyX, lineY);
                     lineY -= 32f;
                 }
                 hit(bubbleX, y, bubbleW, messageHeight,
@@ -6683,7 +6679,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         moveTail(texts, textStart, lobbyChatTexts);
         moveTail(lobbyAvatars, avatarStart, lobbyChatAvatars);
         moveTail(uiImages, imageStart, lobbyChatImages);
-        drawLobbyChatScrollbar(x + width - 16f, top - viewportHeight,
+        drawLobbyChatScrollbar(right + 8f, top - viewportHeight,
                 viewportHeight, contentHeight, maximumScroll);
     }
 
@@ -6750,7 +6746,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawLobbyChatLayer(boolean settingsLobbyBackdrop) {
         if (!shouldDrawLobbyChatLayer(surface == Surface.LOBBY
                 || settingsLobbyBackdrop,
-                lobbyImageMode, lobbyEmojiPickerOpen,
+                lobbyEmojiPickerOpen,
                 lobbyChatViewport.width, lobbyChatViewport.height)) return;
         enableWorldScissor(lobbyChatViewport);
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -6777,14 +6773,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.begin();
         if (!lobbyChatAvatars.isEmpty()) {
             batch.setColor(Color.WHITE);
+            batch.setShader(roundedTextureShader);
+            roundedTextureShader.setUniformf("u_cornerRadius", 0.20f);
+            roundedTextureShader.setUniformf("u_edgeSoftness", 0.015f);
             for (LobbyAvatarItem item : lobbyChatAvatars) {
                 batch.draw(item.texture, item.x, item.y, item.size, item.size);
             }
+            batch.setShader(null);
+        }
+        for (UiImageItem item : lobbyChatImages) {
+            item.drawImage(batch, viewport);
         }
         batch.setColor(Color.WHITE);
-        for (UiImageItem item : lobbyChatImages) {
-            batch.draw(item.texture, item.x, item.y, item.width, item.height);
-        }
         for (TextItem item : lobbyChatTexts) {
             drawTextItem(item);
         }
@@ -6843,9 +6843,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     static boolean shouldDrawLobbyChatLayer(boolean lobbySurface,
-            boolean imageGalleryOpen, boolean emojiPickerOpen,
+            boolean emojiPickerOpen,
             float viewportWidth, float viewportHeight) {
-        return lobbySurface && !imageGalleryOpen && !emojiPickerOpen
+        return lobbySurface && !emojiPickerOpen
                 && viewportWidth > 0f && viewportHeight > 0f;
     }
 
@@ -6866,40 +6866,78 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static float lobbyMessageWidth(LobbyChatMessage.Type type,
             float desiredWidth, float availableWidth) {
         float maximum = Math.max(0f, availableWidth);
-        float minimum = Math.min(250f, maximum);
         float preferred = switch (type) {
             case IMAGE -> 430f;
             case VOICE -> 390f;
             default -> desiredWidth;
         };
-        return Math.min(maximum, Math.max(minimum, preferred));
-    }
-
-    private float lobbyDesiredBubbleWidth(LobbyChatMessage message,
-            String header) {
-        float headerWidth = textWidth(tinyFont, header) + 42f;
-        headerWidth += 38f;
-        float contentWidth = message.type() == LobbyChatMessage.Type.TEXT
-                ? composerWidth(message.content()) + 34f : 0f;
-        return Math.max(headerWidth, contentWidth);
+        return Math.min(maximum, preferred);
     }
 
     private LobbyMessageLayout lobbyMessageLayout(LobbyChatMessage message,
             float availableWidth) {
         if (message.type() == LobbyChatMessage.Type.PLAYER_JOINED
                 || message.type() == LobbyChatMessage.Type.PLAYER_LEFT) {
-            return new LobbyMessageLayout(availableWidth,
-                    lobbyMessageHeight(message.type()), List.of());
+            return new LobbyMessageLayout("", availableWidth,
+                    lobbyMessageHeight(message.type()), List.of(), null);
         }
         String header = message.nickname() + "  -  "
                 + CHAT_TIME.format(message.timestamp());
-        float width = lobbyMessageWidth(message.type(),
-                lobbyDesiredBubbleWidth(message, header), availableWidth);
-        List<String> lines = message.type() == LobbyChatMessage.Type.TEXT
-                ? wrapLobbyEmojiText(message.content(), width - 28f)
-                : List.of();
-        return new LobbyMessageLayout(width,
-                lobbyMessageHeight(message.type(), lines.size()), lines);
+        float padding = 2f * LOBBY_CHAT_BUBBLE_PADDING;
+        List<List<LobbyTextRun>> lines = List.of();
+        PokerVideoSearch.Video video = null;
+        float contentWidth = textWidth(tinyFont, header)
+                + LOBBY_CHAT_HEADER_AVATAR_OFFSET;
+        if (message.type() == LobbyChatMessage.Type.TEXT) {
+            video = PokerVideoChatLink.parse(message.content());
+            if (video != null) {
+                contentWidth = Math.max(contentWidth, LOBBY_VIDEO_LINK_TITLE_INSET
+                        + textWidth(smallFont, video.title()));
+            } else {
+                lines = wrapLobbyEmojiText(message.content(), availableWidth - padding)
+                        .stream().map(this::lobbyHistoryRuns).toList();
+                for (List<LobbyTextRun> line : lines) {
+                    contentWidth = Math.max(contentWidth, lobbyHistoryLineWidth(line));
+                }
+            }
+        }
+        float width = lobbyMessageWidth(message.type(), contentWidth + padding,
+                availableWidth);
+        return new LobbyMessageLayout(header, width,
+                lobbyMessageHeight(message.type(), lines.size()), lines, video);
+    }
+
+    private void drawLobbyVideoLink(PokerVideoSearch.Video video, float x,
+            float centerY, float width, Rectangle hitBounds) {
+        Texture logo = pokerVideoOverlay.minimizedLogo();
+        float logoWidth = 28f;
+        float logoHeight = logoWidth * logo.getHeight() / logo.getWidth();
+        uiImages.add(new UiImageItem(logo, x, centerY - logoHeight / 2f,
+                logoWidth, logoHeight));
+        boolean over = hitBounds.contains(pointer);
+        text(smallFont, ellipsize(smallFont, video.title(),
+                width - LOBBY_VIDEO_LINK_TITLE_INSET),
+                x + LOBBY_VIDEO_LINK_TITLE_INSET,
+                centerY + smallFont.getCapHeight() / 2f,
+                over ? Color.WHITE : CYAN, false);
+        hit(hitBounds.x, hitBounds.y, hitBounds.width, hitBounds.height,
+                () -> openChatVideo(video, message -> showFrontendNotice(
+                        gameText.translate("gdx.settings.option.mostrar_videos_poker"),
+                        message, false)));
+        tooltip(hitBounds.x, hitBounds.y, hitBounds.width, hitBounds.height,
+                "gdx.video.share.open");
+    }
+
+    private List<LobbyTextRun> lobbyHistoryRuns(String value) {
+        return lobbyTextRuns(value, tinyFont, LOBBY_CHAT_EMOJI_ADVANCE);
+    }
+
+    private static float lobbyHistoryLineWidth(List<LobbyTextRun> runs) {
+        float width = lobbyTextRunWidth(runs);
+        if (!runs.isEmpty() && runs.get(runs.size() - 1).emojiId() > 0) {
+            width -= LOBBY_CHAT_EMOJI_ADVANCE - LOBBY_CHAT_EMOJI_SIZE;
+        }
+        return width;
     }
 
     private List<String> wrapLobbyEmojiText(String content, float maxWidth) {
@@ -6912,7 +6950,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String token = matcher.group();
             if (token.isBlank()) token = " ";
             if (line.isEmpty() && token.isBlank()) continue;
-            if (composerWidth(line + token) <= maxWidth) {
+            if (lobbyHistoryLineWidth(line + token) <= maxWidth) {
                 line.append(token);
                 continue;
             }
@@ -6921,7 +6959,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 line.setLength(0);
             }
             if (token.isBlank()) continue;
-            if (composerWidth(token) <= maxWidth || EMOJI_TOKEN.matcher(token)
+            if (lobbyHistoryLineWidth(token) <= maxWidth
+                    || EMOJI_TOKEN.matcher(token)
                     .matches()) {
                 line.append(token);
                 continue;
@@ -6930,7 +6969,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 int next = token.offsetByCodePoints(offset, 1);
                 String glyph = token.substring(offset, next);
                 if (!line.isEmpty()
-                        && composerWidth(line + glyph) > maxWidth) {
+                        && lobbyHistoryLineWidth(line + glyph) > maxWidth) {
                     lines.add(line.toString());
                     line.setLength(0);
                 }
@@ -6953,7 +6992,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String value = line.stripTrailing();
         String suffix = " …";
         while (!value.isEmpty()
-                && composerWidth(value + suffix) > maxWidth) {
+                && lobbyHistoryLineWidth(value + suffix) > maxWidth) {
             Matcher matcher = EMOJI_TOKEN.matcher(value);
             int emojiStart = -1;
             while (matcher.find()) {
@@ -7032,68 +7071,59 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private void drawLobbyEmojiText(String content, float x,
-            float y, float width, Color color) {
+    private float lobbyHistoryLineWidth(String value) {
+        return lobbyHistoryLineWidth(lobbyHistoryRuns(value));
+    }
+
+    private void drawLobbyEmojiText(List<LobbyTextRun> runs, float x, float y) {
         float cursor = x;
-        Matcher matcher = EMOJI_TOKEN.matcher(content);
-        int start = 0;
-        while (matcher.find() && cursor < x + width - 24f) {
-            String plain = content.substring(start, matcher.start());
-            String visible = ellipsize(tinyFont, plain,
-                    Math.max(0f, x + width - cursor));
-            if (!visible.isEmpty()) {
-                text(tinyFont, visible, cursor, y, color, false);
-                glyph.setText(tinyFont, visible);
-                cursor += glyph.width;
+        for (LobbyTextRun run : runs) {
+            if (run.emojiId() > 0) {
+                uiImages.add(new UiImageItem(emojiAtlas.emoji(run.emojiId()),
+                        cursor, y - 21f, LOBBY_CHAT_EMOJI_SIZE,
+                        LOBBY_CHAT_EMOJI_SIZE));
+            } else {
+                text(tinyFont, run.text(), cursor, y, Color.WHITE, false);
             }
-            int number = Integer.parseInt(matcher.group(1));
-            if (number >= 1 && number <= EMOJI_COUNT
-                    && cursor + 27f <= x + width) {
-                uiImages.add(new UiImageItem(lobbyEmojiTexture(number),
-                        cursor, y - 21f, 27f, 27f));
-                cursor += 31f;
-            }
-            start = matcher.end();
-        }
-        if (start < content.length() && cursor < x + width) {
-            textFit(tinyFont, content.substring(start), cursor, y,
-                    color, false, x + width - cursor);
+            cursor += run.width();
         }
     }
 
-    private void drawLobbyChatInput(float x, float y, float w) {
-        String fieldId = lobbyImageMode ? "lobbyImage" : "lobbyChat";
-        String draft = lobbyImageMode ? lobbyImageDraft : lobbyChatDraft;
+    private void drawLobbyInput(Rectangle bounds, String fieldId, String draft,
+            String placeholderKey) {
+        float x = bounds.x;
+        float y = bounds.y;
+        float w = bounds.width;
+        float h = bounds.height;
+        float centerY = y + h / 2f;
+        float textY = centerY + uiFont.getCapHeight() / 2f;
+        float caretY = centerY - 18f;
         boolean focused = fieldId.equals(activeField);
-        flatOuterBox(x, y, w, 70f,
-                focused || hovered(x, y, w, 70f) ? CYAN : LINE,
-                pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
-        String placeholder = gameText.translate(lobbyImageMode
-                ? "gdx.lobby.image_url_placeholder"
-                : "gdx.lobby.message_placeholder");
-        if (!lobbyImageMode && !draft.isEmpty()) {
-            drawLobbyComposerValue(draft, x + 22f, y, w - 44f,
+        flatOuterBox(x, y, w, h,
+                focused || hovered(x, y, w, h) ? CYAN : LINE,
+                pressed(x, y, w, h) ? new Color(0x0b1424ff) : PANEL_LIGHT);
+        if ("lobbyChat".equals(fieldId) && !draft.isEmpty()) {
+            drawLobbyComposerValue(draft, x + 22f, centerY, w - 44f,
                     focused);
         } else {
-            String raw = draft.isEmpty() ? placeholder : draft;
+            String raw = draft.isEmpty() ? gameText.translate(placeholderKey) : draft;
             FrontendInputWindow window = draft.isEmpty()
                     ? new FrontendInputWindow(raw, 0, 0, 0f, 0f, 0f)
                     : frontendInputWindow(uiFont, draft,
                             draft, w - 44f, focused);
-            drawInputSelection(x + 22f, y + 17f, 36f, window, focused);
+            drawInputSelection(x + 22f, caretY, 36f, window, focused);
             if (draft.isEmpty()) {
-                textFit(uiFont, window.text(), x + 22f, y + 44f,
+                textFit(uiFont, window.text(), x + 22f, textY,
                         DISABLED, false, w - 44f);
             } else {
-                text(uiFont, window.text(), x + 22f, y + 44f,
+                text(uiFont, window.text(), x + 22f, textY,
                         Color.WHITE, false);
             }
-            drawInputCaret(x + 22f + window.caretOffset(), y + 17f, 36f,
+            drawInputCaret(x + 22f + window.caretOffset(), caretY, 36f,
                     focused);
         }
-        textFieldHits.add(new TextFieldHit(fieldId,
-                new Rectangle(x, y, w, 70f)));
-        hit(x, y, w, 70f, () -> activateField(fieldId));
+        textFieldHits.add(new TextFieldHit(fieldId, bounds));
+        hit(x, y, w, h, () -> activateField(fieldId));
     }
 
     /**
@@ -7101,32 +7131,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * Swing's EmojiChatBox does. The left edge scrolls away when necessary so
      * the insertion caret and the most recent text stay visible.
      */
-    private void drawLobbyComposerValue(String raw, float x, float y,
+    private void drawLobbyComposerValue(String raw, float x, float centerY,
             float maxWidth, boolean focused) {
-        textEdit.focus("lobbyChat", raw);
-        ComposerWindow window = lobbyComposerWindow(raw, maxWidth);
-        List<ComposerRun> runs = lobbyComposerRuns(window.raw());
+        if (focused) textEdit.focus("lobbyChat", raw);
+        ComposerWindow window = lobbyComposerWindow(raw, maxWidth, focused);
+        List<LobbyTextRun> runs = lobbyComposerRuns(window.raw());
         if (window.selectionWidth() > 0f) {
             shapes.setColor(new Color(CYAN.r, CYAN.g, CYAN.b, 0.34f));
-            shapes.rect(x + window.selectionOffset(), y + 17f,
+            shapes.rect(x + window.selectionOffset(), centerY - 18f,
                     window.selectionWidth(), 36f);
         }
         float cursor = x;
-        for (ComposerRun run : runs) {
+        for (LobbyTextRun run : runs) {
             if (run.emojiId() > 0) {
-                uiImages.add(new UiImageItem(lobbyEmojiTexture(run.emojiId()),
-                        cursor, y + 19f, COMPOSER_EMOJI_SIZE,
+                uiImages.add(new UiImageItem(emojiAtlas.emoji(run.emojiId()),
+                        cursor, centerY - COMPOSER_EMOJI_SIZE / 2f,
+                        COMPOSER_EMOJI_SIZE,
                         COMPOSER_EMOJI_SIZE));
             } else if (!run.text().isEmpty()) {
-                text(uiFont, run.text(), cursor, y + 44f, Color.WHITE, false);
+                text(uiFont, run.text(), cursor,
+                        centerY + uiFont.getCapHeight() / 2f, Color.WHITE, false);
             }
             cursor += run.width();
         }
-        drawInputCaret(x + window.caretOffset(), y + 17f, 36f, focused);
+        drawInputCaret(x + window.caretOffset(), centerY - 18f, 36f, focused);
     }
 
-    private ComposerWindow lobbyComposerWindow(String raw, float maxWidth) {
-        int caret = textEdit.caret(raw);
+    private ComposerWindow lobbyComposerWindow(String raw, float maxWidth,
+            boolean focused) {
+        int caret = focused ? textEdit.caret(raw) : raw.length();
         int start = caret;
         for (int scanned = 0; start > 0 && scanned < 512; scanned++) {
             int previous = previousComposerBoundary(raw, start);
@@ -7140,9 +7173,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             end = next;
         }
         int selectionStart = Math.max(start,
-                Math.min(end, textEdit.selectionStart(raw)));
+                Math.min(end, focused ? textEdit.selectionStart(raw) : caret));
         int selectionEnd = Math.max(start,
-                Math.min(end, textEdit.selectionEnd(raw)));
+                Math.min(end, focused ? textEdit.selectionEnd(raw) : caret));
         return new ComposerWindow(raw.substring(start, end), start, end,
                 composerWidth(raw.substring(start, caret)),
                 composerWidth(raw.substring(start, selectionStart)),
@@ -7150,8 +7183,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private float composerWidth(String raw) {
+        return lobbyTextRunWidth(lobbyComposerRuns(raw));
+    }
+
+    private static float lobbyTextRunWidth(List<LobbyTextRun> runs) {
         float result = 0f;
-        for (ComposerRun run : lobbyComposerRuns(raw)) result += run.width();
+        for (LobbyTextRun run : runs) result += run.width();
         return result;
     }
 
@@ -7173,88 +7210,105 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return raw.offsetByCodePoints(index, 1);
     }
 
-    private List<ComposerRun> lobbyComposerRuns(String raw) {
-        List<ComposerRun> runs = new ArrayList<>();
+    private List<LobbyTextRun> lobbyComposerRuns(String raw) {
+        return lobbyTextRuns(raw, uiFont, COMPOSER_EMOJI_ADVANCE);
+    }
+
+    private List<LobbyTextRun> lobbyTextRuns(String raw, BitmapFont font,
+            float emojiAdvance) {
+        List<LobbyTextRun> runs = new ArrayList<>();
         Matcher matcher = EMOJI_TOKEN.matcher(raw);
         int start = 0;
         while (matcher.find()) {
-            addComposerTextRun(runs, raw.substring(start, matcher.start()));
+            addLobbyTextRun(runs, raw.substring(start, matcher.start()), font);
             int emojiId = Integer.parseInt(matcher.group(1));
             if (emojiId >= 1 && emojiId <= EMOJI_COUNT) {
-                runs.add(new ComposerRun("", emojiId,
-                        COMPOSER_EMOJI_ADVANCE));
+                runs.add(new LobbyTextRun("", emojiId, emojiAdvance));
             } else {
-                addComposerTextRun(runs, matcher.group());
+                addLobbyTextRun(runs, matcher.group(), font);
             }
             start = matcher.end();
         }
-        addComposerTextRun(runs, raw.substring(start));
+        addLobbyTextRun(runs, raw.substring(start), font);
         return runs;
     }
 
-    private void addComposerTextRun(List<ComposerRun> runs, String value) {
+    private void addLobbyTextRun(List<LobbyTextRun> runs, String value,
+            BitmapFont font) {
         if (!value.isEmpty()) {
-            runs.add(new ComposerRun(value, 0, textWidth(uiFont, value)));
+            runs.add(new LobbyTextRun(value, 0, textWidth(font, value)));
         }
     }
 
-    private void drawLobbyGameInfo(LobbySnapshot state, float x, float y,
-            float width, float height) {
-        outerBox(x, y, width, height, new Color(0x31445fcc),
+    private void drawLobbyGameInfo(LobbySnapshot state, float y) {
+        float x = LOBBY_LEFT_CONTENT_X;
+        float width = LOBBY_LEFT_CONTENT_WIDTH;
+        float top = y + LOBBY_GAME_INFO_HEIGHT;
+        float headerBottom = top - LOBBY_GAME_INFO_HEADER_HEIGHT;
+        float headerCenter = top - LOBBY_GAME_INFO_HEADER_HEIGHT / 2f;
+        float contentX = x + 16f;
+        float contentRight = x + width - 16f;
+        float contentWidth = contentRight - contentX;
+        outerBox(x, y, width, LOBBY_GAME_INFO_HEIGHT, new Color(0x31445fcc),
                 new Color(0x081525a8));
+        textFit(smallFont, uppercase(gameText.translate(
+                "settings.tab_current_game")), contentX,
+                headerCenter + smallFont.getCapHeight() / 2f,
+                GOLD, false, contentWidth - 44f);
+        shapes.setColor(new Color(0x31445f90));
+        shapes.rect(contentX, headerBottom, contentWidth, 1f);
+        if (state.host()) {
+            float buttonSize = 32f;
+            float buttonX = contentRight - buttonSize;
+            float buttonY = headerCenter - buttonSize / 2f;
+            boolean enabled = !lobbyCommandPending && !state.startingOrStarted();
+            themedButton(buttonX, buttonY, buttonSize, buttonSize, "",
+                    ButtonTone.NEUTRAL,
+                    () -> openSettings(GdxSettingsContract.Section.GAME),
+                    enabled, smallFont);
+            boolean hover = enabled && hovered(
+                    buttonX, buttonY, buttonSize, buttonSize);
+            GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.SETTINGS,
+                    buttonX + buttonSize / 2f, buttonY + buttonSize / 2f,
+                    26f, enabled ? (hover ? CYAN : GOLD) : DISABLED, 1f);
+            tooltip(buttonX, buttonY, buttonSize, buttonSize,
+                    "gdx.lobby.edit_game_settings");
+        }
         NewGameTableDraft.Settings settings = state.tableSettings();
         if (settings == null) {
             textFit(smallFont, gameText.translate(
                     "status.recibiendo_info_servidor"),
-                    x + 16f, y + height / 2f + 8f, MUTED, false,
-                    width - 32f);
+                    contentX, headerBottom - LOBBY_GAME_INFO_BODY_PADDING,
+                    MUTED, false, contentWidth);
             return;
         }
-        NewGameTableDraft.BlindLevel blind = settings.blindLevels()
-                .get(settings.blindLevelIndex());
-        List<LobbyInfoItem> rows = List.of(
-                new LobbyInfoItem(gameText.translate("ui.compra"),
-                        settings.fixedBuyin()
-                                ? GdxChipAmountText.buyinLabel(settings.buyin(),
-                                        gameText.language())
-                                : gameText.translate(
-                                        "gdx.settings.game.summary.value.variable")),
-                new LobbyInfoItem(gameText.translate("blinds.ciegas"),
-                        GdxChipAmountText.format(blind.smallBlind(), 2) + " / "
-                                + GdxChipAmountText.format(blind.bigBlind(), 2)),
-                new LobbyInfoItem(gameText.translate("game.manos"),
-                        settings.handLimit()
-                                ? Integer.toString(settings.handLimitCount())
-                                : gameText.translate(
-                                        "gdx.lobby.no_hand_limit")));
+        List<GdxLobbyGameSummary.Row> rows = GdxLobbyGameSummary.rows(
+                settings, gameText);
+        float rowHeight = lobbyInfoRowHeight(rows.size());
+        String[] rowContents = rows.stream()
+                .map(row -> row.label() + "    " + row.value())
+                .toArray(String[]::new);
+        BitmapFont rowFont = GdxCrispButtonText.resolveAllWithinBox(glyph,
+                rowContents, contentWidth, rowHeight - 4f,
+                nativeTextTiers(smallFont));
+        float rowsTop = headerBottom - LOBBY_GAME_INFO_BODY_PADDING;
         for (int index = 0; index < rows.size(); index++) {
-            LobbyInfoItem row = rows.get(index);
-            lobbyInfoRow(x + 16f,
-                    lobbyInfoRowBaseline(y, height, rows.size(), index),
-                    width - 32f, row.label(), row.value(),
-                    index < rows.size() - 1);
+            GdxLobbyGameSummary.Row row = rows.get(index);
+            float rowBottom = rowsTop - (index + 1) * rowHeight;
+            float baseline = rowBottom + (rowHeight + rowFont.getCapHeight()) / 2f;
+            text(rowFont, row.label(), contentX, baseline, MUTED, false);
+            text(rowFont, row.value(), contentRight - textWidth(rowFont, row.value()),
+                    baseline, Color.WHITE, false);
+            if (index < rows.size() - 1) {
+                shapes.setColor(new Color(0x31445f77));
+                shapes.rect(contentX, rowBottom - 0.5f, contentWidth, 1f);
+            }
         }
     }
 
-    private void lobbyInfoRow(float x, float baseline, float width,
-            String label, String value, boolean separator) {
-        if (separator) {
-            shapes.setColor(new Color(0x31445f77));
-            shapes.rect(x, baseline - 20f, width, 1f);
-        }
-        textFit(smallFont, label, x, baseline, MUTED, false, 132f);
-        textFit(smallFont, value, x + 148f, baseline,
-                Color.WHITE, false, width - 148f);
-    }
-
-    static float lobbyInfoRowBaseline(float y, float height, int rowCount,
-            int rowIndex) {
-        if (rowCount <= 0 || rowIndex < 0 || rowIndex >= rowCount) {
-            throw new IllegalArgumentException("Invalid lobby information row");
-        }
-        float usableHeight = height - 28f;
-        float rowHeight = usableHeight / rowCount;
-        return y + height - 14f - rowHeight * (rowIndex + 0.5f);
+    static float lobbyInfoRowHeight(int rowCount) {
+        return (LOBBY_GAME_INFO_HEIGHT - LOBBY_GAME_INFO_HEADER_HEIGHT
+                - 2f * LOBBY_GAME_INFO_BODY_PADDING) / rowCount;
     }
 
     private static String money(double amount) {
@@ -7297,16 +7351,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 text.translate("gdx.lobby.anti_dos_connection_blocked");
             default -> statusDetail;
         };
-    }
-
-    private LobbyParticipant selectedRemoteParticipant(LobbySnapshot state) {
-        if (selectedParticipant == null) {
-            return null;
-        }
-        return state.participants().stream()
-                .filter(participant -> participant.nickname().equals(selectedParticipant))
-                .filter(participant -> !participant.local() && !participant.host())
-                .findFirst().orElse(null);
     }
 
     private void copyLobbyConnectionData() {
@@ -7396,11 +7440,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyConfirmation() {
         hits.clear();
-        String prompt = uppercase(gameText.translate(switch (
-                lobbyConfirmation) {
-            case START -> "ui.seguro_que_quieres_empezar_ya";
-            case LEAVE -> "ui.seguro_que_quieres_salir_ahora";
-        }));
+        String prompt = switch (lobbyConfirmation) {
+            case START -> uppercase(gameText.translate(
+                    "ui.seguro_que_quieres_empezar_ya"));
+            case LEAVE -> uppercase(gameText.translate(
+                    "ui.seguro_que_quieres_salir_ahora"));
+            case KICK -> gameText.translate("ui.seguro_que_quieres_expulsar_a",
+                    lobbyKickTarget.nickname());
+        };
         GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
                 uppercase(gameText.translate("ui.seguro")), prompt);
         Rectangle cancel = layout.negativeButton();
@@ -7413,6 +7460,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             exitButton(accept.x, accept.y, accept.width, accept.height,
                     uppercase(gameText.translate("ui.salir")),
                     this::confirmLobbyAction, true);
+        } else if (lobbyConfirmation == LobbyConfirmation.KICK) {
+            themedButton(accept.x, accept.y, accept.width, accept.height,
+                    uppercase(gameText.translate("ui.expulsar_jugador")),
+                    ButtonTone.DANGER, this::confirmLobbyAction, true);
         } else {
             themedButton(accept.x, accept.y, accept.width, accept.height,
                     uppercase(gameText.translate("ui.a_jugar")),
@@ -7933,17 +7984,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void confirmLobbyAction() {
         LobbyConfirmation action = lobbyConfirmation;
-        lobbyConfirmation = null;
-        if (action == LobbyConfirmation.START) {
-            lobbyGameStarting = true;
-            submitLobbyCommand(new LobbyCommand.StartGame(), null);
-        } else {
-            submitLobbyCommand(new LobbyCommand.Leave(), this::returnFromLobby);
+        if (action == null) return;
+        LobbyParticipant target = lobbyKickTarget;
+        closeLobbyConfirmation();
+        switch (action) {
+            case START -> {
+                lobbyGameStarting = true;
+                submitLobbyCommand(new LobbyCommand.StartGame(), null);
+            }
+            case LEAVE -> submitLobbyCommand(new LobbyCommand.Leave(),
+                    this::returnFromLobby);
+            case KICK -> kickLobbyParticipant(target);
         }
     }
 
     private void closeLobbyConfirmation() {
         lobbyConfirmation = null;
+        lobbyKickTarget = null;
+        pressedHit = null;
     }
 
     private void drawLobbyLoadingOverlay() {
@@ -8007,42 +8065,73 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 segmentW, trackH - 8f, radius - 4f);
     }
 
-    private void requestKickSelectedParticipant() {
-        LobbyParticipant target = selectedRemoteParticipant(lobby);
-        if (target == null) {
-            showToast(gameText.translate(
-                    "ui.tienes_que_seleccionar_algun_participante"));
-            return;
-        }
-        kickParticipant(target.nickname());
+    static boolean lobbyShowsKickButton(LobbySnapshot state,
+            LobbyParticipant participant) {
+        return state.host() && !participant.local() && !participant.host();
     }
 
-    private void kickParticipant(String nickname) {
-        String target = Objects.requireNonNullElse(nickname, "").trim();
-        boolean stillConnected = lobby != null && lobby.participants().stream()
-                .anyMatch(participant -> !participant.local()
-                        && participant.nickname().equals(target));
-        if (!stillConnected) {
-            showToast(gameText.translate(
-                    "ui.tienes_que_seleccionar_algun_participante"));
-            return;
-        }
-        submitLobbyCommand(new LobbyCommand.Kick(target),
-                () -> selectedParticipant = null);
+    static boolean lobbyHasKickTarget(LobbySnapshot state,
+            LobbyParticipant target) {
+        return target != null && lobbyShowsKickButton(state, target)
+                && !state.startingOrStarted()
+                && state.participants().stream().anyMatch(participant ->
+                        participant.nickname().equals(target.nickname())
+                        && participant.bot() == target.bot()
+                        && Arrays.equals(participant.identityPublicKey(),
+                                target.identityPublicKey())
+                        && Arrays.equals(participant.sessionFingerprint(),
+                                target.sessionFingerprint()));
     }
 
-    private void sendLobbyComposer() {
-        if (lobbyImageMode) {
-            sendLobbyImage(lobbyImageDraft);
-            return;
+    private boolean canKickLobbyParticipant(LobbyParticipant target) {
+        return lobbySession != null && !lobbyCommandPending
+                && lobbyHasKickTarget(lobbySession.snapshot(), target);
+    }
+
+    private void requestLobbyKick(LobbyParticipant target) {
+        if (!canKickLobbyParticipant(target)) return;
+        if (target.bot()) {
+            kickLobbyParticipant(target);
+        } else {
+            lobbyKickTarget = target;
+            lobbyConfirmation = LobbyConfirmation.KICK;
+            captureFrontendModalInput();
         }
-        String message = lobbyChatDraft.trim();
+    }
+
+    private void kickLobbyParticipant(LobbyParticipant target) {
+        if (canKickLobbyParticipant(target)) {
+            submitLobbyCommand(new LobbyCommand.Kick(target.nickname()), null);
+        }
+    }
+
+    private void sendLobbyText() {
+        String submittedDraft = lobbyChatDraft;
+        String message = submittedDraft.trim();
+        submitLobbyTextMessage(message, () -> {
+            lobbyChatHistory.remember(message);
+            if (lobbyChatDraft.equals(submittedDraft)) lobbyChatDraft = "";
+        });
+    }
+
+    private void shareLobbyVideo(PokerVideoSearch.Video video) {
+        if (surface == Surface.LOBBY) {
+            submitLobbyTextMessage(PokerVideoChatLink.format(video), null);
+        }
+    }
+
+    private void submitLobbyTextMessage(String message, Runnable success) {
+        if (lobbySession == null || lobbyCommandPending) return;
         if (lobbyTextSendReady(elapsed, lobbyTextSendAllowedAt, message)) {
             lobbyTextSendAllowedAt = elapsed + TEXT_SEND_COOLDOWN_SECONDS;
-            submitLobbyCommand(new LobbyCommand.SendText(message), () -> {
-                lobbyChatDraft = "";
-            });
+            submitLobbyCommand(new LobbyCommand.SendText(message), success);
         }
+    }
+
+    private void recallLobbyChat(int direction) {
+        lobbyChatDraft = lobbyChatHistory.recall(lobbyChatDraft, direction);
+        activateField("lobbyChat");
+        textEdit.end(lobbyChatDraft, false);
     }
 
     static boolean lobbyTextSendReady(float now, float allowedAt,
@@ -8051,163 +8140,41 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !Objects.requireNonNullElse(message, "").trim().isEmpty();
     }
 
-    private void sendLobbyImage(String rawUrl) {
-        String url = rawUrl == null ? "" : rawUrl.trim();
-        if (!GdxChatImageHistory.isHttpUrl(url)) {
-            showToast(gameText.translate("gdx.lobby.invalid_image_url"));
-            return;
-        }
+    private boolean sendLobbyImage(String url, boolean fromFavorites) {
+        if (lobbySession == null || lobbyCommandPending) return false;
         if (elapsed < lobbyImageSendAllowedAt) {
             showToast(gameText.translate("gdx.lobby.image_cooldown"));
-            return;
+            return false;
         }
         submitLobbyCommand(new LobbyCommand.SendImage(url), () -> {
-            lobbyImageDraft = "";
             lobbyImageSendAllowedAt = elapsed + IMAGE_SEND_COOLDOWN_SECONDS;
-            lobbyImageHistory = GdxChatImageHistory.remember(
-                    initialProperties, url, true);
-            if (preferences != null) preferences.saveDeferred();
-            refreshLobbyHistoryMedia();
-            lobbyImageMode = false;
-            activateField("lobbyChat");
-        });
-    }
-
-    private void drawLobbyImageGallery(float x, float y, float w, float h) {
-        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN_DARK, 1f);
-        GdxUiDialogStyle.GalleryHeaderLayout header
-                = GdxUiDialogStyle.galleryHeaderLayout(x, y, w, h, false);
-        textFit(smallFont, uppercase(gameText.translate(
-                "gdx.lobby.image_gallery")), header.title().x,
-                header.title().y + 27f, GOLD, false, header.title().width);
-        textFit(tinyFont, gameText.translate("gdx.lobby.image_gallery_help"),
-                header.help().x, header.help().y + 19f, MUTED, false,
-                header.help().width);
-        boolean autoReceive = GdxChatImageHistory.autoReceive(
-                initialProperties);
-        Rectangle autoReceiveButton = header.autoReceiveButton();
-        themedButton(autoReceiveButton.x, autoReceiveButton.y,
-                autoReceiveButton.width, autoReceiveButton.height,
-                uppercase(gameText.translate(autoReceive
-                        ? "gdx.lobby.received_images_on"
-                        : "gdx.lobby.received_images_off")),
-                autoReceive ? ButtonTone.POSITIVE : ButtonTone.NEUTRAL,
-                () -> {
-                    GdxChatImageHistory.setAutoReceive(initialProperties,
-                            !autoReceive);
-                    if (preferences != null) preferences.saveDeferred();
-                }, true);
-        Rectangle clear = header.clearButton();
-        themedButton(clear.x, clear.y, clear.width, clear.height,
-                uppercase(gameText.translate("gdx.lobby.clear")),
-                ButtonTone.NEUTRAL,
-                () -> lobbyImageClearConfirmation = true,
-                !lobbyImageHistory.isEmpty());
-        Rectangle close = header.closeButton();
-        themedButton(close.x, close.y, close.width, close.height,
-                GdxUiDialogStyle.CLOSE_GLYPH, ButtonTone.DANGER,
-                this::closeLobbyImageGallery, true,
-                settingsStepperSignFont);
-
-        // Present the complete dialog chrome for one frame before adding the
-        // potentially cold thumbnail grid. This avoids the first-open flash
-        // of detached placeholder cells while media textures warm up.
-        if (lobbyImageGalleryContentDelayFrames > 0) {
-            lobbyImageGalleryContentDelayFrames--;
-            return;
-        }
-
-        if (lobbyImageHistory.isEmpty()) {
-            textFit(headingFont, uppercase(gameText.translate(
-                    "gdx.lobby.image_gallery_empty")), x + w / 2f,
-                    y + 225f, MUTED, true, w - 80f);
-            textFit(smallFont,
-                    gameText.translate("gdx.lobby.image_gallery_empty_help"),
-                    x + w / 2f, y + 175f, DISABLED, true, w - 100f);
-            return;
-        }
-
-        int visible = Math.min(8, lobbyImageHistory.size());
-        float cellW = 190f;
-        float cellH = 132f;
-        float gapX = (w - 48f - cellW * 4f) / 3f;
-        float startX = x + 24f;
-        float startY = y + h - 218f;
-        for (int index = 0; index < visible; index++) {
-            String url = lobbyImageHistory.get(index);
-            int column = index % 4;
-            int row = index / 4;
-            float cellX = startX + column * (cellW + gapX);
-            float cellY = startY - row * (cellH + 12f);
-            boolean over = hovered(cellX, cellY, cellW, cellH);
-            outerBox(cellX, cellY, cellW, cellH,
-                    over ? CYAN : LINE, new Color(0x030911ff));
-            GdxChatGalleryMedia.Entry media = lobbyHistoryMedia.get(url);
-            Texture thumbnail = media == null ? null : media.frameAt(elapsed);
-            if (thumbnail != null) {
-                float availableW = cellW - 14f;
-                float availableH = cellH - 14f;
-                float scale = Math.min(availableW / thumbnail.getWidth(),
-                        availableH / thumbnail.getHeight());
-                float imageW = Math.max(1f, thumbnail.getWidth() * scale);
-                float imageH = Math.max(1f, thumbnail.getHeight() * scale);
-                uiImages.add(new UiImageItem(thumbnail,
-                        cellX + (cellW - imageW) / 2f,
-                        cellY + (cellH - imageH) / 2f, imageW, imageH));
-            } else {
-                String state = media != null && media.failed()
-                        ? uppercase(gameText.translate(
-                                "gdx.lobby.media_unavailable"))
-                        : uppercase(gameText.translate(
-                                "gdx.lobby.media_loading"));
-                textFit(tinyFont, state, cellX + cellW / 2f,
-                        cellY + cellH / 2f + 7f,
-                        media != null && media.failed() ? ORANGE : MUTED,
-                        true, cellW - 24f);
+            if (fromFavorites) {
+                GdxChatImageHistory.remember(initialProperties, url, true);
+                saveLobbyImagePreferences();
             }
-            hit(cellX, cellY, cellW, cellH, () -> sendLobbyImage(url));
+            lobbyGallery.close();
+        });
+        return true;
+    }
+
+    private void saveLobbyImagePreferences() {
+        if (preferences != null) preferences.saveDeferred();
+    }
+
+    private void toggleLobbyImageGallery() {
+        if (lobbyGallery.isOpen()) {
+            lobbyGallery.close();
+        } else if (!lobbyGallery.open(viewport, gameText, initialProperties,
+                this::saveLobbyImagePreferences, this::sendLobbyImage)) {
+            showToast(gameText.translate("gdx.lobby.image_search_unavailable"));
+        } else {
+            lobbyEmojiPickerOpen = false;
+            activateField("lobbyChat");
         }
     }
 
-    private void clearLobbyImageHistory() {
-        GdxChatImageHistory.clear(initialProperties);
-        if (preferences != null) preferences.saveDeferred();
-        lobbyImageHistory = List.of();
-        clearLobbyHistoryMedia();
-        lobbyImageClearConfirmation = false;
-    }
-
-    private void closeLobbyImageGallery() {
-        lobbyImageMode = false;
-        lobbyImageClearConfirmation = false;
-        lobbyImageGalleryContentDelayFrames = 0;
-        activateField("lobbyChat");
-    }
-
-    private void drawLobbyImageClearConfirmation() {
-        GdxUiDialogStyle.ConfirmationLayout layout = drawConfirmationChrome(
-                uppercase(gameText.translate("ui.seguro")),
-                gameText.translate("gdx.lobby.clear_images_confirm"));
-        Rectangle cancel = layout.negativeButton();
-        Rectangle accept = layout.positiveButton();
-        themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
-                uppercase(gameText.translate("ui.cancelar")),
-                ButtonTone.NEUTRAL,
-                () -> lobbyImageClearConfirmation = false, true);
-        themedButton(accept.x, accept.y, accept.width, accept.height,
-                uppercase(gameText.translate("gdx.lobby.clear")),
-                ButtonTone.DANGER, this::clearLobbyImageHistory, true);
-    }
-
-    private void openGoogleImages() {
-        openExternalUri(GOOGLE_IMAGES_URI,
-                "gdx.lobby.search_images_failed");
-    }
-
-    static Rectangle lobbyImageGalleryCloseBounds(float x, float y,
-            float width, float height) {
-        return GdxUiDialogStyle.galleryHeaderLayout(x, y, width, height,
-                false).closeButton();
+    private boolean lobbyGalleryInteractive() {
+        return surface == Surface.LOBBY && lobbyGallery.isOpen() && !hasBlockingFrontendModal();
     }
 
     private void drawLobbyEmojiPicker(float x, float y, float w, float h) {
@@ -8217,15 +8184,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int pageCount = (EMOJI_COUNT + EMOJI_PAGE_SIZE - 1) / EMOJI_PAGE_SIZE;
         textFit(smallFont, "EMOJIS " + first + " - " + last,
                 x + 28f, y + h - 30f, GOLD, false, 350f);
-        textFit(tinyFont, uppercase(gameText.translate("gdx.lobby.page",
+        textFitRight(tinyFont, uppercase(gameText.translate("gdx.lobby.page",
                 lobbyEmojiPage + 1, pageCount)),
-                x + w - 330f, y + h - 30f, MUTED, false, 300f);
-        float cellW = 82f;
-        float cellH = 62f;
+                x + w - 28f, y + h - 30f, MUTED, 300f);
+        float cellW = 62f;
+        float cellH = 43f;
         float gridWidth = (EMOJI_COLUMNS - 1) * cellW
                 + LOBBY_EMOJI_PICKER_CELL_SIZE;
         float startX = x + (w - gridWidth) / 2f;
-        float startY = y + h - 112f;
+        float startY = y + h - 100f;
         for (int slot = 0; slot < EMOJI_PAGE_SIZE; slot++) {
             int number = first + slot;
             if (number > EMOJI_COUNT) break;
@@ -8233,16 +8200,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             int row = slot / EMOJI_COLUMNS;
             float cellX = startX + column * cellW;
             float cellY = startY - row * cellH;
-            outerBox(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
-                    LOBBY_EMOJI_PICKER_CELL_SIZE,
-                    hovered(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
-                            LOBBY_EMOJI_PICKER_CELL_SIZE) ? CYAN : LINE,
-                    new Color(0x0d1b2dcc));
+            if (hovered(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
+                    LOBBY_EMOJI_PICKER_CELL_SIZE)) {
+                shapes.setColor(new Color(0x36d9ff28));
+                roundedRect(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
+                        LOBBY_EMOJI_PICKER_CELL_SIZE, 9f);
+            }
             float imageInset = (LOBBY_EMOJI_PICKER_CELL_SIZE
                     - LOBBY_EMOJI_PICKER_IMAGE_SIZE) / 2f;
-            uiImages.add(new UiImageItem(lobbyEmojiTexture(number),
+            uiImages.add(UiImageItem.pickerEmoji(emojiAtlas.emoji(number),
                     cellX + imageInset, cellY + imageInset,
-                    LOBBY_EMOJI_PICKER_IMAGE_SIZE,
                     LOBBY_EMOJI_PICKER_IMAGE_SIZE));
             hit(cellX, cellY, LOBBY_EMOJI_PICKER_CELL_SIZE,
                     LOBBY_EMOJI_PICKER_CELL_SIZE, () -> {
@@ -8263,43 +8230,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> lobbyEmojiPickerOpen = false);
     }
 
-    private Texture lobbyEmojiTexture(int number) {
-        return emojiTextures.computeIfAbsent(number, value ->
-                filteredTexture("images/emoji_chat/" + value + ".png"));
-    }
-
-    static Rectangle lobbyComposerInputBounds(boolean imageMode) {
+    static Rectangle lobbyComposerInputBounds() {
         return new Rectangle(LOBBY_COMPOSER_X, LOBBY_COMPOSER_Y,
-                imageMode ? LOBBY_IMAGE_INPUT_WIDTH : LOBBY_TEXT_INPUT_WIDTH,
+                LOBBY_TEXT_INPUT_WIDTH,
                 LOBBY_COMPOSER_HEIGHT);
     }
 
-    static Rectangle lobbyComposerEmojiBounds(boolean imageMode) {
-        Rectangle input = lobbyComposerInputBounds(imageMode);
+    static Rectangle lobbyComposerEmojiBounds() {
+        Rectangle input = lobbyComposerInputBounds();
         return new Rectangle(input.x + input.width + LOBBY_COMPOSER_GAP,
                 LOBBY_COMPOSER_Y,
-                imageMode ? 95f : LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_ICON_WIDTH,
                 LOBBY_COMPOSER_HEIGHT);
     }
 
-    static Rectangle lobbyComposerImageBounds(boolean imageMode) {
-        Rectangle emoji = lobbyComposerEmojiBounds(imageMode);
+    static Rectangle lobbyComposerImageBounds() {
+        Rectangle emoji = lobbyComposerEmojiBounds();
         return new Rectangle(emoji.x + emoji.width + LOBBY_COMPOSER_GAP,
                 LOBBY_COMPOSER_Y,
-                imageMode ? 180f : LOBBY_COMPOSER_ICON_WIDTH,
-                LOBBY_COMPOSER_HEIGHT);
-    }
-
-    static Rectangle lobbyVoiceButtonBounds(boolean imageMode) {
-        Rectangle image = lobbyComposerImageBounds(imageMode);
-        return new Rectangle(image.x + image.width + LOBBY_COMPOSER_GAP,
-                LOBBY_COMPOSER_Y,
-                imageMode ? 85f : LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_ICON_WIDTH,
                 LOBBY_COMPOSER_HEIGHT);
     }
 
     static Rectangle lobbyVoiceButtonBounds() {
-        return lobbyVoiceButtonBounds(false);
+        Rectangle image = lobbyComposerImageBounds();
+        return new Rectangle(image.x + image.width + LOBBY_COMPOSER_GAP,
+                LOBBY_COMPOSER_Y,
+                LOBBY_COMPOSER_ICON_WIDTH,
+                LOBBY_COMPOSER_HEIGHT);
     }
 
     private boolean canUseLobbyVoice() {
@@ -8421,33 +8379,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private void drawLobbyVoiceStatus(float x, float y, float w) {
+    private void drawLobbyVoiceStatus(float x, float y, float w, boolean compact) {
         boolean active = lobbyVoiceOpening || lobbyVoiceLive
                 || lobbyVoiceStopping;
         float panelW = Math.min(720f, w);
-        float panelH = 92f;
+        float panelH = compact ? 44f : 92f;
+        float inset = compact ? 7f : 15f;
         float panelX = x + (w - panelW) / 2f;
         shapes.setColor(0.008f, 0.035f, 0.055f, 0.95f);
         roundedRect(panelX, y, panelW, panelH, 15f);
         shapes.setColor(active ? new Color(0xe53935ff) : LINE);
-        roundedRect(panelX + 16f, y + 15f, 7f, panelH - 30f, 3f);
+        roundedRect(panelX + 16f, y + inset, 7f, panelH - 2f * inset, 3f);
         if (lobbyVoiceLive) {
             shapes.setColor(0.08f, 0.16f, 0.24f, 0.96f);
-            roundedRect(panelX + panelW - 110f, y + 24f,
-                    88f, 44f, 10f);
+            float timerHeight = compact ? 28f : 44f;
+            roundedRect(panelX + panelW - 110f,
+                    y + (panelH - timerHeight) / 2f, 88f, timerHeight, 10f);
             float remaining = Math.max(0f, VOICE_RECORD_MAX_SECONDS
                     - (elapsed - lobbyVoiceLiveAt));
             shapes.setColor(0.17f, 0.92f, 0.62f, 0.92f);
-            roundedRect(panelX + 84f, y + 12f,
+            roundedRect(panelX + 84f, y + (compact ? 4f : 12f),
                     (panelW - 216f) * remaining
                             / VOICE_RECORD_MAX_SECONDS,
-                    7f, 3f);
+                    compact ? 3f : 7f, 2f);
             textFit(smallFont, (int) Math.ceil(remaining) + " s",
-                    panelX + panelW - 66f, y + 54f,
+                    panelX + panelW - 66f, y + panelH / 2f + 8f,
                     Color.WHITE, true, 80f);
         }
         textFit(smallFont, lobbyVoiceStatus,
-                panelX + 38f, y + 56f,
+                panelX + 38f, y + panelH / 2f + 10f,
                 active ? Color.WHITE : GOLD, false,
                 panelW - (lobbyVoiceLive ? 174f : 76f));
     }
@@ -8474,10 +8434,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 if (!message.nickname().equals(next.localNickname())
                         && GdxChatImageHistory.autoReceive(initialProperties)) {
-                    lobbyImageHistory = GdxChatImageHistory.remember(
+                    GdxChatImageHistory.remember(
                             initialProperties, message.content(), false);
                     if (preferences != null) preferences.saveDeferred();
-                    refreshLobbyHistoryMedia();
+                    lobbyGallery.sync(initialProperties);
                 }
                 loadLobbyImage(message);
             } else if (message.type() == LobbyChatMessage.Type.VOICE
@@ -8671,30 +8631,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         });
     }
 
-    private void refreshLobbyHistoryMedia() {
-        lobbyHistoryMedia.refresh(lobbyImageHistory, 8, "lobby-history");
-    }
-
     private void clearLobbyMedia() {
         for (LobbyMedia media : lobbyMedia.values()) {
             media.dispose();
         }
         lobbyMedia.clear();
-        clearLobbyHistoryMedia();
-    }
-
-    private void clearLobbyHistoryMedia() {
-        lobbyHistoryMedia.clear();
     }
 
     private void submitLobbyCommand(LobbyCommand command, Runnable success) {
-        if (lobbySession == null || lobbyCommandPending) {
+        LobbySession session = lobbySession;
+        if (session == null || lobbyCommandPending) {
             return;
         }
         lobbyCommandPending = true;
         try {
-            lobbySession.submit(command).whenComplete((ignored, failure) ->
+            session.submit(command).whenComplete((ignored, failure) ->
                     Gdx.app.postRunnable(() -> {
+                        if (disposed || lobbySession != session) return;
                         lobbyCommandPending = false;
                         Throwable cause = unwrap(failure);
                         if (cause == null) {
@@ -8726,7 +8679,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         lobbySession = null;
         lobby = null;
-        selectedParticipant = null;
         clearLobbyScreenState();
         clearActiveField();
         // Startup reveal is a one-shot lifecycle. It must never gate a menu
@@ -8738,9 +8690,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Clears every transient whose ownership ends with the lobby screen. */
     private void clearLobbyScreenState() {
+        lobbyChatHistory.clear();
+        lobbyChatLayout = null;
         lobbyCommandPending = false;
         lobbyGameStarting = false;
-        lobbyConfirmation = null;
+        closeLobbyConfirmation();
         identityChangeNotices.clear();
         fingerprintDialog = null;
         lobbyPasswordDialog = false;
@@ -8752,10 +8706,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         networkBlockError = "";
         if (networkBlockCache != null) networkBlockCache.clear();
         networkBlockCache = null;
-        lobbyImageClearConfirmation = false;
         lobbyEmojiPickerOpen = false;
-        lobbyImageMode = false;
-        lobbyImageGalleryContentDelayFrames = 0;
+        lobbyGallery.close();
     }
 
     /** Returns only the lobby which owned the table that has just closed. */
@@ -8812,6 +8764,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openSettings() {
+        openSettings(null);
+    }
+
+    private void openSettings(GdxSettingsContract.Section initialSection) {
         clearSettingsToggleAnimations(toggleAnimations);
         settingsToggleTransitions.clear();
         settingsReturnSurface = surface == Surface.LOBBY
@@ -8819,6 +8775,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsSession.begin(settingsReturnSurface == Surface.LOBBY
                 ? GdxSettingsSession.Context.WAITING_ROOM
                 : GdxSettingsSession.Context.MENU, initialProperties);
+        if (initialSection != null) {
+            settingsSession.selectTab(settingsSession.sections()
+                    .indexOf(initialSection));
+        }
         settingsAppearancePage = settingsSession.subpageIndex(
                 GdxSettingsContract.Section.APPEARANCE);
         settingsAudioPage = settingsSession.subpageIndex(
@@ -15098,7 +15058,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 action, enabled, smallFont, true);
     }
 
-    private void compactIconButton(Rectangle bounds, Texture icon,
+    private void compactIconButton(Rectangle bounds, TextureRegion icon,
             String tooltipKey, Runnable action, boolean enabled,
             float iconSize) {
         compactButton(bounds.x, bounds.y, bounds.width, bounds.height,
@@ -15116,12 +15076,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void lobbyBotButton(float x, float y, float w, float h,
             String label, Runnable action, boolean enabled) {
-        themedButton(x, y, w, h, label, ButtonTone.NEUTRAL,
+        themedButton(x, y, w, h, "", ButtonTone.NEUTRAL,
                 action, enabled);
         boolean hover = enabled && hovered(x, y, w, h);
         Color iconColor = enabled ? (hover ? CYAN : GOLD) : DISABLED;
-        drawBotIcon(x + 38f, y + h / 2f, iconColor,
-                new Color(0x0b1424ff));
+        drawBotIcon(x + 34f, y + h / 2f - 4f, iconColor,
+                new Color(0x0b1424ff), 0.75f);
+        crispButtonTextInBox(actionFont, label, x + 56f, y, w - 112f, h,
+                GdxUiButtonStyle.labelColor(GdxUiButtonStyle.Tone.NEUTRAL,
+                        enabled));
     }
 
     private void lobbyPasswordButton(float x, float y, float w, float h,
@@ -15392,7 +15355,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 roundedRect(cx + 3f, cy - 14f, 15f, 23f, 2f);
             }
             case 4 -> {
-                drawBotIcon(cx, cy, color, cutout);
+                drawBotIcon(cx, cy, color, cutout, 1f);
             }
             default -> {
                 // Complete-table preset: a compact stack of saved sheets.
@@ -15407,15 +15370,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private void drawBotIcon(float cx, float cy, Color color, Color cutout) {
+    private void drawBotIcon(float cx, float cy, Color color, Color cutout,
+            float scale) {
         shapes.setColor(color);
-        roundedRect(cx - 18f, cy - 14f, 36f, 28f, 6f);
-        shapes.rect(cx - 3f, cy + 14f, 6f, 8f);
-        shapes.circle(cx, cy + 23f, 3.5f, 16);
+        roundedRect(cx - 18f * scale, cy - 14f * scale,
+                36f * scale, 28f * scale, 6f * scale);
+        shapes.rect(cx - 3f * scale, cy + 14f * scale, 6f * scale, 8f * scale);
+        shapes.circle(cx, cy + 23f * scale, 3.5f * scale, 16);
         shapes.setColor(cutout);
-        shapes.circle(cx - 8f, cy, 3.5f, 16);
-        shapes.circle(cx + 8f, cy, 3.5f, 16);
-        shapes.rect(cx - 9f, cy - 8f, 18f, 3f);
+        shapes.circle(cx - 8f * scale, cy, 3.5f * scale, 16);
+        shapes.circle(cx + 8f * scale, cy, 3.5f * scale, 16);
+        shapes.rect(cx - 9f * scale, cy - 8f * scale, 18f * scale, 3f * scale);
     }
 
     private void drawAvatarIcon(float cx, float cy) {
@@ -15624,6 +15589,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NESWResize;
                 default -> Cursor.SystemCursor.Arrow;
             };
+        } else if (lobbyGalleryInteractive()) {
+            desired = lobbyGallery.cursor(pointer.x, pointer.y);
         } else if (statsEvidenceOpen) {
             GdxFloatingGameLogLayout.ResizeHandle handle =
                     statsEvidenceWindowDrag == StatsEvidenceWindowDrag.RESIZE
@@ -16233,6 +16200,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        lobbyGallery.resize(viewport);
         if (titleFont == null) return;
         GdxAdaptiveFontQuality.Profile current =
                 GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
@@ -16252,6 +16220,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
+        if (lobbyGalleryInteractive() && lobbyGallery.touchDown(pointer.x, pointer.y, pointerIndex, button)) {
+            return true;
+        }
         if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
             if (button == Input.Buttons.LEFT) {
                 statsBrowserFocused = true;
@@ -16324,7 +16295,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (scrollPointer.active()) return true;
-        Rectangle voiceBounds = lobbyVoiceButtonBounds(lobbyImageMode);
+        Rectangle voiceBounds = lobbyVoiceButtonBounds();
         if (!blockingModal && surface == Surface.LOBBY
                 && button == Input.Buttons.LEFT
                 && voiceBounds.contains(pointer)) {
@@ -16419,6 +16390,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (lobbyGalleryInteractive() && lobbyGallery.touchDragged(pointer.x, pointer.y, pointerIndex)) {
+            return true;
+        }
         if (statsBrowserInput() && statsBrowser.pressed()) {
             statsBrowserMouse(MouseEvent.MOUSE_DRAGGED);
             return true;
@@ -16481,6 +16455,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (lobbyGallery.touchUp(pointer.x, pointer.y, pointerIndex, button)) return true;
         if (statsBrowserInput() && button == Input.Buttons.LEFT
                 && statsBrowser.pressed()) {
             statsBrowserMouse(MouseEvent.MOUSE_RELEASED);
@@ -16647,7 +16622,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     statsSummaryPlayersScroll
                             / statsSummaryPlayersScrollMaximum, true);
         }
-        if (surface == Surface.LOBBY && !lobbyImageMode
+        if (surface == Surface.LOBBY
                 && !lobbyEmojiPickerOpen && lobbyChatScrollMaximum > 0
                 && GdxSettingsLayout.verticalScrollbarContains(
                         lobbyChatScrollTrack, x, y)) {
@@ -16868,6 +16843,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (keycode == Input.Keys.ESCAPE) closeProfileBackupSelection();
             return true;
         }
+        if (lobbyGalleryInteractive()
+                && lobbyGallery.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
         if (statsBrowserInput() && statsBrowserFocused && keycode != Input.Keys.ESCAPE) {
             statsBrowser.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED);
             return true;
@@ -17076,14 +17053,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 cancelLobbyVoiceRecording();
                 return true;
             }
-            if (lobbyImageClearConfirmation) {
-                lobbyImageClearConfirmation = false;
+            if (surface == Surface.LOBBY && lobbyConfirmation != null) {
+                closeLobbyConfirmation();
                 return true;
             }
             if (surface == Surface.LOBBY
-                    && (lobbyEmojiPickerOpen || lobbyImageMode)) {
+                    && (lobbyEmojiPickerOpen || lobbyGallery.isOpen())) {
                 lobbyEmojiPickerOpen = false;
-                lobbyImageMode = false;
+                lobbyGallery.close();
                 activateField("lobbyChat");
                 return true;
             }
@@ -17094,11 +17071,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (surface == Surface.NEW_GAME) {
                 cancelOrReturnToMenu();
             } else if (surface == Surface.LOBBY) {
-                if (lobbyConfirmation != null) {
-                    closeLobbyConfirmation();
-                } else {
-                    lobbyConfirmation = LobbyConfirmation.LEAVE;
-                }
+                lobbyConfirmation = LobbyConfirmation.LEAVE;
             } else if (surface == Surface.SETTINGS) {
                 requestCancelSettings();
             } else if (surface == Surface.STATS) {
@@ -17166,6 +17139,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (childModalOwnsInput()) {
             // Child dialogs own the keyboard. Root workflows are themselves
             // the active foreground and continue to receive navigation.
+            return true;
+        }
+        if (surface == Surface.LOBBY
+                && (activeField == null || "lobbyChat".equals(activeField))
+                && !lobbyChatHistory.isEmpty()
+                && (keycode == Input.Keys.UP || keycode == Input.Keys.DOWN)) {
+            recallLobbyChat(keycode == Input.Keys.UP ? -1 : 1);
             return true;
         }
         if (activeField != null && handleActiveFieldKey(keycode)) {
@@ -17284,10 +17264,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             finishClosingSettings(false);
             return true;
         }
-        if (surface == Surface.LOBBY && lobbyImageClearConfirmation) {
-            clearLobbyImageHistory();
-            return true;
-        }
         if (surface == Surface.LOBBY && lobbyConfirmation != null) {
             confirmLobbyAction();
             return true;
@@ -17338,10 +17314,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             saveStatsSyncExclusions();
             return true;
         }
-        if (("lobbyChat".equals(activeField)
-                || "lobbyImage".equals(activeField))
-                && surface == Surface.LOBBY) {
-            sendLobbyComposer();
+        if (surface == Surface.LOBBY && "lobbyChat".equals(activeField)) {
+            sendLobbyText();
             return true;
         }
         if (surface == Surface.SETTINGS) {
@@ -17379,6 +17353,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyTyped(char character) {
+        if (lobbyGalleryInteractive() && lobbyGallery.key(KeyEvent.KEY_TYPED, 0, character)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {
             statsBrowser.key(KeyEvent.KEY_TYPED, 0, character);
             return true;
@@ -17527,7 +17502,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void normalizeLobbyEmojiCaret(String value, int direction,
             boolean extend) {
-        if (!"lobbyChat".equals(activeField) || lobbyImageMode) return;
+        if (!"lobbyChat".equals(activeField)) return;
         int caret = textEdit.caret(value);
         Matcher matcher = EMOJI_TOKEN.matcher(value);
         while (matcher.find()) {
@@ -17546,7 +17521,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "server" -> connection.server();
             case "port" -> connection.port();
             case "lobbyChat" -> lobbyChatDraft;
-            case "lobbyImage" -> lobbyImageDraft;
             case "lobbyPassword" -> lobbyPasswordDraft;
             case "presetName" -> presetNameDraft;
             case "blindStructureName" -> blindStructureNameDraft;
@@ -17579,7 +17553,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 verifiedUpnpPort = -1;
             }
             case "lobbyChat" -> lobbyChatDraft = value;
-            case "lobbyImage" -> lobbyImageDraft = value;
             case "lobbyPassword" -> lobbyPasswordDraft = value;
             case "presetName" -> presetNameDraft = value;
             case "blindStructureName" -> blindStructureNameDraft = value;
@@ -17605,10 +17578,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textEdit.focus(field.id, value);
         float localX = pointerX - field.bounds.x - 22f;
         int target;
-        if ("lobbyChat".equals(field.id) && !lobbyImageMode
-                && !value.isEmpty()) {
+        if ("lobbyChat".equals(field.id) && !value.isEmpty()) {
             ComposerWindow window = lobbyComposerWindow(value,
-                    field.bounds.width - 44f);
+                    field.bounds.width - 44f, true);
             int start = window.sourceStart();
             target = GdxTextEditState.nearestBoundary(value, start,
                     window.sourceEnd(), localX,
@@ -17696,6 +17668,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void dispose() {
         disposed = true;
         if (updateCheck != null) updateCheck.cancel(true);
+        lobbyGallery.close();
         closeStatsDashboard();
         pokerVideoOverlay.close();
         PokerChromium.shutdown();
@@ -17712,7 +17685,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearLobbyMedia();
         disposeAboutEasterEgg();
         disposeScreenshotTexture();
-        lobbyHistoryMedia.dispose();
         submissions.cancel();
         closeLobbySubscription();
         closeAvatarCrop();
@@ -17731,8 +17703,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon.dispose();
         muteIcon.dispose();
         talkIcon.dispose();
-        lobbyImageIcon.dispose();
-        lobbyVoiceIcon.dispose();
+        lobbyImageIcon.getTexture().dispose();
+        lobbyVoiceIcon.getTexture().dispose();
         aboutMourningIcon.dispose();
         aboutBookIcon.dispose();
         aboutCrossIcon.dispose();
@@ -17762,10 +17734,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             texture.dispose();
         }
         handGeneratorCardTextures.clear();
-        for (Texture texture : emojiTextures.values()) {
-            texture.dispose();
-        }
-        emojiTextures.clear();
+        emojiAtlas.release();
         avatarShader.dispose();
         roundedTextureShader.dispose();
         modalBackdropBlur.dispose();
@@ -17789,6 +17758,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override public boolean keyUp(int keycode) {
         textDeleteRepeat.release(keycode);
+        if (lobbyGalleryInteractive()
+                && lobbyGallery.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {
             statsBrowser.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);
             return true;
@@ -17800,6 +17771,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (lobbyGallery.cancel(p, b)) return true;
         if (statsBrowser != null && statsBrowser.pressed()) {
             statsBrowser.unfocus();
             return true;
@@ -17840,6 +17812,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
+        if (lobbyGalleryInteractive() && lobbyGallery.mouseMoved(pointer.x, pointer.y)) return true;
         if (statsBrowserInput()) {
             if (STATS_WEB_BOUNDS.contains(pointer)) {
                 statsBrowserMouse(MouseEvent.MOUSE_MOVED);
@@ -17855,6 +17828,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (fileChooserPending()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
+        if (lobbyGalleryInteractive() && lobbyGallery.scrolled(pointer.x, pointer.y, amountY)) return true;
         if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
             Rectangle bounds = STATS_WEB_BOUNDS;
             statsBrowser.wheel((pointer.x - bounds.x) / bounds.width,
@@ -17968,7 +17942,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         if (surface == Surface.LOBBY && amountY != 0f
-                && !lobbyImageMode && !lobbyEmojiPickerOpen) {
+                && !lobbyEmojiPickerOpen) {
             lobbyChatScroll = lobbyPixelScrollAfterWheel(lobbyChatScroll,
                     lobbyChatScrollMaximum, amountY);
             return true;
@@ -18087,11 +18061,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float size) {
     }
 
-    private record LobbyInfoItem(String label, String value) {
+    private record LobbyChatLayout(List<LobbyChatMessage> messages,
+            List<LobbyMessageLayout> layouts, float contentHeight) {
     }
 
-    private record LobbyMessageLayout(float width, float height,
-            List<String> lines) {
+    private record LobbyMessageLayout(String header, float width, float height,
+            List<List<LobbyTextRun>> lines, PokerVideoSearch.Video video) {
     }
 
     private record LobbyChatBubbleItem(long sequence, float x, float y, float width,
@@ -18102,16 +18077,51 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean active, boolean paused) {
     }
 
-    private record UiImageItem(Texture texture, float x, float y,
-            float width, float height, Color tint) {
+    private record UiImageItem(Texture texture, TextureRegion region,
+            float x, float y, float width, float height, Color tint,
+            boolean pickerEmoji) {
 
         private UiImageItem(Texture texture, float x, float y,
                 float width, float height) {
-            this(texture, x, y, width, height, Color.WHITE);
+            this(texture, null, x, y, width, height, Color.WHITE, false);
+        }
+
+        private UiImageItem(Texture texture, float x, float y,
+                float width, float height, Color tint) {
+            this(texture, null, x, y, width, height, tint, false);
+        }
+
+        private UiImageItem(TextureRegion region, float x, float y,
+                float width, float height) {
+            this(null, region, x, y, width, height, Color.WHITE, false);
+        }
+
+        private UiImageItem(TextureRegion region, float x, float y,
+                float width, float height, Color tint) {
+            this(null, region, x, y, width, height, tint, false);
+        }
+
+        private static UiImageItem pickerEmoji(TextureRegion region,
+                float x, float y, float size) {
+            return new UiImageItem(null, region, x, y, size, size,
+                    Color.WHITE, true);
+        }
+
+        private void drawImage(SpriteBatch batch, Viewport viewport) {
+            batch.setColor(tint);
+            if (region == null) {
+                batch.draw(texture, x, y, width, height);
+            } else if (pickerEmoji) {
+                GdxEmojiAtlas.drawAligned(batch, region, x, y, width, height,
+                        viewport);
+            } else {
+                GdxEmojiAtlas.drawNative(batch, region, x, y, width, height,
+                        viewport);
+            }
         }
     }
 
-    private record ComposerRun(String text, int emojiId, float width) {
+    private record LobbyTextRun(String text, int emojiId, float width) {
     }
 
     private record ComposerWindow(String raw, int sourceStart, int sourceEnd,
@@ -18190,7 +18200,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private enum LobbyConfirmation {
-        START, LEAVE
+        START, LEAVE, KICK
     }
 
     private enum FingerprintMode {

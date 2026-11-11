@@ -38,7 +38,7 @@ final class GdxChatImageHistory {
 
     static boolean autoReceive(Properties properties) {
         return Boolean.parseBoolean(properties.getProperty(
-                AUTO_RECEIVE_KEY, "true"));
+                AUTO_RECEIVE_KEY, "false"));
     }
 
     static void setAutoReceive(Properties properties, boolean enabled) {
@@ -61,6 +61,11 @@ final class GdxChatImageHistory {
 
     static void clear(Properties properties) {
         properties.setProperty(HISTORY_KEY, "");
+    }
+
+    static void remove(Properties properties, String url) {
+        ArrayList<String> updated = new ArrayList<>(read(properties));
+        if (updated.remove(url)) write(properties, updated);
     }
 
     static boolean isHttpUrl(String value) {

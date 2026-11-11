@@ -134,8 +134,10 @@ public final class LibGdxCefBrowser extends CefBrowser_N implements CefRenderHan
     }
 
     public void dispatchKey(int eventId, int keyCode, char keyChar, int modifiers) {
+        int location = eventId == KeyEvent.KEY_TYPED
+                ? KeyEvent.KEY_LOCATION_UNKNOWN : KeyEvent.KEY_LOCATION_STANDARD;
         KeyEvent event = new KeyEvent(eventSource, eventId, System.currentTimeMillis(), modifiers,
-                keyCode, keyChar, KeyEvent.KEY_LOCATION_STANDARD);
+                keyCode, keyChar, location);
         sendKeyEvent(event);
     }
 

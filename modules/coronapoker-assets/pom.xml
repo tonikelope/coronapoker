@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.43</version>
+        <version>27.44</version>
     </parent>
     <artifactId>coronapoker-assets</artifactId>
     <name>CoronaPoker shared assets</name>
@@ -15,7 +15,35 @@
         <resources>
             <resource>
                 <directory>${project.basedir}/../../src/main/resources</directory>
+                <excludes>
+                    <exclude>images/emoji_chat/*.png</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>${project.build.directory}/generated-resources/emoji</directory>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>pack-chat-emoji-atlas</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <arguments>
+                                <argument>-Djava.awt.headless=true</argument>
+                                <argument>${project.basedir}/../../tools/build/PackChatEmoji.java</argument>
+                                <argument>${project.basedir}/../../src/main/resources/images/emoji_chat</argument>
+                                <argument>${project.build.directory}/generated-resources/emoji/images/emoji_atlas</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>

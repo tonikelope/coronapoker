@@ -187,8 +187,8 @@ final class GdxTableChatSessionTest {
     @Test
     void squareAndWideChatImagesUseTheAvailableHeightOrWidth() {
         Rectangle target = new Rectangle(100f, 200f, 286f, 216f);
-        var square = CoronaPokerGdxTable.layoutSeatChatImage(target, 400f, 400f);
-        var wide = CoronaPokerGdxTable.layoutSeatChatImage(target, 800f, 200f);
+        var square = CoronaPokerGdxTable.layoutSeatChatImage(target, 400f, 400f, true);
+        var wide = CoronaPokerGdxTable.layoutSeatChatImage(target, 800f, 200f, true);
 
         assertEquals(new Rectangle(135f, 200f, 216f, 216f), square.bounds());
         assertEquals(0f, square.verticalInset(), 0.001f);
@@ -200,7 +200,7 @@ final class GdxTableChatSessionTest {
     @Test
     void portraitChatImageSpansTheSeatWidthWithAnUndistortedCenterCrop() {
         Rectangle target = new Rectangle(100f, 200f, 286f, 216f);
-        var portrait = CoronaPokerGdxTable.layoutSeatChatImage(target, 200f, 600f);
+        var portrait = CoronaPokerGdxTable.layoutSeatChatImage(target, 200f, 600f, true);
 
         assertEquals(target.x, portrait.bounds().x, 0.001f);
         assertEquals(target.y, portrait.bounds().y, 0.001f);
@@ -209,6 +209,25 @@ final class GdxTableChatSessionTest {
         float visibleSourceHeight = 600f * (1f - 2f * portrait.verticalInset());
         assertEquals(target.height / target.width,
                 visibleSourceHeight / 200f, 0.001f);
+    }
+
+    @Test
+    void localChatImagesStayInTheCompactAreaAboveTheAvatarBase() {
+        Rectangle target = CoronaPokerGdxTable.localSeatChatImageTarget(960f, 200f);
+        assertEquals(new Rectangle(814f, 148f, 324f, 166f), target);
+
+        var square = CoronaPokerGdxTable.layoutSeatChatImage(target, 400f, 400f, false);
+        assertEquals(new Rectangle(893f, 148f, 166f, 166f), square.bounds());
+
+        var portrait = CoronaPokerGdxTable.layoutSeatChatImage(target, 200f, 600f, false);
+        assertEquals(166f, portrait.bounds().height, 0.001f);
+        assertEquals(166f / 3f, portrait.bounds().width, 0.001f);
+        assertEquals(0f, portrait.verticalInset(), 0.001f);
+
+        var wide = CoronaPokerGdxTable.layoutSeatChatImage(target, 800f, 200f, false);
+        assertEquals(324f, wide.bounds().width, 0.001f);
+        assertEquals(81f, wide.bounds().height, 0.001f);
+        assertEquals(0f, wide.verticalInset(), 0.001f);
     }
 
     @Test

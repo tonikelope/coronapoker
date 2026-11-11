@@ -19,8 +19,7 @@ final class GdxCinematicPresentationContractTest {
         assertEquals(4, occurrences(shader,
                 "coverage += cinematicCoverageAt("),
                 "four rotated subpixel samples resolve each rounded corner");
-        assertTrue(shader.contains(
-                "vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;"),
+        assertEquals(1, occurrences(shader, "texture2D(u_texture,"),
                 "cinematic artwork must remain a single sharp texture sample");
         assertTrue(shader.contains("pixel.a *= coverage;"));
     }

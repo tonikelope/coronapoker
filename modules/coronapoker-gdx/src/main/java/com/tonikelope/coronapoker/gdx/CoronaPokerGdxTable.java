@@ -502,7 +502,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     static final float SEAT_CHAT_AUDIO_TAIL_SECONDS = 0.25f;
-    private static final float SEAT_CHAT_IMAGE_HOVER_OPACITY = 0.30f;
+    private static final float SEAT_CHAT_IMAGE_HOVER_OPACITY = 0.40f;
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
     private static final float FELT_DOUBLE_CLICK_DRIFT = 32f;
@@ -781,6 +781,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "uniform sampler2D u_texture;\n"
             + "uniform vec2 u_size;\n"
             + "uniform float u_cornerRadius;\n"
+            + "uniform float u_verticalInset;\n"
             + "float cinematicDistance(vec2 uv) {\n"
             + "    vec2 size = max(u_size, vec2(1.0));\n"
             + "    vec2 halfSize = size * 0.5;\n"
@@ -806,7 +807,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "    coverage += cinematicCoverageAt(v_texCoords + uvDx * 0.375 + uvDy * 0.125, edgeAa);\n"
             + "    coverage *= 0.25;\n"
             + "    if (coverage <= 0.001) discard;\n"
-            + "    vec4 pixel = texture2D(u_texture, v_texCoords) * v_color;\n"
+            + "    float sourceV = mix(u_verticalInset, 1.0 - u_verticalInset, v_texCoords.y);\n"
+            + "    vec4 pixel = texture2D(u_texture, vec2(v_texCoords.x, sourceV)) * v_color;\n"
             + "    pixel.a *= coverage;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
@@ -14103,14 +14105,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float alpha) {
         SeatChatImageLayout layout = seatChatImageLayout(seat, image);
         Rectangle bounds = layout.bounds();
-        float inset = layout.verticalInset();
-        boolean remote = seat.index != 0;
-        float opacity = remote && bounds.contains(pointer)
+        float opacity = bounds.contains(pointer)
                 ? alpha * SEAT_CHAT_IMAGE_HOVER_OPACITY : alpha;
-        batch.setColor(1f, 1f, 1f, opacity);
-        batch.draw(image, bounds.x, bounds.y, bounds.width, bounds.height,
-                0f, 1f - inset, 1f, inset);
-        if (!remote) return;
+        drawRoundedTextureInBatch(image, bounds.x, bounds.y, bounds.width,
+                bounds.height, cinematicCornerRadius(bounds.width, bounds.height),
+                layout.verticalInset(), Color.WHITE, opacity);
+        if (seat.index == 0) return;
 
         float padding = 6f;
         float labelHeight = 22f;
@@ -14121,7 +14121,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float centerX = bounds.x + bounds.width / 2f;
         drawRoundedTextureInBatch(solidWhiteTexture,
                 centerX - labelWidth / 2f, bounds.y, labelWidth, labelHeight,
-                labelHeight / 2f, Color.BLACK, opacity);
+                labelHeight / 2f, 0f, Color.BLACK, opacity);
         drawCentered(settingsSmallFont, fitted, centerX,
                 bounds.y + (labelHeight + glyph.height) / 2f,
                 Color.WHITE, opacity);
@@ -19087,14 +19087,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Draws one rounded image without ending the surrounding batch pass. */
     private void drawRoundedTextureInBatch(Texture texture, float x, float y,
-            float width, float height, float cornerRadius, Color tint,
-            float alpha) {
+            float width, float height, float cornerRadius, float verticalInset,
+            Color tint, float alpha) {
         if (texture == null || width <= 0f || height <= 0f) return;
         ShaderProgram previousShader = batch.getShader();
         batch.flush();
         batch.setShader(cinematicShader);
         cinematicShader.setUniformf("u_size", width, height);
         cinematicShader.setUniformf("u_cornerRadius", cornerRadius);
+        // Crop only the texture sample. The rounded mask uses destination UVs.
+        cinematicShader.setUniformf("u_verticalInset", verticalInset);
         Color color = tint == null ? Color.WHITE : tint;
         batch.setColor(color.r, color.g, color.b, color.a * alpha);
         batch.draw(texture, x, y, width, height);
@@ -19112,6 +19114,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cinematicShader.setUniformf("u_size", width, height);
         cinematicShader.setUniformf("u_cornerRadius",
                 cinematicCornerRadius(width, height));
+        cinematicShader.setUniformf("u_verticalInset", 0f);
         batch.draw(frame, x, y, width, height);
         batch.end();
         batch.setShader(null);
@@ -29945,7 +29948,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 drawRoundedTextureInBatch(avatar,
                         x + (animatedCardW - identitySize) / 2f,
                         identityY, identitySize, identitySize,
-                        finalSummaryAvatarCornerRadius(identitySize),
+                        finalSummaryAvatarCornerRadius(identitySize), 0f,
                         Color.WHITE, cardAlpha);
             }
             drawFittedCenteredInBox(finalCardBoldFont, balance.nickname(),

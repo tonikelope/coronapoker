@@ -502,6 +502,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     static final float SEAT_CHAT_AUDIO_TAIL_SECONDS = 0.25f;
+    private static final float SEAT_CHAT_IMAGE_HOVER_OPACITY = 0.30f;
     private static final long FELT_DOUBLE_CLICK_NANOS = 500_000_000L;
     private static final float FELT_CLICK_DRIFT = 14f;
     private static final float FELT_DOUBLE_CLICK_DRIFT = 32f;
@@ -1454,7 +1455,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean secretFeltTexture;
     private Texture avatarDefault;
     private Texture avatarBot;
-    private Texture allInFireCanvas;
+    private Texture solidWhiteTexture;
     private Texture dealerChip;
     private Texture smallBlindChip;
     private Texture bigBlindChip;
@@ -3514,7 +3515,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             case 9 -> {
-                allInFireCanvas = createSolidTexture(Color.WHITE);
+                solidWhiteTexture = createSolidTexture(Color.WHITE);
             }
             case 10 -> {
                 modalBackdropBlur = new GdxModalBackdropBlur();
@@ -13533,7 +13534,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         allInFireShader.setUniformf("u_bloom",
                                 bloom ? 1f : 0f);
                         batch.setColor(1f, 1f, 1f, 1f);
-                        batch.draw(allInFireCanvas,
+                        batch.draw(solidWhiteTexture,
                                 fire.x - expansion / 2f,
                                 fire.y - expansion / 2f,
                                 fire.width + expansion,
@@ -14062,7 +14063,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxSettingsContract.TABLE_SPEAKING_EMOJI_KEY, true);
     }
 
-    /** Mirrors Swing's sender notification over the cards of the sender. */
+    /** Draws chat media and audio indicators above the sender's seat. */
     private void drawSeatChatNotices() {
         if (seatChatNotices.isEmpty()) return;
         batch.begin();
@@ -14077,7 +14078,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float appeared = MathUtils.clamp((totalTime - notice.startedAt) / 0.16f,
                     0f, 1f);
             float alpha = Interpolation.fade.apply(Math.min(appeared, remaining));
-            Texture icon = seatChatNoticeTexture(notice);
+            Texture image = seatChatImageTexture(notice);
+            if (image != null) {
+                alphaEdgeRenderer.end(batch);
+                drawSeatChatImage(seat, image, entry.getKey(), alpha);
+                continue;
+            }
+            Texture icon = seatChatNoticeIcon(notice);
             Rectangle bounds = seatChatNoticeBounds(seat, icon);
             if (icon == talkIcon) alphaEdgeRenderer.begin(batch);
             else alphaEdgeRenderer.end(batch);
@@ -14089,6 +14096,33 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
+    private void drawSeatChatImage(Seat seat, Texture image, String nickname,
+            float alpha) {
+        SeatChatImageLayout layout = layoutSeatChatImage(
+                seatChatImageTarget(seat), image.getWidth(), image.getHeight());
+        Rectangle bounds = layout.bounds();
+        float inset = layout.verticalInset();
+        float opacity = bounds.contains(pointer)
+                ? alpha * SEAT_CHAT_IMAGE_HOVER_OPACITY : alpha;
+        batch.setColor(1f, 1f, 1f, opacity);
+        batch.draw(image, bounds.x, bounds.y, bounds.width, bounds.height,
+                0f, 1f - inset, 1f, inset);
+
+        float padding = 6f;
+        float labelHeight = 22f;
+        String fitted = ellipsizeToWidth(settingsSmallFont, nickname,
+                bounds.width - 2f * padding);
+        if (fitted.isEmpty()) return;
+        float labelWidth = glyph.width + 2f * padding;
+        float centerX = bounds.x + bounds.width / 2f;
+        drawRoundedTextureInBatch(solidWhiteTexture,
+                centerX - labelWidth / 2f, bounds.y, labelWidth, labelHeight,
+                labelHeight / 2f, Color.BLACK, opacity);
+        drawCentered(settingsSmallFont, fitted, centerX,
+                bounds.y + (labelHeight + glyph.height) / 2f,
+                Color.WHITE, opacity);
+    }
+
     static float seatChatFadeSeconds(boolean audioTimed) {
         // Audio completion starts a complete 250 ms tail: its first frame must
         // still be fully opaque instead of entering a pre-existing 350 ms fade
@@ -14096,25 +14130,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return audioTimed ? SEAT_CHAT_AUDIO_TAIL_SECONDS : 0.35f;
     }
 
-    private Texture seatChatNoticeTexture(SeatChatNotice notice) {
+    private Texture seatChatImageTexture(SeatChatNotice notice) {
         if (notice.gif != null) {
             Texture frame = notice.gif.frameAt(totalTime - notice.startedAt);
             if (frame != null) return frame;
         }
-        if (notice.image != null) return notice.image;
+        return notice.image;
+    }
+
+    private Texture seatChatNoticeIcon(SeatChatNotice notice) {
         return notice.type == LobbyChatMessage.Type.IMAGE
                 ? fastButtonIcons[3] : talkIcon;
     }
 
     private Rectangle seatChatNoticeBounds(Seat seat, Texture icon) {
-        if (seat.index == 0) {
-            return fitSeatChatNoticeBounds(localIdentityTarget(
-                    viewport.getWorldWidth()), icon.getWidth(),
-                    icon.getHeight());
-        }
         Rectangle target = seatChatNoticeTarget(seat);
         return fitSeatChatNoticeBounds(target, icon.getWidth(),
                 icon.getHeight());
+    }
+
+    private Rectangle seatChatImageTarget(Seat seat) {
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        if (seat.index == 0) {
+            Rectangle target = localIdentityTarget(worldWidth);
+            float top = Math.min(worldHeight - REMOTE_CHAT_VIEWPORT_MARGIN,
+                    localHoleCardVisualTop(target.y + target.height));
+            target.height = Math.max(1f, top - target.y);
+            return target;
+        }
+        Texture cardBack = activeCardBack();
+        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        return remoteSeatChatImageTarget(seat.podX, seat.y, seat.podY,
+                worldWidth, worldHeight, cardAspect);
     }
 
     private Rectangle seatChatNoticeTarget(Seat seat) {
@@ -14173,17 +14221,55 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 target.y + (target.height - height) / 2f, width, height);
     }
 
+    static Rectangle remoteSeatChatImageTarget(float podX, float seatY,
+            float podY, float viewportWidth, float viewportHeight,
+            float cardAspect) {
+        float margin = REMOTE_CHAT_VIEWPORT_MARGIN;
+        float width = Math.min(PLAYER_POD_WIDTH,
+                Math.max(1f, viewportWidth - 2f * margin));
+        float x = MathUtils.clamp(podX + (PLAYER_POD_WIDTH - width) / 2f,
+                margin, Math.max(margin, viewportWidth - margin - width));
+        float bottom = Math.max(margin, podY);
+        float top = Math.min(viewportHeight - margin,
+                seatY + rivalHandUpperCrossingY(cardAspect));
+        return new Rectangle(x, bottom, width, Math.max(1f, top - bottom));
+    }
+
+    static SeatChatImageLayout layoutSeatChatImage(Rectangle target,
+            float sourceWidth, float sourceHeight) {
+        float aspect = sourceWidth / sourceHeight;
+        // Portraits span the seat width and crop symmetrically if needed.
+        float width = aspect < 1f ? target.width
+                : Math.min(target.width, target.height * aspect);
+        float scaledHeight = width / aspect;
+        float height = Math.min(target.height, scaledHeight);
+        Rectangle bounds = new Rectangle(
+                target.x + (target.width - width) / 2f,
+                target.y + (target.height - height) / 2f, width, height);
+        return new SeatChatImageLayout(bounds,
+                (1f - height / scaledHeight) / 2f);
+    }
+
     private boolean handleSeatChatNoticeClick(float x, float y,
             boolean blockRemoteMedia) {
-        for (Map.Entry<String, SeatChatNotice> entry
-                : List.copyOf(seatChatNotices.entrySet())) {
+        List<Map.Entry<String, SeatChatNotice>> notices =
+                List.copyOf(seatChatNotices.entrySet());
+        for (int index = notices.size() - 1; index >= 0; index--) {
+            Map.Entry<String, SeatChatNotice> entry = notices.get(index);
             Seat seat = seatByNickname(entry.getKey());
             if (seat == null) continue;
             SeatChatNotice notice = entry.getValue();
             if (!seatChatNoticeVisible(notice)) continue;
-            Rectangle noticeHit = seat.index == 0
-                    ? seatChatNoticeBounds(seat, seatChatNoticeTexture(notice))
-                    : seatChatNoticeTarget(seat);
+            Texture image = seatChatImageTexture(notice);
+            Rectangle noticeHit;
+            if (image != null) {
+                noticeHit = layoutSeatChatImage(seatChatImageTarget(seat),
+                        image.getWidth(), image.getHeight()).bounds();
+            } else {
+                noticeHit = seat.index == 0
+                        ? seatChatNoticeBounds(seat, seatChatNoticeIcon(notice))
+                        : seatChatNoticeTarget(seat);
+            }
             if (!noticeHit.contains(x, y)) {
                 continue;
             }
@@ -22567,7 +22653,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // LocalPlayer widget, so derive the equivalent live visual envelope:
         // local HUD plus both rotated hole cards.  This follows deck aspect
         // ratio and table scaling instead of using a guessed fixed height.
-        float visualTop = LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 17f;
+        float visualTop = localHoleCardVisualTop(
+                LOCAL_HUD_Y + LOCAL_HUD_HEIGHT + 17f);
+        return MathUtils.clamp(visualTop - QUICK_CHAT_SCREEN_MARGIN,
+                170f, viewport.getWorldHeight()
+                        - QUICK_CHAT_PANEL_Y - QUICK_CHAT_SCREEN_MARGIN);
+    }
+
+    private float localHoleCardVisualTop(float visualTop) {
         Seat local = seats[0];
         if (local != null && activeCardBack() != null) {
             for (int slot = 0; slot < 2; slot++) {
@@ -22580,9 +22673,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 visualTop = Math.max(visualTop, card.y + rotatedHalfHeight);
             }
         }
-        return MathUtils.clamp(visualTop - QUICK_CHAT_SCREEN_MARGIN,
-                170f, viewport.getWorldHeight()
-                        - QUICK_CHAT_PANEL_Y - QUICK_CHAT_SCREEN_MARGIN);
+        return visualTop;
     }
 
     private Rectangle tableChatInputBounds() {
@@ -30572,7 +30663,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(feltTexture);
         disposeSafely(avatarDefault);
         disposeSafely(avatarBot);
-        disposeSafely(allInFireCanvas);
+        disposeSafely(solidWhiteTexture);
         disposeSafely(dealerChip);
         disposeSafely(smallBlindChip);
         disposeSafely(bigBlindChip);
@@ -30775,7 +30866,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         feltTexture.dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
-        allInFireCanvas.dispose();
+        solidWhiteTexture.dispose();
         dealerChip.dispose();
         smallBlindChip.dispose();
         bigBlindChip.dispose();
@@ -31112,6 +31203,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private record TableInputWindow(String text, int sourceStart,
             int sourceEnd, float caretOffset,
             float selectionOffset, float selectionWidth) {
+    }
+
+    record SeatChatImageLayout(Rectangle bounds, float verticalInset) {
     }
 
     private static final class SeatChatNotice {

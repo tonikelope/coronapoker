@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.math.Rectangle;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
@@ -163,6 +164,51 @@ final class GdxTableChatSessionTest {
                 .remoteSeatChatNoticeTarget(podX, 1080f, podY,
                         1920f, 1080f, aspect);
         assertEquals(1080f - 6f, clamped.y + clamped.height, 0.001f);
+    }
+
+    @Test
+    void remoteChatImageSpansTheSeatFromThePodBaseToTheCardCrossing() {
+        float aspect = 1242f / 923f;
+        Rectangle target = CoronaPokerGdxTable.remoteSeatChatImageTarget(
+                900f, 920f, 758f, 1920f, 1080f, aspect);
+
+        assertEquals(900f, target.x, 0.001f);
+        assertEquals(758f, target.y, 0.001f);
+        assertEquals(286f, target.width, 0.001f);
+        assertEquals(920f + CoronaPokerGdxTable.rivalHandUpperCrossingY(aspect),
+                target.y + target.height, 0.001f);
+
+        Rectangle clamped = CoronaPokerGdxTable.remoteSeatChatImageTarget(
+                1720f, 1080f, 918f, 1920f, 1080f, aspect);
+        assertEquals(1914f, clamped.x + clamped.width, 0.001f);
+        assertEquals(1074f, clamped.y + clamped.height, 0.001f);
+    }
+
+    @Test
+    void squareAndWideChatImagesUseTheAvailableHeightOrWidth() {
+        Rectangle target = new Rectangle(100f, 200f, 286f, 216f);
+        var square = CoronaPokerGdxTable.layoutSeatChatImage(target, 400f, 400f);
+        var wide = CoronaPokerGdxTable.layoutSeatChatImage(target, 800f, 200f);
+
+        assertEquals(new Rectangle(135f, 200f, 216f, 216f), square.bounds());
+        assertEquals(0f, square.verticalInset(), 0.001f);
+        assertEquals(286f, wide.bounds().width, 0.001f);
+        assertEquals(71.5f, wide.bounds().height, 0.001f);
+        assertEquals(0f, wide.verticalInset(), 0.001f);
+    }
+
+    @Test
+    void portraitChatImageSpansTheSeatWidthWithAnUndistortedCenterCrop() {
+        Rectangle target = new Rectangle(100f, 200f, 286f, 216f);
+        var portrait = CoronaPokerGdxTable.layoutSeatChatImage(target, 200f, 600f);
+
+        assertEquals(target.x, portrait.bounds().x, 0.001f);
+        assertEquals(target.y, portrait.bounds().y, 0.001f);
+        assertEquals(target.width, portrait.bounds().width, 0.001f);
+        assertEquals(target.height, portrait.bounds().height, 0.001f);
+        float visibleSourceHeight = 600f * (1f - 2f * portrait.verticalInset());
+        assertEquals(target.height / target.width,
+                visibleSourceHeight / 200f, 0.001f);
     }
 
     @Test

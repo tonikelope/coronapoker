@@ -19,6 +19,7 @@ import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.CustomBotProfile;
 import com.tonikelope.coronapoker.core.StatsSyncService;
 import com.tonikelope.coronapoker.core.game.CoreGameDatabase;
+import com.tonikelope.coronapoker.core.game.GameChannel;
 import com.tonikelope.coronapoker.core.game.GameLaunchContext;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameTableFactory;
@@ -70,6 +71,35 @@ class NetworkLobbyGatewayTest {
         assertNull(GameCommandType.from(
                 GameCommandType.Direction.CLIENT_TO_HOST,
                 "HANDVERIFY_RESULT"));
+    }
+
+    @Test
+    void gameChannelCloseCancelsPendingConfirmationWithoutFailingTransport()
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        try (NetworkLobbyGateway gateway = new NetworkLobbyGateway(temporary)) {
+            LobbySession host = gateway.open(request(false, "Host", port))
+                    .get(5, TimeUnit.SECONDS);
+            try {
+                Object transport = field(host, "resource");
+                GameChannel channel = (GameChannel) field(transport, "gameChannel");
+                var receive = channel.getClass().getDeclaredMethod("receiveHeld",
+                        String.class, String.class);
+                var release = channel.getClass().getDeclaredMethod("releaseConfirmed");
+                receive.setAccessible(true);
+                release.setAccessible(true);
+
+                assertEquals(Boolean.TRUE, receive.invoke(channel, "Guest", "TEST"));
+                channel.close();
+                release.invoke(channel);
+                assertEquals(Boolean.FALSE, receive.invoke(channel, "Guest", "TEST"));
+            } finally {
+                host.close();
+            }
+        }
     }
 
     @Test

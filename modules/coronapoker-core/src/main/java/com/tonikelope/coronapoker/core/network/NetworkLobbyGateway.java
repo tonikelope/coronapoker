@@ -2385,6 +2385,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         synchronized void releaseConfirmed() {
+            // Closing the table discards pending deliveries and their holds.
+            // A network read may still finish writing its CONF on the lobby socket.
+            if (closed) return;
             if (confirmationHolds <= 0) {
                 throw new IllegalStateException(
                         "No confirmed game delivery is currently held");

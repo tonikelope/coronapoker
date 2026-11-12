@@ -96,10 +96,6 @@ public class Bot {
         NIT, STATION, TAG, LAG
     }
 
-    public enum Skill {
-        RECREATIONAL, REGULAR, SHARK
-    }
-
     private static final int PLAN_NONE = 0;
     private static final int PLAN_BET_BET_BET = 1;
     private static final int PLAN_BET_CHECK_BET = 2;
@@ -355,7 +351,6 @@ public class Bot {
     private volatile Profile forcedProfile = null;
     private volatile Profile baseProfile;
     private volatile Profile currentProfile;
-    private volatile Skill skillLevel;
 
     private volatile org.alberta.poker.Card holeCard1 = null;
     private volatile org.alberta.poker.Card holeCard2 = null;
@@ -394,21 +389,19 @@ public class Bot {
     private static final Logger LOGGER = Logger.getLogger(Bot.class.getName());
 
     /**
-     * Attaches this AI to any {@link BotPlayerView} seat and rolls its
-     * skill/style personality.
+     * Attaches this AI to a {@link BotPlayerView} seat and assigns its base style.
      */
     public Bot(BotPlayerView player) {
         this(player, null);
     }
 
     /**
-     * Creates a replayable bot whose personality and later decisions consume
-     * the same injected random stream from the very first roll.
+     * Creates a replayable bot whose style and decisions share the injected random stream.
      */
     public Bot(BotPlayerView player, java.util.Random rng) {
         this.cpuPlayer = player;
         this.rng = rng;
-        assignPersonality();
+        assignBaseStyle();
     }
 
     /**
@@ -432,33 +425,28 @@ public class Bot {
     }
 
     /**
-     * Override the global {@link #DIFFICULTY} for this bot specifically. Used
-     * by mixed-matchup tests (e.g. HARD vs EASY in the same hand). Re-rolls the
-     * bot's personality so the new skill distribution applies. Passing null
-     * returns to the global static fallback.
+     * Overrides the global difficulty and updates the base style for a new
+     * configuration. Passing null uses the table difficulty.
      */
     public void setDifficulty(Difficulty d) {
         this.perBotDifficulty = d;
-        assignPersonality();
+        assignBaseStyle();
     }
 
     /** Pins this bot to one behavioural style; null restores random style. */
     public void setProfile(Profile profile) {
         forcedProfile = profile;
-        assignPersonality();
+        assignBaseStyle();
     }
 
     /**
-     * Applies both per-seat AI overrides with a single personality roll.
-     *
-     * <p>This is the normal lobby path. Keeping the two assignments atomic
-     * avoids consuming an otherwise invisible extra RNG roll when a custom
-     * bot defines both its difficulty and its behavioural profile.</p>
+     * Applies the two per-seat AI settings together before assigning the base
+     * style. A null profile draws a style from the difficulty's mix.
      */
     public void configure(Difficulty difficulty, Profile profile) {
         perBotDifficulty = difficulty;
         forcedProfile = profile;
-        assignPersonality();
+        assignBaseStyle();
     }
 
     private Difficulty effectiveDifficulty() {
@@ -523,96 +511,47 @@ public class Bot {
         String botId = cpuPlayer != null ? cpuPlayer.getNickname() : "UnknownBot";
 
         String formattedMessage = String.format("[BOT AI] [%s] [%s-%s] %s",
-                botId, skillLevel.name(), currentProfile.name(), message);
+                botId, effectiveDifficulty().name(), currentProfile.name(), message);
 
         LOGGER.log(Level.INFO, formattedMessage);
     }
 
-    private void assignPersonality() {
-        int skillRoll = randInt(100);
+    private void assignBaseStyle() {
+        // Keep the style mix and the two RNG draws used by existing seeded games.
+        int distributionRoll = randInt(100);
         int styleRoll = randInt(100);
-
-        // Skill mix per difficulty. Roll < recThreshold → RECREATIONAL;
-        // < regThreshold → REGULAR; otherwise → SHARK.
-        //   EASY:    60 rec  / 32 reg /  8 shark   ("fun fish-fest")
-        //   MEDIUM:  25 rec  / 55 reg / 20 shark   ("casual home game")
-        //   HARD:     0 rec  / 35 reg / 65 shark   ("professional table")
-        int recThreshold, regThreshold;
-        switch (effectiveDifficulty()) {
-            case EASY:
-                recThreshold = 60;
-                regThreshold = 92;
-                break;
-            case HARD:
-                recThreshold = 0;
-                regThreshold = 35;
-                break;
-            default: // MEDIUM
-                recThreshold = 25;
-                regThreshold = 80;
-                break;
-        }
-
-        if (skillRoll < recThreshold) {
-            skillLevel = Skill.RECREATIONAL;
-        } else if (skillRoll < regThreshold) {
-            skillLevel = Skill.REGULAR;
-        } else {
-            skillLevel = Skill.SHARK;
-        }
-
-        if (skillLevel == Skill.RECREATIONAL) {
-            // Recreational sub-distribution depends on difficulty: EASY leans
-            // hard into STATIONs (fish-fest feel), higher difficulties keep
-            // the original balanced mix so MEDIUM/HARD do not inherit too many
-            // calling-station limpers from a small rec slice.
-            int stationCut, lagCut, tagCut;
-            switch (effectiveDifficulty()) {
-                case EASY:
-                    stationCut = 75;
-                    lagCut = 87;
-                    tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
-                    break;
-                case MEDIUM:
-                    stationCut = 55;
-                    lagCut = 78;
-                    tagCut = 92; // 55/23/14/8
-                    break;
-                default: // HARD (rec is tiny anyway)
-                    stationCut = 45;
-                    lagCut = 73;
-                    tagCut = 90; // 45/28/17/10
-                    break;
-            }
-            if (styleRoll < stationCut) {
-                baseProfile = Profile.STATION;
-            } else if (styleRoll < lagCut) {
-                baseProfile = Profile.LAG;
-            } else if (styleRoll < tagCut) {
-                baseProfile = Profile.TAG;
-            } else {
-                baseProfile = Profile.NIT;
-            }
-        } else if (skillLevel == Skill.REGULAR) {
-            if (styleRoll < 60) {
-                baseProfile = Profile.TAG;
-            } else if (styleRoll < 80) {
-                baseProfile = Profile.LAG;
-            } else if (styleRoll < 95) {
-                baseProfile = Profile.NIT;
-            } else {
-                baseProfile = Profile.STATION;
-            }
-        } else {
-            if (styleRoll < 55) {
-                baseProfile = Profile.TAG;
-            } else {
-                baseProfile = Profile.LAG;
-            }
-        }
-        if (forcedProfile != null) baseProfile = forcedProfile;
+        baseProfile = forcedProfile == null
+                ? drawBaseProfile(effectiveDifficulty(), distributionRoll, styleRoll)
+                : forcedProfile;
         currentProfile = baseProfile;
-        logVerbose("Personality assigned. Base: " + baseProfile.name());
+        logVerbose("Base style assigned: " + baseProfile.name());
+    }
+
+    static Profile drawBaseProfile(Difficulty difficulty, int distributionRoll, int styleRoll) {
+        int passiveShare = switch (difficulty) {
+            case EASY -> 60;
+            case MEDIUM -> 25;
+            case HARD -> 0;
+        };
+        int mixedLimit = switch (difficulty) {
+            case EASY -> 92;
+            case MEDIUM -> 80;
+            case HARD -> 35;
+        };
+        if (distributionRoll < passiveShare) {
+            boolean easy = difficulty == Difficulty.EASY;
+            if (styleRoll < (easy ? 75 : 55)) return Profile.STATION;
+            if (styleRoll < (easy ? 87 : 78)) return Profile.LAG;
+            if (styleRoll < (easy ? 96 : 92)) return Profile.TAG;
+            return Profile.NIT;
+        }
+        if (distributionRoll < mixedLimit) {
+            if (styleRoll < 60) return Profile.TAG;
+            if (styleRoll < 80) return Profile.LAG;
+            if (styleRoll < 95) return Profile.NIT;
+            return Profile.STATION;
+        }
+        return styleRoll < 55 ? Profile.TAG : Profile.LAG;
     }
 
     private void adjustProfileElasticity() {
@@ -621,7 +560,7 @@ public class Bot {
         float blindsCost = (float) (dealer.getCiega_grande() + dealer.getCiega_pequeña());
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
 
-        if (skillLevel == Skill.RECREATIONAL) {
+        if (effectiveDifficulty() == Difficulty.EASY) {
             currentProfile = onTilt ? Profile.LAG : baseProfile;
             if (onTilt) {
                 logVerbose("Player is on TILT. Switched to LAG.");
@@ -658,7 +597,7 @@ public class Bot {
         holeCard1 = new org.alberta.poker.Card(cpuPlayer.getHoleCard1Index());
         holeCard2 = new org.alberta.poker.Card(cpuPlayer.getHoleCard2Index());
 
-        if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
+        if (effectiveDifficulty() == Difficulty.EASY && consecutiveLosses >= 2) {
             onTilt = randInt(100) < (30 + consecutiveLosses * 10);
             if (onTilt) {
                 logVerbose("Recreational bot has gone on TILT.");
@@ -668,9 +607,9 @@ public class Bot {
         }
         adjustProfileElasticity();
 
-        if (skillLevel == Skill.RECREATIONAL) {
+        if (effectiveDifficulty() == Difficulty.EASY) {
             slowPlay = false;
-        } else if (skillLevel == Skill.SHARK) {
+        } else if (effectiveDifficulty() == Difficulty.HARD) {
             slowPlay = randInt(100) < 20;
         } else {
             slowPlay = randInt(100) < (currentProfile == Profile.TAG ? 12 : 4);
@@ -754,7 +693,7 @@ public class Bot {
         } else {
             BoardTexture texture = calculateFullBoardTexture();
 
-            if (skillLevel == Skill.RECREATIONAL) {
+            if (effectiveDifficulty() == Difficulty.EASY) {
                 targetBet = pot * (0.45f + (randFloat() * 0.20f));
             } else {
                 if (texture.totalScore >= 4) {
@@ -776,7 +715,7 @@ public class Bot {
                 }
             }
 
-            if (skillLevel == Skill.SHARK && dealer.getStreet() == Crupier.RIVER && randInt(100) < 18) {
+            if (effectiveDifficulty() == Difficulty.HARD && dealer.getStreet() == Crupier.RIVER && randInt(100) < 18) {
                 targetBet = pot * (float) RIVER_OVERBET_FRACTION;
                 logVerbose("Applying polarized overbet sizing for River.");
             }
@@ -891,7 +830,8 @@ public class Bot {
             // so cheaply, and a free check can never turn into a fold.
             double priceLimit = handTier == 5 ? 0.65 : 1.5;
             if (planned == GamePlayerController.FOLD && handTier >= 3
-                    && toCall > 0 && toCall < pot * priceLimit) {
+                    && toCall > 0 && toCall < pot * priceLimit
+                    && !easyStationPricedOut(handTier, toCall, pot)) {
                 return GamePlayerController.CHECK;
             }
             return planned;
@@ -1029,7 +969,7 @@ public class Bot {
                 logVerbose("Scare card detected on new street. Equity dropped.");
             }
 
-            if (street == Crupier.FLOP && skillLevel != Skill.RECREATIONAL) {
+            if (street == Crupier.FLOP && effectiveDifficulty() != Difficulty.EASY) {
                 generateStreetPlan(effectiveStrength, ppot);
             }
 
@@ -1053,7 +993,7 @@ public class Bot {
 
         boolean potCommitted = false;
         if (callCost > 0) {
-            float commitAdjust = (skillLevel == Skill.RECREATIONAL) ? -0.05f : 0f;
+            float commitAdjust = (effectiveDifficulty() == Difficulty.EASY) ? -0.05f : 0f;
             if ((spr <= 2.0f && effectiveStrength >= (POT_COMMIT_LOW_SPR_EQ + commitAdjust))
                     || (spr <= 4.0f && effectiveStrength >= (POT_COMMIT_HIGH_SPR_EQ + commitAdjust))) {
                 potCommitted = true;
@@ -1066,9 +1006,8 @@ public class Bot {
         OpponentRangeModel.HoldingRange observedBettorRange = callCost > 0
                 ? observedOpponentRange(board, bettor, targetStats) : null;
         ShowdownOdds observedBettorOdds = observedBettorRange == null ? null : observedBettorRange.odds();
-        double difficultyNoise = (effectiveDifficulty() == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
 
-        if (skillLevel != Skill.RECREATIONAL) {
+        if (effectiveDifficulty() != Difficulty.EASY) {
             if (betCount > 1) {
                 equityAdjustment -= 0.10;
             }
@@ -1109,7 +1048,7 @@ public class Bot {
                 && (odds.win() + odds.tie() >= 1 - 1e-12 || odds.win() + odds.tie() == 0);
         for (int opponents = 1; opponents <= maxOpponents; opponents++) {
             double estimate = evaluation.equity(opponents);
-            equity[opponents] = certainRiver ? estimate : clampEquity(estimate + equityAdjustment + difficultyNoise);
+            equity[opponents] = certainRiver ? estimate : clampEquity(estimate + equityAdjustment);
         }
         RangeEquity range = null;
         if (!certainRiver) {
@@ -1173,7 +1112,7 @@ public class Bot {
 
     private RangeEquity jointOpponentEquity(int[] board, double[] equity, PostflopEvaluation evaluation,
             BotPlayerView bettor, OpponentRangeModel.HoldingRange bettorRange) {
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+        if (effectiveDifficulty() != Difficulty.HARD) {
             return null;
         }
         OpponentRangeModel.HoldingRange[] holdings = new OpponentRangeModel.HoldingRange[equity.length - 1];
@@ -1218,7 +1157,7 @@ public class Bot {
 
     private OpponentRangeModel.HoldingRange observedOpponentRange(int[] board, BotPlayerView opponent,
             GameOpponentStats stats) {
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+        if (effectiveDifficulty() != Difficulty.HARD
                 || stats == null || stats.isManiac() || stats.isUnselectiveBettor()
                 || opponent == null || !isOpponentInHand(opponent)) {
             return null;
@@ -1233,7 +1172,7 @@ public class Bot {
 
     private RangeEquity riverTwoOpponentEquity(int[] board, double[] equity, PostflopEvaluation evaluation,
             BotPlayerView bettor, OpponentRangeModel.HoldingRange bettorRange) {
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+        if (effectiveDifficulty() != Difficulty.HARD) {
             return null;
         }
         String firstOpponent = null;
@@ -1272,7 +1211,7 @@ public class Bot {
             int street, int betCount) {
         ShowdownOdds observedOdds = observedRange == null ? null : observedRange.odds();
         DealerView table = dealer();
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+        if (effectiveDifficulty() != Difficulty.HARD
                 || (opponents > 3 && observedOdds == null)
                 || stats == null || stats.isManiac() || aggressor == null || !isOpponentInHand(aggressor)) {
             return null;
@@ -1308,7 +1247,7 @@ public class Bot {
     }
 
     private RangeEquity riverOpponentEquity(int[] board, double[] equity, ShowdownOdds odds) {
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+        if (effectiveDifficulty() != Difficulty.HARD) {
             return null;
         }
         for (BotPlayerView opponent : dealer().getPlayersInSeatingOrder()) {
@@ -1347,7 +1286,7 @@ public class Bot {
     private boolean profitableBlindSteal() {
         DealerView table = dealer();
         String bigBlind = table.getBb_nick();
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+        if (effectiveDifficulty() != Difficulty.HARD
                 || currentProfile == Profile.STATION || table.getLimpersCount() != 0
                 || !cpuPlayer.getNickname().equals(table.getSb_nick())
                 || bigBlind == null || table.getStraddleUtgNick() != null
@@ -1405,7 +1344,7 @@ public class Bot {
                 logVerbose("River Value Bet.");
                 return GamePlayerController.BET;
             }
-            if (valueBetPays && skillLevel == Skill.SHARK && effectiveStrength >= STRENGTH_VALUE_BET
+            if (valueBetPays && effectiveDifficulty() == Difficulty.HARD && effectiveStrength >= STRENGTH_VALUE_BET
                     && boardTexture.totalScore <= 2 && isInPositionPostflop()
                     && activePlayers <= 2 && randInt(100) < 55) {
                 logVerbose("River thin value bet (small).");
@@ -1414,7 +1353,7 @@ public class Bot {
             boolean hard = effectiveDifficulty() == Difficulty.HARD;
             boolean missedDraw = previousPpot > 0.18;
             double showdownStrength = range == null ? effectiveStrength : Math.min(effectiveStrength, range.shares()[1]);
-            if (skillLevel != Skill.RECREATIONAL
+            if (effectiveDifficulty() != Difficulty.EASY
                     && activePlayers == 2 && showdownStrength < (hard ? 0.42 : 0.35)) {
                 boolean blocker = hard && hasRiverBluffBlocker();
                 boolean credible = boardTexture.totalScore <= 3 || blocker
@@ -1431,8 +1370,8 @@ public class Bot {
 
         if (street == Crupier.FLOP && !cBetConsidered && currentProfile != Profile.STATION
                 && cpuPlayer.getNickname().equals(dealer().getPreflopAggressorNick())) {
-            int cbetChance = (skillLevel == Skill.RECREATIONAL) ? 80 : (activePlayers <= 2 ? 70 : (activePlayers == 3 ? 48 : 28));
-            if (skillLevel != Skill.RECREATIONAL) {
+            int cbetChance = (effectiveDifficulty() == Difficulty.EASY) ? 80 : (activePlayers <= 2 ? 70 : (activePlayers == 3 ? 48 : 28));
+            if (effectiveDifficulty() != Difficulty.EASY) {
                 if (boardTexture.totalScore >= 4) {
                     cbetChance -= 15;
                 } else if (boardTexture.totalScore == 0) {
@@ -1464,17 +1403,17 @@ public class Bot {
         // 0.30 gate meant the bot never semi-bluffed the turn — it only barrelled
         // made hands — which made its turn aggression readable.
         double semiBluffPpot = (street == Crupier.TURN) ? 0.16 : 0.30;
-        if (street < Crupier.RIVER && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.NIT
+        if (street < Crupier.RIVER && effectiveDifficulty() != Difficulty.EASY && currentProfile != Profile.NIT
                 && activePlayers <= 2
                 && ppot > semiBluffPpot && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
                 && boardTexture.totalScore <= 3
-                && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)
+                && randInt(100) < (effectiveDifficulty() == Difficulty.HARD ? 45 : 28)
                 && profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street)) {
             logVerbose("Semi-bluff with strong draw.");
             return GamePlayerController.BET;
         }
 
-        if (streetPlan != PLAN_NONE && skillLevel != Skill.RECREATIONAL) {
+        if (streetPlan != PLAN_NONE && effectiveDifficulty() != Difficulty.EASY) {
             int streetsInPlan = street - streetPlanStartStreet;
             switch (streetPlan) {
                 case PLAN_BET_BET_BET:
@@ -1511,7 +1450,7 @@ public class Bot {
             logVerbose("Value bet blocked: Board texture too dangerous for current strength.");
         }
 
-        if (valueBetPays && skillLevel == Skill.RECREATIONAL && onTilt && effectiveStrength > 0.35) {
+        if (valueBetPays && effectiveDifficulty() == Difficulty.EASY && onTilt && effectiveStrength > 0.35) {
             logVerbose("Tilt Bet (Recreational value threshold).");
             return GamePlayerController.BET;
         }
@@ -1529,7 +1468,7 @@ public class Bot {
         boolean raisePays = improvesEv(raise.ev(), Math.max(0, evCall));
         double betRatio = callCost / (pot > 0 ? pot : 1);
 
-        if (raisePays && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.STATION && betCount == 1 && street < Crupier.RIVER) {
+        if (raisePays && effectiveDifficulty() != Difficulty.EASY && currentProfile != Profile.STATION && betCount == 1 && street < Crupier.RIVER) {
             boolean hasOvercards = false;
             if (unimprovedPocketPair) {
                 DealerView d = dealer();
@@ -1564,11 +1503,11 @@ public class Bot {
                 }
             } else if (currentProfile == Profile.NIT) {
                 adjustedEvCall -= pot * 0.20;
-            } else if (skillLevel == Skill.REGULAR && effectiveStrength < 0.70) {
+            } else if (effectiveDifficulty() == Difficulty.MEDIUM && effectiveStrength < 0.70) {
                 adjustedEvCall -= pot * 0.10;
             }
         }
-        if (!certainRiver && skillLevel == Skill.RECREATIONAL && onTilt) {
+        if (!certainRiver && effectiveDifficulty() == Difficulty.EASY && onTilt) {
             adjustedEvCall += pot * 0.12;
         }
 
@@ -1607,10 +1546,9 @@ public class Bot {
             int chance;
             if (effectiveDifficulty() == Difficulty.HARD) {
                 boolean semiBluff = street < Crupier.RIVER && ppot > 0.14 && raise.foldEquity() > 0.12;
-                chance = semiBluff ? (skillLevel == Skill.SHARK ? 55 : 30) : 0;
+                chance = semiBluff ? 55 : 0;
             } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
-                chance = (skillLevel == Skill.SHARK) ? 30
-                        : (currentProfile == Profile.LAG) ? 18
+                chance = (currentProfile == Profile.LAG) ? 18
                                 : (currentProfile == Profile.TAG) ? 10 : 0;
             } else {
                 chance = 0; // EASY stays passive
@@ -1621,7 +1559,7 @@ public class Bot {
             }
         }
 
-        if (raisePays && skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3
+        if (raisePays && effectiveDifficulty() == Difficulty.HARD && betCount == 1 && activePlayers > 3
                 && effectiveStrength > 0.60 && raise.foldEquity() > 0 && randInt(100) < 20) {
             logVerbose("Executing Squeeze Play against multiple callers.");
             return GamePlayerController.BET;
@@ -1635,7 +1573,7 @@ public class Bot {
                 logVerbose("Pain threshold exceeded (Overbet or strong bet from Nit). Aborting PLAN_CHECK_CALL.");
                 streetPlan = PLAN_NONE;
             } else if (evCall > 0 && effectiveStrength > STRENGTH_CALLDOWN_TRAP
-                    && skillLevel != Skill.RECREATIONAL) {
+                    && effectiveDifficulty() != Difficulty.EASY) {
                 logVerbose("Executing trap call from PLAN_CHECK_CALL.");
                 return GamePlayerController.CHECK;
             }
@@ -1651,7 +1589,7 @@ public class Bot {
             return GamePlayerController.CHECK;
         }
 
-        if (skillLevel == Skill.RECREATIONAL && currentProfile == Profile.STATION && effectiveStrength > 0.25) {
+        if (effectiveDifficulty() == Difficulty.EASY && currentProfile == Profile.STATION && effectiveStrength > 0.25) {
             logVerbose("Station calling out of profile habit despite negative EV.");
             return GamePlayerController.CHECK;
         }
@@ -1666,7 +1604,7 @@ public class Bot {
 
     private boolean profitableFlopCounterRaise(double equity, double ppot, double pot, double callCost,
             double callEv, BoardTexture texture, GameOpponentStats stats) {
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL || currentProfile == Profile.STATION
+        if (effectiveDifficulty() != Difficulty.HARD || currentProfile == Profile.STATION
                 || stats == null || stats.isManiac() || stats.postflopAction(Crupier.FLOP) != PostflopAction.BET
                 || !stats.raisedPreflopThisHand() || texture.totalScore >= 4 || callCost > 0.45 * pot
                 || equity < 0.15 || equity > 0.64 || (ppot < 0.12 && equity < 0.36)) {
@@ -1873,7 +1811,7 @@ public class Bot {
 
     private double foldProbability(BotPlayerView opponent, BoardTexture boardTexture,
             int betCount, int street, double pot, double amountToMatch, boolean checkedToInPosition) {
-        if (skillLevel == Skill.RECREATIONAL || MoneyMath.compare(amountToMatch, 0) <= 0) {
+        if (effectiveDifficulty() == Difficulty.EASY || MoneyMath.compare(amountToMatch, 0) <= 0) {
             return 0;
         }
         double foldProbability = 0.20;
@@ -2055,10 +1993,10 @@ public class Bot {
     }
 
     private boolean canFloat(double effectiveStrength, int betCount, int street, BoardTexture boardTexture) {
-        if (skillLevel == Skill.RECREATIONAL || currentProfile == Profile.NIT) {
+        if (effectiveDifficulty() == Difficulty.EASY || currentProfile == Profile.NIT) {
             return false;
         }
-        return (skillLevel == Skill.SHARK || currentProfile == Profile.LAG)
+        return (effectiveDifficulty() == Difficulty.HARD || currentProfile == Profile.LAG)
                 && isInPositionPostflop()
                 && betCount == 1
                 && street == Crupier.FLOP
@@ -2153,6 +2091,14 @@ public class Bot {
                 ? GamePlayerController.CHECK : GamePlayerController.FOLD;
     }
 
+    private boolean easyStationPricedOut(int tier, double cost, double pot) {
+        return effectiveDifficulty() == Difficulty.EASY && currentProfile == Profile.STATION
+                && tier == 4 && dealer().getConta_bet() == 1
+                && holeCard1.getSuit() != holeCard2.getSuit()
+                && holeCard1.getRank() != holeCard2.getRank()
+                && cost > dealer().getCiega_grande() && cost > 0.31 * (pot + cost);
+    }
+
     private int calculatePreflopAction(int betCount, int activePlayers, int handTier) {
         int startingTier = handTier;
         Position pos = determinePosition();
@@ -2162,7 +2108,7 @@ public class Bot {
         int high = Math.max(v1, v2);
         int low = Math.min(v1, v2);
         boolean isPair = (high == low);
-        if (onTilt && skillLevel == Skill.RECREATIONAL) {
+        if (onTilt && effectiveDifficulty() == Difficulty.EASY) {
             if (handTier == 5) {
                 handTier = 4;
             }
@@ -2171,7 +2117,7 @@ public class Bot {
             }
         }
 
-        if (skillLevel != Skill.RECREATIONAL && effectiveDifficulty() != Difficulty.EASY) {
+        if (effectiveDifficulty() != Difficulty.EASY) {
             if (activePlayers >= 7 && pos == Position.EARLY && handTier == 3) {
                 handTier = 4;
             }
@@ -2183,7 +2129,7 @@ public class Bot {
             }
         }
 
-        if (betCount > 0 && handTier >= 2 && skillLevel != Skill.RECREATIONAL) {
+        if (betCount > 0 && handTier >= 2 && effectiveDifficulty() != Difficulty.EASY) {
             double cost = callCost();
             double maxCostToPot = handTier == 2 ? 0.80 : 0.65;
             if (cost > 4 * dealer().getCiega_grande()
@@ -2226,6 +2172,12 @@ public class Bot {
                     }
                 }
             }
+            if (effectiveDifficulty() == Difficulty.EASY && startingTier == 4 && betCount == 1) {
+                double cost = callCost();
+                if (easyStationPricedOut(startingTier, cost, contestablePot(cost))) {
+                    return GamePlayerController.FOLD;
+                }
+            }
             logVerbose("Preflop Station limp/call.");
             return GamePlayerController.CHECK;
         }
@@ -2235,7 +2187,9 @@ public class Bot {
         boolean isSB = myNick.equals(crupier.getSb_nick());
         boolean isBB = myNick.equals(crupier.getBb_nick());
 
-        if (effectiveDifficulty() == Difficulty.HARD && betCount == 1 && activePlayers >= 4 && handTier == 3
+        boolean disciplinedColdCall = effectiveDifficulty() == Difficulty.HARD
+                || (effectiveDifficulty() == Difficulty.MEDIUM && currentProfile == Profile.NIT);
+        if (disciplinedColdCall && betCount == 1 && activePlayers >= 4 && handTier == 3
                 && !suited && !isPair && (high < 12 || low < 10) && cpuPlayer.getBet() == 0
                 && (pos == Position.EARLY || pos == Position.MIDDLE)) {
             double cost = callCost();
@@ -2244,8 +2198,9 @@ public class Bot {
             }
         }
 
-        if (betCount == 1 && activePlayers >= 3 && handTier <= 3 && effectiveDifficulty() != Difficulty.EASY
-                && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR))
+        if (betCount == 1 && activePlayers >= 3 && handTier <= 3
+                && (effectiveDifficulty() == Difficulty.HARD
+                    || (effectiveDifficulty() == Difficulty.MEDIUM && currentProfile == Profile.LAG))
                 && hasSqueezeCaller(crupier)) {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
             if (randInt(100) < squeezeChance) {
@@ -2275,7 +2230,7 @@ public class Bot {
             double cost = callCost();
             // A pocket pair flops at least a set about 12% of the time.
             // Discount the stack behind because a set rarely wins it all.
-            if (skillLevel != Skill.RECREATIONAL && isPair && high <= 4
+            if (effectiveDifficulty() != Difficulty.EASY && isPair && high <= 4
                     && contestablePot(cost) + 0.5 * effectiveStackBehind() >= 8 * cost) {
                 logVerbose("Preflop Set-mine call vs 3-Bet (small pair).");
                 return GamePlayerController.CHECK;
@@ -2293,7 +2248,7 @@ public class Bot {
             }
             boolean threeBetBluffCandidate = (high == 12 && low <= 3 && suited)
                     || (high == 11 && low == 10 && !suited);
-            if (skillLevel == Skill.SHARK && threeBetBluffCandidate
+            if (effectiveDifficulty() == Difficulty.HARD && threeBetBluffCandidate
                     && activePlayers <= 2
                     && (pos == Position.LATE || pos == Position.BLINDS)
                     && randInt(100) < 30) {
@@ -2316,20 +2271,20 @@ public class Bot {
             // explicit difficulty offset on top of the profile rates so the
             // overall VPIP gradient slopes the right way: EASY plays loose
             // (lots of defends, calling-station style), HARD plays tight
-            // (disciplined sharks fold trash to a button open).
+            // (disciplined folds against button opens).
             if (headsUp && isBB) {
                 int defendChance;
                 if (handTier == 4) {
                     defendChance = (currentProfile == Profile.NIT) ? 45
                             : (currentProfile == Profile.STATION) ? 88
                                     : (currentProfile == Profile.LAG) ? 78
-                                            : (skillLevel == Skill.SHARK) ? 65
+                                            : (effectiveDifficulty() == Difficulty.HARD) ? 65
                                                     : 62; // TAG default
                 } else { // tier 5 trash
                     defendChance = (currentProfile == Profile.NIT) ? 8
                             : (currentProfile == Profile.STATION) ? 55
                                     : (currentProfile == Profile.LAG) ? 30
-                                            : (skillLevel == Skill.SHARK) ? 22
+                                            : (effectiveDifficulty() == Difficulty.HARD) ? 22
                                                     : 20; // TAG default
                 }
                 defendChance = clampPct(defendChance + difficultyLoosenessOffset());
@@ -2345,7 +2300,7 @@ public class Bot {
         if (isSB && betCount == 0) {
             boolean opensFromSmallBlind = currentProfile == Profile.NIT ? handTier <= 3 : handTier <= 4;
             if (opensFromSmallBlind) {
-                // Tier-4 marginal hands: HARD TAGs/SHARKs fold a slice rather
+                // Tier-4 marginal hands: HARD TAGs fold a slice rather
                 // than open every time, keeping VPIP inside the target band.
                 if (handTier == 4 && currentProfile != Profile.STATION
                         && currentProfile != Profile.LAG
@@ -2361,7 +2316,7 @@ public class Bot {
             }
             // Heads-up button opens trash wider than full-ring cutoff/button but
             // not freely. HU button open rates land roughly at: NIT 45%, TAG 60%,
-            // STATION 70% (with limps), LAG 70%, SHARK 65% — within the industry
+            // STATION 70% (with limps), LAG 70%, HARD TAG 65% — within the industry
             // 60-80% band.
             if (handTier == 5 && headsUp) {
                 int stealChance;
@@ -2369,7 +2324,7 @@ public class Bot {
                     stealChance = 10;
                 } else if (currentProfile == Profile.LAG) {
                     stealChance = 42;
-                } else if (skillLevel == Skill.SHARK) {
+                } else if (effectiveDifficulty() == Difficulty.HARD) {
                     stealChance = 32;
                 } else if (currentProfile == Profile.TAG) {
                     stealChance = 28;
@@ -2382,7 +2337,7 @@ public class Bot {
                     return GamePlayerController.BET;
                 }
             }
-            if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)) {
+            if (handTier == 5 && (currentProfile == Profile.LAG || effectiveDifficulty() == Difficulty.HARD)) {
                 int fallbackChance = clampPct(25 + difficultyLoosenessOffset());
                 if (fallbackChance > 0 && randInt(100) < fallbackChance) {
                     logVerbose("Preflop SB folded-to: trash steal.");
@@ -2408,7 +2363,7 @@ public class Bot {
                     logVerbose("Preflop Early Loose Open.");
                     return GamePlayerController.BET;
                 }
-                if (skillLevel == Skill.RECREATIONAL && handTier <= 4 && randInt(100) < 30) {
+                if (effectiveDifficulty() == Difficulty.EASY && handTier <= 4 && randInt(100) < 30) {
                     logVerbose("Preflop Rec open limp.");
                     return GamePlayerController.CHECK;
                 }
@@ -2433,7 +2388,7 @@ public class Bot {
                     return GamePlayerController.BET;
                 }
                 if (handTier == 5 && activePlayers <= 2
-                        && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
+                        && (currentProfile == Profile.LAG || effectiveDifficulty() == Difficulty.HARD)
                         && randInt(100) < 20) {
                     logVerbose("Preflop Trash Steal (Bluff).");
                     return GamePlayerController.BET;

@@ -144,17 +144,13 @@ CoronaPoker follows **Robert's Rules of Poker**, the de-facto standard cardroom 
 
 These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real opponents.
 
-- **3 difficulty levels** (Easy, Normal, Hard), each clearly distinguishable within a single session
-- **3 skill tiers** assigned per bot, weighted by difficulty:
-  - 🍿 **Recreational**: loose, emotional, prone to tilt after losses
-  - 🛠️ **Regular**: solid fundamentals, occasional mistakes
-  - 🦈 **Shark**: disciplined, exploitative, calculates fold equity
-- **4 adaptive personalities** that shift dynamically with stack pressure (M-ratio), tilt and table dynamics:
+- **3 difficulty levels** (Easy, Normal, Hard) determine which tactics the bot uses and how often it makes mistakes.
+- **4 playing styles** can adapt to stack pressure and table dynamics:
   - 🗿 **NIT**: tight, conservative, rarely bluffs
   - 📡 **STATION**: call-oriented, with selective value bets and probes
   - 🎯 **TAG**: tight-aggressive, the textbook grinder
   - 💥 **LAG**: loose-aggressive, unpredictable and relentless
-- **Host-managed custom bot profiles**: choose each bot's nickname, validated avatar, individual difficulty, real AI personality and automatic-rebuy preference. Profiles enter in the chosen or shuffled order. The host can forbid standard-bot fallback when the catalogue runs out.
+- **Host-managed custom bot profiles**: choose each bot's nickname, validated avatar, individual difficulty, playing style and automatic-rebuy preference. Profiles enter in the chosen or shuffled order. The host can forbid standard-bot fallback when the catalogue runs out.
 - **Poker engine** built on the Alberta hand evaluator with draw potential, shared-board equity and weighted opponent ranges on HARD
 - Multi-street planning with **c-bets, polarised river and turn bluffs, semi-bluffs, slow-played traps, float plays and scare-card reads**.
 - **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads): they remember your tendencies and *stop bluffing the player who never folds*
@@ -162,7 +158,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 - **Calibrated mistake injection** scaled by difficulty: Hard is razor-sharp, Easy makes human-shaped errors in the right spots
 - **Dedicated QA**: deterministic bot integration runs with normal game QA. Statistical strength benchmarks against fixed-strategy opponents are a separate opt-in lane when bot behaviour changes
 
-> Full bot AI write-up, covering architecture, the hand-evaluation maths, the personality model and the per-turn decision pipeline (with two diagrams), lives in **[`docs/BOTS.md`](docs/BOTS.md)**.
+> Full bot AI write-up, covering architecture, the hand-evaluation maths, the style model and the per-turn decision pipeline (with two diagrams), lives in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
 ---
 
@@ -348,7 +344,7 @@ duplicated product classes.
 
 The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer-Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus, has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
-The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
+The **bot AI**, covering its architecture, hand-evaluation maths, style model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
 The complete QA model, test lanes, seeded headless campaigns, certification
 profiles and unified scenario catalogue are documented in

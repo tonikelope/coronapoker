@@ -52,6 +52,16 @@ final class GdxGameTextTest {
     }
 
     @Test
+    void botManagerNamesThePlayingStyleInBothLanguages() throws Exception {
+        Properties spanish = messages("es");
+        Properties english = messages("en");
+        assertEquals("Estilo", spanish.getProperty("gdx.custom_bots.personality"));
+        assertEquals("Aleatorio", spanish.getProperty("gdx.custom_bots.personality.random"));
+        assertEquals("Style", english.getProperty("gdx.custom_bots.personality"));
+        assertEquals("Random", english.getProperty("gdx.custom_bots.personality.random"));
+    }
+
+    @Test
     void everyStaticSettingsGameTextCallTargetsAnExistingKey()
             throws Exception {
         Properties spanish = messages("es");

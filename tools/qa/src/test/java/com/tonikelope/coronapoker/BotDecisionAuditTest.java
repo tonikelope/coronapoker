@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -205,6 +206,48 @@ class BotDecisionAuditTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(Bot.Difficulty.class)
+    void randomStylesKeepTheirDocumentedDistribution(Bot.Difficulty difficulty) {
+        int[] counts = new int[Bot.Profile.values().length];
+        for (int group = 0; group < 100; group++) {
+            for (int roll = 0; roll < 100; roll++) {
+                counts[Bot.drawBaseProfile(difficulty, group, roll).ordinal()]++;
+            }
+        }
+        int[] expected = switch (difficulty) {
+            case EASY -> new int[]{720, 4660, 2900, 1720};
+            case MEDIUM -> new int[]{1025, 1650, 4750, 2575};
+            case HARD -> new int[]{525, 175, 5675, 3625};
+        };
+        assertArrayEquals(expected, counts);
+    }
+
+    @Test
+    void hardTagUsesTheSameTacticsForDifferentStyleDraws() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer villain = new TestBotPlayer("villain", 200);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setBetCount(1);
+        dealer.setCurrentBet(6);
+        dealer.setLastRaise(4);
+        dealer.setLastAggressor(villain);
+        hero.commit(1);
+        villain.commit(6);
+        dealer.setPot(7);
+        hero.setHoleCards(12, 2); // Ac 4c
+
+        Bot low = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.TAG, false);
+        Bot high = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.TAG, true);
+        forceAggressiveRolls(low);
+        forceAggressiveRolls(high);
+
+        assertEquals(GamePlayerController.BET, low.calculateBotDecision(1));
+        assertEquals(GamePlayerController.BET, high.calculateBotDecision(1));
+        assertEquals(low.getBetSize(), high.getBetSize());
+    }
+
     @Test
     void hardStationCanRaisePremiumHandsWithoutChangingEasyStation() {
         TestBotPlayer hero = new TestBotPlayer("hero", 200);
@@ -224,11 +267,17 @@ class BotDecisionAuditTest {
 
     @Test
     void hardStationDefendsSpeculativeHandsOnlyAtTheRightPrice() {
-        assertEquals(GamePlayerController.FOLD, hardStationDefends(16, 0));
-        assertEquals(GamePlayerController.CHECK, hardStationDefends(4, 2));
+        assertEquals(GamePlayerController.FOLD, stationDefends(Bot.Difficulty.HARD, 16, 0));
+        assertEquals(GamePlayerController.CHECK, stationDefends(Bot.Difficulty.HARD, 4, 2));
     }
 
-    private static int hardStationDefends(int open, int callers) {
+    @Test
+    void easyStationStillCallsCheaplyAndCannotMispriceTheExpensiveCall() {
+        assertEquals(GamePlayerController.FOLD, stationDefends(Bot.Difficulty.EASY, 16, 0));
+        assertEquals(GamePlayerController.CHECK, stationDefends(Bot.Difficulty.EASY, 4, 2));
+    }
+
+    private static int stationDefends(Bot.Difficulty difficulty, int open, int callers) {
         TestBotPlayer hero = new TestBotPlayer("hero", 200);
         TestBotPlayer villain = new TestBotPlayer("villain", 200);
         TestDealer dealer = headsUp(hero, villain);
@@ -248,8 +297,16 @@ class BotDecisionAuditTest {
         seats.add(hero);
         dealer.setSeating(seats);
         dealer.setPot(1 + open * (callers + 1));
-        return deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.STATION, true)
-                .calculateBotDecision(callers + 1);
+        Bot bot = deterministicBot(hero, dealer, difficulty, Bot.Profile.STATION, true);
+        if (difficulty == Bot.Difficulty.EASY) {
+            bot.setRng(new Random(1) {
+                @Override
+                public double nextDouble() {
+                    return 0.0;
+                }
+            });
+        }
+        return bot.calculateBotDecision(callers + 1);
     }
 
     @Test

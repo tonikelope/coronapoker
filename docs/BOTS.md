@@ -3,7 +3,7 @@
 # CoronaPoker: Bot AI
 
 This document describes how the CoronaPoker CPU players ("bots") think: their
-architecture, the hand-evaluation maths, the personality model, the per-turn
+architecture, the hand-evaluation maths, the style model, the per-turn
 decision pipeline and how the three difficulty levels are kept genuinely
 distinguishable. It is the bot counterpart of [`SECURITY.md`](SECURITY.md).
 
@@ -23,9 +23,9 @@ distinct styles and recognisable mistakes.
 
 Three properties follow from that:
 
-- **Personality.** Every bot is rolled a *skill* and a *style* so a table feels
-  like a mix of nits, calling stations and aggressive regulars rather than nine
-  copies of one strategy.
+- **Playing style.** A table can mix selectivity, frequent calls and
+  aggression at the same difficulty. The host can choose a base style for
+  each custom bot.
 - **A measurable difficulty gradient.** The weaker levels commit recognisable
   poker mistakes at increasing frequencies. Seeded matchups measure the
   resulting difference in bb/100 under the tested conditions (see §8).
@@ -145,32 +145,32 @@ With both hole-card pairs fixed, potential counts 990 two-card flop runouts,
 
 ---
 
-## 4. Personality model
+## 4. Difficulty and style
 
-Each bot is independently rolled along three axes (`assignPersonality`):
+The bot manager offers two AI settings.
 
-| Axis | Values | Meaning |
-|------|--------|---------|
-| **Difficulty** | `EASY`, `MEDIUM`, `HARD` | The table-wide skill level (or per-bot in mixed tests). Drives the skill mix and the mistake rate. |
-| **Skill** | `RECREATIONAL`, `REGULAR`, `SHARK` | How sophisticated the player's strategy is. |
-| **Profile** | `NIT`, `STATION`, `TAG`, `LAG` | The behavioural style (tight/loose and passive/aggressive). |
+| Setting | Values | Effect |
+| --- | --- | --- |
+| **Difficulty** | Easy, Normal, Hard | Selects the tactical rules and mistake rate. Easy uses recreational play, Normal uses the regular repertoire and Hard uses the advanced repertoire. |
+| **Style** | Random, NIT, STATION, TAG, LAG | Sets how selectively and aggressively the bot tends to play. Every fixed style is available at each difficulty. |
 
-**Skill is rolled from the difficulty.** The mixes are spaced so the *flavour* of
-a table changes with difficulty:
+Random picks the base style when the bot is created. The probabilities vary
+by difficulty.
 
-| Difficulty | RECREATIONAL | REGULAR | SHARK |
-|-----------|:---:|:---:|:---:|
-| EASY   | 60% | 32% | 8%  |
-| MEDIUM | 25% | 55% | 20% |
-| HARD   | 0%  | 35% | 65% |
+| Difficulty | NIT | STATION | TAG | LAG |
+| --- | ---: | ---: | ---: | ---: |
+| Easy | 7.20% | 46.60% | 29.00% | 17.20% |
+| Normal | 10.25% | 16.50% | 47.50% | 25.75% |
+| Hard | 5.25% | 1.75% | 56.75% | 36.25% |
 
-**Profile is rolled from the skill** (recreational players skew toward STATION,
-especially on EASY. Sharks are only TAG/LAG).
+The base style stays fixed across hands in the active session. Recovering a
+game reconstructs the bot and can draw a different random style.
 
-**Profile elasticity** (`adjustProfileElasticity`, once per hand) adapts the base
-profile to the situation by stack depth (the *M*-ratio): a short stack collapses
-to a push/fold TAG, a deep-stacked NIT loosens to TAG, and a recreational player
-on **tilt** flips to LAG.
+At the start of each hand, `adjustProfileElasticity` derives the current
+style from the base style and the situation. A LAG on Normal or Hard can
+tighten to TAG with a shorter stack, while a deep-stacked NIT can loosen to
+TAG. On Easy, a losing streak can temporarily make the bot play more
+aggressively.
 
 ---
 
@@ -200,7 +200,7 @@ action from **position × profile × bet level**:
   tighter and LAGs/late position wider.
 - **3-bet / 4-bet / 5-bet** for value with premium tiers. Small pairs set-mine
   versus a 3-bet.
-- **Bluffs and steals:** blocker-based 3-bet bluffs and squeezes for sharks, late
+- **Bluffs and steals:** blocker-based 3-bet bluffs and squeezes on HARD, late
   trash steals, and (heads-up) a wide button-open / BB-defend matrix tuned by a
   per-difficulty *looseness offset* (see §8).
 - **Blind steals on HARD:** an otherwise folded small blind can open when
@@ -210,6 +210,8 @@ action from **position × profile × bet level**:
   ring, marginal hands loosen short-handed). Expensive marginal calls
   require better pot odds or sufficient effective stacks. Small pairs
   facing a 3-bet use a separate implied-odds check.
+  Easy STATION calls marginal hands readily and can fold an expensive
+  offsuit hand. Normal NIT applies a price check to marginal cold calls.
 
 ### 5.2 Postflop
 
@@ -225,14 +227,13 @@ does not recompute invariants):
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
    than `0.15` flags a scare card (and can downgrade an aggressive plan).
 5. **`winProb` adjustments** to the raw equity for the *context*. The whole
-   block applies **only to non-`RECREATIONAL` skills**: a `RECREATIONAL` bot
-   skips every adjustment below and only gets a `+0.10` nudge when on tilt.
+   block applies on Normal and Hard. Easy receives a `+0.10` adjustment
+   when on tilt.
    - −0.10 when facing a postflop raise, −0.12 on a scare card (skipped for
      a LAG profile, which does not flinch at
      scare cards), −0.03 out of position.
    - opponent read (when there is enough data): −0.18 vs a nit, +0.12 vs a
      maniac, −0.03 vs a station.
-   - a touch of random noise on EASY.
 6. **Expected value:** the bot prices checks, calls and legal raises using
    each pot's contributions and eligible players. It treats excess
    uncalled chips as a refund and uses the expected share for each pot.
@@ -261,7 +262,7 @@ EV-driven value bet.
 
 **`decisionWhenFacingBet`** (a bet to call): dynamic **check-raises**, **floats**
 (call in position to bluff a later street), pot-committed shoves/calls, **value
-raises** (the threshold drops on HARD so sharks generate real aggression), a
+raises** (HARD uses a lower value-raise threshold),
 heads-up **semi-bluff raises** on HARD, **squeezes**, and otherwise a call or
 fold on adjusted EV. An unbeatable river hand retains its mathematical
 showdown share for the call decision. Calls use the
@@ -274,7 +275,7 @@ stack-capped cost and the bot's share of eligible pot layers.
 
 `getBetSize` is **board-texture aware**: dry boards get a small (~⅓ pot) bet, wet
 boards get a polarized split (large for value, a small block-bet otherwise), with
-profile multipliers (LAG bigger, NIT smaller) and an occasional shark river
+style multipliers (LAG bigger, NIT smaller) and an occasional HARD river
 overbet. When facing a wager heads-up, HARD also prices the minimum legal raise.
 The bot stores the selected target so the dealer uses the size evaluated in
 the decision, including any conversion to an all-in.
@@ -343,7 +344,8 @@ Three mechanisms shape the difficulty gradient:
    maniac. This is the "Stockfish skill-level" pattern: the same engine, more
    self-sabotage at lower levels.
 
-2. **Skill mix** (§4): HARD is mostly sharks, EASY is mostly recreational fish.
+2. **Tactical rules** (§4). Hard adds more selective preflop raises,
+   semi-bluffs and weighted opponent ranges. Easy uses simpler decisions.
 
 3. **Tuning knobs** that scale with difficulty: a heads-up *looseness offset*
    (`EASY +25`, `MEDIUM −16`, `HARD −52` percentage points on steal/defend
@@ -486,13 +488,13 @@ Each ordered profile stores the following settings.
 - a display nickname
 - the official bot avatar or a validated custom image
 - an individual Easy, Normal or Hard difficulty
-- a real engine personality: Random, NIT, STATION, TAG or LAG
+- a playing style chosen from Random, NIT, STATION, TAG and LAG
 - an individual automatic-rebuy preference.
 
-Random preserves the normal weighted personality roll. A fixed personality
-pins the bot's base profile while retaining the engine's legitimate in-hand
-adaptations to stack pressure, tilt and table dynamics. Difficulty and profile
-are applied together with one deterministic personality roll.
+Difficulty determines the tactics available to the bot. Style sets the
+base tendencies or lets Random choose them when the bot is created. Both
+choices allow the per-hand adjustments described in
+[Difficulty and style](#4-difficulty-and-style).
 
 When custom bots are enabled, profiles enter the lobby in manager order by
 default. The persistent **Random selection** switch shuffles the catalogue once

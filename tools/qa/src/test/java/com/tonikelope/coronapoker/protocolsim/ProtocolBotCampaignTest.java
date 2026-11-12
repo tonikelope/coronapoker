@@ -72,21 +72,27 @@ class ProtocolBotCampaignTest {
         int ante = random.nextInt(modes.length + 1);
         sim.setForcedBets(ante == modes.length ? null : modes[ante], seats > 2 && random.nextBoolean());
         sim.dealerView().requireLegalBotRaises();
-        Bot.Difficulty[] difficulties = new Bot.Difficulty[seats];
         Bot.Difficulty[] available = Bot.Difficulty.values();
+        Bot.Profile[] styles = Bot.Profile.values();
         double startingTotal = 0;
         for (int seat = 0; seat < seats; seat++) {
-            difficulties[seat] = available[random.nextInt(available.length)];
+            Bot.Difficulty difficulty = available[random.nextInt(available.length)];
+            Bot.Profile style = hand % 2 == 0 ? null : styles[(hand / 2 + seat) % styles.length];
+            sim.bot(seat).configure(difficulty, style);
             double stack = hand == 0 ? STARTING_STACK : random.nextInt(100, 30_001) / 100.0;
             sim.player(seat).setStack(stack);
             startingTotal += stack;
         }
-        sim.setSeatDifficulties(difficulties);
 
         int buttonBefore = sim.currentButton();
-        MultiwaySimulator.HandResult result = sim.playOneHand();
         String context = "seed=" + campaignSeed + " hand=" + hand
                 + " handSeed=" + handSeed + " seats=" + seats;
+        MultiwaySimulator.HandResult result;
+        try {
+            result = sim.playOneHand();
+        } catch (IllegalStateException failure) {
+            throw new IllegalStateException(context + ": " + failure.getMessage(), failure);
+        }
 
         assertEquals((buttonBefore + 1) % seats, sim.currentButton(),
                 context + " button did not rotate exactly once");

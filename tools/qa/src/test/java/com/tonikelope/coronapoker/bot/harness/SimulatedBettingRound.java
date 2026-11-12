@@ -93,7 +93,9 @@ final class SimulatedBettingRound {
                         break;
                     case GamePlayerController.BET:
                         boolean canMatch = stack > toCall && anotherSeatCanMatch(players, seat, wager);
-                        if (dealer.requiresLegalBotRaises()
+                        // Fixed benchmark strategies submit intents. This gate checks the
+                        // production bot's final decision after its own legality filter.
+                        if (dealer.requiresLegalBotRaises() && !(bot instanceof FixedStrategyBot)
                                 && (!canMatch || !dealer.canPlayerRaise(player.getNickname()))) {
                             throw new IllegalStateException("Bot attempted a raise with no legal raise at street "
                                     + dealer.getStreet() + " for " + player.getNickname() + ", stack=" + stack

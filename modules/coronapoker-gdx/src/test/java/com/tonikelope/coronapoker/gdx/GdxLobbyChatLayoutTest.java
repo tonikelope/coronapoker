@@ -26,12 +26,12 @@ final class GdxLobbyChatLayoutTest {
     void sharedGalleryOpensLargeWithoutCoveringTheLobbyComposer() {
         Rectangle panel = GdxImageGalleryWindow.initial(1920f, 1080f);
         Rectangle web = GdxImageGalleryWindow.webBounds(panel);
-        var chrome = GdxFloatingGameLogLayout.layout(panel);
+        Rectangle drag = GdxImageGalleryWindow.titleDragBounds(web, 1280, 760);
         assertTrue(panel.width > 1140f);
         assertTrue(panel.height > 720f);
         assertTrue(panel.contains(web));
-        assertFalse(web.overlaps(chrome.headerDrag()));
-        assertFalse(web.overlaps(chrome.closeButton()));
+        assertTrue(web.contains(drag.x + drag.width / 2f, drag.y + drag.height / 2f));
+        assertTrue(drag.width < web.width);
         assertFalse(panel.overlaps(GdxFrontendScreen.lobbyComposerInputBounds()));
     }
 

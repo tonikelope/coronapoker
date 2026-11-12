@@ -1268,7 +1268,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private String chatDraft = "";
     private final GdxTextEditState chatEdit = new GdxTextEditState();
     private final GdxTextEditState dialogAmountEdit = new GdxTextEditState();
-    private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
+    private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
     private final GdxKeyRepeat betShortcutRepeat = new GdxKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final List<RepeatHit> pointerRepeatHits = new ArrayList<>();
@@ -1725,9 +1725,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (activeDialog != null && activeDialog.isAutoCall()
                     && handleAutoCallAmountEditingKey(keycode)) {
-                if (isTextDeletionKey(keycode)) {
-                    textDeleteRepeat.press(keycode);
-                }
+                textKeyRepeat.press(keycode, activeDialog);
                 return true;
             }
             if (activeDialog != null) {
@@ -1764,9 +1762,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (uiLayer == UI_CHAT) chatEditMenuOpen = false;
             if (uiLayer == UI_CHAT && !blocksTableUtilities(activeDialog)
                     && handleChatEditingKey(keycode)) {
-                if (isTextDeletionKey(keycode)) {
-                    textDeleteRepeat.press(keycode);
-                }
+                textKeyRepeat.press(keycode, chatEdit);
                 return true;
             }
             if (uiLayer == UI_CHAT) {
@@ -1836,10 +1832,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean keyUp(int keycode) {
+            textKeyRepeat.release(keycode);
+            betShortcutRepeat.release(keycode);
             if (tableGalleryInteractive()
                     && tableGallery.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
-            textDeleteRepeat.release(keycode);
-            betShortcutRepeat.release(keycode);
             if (chipCatalogVisible) return true;
             if (tableVoiceConfirmationVisible()) return true;
             if (shortcutBindings.keyCodeMatches(
@@ -2427,28 +2423,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
-    private static boolean isTextDeletionKey(int keycode) {
-        return keycode == Input.Keys.BACKSPACE
-                || keycode == Input.Keys.FORWARD_DEL;
-    }
-
-    private void updateTextDeleteRepeat(float delta) {
-        int keycode = textDeleteRepeat.keycode();
-        boolean editable = (activeDialog != null
-                && activeDialog.isAutoCall()
-                && activeDialog.autoCallAmountEditable())
-                || (uiLayer == UI_CHAT
-                && !blocksTableUtilities(activeDialog));
-        boolean pressed = editable && keycode >= 0
-                && Gdx.input.isKeyPressed(keycode);
-        int repeats = textDeleteRepeat.update(delta, pressed);
-        for (int repeat = 0; repeat < repeats; repeat++) {
-            if (activeDialog != null && activeDialog.isAutoCall()) {
-                handleAutoCallAmountEditingKey(keycode);
-            } else if (uiLayer == UI_CHAT
-                    && !blocksTableUtilities(activeDialog)) {
-                handleChatEditingKey(keycode);
-            }
+    private void updateTextKeyRepeat(float delta) {
+        boolean galleryInteractive = tableGalleryInteractive();
+        tableGallery.updateKeyboard(delta, galleryInteractive);
+        if ((galleryInteractive && tableGallery.focused()) || chipCatalogVisible
+                || isClientTransportReconnecting() || tableVoiceConfirmationVisible()
+                || finalSummary != null) {
+            textKeyRepeat.clear();
+        } else if (activeDialog != null) {
+            textKeyRepeat.update(delta, activeDialog.autoCallAmountEditable() ? activeDialog : null,
+                    this::handleAutoCallAmountEditingKey);
+        } else {
+            textKeyRepeat.update(delta, uiLayer == UI_CHAT ? chatEdit : null, this::handleChatEditingKey);
         }
     }
 
@@ -6508,7 +6494,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             remoteSeatEntryStartedAt = totalTime;
         }
         audioPreview.update(delta);
-        updateTextDeleteRepeat(delta);
+        updateTextKeyRepeat(delta);
         if (startupIntroOnly) {
             renderStartupIntroFrame(delta);
             return;
@@ -6690,7 +6676,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (videoOwnsHover) pointer.set(livePointerX, livePointerY);
         if (showMedia) mediaFrontend.drawTableMedia(mediaSoundPressed);
         if (tableGalleryInteractive()) {
-            tableGallery.draw(shapes, batch, settingsHeadingFont, smallFont, gameText, pointer.x, pointer.y);
+            tableGallery.draw(shapes, batch, smallFont, gameText, pointer.x, pointer.y);
         }
         if (nestedTableModal) {
             renderNestedTableModal();

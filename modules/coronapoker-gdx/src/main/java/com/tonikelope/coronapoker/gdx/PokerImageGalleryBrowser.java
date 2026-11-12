@@ -80,7 +80,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private static final int IDLE_FRAME_RATE = 30;
     private static final int SCROLL_FRAME_RATE = 60;
     private static final long SCROLL_FRAME_RATE_NANOS = TimeUnit.MILLISECONDS.toNanos(250);
-    private static final AtomicLong PROVIDER_RETRY_AT = new AtomicLong();
+    private static final GdxImageSearchGate PROVIDER_GATE = new GdxImageSearchGate();
 
     private final boolean english;
     private final String pageUrl;
@@ -90,6 +90,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private final Runnable clearGallery;
     private final Consumer<String> removeFromGallery;
     private final Consumer<History> saveSearch;
+    private final Runnable closeWindow;
     private final Map<Integer, Snapshot> searches = new ConcurrentHashMap<>();
     private final Set<String> downloading = ConcurrentHashMap.newKeySet();
     private final PokerVideoFrameBuffer frames = new PokerVideoFrameBuffer();
@@ -119,6 +120,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private volatile LibGdxCefBrowser google;
     private volatile Search activeSearch;
     private volatile Search navigatingSearch;
+    private volatile Search loadedSearch;
     private int selectedSearch;
     private int nextSearchId;
     private int selectionVersion;
@@ -127,6 +129,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private CefClient client;
     private LibGdxCefBrowser closingBrowser;
     private final Set<LibGdxCefBrowser> pendingCreations = new HashSet<>();
+    private final GdxBrowserKeyboard keyboard = new GdxBrowserKeyboard();
     private boolean pressed;
     private double scrollRemainder;
     private double queuedWheel;
@@ -142,7 +145,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
             List<String> existingImages, boolean autoReceive, Consumer<String> saveInGallery,
             BiPredicate<String, Boolean> sendToChat, Consumer<Boolean> receiveImages,
             Runnable clearGallery, Consumer<String> removeFromGallery,
-            History previousSearch, Consumer<History> saveSearch) {
+            History previousSearch, Consumer<History> saveSearch, Runnable closeWindow) {
         this.english = english;
         this.width = width;
         this.height = height;
@@ -152,6 +155,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         this.clearGallery = clearGallery;
         this.removeFromGallery = removeFromGallery;
         this.saveSearch = saveSearch;
+        this.closeWindow = closeWindow;
         gallery = new Gallery(1, List.copyOf(existingImages), autoReceive);
         for (Snapshot search : previousSearch.searches()) {
             int id = ++nextSearchId;
@@ -232,18 +236,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     }
 
     private void installHandlers(CefClient target, Map<String, Asset> assets) {
-        CefResourceRequestHandler searchResponse = new CefResourceRequestHandlerAdapter() {
-            @Override
-            public boolean onResourceResponse(CefBrowser source, CefFrame frame,
-                    CefRequest request, CefResponse response) {
-                if (response.getStatus() == 429) {
-                    long retryAt = GoogleImageResults.retryAt(response.getHeaderByName("Retry-After"),
-                            System.currentTimeMillis());
-                    if (retryAt > 0) PROVIDER_RETRY_AT.accumulateAndGet(retryAt, Math::max);
-                }
-                return false;
-            }
-        };
         CefResourceRequestHandler localAssets = new CefResourceRequestHandlerAdapter() {
             @Override
             public CefResourceHandler getResourceHandler(CefBrowser source, CefFrame frame,
@@ -293,7 +285,8 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                     boolean searchUrl = GoogleImageResults.isSearch(url);
                     if (!download && search != null && !unusedProviderResource(request)
                             && (!searchUrl || GoogleImageResults.isSearchFor(url, search.term(), search.offset()))) {
-                        return searchUrl && navigation && frame != null && frame.isMain() ? searchResponse : null;
+                        return searchUrl && navigation && frame != null && frame.isMain()
+                                ? providerResponse(search) : null;
                     }
                     disableDefaultHandling.set(true);
                     return null;
@@ -342,7 +335,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                         browser = null;
                         if (!closed) {
                             failed = true;
-                            if (activeSearch != null) stopProviderSearch();
+                            if (activeSearch != null) stopProviderSearch(0);
                         }
                     } else if (closing == google) {
                         google = null;
@@ -358,9 +351,18 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         target.addLoadHandler(new CefLoadHandlerAdapter() {
             @Override
             public void onLoadEnd(CefBrowser source, CefFrame frame, int statusCode) {
-                if (source == google && frame != null && frame.isMain() && statusCode >= 400) {
-                    failProviderLoad(frame.getURL(), "HTTP " + statusCode,
-                            statusCode == 429 ? SearchFailure.RATE_LIMITED : SearchFailure.UNAVAILABLE);
+                Search search = activeSearch;
+                if (source != google || frame == null || !frame.isMain() || search == null
+                        || navigatingSearch != search
+                        || !GoogleImageResults.isSearchFor(frame.getURL(), search.term(), search.offset())) return;
+                if (statusCode == 429) {
+                    // Fallback for 429 responses whose headers were unavailable.
+                    reportRateLimit(search, null);
+                } else if (statusCode >= 400) {
+                    failProviderLoad(frame.getURL(), "HTTP " + statusCode, SearchFailure.UNAVAILABLE);
+                } else if (statusCode >= 200 && statusCode < 300 && loadedSearch != search) {
+                    loadedSearch = search;
+                    pollDocument(search, 0);
                 }
             }
 
@@ -398,6 +400,11 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                 if ("ready".equals(request)) {
                     ready = true;
                     reply.success("");
+                } else if ("close-window".equals(request)) {
+                    reply.success("");
+                    Gdx.app.postRunnable(() -> {
+                        if (!closed) closeWindow.run();
+                    });
                 } else if (request.startsWith("search\t")) {
                     beginSearch(request.substring(7).strip(), reply);
                 } else if (request.equals("search-state")) {
@@ -449,6 +456,29 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
             });
         } catch (RejectedExecutionException closing) {
             reply.failure(503, "Image search is closing");
+        }
+    }
+
+    private CefResourceRequestHandler providerResponse(Search search) {
+        return new CefResourceRequestHandlerAdapter() {
+            @Override
+            public boolean onResourceResponse(CefBrowser source, CefFrame frame,
+                    CefRequest request, CefResponse response) {
+                if (response.getStatus() == 429) {
+                    reportRateLimit(search, response.getHeaderByName("Retry-After"));
+                }
+                return false;
+            }
+        };
+    }
+
+    private void reportRateLimit(Search search, String retryAfter) {
+        long retryAt = GoogleImageResults.retryAt(retryAfter, System.currentTimeMillis());
+        if (retryAt > 0) search.retryAt().accumulateAndGet(retryAt, Math::max);
+        try {
+            worker.execute(() -> failSearch(search, SearchFailure.RATE_LIMITED));
+        } catch (RejectedExecutionException closing) {
+            // Closing the gallery releases its provider slot.
         }
     }
 
@@ -651,14 +681,17 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     }
 
     private void startProviderSearch(int id, String term, int offset, boolean append, CefQueryCallback reply) {
-        long wait = PROVIDER_RETRY_AT.get() - System.currentTimeMillis();
-        if (wait > 0) {
-            reply.failure(429, "retry-after:" + ((wait - 1) / 1000 + 1));
+        Search search = new Search(id, term, offset, append, selectionVersion, reply,
+                System.nanoTime() + SEARCH_TIMEOUT, new AtomicLong());
+        long wait = PROVIDER_GATE.begin(search, System.currentTimeMillis());
+        if (wait == GdxImageSearchGate.BUSY) {
+            reply.failure(409, "An image search is already in progress");
             return;
         }
-        Search search = new Search(id, term, offset, append, selectionVersion, reply,
-                System.nanoTime() + SEARCH_TIMEOUT);
-        navigatingSearch = null;
+        if (wait > 0) {
+            reply.failure(429, "retry-after:" + wait);
+            return;
+        }
         activeSearch = search;
         String url = GoogleImageResults.searchUrl(term, english, offset);
         try {
@@ -676,7 +709,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
             return;
         }
         worker.schedule(() -> failSearch(search, SearchFailure.UNAVAILABLE), SEARCH_TIMEOUT, TimeUnit.NANOSECONDS);
-        pollDocument(search, 450);
     }
 
     private void pollDocument(Search search, long delay) {
@@ -689,7 +721,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
 
     private void inspectDocument(Search search) {
         LibGdxCefBrowser provider = google;
-        if (closed || provider == null || activeSearch != search) return;
+        if (closed || provider == null || activeSearch != search || loadedSearch != search) return;
         if (System.nanoTime() >= search.deadline()) {
             failSearch(search, SearchFailure.UNAVAILABLE);
             return;
@@ -711,6 +743,10 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private void readDocument(Search search, String html) {
         if (closed || activeSearch != search) return;
         if (html != null && html.length() <= MAX_DOCUMENT_CHARS) {
+            if (GoogleImageResults.isRateLimitedDocument(html)) {
+                failSearch(search, SearchFailure.UNUSUAL_TRAFFIC);
+                return;
+            }
             List<GoogleImageResults.Image> images = GoogleImageResults.parseDocument(html);
             if (!images.isEmpty() || GoogleImageResults.isEmptyDocument(html)) {
                 finishSearch(search, images);
@@ -722,17 +758,21 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
 
     private synchronized void failSearch(Search search, SearchFailure failure) {
         if (closed || activeSearch != search) return;
-        stopProviderSearch();
+        long now = System.currentTimeMillis();
+        long retryAt = search.retryAt().get();
+        if (retryAt <= now && failure.cooldownSeconds > 0) retryAt = now + failure.cooldownSeconds * 1000L;
+        long wait = stopProviderSearch(retryAt);
         if (failure != SearchFailure.DELETED) {
             LOG.log(Level.INFO, "Image search stopped: {0} (offset {1})",
                     new Object[]{failure.reason, search.offset()});
         }
-        search.reply().failure(failure.code, failure.reason);
+        search.reply().failure(failure.code,
+                failure.cooldownSeconds > 0 && wait > 0 ? failure.reason + ":" + wait : failure.reason);
     }
 
     private synchronized void finishSearch(Search search, List<GoogleImageResults.Image> images) {
         if (closed || activeSearch != search) return;
-        stopProviderSearch();
+        stopProviderSearch(0);
         Snapshot previous = searches.get(search.id());
         int start = search.append() ? previous.images().size() : 0;
         List<GoogleImageResults.Image> combined = search.append()
@@ -750,11 +790,18 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         search.reply().success(json(searchView()));
     }
 
-    private void stopProviderSearch() {
+    private long stopProviderSearch(long retryAt) {
+        Search finished = activeSearch;
         activeSearch = null;
         navigatingSearch = null;
+        loadedSearch = null;
         LibGdxCefBrowser provider = google;
-        if (provider != null) provider.stopLoad();
+        try {
+            if (finished != null && provider != null) provider.stopLoad();
+        } catch (RuntimeException | LinkageError failure) {
+            LOG.log(Level.FINE, "Could not stop the image provider navigation", failure);
+        }
+        return PROVIDER_GATE.finish(finished, System.currentTimeMillis(), retryAt);
     }
 
     private List<Integer> orderedSearchIds() {
@@ -764,7 +811,8 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private synchronized SearchView searchView() {
         var tabs = orderedSearchIds().stream().map(id -> new SearchTab(id, searches.get(id).term())).toList();
         Snapshot current = searches.get(selectedSearch);
-        return new SearchView(viewVersion, tabs, current == null ? null : response(selectedSearch, current));
+        return new SearchView(viewVersion, tabs, current == null ? null : response(selectedSearch, current),
+                PROVIDER_GATE.remainingSeconds(System.currentTimeMillis()));
     }
 
     private Response response(int id, Snapshot snapshot) {
@@ -885,12 +933,12 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     }
 
     private record Search(int id, String term, int offset, boolean append, int selectionVersion,
-            CefQueryCallback reply, long deadline) { }
+            CefQueryCallback reply, long deadline, AtomicLong retryAt) { }
     private record Card(String thumbnail, boolean saved, boolean animated) { }
     private record Response(int batch, String term, int page, int pageCount, int firstIndex,
             List<Card> images, boolean hasMore) { }
     private record SearchTab(int batch, String term) { }
-    private record SearchView(int version, List<SearchTab> tabs, Response result) { }
+    private record SearchView(int version, List<SearchTab> tabs, Response result, long retryAfter) { }
     private record Gallery(int revision, List<String> urls, boolean autoReceive) { }
     private record GalleryResponse(int revision, int size, boolean autoReceive) { }
 
@@ -928,6 +976,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     }
 
     void unfocus() {
+        keyboard.clear();
         pressed = false;
         LibGdxCefBrowser current = browser;
         if (current != null) current.setFocus(false);
@@ -937,6 +986,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         LibGdxCefBrowser current = browser;
         if (!ready || current == null) return;
         if (event == MouseEvent.MOUSE_PRESSED) {
+            keyboard.clear();
             current.setFocus(true);
             pressed = true;
         } else if (event == MouseEvent.MOUSE_RELEASED) {
@@ -976,41 +1026,11 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         LibGdxCefBrowser current = browser;
         if (!ready || current == null) return;
         int modifiers = modifiers();
-        if (event == KeyEvent.KEY_TYPED) {
-            if (!Character.isISOControl(character)) {
-                current.dispatchKey(event, KeyEvent.VK_UNDEFINED, character, modifiers);
-            }
-            return;
-        }
-        BrowserKey browserKey = browserKey(key, modifiers);
-        if (browserKey != null) {
-            // AWT events created by GDX have no Windows scan code. Send the
-            // browser's editing keys with their explicit DOM and virtual codes.
-            int flags = 0;
-            if ((modifiers & InputEvent.ALT_DOWN_MASK) != 0) flags |= 1;
-            if ((modifiers & InputEvent.CTRL_DOWN_MASK) != 0) flags |= 2;
-            if ((modifiers & InputEvent.META_DOWN_MASK) != 0) flags |= 4;
-            if ((modifiers & InputEvent.SHIFT_DOWN_MASK) != 0) flags |= 8;
-            boolean enter = event == KeyEvent.KEY_PRESSED && "Enter".equals(browserKey.key());
-            String type = event == KeyEvent.KEY_RELEASED ? "keyUp" : enter ? "keyDown" : "rawKeyDown";
-            String text = enter ? ",\"text\":\"\\r\",\"unmodifiedText\":\"\\r\"" : "";
-            String command = event == KeyEvent.KEY_PRESSED ? editCommand(key, modifiers) : null;
-            String commands = command == null ? "" : ",\"commands\":[\"" + command + "\"]";
-            String parameters = "{\"type\":\"" + type + "\",\"key\":\"" + browserKey.key()
-                    + "\",\"code\":\"" + browserKey.code() + "\",\"windowsVirtualKeyCode\":"
-                    + browserKey.virtualKey() + ",\"modifiers\":" + flags + text + commands + "}";
-            current.getDevToolsClient().executeDevToolsMethod("Input.dispatchKeyEvent", parameters);
-        }
+        keyboard.key(current, event, key, character, modifiers);
     }
 
-    private static String editCommand(int key, int modifiers) {
-        boolean shortcut = (modifiers & (InputEvent.CTRL_DOWN_MASK | InputEvent.META_DOWN_MASK)) != 0;
-        if (key == Input.Keys.A && shortcut) return "SelectAll";
-        return switch (key) {
-            case Input.Keys.BACKSPACE -> shortcut ? "DeleteWordBackward" : "DeleteBackward";
-            case Input.Keys.FORWARD_DEL -> shortcut ? "DeleteWordForward" : "DeleteForward";
-            default -> null;
-        };
+    void updateKeyboard(float delta, boolean enabled) {
+        keyboard.update(delta, enabled && ready ? browser : null, this::modifiers);
     }
 
     private int modifiers() {
@@ -1025,43 +1045,13 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         return Gdx.input.isKeyPressed(first) || Gdx.input.isKeyPressed(second);
     }
 
-    private record BrowserKey(String key, String code, int virtualKey) {
-        BrowserKey(String name, int virtualKey) {
-            this(name, name, virtualKey);
-        }
-    }
-
-    private static BrowserKey browserKey(int key, int modifiers) {
-        if ((modifiers & (InputEvent.CTRL_DOWN_MASK | InputEvent.META_DOWN_MASK)) != 0
-                && key >= Input.Keys.A && key <= Input.Keys.Z) {
-            char letter = (char) ('A' + key - Input.Keys.A);
-            return new BrowserKey(Character.toString(Character.toLowerCase(letter)), "Key" + letter, letter);
-        }
-        return switch (key) {
-            case Input.Keys.TAB -> new BrowserKey("Tab", 9);
-            case Input.Keys.ENTER -> new BrowserKey("Enter", 13);
-            case Input.Keys.NUMPAD_ENTER -> new BrowserKey("Enter", "NumpadEnter", 13);
-            case Input.Keys.BACKSPACE -> new BrowserKey("Backspace", 8);
-            case Input.Keys.FORWARD_DEL -> new BrowserKey("Delete", 46);
-            case Input.Keys.LEFT -> new BrowserKey("ArrowLeft", 37);
-            case Input.Keys.RIGHT -> new BrowserKey("ArrowRight", 39);
-            case Input.Keys.UP -> new BrowserKey("ArrowUp", 38);
-            case Input.Keys.DOWN -> new BrowserKey("ArrowDown", 40);
-            case Input.Keys.HOME -> new BrowserKey("Home", 36);
-            case Input.Keys.END -> new BrowserKey("End", 35);
-            case Input.Keys.PAGE_UP -> new BrowserKey("PageUp", 33);
-            case Input.Keys.PAGE_DOWN -> new BrowserKey("PageDown", 34);
-            default -> null;
-        };
-    }
-
     @Override
     public synchronized void close() {
         if (closed) return;
         closed = true;
         ready = false;
-        activeSearch = null;
-        navigatingSearch = null;
+        keyboard.clear();
+        stopProviderSearch(0);
         downloading.clear();
         worker.shutdownNow();
         previews.shutdownNow();
@@ -1159,18 +1149,20 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     }
 
     private enum SearchFailure {
-        UNUSUAL_TRAFFIC(429, "unusual-traffic"),
-        RATE_LIMITED(429, "rate-limit"),
-        CONSENT(412, "consent"),
-        UNAVAILABLE(503, "unavailable"),
-        DELETED(499, "deleted");
+        UNUSUAL_TRAFFIC(429, "unusual-traffic", 60),
+        RATE_LIMITED(429, "rate-limit", 30),
+        CONSENT(412, "consent", 0),
+        UNAVAILABLE(503, "unavailable", 0),
+        DELETED(499, "deleted", 0);
 
         final int code;
         final String reason;
+        final int cooldownSeconds;
 
-        SearchFailure(int code, String reason) {
+        SearchFailure(int code, String reason, int cooldownSeconds) {
             this.code = code;
             this.reason = reason;
+            this.cooldownSeconds = cooldownSeconds;
         }
     }
 

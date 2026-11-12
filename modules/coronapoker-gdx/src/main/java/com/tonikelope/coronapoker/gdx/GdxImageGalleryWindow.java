@@ -16,7 +16,6 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.util.Locale;
 import java.util.Properties;
 import java.util.function.BiPredicate;
 
@@ -26,8 +25,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     private static final float DEFAULT_WIDTH = 1280f;
     private static final float DEFAULT_HEIGHT = 760f;
     private static final Color ACCENT = new Color(0x16839aff);
-    private static final Color PANEL = new Color(0x0b1522f6);
-    private static final Color WEB_BACKGROUND = new Color(0x0d1826ff);
+    private static final Color PANEL = new Color(0x0b1522ff);
     private static final Color CLOSE_LINE = new Color(0xf45b56ff);
     private static final Color CLOSE_FILL = new Color(0x692a32ff);
     private static final Color CLOSE_HOVER = new Color(0x8f3540ff);
@@ -88,7 +86,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
                 search -> {
                     GdxImageSearchHistory.write(properties, search);
                     persist.run();
-                });
+                }, this::close);
         return true;
     }
 
@@ -105,12 +103,27 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     static Rectangle webBounds(Rectangle panel) {
-        return new Rectangle(panel.x + 20f, panel.y + 22f,
-                panel.width - 40f, panel.height - 92f);
+        return new Rectangle(panel.x + 16f, panel.y + 16f,
+                panel.width - 32f, panel.height - 32f);
     }
 
-    private GdxFloatingGameLogLayout.Layout layout() {
-        return GdxFloatingGameLogLayout.layout(panel);
+    // CSS uses the same title bar height and reserves one square for the close button.
+    static Rectangle titleDragBounds(Rectangle web, int browserWidth, int browserHeight) {
+        float size = Math.max(32f, Math.min(60f, browserWidth * 0.045f));
+        float height = web.height * size / browserHeight;
+        float closeWidth = web.width * size / browserWidth;
+        return new Rectangle(web.x, web.y + web.height - height, web.width - closeWidth, height);
+    }
+
+    private Rectangle titleDragBounds() {
+        return titleDragBounds(webBounds(panel), renderWidth, renderHeight);
+    }
+
+    private Rectangle fallbackCloseBounds() {
+        Rectangle web = webBounds(panel);
+        Rectangle drag = titleDragBounds(web, renderWidth, renderHeight);
+        float left = drag.x + drag.width;
+        return new Rectangle(left + 4f, drag.y + 4f, web.x + web.width - left - 8f, drag.height - 8f);
     }
 
     private int browserWidth(Rectangle web) {
@@ -121,33 +134,20 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         return Math.max(1, Math.round(web.height * viewport.getScreenHeight() / viewport.getWorldHeight()));
     }
 
-    void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont titleFont,
-            BitmapFont statusFont, GdxGameText text, float x, float y) {
+    void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont statusFont,
+            GdxGameText text, float x, float y) {
         if (!isOpen()) return;
         Rectangle web = webBounds(panel);
-        Rectangle close = layout().closeButton();
         if (gesture != Gesture.RESIZE) {
             renderWidth = browserWidth(web);
             renderHeight = browserHeight(web);
         }
         Texture frame = browser.failed() ? null : browser.texture(renderWidth, renderHeight);
-        boolean hoverClose = close.contains(x, y);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y, panel.width, panel.height, PANEL, ACCENT, 1f);
-        shapes.setColor(WEB_BACKGROUND);
-        shapes.rect(web.x, web.y, web.width, web.height);
-        shapes.setColor(CLOSE_LINE);
-        GdxAntialiasedRoundedRect.fill(shapes, close.x, close.y, close.width, close.height, 10f);
-        shapes.setColor(hoverClose ? CLOSE_HOVER : CLOSE_FILL);
-        GdxAntialiasedRoundedRect.fill(shapes, close.x + 2f, close.y + 2f,
-                close.width - 4f, close.height - 4f, 8f);
-        shapes.setColor(Color.WHITE);
-        float closeX = close.x + close.width / 2f;
-        float closeY = close.y + close.height / 2f;
-        shapes.rectLine(closeX - 6f, closeY - 6f, closeX + 6f, closeY + 6f, 2.6f);
-        shapes.rectLine(closeX - 6f, closeY + 6f, closeX + 6f, closeY - 6f, 2.6f);
+        if (frame == null) drawFallbackClose(shapes, x, y);
         shapes.setColor(GRIP);
         float right = panel.x + panel.width;
         shapes.rectLine(right - 17f, panel.y + 7f, right - 7f, panel.y + 17f, 2f);
@@ -170,9 +170,21 @@ final class GdxImageGalleryWindow implements AutoCloseable {
                     ? "gdx.lobby.image_search_unavailable" : "gdx.lobby.media_loading"),
                     web, GdxUiDialogStyle.PREPARATION_STATUS, Align.center);
         }
-        drawLabel(batch, titleFont, text.translate("gdx.lobby.image_gallery").toUpperCase(Locale.ROOT),
-                layout().headerDrag(), GdxUiDialogStyle.PREPARATION_TITLE, Align.left);
         batch.end();
+    }
+
+    private void drawFallbackClose(ShapeRenderer shapes, float x, float y) {
+        Rectangle close = fallbackCloseBounds();
+        shapes.setColor(CLOSE_LINE);
+        GdxAntialiasedRoundedRect.fill(shapes, close.x, close.y, close.width, close.height, 10f);
+        shapes.setColor(close.contains(x, y) ? CLOSE_HOVER : CLOSE_FILL);
+        GdxAntialiasedRoundedRect.fill(shapes, close.x + 2f, close.y + 2f,
+                close.width - 4f, close.height - 4f, 8f);
+        shapes.setColor(Color.WHITE);
+        float centerX = close.x + close.width / 2f;
+        float centerY = close.y + close.height / 2f;
+        shapes.rectLine(centerX - 6f, centerY - 6f, centerX + 6f, centerY + 6f, 2.6f);
+        shapes.rectLine(centerX - 6f, centerY + 6f, centerX + 6f, centerY - 6f, 2.6f);
     }
 
     private void drawLabel(SpriteBatch batch, BitmapFont font, String value,
@@ -200,13 +212,12 @@ final class GdxImageGalleryWindow implements AutoCloseable {
             return false;
         }
         if (button != Input.Buttons.LEFT || !pointer.capture(index, button)) return true;
-        var layout = layout();
         resize = GdxFloatingGameLogLayout.resizeHandleAt(panel, x, y);
-        if (layout.closeButton().contains(x, y)) {
+        if ((!browser.interactive() || browser.failed()) && fallbackCloseBounds().contains(x, y)) {
             gesture = Gesture.CLOSE;
         } else if (resize != GdxFloatingGameLogLayout.ResizeHandle.NONE) {
             beginMove(Gesture.RESIZE, x, y);
-        } else if (layout.headerDrag().contains(x, y)) {
+        } else if (titleDragBounds().contains(x, y)) {
             beginMove(Gesture.MOVE, x, y);
         } else if (browser.interactive() && webBounds(panel).contains(x, y)) {
             gesture = Gesture.WEB;
@@ -239,7 +250,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
 
     boolean touchUp(float x, float y, int index, int button) {
         if (!pointer.release(index, button)) return false;
-        if (gesture == Gesture.CLOSE && layout().closeButton().contains(x, y)) {
+        if (gesture == Gesture.CLOSE && fallbackCloseBounds().contains(x, y)) {
             close();
         } else if (gesture == Gesture.WEB) {
             mouse(MouseEvent.MOUSE_RELEASED, x, y);
@@ -286,6 +297,10 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         return true;
     }
 
+    void updateKeyboard(float delta, boolean enabled) {
+        if (isOpen()) browser.updateKeyboard(delta, enabled && keyboardFocused);
+    }
+
     void unfocus() {
         if (keyboardFocused && isOpen()) browser.unfocus();
         keyboardFocused = false;
@@ -309,7 +324,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     private Cursor.SystemCursor innerCursor(float x, float y) {
-        if (layout().headerDrag().contains(x, y)) return Cursor.SystemCursor.AllResize;
+        if (titleDragBounds().contains(x, y)) return Cursor.SystemCursor.AllResize;
         if (webBounds(panel).contains(x, y)) return browser.cursor();
         return Cursor.SystemCursor.Arrow;
     }

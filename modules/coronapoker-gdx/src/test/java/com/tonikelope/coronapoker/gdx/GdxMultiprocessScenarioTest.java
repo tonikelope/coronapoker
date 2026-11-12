@@ -53,6 +53,7 @@ class GdxMultiprocessScenarioTest {
 
     private static final List<String> ALWAYS_FATAL_OUTPUT = List.of(
             "CP_GDX_E2E_FAIL",
+            "ConcurrentModificationException",
             "TABLE_FAILURE_V1",
             "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)",
             "GAME OVER (NO PLAYERS LEFT)",

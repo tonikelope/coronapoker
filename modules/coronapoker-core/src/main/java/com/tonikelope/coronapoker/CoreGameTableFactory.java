@@ -1351,7 +1351,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                                 : RECOVERY_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS);
                             }
                             TableSessionSummary summary = tableSummary(
-                                    dealer, game, players, local,
+                                    dealer, game, local,
                                     requestedCloseReason.get());
                             game.finish();
                             // Passive hot-join recovery suppresses provisional
@@ -1440,8 +1440,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
     }
 
     private static TableSessionSummary tableSummary(Crupier dealer,
-            GameSession game, List<CorePlayerController> players,
-            CorePlayerController local,
+            GameSession game, CorePlayerController local,
             TableSessionSummary.CloseReason requestedCloseReason) {
         long endedAt = System.currentTimeMillis();
         long elapsed = game.startTimestampMillis() > 0L
@@ -1467,7 +1466,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 dealer.getAuditor());
         Map<String, TableSessionSummary.PlayerBalance> balances
                 = new LinkedHashMap<>();
-        for (CorePlayerController player : players) {
+        for (var player : dealer.getPlayersInSeatingOrder()) {
             // The dealer's auditor is refreshed at hand boundaries, before
             // settlement has necessarily moved the winning amount into pagar.
             // At table close the live controller is therefore authoritative

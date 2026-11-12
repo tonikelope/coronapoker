@@ -142,7 +142,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final GameSession game_session;
     /** Fixed physical x1 chip value chosen when this table session starts. */
     private final double initial_small_blind;
-    private final java.util.ArrayList<GamePlayerController> player_controllers;
+    private final Object player_roster_lock = new Object();
+    private volatile java.util.List<GamePlayerController> player_controllers;
     private final GamePlayerController local_player_controller;
     private final java.util.Map<String, GamePeerController> peer_controllers;
     private final GameIdentity game_identity;
@@ -220,7 +221,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     Crupier(GameSession gameSession,
-            java.util.ArrayList<? extends GamePlayerController> playerControllers,
+            java.util.List<? extends GamePlayerController> playerControllers,
             GamePlayerController localPlayerController,
             java.util.Map<String, ? extends GamePeerController> peerControllers,
             GameCardController[] communityCardControllers,
@@ -254,7 +255,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.initial_small_blind = gameSession != null
                 && gameSession.hasConfiguration()
                         ? gameSession.configuration().smallBlind() : 0.01d;
-        this.player_controllers = controllerView(playerControllers);
+        this.player_controllers = playerControllers == null ? null : java.util.List.copyOf(playerControllers);
         this.local_player_controller = localPlayerController;
         this.peer_controllers = peerControllerView(peerControllers);
         this.community_card_controllers = communityCardControllers;
@@ -308,13 +309,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             throw new IllegalStateException("Crupier has no bound GameSession");
         }
         return game_session;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.ArrayList<GamePlayerController> controllerView(
-            java.util.ArrayList<? extends GamePlayerController> controllers) {
-        return controllers == null ? null
-                : (java.util.ArrayList<GamePlayerController>) (java.util.ArrayList<?>) controllers;
     }
 
     @SuppressWarnings("unchecked")
@@ -401,11 +395,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return smallBlind * 2d;
     }
 
-    private java.util.ArrayList<GamePlayerController> players() {
-        if (player_controllers == null) {
+    private java.util.List<GamePlayerController> players() {
+        var roster = player_controllers;
+        if (roster == null) {
             throw new IllegalStateException("Crupier has no bound player repository");
         }
-        return player_controllers;
+        return roster;
+    }
+
+    private void updatePlayers(java.util.function.Consumer<java.util.List<GamePlayerController>> update) {
+        synchronized (player_roster_lock) {
+            // Readers on the telemetry and lifecycle threads keep a complete,
+            // ordered roster while the dealer publishes the next one.
+            var roster = new java.util.ArrayList<>(players());
+            update.accept(roster);
+            player_controllers = java.util.List.copyOf(roster);
+        }
     }
 
     private GamePlayerController localPlayer() {
@@ -417,11 +422,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
          * stable local identity; otherwise the dealer can wait on the discarded
          * LocalPlayer while the replacement receives the user's action.
          */
-        if (player_controllers != null && game_session != null) {
+        var roster = player_controllers;
+        if (roster != null && game_session != null) {
             String localNick = game_session.localNickname();
-            for (int i = 0, size = player_controllers.size(); i < size; i++) {
-                GamePlayerController candidate = player_controllers.get(i);
-                if (candidate != null && localNick.equals(candidate.getNickname())) {
+            for (GamePlayerController candidate : roster) {
+                if (localNick.equals(candidate.getNickname())) {
                     return candidate;
                 }
             }
@@ -679,7 +684,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 || !installed.isCalentando() && !boundaryOnlyObserver) {
             return false;
         }
-        players().remove(installed);
+        updatePlayers(roster -> roster.remove(installed));
         peers().remove(nickname);
         nick2player.remove(nickname, installed);
         gameSession().table().removePlayer(nickname);
@@ -1221,7 +1226,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 player.setStack(MoneyMath.clean(previous.getStack()
                         + previous.getPagar()));
                 player.setBuyin(previous.getBuyin());
-                players().remove(previous);
                 peers().remove(nickname);
                 nick2player.remove(nickname, previous);
                 gameSession().table().removePlayer(nickname);
@@ -1236,9 +1240,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             });
             player.bindCommittedRebuy(() -> consumeCommittedRebuy(
                     nickname, player.getStack()));
-            if (!players().contains(player)) {
-                players().add(player);
-            }
+            updatePlayers(roster -> {
+                if (previous != null) roster.remove(previous);
+                if (!roster.contains(player)) roster.add(player);
+            });
             peers().put(nickname, pending.peer());
             nick2player.put(nickname, player);
             gameSession().table().putPlayer(player.getState());
@@ -10260,7 +10265,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         table_display.showPot(pot_show, this.beneficio_bote_principal);
     }
 
-    private void resetBetPlayerDecisions(ArrayList<GamePlayerController> jugadores, String nick, boolean partial_raise) {
+    private void resetBetPlayerDecisions(java.util.List<GamePlayerController> jugadores, String nick, boolean partial_raise) {
 
         if (nick == null) {
             this.last_aggressor = null;
@@ -14277,7 +14282,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // that order intact makes honest peers take turns in different orders
         // and immediately diverges the signed H_t action chain.
         final String[] canonicalSeats = this.nicks_permutados;
-        players().sort((left, right) -> {
+        updatePlayers(roster -> roster.sort((left, right) -> {
             int leftSeat = seatIndex(canonicalSeats, left.getNickname());
             int rightSeat = seatIndex(canonicalSeats, right.getNickname());
             if (leftSeat >= 0 && rightSeat >= 0) {
@@ -14290,7 +14295,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return 1;
             }
             return left.getNickname().compareTo(right.getNickname());
-        });
+        }));
 
         for (GamePlayerController jugador : players()) {
             if (jugador.isActivo()) {
@@ -24141,7 +24146,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 candidate.player().getNickname()))
                         .findFirst().orElse(null);
                 if (pending != null) {
-                    players().add(pending.player());
+                    updatePlayers(roster -> roster.add(pending.player()));
                     installed.add(nickname);
                 }
             }
@@ -24213,8 +24218,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             orderedPlayers.add(player);
         }
-        players().clear();
-        players().addAll(orderedPlayers);
+        updatePlayers(roster -> {
+            roster.clear();
+            roster.addAll(orderedPlayers);
+        });
 
         String sentados_msg = "\n*********************\n";
 

@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.game.CorePlayerController;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableRenderer;
@@ -16,6 +17,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +26,31 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class CrupierTableEventBridgeTest {
+
+    @Test
+    void rosterReaderKeepsItsOrderWhenASeatIsReplaced() throws Exception {
+        Crupier dealer = new Crupier();
+        var host = CorePlayerController.local("host");
+        var departing = CorePlayerController.remote("departing");
+        var joining = CorePlayerController.remote("joining");
+        var field = Crupier.class.getDeclaredField("player_controllers");
+        field.setAccessible(true);
+        field.set(dealer, List.of(host, departing));
+        var update = Crupier.class.getDeclaredMethod("updatePlayers", Consumer.class);
+        update.setAccessible(true);
+
+        var reader = dealer.getPlayersInSeatingOrder().iterator();
+        assertEquals(host, reader.next());
+        Consumer<List<GamePlayerController>> replace = roster -> {
+            roster.remove(departing);
+            roster.add(joining);
+        };
+        update.invoke(dealer, replace);
+
+        assertEquals(departing, reader.next());
+        assertFalse(reader.hasNext());
+        assertEquals(List.of(host, joining), dealer.getPlayersInSeatingOrder());
+    }
 
     @Test
     void recoveryCinematicIsExclusiveToAnInterruptedReplayableHand() {

@@ -117,6 +117,8 @@ final class PokerStatsBrowser implements AutoCloseable {
                     pageUrl, asset(ROOT + "index.html", "text/html"),
                     ORIGIN + ROOT + "dashboard.css", asset(ROOT + "dashboard.css", "text/css"),
                     ORIGIN + ROOT + "dashboard.js", asset(ROOT + "dashboard.js", "text/javascript"),
+                    ORIGIN + "/ui-tooltip.js", asset("/ui-tooltip.js", "text/javascript"),
+                    ORIGIN + "/ui-tooltip.css", asset("/ui-tooltip.css", "text/css"),
                     ORIGIN + ROOT + "echarts.min.js", asset(ROOT + "echarts.min.js", "text/javascript"),
                     ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf"));
             if (closed) return;

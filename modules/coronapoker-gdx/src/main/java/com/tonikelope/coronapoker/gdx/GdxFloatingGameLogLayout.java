@@ -12,6 +12,7 @@ final class GdxFloatingGameLogLayout {
     static final float MIN_HEIGHT = 360f;
     static final float RESIZE_EDGE = 14f;
     static final float RESIZE_CORNER = 20f;
+    static final float HEADER_HEIGHT = 64f;
     private static final float DEFAULT_WIDTH = 1160f;
     private static final float DEFAULT_HEIGHT = 720f;
 
@@ -121,11 +122,6 @@ final class GdxFloatingGameLogLayout {
 
     static Layout layout(Rectangle panel) {
         Rectangle copy = new Rectangle(panel);
-        Rectangle close = new Rectangle(panel.x + panel.width - 62f,
-                panel.y + panel.height - 58f, 40f, 36f);
-        Rectangle header = new Rectangle(panel.x + 22f,
-                panel.y + panel.height - 70f,
-                Math.max(1f, panel.width - 100f), 54f);
         Rectangle logFrame = new Rectangle(panel.x + 24f, panel.y + 24f,
                 Math.max(1f, panel.width - 48f),
                 Math.max(1f, panel.height - 108f));
@@ -137,8 +133,24 @@ final class GdxFloatingGameLogLayout {
                 logFrame.x + logFrame.width - 24f,
                 logFrame.y + 14f, 14f,
                 Math.max(1f, logFrame.height - 28f));
-        return new Layout(copy, header, close, logFrame, content,
+        return new Layout(copy, headerBounds(panel), closeBounds(panel), logFrame, content,
                 scrollbar);
+    }
+
+    static Rectangle closeBounds(Rectangle panel) {
+        float buttonHeight = 36f;
+        return new Rectangle(panel.x + panel.width - 62f,
+                headerCenterY(panel) - buttonHeight / 2f, 40f, buttonHeight);
+    }
+
+    static Rectangle headerBounds(Rectangle panel) {
+        float dragHeight = 54f;
+        return new Rectangle(panel.x + 22f, headerCenterY(panel) - dragHeight / 2f,
+                Math.max(1f, panel.width - 100f), dragHeight);
+    }
+
+    private static float headerCenterY(Rectangle panel) {
+        return panel.y + panel.height - HEADER_HEIGHT / 2f;
     }
 
     record Layout(Rectangle panel, Rectangle headerDrag,

@@ -20,6 +20,8 @@ final class GdxAppearanceOptionsTest {
                 GdxAppearanceOptions.selectedLabel(deal, properties, text));
         assertEquals("Default",
                 GdxAppearanceOptions.cardBackLabel("default", text));
+        assertEquals("Goliat", GdxAppearanceOptions.deckLabel("goliat", text));
+        assertEquals("CustomDeck", GdxAppearanceOptions.deckLabel("CustomDeck", text));
         assertEquals("No felt",
                 GdxAppearanceOptions.feltLabel("madera", text));
     }

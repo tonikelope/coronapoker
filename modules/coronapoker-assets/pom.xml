@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.51</version>
+        <version>27.52</version>
     </parent>
     <artifactId>coronapoker-assets</artifactId>
     <name>CoronaPoker shared assets</name>
@@ -21,6 +21,13 @@
             </resource>
             <resource>
                 <directory>${project.build.directory}/generated-resources/emoji</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../..</directory>
+                <includes>
+                    <include>robert_rules.pdf</include>
+                    <include>robert_rules_es.pdf</include>
+                </includes>
             </resource>
         </resources>
         <plugins>

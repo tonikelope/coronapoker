@@ -69,8 +69,12 @@ public final class PokerVideoFrameBuffer {
         if (pixels != null && width == newWidth && height == newHeight) return;
         width = newWidth;
         height = newHeight;
-        pixels = ByteBuffer.allocateDirect(Math.multiplyExact(Math.multiplyExact(width, height),
-                BYTES_PER_PIXEL)).order(ByteOrder.nativeOrder());
+        int bytes = Math.multiplyExact(Math.multiplyExact(width, height), BYTES_PER_PIXEL);
+        if (pixels == null || pixels.capacity() < bytes) {
+            int capacity = pixels == null ? bytes : Math.max(bytes, pixels.capacity() + pixels.capacity() / 4);
+            pixels = ByteBuffer.allocateDirect(capacity).order(ByteOrder.nativeOrder());
+        }
+        pixels.clear();
         dirtyCount = 0;
         fullDirty = true;
     }
@@ -165,8 +169,15 @@ public final class PokerVideoFrameBuffer {
 
     /** Must be called only from libGDX's render thread. */
     public Texture uploadPendingFrame() {
+        return uploadPendingFrame(0, 0);
+    }
+
+    /** Retains the previous texture until the browser paints the requested viewport. */
+    public Texture uploadPendingFrame(int expectedWidth, int expectedHeight) {
         synchronized (lock) {
             if (pixels == null) return texture;
+            if (expectedWidth > 0 && (Math.abs(width - expectedWidth) > 1
+                    || Math.abs(height - expectedHeight) > 1)) return texture;
             boolean recreate = texture == null || textureWidth != width || textureHeight != height;
             if (recreate) {
                 if (texture != null) texture.dispose();

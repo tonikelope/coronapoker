@@ -111,14 +111,12 @@ final class GdxFrontendSettingsWiringTest {
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
                 StandardCharsets.UTF_8);
 
-        assertTrue(frontend.contains(
-                "if (rootSurfaceModal && dropdown == Dropdown.NONE)"));
-        int tooltipGuardStart = frontend.indexOf(
-                "if (rootSurfaceModal && dropdown == Dropdown.NONE)");
-        int tooltipCall = frontend.indexOf("drawTooltipTopLayer();", tooltipGuardStart);
-        assertTrue(tooltipCall > tooltipGuardStart);
-        assertFalse(frontend.substring(tooltipGuardStart, tooltipCall)
-                .contains("hasBlockingFrontendModal"));
+        String render = methodSection(frontend, "public void render()");
+        int popup = render.indexOf("drawDropdownTopLayer();");
+        int topLayers = render.indexOf("drawFrontendTopLayers();");
+        int tooltip = render.indexOf("drawTooltipTopLayer(");
+        assertTrue(popup >= 0 && topLayers > popup && tooltip > topLayers);
+        assertEquals(1, occurrences(render, "drawTooltipTopLayer("));
         assertTrue(frontend.contains("case SETTINGS -> drawSettingsScreen();"),
                 "menu and lobby settings must share the same sharp modal");
         assertTrue(frontend.contains(

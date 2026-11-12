@@ -96,11 +96,11 @@ final class GdxAboutEasterEggTest {
     }
 
     @Test
-    void preservesTheTwoInteractiveLinksFromSwingAbout() {
+    void aboutUsesThePackagedPdfAndTheProjectLink() throws Exception {
         assertEquals("https://github.com/tonikelope/coronapoker",
                 GdxFrontendScreen.ABOUT_PROJECT_URI.toString());
-        assertEquals("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf",
-                GdxFrontendScreen.ABOUT_RULES_URI.toString());
+        assertEquals("%PDF-", new String(resource(GdxRobertRulesAssets.ORIGINAL),
+                0, 5, java.nio.charset.StandardCharsets.US_ASCII));
     }
 
     @Test

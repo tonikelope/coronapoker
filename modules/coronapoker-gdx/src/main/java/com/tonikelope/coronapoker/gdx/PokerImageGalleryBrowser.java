@@ -90,7 +90,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private final Runnable clearGallery;
     private final Consumer<String> removeFromGallery;
     private final Consumer<History> saveSearch;
-    private final Runnable closeWindow;
     private final Map<Integer, Snapshot> searches = new ConcurrentHashMap<>();
     private final Set<String> downloading = ConcurrentHashMap.newKeySet();
     private final PokerVideoFrameBuffer frames = new PokerVideoFrameBuffer();
@@ -145,7 +144,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
             List<String> existingImages, boolean autoReceive, Consumer<String> saveInGallery,
             BiPredicate<String, Boolean> sendToChat, Consumer<Boolean> receiveImages,
             Runnable clearGallery, Consumer<String> removeFromGallery,
-            History previousSearch, Consumer<History> saveSearch, Runnable closeWindow) {
+            History previousSearch, Consumer<History> saveSearch) {
         this.english = english;
         this.width = width;
         this.height = height;
@@ -155,7 +154,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         this.clearGallery = clearGallery;
         this.removeFromGallery = removeFromGallery;
         this.saveSearch = saveSearch;
-        this.closeWindow = closeWindow;
         gallery = new Gallery(1, List.copyOf(existingImages), autoReceive);
         for (Snapshot search : previousSearch.searches()) {
             int id = ++nextSearchId;
@@ -185,6 +183,8 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                     pageUrl, asset(ROOT + "index.html", "text/html"),
                     ORIGIN + ROOT + "gallery.css", asset(ROOT + "gallery.css", "text/css"),
                     ORIGIN + ROOT + "gallery.js", asset(ROOT + "gallery.js", "text/javascript"),
+                    ORIGIN + "/ui-tooltip.js", asset("/ui-tooltip.js", "text/javascript"),
+                    ORIGIN + "/ui-tooltip.css", asset("/ui-tooltip.css", "text/css"),
                     ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf"));
             if (closed) return;
             CefClient created = PokerChromium.createClient(null);
@@ -400,11 +400,6 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                 if ("ready".equals(request)) {
                     ready = true;
                     reply.success("");
-                } else if ("close-window".equals(request)) {
-                    reply.success("");
-                    Gdx.app.postRunnable(() -> {
-                        if (!closed) closeWindow.run();
-                    });
                 } else if (request.startsWith("search\t")) {
                     beginSearch(request.substring(7).strip(), reply);
                 } else if (request.equals("search-state")) {

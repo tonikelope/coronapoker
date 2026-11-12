@@ -46,12 +46,11 @@ final class GdxImageSearchGateTest {
     }
 
     @Test
-    void browserTitleDragAreaReservesTheCloseButtonAtDifferentSizes() {
-        var web = new Rectangle(20f, 30f, 800f, 400f);
-        var normal = GdxImageGalleryWindow.titleDragBounds(web, 800, 400);
-        assertEquals(new Rectangle(20f, 394f, 764f, 36f), normal);
-        var dense = GdxImageGalleryWindow.titleDragBounds(web, 1600, 800);
-        assertEquals(new Rectangle(20f, 400f, 770f, 30f), dense);
-        assertFalse(dense.contains(806f, 415f));
+    void nativeGalleryHeaderReservesTheCloseButtonAndWebViewport() {
+        var panel = new Rectangle(20f, 30f, 800f, 400f);
+        var title = GdxImageGalleryWindow.titleDragBounds(panel);
+        assertEquals(GdxFloatingGameLogLayout.headerBounds(panel), title);
+        assertFalse(title.overlaps(GdxFloatingGameLogLayout.closeBounds(panel)));
+        assertFalse(title.overlaps(GdxImageGalleryWindow.webBounds(panel)));
     }
 }

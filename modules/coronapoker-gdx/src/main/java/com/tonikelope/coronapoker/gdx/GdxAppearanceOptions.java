@@ -123,6 +123,7 @@ final class GdxAppearanceOptions {
     static String deckLabel(String deck) {
         if (deck == null) return "";
         return switch (deck.toLowerCase(java.util.Locale.ROOT)) {
+            case "goliat" -> "Goliat";
             case "coronapoker" -> "CoronaPoker";
             case "goliat4" -> "Goliat 4 colores";
             case "interstate60" -> "Interstate 60";

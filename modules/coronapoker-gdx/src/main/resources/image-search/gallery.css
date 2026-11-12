@@ -17,7 +17,6 @@
   --gold: #ffe082;
   --cyan: #41dcfb;
   --green: #81dfa0;
-  --titlebar-size: clamp(32px, 4.5vw, 60px);
 }
 
 * { box-sizing: border-box; }
@@ -26,16 +25,6 @@ html, body { width: 100%; height: 100%; margin: 0; }
 body { display: flex; flex-direction: column; overflow: hidden; background: var(--surface); color: var(--ink); font: 1rem McLaren, sans-serif; }
 header, nav, #local-controls, #search-controls, form, footer, .notice { display: flex; align-items: center; gap: .45rem; }
 header { justify-content: space-between; padding: .45rem .65rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.window-titlebar {
-  flex: none;
-  height: var(--titlebar-size);
-  padding: 0 0 0 .65rem;
-  flex-wrap: nowrap;
-  color: var(--cyan);
-  font-size: .86rem;
-  text-transform: uppercase;
-  user-select: none;
-}
 button, input { font: inherit; }
 button { min-height: 1.95rem; padding: .28rem .68rem; border: var(--stroke) solid var(--line); border-radius: .52rem; background: linear-gradient(#263449, #131e2e 51%, #0e1725); color: var(--gold); cursor: pointer; white-space: nowrap; }
 button:hover:not(:disabled) { border-color: var(--cyan); background: #173047; }
@@ -57,12 +46,6 @@ input::placeholder { color: var(--muted); }
 input::-webkit-search-cancel-button { display: none; }
 .icon-button { display: grid; place-items: center; width: 1.48rem; height: 1.48rem; min-height: 0; padding: 0; border-radius: .37rem; }
 .icon-button svg { width: .93rem; height: .93rem; stroke-width: 2.25; }
-#close-gallery {
-  flex: none;
-  width: calc(var(--titlebar-size) - 10px);
-  height: calc(var(--titlebar-size) - 10px);
-  margin: 5px;
-}
 #clear-search { position: absolute; top: 50%; right: .32rem; transform: translateY(-50%); color: var(--ink); border-color: var(--search-line); }
 #submit { border-color: var(--search-line); }
 #search-history {

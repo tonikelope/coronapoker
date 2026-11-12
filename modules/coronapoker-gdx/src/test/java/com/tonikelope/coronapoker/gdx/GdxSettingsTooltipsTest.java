@@ -3,15 +3,49 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.PreferencesService;
+import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class GdxSettingsTooltipsTest {
+
+    @Test
+    void explainedDropdownOptionsAreTranslatedInBothLanguages(@TempDir Path root) {
+        var preferences = new PreferencesService(root.resolve("settings.properties"));
+        var presentation = new GdxGamePresentationSettings(preferences,
+                ModMediaCatalog.discover(root));
+        var spanish = new GdxGameText("es");
+        var english = new GdxGameText("en");
+        Map<String, Integer> selectors = Map.ofEntries(
+                Map.entry("BOT_DIFFICULTY", 3), Map.entry("CUSTOM_BOT_DIFFICULTY", 3),
+                Map.entry("CUSTOM_BOT_PERSONALITY", 5), Map.entry("ANTE_MODE", 4),
+                Map.entry("BLIND_UNIT", 2), Map.entry("REBUY_CAP", 2),
+                Map.entry("RABBIT", 4), Map.entry("WINDOW_MODE", 3),
+                Map.entry("FPS_LIMIT", presentation.frameRateLimits().size()),
+                Map.entry("MSAA", presentation.msaaLevels().size()),
+                Map.entry("CARD_RENDERING", presentation.cardRenderingModes().size()));
+        selectors.forEach((selector, count) -> {
+            for (int option = 0; option < count; option++) {
+                String key = GdxSettingsTooltips.optionKey(selector, option, presentation);
+                assertNotNull(key, selector);
+                assertNotEquals(key, spanish.translate(key));
+                assertNotEquals(key, english.translate(key));
+                assertNotEquals(spanish.translate(key), english.translate(key));
+            }
+        });
+        assertNull(GdxSettingsTooltips.optionKey("SERVER_HISTORY", 0, presentation));
+    }
 
     @Test
     void everyGameSettingsRowHasSpecificTextInBothLanguages() {

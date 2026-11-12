@@ -26,13 +26,11 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     private static final float DEFAULT_HEIGHT = 760f;
     private static final Color ACCENT = new Color(0x16839aff);
     private static final Color PANEL = new Color(0x0b1522ff);
-    private static final Color CLOSE_LINE = new Color(0xf45b56ff);
-    private static final Color CLOSE_FILL = new Color(0x692a32ff);
-    private static final Color CLOSE_HOVER = new Color(0x8f3540ff);
     private static final Color GRIP = new Color(0x3e6079ff);
 
-    private final GdxPointerHold pointer = new GdxPointerHold();
+    private final GdxFloatingWindowPointer pointer = new GdxFloatingWindowPointer();
     private final GlyphLayout title = new GlyphLayout();
+    private final GdxWindowTooltip tooltip = new GdxWindowTooltip();
     private Rectangle panel;
     private Rectangle start;
     private float startX;
@@ -86,7 +84,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
                 search -> {
                     GdxImageSearchHistory.write(properties, search);
                     persist.run();
-                }, this::close);
+                });
         return true;
     }
 
@@ -104,26 +102,19 @@ final class GdxImageGalleryWindow implements AutoCloseable {
 
     static Rectangle webBounds(Rectangle panel) {
         return new Rectangle(panel.x + 16f, panel.y + 16f,
-                panel.width - 32f, panel.height - 32f);
+                panel.width - 32f, panel.height - GdxFloatingGameLogLayout.HEADER_HEIGHT - 16f);
     }
 
-    // CSS uses the same title bar height and reserves one square for the close button.
-    static Rectangle titleDragBounds(Rectangle web, int browserWidth, int browserHeight) {
-        float size = Math.max(32f, Math.min(60f, browserWidth * 0.045f));
-        float height = web.height * size / browserHeight;
-        float closeWidth = web.width * size / browserWidth;
-        return new Rectangle(web.x, web.y + web.height - height, web.width - closeWidth, height);
+    static Rectangle titleDragBounds(Rectangle panel) {
+        return GdxFloatingGameLogLayout.headerBounds(panel);
     }
 
     private Rectangle titleDragBounds() {
-        return titleDragBounds(webBounds(panel), renderWidth, renderHeight);
+        return titleDragBounds(panel);
     }
 
-    private Rectangle fallbackCloseBounds() {
-        Rectangle web = webBounds(panel);
-        Rectangle drag = titleDragBounds(web, renderWidth, renderHeight);
-        float left = drag.x + drag.width;
-        return new Rectangle(left + 4f, drag.y + 4f, web.x + web.width - left - 8f, drag.height - 8f);
+    private Rectangle closeBounds() {
+        return GdxFloatingGameLogLayout.closeBounds(panel);
     }
 
     private int browserWidth(Rectangle web) {
@@ -134,7 +125,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         return Math.max(1, Math.round(web.height * viewport.getScreenHeight() / viewport.getWorldHeight()));
     }
 
-    void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont statusFont,
+    void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont titleFont, BitmapFont statusFont,
             GdxGameText text, float x, float y) {
         if (!isOpen()) return;
         Rectangle web = webBounds(panel);
@@ -147,7 +138,9 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y, panel.width, panel.height, PANEL, ACCENT, 1f);
-        if (frame == null) drawFallbackClose(shapes, x, y);
+        Rectangle close = closeBounds();
+        GdxUiDialogStyle.drawWindowClose(shapes, close.x, close.y, close.width, close.height,
+                true, close.contains(x, y) ? 1f : 0f, gesture == Gesture.CLOSE, 1f);
         shapes.setColor(GRIP);
         float right = panel.x + panel.width;
         shapes.rectLine(right - 17f, panel.y + 7f, right - 7f, panel.y + 17f, 2f);
@@ -170,21 +163,11 @@ final class GdxImageGalleryWindow implements AutoCloseable {
                     ? "gdx.lobby.image_search_unavailable" : "gdx.lobby.media_loading"),
                     web, GdxUiDialogStyle.PREPARATION_STATUS, Align.center);
         }
+        GdxUiDialogStyle.drawWindowTitle(batch, titleFont, title, text.translate("gdx.lobby.image_gallery"),
+                titleDragBounds(), viewport, 1f);
         batch.end();
-    }
-
-    private void drawFallbackClose(ShapeRenderer shapes, float x, float y) {
-        Rectangle close = fallbackCloseBounds();
-        shapes.setColor(CLOSE_LINE);
-        GdxAntialiasedRoundedRect.fill(shapes, close.x, close.y, close.width, close.height, 10f);
-        shapes.setColor(close.contains(x, y) ? CLOSE_HOVER : CLOSE_FILL);
-        GdxAntialiasedRoundedRect.fill(shapes, close.x + 2f, close.y + 2f,
-                close.width - 4f, close.height - 4f, 8f);
-        shapes.setColor(Color.WHITE);
-        float centerX = close.x + close.width / 2f;
-        float centerY = close.y + close.height / 2f;
-        shapes.rectLine(centerX - 6f, centerY - 6f, centerX + 6f, centerY + 6f, 2.6f);
-        shapes.rectLine(centerX - 6f, centerY + 6f, centerX + 6f, centerY - 6f, 2.6f);
+        tooltip.draw(shapes, batch, statusFont, viewport, x, y,
+                gesture == Gesture.NONE && close.contains(x, y) ? text.translate("ui.cerrar") : null);
     }
 
     private void drawLabel(SpriteBatch batch, BitmapFont font, String value,
@@ -202,18 +185,26 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         return isOpen() && panel.contains(x, y);
     }
 
+    boolean ownsPointer(float x, float y) {
+        return isOpen() && (pointer.active() || panel.contains(x, y));
+    }
+
     boolean focused() {
         return isOpen() && keyboardFocused;
     }
 
     boolean touchDown(float x, float y, int index, int button) {
         if (!contains(x, y)) {
+            if (pointer.active()) {
+                pointer.captureSecondary(index, button);
+                return true;
+            }
             unfocus();
             return false;
         }
-        if (button != Input.Buttons.LEFT || !pointer.capture(index, button)) return true;
+        if (!pointer.capture(index, button)) return true;
         resize = GdxFloatingGameLogLayout.resizeHandleAt(panel, x, y);
-        if ((!browser.interactive() || browser.failed()) && fallbackCloseBounds().contains(x, y)) {
+        if (closeBounds().contains(x, y)) {
             gesture = Gesture.CLOSE;
         } else if (resize != GdxFloatingGameLogLayout.ResizeHandle.NONE) {
             beginMove(Gesture.RESIZE, x, y);
@@ -235,7 +226,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     boolean touchDragged(float x, float y, int index) {
-        if (!pointer.owns(index, Input.Buttons.LEFT)) return false;
+        if (!pointer.ownsPrimary(index)) return ownsPointer(x, y);
         if (gesture == Gesture.WEB) {
             mouse(MouseEvent.MOUSE_DRAGGED, x, y);
         } else if (gesture == Gesture.MOVE) {
@@ -249,8 +240,10 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     boolean touchUp(float x, float y, int index, int button) {
-        if (!pointer.release(index, button)) return false;
-        if (gesture == Gesture.CLOSE && fallbackCloseBounds().contains(x, y)) {
+        if (!pointer.releasePrimary(index, button)) {
+            return pointer.releaseSecondary(index, button) || contains(x, y);
+        }
+        if (gesture == Gesture.CLOSE && closeBounds().contains(x, y)) {
             close();
         } else if (gesture == Gesture.WEB) {
             mouse(MouseEvent.MOUSE_RELEASED, x, y);
@@ -261,7 +254,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     boolean cancel(int index, int button) {
-        if (!pointer.release(index, button)) return false;
+        if (!pointer.releasePrimary(index, button)) return pointer.releaseSecondary(index, button);
         gesture = Gesture.NONE;
         start = null;
         unfocus();
@@ -273,7 +266,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         boolean over = webBounds(panel).contains(x, y);
         if (over || webHovered) mouse(over ? MouseEvent.MOUSE_MOVED : MouseEvent.MOUSE_EXITED, x, y);
         webHovered = over;
-        return contains(x, y);
+        return ownsPointer(x, y);
     }
 
     private void mouse(int event, float x, float y) {
@@ -282,7 +275,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     boolean scrolled(float x, float y, float amount) {
-        if (!contains(x, y)) return false;
+        if (!ownsPointer(x, y)) return false;
         Rectangle web = webBounds(panel);
         if (web.contains(x, y)) {
             browser.wheel((x - web.x) / web.width, (web.y + web.height - y) / web.height, amount);
@@ -304,6 +297,18 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     void unfocus() {
         if (keyboardFocused && isOpen()) browser.unfocus();
         keyboardFocused = false;
+    }
+
+    void suspendPointer() {
+        if (!isOpen()) return;
+        if (gesture == Gesture.WEB) browser.mouse(MouseEvent.MOUSE_RELEASED, -1f, -1f);
+        if (webHovered) browser.mouse(MouseEvent.MOUSE_EXITED, -1f, -1f);
+        webHovered = false;
+        pointer.clear();
+        gesture = Gesture.NONE;
+        start = null;
+        tooltip.clear();
+        unfocus();
     }
 
     void resize(Viewport viewport) {
@@ -339,6 +344,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         pointer.clear();
         keyboardFocused = false;
         webHovered = false;
+        tooltip.clear();
     }
 
     private enum Gesture { NONE, WEB, MOVE, RESIZE, CLOSE }

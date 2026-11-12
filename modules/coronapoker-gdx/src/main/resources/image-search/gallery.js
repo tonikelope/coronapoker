@@ -27,7 +27,6 @@
     limited: 'The search provider has limited requests', limitedDetail: 'The request received HTTP 429. Try again later.',
     retryAfter: seconds => 'Wait ' + seconds + ' s before searching again',
     unusual: 'The provider detected unusual traffic', unusualDetail: 'Search is temporarily paused.',
-    windowTitle: 'Image gallery', closeGallery: 'Close image gallery',
     consent: 'The provider requires confirmation', consentDetail: 'The search stopped at the provider’s consent screen.',
     add: 'Add to favorites', saving: 'Saving…', saved: 'In favorites', failed: 'Try again',
     saveError: 'This image could not be downloaded. Try again or choose another result.'
@@ -56,7 +55,6 @@
     limited: 'El proveedor ha limitado las búsquedas', limitedDetail: 'La consulta recibió HTTP 429. Vuelve a intentarlo más tarde.',
     retryAfter: seconds => 'Espera ' + seconds + ' s antes de buscar de nuevo',
     unusual: 'El proveedor detectó tráfico inusual', unusualDetail: 'La búsqueda se ha pausado temporalmente.',
-    windowTitle: 'Galería de imágenes', closeGallery: 'Cerrar galería de imágenes',
     consent: 'El proveedor pide confirmación', consentDetail: 'La consulta se detuvo en la pantalla de consentimiento.',
     add: 'Añadir a favoritas', saving: 'Guardando…', saved: 'En favoritas', failed: 'Reintentar',
     saveError: 'No se pudo descargar esta imagen. Reintenta o elige otro resultado.'
@@ -291,7 +289,7 @@
   }
 
   function favoriteLabel(button, label) {
-    button.title = label;
+    button.dataset.tooltip = label;
     button.setAttribute('aria-label', label);
   }
 
@@ -354,7 +352,7 @@
       } catch {
         card.classList.add('failed');
         button.setAttribute('aria-label', copy.failed);
-        button.title = copy.saveError;
+        button.dataset.tooltip = copy.saveError;
         button.disabled = false;
       } finally {
         card.classList.remove('saving');
@@ -392,7 +390,7 @@
     remove.type = 'button';
     remove.className = 'media-action remove-image icon-button danger';
     remove.setAttribute('aria-label', copy.removeImage);
-    remove.title = copy.removeImage;
+    remove.dataset.tooltip = copy.removeImage;
     remove.append(clearSearch.querySelector('svg').cloneNode(true));
     frame.append(remove);
     item.append(frame);
@@ -505,14 +503,14 @@
         item.dataset.batch = tab.batch;
         title.type = remove.type = 'button';
         title.className = 'history-title';
-        title.title = title.textContent = tab.term;
+        title.dataset.tooltip = title.textContent = tab.term;
         title.addEventListener('click', () => {
           searchSequence++;
           readSearchView('search-select\t' + tab.batch, true);
         });
         remove.className = 'history-remove icon-button danger';
-        remove.title = copy.removeSearch(tab.term);
-        remove.setAttribute('aria-label', remove.title);
+        remove.dataset.tooltip = copy.removeSearch(tab.term);
+        remove.setAttribute('aria-label', remove.dataset.tooltip);
         const cross = clearSearch.querySelector('svg').cloneNode(true);
         cross.setAttribute('aria-hidden', 'true');
         remove.append(cross);
@@ -677,11 +675,6 @@
     }
   });
 
-  el('window-title').textContent = copy.windowTitle;
-  el('close-gallery').setAttribute('aria-label', copy.closeGallery);
-  el('close-gallery').title = copy.closeGallery;
-  el('close-gallery').addEventListener('click', () => query('close-window').catch(() => {}));
-
   for (const [id, label] of Object.entries({
     'local-tab': copy.local, 'search-tab': copy.finder, clear: copy.clear,
     'clear-question': copy.question, 'confirm-clear': copy.clear, 'cancel-clear': copy.cancel,
@@ -693,7 +686,7 @@
   })) el(id).textContent = label;
   input.placeholder = copy.query;
   input.setAttribute('aria-label', copy.query);
-  clearSearch.title = copy.clearSearch;
+  clearSearch.dataset.tooltip = copy.clearSearch;
   clearSearch.setAttribute('aria-label', copy.clearSearch);
   historyTabs.setAttribute('aria-label', copy.history);
   input.addEventListener('input', () => {

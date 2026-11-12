@@ -146,6 +146,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     private float videoHeight = DEFAULT_NORMAL_WIDTH / NORMAL_ASPECT;
     private int videoOpacity;
     private Capture capture = Capture.NONE;
+    private final GdxFloatingWindowPointer coveredPress = new GdxFloatingWindowPointer();
+    private boolean videoHovered;
     private int capturedPointer = -1;
     private int capturedButton = -1;
     private float captureStartX;
@@ -653,8 +655,9 @@ final class PokerVideoOverlay implements AutoCloseable {
             drawButton(shapes, pointer, maximizeBounds,
                     GdxUiButtonStyle.Tone.NEUTRAL, Capture.MAXIMIZE, false);
         }
-        drawButton(shapes, pointer, closeBounds,
-                GdxUiButtonStyle.Tone.DANGER, Capture.CLOSE, false);
+        GdxUiDialogStyle.drawWindowClose(shapes, closeBounds.x, closeBounds.y,
+                closeBounds.width, closeBounds.height, true,
+                closeBounds.contains(pointer) ? 1f : 0f, capture == Capture.CLOSE, 1f);
     }
 
     private void drawOpacitySlider(ShapeRenderer shapes, Vector2 pointer) {
@@ -728,12 +731,6 @@ final class PokerVideoOverlay implements AutoCloseable {
         Color iconColor = GdxUiButtonStyle.labelColor(tone, enabled);
         if (action == Capture.RETRY) {
             return; // The translated retry label is painted with the other text.
-        } else if (action == Capture.CLOSE) {
-            GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CLOSE,
-                    bounds.x + bounds.width / 2f,
-                    bounds.y + bounds.height / 2f,
-                    Math.min(bounds.width, bounds.height) * 0.44f,
-                    iconColor, 1f);
         } else if (action == Capture.MAXIMIZE) {
             float size = Math.min(bounds.width, bounds.height) * 0.40f;
             shapes.setColor(iconColor);
@@ -1060,10 +1057,17 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     boolean touchDown(float pointerX, float pointerY, int pointerIndex,
             int button) {
-        if (!hostVisible || capture != Capture.NONE) return false;
+        if (!hostVisible) return false;
+        if (capture != Capture.NONE || coveredPress.active()) {
+            if (capturedPointer != pointerIndex || capturedButton != button) {
+                coveredPress.captureSecondary(pointerIndex, button);
+            }
+            return true;
+        }
         if (windowTransitionActive()) {
-            return transitionBounds.contains(pointerX, pointerY)
-                    || iconBounds.contains(pointerX, pointerY);
+            if (!ownsHover(pointerX, pointerY)) return false;
+            coveredPress.captureSecondary(pointerIndex, button);
+            return true;
         }
         updateBounds();
         if (minimized) {
@@ -1072,7 +1076,9 @@ final class PokerVideoOverlay implements AutoCloseable {
                 capture(Capture.ICON, pointerIndex, button, pointerX, pointerY);
                 return true;
             }
-            return false;
+            if (!iconBounds.contains(pointerX, pointerY)) return false;
+            coveredPress.captureSecondary(pointerIndex, button);
+            return true;
         }
         if (!panelBounds.contains(pointerX, pointerY)) {
             blurBrowser();
@@ -1157,12 +1163,13 @@ final class PokerVideoOverlay implements AutoCloseable {
             }
             return true;
         }
+        coveredPress.captureSecondary(pointerIndex, button);
         return true;
     }
 
     boolean touchDragged(float pointerX, float pointerY, int pointerIndex) {
         if (capture == Capture.NONE || capturedPointer != pointerIndex) {
-            return false;
+            return ownsHover(pointerX, pointerY);
         }
         switch (capture) {
             case MOVE -> {
@@ -1186,7 +1193,9 @@ final class PokerVideoOverlay implements AutoCloseable {
     boolean touchUp(float pointerX, float pointerY, int pointerIndex,
             int button) {
         if (capture == Capture.NONE || capturedPointer != pointerIndex
-                || capturedButton != button) return false;
+                || capturedButton != button) {
+            return coveredPress.releaseSecondary(pointerIndex, button) || ownsHover(pointerX, pointerY);
+        }
         Capture completed = capture;
         capture = Capture.NONE;
         capturedPointer = -1;
@@ -1267,8 +1276,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     boolean cancelTouch(int pointerIndex, int button) {
-        if (capture == Capture.NONE || capturedPointer != pointerIndex) {
-            return false;
+        if (capture == Capture.NONE || capturedPointer != pointerIndex || capturedButton != button) {
+            return coveredPress.releaseSecondary(pointerIndex, button);
         }
         if (capture == Capture.VIDEO) {
             pressedButtons &= ~(1 << button);
@@ -1283,6 +1292,7 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     private void cancelHiddenCapture() {
+        coveredPress.clear();
         saveWindowGeometry();
         if (capture == Capture.OPACITY) saveOpacity();
         if (capture == Capture.VIDEO && capturedButton >= 0) {
@@ -1313,7 +1323,7 @@ final class PokerVideoOverlay implements AutoCloseable {
 
     boolean ownsHover(float pointerX, float pointerY) {
         if (!hostVisible) return false;
-        if (capture != Capture.NONE) return true;
+        if (capture != Capture.NONE || coveredPress.active()) return true;
         if (windowTransitionActive()) {
             return transitionBounds.contains(pointerX, pointerY)
                     || iconBounds.contains(pointerX, pointerY);
@@ -1322,20 +1332,23 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     boolean mouseMoved(float pointerX, float pointerY) {
-        if (!ownsHover(pointerX, pointerY)) return false;
-        if (!minimized && !windowTransitionActive()
+        boolean owns = ownsHover(pointerX, pointerY);
+        boolean over = owns && !minimized && !windowTransitionActive()
                 && videoBounds.contains(pointerX, pointerY)
-                && resizeHandleAt(panelBounds, pointerX, pointerY) == ResizeHandle.NONE) {
-            dispatchMouse(MouseEvent.MOUSE_MOVED, pointerX, pointerY,
+                && resizeHandleAt(panelBounds, pointerX, pointerY) == ResizeHandle.NONE;
+        if (over || videoHovered) {
+            dispatchMouse(over ? MouseEvent.MOUSE_MOVED : MouseEvent.MOUSE_EXITED, pointerX, pointerY,
                     MouseEvent.NOBUTTON, 0);
         }
-        return true;
+        videoHovered = over;
+        return owns;
     }
 
     boolean scrolled(float pointerX, float pointerY, float amountY) {
-        if (!hostVisible || minimized || amountY == 0f
+        if (!ownsHover(pointerX, pointerY)) return false;
+        if (minimized || amountY == 0f
                 || windowTransitionActive()
-                || !videoBounds.contains(pointerX, pointerY)) return false;
+                || !videoBounds.contains(pointerX, pointerY)) return true;
         PokerVideoRuntime current = runtime;
         LibGdxCefBrowser browser = current == null ? null : current.browser();
         if (browser != null) {
@@ -1488,6 +1501,8 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     void resetHostInput() {
+        if (videoHovered) dispatchMouse(MouseEvent.MOUSE_EXITED, -10_000f, -10_000f, MouseEvent.NOBUTTON, 0);
+        videoHovered = false;
         cancelHiddenCapture();
         blurBrowser();
     }

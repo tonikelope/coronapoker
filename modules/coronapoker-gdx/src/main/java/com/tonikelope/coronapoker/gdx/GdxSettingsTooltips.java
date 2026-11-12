@@ -1,8 +1,15 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.tonikelope.coronapoker.core.AnteMode;
+import com.tonikelope.coronapoker.core.CustomBotProfile;
+import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 /** Shared explanatory text for every settings surface. */
@@ -31,6 +38,61 @@ final class GdxSettingsTooltips {
 
     static List<String> gameRowKeys(int gamePage) {
         return GAME_ROW_KEYS.get(gamePage);
+    }
+
+    /** Looks up help for an option index from the selector's displayed list. */
+    static String optionKey(String selector, int option,
+            GdxGamePresentationSettings presentation) {
+        String group = selector.equals("CUSTOM_BOT_DIFFICULTY")
+                ? "BOT_DIFFICULTY" : selector;
+        String value = switch (group) {
+            case "BOT_DIFFICULTY" ->
+                NewGameTableDraft.BotDifficulty.values()[option].name();
+            case "CUSTOM_BOT_PERSONALITY" ->
+                CustomBotProfile.Personality.values()[option].name();
+            case "ANTE_MODE" -> AnteMode.values()[option].name();
+            case "BLIND_UNIT" -> option == 0 ? "minutes" : "hands";
+            case "REBUY_CAP" -> option == 0 ? "buy_in" : "highest_stack";
+            case "RABBIT" -> NewGameTableDraft.RabbitHunting.values()[option].name();
+            case "WINDOW_MODE" -> GdxWindowMode.values()[option].persistedValue();
+            case "FPS_LIMIT" -> presentation.frameRateLimits().get(option) == 0
+                    ? "monitor" : "fixed";
+            case "MSAA" -> presentation.msaaLevels().get(option).toString();
+            case "CARD_RENDERING" -> presentation.cardRenderingModes().get(option)
+                    == GdxCardSmaaRenderer.RENDERING_SMOOTH ? "smooth" : "native";
+            default -> null;
+        };
+        return value == null ? null : "gdx.settings.option_help."
+                + group.toLowerCase(Locale.ROOT) + "." + value.toLowerCase(Locale.ROOT);
+    }
+
+    static Rectangle bounds(Vector2 pointer, float width, float height,
+            float worldWidth, float worldHeight, Rectangle popup) {
+        float margin = 12f;
+        float maxX = worldWidth - width - margin;
+        float maxY = worldHeight - height - margin;
+        float x = MathUtils.clamp(pointer.x + 18f, margin, maxX);
+        float below = pointer.y - height - 18f;
+        float above = pointer.y + 22f;
+        float y = below >= margin ? below : Math.min(above, maxY);
+        Rectangle bounds = new Rectangle(x, y, width, height);
+        if (popup == null) return bounds;
+
+        float right = popup.x + popup.width + margin;
+        float left = popup.x - width - margin;
+        if (popup.contains(pointer)) {
+            float rowY = MathUtils.clamp(pointer.y - height / 2f, margin, maxY);
+            if (right <= maxX) return bounds.setPosition(right, rowY);
+            if (left >= margin) return bounds.setPosition(left, rowY);
+        }
+        if (!bounds.overlaps(popup)) return bounds;
+        float clearAbove = Math.max(above, popup.y + popup.height + margin);
+        float clearBelow = Math.min(below, popup.y - height - margin);
+        if (clearAbove <= maxY) return bounds.setPosition(x, clearAbove);
+        if (clearBelow >= margin) return bounds.setPosition(x, clearBelow);
+        if (left >= margin) return bounds.setPosition(left, y);
+        if (right <= maxX) return bounds.setPosition(right, y);
+        return bounds;
     }
 
     static String withLock(String description, String lockKey, GdxGameText text) {

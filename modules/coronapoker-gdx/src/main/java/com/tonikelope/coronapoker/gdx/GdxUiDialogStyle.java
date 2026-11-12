@@ -1,8 +1,13 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 /** Shared glass material for every renderer-owned GDX dialog. */
 final class GdxUiDialogStyle {
@@ -14,6 +19,26 @@ final class GdxUiDialogStyle {
     static final int INSET_RGBA = 0x08182870;
     static final float BACKDROP_ALPHA = 0.68f;
     static final String CLOSE_GLYPH = "\u00d7";
+
+    static void drawWindowClose(ShapeRenderer shapes,
+            float x, float y, float width, float height, boolean enabled,
+            float hover, boolean pressed, float alpha) {
+        GdxUiButtonStyle.Tone tone = GdxUiButtonStyle.Tone.DANGER;
+        GdxUiButtonStyle.draw(shapes, x, y, width, height, tone, enabled,
+                hover, pressed, alpha);
+        GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CLOSE,
+                x + width / 2f, y + height / 2f,
+                Math.min(width, height) * 0.46f,
+                GdxUiButtonStyle.labelColor(tone, enabled), alpha);
+    }
+
+    static void drawWindowTitle(SpriteBatch batch, BitmapFont font, GlyphLayout glyph,
+            String title, Rectangle bounds, Viewport viewport, float alpha) {
+        Color color = alpha == 1f ? Color.WHITE : new Color(1f, 1f, 1f, alpha);
+        glyph.setText(font, title, 0, title.length(), color, bounds.width, Align.left, false, "…");
+        GdxPixelText.draw(font, batch, glyph, bounds.x,
+                bounds.y + (bounds.height + glyph.height) / 2f, viewport);
+    }
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
@@ -129,6 +154,11 @@ final class GdxUiDialogStyle {
             float alpha) {
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 18f);
+        drawPanelOutline(shapes, x, y, width, height, accent, alpha);
+    }
+
+    static void drawPanelOutline(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent, float alpha) {
         shapes.setColor(accent.r, accent.g, accent.b, 0.92f * alpha);
         roundedRectOutline(shapes, x + 1f, y + 1f,
                 width - 2f, height - 2f, 17f, 2f);

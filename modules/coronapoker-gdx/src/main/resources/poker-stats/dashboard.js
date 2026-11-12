@@ -188,15 +188,15 @@ function translate() {
   document.documentElement.classList.toggle('no-motion', reducedMotion);
   document.title = 'CoronaPoker | ' + t('stats');
   $('tabs').setAttribute('aria-label', t('stats'));
-  $('bot-filter').title = t('excludeBotsHelp');
+  $('bot-filter').dataset.tooltip = t('excludeBotsHelp');
   $('zoom-tools').setAttribute('aria-label', t('zoom'));
   for (const [id, label] of [['zoom-in','zoomIn'], ['zoom-out','zoomOut'], ['zoom-reset','zoomReset']]) {
     $(id).setAttribute('aria-label', t(label));
-    $(id).title = t(label);
+    $(id).dataset.tooltip = t(label);
   }
   for (const [id, label] of [['previous-hand','previousHand'], ['next-hand','nextHand']]) {
     $(id).setAttribute('aria-label', t(label));
-    $(id).title = t(label);
+    $(id).dataset.tooltip = t(label);
   }
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
   for (const id of ['from', 'through']) $(id).placeholder = locale === 'en' ? 'YYYY-MM-DD' : 'AAAA-MM-DD';
@@ -321,7 +321,7 @@ function showOverview() {
     rail.setAttribute('aria-hidden', 'true');
     rail.append(meter);
     const description = create('small', t(key === 'af' ? 'afShort' : key));
-    description.title = t(key);
+    description.dataset.tooltip = t(key);
     block.append(title, description, rail, create('small', sample));
     return block;
   }));
@@ -393,8 +393,11 @@ function timeChart(rows, label, formatter) {
 }
 
 function tooltip() {
-  return {renderMode:'richText', confine:true, backgroundColor:'#0b1423',
-    borderColor:paint.axis, textStyle:{color:'#edf5f1', fontSize:chartFont(.86)}, padding:12};
+  return {renderMode:'html', appendTo:document.body, confine:false,
+    backgroundColor:'#0b1423', borderColor:paint.axis,
+    textStyle:{color:'#edf5f1', fontSize:chartFont(.86)}, padding:12,
+    transitionDuration:0, hideDelay:0,
+    extraCssText:'white-space:pre-wrap;overflow-wrap:anywhere;'};
 }
 
 function addChartResize(plot) {
@@ -406,8 +409,8 @@ function addChartResize(plot) {
   const resetButton = create('button', '↺', 'ghost chart-reset');
   grip.type = 'button';
   resetButton.type = 'button';
-  grip.title = t('chartResizeHint');
-  resetButton.title = t('chartReset');
+  grip.dataset.tooltip = t('chartResizeHint');
+  resetButton.dataset.tooltip = t('chartReset');
   resetButton.hidden = true;
   grip.setAttribute('aria-label', t('chartResize'));
   resetButton.setAttribute('aria-label', t('chartReset'));
@@ -484,6 +487,19 @@ function draw(id, options, empty) {
     new ResizeObserver(() => {
       if ($(id).clientWidth && $(id).clientHeight) chart.resize();
     }).observe($(id));
+  }
+  if (!empty && options.tooltip) {
+    const format = options.tooltip.formatter;
+    options.tooltip.position = (point, _params, tip) => {
+      const {left, top} = chart.getDom().getBoundingClientRect();
+      const zoom = Number(getComputedStyle(document.body).zoom) || 1;
+      tip.style.maxWidth = `min(30rem, ${(innerWidth - 24) / zoom}px)`;
+      const {width, height} = tip.getBoundingClientRect();
+      const [x, y] = window.coronaTooltipPosition(
+        point[0] * zoom + left, point[1] * zoom + top, width, height);
+      return [(x - left) / zoom, (y - top) / zoom];
+    };
+    if (format) options.tooltip.formatter = params => create('div', format(params));
   }
   chart.resize();
   chart.setOption(empty ? {
@@ -1036,6 +1052,9 @@ $('tabs').addEventListener('keydown', event => {
 $('zoom-out').addEventListener('click', () => changeZoom(-10));
 $('zoom-in').addEventListener('click', () => changeZoom(10));
 $('zoom-reset').addEventListener('click', () => changeZoom(0));
+$('stats-view').addEventListener('scroll', () => {
+  for (const chart of charts.values()) chart.dispatchAction({type:'hideTip'});
+}, {passive:true});
 $('reset-charts').addEventListener('click', () => {
   for (const reset of chartResets.values()) reset();
   $('stats-view').scrollLeft = 0;

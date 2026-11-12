@@ -23,11 +23,16 @@ final class PokerChromium {
     private static final CopyOnWriteArrayList<Consumer<CefAppState>> LISTENERS =
             new CopyOnWriteArrayList<>();
     private static CefApp app;
+    private static volatile String locale = "en-US";
     private static PokerVideoChromiumLog chromiumLog;
     private static boolean shuttingDown;
     private static int openClients;
 
     private PokerChromium() { }
+
+    static void useLanguage(String language) {
+        locale = "es".equalsIgnoreCase(language) ? "es" : "en-US";
+    }
 
     static boolean available() {
         return PokerVideoPlatformSupport.isAvailable()
@@ -82,6 +87,7 @@ final class PokerChromium {
         if (softwareDecode) builder.addJcefArgs("--disable-accelerated-video-decode");
         if (Boolean.getBoolean("coronapoker.video.silentOutput")) builder.addJcefArgs("--mute-audio");
         CefSettings settings = builder.getCefSettings();
+        settings.locale = locale;
         settings.windowless_rendering_enabled = true;
         settings.root_cache_path = cache.toAbsolutePath().toString();
         settings.cache_path = "";

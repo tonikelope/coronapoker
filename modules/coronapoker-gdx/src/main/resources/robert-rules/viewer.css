@@ -1,0 +1,124 @@
+:root {
+    color-scheme: dark;
+    --toolbar-height: 42px;
+    --icon-size: 20px;
+    --menuitem-height: 34px;
+    --main-color: #eaf2ff;
+    --body-bg-color: #0b1726;
+    --toolbar-bg-color: #15273a;
+    --toolbar-border-color: #2f4965;
+    --toolbar-icon-bg-color: #d6e5f5;
+    --toolbar-icon-hover-bg-color: #ffdf76;
+    --toolbar-icon-opacity: 1;
+    --button-hover-color: #263e56;
+    --toggled-btn-color: #ffdf76;
+    --toggled-btn-bg-color: #253e56;
+    --dropdown-btn-bg-color: #1d334a;
+    --field-color: #edf4ff;
+    --field-bg-color: #0d1d2e;
+    --field-border-color: #34516c;
+    --doorhanger-bg-color: #15273a;
+    --doorhanger-border-color: #34516c;
+    --doorhanger-separator-color: #34516c;
+    --background-color-box: #14263a;
+    --text-color: #edf4ff;
+}
+
+#toolbarContainer .toolbarField,
+#toolbarContainer .dropdownToolbarButton select,
+#toolbarContainer .toolbarLabel {
+    font-size: 14px;
+}
+
+#toolbarContainer .toolbarButton {
+    border-radius: 5px;
+}
+
+/* Keep the zoom options in Chromium's page so they share the game's input coordinates. */
+#toolbarContainer #scaleSelect,
+#toolbarContainer #scaleSelect::picker(select) {
+    appearance: base-select;
+}
+
+#toolbarContainer #scaleSelect {
+    align-items: center;
+    min-inline-size: 166px;
+    padding-block: 0;
+    padding-inline: 8px 26px;
+}
+
+#scaleSelect::picker-icon {
+    display: none;
+}
+
+#toolbarContainer #scaleSelect::picker(select) {
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline;
+    min-inline-size: anchor-size(width);
+    max-inline-size: calc(100vw - 12px);
+    max-block-size: 75vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    margin-block-start: 4px;
+    padding: 4px;
+    font: 14px system-ui, sans-serif;
+    color: var(--main-color);
+    background: var(--toolbar-bg-color);
+    border: 1px solid #486783;
+    border-radius: 7px;
+    box-shadow: 0 5px 15px #02081399;
+}
+
+#toolbarContainer #scaleSelect option {
+    min-block-size: 28px;
+    padding: 5px 8px;
+    border-radius: 4px;
+}
+
+#toolbarContainer #scaleSelect option:checked {
+    color: var(--toggled-btn-color);
+}
+
+#toolbarContainer #scaleSelect option:is(:hover, :focus-visible) {
+    background: var(--button-hover-color);
+}
+
+#viewerContainer {
+    scrollbar-color: #486783 #0b1726;
+}
+
+.game-selection-menu {
+    position: fixed;
+    z-index: 100;
+    min-width: 132px;
+    padding: 4px;
+    background: #15273a;
+    border: 1px solid #486783;
+    border-radius: 7px;
+    box-shadow: 0 5px 15px #02081399;
+}
+
+.game-selection-menu button {
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    text-align: start;
+    font: 14px system-ui, sans-serif;
+    color: #edf4ff;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.game-selection-menu button:is(:hover, :focus-visible) {
+    color: #ffdf76;
+    background: #263e56;
+}
+
+@media (max-width: 620px) {
+    :root {
+        --toolbar-height: 38px;
+        --icon-size: 18px;
+    }
+}

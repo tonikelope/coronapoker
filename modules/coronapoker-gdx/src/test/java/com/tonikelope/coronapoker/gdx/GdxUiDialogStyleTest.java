@@ -9,6 +9,7 @@ import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class GdxUiDialogStyleTest {
@@ -257,8 +258,13 @@ final class GdxUiDialogStyleTest {
         String icons = Files.readString(Path.of(base
                 + "GdxUiIconRenderer.java"), StandardCharsets.UTF_8);
 
-        assertTrue(frontend.contains("GdxUiIconRenderer.Icon.CLOSE"));
-        assertTrue(table.contains("drawCloseButtonIcon"));
+        assertTrue(frontend.contains("GdxUiDialogStyle.drawWindowClose"));
+        assertTrue(table.contains("GdxUiDialogStyle.drawWindowClose"));
+        for (String window : List.of("GdxRobertRulesWindow.java", "GdxImageGalleryWindow.java",
+                "PokerVideoOverlay.java")) {
+            assertTrue(Files.readString(Path.of(base + window), StandardCharsets.UTF_8)
+                    .contains("GdxUiDialogStyle.drawWindowClose"), window);
+        }
         assertFalse(table.contains("GdxUiDialogStyle.CLOSE_GLYPH,"),
                 "table dialogs must not fall back to font metrics for X");
         assertTrue(icons.contains("case CLOSE -> drawClose"));

@@ -1,0 +1,18 @@
+.ui-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: max-content;
+  max-width: min(30rem, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: .5rem .7rem;
+  border: 1px solid #2d7990;
+  border-radius: .45rem;
+  background: #0b1423;
+  color: #edf5f1;
+  box-shadow: 0 .18rem .6rem #0006;
+  font-size: .85rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}

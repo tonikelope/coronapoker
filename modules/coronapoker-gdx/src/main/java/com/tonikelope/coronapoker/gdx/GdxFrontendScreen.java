@@ -377,8 +377,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float HAND_GENERATOR_NAME_HEIGHT = 64f;
     static final URI ABOUT_PROJECT_URI = URI.create(
             "https://github.com/tonikelope/coronapoker");
-    static final URI ABOUT_RULES_URI = URI.create(
-            "https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
     private static final Color AUDIO_UNAVAILABLE_RED =
             new Color(0xef3340ff);
 
@@ -403,6 +401,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new ArrayList<>();
     private final List<Hit> editMenuHits = new ArrayList<>();
     private final List<TooltipHit> tooltipHits = new ArrayList<>();
+    private TooltipHit dropdownOptionTooltip;
     private final GdxTooltipDelay tooltipDelay = new GdxTooltipDelay();
     private final Map<String, Texture> lobbyAvatarTextures = new HashMap<>();
     private final Map<String, Texture> handGeneratorCardTextures =
@@ -421,6 +420,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxEmojiAtlas emojiAtlas;
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
     private final GdxImageGalleryWindow lobbyGallery = new GdxImageGalleryWindow();
+    private final GdxRobertRulesWindow rulesWindow = new GdxRobertRulesWindow();
     private final Map<String, Float> toggleAnimations = new HashMap<>();
     private final GdxToggleTransitionStore settingsToggleTransitions =
             new GdxToggleTransitionStore();
@@ -451,6 +451,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             new Rectangle(76f, 60f, 1768f, 875f);
     private PokerStatsBrowser statsBrowser;
     private boolean statsBrowserFocused;
+    private final GdxFloatingWindowPointer statsBrowserPointer = new GdxFloatingWindowPointer();
     private final ExecutorService recoveryExecutor;
     private final ExecutorService statsExecutor;
     private final ExecutorService networkInfoExecutor;
@@ -919,6 +920,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public void create() {
+        PokerChromium.useLanguage(gameText.language());
         GdxAudioDevices.applyConfiguredOutput(initialProperties);
         batch = new SpriteBatch();
         shapes = new ShapeRenderer();
@@ -936,7 +938,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 filteredTexture("images/fast_panel/mic.png"));
         emojiAtlas = GdxEmojiAtlas.retain();
         aboutMourningIcon = filteredTexture("images/luto.png");
-        aboutBookIcon = silhouetteTexture("images/open-book.png",
+        aboutBookIcon = silhouetteTexture(GdxRobertRulesWindow.ICON,
                 new Color(0xeaf8ffff));
         aboutCrossIcon = filteredTexture("images/cruz.png");
         aboutModIcon = externalTexture(
@@ -1234,6 +1236,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Objects.requireNonNull(next, "next");
         if (surface != next) {
             if (surface == Surface.LOBBY) lobbyGallery.close();
+            rulesWindow.close();
             hoverAnimations.clear();
             if (initialBuyinInput != null) closeInitialBuyinEditor();
         }
@@ -1349,6 +1352,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean blurModalBackdrop = wantsModalBackdrop
                 && backdropBlurActive;
         boolean nestedFrontendModal = hasNestedFrontendModal();
+        float rulesPointerX = pointer.x;
+        float rulesPointerY = pointer.y;
+        if (rulesWindow.isOpen()) pointer.set(-10_000f, -10_000f);
         if (blurModalBackdrop) {
             modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
                     Gdx.graphics.getBackBufferHeight());
@@ -1397,9 +1403,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // maps were already replaced for the foreground pass, but the covered
         // page was still painted first with the live pointer and therefore
         // showed hover states through the dialog.
-        boolean videoOwnsHover = pokerVideoOverlay.ownsHover(pointer.x, pointer.y);
+        boolean galleryInteractive = lobbyGalleryInteractive();
+        boolean galleryOwnsHover = galleryInteractive && lobbyGallery.ownsPointer(pointer.x, pointer.y);
+        boolean videoOwnsHover = !galleryOwnsHover && pokerVideoOverlay.ownsHover(pointer.x, pointer.y);
         boolean shieldBackgroundPointer = rootSurfaceModal
-                || hasBlockingFrontendModal() || videoOwnsHover;
+                || hasBlockingFrontendModal() || videoOwnsHover || galleryOwnsHover;
         float livePointerX = pointer.x;
         float livePointerY = pointer.y;
         if (shieldBackgroundPointer) pointer.set(-10_000f, -10_000f);
@@ -1438,7 +1446,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         batch.end();
 
-        if (shieldBackgroundPointer && !videoOwnsHover) {
+        if (shieldBackgroundPointer && !videoOwnsHover && !galleryOwnsHover) {
             pointer.set(livePointerX, livePointerY);
         }
 
@@ -1450,10 +1458,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             tooltipHits.clear();
             pointer.set(livePointerX, livePointerY);
         }
+        if (galleryOwnsHover) pokerVideoOverlay.mouseMoved(-10_000f, -10_000f);
         drawPokerVideoTopLayer();
 
         if (surface == Surface.LOBBY && lobbyGallery.isOpen()) {
-            lobbyGallery.draw(shapes, batch, smallFont, gameText, pointer.x, pointer.y);
+            if (galleryOwnsHover) {
+                tooltipHits.clear();
+                pointer.set(livePointerX, livePointerY);
+            }
+            if (!galleryInteractive) lobbyGallery.mouseMoved(-10_000f, -10_000f);
+            lobbyGallery.draw(shapes, batch, volumeOverlayFont, smallFont, gameText,
+                    galleryInteractive ? pointer.x : -10_000f,
+                    galleryInteractive ? pointer.y : -10_000f);
         }
         drawStartupMenuReveal();
 
@@ -1483,16 +1499,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawUnifiedModalBackdrop();
         } else if (wantsModalBackdrop) {
             drawUnifiedModalBackdrop();
-        }
-
-        if (!rootSurfaceModal) {
-            if (dropdown == Dropdown.NONE && !hasBlockingFrontendModal()
-                    && !lobbyGallery.contains(pointer.x, pointer.y)) {
-                drawTooltipTopLayer();
-            } else if (!customBotManagerOpen
-                    || customBotDeleteConfirmation) {
-                tooltipDelay.clear();
-            }
         }
 
         // Modal surfaces must be composed after every underlying glyph. Texts
@@ -1714,16 +1720,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (rootSurfaceModal && surface == Surface.STATS) {
                 drawStatsChartTextLayer();
             }
-            // Root surfaces populate their tooltip map only in this sharp
-            // foreground pass. Drawing (or clearing) the tooltip beforehand
-            // made its hover delay restart forever and no tooltip appeared.
-            if (rootSurfaceModal && dropdown == Dropdown.NONE) {
-                drawTooltipTopLayer();
-            }
-            if (customBotManagerOpen && avatarCropSession == null
-                    && !customBotDeleteConfirmation) {
-                drawTooltipTopLayer();
-            }
         }
         // Dropdowns are sharp popup layers, not modals. Compose them after
         // either path above so the main-menu language selector is visible too;
@@ -1732,9 +1728,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawDropdownTopLayer();
         }
         if (shouldDrawEditMenu()) drawEditMenuTopLayer();
-        // Transient feedback must be the final composited layer. Drawing only
-        // its shapes in the first pass lets queued page images cover the panel.
         drawFrontendTopLayers();
+        if (rulesWindow.isOpen()) {
+            pointer.set(rulesPointerX, rulesPointerY);
+            rulesWindow.draw(shapes, batch, volumeOverlayFont, smallFont, gameText, pointer.x, pointer.y);
+            tooltipDelay.clear();
+        } else if (shouldDrawEditMenu()
+                || surface == Surface.MENU && startupMenuWaitingForUpdate
+                || surface == Surface.LOBBY && !hasBlockingFrontendModal()
+                        && lobbyGallery.ownsPointer(pointer.x, pointer.y)) {
+            tooltipDelay.clear();
+        } else {
+            drawTooltipTopLayer(dropdown == Dropdown.NONE ? null : dropdownClip);
+        }
     }
 
     /**
@@ -1774,6 +1780,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         passwordRevealHits.clear();
         editMenuHits.clear();
         tooltipHits.clear();
+        tooltipDelay.clear();
 
         modalBackdropBlur.drawCached(viewport, batch,
                 viewport.getCamera().combined, BACKGROUND);
@@ -2021,9 +2028,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     /** Draw the same footer in the same viewport over the live table. */
-    void drawTableMedia(boolean soundPressed) {
+    void drawTableMedia(boolean soundPressed, boolean shieldPointer) {
         refreshFontQualityIfDue();
         refreshPointerFromDevice();
+        if (shieldPointer) {
+            pointer.set(-10_000f, -10_000f);
+            pokerVideoOverlay.mouseMoved(pointer.x, pointer.y);
+        }
         prepareFrontendGraphicsState();
         viewport.apply();
         viewport.getCamera().update();
@@ -2045,7 +2056,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.end();
         if (!videoOwnsHover) addFooterSoundTooltip(outputAvailable);
         drawPokerVideoTopLayer();
-        drawTooltipTopLayer();
+    }
+
+    void drawTableMediaTooltip(boolean covered) {
+        if (covered) {
+            tooltipDelay.clear();
+        } else {
+            viewport.apply();
+            drawTooltipTopLayer(null);
+        }
     }
 
     /** Draws deferred circular avatars in whichever composition pass owns them. */
@@ -2158,7 +2177,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * the blurred scene and only that child dialog is composed sharp.
      */
     private boolean isFrontendRootModal() {
-        if (applicationExitConfirmation) return false;
+        if (frontendNoticeOwnsPointer() || avatarCropSession != null) return false;
         if (isSettingsRootModal()) return true;
         if (surface == Surface.NEW_GAME) {
             return !customBotManagerOpen
@@ -2177,6 +2196,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         return surface == Surface.SCREENSHOTS
                 && !screenshotDeleteConfirmation;
+    }
+
+    private boolean frontendNoticeOwnsPointer() {
+        return applicationExitConfirmation || modAdultWarning
+                || !frontendNoticeMessage.isBlank() || settingsRestartNotice
+                || updateCheckingModalVisible();
     }
 
     private boolean isSettingsRootModal() {
@@ -3373,6 +3398,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsBrowser.close();
         statsBrowser = null;
         statsBrowserFocused = false;
+        statsBrowserPointer.clear();
     }
 
     private void drawStatsDashboard() {
@@ -3404,8 +3430,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean statsBrowserInput() {
-        return surface == Surface.STATS && statsBrowser != null
-                && statsBrowser.interactive() && !childModalOwnsInput();
+        return statsBrowserVisible() && statsBrowser.interactive();
+    }
+
+    private boolean statsBrowserVisible() {
+        return surface == Surface.STATS && statsBrowser != null && !childModalOwnsInput();
+    }
+
+    private boolean statsOwnsPointer() {
+        return statsBrowserVisible() && (statsBrowserPointer.active() || STATS_WEB_BOUNDS.contains(pointer));
     }
 
     private void statsBrowserMouse(int event) {
@@ -5191,6 +5224,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String next = "es".equalsIgnoreCase(presentationSettings.language())
                 ? "en" : "es";
         initialProperties.setProperty("lenguaje", next);
+        PokerChromium.useLanguage(next);
         languageChanged.accept(next);
         if (preferences != null) preferences.saveDeferred();
     }
@@ -5206,11 +5240,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeAboutDialog() {
+        rulesWindow.close();
         disposeAboutEasterEgg();
         handGeneratorOpen = false;
         aboutEasterEggClicks = 0;
         aboutOpen = false;
         syncMusicForSurface();
+    }
+
+    private void openRobertRules() {
+        captureFrontendModalInput();
+        if (!rulesWindow.open(viewport, initialProperties, preferences::saveDeferred,
+                gameText.language())) {
+            showFrontendNotice(gameText.translate(GdxRobertRulesWindow.TITLE),
+                    gameText.translate("gdx.rules.unavailable"), false);
+        }
     }
 
     private void closeAboutEasterEgg() {
@@ -5298,6 +5342,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearScrollDrag();
         clearPointerRepeat();
         clearActiveField();
+        hits.clear();
+        secondaryHits.clear();
+        textFieldHits.clear();
+        passwordRevealHits.clear();
+        editMenuHits.clear();
+        tooltipHits.clear();
+        statsEvidenceWindowPointer.clear();
+        statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
+        lobbyGallery.suspendPointer();
+        if (statsBrowser != null) {
+            if (statsBrowser.pressed()) statsBrowser.mouse(MouseEvent.MOUSE_RELEASED, -1f, -1f);
+            statsBrowser.mouse(MouseEvent.MOUSE_EXITED, -1f, -1f);
+            statsBrowser.unfocus();
+            statsBrowserFocused = false;
+            statsBrowserPointer.clear();
+        }
     }
 
     static boolean deferredUpdateAvailable(boolean dismissed,
@@ -5605,6 +5665,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     void requestApplicationExit() {
         if (applicationExitConfirmation || fileChooserPending()) return;
+        rulesWindow.close();
         if (profileBackupSelection != null) {
             closeProfileBackupSelection();
             return;
@@ -5748,9 +5809,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 WIDTH / 2f, ABOUT_COPYRIGHT_Y,
                 w - 150f, ABOUT_COPYRIGHT_LINE_HEIGHT,
                 ABOUT_COPYRIGHT_MAX_LINES, MUTED);
-        hit(WIDTH / 2f - 30f, 235f, 60f, 60f,
-                () -> openExternalUri(ABOUT_RULES_URI,
-                        "gdx.about.open_failed"));
+        hit(WIDTH / 2f - 30f, 235f, 60f, 60f, this::openRobertRules);
+        tooltip(WIDTH / 2f - 30f, 235f, 60f, 60f, "tooltip.robert_rules");
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
                 WIDTH / 2f, 226f, Color.WHITE, true,
                 ABOUT_CONTENT_WIDTH - 90f);
@@ -14139,19 +14199,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void settingsTooltip(Rectangle bounds, String settingKey,
             boolean modOverride,
             GdxGameAudioResources.JokeBankMode jokeBankMode) {
+        Rectangle visible = clippedSettingsHit(bounds.x, bounds.y,
+                bounds.width, bounds.height);
+        if (visible == null) return;
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
                 settingKey, initialProperties, gameText, modOverride,
                 jokeBankMode);
-        tooltipHits.add(new TooltipHit(new Rectangle(bounds),
+        tooltipHits.add(new TooltipHit(visible,
                 "gdx.settings.tooltip.text",
                 new Object[]{content.text()}, content.performanceImpact()));
     }
 
-    private void drawTooltipTopLayer() {
-        TooltipHit hovered = null;
-        for (int index = tooltipHits.size() - 1; index >= 0; index--) {
-            if (tooltipHits.get(index).bounds.contains(pointer)) {
-                hovered = tooltipHits.get(index);
+    private void drawTooltipTopLayer(Rectangle popup) {
+        TooltipHit hovered = popup == null ? null : dropdownOptionTooltip;
+        for (int index = tooltipHits.size() - 1; hovered == null && index >= 0;
+                index--) {
+            TooltipHit hit = tooltipHits.get(index);
+            if (hit.bounds.contains(pointer) && (popup == null
+                    || dropdownTooltipOwnsPointer(hit.bounds, dropdownAnchor,
+                            popup, pointer))) {
+                hovered = hit;
                 break;
             }
         }
@@ -14168,9 +14235,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 textWidth(tinyFont, line));
         float boxW = Math.min(470f, Math.max(190f, widest + 34f));
         float boxH = 24f + lines.size() * 22f;
-        float x = MathUtils.clamp(pointer.x + 18f, 12f, WIDTH - boxW - 12f);
-        float y = pointer.y - boxH - 18f;
-        if (y < 12f) y = Math.min(HEIGHT - boxH - 12f, pointer.y + 22f);
+        Rectangle bounds = GdxSettingsTooltips.bounds(pointer, boxW, boxH,
+                WIDTH, HEIGHT, popup);
+        float x = bounds.x;
+        float y = bounds.y;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -14192,6 +14260,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             baseline -= 22f;
         }
         batch.end();
+    }
+
+    static boolean dropdownTooltipOwnsPointer(Rectangle hit, Rectangle anchor,
+            Rectangle popup, Vector2 pointer) {
+        return hit.contains(anchor.x + anchor.width / 2f,
+                anchor.y + anchor.height / 2f) && !popup.contains(pointer);
     }
 
     private static Color performanceImpactColor(
@@ -14913,6 +14987,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         rowH - 6f, () -> {
                     selectDropdownOption(dropdown, selectedOption);
                 });
+                if (over) {
+                    String key = GdxSettingsTooltips.optionKey(dropdown.name(),
+                            option, presentationSettings);
+                    if (key != null) {
+                        dropdownOptionTooltip = new TooltipHit(
+                                new Rectangle(x + 6f, rowY + 3f,
+                                        w - 6f - rowRightInset, rowH - 6f),
+                                key, new Object[0],
+                                GdxSettingsContract.PerformanceImpact.NONE);
+                    }
+                }
             }
         }
         if (scrollable) {
@@ -14940,6 +15025,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Composes popup shapes and labels after all covered page text. */
     private void drawDropdownTopLayer() {
+        dropdownOptionTooltip = null;
         boolean previousSettingsRowsActive = settingsRowsActive;
         settingsRowsActive = false;
         int firstText = texts.size();
@@ -15142,19 +15228,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean down = enabled && pressed(x, y, w, h);
         GdxUiButtonStyle.Tone sharedTone = GdxUiButtonStyle.Tone.valueOf(
                 tone.name());
-        GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
-                hoverAmount, down, 1f);
-        Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
         if (GdxUiDialogStyle.CLOSE_GLYPH.equals(label)) {
-            GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.CLOSE,
-                    x + w / 2f, y + h / 2f,
-                    Math.min(w, h) * 0.46f, labelColor, 1f);
-        } else if ("-".equals(label) || "+".equals(label)) {
-            pixelSnappedTextInBox(labelFont, label, x, y, w, h,
-                    labelColor);
+            GdxUiDialogStyle.drawWindowClose(shapes, x, y, w, h, enabled,
+                    hoverAmount, down, 1f);
         } else {
-            crispButtonTextInBox(labelFont, label, x, y, w, h,
-                    labelColor);
+            GdxUiButtonStyle.draw(shapes, x, y, w, h, sharedTone, enabled,
+                    hoverAmount, down, 1f);
+            Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
+            if ("-".equals(label) || "+".equals(label)) {
+                pixelSnappedTextInBox(labelFont, label, x, y, w, h, labelColor);
+            } else {
+                crispButtonTextInBox(labelFont, label, x, y, w, h, labelColor);
+            }
         }
         if (enabled) {
             if (repeatable || "-".equals(label) || "+".equals(label)) {
@@ -15589,6 +15674,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NESWResize;
                 default -> Cursor.SystemCursor.Arrow;
             };
+        } else if (rulesWindow.isOpen()) {
+            desired = rulesWindow.cursor(pointer.x, pointer.y);
         } else if (lobbyGalleryInteractive()) {
             desired = lobbyGallery.cursor(pointer.x, pointer.y);
         } else if (statsEvidenceOpen) {
@@ -16145,6 +16232,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean pressed = pointerRepeatSurface == surface
                 && Gdx.input.isButtonPressed(Input.Buttons.LEFT)
                 && pointerRepeatHit.bounds.contains(pointer)
+                && !(lobbyGalleryInteractive() && lobbyGallery.ownsPointer(pointer.x, pointer.y))
+                && !statsOwnsPointer()
+                && (hasBlockingFrontendModal() || !pokerVideoOverlay.ownsHover(pointer.x, pointer.y))
                 && current != null;
         int repeats = pointerRepeat.update(frameDelta, pressed);
         if (!pressed) {
@@ -16201,6 +16291,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void resize(int width, int height) {
         viewport.update(width, height, true);
         lobbyGallery.resize(viewport);
+        rulesWindow.resize();
         if (titleFont == null) return;
         GdxAdaptiveFontQuality.Profile current =
                 GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
@@ -16220,11 +16311,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
+        if (rulesWindow.isOpen()) {
+            rulesWindow.touchDown(pointer.x, pointer.y, pointerIndex, button);
+            return true;
+        }
         if (lobbyGalleryInteractive() && lobbyGallery.touchDown(pointer.x, pointer.y, pointerIndex, button)) {
             return true;
         }
-        if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
-            if (button == Input.Buttons.LEFT) {
+        if (statsOwnsPointer()) {
+            if (!STATS_WEB_BOUNDS.contains(pointer)) {
+                statsBrowserPointer.captureSecondary(pointerIndex, button);
+            } else if (statsBrowserPointer.capture(pointerIndex, button) && statsBrowserInput()) {
                 statsBrowserFocused = true;
                 statsBrowserMouse(MouseEvent.MOUSE_PRESSED);
             }
@@ -16272,7 +16369,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
         }
-        if (statsEvidenceOpen && button == Input.Buttons.LEFT) {
+        if (statsEvidenceOpen && !frontendNoticeOwnsPointer()
+                && avatarCropSession == null && button == Input.Buttons.LEFT) {
             GdxFloatingGameLogLayout.ResizeHandle resizeHandle =
                     GdxFloatingGameLogLayout.resizeHandleAt(
                             statsEvidenceLayout().panel(),
@@ -16315,6 +16413,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (avatarCropSession == null
+                && !frontendNoticeOwnsPointer()
                 && !hasNestedFrontendModal()
                 && dropdown == Dropdown.NONE
                 && (!blockingModal || rootSurfaceOwnsPointer
@@ -16390,11 +16489,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (rulesWindow.isOpen()) {
+            rulesWindow.touchDragged(pointer.x, pointer.y, pointerIndex);
+            return true;
+        }
         if (lobbyGalleryInteractive() && lobbyGallery.touchDragged(pointer.x, pointer.y, pointerIndex)) {
             return true;
         }
-        if (statsBrowserInput() && statsBrowser.pressed()) {
-            statsBrowserMouse(MouseEvent.MOUSE_DRAGGED);
+        if (statsOwnsPointer()) {
+            if (statsBrowserPointer.ownsPrimary(pointerIndex) && statsBrowser.pressed()) {
+                statsBrowserMouse(MouseEvent.MOUSE_DRAGGED);
+            }
             return true;
         }
         if (pokerVideoOverlay.touchDragged(pointer.x, pointer.y,
@@ -16455,14 +16560,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (lobbyGallery.touchUp(pointer.x, pointer.y, pointerIndex, button)) return true;
-        if (statsBrowserInput() && button == Input.Buttons.LEFT
-                && statsBrowser.pressed()) {
-            statsBrowserMouse(MouseEvent.MOUSE_RELEASED);
+        if (rulesWindow.isOpen()) {
+            rulesWindow.touchUp(pointer.x, pointer.y, pointerIndex, button);
+            return true;
+        }
+        if (lobbyGalleryInteractive()
+                ? lobbyGallery.touchUp(pointer.x, pointer.y, pointerIndex, button)
+                : lobbyGallery.cancel(pointerIndex, button)) {
+            pokerVideoOverlay.cancelTouch(pointerIndex, button);
+            cancelCoveredFrontendGesture(pointerIndex, button);
+            return true;
+        }
+        boolean statsRelease = statsBrowserPointer.releasePrimary(pointerIndex, button);
+        if (statsRelease && statsBrowserInput() && statsBrowser.pressed()) statsBrowserMouse(MouseEvent.MOUSE_RELEASED);
+        if (statsRelease || statsBrowserPointer.releaseSecondary(pointerIndex, button) || statsOwnsPointer()) {
+            cancelCoveredFrontendGesture(pointerIndex, button);
             return true;
         }
         if (pokerVideoOverlay.touchUp(pointer.x, pointer.y, pointerIndex,
-                button)) return true;
+                button)) {
+            cancelCoveredFrontendGesture(pointerIndex, button);
+            return true;
+        }
         if (avatarCropSession != null
                 && avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == pointerIndex
@@ -16506,6 +16625,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         return passwordWasRevealed || hasBlockingFrontendModal();
+    }
+
+    private void cancelCoveredFrontendGesture(int pointerIndex, int button) {
+        if (scrollPointer.owns(pointerIndex, button)) clearScrollDrag();
+        if (lobbyVoicePointer.release(pointerIndex, button)) finishLobbyVoiceRecording(true);
+        if (button == Input.Buttons.LEFT) {
+            pressedHit = null;
+            pointerSelectionField = null;
+            revealedPasswordField = null;
+            clearPointerRepeat();
+        }
     }
 
     private boolean beginScrollDrag(float x, float y, int pointerIndex,
@@ -16838,6 +16968,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
+        if (rulesWindow.isOpen()) {
+            rulesWindow.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED);
+            return true;
+        }
         if (fileChooserPending()) return true;
         if (profileBackupSelection != null && frontendNoticeMessage.isBlank()) {
             if (keycode == Input.Keys.ESCAPE) closeProfileBackupSelection();
@@ -17317,11 +17451,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void updateTextKeyRepeat() {
+        rulesWindow.updateKeyboard(frameDelta);
         boolean galleryInteractive = lobbyGalleryInteractive();
         lobbyGallery.updateKeyboard(frameDelta, galleryInteractive);
         boolean statsEditing = statsBrowserInput() && statsBrowserFocused;
         if (statsBrowser != null) statsBrowser.updateKeyboard(frameDelta, statsEditing);
-        boolean webEditing = (galleryInteractive && lobbyGallery.focused()) || statsEditing;
+        boolean webEditing = rulesWindow.isOpen()
+                || (galleryInteractive && lobbyGallery.focused()) || statsEditing;
         boolean nativeEditing = !webEditing
                 && (!hasBlockingFrontendModal() || frontendModalTextFieldActive());
         textKeyRepeat.update(frameDelta, nativeEditing ? activeField : null, this::handleActiveFieldKey);
@@ -17344,6 +17480,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyTyped(char character) {
+        if (rulesWindow.isOpen()) {
+            rulesWindow.key(KeyEvent.KEY_TYPED, 0, character);
+            return true;
+        }
         if (lobbyGalleryInteractive() && lobbyGallery.key(KeyEvent.KEY_TYPED, 0, character)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {
             statsBrowser.key(KeyEvent.KEY_TYPED, 0, character);
@@ -17658,6 +17798,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public void dispose() {
+        rulesWindow.close();
         disposed = true;
         if (updateCheck != null) updateCheck.cancel(true);
         lobbyGallery.close();
@@ -17750,6 +17891,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override public boolean keyUp(int keycode) {
         textKeyRepeat.release(keycode);
+        if (rulesWindow.isOpen()) {
+            rulesWindow.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);
+            return true;
+        }
         if (lobbyGalleryInteractive()
                 && lobbyGallery.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {
@@ -17763,11 +17908,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;
-        if (statsBrowser != null && statsBrowser.pressed()) {
-            statsBrowser.unfocus();
+        if (statsBrowserPointer.releasePrimary(p, b)) {
+            if (statsBrowser != null) statsBrowser.unfocus();
             return true;
         }
+        if (statsBrowserPointer.releaseSecondary(p, b)) return true;
         if (pokerVideoOverlay.cancelTouch(p, b)) return true;
         if (avatarCropDrag != GdxAvatarCropModel.DragTarget.NONE
                 && avatarCropPointer == p) {
@@ -17804,6 +17951,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean mouseMoved(int x, int y) {
         pointer.set(x, y);
         viewport.unproject(pointer);
+        if (rulesWindow.isOpen()) {
+            rulesWindow.mouseMoved(pointer.x, pointer.y);
+            return true;
+        }
         if (lobbyGalleryInteractive() && lobbyGallery.mouseMoved(pointer.x, pointer.y)) return true;
         if (statsBrowserInput()) {
             if (STATS_WEB_BOUNDS.contains(pointer)) {
@@ -17812,6 +17963,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             statsBrowserMouse(MouseEvent.MOUSE_EXITED);
         }
+        if (statsOwnsPointer()) return true;
         if (pokerVideoOverlay.mouseMoved(pointer.x, pointer.y)) return true;
         return hasBlockingFrontendModal();
     }
@@ -17820,17 +17972,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (fileChooserPending()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
+        if (rulesWindow.isOpen()) {
+            rulesWindow.scrolled(pointer.x, pointer.y, amountY);
+            return true;
+        }
         if (lobbyGalleryInteractive() && lobbyGallery.scrolled(pointer.x, pointer.y, amountY)) return true;
-        if (statsBrowserInput() && STATS_WEB_BOUNDS.contains(pointer)) {
+        if (statsOwnsPointer()) {
             Rectangle bounds = STATS_WEB_BOUNDS;
-            statsBrowser.wheel((pointer.x - bounds.x) / bounds.width,
-                    (bounds.y + bounds.height - pointer.y) / bounds.height, amountY);
+            if (statsBrowserInput() && bounds.contains(pointer)) {
+                statsBrowser.wheel((pointer.x - bounds.x) / bounds.width,
+                        (bounds.y + bounds.height - pointer.y) / bounds.height, amountY);
+            }
             return true;
         }
         if (!hasBlockingFrontendModal()
                 && pokerVideoOverlay.scrolled(pointer.x, pointer.y, amountY)) {
             return true;
         }
+        if (frontendNoticeOwnsPointer()) return true;
         if (avatarCropSession != null) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);

@@ -91,6 +91,7 @@ final class PokerStatsBrowser implements AutoCloseable {
     private List<GameOption> games;
     private int handsGameId = -1;
     private List<HandOption> hands = List.of();
+    private final GdxBrowserKeyboard keyboard = new GdxBrowserKeyboard();
     private boolean pressed;
     private double scrollRemainder;
     private int width;
@@ -417,6 +418,7 @@ final class PokerStatsBrowser implements AutoCloseable {
     }
 
     void unfocus() {
+        keyboard.clear();
         pressed = false;
         LibGdxCefBrowser current = browser;
         if (current != null) current.setFocus(false);
@@ -426,6 +428,7 @@ final class PokerStatsBrowser implements AutoCloseable {
         LibGdxCefBrowser current = browser;
         if (!ready || current == null) return;
         if (event == MouseEvent.MOUSE_PRESSED) {
+            keyboard.clear();
             current.setFocus(true);
             pressed = true;
         } else if (event == MouseEvent.MOUSE_RELEASED) {
@@ -459,16 +462,16 @@ final class PokerStatsBrowser implements AutoCloseable {
     void key(int event, int key, char character) {
         LibGdxCefBrowser current = browser;
         if (!ready || current == null) return;
-        if (event == KeyEvent.KEY_TYPED) {
-            if (!Character.isISOControl(character)) {
-                current.dispatchKey(event, KeyEvent.VK_UNDEFINED, character, modifiers());
-            }
-            return;
-        }
+        int modifiers = modifiers();
+        if (keyboard.key(current, event, key, character, modifiers)) return;
         int awt = awtKey(key);
         if (awt != KeyEvent.VK_UNDEFINED) {
-            current.dispatchKey(event, awt, KeyEvent.CHAR_UNDEFINED, modifiers());
+            current.dispatchKey(event, awt, KeyEvent.CHAR_UNDEFINED, modifiers);
         }
+    }
+
+    void updateKeyboard(float delta, boolean enabled) {
+        keyboard.update(delta, enabled && ready ? browser : null, this::modifiers);
     }
 
     private int modifiers() {
@@ -487,18 +490,6 @@ final class PokerStatsBrowser implements AutoCloseable {
         if (key >= Input.Keys.A && key <= Input.Keys.Z) return KeyEvent.VK_A + key - Input.Keys.A;
         if (key >= Input.Keys.NUM_0 && key <= Input.Keys.NUM_9) return KeyEvent.VK_0 + key - Input.Keys.NUM_0;
         return switch (key) {
-            case Input.Keys.TAB -> KeyEvent.VK_TAB;
-            case Input.Keys.ENTER, Input.Keys.NUMPAD_ENTER -> KeyEvent.VK_ENTER;
-            case Input.Keys.BACKSPACE -> KeyEvent.VK_BACK_SPACE;
-            case Input.Keys.FORWARD_DEL -> KeyEvent.VK_DELETE;
-            case Input.Keys.LEFT -> KeyEvent.VK_LEFT;
-            case Input.Keys.RIGHT -> KeyEvent.VK_RIGHT;
-            case Input.Keys.UP -> KeyEvent.VK_UP;
-            case Input.Keys.DOWN -> KeyEvent.VK_DOWN;
-            case Input.Keys.HOME -> KeyEvent.VK_HOME;
-            case Input.Keys.END -> KeyEvent.VK_END;
-            case Input.Keys.PAGE_UP -> KeyEvent.VK_PAGE_UP;
-            case Input.Keys.PAGE_DOWN -> KeyEvent.VK_PAGE_DOWN;
             case Input.Keys.SPACE -> KeyEvent.VK_SPACE;
             case Input.Keys.MINUS -> KeyEvent.VK_MINUS;
             case Input.Keys.EQUALS -> KeyEvent.VK_EQUALS;
@@ -514,6 +505,7 @@ final class PokerStatsBrowser implements AutoCloseable {
         if (closed) return;
         closed = true;
         ready = false;
+        keyboard.clear();
         worker.shutdownNow();
         frames.setAcceptingFrames(false);
         try {

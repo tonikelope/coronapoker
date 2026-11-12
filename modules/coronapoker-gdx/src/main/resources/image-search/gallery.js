@@ -26,8 +26,8 @@
     error: 'Search could not load', errorDetail: 'Try again in a moment.',
     limited: 'The search provider has limited requests', limitedDetail: 'The request received HTTP 429. Try again later.',
     retryAfter: seconds => 'Wait ' + seconds + ' s before searching again',
-    retryAfterDetail: 'The search provider requested this wait.',
-    unusual: 'The provider detected unusual traffic', unusualDetail: 'Try again later.',
+    unusual: 'The provider detected unusual traffic', unusualDetail: 'Search is temporarily paused.',
+    windowTitle: 'Image gallery', closeGallery: 'Close image gallery',
     consent: 'The provider requires confirmation', consentDetail: 'The search stopped at the provider’s consent screen.',
     add: 'Add to favorites', saving: 'Saving…', saved: 'In favorites', failed: 'Try again',
     saveError: 'This image could not be downloaded. Try again or choose another result.'
@@ -55,8 +55,8 @@
     error: 'No se pudo cargar la búsqueda', errorDetail: 'Vuelve a intentarlo en un momento.',
     limited: 'El proveedor ha limitado las búsquedas', limitedDetail: 'La consulta recibió HTTP 429. Vuelve a intentarlo más tarde.',
     retryAfter: seconds => 'Espera ' + seconds + ' s antes de buscar de nuevo',
-    retryAfterDetail: 'El proveedor ha indicado este tiempo de espera.',
-    unusual: 'El proveedor detectó tráfico inusual', unusualDetail: 'Vuelve a intentarlo más tarde.',
+    unusual: 'El proveedor detectó tráfico inusual', unusualDetail: 'La búsqueda se ha pausado temporalmente.',
+    windowTitle: 'Galería de imágenes', closeGallery: 'Cerrar galería de imágenes',
     consent: 'El proveedor pide confirmación', consentDetail: 'La consulta se detuvo en la pantalla de consentimiento.',
     add: 'Añadir a favoritas', saving: 'Guardando…', saved: 'En favoritas', failed: 'Reintentar',
     saveError: 'No se pudo descargar esta imagen. Reintenta o elige otro resultado.'
@@ -84,6 +84,8 @@
   let searchTabs = [];
   let searching = false;
   let loadingMore = null;
+  let providerWaitUntil = 0;
+  let providerWaitTimer = null;
   let searchSequence = 0;
   let viewVersion = -1;
   let searchResult = null;
@@ -101,12 +103,25 @@
   }
 
   function providerMessage(error) {
-    if (error?.reason === 'unusual-traffic') return [copy.unusual, copy.unusualDetail];
-    const wait = error?.reason?.match(/^retry-after:(\d+)$/);
-    if (wait) return [copy.retryAfter(wait[1]), copy.retryAfterDetail];
+    const wait = error?.code === 429 ? error.reason?.match(/^(unusual-traffic|rate-limit|retry-after):(\d+)$/) : null;
+    if (wait) pauseProvider(Number(wait[2]));
+    if (wait?.[1] === 'unusual-traffic' || error?.reason === 'unusual-traffic') {
+      return [copy.unusual, copy.unusualDetail];
+    }
     if (error?.code === 429) return [copy.limited, copy.limitedDetail];
     if (error?.code === 412) return [copy.consent, copy.consentDetail];
     return null;
+  }
+
+  function providerWait() {
+    return Math.max(0, Math.ceil((providerWaitUntil - Date.now()) / 1000));
+  }
+
+  function pauseProvider(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    providerWaitUntil = Math.max(providerWaitUntil, Date.now() + seconds * 1000);
+    if (providerWaitTimer === null) providerWaitTimer = setInterval(updateSearchControls, 1000);
+    updateSearchControls();
   }
 
   function showSearch(show) {
@@ -519,6 +534,7 @@
   }
 
   function applySearchView(view, restoreInput) {
+    pauseProvider(view.retryAfter);
     if (view.version < viewVersion) return;
     viewVersion = view.version;
     const oldBatch = searchResult?.batch;
@@ -591,14 +607,24 @@
     el('search-page').textContent = loading ? copy.loadingMore
       : hasMore ? copy.searchPage(index + 1) : copy.page(index + 1, pageCount);
     searchPrevious.disabled = loading || index === 0;
-    searchNext.disabled = loading || (!cachedNext && (!hasMore || searching || loadingMore !== null));
+    searchNext.disabled = loading || (!cachedNext
+      && (!hasMore || searching || loadingMore !== null || providerWait() > 0));
     if (loading) return;
     if (focused === searchPrevious && searchPrevious.disabled) searchNext.focus();
     else if (focused === searchNext && searchNext.disabled) searchPrevious.focus();
   }
 
   function updateSearchControls() {
-    submit.disabled = searching || loadingMore !== null;
+    const seconds = providerWait();
+    submit.disabled = searching || loadingMore !== null || seconds > 0;
+    el('instructions').hidden = seconds > 0;
+    el('provider-wait').hidden = seconds === 0;
+    const message = seconds > 0 ? copy.retryAfter(seconds) : '';
+    if (el('provider-wait').textContent !== message) el('provider-wait').textContent = message;
+    if (seconds === 0 && providerWaitTimer !== null) {
+      clearInterval(providerWaitTimer);
+      providerWaitTimer = null;
+    }
     if (searchResult?.images.length && !results.hidden) updateSearchPager();
   }
 
@@ -611,7 +637,7 @@
       searchSequence++;
       return readSearchView('search-page\t' + current.batch + '\t' + next);
     }
-    if (!current.hasMore || searching || loadingMore !== null) return;
+    if (!current.hasMore || searching || loadingMore !== null || providerWait() > 0) return;
     loadingMore = current.batch;
     updateSearchControls();
     let error;
@@ -622,9 +648,10 @@
       error = failure;
     } finally {
       loadingMore = null;
+      const message = providerMessage(error);
       updateSearchControls();
       if (searchResult?.batch === current.batch && error !== undefined && error.code !== 499) {
-        el('search-page').textContent = providerMessage(error)?.[0] ?? copy.moreError;
+        el('search-page').textContent = message?.[0] ?? copy.moreError;
       }
     }
   }
@@ -632,7 +659,7 @@
   el('search').addEventListener('submit', async event => {
     event.preventDefault();
     const term = input.value.trim();
-    if (!term || searching || loadingMore !== null) return;
+    if (!term || searching || loadingMore !== null || providerWait() > 0) return;
     const sequence = ++searchSequence;
     searching = true;
     updateSearchControls();
@@ -641,12 +668,18 @@
       const view = JSON.parse(await query('search\t' + term));
       applySearchView(view, sequence === searchSequence && input.value.trim() === term);
     } catch (error) {
-      if (sequence === searchSequence) searchStatus(...(providerMessage(error) ?? [copy.error, copy.errorDetail]));
+      const message = providerMessage(error);
+      if (sequence === searchSequence) searchStatus(...(message ?? [copy.error, copy.errorDetail]));
     } finally {
       searching = false;
       updateSearchControls();
     }
   });
+
+  el('window-title').textContent = copy.windowTitle;
+  el('close-gallery').setAttribute('aria-label', copy.closeGallery);
+  el('close-gallery').title = copy.closeGallery;
+  el('close-gallery').addEventListener('click', () => query('close-window').catch(() => {}));
 
   for (const [id, label] of Object.entries({
     'local-tab': copy.local, 'search-tab': copy.finder, clear: copy.clear,

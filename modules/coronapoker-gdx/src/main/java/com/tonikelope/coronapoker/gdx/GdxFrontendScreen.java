@@ -429,7 +429,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Vector2 pointer = new Vector2();
     private final Matrix4 pixelProjection = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
-    private final GdxKeyRepeat textDeleteRepeat = new GdxKeyRepeat();
+    private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
@@ -1317,7 +1317,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             updatePromptOpen = true;
             captureFrontendModalInput();
         }
-        updateTextDeleteRepeat();
+        updateTextKeyRepeat();
         updatePointerRepeat();
         updateLobbyVoiceRecording();
         audioPreview.update(frameDelta);
@@ -1453,7 +1453,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawPokerVideoTopLayer();
 
         if (surface == Surface.LOBBY && lobbyGallery.isOpen()) {
-            lobbyGallery.draw(shapes, batch, headingFont, smallFont, gameText, pointer.x, pointer.y);
+            lobbyGallery.draw(shapes, batch, smallFont, gameText, pointer.x, pointer.y);
         }
         drawStartupMenuReveal();
 
@@ -17131,9 +17131,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (frontendModalTextFieldActive() && activeField != null
                 && handleActiveFieldKey(keycode)) {
-            if (isTextDeletionKey(keycode)) {
-                textDeleteRepeat.press(keycode);
-            }
+            textKeyRepeat.press(keycode, activeField);
             return true;
         }
         if (childModalOwnsInput()) {
@@ -17149,9 +17147,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (activeField != null && handleActiveFieldKey(keycode)) {
-            if (isTextDeletionKey(keycode)) {
-                textDeleteRepeat.press(keycode);
-            }
+            textKeyRepeat.press(keycode, activeField);
             return true;
         }
         if (GdxShortcutBindings.MUTE.equals(shortcut)) {
@@ -17194,11 +17190,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && surface != Surface.SETTINGS) {
             preferences.saveDeferred();
         }
-    }
-
-    private static boolean isTextDeletionKey(int keycode) {
-        return keycode == Input.Keys.BACKSPACE
-                || keycode == Input.Keys.FORWARD_DEL;
     }
 
     /**
@@ -17325,15 +17316,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
 
-    private void updateTextDeleteRepeat() {
-        int keycode = textDeleteRepeat.keycode();
-        boolean pressed = activeField != null && keycode >= 0
-                && Gdx.input.isKeyPressed(keycode);
-        int repeats = textDeleteRepeat.update(frameDelta, pressed);
-        for (int repeat = 0; repeat < repeats && activeField != null;
-                repeat++) {
-            handleActiveFieldKey(keycode);
-        }
+    private void updateTextKeyRepeat() {
+        boolean galleryInteractive = lobbyGalleryInteractive();
+        lobbyGallery.updateKeyboard(frameDelta, galleryInteractive);
+        boolean statsEditing = statsBrowserInput() && statsBrowserFocused;
+        if (statsBrowser != null) statsBrowser.updateKeyboard(frameDelta, statsEditing);
+        boolean webEditing = (galleryInteractive && lobbyGallery.focused()) || statsEditing;
+        boolean nativeEditing = !webEditing
+                && (!hasBlockingFrontendModal() || frontendModalTextFieldActive());
+        textKeyRepeat.update(frameDelta, nativeEditing ? activeField : null, this::handleActiveFieldKey);
     }
 
     private void adjustFrontendMasterVolume(float delta) {
@@ -17568,6 +17559,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void activateField(String id) {
+        if (!Objects.equals(activeField, id)) textKeyRepeat.clear();
         activeField = id;
         textEdit.focus(id, activeValue());
     }
@@ -17661,7 +17653,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         activeField = null;
         revealedPasswordField = null;
         textEdit.blur();
-        textDeleteRepeat.clear();
+        textKeyRepeat.clear();
     }
 
     @Override
@@ -17757,7 +17749,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     @Override public boolean keyUp(int keycode) {
-        textDeleteRepeat.release(keycode);
+        textKeyRepeat.release(keycode);
         if (lobbyGalleryInteractive()
                 && lobbyGallery.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {

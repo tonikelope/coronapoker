@@ -1,0 +1,57 @@
+package com.tonikelope.coronapoker.gdx;
+
+import com.badlogic.gdx.math.Rectangle;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class GdxImageSearchGateTest {
+
+    @Test
+    void serializesProviderNavigationAndIgnoresStaleCompletion() {
+        var gate = new GdxImageSearchGate();
+        var first = new Object();
+        var second = new Object();
+        assertEquals(0, gate.begin(first, 1_000));
+        assertEquals(GdxImageSearchGate.BUSY, gate.begin(second, 1_001));
+        gate.finish(first, 1_002, 0);
+        assertEquals(0, gate.begin(second, 1_003));
+        gate.finish(first, 1_004, 90_000);
+        assertEquals(GdxImageSearchGate.BUSY, gate.begin(first, 1_005));
+        gate.finish(second, 1_006, 0);
+        assertEquals(0, gate.begin(first, 1_007));
+    }
+
+    @Test
+    void cooldownAppliesAcrossWindowsUntilTheFullWaitHasElapsed() {
+        var gate = new GdxImageSearchGate();
+        var first = new Object();
+        var second = new Object();
+        assertEquals(0, gate.begin(first, 1_000));
+        assertEquals(6, gate.finish(first, 1_001, 7_001));
+        assertEquals(1, gate.begin(second, 7_000));
+        assertEquals(0, gate.begin(second, 7_001));
+    }
+
+    @Test
+    void recognizesAnInlineChallengeByItsForm() {
+        assertTrue(GoogleImageResults.isRateLimitedDocument(
+                "<html><FORM method='post' id='captcha-form'></FORM></html>"));
+        assertTrue(GoogleImageResults.isRateLimitedDocument(
+                "<form action=\"/sorry/index?continue=search\"></form>"));
+        assertFalse(GoogleImageResults.isRateLimitedDocument(
+                "<article>unusual traffic and /sorry/index</article>"));
+    }
+
+    @Test
+    void browserTitleDragAreaReservesTheCloseButtonAtDifferentSizes() {
+        var web = new Rectangle(20f, 30f, 800f, 400f);
+        var normal = GdxImageGalleryWindow.titleDragBounds(web, 800, 400);
+        assertEquals(new Rectangle(20f, 394f, 764f, 36f), normal);
+        var dense = GdxImageGalleryWindow.titleDragBounds(web, 1600, 800);
+        assertEquals(new Rectangle(20f, 400f, 770f, 30f), dense);
+        assertFalse(dense.contains(806f, 415f));
+    }
+}

@@ -23,6 +23,10 @@ final class GoogleImageResults {
     static final int NO_MORE_RESULTS = -1;
     private static final int PROVIDER_STEP = 10;
     private static final String URL_STRING = "\"https?://[^\"\\r\\n]{1,4096}\"";
+    private static final Pattern RATE_LIMIT_FORM = Pattern.compile(
+            "<form\\b[^>]{0,1024}\\s(?:id\\s*=\\s*['\"]captcha-form['\"]"
+            + "|action\\s*=\\s*['\"](?:https://(?:www|sorry)\\.google\\.com)?/sorry/index(?:[?'\"]))",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern IMAGE = Pattern.compile(
             "\\[\\s*(" + URL_STRING + ")\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\]"
             + "\\s*,\\s*\\[\\s*(" + URL_STRING + ")\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\]"
@@ -115,6 +119,10 @@ final class GoogleImageResults {
     static boolean isEmptyDocument(String html) {
         return html.contains("id=\"topstuff\"></div><div id=\"search\"></div>")
                 && html.contains("id=\"botstuff\"") && html.contains("gws-wiz-serp");
+    }
+
+    static boolean isRateLimitedDocument(String html) {
+        return RATE_LIMIT_FORM.matcher(html).find();
     }
 
     static boolean isThumbnail(String url) {

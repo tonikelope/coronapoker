@@ -9,8 +9,8 @@
 package com.tonikelope.coronapoker.protocolsim;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.harness.MultiwaySimulator;
 import com.tonikelope.coronapoker.bot.harness.TestBotPlayer;
 import java.util.SplittableRandom;
@@ -35,7 +35,7 @@ class ProtocolBotCampaignTest {
     private static final int DEFAULT_HANDS = 1000;
     private static final double STARTING_STACK = 200.0;
     private static final double BIG_BLIND = 2.0;
-    private static final double EPSILON = 0.5;
+    private static final double EPSILON = 1e-8;
 
     @BeforeAll
     static void silenceBots() {
@@ -50,7 +50,7 @@ class ProtocolBotCampaignTest {
         int first = replayText == null || replayText.isBlank()
                 ? 0 : parseBoundedInt("qa.sim.bot.hand", replayText, 0, configuredHands - 1);
         int end = replayText == null || replayText.isBlank() ? configuredHands : first + 1;
-        BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+        BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
         int requested = end - first;
 
         CampaignProgress.report("production-bot", 0, requested);
@@ -69,13 +69,16 @@ class ProtocolBotCampaignTest {
                 seats, handSeed, STARTING_STACK, BIG_BLIND, evaluator);
         Bot.Difficulty[] difficulties = new Bot.Difficulty[seats];
         Bot.Difficulty[] available = Bot.Difficulty.values();
+        double startingTotal = 0;
         for (int seat = 0; seat < seats; seat++) {
             difficulties[seat] = available[random.nextInt(available.length)];
+            double stack = hand == 0 ? STARTING_STACK : random.nextInt(100, 30_001) / 100.0;
+            sim.player(seat).setStack(stack);
+            startingTotal += stack;
         }
         sim.setSeatDifficulties(difficulties);
 
         int buttonBefore = sim.currentButton();
-        sim.resetStacks();
         MultiwaySimulator.HandResult result = sim.playOneHand();
         String context = "seed=" + campaignSeed + " hand=" + hand
                 + " handSeed=" + handSeed + " seats=" + seats;
@@ -101,7 +104,7 @@ class ProtocolBotCampaignTest {
                     context + " seat=" + seat + " invalid bet=" + bet);
             total += stack;
         }
-        assertEquals(seats * STARTING_STACK, total, EPSILON,
+        assertEquals(startingTotal, total, EPSILON,
                 context + " chip conservation failed");
     }
 

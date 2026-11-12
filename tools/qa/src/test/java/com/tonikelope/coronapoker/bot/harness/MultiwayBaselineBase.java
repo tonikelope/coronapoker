@@ -41,9 +41,14 @@ abstract class MultiwayBaselineBase {
         Logger.getLogger(Bot.class.getName()).setLevel(Level.WARNING);
     }
 
+    protected double stackForSession(int session) {
+        return STARTING_STACK;
+    }
+
     protected double runMatchup(String label, FixedStrategyBot.Strategy villainStrategy) {
         BotStats aggHero = new BotStats("HARD");
         BotStats aggVillains = new BotStats(villainStrategy.name() + "_AVG");
+        double[] sessionResults = new double[SESSIONS];
         int totalHands = SESSIONS * HANDS_PER_SESSION;
         long startMs = System.currentTimeMillis();
         System.out.printf("%n[START] HARD vs 5x %s (%d sessions × %d hands = %d hands total)%n",
@@ -55,7 +60,7 @@ abstract class MultiwayBaselineBase {
             Bot.TRACKER_MEMORY.clear();
             long seed = BASE_SEED ^ (villainStrategy.ordinal() * 0x12345L) ^ (session * 0x10001L);
             MultiwaySimulator sim = new MultiwaySimulator(NUM_SEATS, seed,
-                    STARTING_STACK, BIG_BLIND, evaluator);
+                    stackForSession(session), BIG_BLIND, evaluator);
 
             int heroSeat = session % NUM_SEATS;
             Bot heroBot = new Bot(sim.player(heroSeat));
@@ -79,6 +84,7 @@ abstract class MultiwayBaselineBase {
                 sim.playOneHand();
             }
 
+            sessionResults[session] = sim.stats(heroSeat).bbPer100(BIG_BLIND);
             aggHero.add(sim.stats(heroSeat));
             for (int i = 0; i < NUM_SEATS; i++) {
                 if (i != heroSeat) {
@@ -100,7 +106,8 @@ abstract class MultiwayBaselineBase {
         System.out.println(aggHero.summary(BIG_BLIND));
         System.out.println(aggVillains.summary(BIG_BLIND));
         double bb100 = aggHero.bbPer100(BIG_BLIND);
-        System.out.printf("    %s bb/100 = %+.1f%n", label, bb100);
+        System.out.printf("    %s bb/100 = %+.1f (session SE %.1f)%n",
+                label, bb100, SessionEstimate.of(sessionResults).standardError());
         System.out.flush();
         return bb100;
     }

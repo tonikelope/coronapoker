@@ -23,6 +23,20 @@ class BotPotOddsTest {
     }
 
     @Test
+    void opponentRangeOnlyChangesThePotsThatOpponentCanWin() {
+        var seats = List.of(seat(50, 0, 0), seat(100, 0, 0));
+        assertEquals(57.5, BotPotOdds.ev(5000, 5000, 20000, seats,
+                new double[]{1, 0.7, 0.4}, 0, new double[]{1, 0.5, 0.25}), 1e-9);
+    }
+
+    @Test
+    void anOpponentsRangeDoesNotAffectBranchesWhereTheyFold() {
+        var seats = List.of(seat(20, 0, 0), seat(20, 80, 0.5));
+        assertEquals(20.5, BotPotOdds.ev(2000, 8000, 6000, seats,
+                new double[]{1, 0.75, 1.0 / 3}, 1, new double[]{1, 0.4, 0.2}), 1e-9);
+    }
+
+    @Test
     void deadChipsAboveTheCapGoToTheDeepestLivePot() {
         assertEquals(70, ev(20, 30, 170, List.of(seat(50, 0, 0), seat(100, 0, 1)),
                 1, 0.5), 1e-9);

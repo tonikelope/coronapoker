@@ -15,6 +15,11 @@ final class BotPotOdds {
      * wager is debited here, and its uncalled part is returned by the payout.
      */
     static double ev(long heroCommitted, long cost, long pot, List<Seat> seats, double[] equity) {
+        return ev(heroCommitted, cost, pot, seats, equity, -1, null);
+    }
+
+    static double ev(long heroCommitted, long cost, long pot, List<Seat> seats, double[] equity,
+            int modeledSeat, double[] modeledEquity) {
         long heroFinal = heroCommitted + cost;
         long alreadyCommitted = heroCommitted;
         int optionalCallers = 0;
@@ -29,9 +34,10 @@ final class BotPotOdds {
             }
         }
         long carry = Math.max(0, pot - alreadyCommitted);
-        double payout = sameDepth && optionalCallers >= 5
+        double payout = modeledSeat < 0 && sameDepth && optionalCallers >= 5
                 ? singlePotPayout(alreadyCommitted + cost + carry, seats, equity)
-                : payouts(0, heroFinal, carry, seats, new long[seats.size()], 0, equity);
+                : payouts(0, heroFinal, carry, seats, new long[seats.size()], 0,
+                        new Equity(equity, modeledSeat < 0 ? 0 : 1 << modeledSeat, modeledEquity));
         return (payout - cost) / PotMath.CENTS_PER_UNIT;
     }
 
@@ -64,7 +70,7 @@ final class BotPotOdds {
     // There are at most nine other seats. Forced folds and all-ins have only
     // one branch, so an ordinary heads-up bet has just two outcomes.
     private static double payouts(int index, long heroFinal, long carry, List<Seat> seats,
-            long[] contributions, int live, double[] equity) {
+            long[] contributions, int live, Equity equity) {
         if (index == seats.size()) {
             return payout(heroFinal, carry, contributions, live, equity);
         }
@@ -84,8 +90,8 @@ final class BotPotOdds {
     }
 
     private static double payout(long heroFinal, long carry, long[] contributions, int live,
-            double[] equity) {
-        double result = carry * equity[Integer.bitCount(live)];
+            Equity equity) {
+        double result = carry * equity.share(live);
         long deepest = heroFinal;
         for (int i = 0; i < contributions.length; i++) {
             if ((live & (1 << i)) != 0) {
@@ -95,7 +101,7 @@ final class BotPotOdds {
         if (deepest == 0) {
             // With no live commitments, all dead chips belong to the main pot.
             for (long chips : contributions) {
-                result += chips * equity[Integer.bitCount(live)];
+                result += chips * equity.share(live);
             }
             return result;
         }
@@ -104,11 +110,11 @@ final class BotPotOdds {
         // the hero cannot win. A lone eligible hero gets an uncalled bet back.
         for (long lower = 0; lower < heroFinal;) {
             long upper = heroFinal;
-            int opponents = 0;
+            int eligible = 0;
             for (int i = 0; i < contributions.length; i++) {
                 if ((live & (1 << i)) != 0 && contributions[i] > lower) {
                     upper = Math.min(upper, contributions[i]);
-                    opponents++;
+                    eligible |= 1 << i;
                 }
             }
             long layer = upper - lower;
@@ -116,9 +122,15 @@ final class BotPotOdds {
                 long capped = upper == deepest ? contributions[i] : Math.min(upper, contributions[i]);
                 layer += Math.max(0, capped - lower);
             }
-            result += equity[opponents] * layer;
+            result += equity.share(eligible) * layer;
             lower = upper;
         }
         return result;
+    }
+
+    private record Equity(double[] base, int modeledSeat, double[] modeled) {
+        private double share(int eligible) {
+            return ((eligible & modeledSeat) == 0 ? base : modeled)[Integer.bitCount(eligible)];
+        }
     }
 }

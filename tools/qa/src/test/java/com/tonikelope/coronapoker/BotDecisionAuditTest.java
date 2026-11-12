@@ -294,7 +294,7 @@ class BotDecisionAuditTest {
     @Test
     void anAffordableFloatCanFollowThroughWhenTheTurnIsChecked() {
         TestBotPlayer hero = new TestBotPlayer("hero", 300);
-        TestBotPlayer villain = new TestBotPlayer("villain", 300);
+        TestBotPlayer villain = new TestBotPlayer("float-target", 300);
         TestDealer dealer = postflopFacingBet(hero, villain, 50);
         dealer.setRaiseAllowed(false);
         Bot bot = hardBot(hero, dealer);
@@ -311,18 +311,42 @@ class BotDecisionAuditTest {
         hero.commit(50);
         hero.setBet(0);
         villain.setBet(0);
-        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        for (int i = 0; i < 20; i++) {
+            stats.recordPostflopDecision(Crupier.TURN, true, false, false, true);
+        }
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
     }
 
     @Test
     void prefersAnImmediateRaiseWhenItOutearnsTheFloat() {
         TestBotPlayer hero = new TestBotPlayer("hero", 300);
-        TestBotPlayer villain = new TestBotPlayer("villain", 300);
+        TestBotPlayer villain = new TestBotPlayer("raise-fold-target", 300);
         TestDealer dealer = postflopFacingBet(hero, villain, 50);
         Bot bot = hardBot(hero, dealer);
-        bot.setContext(dealer, new FixedOdds(0.40));
+        bot.setContext(dealer, new FixedOdds(0.34, 0, new Potential(0.19, 0.08)));
         forceAggressiveRolls(bot);
-        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        for (int i = 0; i < 20; i++) {
+            stats.recordPostflopDecision(Crupier.FLOP, true, false, false, true);
+            stats.recordPostflopDecision(Crupier.FLOP, true, true, false, false);
+        }
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            // Folds to an opening bet are not evidence that a raise will work.
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            for (int i = 0; i < 50; i++) {
+                stats.recordPostflopDecision(Crupier.FLOP, true, true, false, true);
+            }
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
     }
 
     @Test
@@ -394,6 +418,43 @@ class BotDecisionAuditTest {
     }
 
     @Test
+    void unbeatableRiverHandThatCanTieStillCallsAnOverbet() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 1000);
+        TestBotPlayer villain = new TestBotPlayer("villain", 1000);
+        TestDealer dealer = postflopFacingBet(hero, villain, 40);
+        villain.commit(260);
+        villain.setBet(300);
+        dealer.setPot(360);
+        dealer.setCurrentBet(300);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.NIT, true);
+        bot.setContext(dealer, new FixedOdds(0.02, 0.98, Potential.ZERO));
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+    }
+
+    @Test
+    void drawPotentialCannotPayForANegativeEvMultiwayAllIn() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 100);
+        TestBotPlayer villain = new TestBotPlayer("villain", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 50);
+        hero.setStack(50);
+        TestBotPlayer[] others = {new TestBotPlayer("second", 300),
+            new TestBotPlayer("third", 300), new TestBotPlayer("fourth", 300)};
+        for (TestBotPlayer player : others) {
+            player.commit(75);
+            player.setBet(50);
+        }
+        dealer.setSeating(List.of(hero, villain, others[0], others[1], others[2]));
+        dealer.setPot(325);
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.05, 0, new Potential(0.35, 0.05)));
+        assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(4));
+    }
+
+    @Test
     void recreationalTiltChangesTheProfileInTheSameHand() throws ReflectiveOperationException {
         TestBotPlayer hero = new TestBotPlayer("hero", 100);
         TestBotPlayer villain = new TestBotPlayer("villain", 100);
@@ -434,6 +495,137 @@ class BotDecisionAuditTest {
         Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
         try {
             assertTrue(stats.isNit());
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
+    @Test
+    void opponentReadsUseStreetAndTheActionThePlayerFaced() {
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        stats.recordPostflopDecision(Crupier.FLOP, true, false, false, true);
+        stats.recordPostflopDecision(Crupier.FLOP, true, false, false, false);
+        stats.recordPostflopDecision(Crupier.FLOP, true, false, true, false);
+        stats.recordPostflopDecision(Crupier.FLOP, true, true, false, false);
+        stats.recordPostflopDecision(Crupier.TURN, false, false, true, false);
+        stats.recordPostflopDecision(Crupier.TURN, false, false, false, false);
+        assertEquals(1.0 / 15, stats.foldToBetRate(Crupier.FLOP, false, 0), 1e-12);
+        assertEquals(0, stats.foldToBetRate(Crupier.FLOP, true, 0));
+        assertEquals(0, stats.foldToBetRate(Crupier.TURN, false, 0));
+        assertEquals(1.0 / 8, stats.openingBetRate(Crupier.TURN, 0), 1e-12);
+        assertEquals(0, stats.openingBetRate(Crupier.FLOP, 0));
+        assertEquals((12 * 0.35 + 0.30) / 12.90, stats.foldToBetRate(Crupier.RIVER, false, 0.35), 1e-12);
+    }
+
+    @Test
+    void hardDistinguishesASeldomSeenRiverBetFromAFrequentOne() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("river-bettor", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 60);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        dealer.setLastAggressor(villain);
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.42));
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            for (int i = 0; i < 24; i++) {
+                stats.recordPostflopDecision(Crupier.RIVER, false, false, i < 3, false);
+            }
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
+    @Test
+    void hardPricesTheBettorsVoluntaryPreflopInvolvement() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("range-bettor", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 60);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        dealer.setLastAggressor(villain);
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.42, 0, Potential.ZERO, 0.20));
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            stats.recordVPIP(1);
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+            stats.recordHandPlayed();
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
+    @Test
+    void hardBluffsTheNutFlushBlockerIntoFoldsAndChecksAgainstACaller() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("blocker-target", 300);
+        hero.setHoleCards(12, 28);
+        hero.commit(50);
+        villain.commit(50);
+        hero.setBet(0);
+        villain.setBet(0);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.setPot(100);
+        for (int card : new int[]{8, 9, 10, 36, 13}) {
+            dealer.appendBoardCard(card);
+        }
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.20));
+        forceAggressiveRolls(bot);
+        Bot.OpponentTracker folds = new Bot.OpponentTracker();
+        Bot.OpponentTracker calls = new Bot.OpponentTracker();
+        for (int i = 0; i < 20; i++) {
+            folds.recordPostflopDecision(Crupier.RIVER, true, false, false, true);
+            calls.recordPostFlopCall();
+            calls.recordPostflopDecision(Crupier.RIVER, true, false, false, false);
+        }
+        try {
+            Bot.TRACKER_MEMORY.put(villain.getNickname(), folds);
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+            Bot.TRACKER_MEMORY.put(villain.getNickname(), calls);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+    @Test
+    void hardStealsTheSmallBlindOnlyAfterEnoughFoldsAtAProfitablePrice() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer villain = new TestBotPlayer("blind-defense", 200);
+        hero.setHoleCards(0, 18);
+        hero.commit(1);
+        villain.commit(2);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setPot(3);
+        dealer.setCurrentBet(2);
+        dealer.setLastRaise(2);
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.TAG, true);
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            stats.recordBlindDefense(true);
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
+            for (int i = 0; i < 24; i++) {
+                stats.recordBlindDefense(true);
+            }
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+            assertEquals(5, bot.getBetSize());
+            dealer.setRaiseAllowed(false);
             assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(1));
         } finally {
             Bot.TRACKER_MEMORY.remove(villain.getNickname());
@@ -482,25 +674,33 @@ class BotDecisionAuditTest {
         return field.get(bot);
     }
 
-    private record FixedOdds(double win) implements BotEvaluator {
+    private record FixedOdds(double win, double tie, Potential draw, double rangeStrength) implements BotEvaluator {
+        private FixedOdds(double win) {
+            this(win, 0, Potential.ZERO);
+        }
+
+        private FixedOdds(double win, double tie, Potential draw) {
+            this(win, tie, draw, win + tie / 2);
+        }
+
         @Override
         public ShowdownOdds showdownOdds(int hole1, int hole2, int[] board) {
-            return new ShowdownOdds(win, 0);
+            return new ShowdownOdds(win, tie);
         }
 
         @Override
         public double handStrength(int hole1, int hole2, int[] board) {
-            return win;
+            return win + tie / 2;
         }
 
         @Override
         public double handStrengthVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights) {
-            throw new UnsupportedOperationException();
+            return rangeStrength;
         }
 
         @Override
         public Potential potential(int hole1, int hole2, int[] board, boolean fullLookahead) {
-            return Potential.ZERO;
+            return draw;
         }
 
         @Override

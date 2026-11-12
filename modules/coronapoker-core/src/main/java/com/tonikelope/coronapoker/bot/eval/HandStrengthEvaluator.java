@@ -63,4 +63,8 @@ public interface HandStrengthEvaluator {
      * player cannot hold two copies of the same card).
      */
     double handStrengthVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights);
+
+    default ShowdownOdds showdownOddsVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights) {
+        return new ShowdownOdds(handStrengthVsRange(hole1, hole2, board, rangeWeights), 0);
+    }
 }

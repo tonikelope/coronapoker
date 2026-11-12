@@ -107,6 +107,46 @@ class SimulatorRulesTest {
     }
 
     @Test
+    void aFlopLeadTakesAwayThePreflopAggressorsCbetOpportunity() {
+        Bot.TRACKER_MEMORY.clear();
+        try {
+            var headsUp = new HeadsUpSimulator(42, 100, 2, evaluator);
+            headsUp.setBotA(new ScriptedBot(headsUp.playerA(), 0, 6));
+            headsUp.setBotB(new ScriptedBot(headsUp.playerB(), Crupier.FLOP, 0, 4));
+            headsUp.playOneHand(true);
+            assertEquals(1, headsUp.statsA().handsWithPreflopRaise);
+            assertEquals(0, headsUp.statsA().cbetOpportunities);
+            assertEquals(0, headsUp.statsB().cbetExecuted);
+
+            var multiway = new MultiwaySimulator(3, 42, 100, 2, evaluator);
+            multiway.setBot(0, new ScriptedBot(multiway.player(0), 0, 6));
+            multiway.setBot(1, new ScriptedBot(multiway.player(1), Crupier.FLOP, 0, 4));
+            multiway.setBot(2, new ScriptedBot(multiway.player(2), -1, 0));
+            multiway.playOneHand();
+            assertEquals(1, multiway.stats(0).handsWithPreflopRaise);
+            assertEquals(0, multiway.stats(0).cbetOpportunities);
+            assertEquals(0, multiway.stats(1).cbetExecuted);
+        } finally {
+            Bot.TRACKER_MEMORY.clear();
+        }
+    }
+
+    @Test
+    void aSingleSessionCannotEstablishADifficultyAdvantage() {
+        assertFalse(SessionEstimate.of(new double[]{100}).clears(50, 2));
+        assertTrue(SessionEstimate.of(new double[]{90, 100, 110}).clears(50, 2));
+    }
+
+    @Test
+    void independentTablesKeepTheirOwnOpponentObservations() {
+        TestDealer first = new TestDealer();
+        TestDealer second = new TestDealer();
+        first.trackerFor("shared-nickname").recordBlindDefense(true);
+        assertTrue(first.getOpponentStats("shared-nickname").foldToBlindStealRate() > 0.5);
+        assertEquals(0.5, second.trackerFor("shared-nickname").foldToBlindStealRate());
+    }
+
+    @Test
     void shortRaiseDoesNotReopenBettingForPriorActors() {
         TestBotPlayer[] players = {new TestBotPlayer("opener", 100), new TestBotPlayer("caller", 100),
             new TestBotPlayer("short", 15), new TestBotPlayer("unacted", 100)};
@@ -247,18 +287,24 @@ class SimulatorRulesTest {
     }
 
     private static final class ScriptedBot extends Bot {
+        private final int street;
         private final int raiseAt;
         private final double target;
 
         ScriptedBot(TestBotPlayer player, int raiseAt, double target) {
+            this(player, Crupier.PREFLOP, raiseAt, target);
+        }
+
+        ScriptedBot(TestBotPlayer player, int street, int raiseAt, double target) {
             super(player, new Random(42));
+            this.street = street;
             this.raiseAt = raiseAt;
             this.target = target;
         }
 
         @Override
         public int calculateBotDecision(int opponentsCount) {
-            return dealer().getStreet() == Crupier.PREFLOP && dealer().getConta_bet() == raiseAt
+            return dealer().getStreet() == street && dealer().getConta_bet() == raiseAt
                     ? GamePlayerController.BET : GamePlayerController.CHECK;
         }
 

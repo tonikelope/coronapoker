@@ -61,8 +61,6 @@ public final class HeadsUpSimulator {
     // Per-hand transient flags for VPIP / PFR / c-bet detection.
     private boolean handVoluntaryA, handVoluntaryB;
     private boolean handRaisedPreflopA, handRaisedPreflopB;
-    private boolean handCbetOppA, handCbetOppB;
-    private boolean handCbetDoneA, handCbetDoneB;
 
     // Hand counter for OpponentTracker handId — mirrors Crupier.conta_mano so
     // tracker.recordVPIP/recordPFR detect repeated actions inside a single
@@ -172,10 +170,6 @@ public final class HeadsUpSimulator {
         handVoluntaryB = false;
         handRaisedPreflopA = false;
         handRaisedPreflopB = false;
-        handCbetOppA = false;
-        handCbetOppB = false;
-        handCbetDoneA = false;
-        handCbetDoneB = false;
 
         // Capture stacks before posting blinds so we can compute net delta later
         double aStartStack = p1.getStack();
@@ -220,11 +214,6 @@ public final class HeadsUpSimulator {
 
             if (street > Crupier.PREFLOP) {
                 openStreet(runout, street);
-                if (street == Crupier.FLOP) {
-                    // Mark c-bet opportunity for whoever held preflop initiative
-                    handCbetOppA = p1.getNickname().equals(dealer.getPreflopAggressorNick());
-                    handCbetOppB = p2.getNickname().equals(dealer.getPreflopAggressorNick());
-                }
             }
 
             int first = street == Crupier.PREFLOP ? (aIsButton ? 0 : 1) : (aIsButton ? 1 : 0);
@@ -273,18 +262,6 @@ public final class HeadsUpSimulator {
         if (handRaisedPreflopB) {
             statsB.handsWithPreflopRaise++;
         }
-        if (handCbetOppA) {
-            statsA.cbetOpportunities++;
-            if (handCbetDoneA) {
-                statsA.cbetExecuted++;
-            }
-        }
-        if (handCbetOppB) {
-            statsB.cbetOpportunities++;
-            if (handCbetDoneB) {
-                statsB.cbetExecuted++;
-            }
-        }
         if (reachedShowdown) {
             statsA.handsReachedShowdown++;
             statsB.handsReachedShowdown++;
@@ -300,7 +277,7 @@ public final class HeadsUpSimulator {
                 statsB.handsWonAtShowdown++;
             }
         } else if (winnerIndex == -1 && reachedShowdown) {
-            // Tie: count half a showdown win each
+            // Each tied player received a showdown payout.
             statsA.handsWonAtShowdown++;
             statsB.handsWonAtShowdown++;
         }
@@ -327,6 +304,13 @@ public final class HeadsUpSimulator {
     private void recordAction(int seat, boolean folded, boolean raised, long paid, long toCall) {
         boolean actorIsA = seat == 0;
         int street = dealer.getStreet();
+        if (SimulatedBettingRound.continuationBetOpportunity(dealer, actorIsA ? p1 : p2, toCall, raised)) {
+            BotStats stats = actorIsA ? statsA : statsB;
+            stats.cbetOpportunities++;
+            if (raised) {
+                stats.cbetExecuted++;
+            }
+        }
         if (street == Crupier.PREFLOP) {
             if (raised) {
                 recordPreflopRaise(actorIsA);
@@ -336,7 +320,7 @@ public final class HeadsUpSimulator {
         } else if (folded) {
             recordPostflopFold(actorIsA);
         } else if (raised) {
-            recordPostflopBetRaise(actorIsA, street, SimulatedBettingRound.money(toCall));
+            recordPostflopBetRaise(actorIsA, street);
         } else if (paid > 0) {
             recordPostflopCall(actorIsA);
         } else {
@@ -346,8 +330,7 @@ public final class HeadsUpSimulator {
 
     // --- stat update helpers -------------------------------------------------
     private Bot.OpponentTracker trackerFor(TestBotPlayer p) {
-        return Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(),
-                k -> new Bot.OpponentTracker());
+        return dealer.trackerFor(p.getNickname());
     }
 
     private void recordPreflopVoluntary(boolean actorIsA) {
@@ -372,7 +355,7 @@ public final class HeadsUpSimulator {
         t.recordPFR(handCounter);
     }
 
-    private void recordPostflopBetRaise(boolean actorIsA, int street, double toCall) {
+    private void recordPostflopBetRaise(boolean actorIsA, int street) {
         BotStats s = actorIsA ? statsA : statsB;
         s.postflopBetsRaises++;
         // Classify the aggressive action by the made-hand strength behind it
@@ -392,14 +375,6 @@ public final class HeadsUpSimulator {
             s.riverBets++;
             if (strength <= BotStats.BLUFF_BET_STRENGTH) {
                 s.riverBluffBets++;
-            }
-        }
-        // C-bet detection: flop, first action by preflop aggressor, no bet yet faced
-        if (street == Crupier.FLOP && toCall == 0f) {
-            if (actorIsA && handCbetOppA && !handCbetDoneA) {
-                handCbetDoneA = true;
-            } else if (!actorIsA && handCbetOppB && !handCbetDoneB) {
-                handCbetDoneB = true;
             }
         }
         trackerFor(actorIsA ? p1 : p2).recordPostFlopBetOrRaise();

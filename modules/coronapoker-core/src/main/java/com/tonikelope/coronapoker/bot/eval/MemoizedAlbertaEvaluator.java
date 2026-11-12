@@ -12,23 +12,9 @@ import org.alberta.poker.HandEvaluator;
 import org.alberta.poker.ai.HandPotential;
 
 /**
- * Drop-in {@link BotEvaluator} that produces numbers identical to
- * {@link AlbertaEvaluatorAdapter} but computes {@link #potential} with
- * {@link MemoizedHandPotential}, cutting the flop two-card look-ahead from
- * ~2.7M hand evaluations to the few hundred thousand distinct ones.
- *
- * <p>
- * Hand strength, rank and compare are not the bottleneck and are delegated to a
- * plain {@link AlbertaEvaluatorAdapter} sharing the same {@link HandEvaluator}.
- * Range-weighted potential is rarely used and also delegated unchanged.</p>
- *
- * <p>
- * This is the evaluator wired into {@code Bot.EVALUATOR} in production. Its
- * PPot/NPot are numerically identical to the Alberta adapter — the equivalence
- * is gated by {@code MemoizedHandPotentialTest} — so it changes bot speed,
- * never bot decisions. Not thread-safe: a single shared instance is correct
- * only because bot decisions are evaluated sequentially, the same contract as
- * the {@link AlbertaEvaluatorAdapter} it replaced.</p>
+ * Production evaluator. It computes draw potential and terminal pot share
+ * from one enumeration, reusing the terminal ranks across card assignments.
+ * Other operations use the Alberta adapter.
  */
 public final class MemoizedAlbertaEvaluator implements BotEvaluator {
 
@@ -57,12 +43,27 @@ public final class MemoizedAlbertaEvaluator implements BotEvaluator {
     }
 
     @Override
+    public ShowdownOdds showdownOddsVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights) {
+        return delegate.showdownOddsVsRange(hole1, hole2, board, rangeWeights);
+    }
+
+    @Override
     public Potential potential(int hole1, int hole2, int[] board, boolean fullLookahead) {
         if (board == null || board.length >= 5 || board.length < 3) {
             return Potential.ZERO;
         }
-        double[] pn = fastPotential.ppotNpot(hole1, hole2, board, fullLookahead);
-        return new Potential(pn[0], pn[1]);
+        return fastPotential.evaluate(hole1, hole2, board, board.length == 3 && fullLookahead, 0).potential();
+    }
+
+    @Override
+    public PostflopEvaluation evaluatePostflop(int hole1, int hole2, int[] board, int maxOpponents) {
+        if (board.length == 3 || board.length == 4) {
+            return fastPotential.evaluate(hole1, hole2, board, board.length == 3, maxOpponents);
+        }
+        if (board.length == 5 && maxOpponents > 1) {
+            return fastPotential.evaluateRiver(hole1, hole2, board, maxOpponents);
+        }
+        return BotEvaluator.super.evaluatePostflop(hole1, hole2, board, maxOpponents);
     }
 
     @Override

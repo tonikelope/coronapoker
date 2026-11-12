@@ -16,12 +16,10 @@ University of Alberta Poker Research Group library under `org.alberta.poker`.
 
 ## 1. Design philosophy
 
-The bot is a **hand-crafted heuristic**, not a solver. It does not run CFR and it
-does not compute equity against per-opponent ranges. The chosen ceiling is an
-*elite heuristic* whose primary axis is **feeling human** (unpredictable,
-capable of a credible bluff, and hard to read or exploit) rather than raw
-GTO strength. A home game against friends wants opponents that are fun and
-believable across a clear skill ladder, not a perfect machine.
+The bot combines **poker heuristics**, exact heads-up runout enumeration
+against uniform hands, and opponent reads. HARD adapts its betting and
+calling to the player across the table. The lower difficulties preserve
+distinct styles and recognisable mistakes.
 
 Three properties follow from that:
 
@@ -44,7 +42,15 @@ the real behavioural profiles described below.
 
 ## 2. Architecture
 
-![Bot subsystem architecture](diagrams/bot-architecture.png)
+```mermaid
+flowchart LR
+    Table["Crupier or QA simulator"] --> Views["DealerView and BotPlayerView"]
+    Views --> Bot
+    Bot --> Evaluator["BotEvaluator"]
+    Evaluator --> Ranks["Alberta hand ranks"]
+    Bot --> Pot["Expected value by pot layer"]
+    Bot --> Action["Fold, check/call, or bet with a target"]
+```
 
 The bot subsystem is layered, and the layers are joined by deliberately narrow
 **`«interface»` seams**:
@@ -87,16 +93,14 @@ The bot reduces every situation to two numbers from the `BotEvaluator`:
   - **NPot** (negative potential): probability a hand currently *ahead* falls
     behind.
 
-Before the river, the bot combines heads-up equity and potential, then raises
-that estimate to the number of opponents as a multiway approximation:
-
-```
-heads-up estimate = heads-up equity + (1 - heads-up equity) * PPot - heads-up equity * NPot
-```
-
-On the river, it uses the estimated pot share from win and tie frequencies
-directly. Style thresholds use an effective strength with one-pair penalties
-and a floor of `0.10`. EV calculations use equity for each pot layer.
+On the flop and turn, the production evaluator enumerates each public runout
+and counts wins and ties against every legal heads-up holding on that runout.
+It averages the pot shares across runouts, so all opponents see the same
+future board. The uniform model is exact for one or two opponents and counts
+only disjoint hole-card pairs when two opponents are present. With three or
+more opponents it approximates their holdings as independent on each runout,
+bounded by the exact two-opponent share. The river uses the final board.
+Expected value uses the appropriate opponents for each eligible pot layer.
 
 ### Card encoding
 
@@ -110,21 +114,20 @@ Alberta encoding.
 ```
 BotEvaluator
  ├── AlbertaEvaluatorAdapter     (reference / oracle, uncached)
- └── MemoizedAlbertaEvaluator    (production, memoized PPot/NPot)
+ └── MemoizedAlbertaEvaluator    (production, shared-board enumeration)
 ```
 
-On the flop a two-card look-ahead evaluates a 7-card hand on the order of two
-million times, the vast majority of them redundant. With no native `libeval`
-present (every platform except Linux/Solaris) each goes through the Java
-`rankHand` fallback. **`MemoizedAlbertaEvaluator`** therefore caches the repeated
-rank look-ups (the bot's own 7-card rank, independent of the opponent's cards,
-plus a primitive open-addressing table for opponent ranks), which is **~8× faster
-on the flop** while producing **numerically identical** PPot/NPot.
+The opponent's terminal rank depends on the union of their hole cards and the
+new board cards. The evaluator ranks each set once and counts every valid
+assignment. It reuses these terminal ranks across bots acting on the same
+board. Draw potential retains parity with the Alberta reference.
 
 `AlbertaEvaluatorAdapter` uses the uncached `ppot_raw` path as a reference
 for uniform opponents. The weighted API uses the cached Alberta path with
-a Java fallback for seven-card ranking. The production decision engine still
-uses uniform opponent hands. With both hole-card pairs fixed, potential
+a Java fallback for seven-card ranking. The uniform enumeration supplies
+the base equity. HARD can reweight a bettor's holdings when they entered
+voluntarily preflop and up to three opponents remain. It also uses that
+information when pricing a heads-up river check or bet. With both hole-card pairs fixed, potential
 counts 990 two-card flop runouts, 45 one-card flop continuations, or 44
 possible rivers from the turn.
 
@@ -161,7 +164,16 @@ on **tilt** flips to LAG.
 
 ## 5. The per-turn decision pipeline
 
-![Bot per-turn decision flow](diagrams/bot-decision-flow.png)
+```mermaid
+flowchart TD
+    Decision["Read cards, legal actions and opponent observations"] --> Street{"Preflop?"}
+    Street -->|Yes| Preflop["Hand tier, position, price and blind defence"]
+    Street -->|No| Evaluate["Shared runouts, draw potential and opponent ranges"]
+    Evaluate --> Price["Price checks, calls and legal bets by pot layer"]
+    Preflop --> Style["Apply difficulty and profile"]
+    Price --> Style
+    Style --> Act["Return action and selected bet target"]
+```
 
 `calculateBotDecision(opponents)` wraps `computeRawDecision(...)` and then applies
 the mistake layer (§8). `computeRawDecision` splits on the street.
@@ -179,6 +191,9 @@ action from **position × profile × bet level**:
 - **Bluffs and steals:** blocker-based 3-bet bluffs and squeezes for sharks, late
   trash steals, and (heads-up) a wide button-open / BB-defend matrix tuned by a
   per-difficulty *looseness offset* (see §8).
+- **Blind steals on HARD:** an otherwise folded small blind can open when
+  the big blind's observed folds make the proposed size profitable even
+  assuming the bot loses its entire wager when called.
 - Tiers are also nudged by table size (an early-position tier-3 tightens at a full
   ring, marginal hands loosen short-handed). Expensive marginal calls
   require better pot odds or sufficient effective stacks. Small pairs
@@ -189,12 +204,10 @@ action from **position × profile × bet level**:
 The postflop branch builds the picture in stages (all cached so a betting round
 does not recompute invariants):
 
-1. **`showdownOdds`** caches heads-up win and tie frequencies for the street.
-   On the river these frequencies estimate the pot share, including fractional
-   shares when more than two players tie.
-2. **`PPot` / `NPot`** come from `potential`, cached per street and zero on
-   the river. Before the river, the bot applies the draw adjustment heads-up
-   before combining the estimates for multiple opponents.
+1. **`evaluatePostflop`** caches current heads-up win and tie frequencies and
+   projected pot shares for every opponent count on the public board.
+2. **`PPot` / `NPot`** come from the same enumeration on the flop and turn.
+   They are zero on the river.
 3. **`effective strength`** includes one-pair overcard and weak-kicker
    penalties. The `0.10` floor is used for style thresholds only.
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
@@ -211,12 +224,16 @@ does not recompute invariants):
 6. **Expected value:** the bot prices checks, calls and legal raises using
    each pot's contributions and eligible players. It treats excess
    uncalled chips as a refund and uses the expected share for each pot.
-   Safe draws can get an implied-odds bonus capped by the effective stack
-   behind. Raise outcomes use independent fold estimates based on bet size,
-   board and opponent reads. Showdown equity uses uniform opponent hands
-   and approximates multiway outcomes as independent.
-7. **Pot commitment:** at low SPR with a strong hand the bot treats itself as
-   committed and stops folding.
+   Safe draws can get an implied-odds bonus bounded by the effective stack
+   behind. Raise outcomes use fold estimates based on bet size, board and
+   opponent reads. In heads-up pots, HARD discounts its expected showdown
+   share after a raise because stronger hands are more likely to call.
+   When HARD faces a bet, it can weight the bettor's starting hands by their
+   observed preflop participation. Late bets made into several opponents
+   also receive a strength adjustment. These adjustments apply to the pots
+   and outcomes that bettor can still win.
+7. **Pot commitment:** at low SPR with a strong hand, the bot can call down
+   when its estimated call EV is positive.
 
 Postflop position follows the acting order of the seats still able to bet.
 Flop continuation bets use the last seat to increase the preflop wager.
@@ -233,9 +250,9 @@ EV-driven value bet.
 **`decisionWhenFacingBet`** (a bet to call): dynamic **check-raises**, **floats**
 (call in position to bluff a later street), pot-committed shoves/calls, **value
 raises** (the threshold drops on HARD so sharks generate real aggression), a
-heads-up-only **medium-strength raise** booster, **squeezes**, implied-odds draw
-calls, and otherwise a call or fold on adjusted EV. Personality adjustments
-cannot turn an exact profitable river call into a fold. Calls still use the
+heads-up **semi-bluff raises** on HARD, **squeezes**, and otherwise a call or
+fold on adjusted EV. An unbeatable river hand retains its mathematical
+showdown share for the call decision. Calls use the
 stack-capped cost and the bot's share of eligible pot layers.
 
 > Postflop raises are capped at `MAX_BET_COUNT = 3` bet levels per street.
@@ -246,10 +263,9 @@ stack-capped cost and the bot's share of eligible pot layers.
 `getBetSize` is **board-texture aware**: dry boards get a small (~⅓ pot) bet, wet
 boards get a polarized split (large for value, a small block-bet otherwise), with
 profile multipliers (LAG bigger, NIT smaller) and an occasional shark river
-overbet. The size is computed **once during the decision** and reused verbatim by
-the dealer. Recomputing it would redraw the RNG-laced jitter and bet a different
-amount than the EV was evaluated on. Everything is rounded up to the current small
-blind so the bet is always legal even after blinds double or after recovery.
+overbet. When facing a wager heads-up, HARD also prices the minimum legal raise.
+The bot stores the selected target so the dealer uses the size evaluated in
+the decision, including any conversion to an all-in.
 
 ---
 
@@ -283,10 +299,13 @@ An all-in that only matches an existing bet counts as a call.
   (>10 hands), and an **early** `looksPassiveStation()` read (≥3 post-flop calls
   with zero aggression) that fires *before* the full sample so the bot stops
   firing −EV bluffs at a fish during the first orbit.
-- The reads feed both the `winProb` adjustment (§5.2) and **fold equity**: fold
-  equity is zeroed against any live opponent who never folds, checked over the
-  *active* players, not just the last aggressor, so it works even when the bot is
-  first to act and opening a bluff.
+- The reads feed both the `winProb` adjustment (§5.2) and **fold equity**.
+  A calling-station read starts from a zero-fold prior. HARD updates that
+  estimate if the opponent actually folds in the relevant situation.
+- HARD learns separate fold frequencies for each street and for opponents
+  who have already invested on that street. It also tracks first bets and
+  checks, using late-street frequencies to discount marginal hands against
+  selective bettors. Estimates blend observations with priors as data arrives.
 
 ---
 
@@ -314,7 +333,7 @@ Three mechanisms shape the difficulty gradient:
 
 3. **Tuning knobs** that scale with difficulty: a heads-up *looseness offset*
    (`EASY +25`, `MEDIUM −16`, `HARD −52` percentage points on steal/defend
-   frequencies), the **river bluff frequency** (`HARD 38%`, `MEDIUM 14%`,
+   frequencies), the **base river bluff mix** (`HARD 50%`, `MEDIUM 14%`,
    `EASY 0%`, EASY plays its river face-up), and HARD-only refinements such as a
    lower value-raise threshold.
 
@@ -332,8 +351,9 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
   is a transparent tell). A busted draw or a hand that has been barrelling tells
   the most credible story and bluffs a little more often. Fold equity is `0`
   against a station. The bot remembers the previous street's draw potential
-  and checks whether the bet beats the EV of checking, with a smaller
-  candidate if the planned size is too expensive.
+  and checks whether the bet beats the EV of checking. HARD considers nut
+  blockers and missed draws on wet boards, accounts for a check before its
+  turn to act, and prices a fifth-pot bet when its planned bet costs too much.
 - **Street-aware semi-bluffs**: strong draws bet for fold equity + improvement.
   The PPot threshold is lower on the turn (one card to come) so the turn is not
   played face-up.
@@ -402,10 +422,14 @@ PFR counts any player who raised preflop. The final preflop aggressor is tracked
 separately for continuation-bet statistics. A seeded regression also plays an
 uneven-stack session until the first bust or the end of the sample.
 
-The statistical matchups reset to the same stacks each hand so the sample
-compares decisions at a controlled depth. Fixed-strategy opponents are
-benchmarks, and the TAG result is reported separately. The difficulty checks
-require a minimum observed margin and evidence of an advantage over zero.
+The statistical matchups reset stacks each hand at controlled depths.
+The difficulty checks require a minimum observed margin and evidence of an
+advantage over zero. Fixed-strategy matchups report session-level uncertainty.
+The fixed TAG has regression floors of `-35 bb/100` heads-up and
+`-100 bb/100` at a six-handed table that alternates between 40 and 100 BB.
+Mixed fields shuffle five fixed opponents across seats with stacks from
+30 to 160 BB. Those gates require a positive edge supported by session
+results.
 
 The other QA profiles and their intended use are defined in
 [Testing and certification](TESTING.md).

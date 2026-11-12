@@ -22445,6 +22445,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameOpponentStats stats = bot_service.opponent(current_player.getNickname());
                 boolean wagerIncreased = recordOpponentAction(stats, this.street, this.conta_mano,
                         old_table_bet, old_player_bet, current_player.getBet());
+                if (this.street >= FLOP && !synthFold) {
+                    stats.recordPostflopDecision(this.street, MoneyMath.compare(old_table_bet, old_player_bet) > 0,
+                            MoneyMath.compare(old_player_bet, 0) > 0, wagerIncreased,
+                            decision == GamePlayerController.FOLD);
+                } else if (!synthFold && this.street == PREFLOP && this.conta_bet == 1
+                        && current_player.getNickname().equals(getBb_nick())
+                        && MoneyMath.compare(old_table_bet, old_player_bet) > 0
+                        && preflopAggressorNick != null && preflopAggressorNick.equals(getSb_nick())
+                        && getStraddleUtgNick() == null
+                        && countBettingRoundContenders(resisten) == 2) {
+                    stats.recordBlindDefense(decision == GamePlayerController.FOLD);
+                }
                 if (this.street == PREFLOP && wagerIncreased) {
                     preflopAggressorNick = current_player.getNickname();
                 }

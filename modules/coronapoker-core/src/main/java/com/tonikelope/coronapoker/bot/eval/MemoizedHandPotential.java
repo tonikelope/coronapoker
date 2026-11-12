@@ -8,280 +8,343 @@
  */
 package com.tonikelope.coronapoker.bot.eval;
 
+import com.tonikelope.coronapoker.bot.eval.HandStrengthEvaluator.ShowdownOdds;
+import java.util.Arrays;
 import org.alberta.poker.Card;
 import org.alberta.poker.Hand;
 import org.alberta.poker.HandEvaluator;
 
-/**
- * Memoized re-implementation of the University of Alberta hand-potential
- * calculation ({@code HandPotential.ppot_raw}, Papp 1998 §5.3). This is the
- * PPot/NPot engine the production bot runs (wired through
- * {@link MemoizedAlbertaEvaluator}).
- *
- * <p>
- * <b>Why this exists.</b> The reference {@link AlbertaEvaluatorAdapter}
- * computes PPot/NPot through {@code HandPotential.ppot_raw} — the variant with
- * <em>no</em>
- * rank caching. On the flop (full two-card look-ahead) that evaluates a 7-card
- * hand ~2.7 million times, the overwhelming majority of them redundant; with no
- * native {@code libeval} present (every platform except Linux/Solaris) each one
- * goes through {@code rankHand_Java}. This class caches those repeated ranks
- * and is ~8x faster on the flop while producing numerically identical PPot/NPot
- * — so the production bot decides exactly the same, only quicker.</p>
- *
- * <p>
- * The adapter keeps {@code ppot_raw} as the uncached reference for uniform
- * opponents. Its weighted range path uses {@code HandPotential.ppot},
- * whose cached ranking supports Java when the native library is absent.</p>
- *
- * <p>
- * This class ports the algorithm into our own package (the {@code org.alberta}
- * library is treated as immutable) using only {@code HandEvaluator.rankHand}
- * (which has the {@code rankHand_Java} fallback) and adds two caches:</p>
- * <ul>
- * <li><b>our-hand cache</b>: {@code rank(hole + board + future)} does not
- * depend on the opponent's cards, so it is computed once per future card
- * (1-card) or future pair (2-card) and reused across every opponent pair.</li>
- * <li><b>opponent-hand cache</b>: {@code rank(opp + board + future)} keyed by
- * the bitmask of the varying cards. A primitive open-addressing
- * {@code long->int} table is used rather than {@code HashMap<Long,Integer>}:
- * profiling showed the boxing in the latter ate most of the cache's benefit
- * (2.6x), whereas the primitive table reaches ~8x.</li>
- * </ul>
- *
- * <p>
- * The counting (AHEAD/TIED/BEHIND tallies, the {@code mult} normaliser of
- * 990/45/44, the den/num formulas) is identical to {@code ppot_raw}; addition is
- * commutative so enumeration order is irrelevant.
- * {@code MemoizedHandPotentialTest} asserts ppot/npot equality against the
- * Alberta original over seeded random and explicit spots. <b>Not thread-safe</b>:
- * production shares a single instance across all bots, which is safe only
- * because bot decisions are evaluated sequentially.</p>
- */
+/** Exhaustive heads-up runouts, reusing ranks across assignments of the same cards. */
 final class MemoizedHandPotential {
 
     private static final int AHEAD = 0;
     private static final int TIED = 1;
     private static final int BEHIND = 2;
+    private static final int[][] COMBINATIONS = combinations();
 
-    private final HandEvaluator he;
+    private final HandEvaluator evaluator;
+    private long rankedBoard;
+    private boolean rankedTwoCards;
+    private int[] terminalRanks = new int[0];
 
-    // Reusable primitive open-addressing cache for opponent 7-card ranks,
-    // keyed by the bitmask of the varying cards. An "epoch" stamp avoids
-    // clearing the arrays between ppot calls.
-    private long[] oppKeys;
-    private int[] oppVals;
-    private int[] oppStamp;
-    private int oppMask;
-    private int epoch = 0;
-
-    MemoizedHandPotential(HandEvaluator he) {
-        this.he = he;
+    MemoizedHandPotential(HandEvaluator evaluator) {
+        this.evaluator = evaluator;
     }
 
-    /**
-     * @return {@code [ppot, npot]}. Mirrors {@code HandPotential.ppot_raw}: a
-     * two-card look-ahead is performed only when
-     * {@code board.length == 3 && full}; a 4-card board does a one-card
-     * look-ahead; 5 cards (or fewer than 3) yield {@code [0, 0]}.
-     */
-    double[] ppotNpot(int hole1, int hole2, int[] board, boolean full) {
-        int n = board.length;
-        if (n < 3 || n >= 5) {
-            return new double[]{0.0, 0.0};
-        }
-        boolean twoCard = (n == 3 && full);
+    synchronized PostflopEvaluation evaluate(int hole1, int hole2, int[] board, boolean twoCards, int opponents) {
+        long boardMask = boardMask(board);
+        int[] live = remainingCards(includeCard(includeCard(boardMask, hole1), hole2), board.length);
+        int n = live.length;
+        prepareTerminalRanks(boardMask, twoCards);
+        Hand opponent = hand(board);
+        Hand hero = new Hand(opponent);
+        hero.addCard(hole1);
+        hero.addCard(hole2);
+        int heroRank = evaluator.rankHand(hero);
 
-        Hand bd = new Hand();
-        for (int b : board) {
-            bd.addCard(b);
-        }
-        Card c1 = new Card(hole1);
-        Card c2 = new Card(hole2);
-        int ourrank5 = he.rankHand(c1, c2, bd);
-
-        boolean[] used = new boolean[52];
-        used[hole1] = true;
-        used[hole2] = true;
-        for (int b : board) {
-            used[b] = true;
-        }
-        int[] live = new int[52 - 2 - n];
-        int t = 0;
-        for (int c = 0; c < 52; c++) {
-            if (!used[c]) {
-                live[t++] = c;
+        Runouts runouts = new Runouts(twoCards ? n * n : n, n, opponents);
+        for (int a = 0; a < n; a++) {
+            hero.addCard(live[a]);
+            if (twoCards) {
+                for (int b = a + 1; b < n; b++) {
+                    hero.addCard(live[b]);
+                    runouts.heroRanks[a * n + b] = evaluator.rankHand(hero);
+                    hero.removeCard();
+                }
+            } else {
+                runouts.heroRanks[a] = evaluator.rankHand(hero);
             }
+            hero.removeCard();
         }
 
-        double[][] HP = new double[3][3];
-        double[] HPTotal = new double[3];
-
-        // our-hand 7-card rank caches (independent of opponent cards)
-        int[] ourC1 = null;
-        int[][] ourC2 = null;
-        if (twoCard) {
-            ourC2 = new int[52][52];
-            for (int[] row : ourC2) {
-                java.util.Arrays.fill(row, -1);
+        for (int a = 0; a < n - 1; a++) {
+            opponent.addCard(live[a]);
+            for (int b = a + 1; b < n; b++) {
+                opponent.addCard(live[b]);
+                int outcome = outcome(heroRank, evaluator.rankHand(opponent));
+                runouts.current[a * n + b] = outcome;
+                runouts.currentTotals[outcome]++;
+                opponent.removeCard();
             }
-        } else {
-            ourC1 = new int[52];
-            java.util.Arrays.fill(ourC1, -1);
+            opponent.removeCard();
         }
-        // opponent 7-card rank cache: size generously to keep the load factor low
-        // (flop two-card has at most C(47,4) ~= 178k distinct keys).
-        ensureOppCapacity(twoCard ? (1 << 19) : (1 << 15));
-        nextEpoch();
 
-        for (int ii = 0; ii < live.length; ii++) {
-            int o1 = live[ii];
-            Card co1 = new Card(o1);
-            for (int jj = ii + 1; jj < live.length; jj++) {
-                int o2 = live[jj];
-                Card co2 = new Card(o2);
-
-                int opprank5 = he.rankHand(co1, co2, bd);
-                int index = ourrank5 > opprank5 ? AHEAD : (ourrank5 == opprank5 ? TIED : BEHIND);
-                HPTotal[index]++;
-
-                for (int kk = 0; kk < live.length; kk++) {
-                    if (kk == ii || kk == jj) {
-                        continue;
-                    }
-                    int k = live[kk];
-                    if (twoCard) {
-                        for (int ll = kk + 1; ll < live.length; ll++) {
-                            if (ll == ii || ll == jj) {
-                                continue;
+        // A terminal opponent rank depends on the set of three or four added
+        // cards. Rank that set once, then count every legal split between the
+        // opponent's hole cards and the public runout.
+        for (int a = 0; a < n - 2; a++) {
+            opponent.addCard(live[a]);
+            for (int b = a + 1; b < n - 1; b++) {
+                opponent.addCard(live[b]);
+                for (int c = b + 1; c < n; c++) {
+                    opponent.addCard(live[c]);
+                    int triple = live[a] + COMBINATIONS[2][live[b]] + COMBINATIONS[3][live[c]];
+                    if (twoCards) {
+                        for (int d = c + 1; d < n; d++) {
+                            int key = triple + COMBINATIONS[4][live[d]];
+                            int cached = terminalRanks[key];
+                            if (cached == 0) {
+                                opponent.addCard(live[d]);
+                                cached = evaluator.rankHand(opponent) + 1;
+                                terminalRanks[key] = cached;
+                                opponent.removeCard();
                             }
-                            int l = live[ll];
-                            int our7 = ourRank2(ourC2, hole1, hole2, board, k, l);
-                            int opp7 = oppRank(o1, o2, board, k, l);
-                            if (our7 > opp7) {
-                                HP[index][AHEAD]++;
-                            } else if (our7 == opp7) {
-                                HP[index][TIED]++;
-                            } else {
-                                HP[index][BEHIND]++;
-                            }
+                            int rank = cached - 1;
+                            int ab = a * n + b, ac = a * n + c, ad = a * n + d;
+                            int bc = b * n + c, bd = b * n + d, cd = c * n + d;
+                            runouts.record(ab, c, d, rank);
+                            runouts.record(ac, b, d, rank);
+                            runouts.record(ad, b, c, rank);
+                            runouts.record(bc, a, d, rank);
+                            runouts.record(bd, a, c, rank);
+                            runouts.record(cd, a, b, rank);
                         }
                     } else {
-                        int our7 = ourRank1(ourC1, hole1, hole2, board, k);
-                        int opp7 = oppRank(o1, o2, board, k, -1);
-                        if (our7 > opp7) {
-                            HP[index][AHEAD]++;
-                        } else if (our7 == opp7) {
-                            HP[index][TIED]++;
-                        } else {
-                            HP[index][BEHIND]++;
+                        int cached = terminalRanks[triple];
+                        if (cached == 0) {
+                            cached = evaluator.rankHand(opponent) + 1;
+                            terminalRanks[triple] = cached;
                         }
+                        int rank = cached - 1;
+                        runouts.record(a, b, c, rank);
+                        runouts.record(b, a, c, rank);
+                        runouts.record(c, a, b, rank);
                     }
+                    opponent.removeCard();
+                }
+                opponent.removeCard();
+            }
+            opponent.removeCard();
+        }
+
+        return runouts.evaluation(n, twoCards, opponents);
+    }
+
+    PostflopEvaluation evaluateRiver(int hole1, int hole2, int[] board, int opponents) {
+        long used = includeCard(includeCard(boardMask(board), hole1), hole2);
+        int[] live = remainingCards(used, board.length);
+        Hand opponent = hand(board);
+        Hand hero = new Hand(opponent);
+        hero.addCard(hole1);
+        hero.addCard(hole2);
+        int heroRank = evaluator.rankHand(hero);
+        RunoutOdds odds = new RunoutOdds(1, live.length, opponents);
+        for (int a = 0; a < live.length - 1; a++) {
+            opponent.addCard(live[a]);
+            for (int b = a + 1; b < live.length; b++) {
+                opponent.addCard(live[b]);
+                odds.record(0, a, b, outcome(heroRank, evaluator.rankHand(opponent)));
+                opponent.removeCard();
+            }
+            opponent.removeCard();
+        }
+        double[] equity = new double[opponents + 1];
+        equity[0] = 1;
+        odds.addEquity(equity, 0, live.length);
+        return new PostflopEvaluation(odds.showdownOdds(0, live.length), Potential.ZERO, equity);
+    }
+
+    private static long boardMask(int[] board) {
+        long mask = 0;
+        for (int card : board) {
+            mask = includeCard(mask, card);
+        }
+        return mask;
+    }
+
+    private static Hand hand(int[] board) {
+        Hand hand = new Hand();
+        for (int card : board) {
+            hand.addCard(card);
+        }
+        return hand;
+    }
+
+    private static int outcome(int hero, int opponent) {
+        return hero > opponent ? AHEAD : hero == opponent ? TIED : BEHIND;
+    }
+
+    private static int[] remainingCards(long used, int boardSize) {
+        int[] live = new int[Card.NUM_CARDS - 2 - boardSize];
+        int next = 0;
+        for (int card = 0; card < Card.NUM_CARDS; card++) {
+            if ((used & (1L << card)) == 0) {
+                live[next++] = card;
+            }
+        }
+        return live;
+    }
+
+    private static long includeCard(long used, int card) {
+        long bit = 1L << card;
+        if (card < 0 || card >= Card.NUM_CARDS || (used & bit) != 0) {
+            throw new IllegalArgumentException("Invalid or duplicate card index: " + card);
+        }
+        return used | bit;
+    }
+
+    private static int combinationsOfTwo(int cards) {
+        return cards * (cards - 1) / 2;
+    }
+
+    private void prepareTerminalRanks(long board, boolean twoCards) {
+        if (rankedBoard != board || rankedTwoCards != twoCards) {
+            int slots = COMBINATIONS[twoCards ? 4 : 3][Card.NUM_CARDS];
+            if (terminalRanks.length < slots) {
+                terminalRanks = new int[slots];
+            } else {
+                Arrays.fill(terminalRanks, 0, slots, 0);
+            }
+            rankedBoard = board;
+            rankedTwoCards = twoCards;
+        }
+    }
+
+    private static int[][] combinations() {
+        int[][] counts = new int[5][Card.NUM_CARDS + 1];
+        Arrays.fill(counts[0], 1);
+        for (int cards = 1; cards <= Card.NUM_CARDS; cards++) {
+            for (int chosen = 1; chosen <= 4; chosen++) {
+                counts[chosen][cards] = counts[chosen][cards - 1] + counts[chosen - 1][cards - 1];
+            }
+        }
+        return counts;
+    }
+
+    private static final class Runouts {
+        private final int[] heroRanks;
+        private final int[] current;
+        private final RunoutOdds terminal;
+        private final int cards;
+        private final int[] currentTotals = new int[3];
+        private final int[][] transitions = new int[3][3];
+
+        private Runouts(int runoutSlots, int cards, int opponents) {
+            heroRanks = new int[runoutSlots];
+            current = new int[cards * cards];
+            terminal = new RunoutOdds(runoutSlots, cards, opponents);
+            this.cards = cards;
+        }
+
+        private void record(int runout, int first, int second, int opponentRank) {
+            int result = outcome(heroRanks[runout], opponentRank);
+            transitions[current[first * cards + second]][result]++;
+            terminal.record(runout, first, second, result);
+        }
+
+        private PostflopEvaluation evaluation(int cards, boolean twoCards, int opponents) {
+            int currentPairs = combinationsOfTwo(cards);
+            ShowdownOdds odds = new ShowdownOdds(
+                    (double) currentTotals[AHEAD] / currentPairs, (double) currentTotals[TIED] / currentPairs);
+            int runsPerOpponent = twoCards ? combinationsOfTwo(cards - 2) : cards - 2;
+            double tied = currentTotals[TIED] * 0.5;
+            double gainDenominator = runsPerOpponent * (currentTotals[BEHIND] + tied);
+            double lossDenominator = runsPerOpponent * (currentTotals[AHEAD] + tied);
+            double gain = transitions[BEHIND][AHEAD]
+                    + 0.5 * (transitions[BEHIND][TIED] + transitions[TIED][AHEAD]);
+            double loss = transitions[AHEAD][BEHIND]
+                    + 0.5 * (transitions[AHEAD][TIED] + transitions[TIED][BEHIND]);
+            Potential potential = new Potential(gainDenominator > 0 ? gain / gainDenominator : 0,
+                    lossDenominator > 0 ? loss / lossDenominator : 0);
+
+            double[] equity = new double[opponents + 1];
+            equity[0] = 1;
+            if (opponents > 0) {
+                int availableCards = cards - (twoCards ? 2 : 1);
+                int runoutCount = twoCards ? combinationsOfTwo(cards) : cards;
+                for (int a = 0; a < cards; a++) {
+                    if (twoCards) {
+                        for (int b = a + 1; b < cards; b++) {
+                            terminal.addEquity(equity, a * cards + b, availableCards);
+                        }
+                    } else {
+                        terminal.addEquity(equity, a, availableCards);
+                    }
+                }
+                for (int i = 1; i <= opponents; i++) {
+                    equity[i] /= runoutCount;
+                }
+            }
+            return new PostflopEvaluation(odds, potential, equity);
+        }
+    }
+
+    private static final class RunoutOdds {
+        private final int[] wins;
+        private final int[] ties;
+        private final byte[] winsByCard;
+        private final byte[] tiesByCard;
+        private final int cards;
+
+        private RunoutOdds(int runouts, int cards, int opponents) {
+            this.cards = cards;
+            wins = new int[runouts];
+            ties = new int[runouts];
+            winsByCard = opponents >= 2 ? new byte[runouts * cards] : null;
+            tiesByCard = opponents >= 2 ? new byte[runouts * cards] : null;
+        }
+
+        private void record(int runout, int first, int second, int result) {
+            if (result == AHEAD) {
+                wins[runout]++;
+                countCards(winsByCard, runout, first, second);
+            } else if (result == TIED) {
+                ties[runout]++;
+                countCards(tiesByCard, runout, first, second);
+            }
+        }
+
+        private void countCards(byte[] counts, int runout, int first, int second) {
+            if (counts != null) {
+                int offset = runout * cards;
+                counts[offset + first]++;
+                counts[offset + second]++;
+            }
+        }
+
+        private ShowdownOdds showdownOdds(int runout, int availableCards) {
+            int pairs = combinationsOfTwo(availableCards);
+            return new ShowdownOdds((double) wins[runout] / pairs, (double) ties[runout] / pairs);
+        }
+
+        private void addEquity(double[] equity, int runout, int availableCards) {
+            int opponentPairs = combinationsOfTwo(availableCards);
+            double win = (double) wins[runout] / opponentPairs;
+            double unbeaten = (double) (wins[runout] + ties[runout]) / opponentPairs;
+            double shareVsTwo = equity.length > 2 ? exactShareVsTwo(runout, opponentPairs, availableCards) : 1;
+            double sum = 1;
+            double winPower = 1;
+            for (int i = 1; i < equity.length; i++) {
+                winPower *= win;
+                sum = sum * unbeaten + winPower;
+                if (i == 1) {
+                    equity[i] += sum / 2;
+                } else if (i == 2) {
+                    equity[i] += shareVsTwo;
+                } else {
+                    equity[i] += Math.min(shareVsTwo, sum / (i + 1));
                 }
             }
         }
 
-        int unseenAfterOpponent = live.length - 2;
-        int mult = twoCard ? unseenAfterOpponent * (unseenAfterOpponent - 1) / 2 : unseenAfterOpponent;
-        double den1 = mult * (HPTotal[BEHIND] + HPTotal[TIED] / 2.0);
-        double den2 = mult * (HPTotal[AHEAD] + HPTotal[TIED] / 2.0);
-        double ppot = den1 > 0
-                ? (HP[BEHIND][AHEAD] + HP[BEHIND][TIED] / 2.0 + HP[TIED][AHEAD] / 2.0) / den1
-                : 0.0;
-        double npot = den2 > 0
-                ? (HP[AHEAD][BEHIND] + HP[AHEAD][TIED] / 2.0 + HP[TIED][BEHIND] / 2.0) / den2
-                : 0.0;
-        return new double[]{ppot, npot};
-    }
-
-    private int ourRank1(int[] cache, int h1, int h2, int[] board, int k) {
-        if (cache[k] >= 0) {
-            return cache[k];
-        }
-        Hand h = new Hand();
-        h.addCard(h1);
-        h.addCard(h2);
-        for (int b : board) {
-            h.addCard(b);
-        }
-        h.addCard(k);
-        int r = he.rankHand(h);
-        cache[k] = r;
-        return r;
-    }
-
-    private int ourRank2(int[][] cache, int h1, int h2, int[] board, int k, int l) {
-        int a = Math.min(k, l);
-        int b = Math.max(k, l);
-        if (cache[a][b] >= 0) {
-            return cache[a][b];
-        }
-        Hand h = new Hand();
-        h.addCard(h1);
-        h.addCard(h2);
-        for (int c : board) {
-            h.addCard(c);
-        }
-        h.addCard(k);
-        h.addCard(l);
-        int r = he.rankHand(h);
-        cache[a][b] = r;
-        return r;
-    }
-
-    private int oppRank(int o1, int o2, int[] board, int k, int l) {
-        long key = (1L << o1) | (1L << o2) | (1L << k);
-        if (l >= 0) {
-            key |= (1L << l);
-        }
-        int idx = (int) (mix(key) & oppMask);
-        while (oppStamp[idx] == epoch) {
-            if (oppKeys[idx] == key) {
-                return oppVals[idx];
+        private double exactShareVsTwo(int runout, int pairs, int availableCards) {
+            int win = wins[runout];
+            int tie = ties[runout];
+            int winWin = win * win + win;
+            int winTie = win * tie;
+            int tieTie = tie * tie + tie;
+            int end = (runout + 1) * cards;
+            // Subtract ordered pairs of holdings sharing a card. Identical
+            // holdings are counted twice by their cards, hence +win and +tie.
+            for (int i = runout * cards; i < end; i++) {
+                int w = winsByCard[i];
+                int t = tiesByCard[i];
+                winWin -= w * w;
+                winTie -= w * t;
+                tieTie -= t * t;
             }
-            idx = (idx + 1) & oppMask;
+            // Either order of a win and a tie pays half, and two ties pay a third.
+            return (winWin + winTie + tieTie / 3.0) / (pairs * combinationsOfTwo(availableCards - 2));
         }
-        Hand h = new Hand();
-        h.addCard(o1);
-        h.addCard(o2);
-        for (int b : board) {
-            h.addCard(b);
-        }
-        h.addCard(k);
-        if (l >= 0) {
-            h.addCard(l);
-        }
-        int r = he.rankHand(h);
-        oppStamp[idx] = epoch;
-        oppKeys[idx] = key;
-        oppVals[idx] = r;
-        return r;
-    }
-
-    private void ensureOppCapacity(int size) {
-        if (oppKeys == null || oppKeys.length < size) {
-            oppKeys = new long[size];
-            oppVals = new int[size];
-            oppStamp = new int[size];
-            oppMask = size - 1;
-            epoch = 0; // stamps are freshly zeroed; first nextEpoch() makes them stale
-        }
-    }
-
-    private void nextEpoch() {
-        epoch++;
-        if (epoch == 0) { // wrapped after ~2 billion calls: reset stamps
-            java.util.Arrays.fill(oppStamp, 0);
-            epoch = 1;
-        }
-    }
-
-    /**
-     * SplitMix64 finaliser — spreads the sparse card bitmask across all bits.
-     */
-    private static long mix(long z) {
-        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        return z ^ (z >>> 31);
     }
 }

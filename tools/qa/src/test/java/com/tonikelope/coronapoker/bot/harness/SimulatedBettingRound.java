@@ -19,6 +19,13 @@ final class SimulatedBettingRound {
         void accepted(int seat, boolean folded, boolean raised, long paid, long toCall);
     }
 
+    static boolean continuationBetOpportunity(TestDealer dealer, TestBotPlayer player,
+            long toCall, boolean raised) {
+        return dealer.getStreet() == Crupier.FLOP && toCall == 0
+                && dealer.getConta_bet() == (raised ? 1 : 0)
+                && player.getNickname().equals(dealer.getPreflopAggressorNick());
+    }
+
     /** Returns true if the hand ended by folding. */
     static boolean play(TestDealer dealer, TestBotPlayer[] players, Bot[] bots, int firstToAct,
             int limit, Observer observer) {
@@ -68,6 +75,10 @@ final class SimulatedBettingRound {
                 long previous = cents(player.getBet());
                 long stack = cents(player.getStack());
                 long toCall = wager - previous;
+                boolean defendingBlind = dealer.getStreet() == Crupier.PREFLOP
+                        && active == 2 && dealer.getConta_bet() == 1 && toCall > 0
+                        && player.getNickname().equals(dealer.getBb_nick())
+                        && dealer.getSb_nick() != null && dealer.getSb_nick().equals(dealer.getPreflopAggressorNick());
                 long target = previous + Math.min(toCall, stack);
                 BettingRoundState.Action action = toCall >= stack
                         ? BettingRoundState.Action.ALL_IN : BettingRoundState.Action.CHECK_CALL;
@@ -140,6 +151,12 @@ final class SimulatedBettingRound {
                             && !player.getNickname().equals(dealer.getBb_nick())) {
                         dealer.setLimpersCount(dealer.getLimpersCount() + 1);
                     }
+                }
+                if (dealer.getStreet() >= Crupier.FLOP) {
+                    dealer.trackerFor(player.getNickname())
+                            .recordPostflopDecision(dealer.getStreet(), toCall > 0, previous > 0, raised, folded);
+                } else if (defendingBlind) {
+                    dealer.trackerFor(player.getNickname()).recordBlindDefense(folded);
                 }
                 observer.accepted(seat, folded, raised, paid, toCall);
                 cursor = (seat + 1) % players.length;

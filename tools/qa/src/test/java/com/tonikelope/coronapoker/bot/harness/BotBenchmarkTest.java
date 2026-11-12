@@ -43,12 +43,10 @@ import org.junit.jupiter.api.Tag;
 @Tag("bot-campaign")
 class BotBenchmarkTest {
 
-    // 40 sessions of 25 hands per difficulty: 1000 hands total, 80 personality
-    // draws (one per bot per session) so aggregate stats reflect the entire
-    // personality distribution of the difficulty level, not whichever two
-    // personalities the single-simulator approach happened to roll.
-    private static final int SESSIONS_PER_DIFFICULTY = 30;
-    private static final int HANDS_PER_SESSION = 8;
+    // Draw two new personalities per session so the profile includes more
+    // than one fixed pairing for each difficulty.
+    private static final int SESSIONS_PER_DIFFICULTY = QaConfig.sessions(30);
+    private static final int HANDS_PER_SESSION = QaConfig.hands(8);
     private static final long BASE_SEED = QaConfig.seed(0xC0C0AB07DEAD1234L);
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;
@@ -61,7 +59,7 @@ class BotBenchmarkTest {
     }
 
     @Test
-    @DisplayName("Benchmark: full stats sweep across the four difficulty levels")
+    @DisplayName("Benchmark: full stats sweep across all difficulty levels")
     void benchmarkAllDifficulties() {
         int totalHands = SESSIONS_PER_DIFFICULTY * HANDS_PER_SESSION;
         System.out.println();

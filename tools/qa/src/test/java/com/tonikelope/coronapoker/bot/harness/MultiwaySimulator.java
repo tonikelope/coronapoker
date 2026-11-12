@@ -71,8 +71,6 @@ public final class MultiwaySimulator {
     // Per-hand transient flags (parallel arrays indexed by seat).
     private final boolean[] handVoluntary;
     private final boolean[] handRaisedPreflop;
-    private final boolean[] handCbetOpp;
-    private final boolean[] handCbetDone;
 
     private int buttonIdx;
     private int handCounter = 0;
@@ -93,8 +91,6 @@ public final class MultiwaySimulator {
         this.stats = new BotStats[numSeats];
         this.handVoluntary = new boolean[numSeats];
         this.handRaisedPreflop = new boolean[numSeats];
-        this.handCbetOpp = new boolean[numSeats];
-        this.handCbetDone = new boolean[numSeats];
         List<TestBotPlayer> seating = new ArrayList<>(numSeats);
         for (int i = 0; i < numSeats; i++) {
             players[i] = new TestBotPlayer("BOT_" + i, startingStack);
@@ -184,8 +180,6 @@ public final class MultiwaySimulator {
 
         Arrays.fill(handVoluntary, false);
         Arrays.fill(handRaisedPreflop, false);
-        Arrays.fill(handCbetOpp, false);
-        Arrays.fill(handCbetDone, false);
 
         double[] startStacks = new double[numSeats];
         for (int i = 0; i < numSeats; i++) {
@@ -225,13 +219,6 @@ public final class MultiwaySimulator {
             dealer.setStreet(street);
             if (street > Crupier.PREFLOP) {
                 openStreet(runout, street);
-                if (street == Crupier.FLOP) {
-                    for (int i = 0; i < numSeats; i++) {
-                        handCbetOpp[i] = players[i].isActivo()
-                                && players[i].getStack() > 0
-                                && players[i].getNickname().equals(dealer.getPreflopAggressorNick());
-                    }
-                }
             }
 
             int firstToAct = (street == Crupier.PREFLOP) ? utgIdx : sbIdx;
@@ -322,6 +309,12 @@ public final class MultiwaySimulator {
 
     private void recordAction(int seat, boolean folded, boolean raised, long paid, long toCall) {
         int street = dealer.getStreet();
+        if (SimulatedBettingRound.continuationBetOpportunity(dealer, players[seat], toCall, raised)) {
+            stats[seat].cbetOpportunities++;
+            if (raised) {
+                stats[seat].cbetExecuted++;
+            }
+        }
         if (street == Crupier.PREFLOP) {
             if (raised) {
                 recordPreflopRaise(seat);
@@ -331,7 +324,7 @@ public final class MultiwaySimulator {
         } else if (folded) {
             recordPostflopFold(seat);
         } else if (raised) {
-            recordPostflopBetRaise(seat, street, SimulatedBettingRound.money(toCall));
+            recordPostflopBetRaise(seat, street);
         } else if (paid > 0) {
             recordPostflopCall(seat);
         } else {
@@ -349,12 +342,6 @@ public final class MultiwaySimulator {
             if (handRaisedPreflop[i]) {
                 stats[i].handsWithPreflopRaise++;
             }
-            if (handCbetOpp[i]) {
-                stats[i].cbetOpportunities++;
-                if (handCbetDone[i]) {
-                    stats[i].cbetExecuted++;
-                }
-            }
             if (reachedShowdown && players[i].isActivo()) {
                 stats[i].handsReachedShowdown++;
                 if (winners.contains(i)) {
@@ -368,8 +355,7 @@ public final class MultiwaySimulator {
     }
 
     private Bot.OpponentTracker trackerFor(TestBotPlayer p) {
-        return Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(),
-                k -> new Bot.OpponentTracker());
+        return dealer.trackerFor(p.getNickname());
     }
 
     private void recordPreflopVoluntary(int seat) {
@@ -385,7 +371,7 @@ public final class MultiwaySimulator {
         t.recordPFR(handCounter);
     }
 
-    private void recordPostflopBetRaise(int seat, int street, double toCall) {
+    private void recordPostflopBetRaise(int seat, int street) {
         stats[seat].postflopBetsRaises++;
         // Classify the aggressive action by made-hand strength (value vs bluff)
         // to measure readability/exploitability of the bot in the multi-way
@@ -406,10 +392,6 @@ public final class MultiwaySimulator {
             if (strength <= BotStats.BLUFF_BET_STRENGTH) {
                 stats[seat].riverBluffBets++;
             }
-        }
-        if (street == Crupier.FLOP && toCall == 0f
-                && handCbetOpp[seat] && !handCbetDone[seat]) {
-            handCbetDone[seat] = true;
         }
         trackerFor(players[seat]).recordPostFlopBetOrRaise();
     }

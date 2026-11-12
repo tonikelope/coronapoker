@@ -33,7 +33,7 @@ import com.tonikelope.coronapoker.bot.context.DealerView;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import com.tonikelope.coronapoker.bot.eval.HandStrengthEvaluator.ShowdownOdds;
 import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
-import com.tonikelope.coronapoker.bot.eval.Potential;
+import com.tonikelope.coronapoker.bot.eval.PostflopEvaluation;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
@@ -71,10 +71,8 @@ public class Bot {
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
 
     /**
-     * Default evaluator shared by every Bot instance. Uses the memoized
-     * PPot/NPot path (~8x faster on the flop two-card look-ahead) whose output
-     * is numerically identical to the plain Alberta adapter; see
-     * {@link MemoizedAlbertaEvaluator}.
+     * Default evaluator shared by every Bot instance. Computes draw potential
+     * and terminal pot share from the same enumeration.
      */
     public static final BotEvaluator EVALUATOR = new MemoizedAlbertaEvaluator();
 
@@ -150,18 +148,27 @@ public class Bot {
     public static class OpponentTracker implements GameOpponentStats {
 
         private int handsPlayed = 0;
+        private boolean playedVoluntarilyPreflop;
         private int voluntarilyPutInPot = 0;
         private int preflopRaises = 0;
         private int postFlopBetsAndRaises = 0;
         private int postFlopCalls = 0;
         private int lastVpipHand = -1;
         private int lastPfrHand = -1;
+        private int blindDefenses;
+        private int blindFolds;
+        private final int[][] betsFaced = new int[2][3];
+        private final int[][] foldsToBet = new int[2][3];
+        private final int[] openingOpportunities = new int[3];
+        private final int[] openingBets = new int[3];
 
         public void recordHandPlayed() {
             handsPlayed++;
+            playedVoluntarilyPreflop = false;
         }
 
         public void recordVPIP(int handId) {
+            playedVoluntarilyPreflop = true;
             if (lastVpipHand != handId) {
                 voluntarilyPutInPot++;
                 lastVpipHand = handId;
@@ -183,8 +190,74 @@ public class Bot {
             postFlopCalls++;
         }
 
+        @Override
+        public void recordBlindDefense(boolean folded) {
+            blindDefenses++;
+            if (folded) {
+                blindFolds++;
+            }
+        }
+
+        @Override
+        public double foldToBlindStealRate() {
+            return (blindFolds + 4.0) / (blindDefenses + 8);
+        }
+
+        @Override
+        public void recordPostflopDecision(int street, boolean facingBet, boolean invested, boolean raised,
+                boolean folded) {
+            int index = street - Crupier.FLOP;
+            if (facingBet) {
+                int wager = invested ? 1 : 0;
+                betsFaced[wager][index]++;
+                if (folded) {
+                    foldsToBet[wager][index]++;
+                }
+            } else if (!folded) {
+                openingOpportunities[index]++;
+                if (raised) {
+                    openingBets[index]++;
+                }
+            }
+        }
+
+        @Override
+        public double foldToBetRate(int street, boolean invested, double prior) {
+            int index = street - Crupier.FLOP;
+            int wager = invested ? 1 : 0;
+            double folds = foldsToBet[wager][index] + 12 * prior;
+            double observations = betsFaced[wager][index] + 12;
+            if (street == Crupier.RIVER && !invested) {
+                // River observations are sparse. Earlier responses to first
+                // bets add limited evidence, leaving direct river reads dominant.
+                int earlierBets = betsFaced[wager][0] + betsFaced[wager][1];
+                if (earlierBets > 0) {
+                    double borrowed = Math.min(6, 0.30 * earlierBets);
+                    folds += borrowed * (foldsToBet[wager][0] + foldsToBet[wager][1]) / earlierBets;
+                    observations += borrowed;
+                }
+            }
+            return folds / observations;
+        }
+
+        @Override
+        public double openingBetRate(int street, double prior) {
+            int index = street - Crupier.FLOP;
+            return (openingBets[index] + 6 * prior) / (openingOpportunities[index] + 6);
+        }
+
         public double getVPIP() {
             return handsPlayed == 0 ? 0 : (double) voluntarilyPutInPot / handsPlayed;
+        }
+
+        @Override
+        public boolean playedVoluntarilyPreflop() {
+            return playedVoluntarilyPreflop;
+        }
+
+        @Override
+        public double voluntaryPreflopRate() {
+            return (voluntarilyPutInPot + 4.8) / (handsPlayed + 12);
         }
 
         public double getPFR() {
@@ -256,10 +329,11 @@ public class Bot {
     private volatile Position cachedPosition = Position.UNKNOWN;
     private volatile BoardTexture cachedTexture = null;
     private volatile int cachedTextureBoardSize = -1;
-    private volatile int cachedStrengthStreet = -1;
-    private volatile ShowdownOdds cachedShowdownOdds;
-    private volatile int cachedPotentialStreet = -1;
-    private volatile Potential cachedPotential = null;
+    private int[] cachedEvaluationBoard;
+    private int cachedEvaluationOpponents;
+    private PostflopEvaluation cachedEvaluation;
+    private double[][] cachedRangeWeights;
+    private ShowdownOdds cachedRangeOdds;
 
     // Advanced state
     private volatile boolean floatPlay = false;
@@ -296,8 +370,9 @@ public class Bot {
      */
     public void setContext(DealerView dealer, BotEvaluator evaluator) {
         this.dealer = dealer;
-        if (evaluator != null) {
+        if (evaluator != null && evaluator != this.evaluator) {
             this.evaluator = evaluator;
+            cachedEvaluationBoard = null;
         }
     }
 
@@ -572,10 +647,8 @@ public class Bot {
         cachedPosition = Position.UNKNOWN;
         cachedTexture = null;
         cachedTextureBoardSize = -1;
-        cachedStrengthStreet = -1;
-        cachedShowdownOdds = null;
-        cachedPotentialStreet = -1;
-        cachedPotential = null;
+        cachedEvaluationBoard = null;
+        cachedEvaluation = null;
     }
 
     /**
@@ -808,6 +881,14 @@ public class Bot {
 
         if (street == Crupier.PREFLOP) {
             int decision = calculatePreflopAction(betCount, activePlayers, handTier);
+            if (decision == GamePlayerController.FOLD) {
+                if (callCost() == 0) {
+                    return GamePlayerController.CHECK;
+                }
+                if (betCount == 0 && opponentsCount == 1 && profitableBlindSteal()) {
+                    return GamePlayerController.BET;
+                }
+            }
             if (decision == GamePlayerController.BET) {
                 lastBetSize = finalBetTarget(getBetSize(0));
                 if (!canRaiseTo(lastBetSize)) {
@@ -820,31 +901,25 @@ public class Bot {
         int[] board = currentBoard();
         int hole1 = holeCard1.getIndex();
         int hole2 = holeCard2.getIndex();
-        if (cachedStrengthStreet != street) {
-            cachedShowdownOdds = evaluator.showdownOdds(hole1, hole2, board);
-            cachedStrengthStreet = street;
+        int contenders = 0;
+        for (BotPlayerView seat : dealer.getPlayersInSeatingOrder()) {
+            if (isOpponentInHand(seat)) {
+                contenders++;
+            }
         }
-        ShowdownOdds odds = cachedShowdownOdds;
+        int maxOpponents = Math.max(opponentsCount, contenders);
+        if (!Arrays.equals(cachedEvaluationBoard, board) || cachedEvaluationOpponents < maxOpponents) {
+            cachedEvaluation = evaluator.evaluatePostflop(hole1, hole2, board, maxOpponents);
+            cachedEvaluationBoard = board;
+            cachedEvaluationOpponents = maxOpponents;
+            cachedRangeWeights = null;
+        }
+        PostflopEvaluation evaluation = cachedEvaluation;
+        ShowdownOdds odds = evaluation.currentOdds();
         double strength = odds.equity(opponentsCount);
-
-        double ppot;
-        double npot;
-        if (street >= Crupier.RIVER) {
-            ppot = 0;
-            npot = 0;
-        } else if (cachedPotentialStreet == street && cachedPotential != null) {
-            ppot = cachedPotential.ppot();
-            npot = cachedPotential.npot();
-        } else {
-            Potential pot = evaluator.potential(hole1, hole2, board, street == Crupier.FLOP);
-            cachedPotential = pot;
-            cachedPotentialStreet = street;
-            ppot = pot.ppot();
-            npot = pot.npot();
-        }
-        double headsUpStrength = odds.equity(1);
-        double headsUpWithDraws = headsUpStrength + (1 - headsUpStrength) * ppot - headsUpStrength * npot;
-        double rawEquity = street == Crupier.RIVER ? strength : Math.pow(headsUpWithDraws, opponentsCount);
+        double ppot = evaluation.potential().ppot();
+        double npot = evaluation.potential().npot();
+        double rawEquity = evaluation.equity(opponentsCount);
         double effectiveStrength = rawEquity;
 
         boolean pocketPair = holeCard1.getRank() == holeCard2.getRank();
@@ -947,44 +1022,54 @@ public class Bot {
                     equityAdjustment -= 0.03;
                 }
             }
+            if (effectiveDifficulty() == Difficulty.HARD && opponentsCount == 1 && betCount == 1
+                    && street >= Crupier.TURN && targetStats != null) {
+                double openingRate = targetStats.openingBetRate(street, 1);
+                double rangePenalty = odds.equity(1) - equityAgainstStrongestHands(odds, openingRate);
+                equityAdjustment -= (street == Crupier.RIVER ? 0.65 : 0.40) * rangePenalty;
+            }
         } else {
             if (onTilt) {
                 equityAdjustment += 0.10;
             }
         }
 
-        int maxOpponents = Math.max(opponentsCount, dealer.getPlayersInSeatingOrder().size() - 1);
         double[] equity = new double[maxOpponents + 1];
         equity[0] = 1;
-        // Known wins, losses and a board everyone plays are mathematical
-        // outcomes on the river. Context cannot change their pot shares.
+        // With an unbeatable hand we can only win or chop. Opponent reads
+        // and position cannot turn either outcome into a loss at showdown.
         boolean certainRiver = street == Crupier.RIVER
-                && (odds.win() == 1 || odds.tie() == 1 || odds.win() + odds.tie() == 0);
+                && (odds.win() + odds.tie() >= 1 - 1e-12 || odds.win() + odds.tie() == 0);
         for (int opponents = 1; opponents <= maxOpponents; opponents++) {
-            double estimate = street == Crupier.RIVER
-                    ? odds.equity(opponents) : Math.pow(headsUpWithDraws, opponents);
+            double estimate = evaluation.equity(opponents);
             equity[opponents] = certainRiver ? estimate : clampEquity(estimate + equityAdjustment + difficultyNoise);
         }
+        RangeEquity range = null;
+        if (!certainRiver) {
+            if (callCost > 0) {
+                range = bettorEquity(opponentsCount, board, equity, targetStats, odds, street, betCount);
+            } else if (street == Crupier.RIVER && equity.length == 2) {
+                range = riverOpponentEquity(board, equity, odds);
+            }
+        }
         boolean safeDraw = npot < 0.15;
-        double passiveEv = evaluatePotAction(callCost, 0, equity, boardTexture, betCount, street, pot).ev();
+        double passiveEv = evaluatePotAction(callCost, 0, equity, range, boardTexture, betCount, street, pot).ev();
+        double winProb = range == null ? equity[opponentsCount] : range.shares()[opponentsCount];
         double evCall = passiveEv;
         if (callCost > 0 && street < Crupier.RIVER && ppot > 0.15 && strength < 0.50 && safeDraw) {
-            evCall += equity[opponentsCount] * effectiveStackBehind() * Math.min(0.25, ppot * 0.5);
+            evCall += winProb * effectiveStackBehind() * Math.min(0.25, ppot * 0.5);
         }
 
-        lastBetSize = finalBetTarget(getBetSize(effectiveStrength));
-        RaiseEvaluation raise = betCount < MAX_BET_COUNT && canRaiseTo(lastBetSize)
-                ? evaluatePotAction(lastBetSize - cpuPlayer.getBet(), lastBetSize, equity,
-                        boardTexture, betCount, street, pot)
-                : RaiseEvaluation.UNAVAILABLE;
+        RaiseEvaluation raise = selectPostflopRaise(effectiveStrength, opponentsCount, equity, range,
+                boardTexture, betCount, street, pot);
 
         int decision;
         if (callCost == 0) {
-            decision = decisionWhenCheckedTo(effectiveStrength, equity, passiveEv, raise, ppot, npot, pot,
+            decision = decisionWhenCheckedTo(effectiveStrength, equity, range, passiveEv, raise, ppot, npot, pot,
                     street, activePlayers, boardTexture);
         } else {
-            decision = decisionWhenFacingBet(effectiveStrength, equity[opponentsCount], evCall, raise,
-                    ppot, callPot, callCost, street, betCount, activePlayers, potCommitted, safeDraw,
+            decision = decisionWhenFacingBet(effectiveStrength, winProb, evCall, raise,
+                    ppot, callPot, callCost, street, betCount, activePlayers, potCommitted,
                     boardTexture, targetStats, unimprovedPocketPair, certainRiver);
         }
 
@@ -992,7 +1077,99 @@ public class Bot {
         return decision;
     }
 
-    private int decisionWhenCheckedTo(double effectiveStrength, double[] equity, double checkEv,
+    private record RangeEquity(String opponent, ShowdownOdds odds, double[] shares) {}
+
+    private RangeEquity bettorEquity(int opponents, int[] board, double[] equity,
+            GameOpponentStats stats, ShowdownOdds odds, int street, int betCount) {
+        DealerView table = dealer();
+        BotPlayerView aggressor = table.getLast_aggressor();
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL || opponents > 3
+                || stats == null || stats.isManiac() || aggressor == null || !isOpponentInHand(aggressor)) {
+            return null;
+        }
+        boolean raisedPreflop = aggressor.getNickname().equals(table.getPreflopAggressorNick());
+        ShowdownOdds rangeOdds = odds;
+        if (raisedPreflop || stats.playedVoluntarilyPreflop()) {
+            rangeOdds = preflopRangeOdds(board, stats, raisedPreflop);
+        }
+        double adjustment = rangeOdds.equity(1) - odds.equity(1);
+        if (opponents > 1 && street >= Crupier.TURN && betCount == 1) {
+            double openingRate = stats.openingBetRate(street, 0.73);
+            double rangePenalty = odds.equity(1) - equityAgainstStrongestHands(odds, openingRate);
+            adjustment -= (street == Crupier.RIVER ? 0.65 : 0.55) * rangePenalty;
+        }
+        if (Math.abs(adjustment) <= 1e-12) {
+            return null;
+        }
+        double[] shares = equity.clone();
+        for (int i = 1; i <= opponents; i++) {
+            double weight = 0.80 / (1 + 0.45 * (i - 1));
+            shares[i] = Math.min(shares[i - 1], clampEquity(shares[i] + weight * adjustment));
+        }
+        return new RangeEquity(aggressor.getNickname(), rangeOdds, shares);
+    }
+
+    private RangeEquity riverOpponentEquity(int[] board, double[] equity, ShowdownOdds odds) {
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+            return null;
+        }
+        for (BotPlayerView opponent : dealer().getPlayersInSeatingOrder()) {
+            if (!isOpponentInHand(opponent)) {
+                continue;
+            }
+            GameOpponentStats stats = opponentStats(opponent);
+            if (stats == null || !stats.playedVoluntarilyPreflop() || stats.isManiac()) {
+                return null;
+            }
+            boolean raisedPreflop = opponent.getNickname().equals(dealer().getPreflopAggressorNick());
+            ShowdownOdds rangeOdds = preflopRangeOdds(board, stats, raisedPreflop);
+            double adjustment = rangeOdds.equity(1) - odds.equity(1);
+            double share = clampEquity(equity[1] + 0.80 * adjustment);
+            return new RangeEquity(opponent.getNickname(), rangeOdds, new double[]{1, share});
+        }
+        return null;
+    }
+
+    private ShowdownOdds preflopRangeOdds(int[] board, GameOpponentStats stats, boolean raisedPreflop) {
+        double width = Math.min(0.85, (raisedPreflop ? 0.04 : 0.14) + stats.voluntaryPreflopRate());
+        double[][] weights = StartingHandRanges.weights(width);
+        if (cachedRangeWeights != weights) {
+            cachedRangeOdds = evaluator.showdownOddsVsRange(holeCard1.getIndex(), holeCard2.getIndex(), board, weights);
+            cachedRangeWeights = weights;
+        }
+        return cachedRangeOdds;
+    }
+
+    private boolean profitableBlindSteal() {
+        DealerView table = dealer();
+        String bigBlind = table.getBb_nick();
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+                || currentProfile == Profile.STATION || table.getLimpersCount() != 0
+                || !cpuPlayer.getNickname().equals(table.getSb_nick())
+                || bigBlind == null || table.getStraddleUtgNick() != null
+                || effectiveStackBehind() < 10 * table.getCiega_grande()) {
+            return false;
+        }
+        GameOpponentStats stats = table.getOpponentStats(bigBlind);
+        if (stats == null) {
+            stats = TRACKER_MEMORY.get(bigBlind);
+        }
+        double fold = stats == null ? 0 : stats.foldToBlindStealRate();
+        if (fold <= 0.60) {
+            return false;
+        }
+        double target = finalBetTarget(getBetSize(0));
+        double risk = target - cpuPlayer.getBet();
+        if (fold * table.getBote_total() - (1 - fold) * risk <= 0.10 * table.getCiega_grande()
+                || !canRaiseTo(target)) {
+            return false;
+        }
+        lastBetSize = target;
+        logVerbose("Blind steal against an opponent who often folds to opens.");
+        return true;
+    }
+
+    private int decisionWhenCheckedTo(double effectiveStrength, double[] equity, RangeEquity range, double checkEv,
             RaiseEvaluation raise, double ppot, double npot, double pot, int street,
             int activePlayers, BoardTexture boardTexture) {
         boolean valueBetPays = improvesEv(raise.ev(), checkEv);
@@ -1000,7 +1177,7 @@ public class Bot {
         if (floatPlay && street == Crupier.TURN) {
             floatPlay = false;
             if (activePlayers == 2 && isInPositionPostflop()
-                    && profitableBluffSize(raise, equity, checkEv, pot, boardTexture, street)) {
+                    && profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street)) {
                 logVerbose("Executing Float Bluff follow-through on Turn.");
                 return GamePlayerController.BET;
             }
@@ -1027,25 +1204,17 @@ public class Bot {
                 logVerbose("River thin value bet (small).");
                 return GamePlayerController.BET;
             }
-            // Polarized river bluff. With no showdown value (air) and genuine
-            // fold equity against a single foldable opponent, represent the value
-            // range a balanced fraction of the time instead of always checking and
-            // giving up — otherwise a barrel on the river is a transparent "I have
-            // it" tell. foldEquity is 0 versus a calling station, so this stays
-            // disciplined and never bluffs into a player who never folds. A busted
-            // draw or a hand that has been barrelling (aggressiveLine) bluffs a bit
-            // more often — those stories are the most credible. Frequency scales
-            // with difficulty (HARD balances its range; EASY ~never bluffs).
+            boolean hard = effectiveDifficulty() == Difficulty.HARD;
+            boolean missedDraw = previousPpot > 0.18;
+            double showdownStrength = range == null ? effectiveStrength : Math.min(effectiveStrength, range.shares()[1]);
             if (skillLevel != Skill.RECREATIONAL
-                    && activePlayers <= 2
-                    && effectiveStrength < 0.35
-                    && boardTexture.totalScore <= 3) {
-                int chance = riverBluffChance();
-                if (previousPpot > 0.18 || aggressiveLine) {
-                    chance += 12; // credible story: busted draw or prior aggression
-                }
-                if (randInt(100) < chance
-                        && profitableBluffSize(raise, equity, checkEv, pot, boardTexture, street)) {
+                    && activePlayers == 2 && showdownStrength < (hard ? 0.42 : 0.35)) {
+                boolean blocker = hard && hasRiverBluffBlocker();
+                boolean credible = boardTexture.totalScore <= 3 || blocker
+                        || (hard && (missedDraw || showdownStrength < 0.13) && isInPositionPostflop());
+                int chance = riverBluffChance() + (missedDraw || aggressiveLine ? 12 : 0) + (blocker ? 18 : 0);
+                if (credible && randInt(100) < chance
+                        && profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street)) {
                     logVerbose("River polarized bluff.");
                     return GamePlayerController.BET;
                 }
@@ -1076,7 +1245,7 @@ public class Bot {
 
             cBetConsidered = true;
             if (randInt(100) < cbetChance && (effectiveStrength >= STRENGTH_VALUE_BET && valueBetPays
-                    || profitableBluffSize(raise, equity, checkEv, pot, boardTexture, street))) {
+                    || profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street))) {
                 logVerbose("Executing C-Bet.");
                 return GamePlayerController.BET;
             }
@@ -1093,7 +1262,7 @@ public class Bot {
                 && ppot > semiBluffPpot && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
                 && boardTexture.totalScore <= 3
                 && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)
-                && profitableBluffSize(raise, equity, checkEv, pot, boardTexture, street)) {
+                && profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street)) {
             logVerbose("Semi-bluff with strong draw.");
             return GamePlayerController.BET;
         }
@@ -1104,7 +1273,7 @@ public class Bot {
                 case PLAN_BET_BET_BET:
                     if ((effectiveStrength > STRENGTH_VALUE_BET_DRAW && valueBetPays)
                             || (effectiveStrength < 0.30
-                            && profitableBluffSize(raise, equity, checkEv, pot, boardTexture, street))) {
+                            && profitableBluffSize(raise, equity, range, checkEv, pot, boardTexture, street))) {
                         logVerbose("Executing PLAN_BET_BET_BET.");
                         return GamePlayerController.BET;
                     }
@@ -1146,7 +1315,7 @@ public class Bot {
 
     private int decisionWhenFacingBet(double effectiveStrength, double winProb, double evCall,
             RaiseEvaluation raise, double ppot, double pot, double callCost, int street, int betCount,
-            int activePlayers, boolean potCommitted, boolean safeDraw, BoardTexture boardTexture,
+            int activePlayers, boolean potCommitted, BoardTexture boardTexture,
             GameOpponentStats targetStats, boolean unimprovedPocketPair, boolean certainRiver) {
         cBetConsidered = true;
         floatPlay = false;
@@ -1194,7 +1363,7 @@ public class Bot {
             adjustedEvCall += pot * 0.12;
         }
 
-        if (potCommitted) {
+        if (potCommitted && evCall > 0) {
             if (effectiveStrength >= STRENGTH_NUT_TRAP && raisePays && currentProfile != Profile.STATION) {
                 logVerbose("Pot committed and very strong. Shoving (Re-raising).");
                 return GamePlayerController.BET;
@@ -1214,14 +1383,8 @@ public class Bot {
             return GamePlayerController.BET;
         }
 
-        // Medium-strength raise band: aggressive aggression-factor booster.
-        // Restricted to heads-up situations only. Multi-way 6-max data showed
-        // that medium-strength raises against 5 calling opponents bleed
-        // bb/100 catastrophically: callers see flops cheaply, out-equity the
-        // raiser at showdown on average, and the inflated pot magnifies the
-        // loss: high postflop aggression against multiple callers is directly
-        // responsible for it. The booster stays available heads-up, where fold
-        // equity from a single opponent makes the math viable.
+        // Medium-strength hands need a plausible way to improve or make
+        // the bettor fold. On the river those hands usually bluff-catch.
         boolean mediumRaiseEligible = effectiveStrength >= 0.40
                 && effectiveStrength < valueRaiseThreshold
                 && raisePays
@@ -1231,9 +1394,8 @@ public class Bot {
         if (mediumRaiseEligible) {
             int chance;
             if (effectiveDifficulty() == Difficulty.HARD) {
-                chance = (skillLevel == Skill.SHARK) ? 75
-                        : (currentProfile == Profile.LAG) ? 55
-                                : (currentProfile == Profile.TAG) ? 45 : 0;
+                boolean semiBluff = street < Crupier.RIVER && ppot > 0.14 && raise.foldEquity() > 0.12;
+                chance = semiBluff ? (skillLevel == Skill.SHARK ? 55 : 30) : 0;
             } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
                 chance = (skillLevel == Skill.SHARK) ? 30
                         : (currentProfile == Profile.LAG) ? 18
@@ -1242,7 +1404,7 @@ public class Bot {
                 chance = 0; // EASY stays passive
             }
             if (chance > 0 && randInt(100) < chance) {
-                logVerbose("Medium-strength raise (AF booster).");
+                logVerbose("Mixed heads-up raise.");
                 return GamePlayerController.BET;
             }
         }
@@ -1260,7 +1422,8 @@ public class Bot {
             if (overbetThreshold || nitThreshold) {
                 logVerbose("Pain threshold exceeded (Overbet or strong bet from Nit). Aborting PLAN_CHECK_CALL.");
                 streetPlan = PLAN_NONE;
-            } else if (effectiveStrength > STRENGTH_CALLDOWN_TRAP && skillLevel != Skill.RECREATIONAL) {
+            } else if (evCall > 0 && effectiveStrength > STRENGTH_CALLDOWN_TRAP
+                    && skillLevel != Skill.RECREATIONAL) {
                 logVerbose("Executing trap call from PLAN_CHECK_CALL.");
                 return GamePlayerController.CHECK;
             }
@@ -1268,11 +1431,6 @@ public class Bot {
 
         if (adjustedEvCall > 0) {
             logVerbose("Calling due to positive adjusted EV.");
-            return GamePlayerController.CHECK;
-        }
-
-        if (ppot > 1.5 * callCost / (pot + callCost) && safeDraw && street < Crupier.RIVER) {
-            logVerbose("Calling based on implied draw odds.");
             return GamePlayerController.CHECK;
         }
 
@@ -1298,8 +1456,44 @@ public class Bot {
         return Math.max(0, Math.min(1, probability));
     }
 
+    private static double equityAgainstStrongestHands(ShowdownOdds odds, double fraction) {
+        // A tight bettor's strongest hands beat us first, then tie, then lose.
+        // The caller applies only part of this penalty because bets also bluff
+        // and the observed frequency is measured against a preselected range.
+        double wins = Math.max(0, fraction - (1 - odds.win()));
+        double ties = Math.max(0, fraction - (1 - odds.win() - odds.tie())) - wins;
+        return (wins + 0.5 * ties) / fraction;
+    }
+
     private record RaiseEvaluation(double ev, double foldEquity) {
         private static final RaiseEvaluation UNAVAILABLE = new RaiseEvaluation(Double.NEGATIVE_INFINITY, 0);
+    }
+
+    private RaiseEvaluation selectPostflopRaise(double strength, int opponents, double[] equity, RangeEquity range,
+            BoardTexture texture, int betCount, int street, double pot) {
+        lastBetSize = finalBetTarget(getBetSize(strength));
+        RaiseEvaluation preferred = betCount < MAX_BET_COUNT && canRaiseTo(lastBetSize)
+                ? evaluatePotAction(lastBetSize - cpuPlayer.getBet(), lastBetSize, equity, range,
+                        texture, betCount, street, pot)
+                : RaiseEvaluation.UNAVAILABLE;
+
+        DealerView table = dealer();
+        double wager = table.getApuesta_actual();
+        if (effectiveDifficulty() != Difficulty.HARD || opponents != 1 || betCount >= MAX_BET_COUNT
+                || MoneyMath.compare(wager, 0) <= 0) {
+            return preferred;
+        }
+        double minimum = finalBetTarget(BetRules.minRaiseTo(wager, table.getUltimo_raise(), table.getCiega_grande()));
+        if (MoneyMath.compare(minimum, lastBetSize) >= 0 || !canRaiseTo(minimum)) {
+            return preferred;
+        }
+        RaiseEvaluation smaller = evaluatePotAction(minimum - cpuPlayer.getBet(), minimum, equity, range,
+                texture, betCount, street, pot);
+        if (improvesEv(smaller.ev(), preferred.ev())) {
+            lastBetSize = minimum;
+            return smaller;
+        }
+        return preferred;
     }
 
     private double finalBetTarget(double target) {
@@ -1328,30 +1522,56 @@ public class Bot {
         return false;
     }
 
-    private RaiseEvaluation evaluatePotAction(double cost, double target, double[] equity,
+    private RaiseEvaluation evaluatePotAction(double cost, double target, double[] equity, RangeEquity range,
             BoardTexture texture, int betCount, int street, double pot) {
         DealerView table = dealer();
         List<? extends BotPlayerView> tableSeats = table.getPlayersInSeatingOrder();
         List<BotPotOdds.Seat> seats = new ArrayList<>(tableSeats.size());
         double allFold = 1;
+        int liveOpponents = 0;
+        int modeledSeat = -1;
+        boolean checkedToInPosition = target > 0 && equity.length == 2 && street == Crupier.RIVER
+                && betCount == 0 && effectiveDifficulty() == Difficulty.HARD && isInPositionPostflop();
         for (BotPlayerView seat : tableSeats) {
             if (cpuPlayer.getNickname().equals(seat.getNickname())) {
                 continue;
             }
             boolean live = isOpponentInHand(seat);
+            if (live) {
+                liveOpponents++;
+                if (range != null && range.opponent().equals(seat.getNickname())) {
+                    modeledSeat = seats.size();
+                }
+            }
             double added = live && target > 0 ? Math.max(0, Math.min(seat.getStack(), target - seat.getBet())) : 0;
-            double fold = live ? foldProbability(seat, texture, betCount, street, pot, added) : 1;
+            double fold = live ? foldProbability(seat, texture, betCount, street, pot, added, checkedToInPosition) : 1;
             seats.add(new BotPotOdds.Seat(PotMath.toCents(table.matchedContribution(seat)),
                     PotMath.toCents(added), fold));
             allFold *= fold;
         }
+        double[] modeledEquity = modeledSeat < 0 ? null : range.shares();
+        if (target > 0 && liveOpponents == 1 && allFold > 0 && effectiveDifficulty() == Difficulty.HARD) {
+            // Folding and showdown strength are correlated. Reweight the
+            // caller toward the stronger part of their starting range.
+            ShowdownOdds odds = modeledEquity == null ? cachedEvaluation.currentOdds() : range.odds();
+            double penalty = odds.equity(1) - equityAgainstStrongestHands(odds, 1 - allFold);
+            double weight = street == Crupier.RIVER ? 0.85 : 0.55;
+            double minimumShare = street == Crupier.RIVER && odds.win() + odds.tie() >= 1 - 1e-12 ? 0.5 : 0;
+            double[] starting = modeledEquity == null ? equity : modeledEquity;
+            double[] called = {1, Math.max(minimumShare, starting[1] - weight * penalty)};
+            if (modeledEquity == null) {
+                equity = called;
+            } else {
+                modeledEquity = called;
+            }
+        }
         double ev = BotPotOdds.ev(PotMath.toCents(table.matchedContribution(cpuPlayer)), PotMath.toCents(cost),
-                PotMath.toCents(pot), seats, equity);
+                PotMath.toCents(pot), seats, equity, modeledSeat, modeledEquity);
         return new RaiseEvaluation(ev, allFold);
     }
 
     private double foldProbability(BotPlayerView opponent, BoardTexture boardTexture,
-            int betCount, int street, double pot, double amountToMatch) {
+            int betCount, int street, double pot, double amountToMatch, boolean checkedToInPosition) {
         if (skillLevel == Skill.RECREATIONAL || MoneyMath.compare(amountToMatch, 0) <= 0) {
             return 0;
         }
@@ -1364,6 +1584,7 @@ public class Bot {
         if (street == Crupier.RIVER) {
             foldProbability -= 0.05;
         }
+        boolean invested = betCount > 0 && MoneyMath.compare(opponent.getBet(), 0) > 0;
         if (betCount == 0) {
             foldProbability += 0.05;
         } else if (betCount >= 2) {
@@ -1373,20 +1594,35 @@ public class Bot {
         GameOpponentStats stats = opponentStats(opponent);
         if (stats != null) {
             if (stats.isStation() || stats.looksPassiveStation()) {
-                return 0;
-            }
-            if (stats.isNit()) {
+                foldProbability = 0;
+            } else if (stats.isNit()) {
                 foldProbability += 0.15;
             } else if (stats.isManiac()) {
                 foldProbability -= 0.10;
             }
         }
         double pressure = amountToMatch / Math.max(pot, dealer().getCiega_grande());
-        foldProbability += Math.max(-0.08, Math.min(0.18, (pressure - DRY_BOARD_FRACTION) * 0.25));
-        return Math.max(0, Math.min(FOLD_EQ_CAP, foldProbability));
+        if (foldProbability > 0) {
+            foldProbability += Math.max(-0.08, Math.min(0.18, (pressure - DRY_BOARD_FRACTION) * 0.25));
+        }
+        if (invested && effectiveDifficulty() == Difficulty.HARD) {
+            foldProbability *= 0.55;
+        }
+        double prior = Math.max(0, Math.min(FOLD_EQ_CAP, foldProbability));
+        if (stats == null || effectiveDifficulty() != Difficulty.HARD) {
+            return prior;
+        }
+        double estimate = stats.foldToBetRate(street, invested, prior);
+        if (checkedToInPosition && !stats.isManiac()) {
+            // A player who checked has passed up a chance to bet their
+            // strongest hands. Discount that information for traps and bluffs.
+            double removed = 0.70 * stats.openingBetRate(street, 0.35);
+            estimate += Math.min(0.20, estimate * removed / (1 - removed));
+        }
+        return Math.min(FOLD_EQ_CAP, estimate);
     }
 
-    private boolean profitableBluffSize(RaiseEvaluation raise, double[] equity, double checkEv,
+    private boolean profitableBluffSize(RaiseEvaluation raise, double[] equity, RangeEquity range, double checkEv,
             double pot, BoardTexture texture, int street) {
         if (raise.foldEquity() > 0 && improvesEv(raise.ev(), checkEv)) {
             return true;
@@ -1399,13 +1635,13 @@ public class Bot {
         if (chip <= 0) {
             return false;
         }
-        double smallBet = finalBetTarget(Math.max(table.getCiega_grande(),
-                Math.ceil(pot * DRY_BOARD_FRACTION / chip) * chip));
+        double fraction = street == Crupier.RIVER && effectiveDifficulty() == Difficulty.HARD ? 0.20 : DRY_BOARD_FRACTION;
+        double smallBet = finalBetTarget(Math.max(table.getCiega_grande(), Math.ceil(pot * fraction / chip) * chip));
         if (smallBet >= lastBetSize || table.getConta_bet() >= MAX_BET_COUNT || !canRaiseTo(smallBet)) {
             return false;
         }
         RaiseEvaluation smaller = evaluatePotAction(smallBet - cpuPlayer.getBet(), smallBet,
-                equity, texture, dealer().getConta_bet(), street, pot);
+                equity, range, texture, dealer().getConta_bet(), street, pot);
         if (smaller.foldEquity() <= 0 || !improvesEv(smaller.ev(), checkEv)) {
             return false;
         }
@@ -1460,7 +1696,7 @@ public class Bot {
         }
         for (BotPlayerView opponent : dealer().getPlayersInSeatingOrder()) {
             if (isOpponentInHand(opponent)) {
-                double fold = foldProbability(opponent, texture, 0, Crupier.TURN, turnPot, risk);
+                double fold = foldProbability(opponent, texture, 0, Crupier.TURN, turnPot, risk, false);
                 double betEv = fold * turnPot + (1 - fold) * showdownEv(equity, turnPot + risk, risk);
                 double gain = betEv - equity * turnPot;
                 // We have no turn check frequency. Credit only half the gain
@@ -1787,7 +2023,7 @@ public class Bot {
         }
     }
 
-    private int evaluateHandTier(int high, int low, boolean isPair, boolean suited, int gap) {
+    static int evaluateHandTier(int high, int low, boolean isPair, boolean suited, int gap) {
         if (isPair) {
             if (high >= 10) {
                 return 1;
@@ -2055,12 +2291,38 @@ public class Bot {
     private int riverBluffChance() {
         switch (effectiveDifficulty()) {
             case HARD:
-                return 38;
+                return 50;
             case MEDIUM:
                 return 14;
             default:
                 return 0; // EASY plays its river face-up
         }
+    }
+
+    private boolean hasRiverBluffBlocker() {
+        int[] suitRanks = new int[4];
+        int boardRanks = 0;
+        for (int card : cachedEvaluationBoard) {
+            int rank = 1 << (card % 13);
+            suitRanks[card / 13] |= rank;
+            boardRanks |= rank;
+        }
+        for (org.alberta.poker.Card hole : new org.alberta.poker.Card[]{holeCard1, holeCard2}) {
+            int suited = suitRanks[hole.getSuit()];
+            if (Integer.bitCount(suited) == 3
+                    && Integer.highestOneBit(0x1FFF & ~suited) == (1 << hole.getRank())) {
+                return true;
+            }
+        }
+        int held = (1 << holeCard1.getRank()) | (1 << holeCard2.getRank());
+        for (int high = 12; high >= 3; high--) {
+            int straight = high == 3 ? 0x100F : 0x1F << (high - 4);
+            int missing = straight & ~boardRanks;
+            if (Integer.bitCount(missing) == 2) {
+                return (held & missing) != 0 && (held & missing) != missing;
+            }
+        }
+        return false;
     }
 
     /**

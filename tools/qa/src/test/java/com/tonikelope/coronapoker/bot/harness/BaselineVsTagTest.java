@@ -13,16 +13,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
 /**
- * Report-only: HARD vs deterministic TAG. Expect roughly -20 to +50 bb/100.
+ * Protects the heads-up result against a selective, aggressive reference.
  */
 @Tag("slow")
 @Tag("bot-campaign")
 class BaselineVsTagTest extends BaselineQualityBase {
 
     @Test
-    @DisplayName("HARD vs fixed TAG (report-only, expect -20 to +50 bb/100)")
-    void expertVsTag() {
-        double bb100 = runMatchup("TAG-vs-HARD", FixedStrategyBot.Strategy.TAG);
-        System.out.printf("    INFO: HARD vs fixed-TAG bb/100 = %+.1f (no hard assert; report only)%n", bb100);
+    @DisplayName("HARD stays competitive against the fixed TAG")
+    void hardVsTag() {
+        double bb100 = runMatchup("HARD vs fixed TAG", FixedStrategyBot.Strategy.TAG);
+        assertAtLeast("HARD vs fixed TAG", bb100, -35);
     }
 }

@@ -18,10 +18,11 @@ constraints we accept:
 
 - **No GPU clusters, no CFR training, no neural networks.** The user's
   hardware (AMD 9800X3D, 32 GB RAM) drives the entire stack.
-- **No opponent-modelling sprint** beyond the in-tree
-  `OpponentTracker` (basic station / nit / maniac classification by
-  VPIP/PFR/AF). Sprints 3.1 and 3.2 (rich opponent profiling) remain
-  deferred. AAA video-game bots typically do not adapt deeply.
+- **Opponent observations** come from actions accepted by the same betting
+  reducer the table uses. Each simulator tracks its own opponents across
+  hands. HARD uses those observations for blind steals, late-street reads,
+  and a starting-hand range estimate when facing a bettor who entered
+  preflop voluntarily.
 - **Pattern industry-standard.** This is the Stockfish chess-engine
   difficulty pattern, the FIFA AI pattern, the NBA 2K AI pattern: the
   underlying engine is identical across all three difficulties. Lower
@@ -89,13 +90,18 @@ harness/
 │   ├── MultiwayBaselineBase.java
 │   ├── MultiwayBaselineVsStationTableTest.java
 │   ├── MultiwayBaselineVsRockTableTest.java
-│   └── MultiwayBaselineVsManiacTableTest.java
+│   ├── MultiwayBaselineVsManiacTableTest.java
+│   └── MultiwayBaselineVsTagTableTest.java
 │
 └── Sanity / behavioural gates
     ├── HeadsUpSimulatorTest.java          ← simulator smoke test
     ├── BluffBalanceTest.java              ← HARD river-bluff discipline gate
     └── BotBenchmarkTest.java              ← per-difficulty stats dump
 ```
+
+`MixedFieldQualityTest` runs seeded six-seat tables with uneven stacks and
+different opponent lineups. It treats whole sessions as independent samples
+because the bot carries its reads across hands.
 
 The statistical tests and smoke tests above carry `slow` and `bot-campaign`.
 The deterministic `SimulatorRulesTest` and `FixedStrategyBotTest` carry
@@ -122,12 +128,9 @@ instances through complete hands. Implements:
   library).
 - Per-hand stat instrumentation: VPIP, PFR, AF, WTSD, W$SD, c-bet
   opportunity / executed, hand outcome.
-- Mirrors `Crupier.java` exactly for the `OpponentTracker` feeding
-  protocol. Every voluntary action records VPIP, every raise records
-  PFR, every postflop bet/raise records aggression, every postflop call
-  records calls. Without this the offline bot would run "castrated"
-  (`hasEnoughData()` permanently false, `isStation()` etc. never
-  triggering).
+- Records voluntary preflop actions, raises, calls, and folds from accepted
+  actions. A continuation-bet opportunity requires the preflop aggressor
+  to actually act on the flop before anyone bets.
 
 ### 3.2 `MultiwaySimulator`
 
@@ -137,10 +140,9 @@ The full 3-10 seat generalisation. Same fidelity guarantees as
 - Button rotation per hand.
 - Standard action order: preflop starts at UTG (button + 3). Postflop
   starts at SB (button + 1).
-- Round-close detection via a `needToAct` set: cleared on each player's
-  action, repopulated to all-other-active-seats on every raise.
-- Multi-way showdown: pairwise comparison through the current "winners"
-  set, ties handled with even pot split.
+- Betting follows the shared action reducer, including short raises and
+  the distinction between a raise and an all-in call.
+- Showdown uses `CoreGamePot` to settle main pots, side pots and odd chips.
 
 This is the **target environment** for AAA validation. CoronaPoker is
 played 3-10 handed in real games, not heads-up. Heads-up dynamics

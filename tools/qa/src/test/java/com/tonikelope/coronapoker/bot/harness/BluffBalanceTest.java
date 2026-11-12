@@ -36,8 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag("bot-campaign")
 class BluffBalanceTest {
 
-    private static final int SESSIONS = 120;
-    private static final int HANDS_PER_SESSION = 30;
+    private static final int SESSIONS = QaConfig.sessions(120);
+    private static final int HANDS_PER_SESSION = QaConfig.hands(30);
     private static final long BASE_SEED = QaConfig.seed(0xB10FFBA1A0CEL);
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;
@@ -50,8 +50,7 @@ class BluffBalanceTest {
     }
 
     /**
-     * Run HARD vs one fixed-strategy archetype and return HARD's aggregate
-     * river-bluff %.
+     * Run HARD vs one fixed-strategy archetype and measure its weak river bets.
      */
     private double hardRiverBluffPctVs(FixedStrategyBot.Strategy opp) {
         BotStats hard = new BotStats("HARD");
@@ -80,6 +79,7 @@ class BluffBalanceTest {
         }
         System.out.printf("[bluff balance] HARD vs %-7s : river bluff = %.1f%% (%d/%d river bets), turn bluff = %.1f%%%n",
                 opp.name(), hard.riverBluffPct(), hard.riverBluffBets, hard.riverBets, hard.turnBluffPct());
+        assertTrue(hard.riverBets >= 20, "River sample too small: " + hard.riverBets);
         return hard.riverBluffPct();
     }
 

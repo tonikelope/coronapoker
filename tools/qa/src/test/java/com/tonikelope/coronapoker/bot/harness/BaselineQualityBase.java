@@ -49,6 +49,7 @@ abstract class BaselineQualityBase {
     protected double runMatchup(String label, FixedStrategyBot.Strategy oppStrategy) {
         BotStats aggExpert = new BotStats("HARD");
         BotStats aggOpp = new BotStats(oppStrategy.name());
+        double[] sessionResults = new double[SESSIONS];
         int totalHands = SESSIONS * HANDS_PER_SESSION;
         System.out.println();
         System.out.printf("--- Baseline matchup: HARD vs %s (%d hands) ---%n", oppStrategy.name(), totalHands);
@@ -83,6 +84,7 @@ abstract class BaselineQualityBase {
                 sim.playOneHand(i % 2 == 0);
             }
 
+            sessionResults[session] = (expertIsA ? sim.statsA() : sim.statsB()).bbPer100(BIG_BLIND);
             if (expertIsA) {
                 aggExpert.add(sim.statsA());
                 aggOpp.add(sim.statsB());
@@ -95,7 +97,8 @@ abstract class BaselineQualityBase {
         System.out.println(aggExpert.summary(BIG_BLIND));
         System.out.println(aggOpp.summary(BIG_BLIND));
         double bb100 = aggExpert.bbPer100(BIG_BLIND);
-        System.out.printf("    %s bb/100 = %+.1f%n", label, bb100);
+        System.out.printf("    %s bb/100 = %+.1f (session SE %.1f)%n",
+                label, bb100, SessionEstimate.of(sessionResults).standardError());
         return bb100;
     }
 

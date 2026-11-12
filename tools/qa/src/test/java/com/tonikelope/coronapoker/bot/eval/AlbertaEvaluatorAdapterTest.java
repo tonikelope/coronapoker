@@ -224,6 +224,17 @@ class AlbertaEvaluatorAdapterTest {
 
     // --- Range equity -------------------------------------------------------
     @Test
+    void aWeightedRangeKeepsTiesSeparateFromWins() {
+        int[] royalBoard = {8, 9, 10, 11, 12};
+        double[][] weights = new double[52][52];
+        weights[14][27] = weights[27][14] = 3;
+        var odds = eval.showdownOddsVsRange(13, 26, royalBoard, weights);
+        assertEquals(0, odds.win());
+        assertEquals(1, odds.tie());
+        assertEquals(0.5, odds.equity(1));
+    }
+
+    @Test
     @DisplayName("handStrengthVsRange against a uniform range matches handStrength")
     void uniformRangeMatchesUniformOpponent() {
         int aceClubs = c(14, CLUBS);

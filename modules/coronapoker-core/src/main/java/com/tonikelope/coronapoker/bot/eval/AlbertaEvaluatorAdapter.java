@@ -62,8 +62,13 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
 
     @Override
     public double handStrengthVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights) {
+        return showdownOddsVsRange(hole1, hole2, board, rangeWeights).equity(1);
+    }
+
+    @Override
+    public ShowdownOdds showdownOddsVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights) {
         if (rangeWeights == null) {
-            return handStrength(hole1, hole2, board);
+            return showdownOdds(hole1, hole2, board);
         }
         org.alberta.poker.Hand h = toHand(board);
         org.alberta.poker.Hand myHand = new org.alberta.poker.Hand(h);
@@ -105,9 +110,9 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
             opHand.removeCard();
         }
         if (totalW <= 0.0) {
-            return 0.0;
+            return new ShowdownOdds(0, 0);
         }
-        return (goodW + tiedW / 2.0) / totalW;
+        return new ShowdownOdds(goodW / totalW, tiedW / totalW);
     }
 
     @Override

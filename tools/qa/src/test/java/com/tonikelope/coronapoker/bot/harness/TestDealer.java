@@ -9,12 +9,15 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.BettingRoundState;
+import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Mutable DealerView used by the offline harness. Everything is a plain field
@@ -40,6 +43,7 @@ public final class TestDealer implements DealerView {
     private BotPlayerView lastAggressor;
     private String preflopAggressorNick;
     private final List<BotPlayerView> seating = new ArrayList<>();
+    private final Map<String, Bot.OpponentTracker> opponents = new HashMap<>();
     private final int[] boardCards = new int[]{-1, -1, -1, -1, -1};
     private int boardSize;
 
@@ -68,7 +72,7 @@ public final class TestDealer implements DealerView {
         this.bettingRound = bettingRound;
     }
 
-    void recordRaise(BotPlayerView player, boolean fullRaise) {
+    public void recordRaise(BotPlayerView player, boolean fullRaise) {
         if (fullRaise) {
             lastAggressor = player;
         }
@@ -202,6 +206,15 @@ public final class TestDealer implements DealerView {
     @Override
     public BotPlayerView getLast_aggressor() {
         return lastAggressor;
+    }
+
+    Bot.OpponentTracker trackerFor(String nickname) {
+        return opponents.computeIfAbsent(nickname, nick -> new Bot.OpponentTracker());
+    }
+
+    @Override
+    public Bot.OpponentTracker getOpponentStats(String nickname) {
+        return opponents.get(nickname);
     }
 
     @Override

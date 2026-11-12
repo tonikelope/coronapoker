@@ -19,4 +19,18 @@ package com.tonikelope.coronapoker.bot.eval;
  * rather than three.
  */
 public interface BotEvaluator extends HandStrengthEvaluator, DrawPotentialEvaluator, HandRankResolver {
+
+    /** Evaluates one public board for every pot size from zero to maxOpponents. */
+    default PostflopEvaluation evaluatePostflop(int hole1, int hole2, int[] board, int maxOpponents) {
+        ShowdownOdds odds = showdownOdds(hole1, hole2, board);
+        Potential draw = board.length == 5 ? Potential.ZERO : potential(hole1, hole2, board, board.length == 3);
+        double[] equity = new double[maxOpponents + 1];
+        equity[0] = 1;
+        double headsUp = odds.equity(1);
+        double projected = headsUp + (1 - headsUp) * draw.ppot() - headsUp * draw.npot();
+        for (int opponents = 1; opponents <= maxOpponents; opponents++) {
+            equity[opponents] = board.length == 5 ? odds.equity(opponents) : Math.pow(projected, opponents);
+        }
+        return new PostflopEvaluation(odds, draw, equity);
+    }
 }

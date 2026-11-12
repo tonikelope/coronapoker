@@ -150,6 +150,7 @@
   function closePurgeConfirmation() {
     purgeSizeRequest++;
     purgeConfirm.hidden = true;
+    purgeCache.hidden = false;
   }
 
   function formatCacheSize(bytes) {
@@ -714,6 +715,7 @@
     setPurgeStatus('');
     purgeConfirmButton.textContent = copy.cacheSizing;
     purgeConfirmButton.disabled = true;
+    purgeCache.hidden = true;
     purgeConfirm.hidden = false;
     el('cancel-search-cache').focus();
     try {

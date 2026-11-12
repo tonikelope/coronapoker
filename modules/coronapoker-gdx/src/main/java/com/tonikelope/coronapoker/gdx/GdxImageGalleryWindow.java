@@ -25,8 +25,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     private static final float DEFAULT_WIDTH = 1280f;
     private static final float DEFAULT_HEIGHT = 760f;
     private static final Color ACCENT = new Color(0x16839aff);
-    private static final Color PANEL = new Color(0x0b1522f6);
-    private static final Color WEB_BACKGROUND = new Color(0x0d1826ff);
+    private static final Color PANEL = new Color(0x0b1522ff);
     private static final Color CLOSE_LINE = new Color(0xf45b56ff);
     private static final Color CLOSE_FILL = new Color(0x692a32ff);
     private static final Color CLOSE_HOVER = new Color(0x8f3540ff);
@@ -148,8 +147,6 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y, panel.width, panel.height, PANEL, ACCENT, 1f);
-        shapes.setColor(WEB_BACKGROUND);
-        shapes.rect(web.x, web.y, web.width, web.height);
         if (frame == null) drawFallbackClose(shapes, x, y);
         shapes.setColor(GRIP);
         float right = panel.x + panel.width;

@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.49</version>
+        <version>27.50</version>
     </parent>
     <artifactId>coronapoker-assets</artifactId>
     <name>CoronaPoker shared assets</name>

@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker;
 
 import java.util.List;
+import java.util.function.IntToDoubleFunction;
 
 /** Chip EV for the bot's current-street action, using the table's side-pot rules. */
 final class BotPotOdds {
@@ -20,6 +21,18 @@ final class BotPotOdds {
 
     static double ev(long heroCommitted, long cost, long pot, List<Seat> seats, double[] equity,
             int modeledSeat, double[] modeledEquity) {
+        int modeled = modeledSeat < 0 ? 0 : 1 << modeledSeat;
+        return ev(heroCommitted, cost, pot, seats, equity, modeledSeat < 0,
+                eligible -> ((eligible & modeled) == 0 ? equity : modeledEquity)[Integer.bitCount(eligible)]);
+    }
+
+    static double ev(long heroCommitted, long cost, long pot, List<Seat> seats,
+            IntToDoubleFunction share) {
+        return ev(heroCommitted, cost, pot, seats, null, false, share);
+    }
+
+    private static double ev(long heroCommitted, long cost, long pot, List<Seat> seats, double[] equity,
+            boolean byCount, IntToDoubleFunction share) {
         long heroFinal = heroCommitted + cost;
         long alreadyCommitted = heroCommitted;
         int optionalCallers = 0;
@@ -34,10 +47,9 @@ final class BotPotOdds {
             }
         }
         long carry = Math.max(0, pot - alreadyCommitted);
-        double payout = modeledSeat < 0 && sameDepth && optionalCallers >= 5
+        double payout = byCount && sameDepth && optionalCallers >= 5
                 ? singlePotPayout(alreadyCommitted + cost + carry, seats, equity)
-                : payouts(0, heroFinal, carry, seats, new long[seats.size()], 0,
-                        new Equity(equity, modeledSeat < 0 ? 0 : 1 << modeledSeat, modeledEquity));
+                : payouts(0, heroFinal, carry, seats, new long[seats.size()], 0, share);
         return (payout - cost) / PotMath.CENTS_PER_UNIT;
     }
 
@@ -70,28 +82,28 @@ final class BotPotOdds {
     // There are at most nine other seats. Forced folds and all-ins have only
     // one branch, so an ordinary heads-up bet has just two outcomes.
     private static double payouts(int index, long heroFinal, long carry, List<Seat> seats,
-            long[] contributions, int live, Equity equity) {
+            long[] contributions, int live, IntToDoubleFunction share) {
         if (index == seats.size()) {
-            return payout(heroFinal, carry, contributions, live, equity);
+            return payout(heroFinal, carry, contributions, live, share);
         }
         Seat seat = seats.get(index);
         double fold = seat.foldProbability();
         double result = 0;
         if (fold > 0) {
             contributions[index] = seat.committed();
-            result = fold * payouts(index + 1, heroFinal, carry, seats, contributions, live, equity);
+            result = fold * payouts(index + 1, heroFinal, carry, seats, contributions, live, share);
         }
         if (fold < 1) {
             contributions[index] = seat.committed() + seat.addedIfCalled();
             result += (1 - fold) * payouts(index + 1, heroFinal, carry, seats, contributions,
-                    live | (1 << index), equity);
+                    live | (1 << index), share);
         }
         return result;
     }
 
     private static double payout(long heroFinal, long carry, long[] contributions, int live,
-            Equity equity) {
-        double result = carry * equity.share(live);
+            IntToDoubleFunction share) {
+        double result = carry * share.applyAsDouble(live);
         long deepest = heroFinal;
         for (int i = 0; i < contributions.length; i++) {
             if ((live & (1 << i)) != 0) {
@@ -101,7 +113,7 @@ final class BotPotOdds {
         if (deepest == 0) {
             // With no live commitments, all dead chips belong to the main pot.
             for (long chips : contributions) {
-                result += chips * equity.share(live);
+                result += chips * share.applyAsDouble(live);
             }
             return result;
         }
@@ -122,15 +134,10 @@ final class BotPotOdds {
                 long capped = upper == deepest ? contributions[i] : Math.min(upper, contributions[i]);
                 layer += Math.max(0, capped - lower);
             }
-            result += equity.share(eligible) * layer;
+            result += share.applyAsDouble(eligible) * layer;
             lower = upper;
         }
         return result;
     }
 
-    private record Equity(double[] base, int modeledSeat, double[] modeled) {
-        private double share(int eligible) {
-            return ((eligible & modeledSeat) == 0 ? base : modeled)[Integer.bitCount(eligible)];
-        }
-    }
 }

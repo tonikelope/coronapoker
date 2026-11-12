@@ -33,7 +33,7 @@ final class SimulatedBettingRound {
         boolean[] pending = new boolean[players.length];
         for (int i = 0; i < players.length; i++) {
             TestBotPlayer player = players[i];
-            if (player.isActivo() && cents(player.getStack()) > 0) {
+            if (player.isContending() && cents(player.getStack()) > 0) {
                 committed.put(player.getNickname(), cents(player.getBet()));
                 pending[i] = true;
             }
@@ -52,7 +52,7 @@ final class SimulatedBettingRound {
                 int active = 0;
                 int canAct = 0;
                 for (TestBotPlayer player : players) {
-                    if (player.isActivo()) {
+                    if (player.isContending()) {
                         active++;
                         if (cents(player.getStack()) > 0) {
                             canAct++;
@@ -77,6 +77,7 @@ final class SimulatedBettingRound {
                 long toCall = wager - previous;
                 boolean defendingBlind = dealer.getStreet() == Crupier.PREFLOP
                         && active == 2 && dealer.getConta_bet() == 1 && toCall > 0
+                        && dealer.getStraddleUtgNick() == null
                         && player.getNickname().equals(dealer.getBb_nick())
                         && dealer.getSb_nick() != null && dealer.getSb_nick().equals(dealer.getPreflopAggressorNick());
                 long target = previous + Math.min(toCall, stack);
@@ -91,7 +92,14 @@ final class SimulatedBettingRound {
                         }
                         break;
                     case GamePlayerController.BET:
-                        if (stack > toCall && anotherSeatCanMatch(players, seat, wager)) {
+                        boolean canMatch = stack > toCall && anotherSeatCanMatch(players, seat, wager);
+                        if (dealer.requiresLegalBotRaises()
+                                && (!canMatch || !dealer.canPlayerRaise(player.getNickname()))) {
+                            throw new IllegalStateException("Bot attempted a raise with no legal raise at street "
+                                    + dealer.getStreet() + " for " + player.getNickname() + ", stack=" + stack
+                                    + ", toCall=" + toCall + ", straddle=" + dealer.getStraddleUtgNick());
+                        }
+                        if (canMatch) {
                             if (!dealer.canPlayerRaise(player.getNickname())) {
                                 // The live host rejects a raise without entitlement as a fold.
                                 target = previous;
@@ -123,7 +131,7 @@ final class SimulatedBettingRound {
                 boolean folded = action == BettingRoundState.Action.FOLD;
                 long paid = target - previous;
                 if (folded) {
-                    player.setActivo(false);
+                    player.fold();
                 } else if (paid > 0) {
                     player.commit(money(paid));
                     dealer.setPot(money(cents(dealer.getBote_total()) + paid));
@@ -137,7 +145,7 @@ final class SimulatedBettingRound {
                     dealer.setBetCount(dealer.getConta_bet() + 1);
                     dealer.recordRaise(player, accepted.isFullRaise());
                     for (int i = 0; i < players.length; i++) {
-                        if (i != seat && players[i].isActivo() && cents(players[i].getStack()) > 0
+                        if (i != seat && players[i].isContending() && cents(players[i].getStack()) > 0
                                 && cents(players[i].getBet()) < wager) {
                             pending[i] = true;
                         }
@@ -171,7 +179,7 @@ final class SimulatedBettingRound {
         for (int offset = 0; offset < players.length; offset++) {
             int i = (cursor + offset) % players.length;
             TestBotPlayer player = players[i];
-            if (player.isActivo() && cents(player.getStack()) > 0) {
+            if (player.isContending() && cents(player.getStack()) > 0) {
                 boolean owesChips = cents(player.getBet()) < wager;
                 if (!pending[i] && owesChips) {
                     throw new IllegalStateException(player.getNickname() + " owes chips but has no pending action");
@@ -187,7 +195,7 @@ final class SimulatedBettingRound {
     private static boolean anotherSeatCanMatch(TestBotPlayer[] players, int actor, long wager) {
         for (int i = 0; i < players.length; i++) {
             TestBotPlayer player = players[i];
-            if (i != actor && player.isActivo() && cents(player.getBet()) + cents(player.getStack()) > wager) {
+            if (i != actor && player.isContending() && cents(player.getBet()) + cents(player.getStack()) > wager) {
                 return true;
             }
         }

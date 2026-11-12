@@ -23,6 +23,7 @@ public final class TestBotPlayer implements BotPlayerView {
     private double bet;
     private double committed;
     private boolean activo;
+    private boolean folded;
     private int holeCard1Index = -1;
     private int holeCard2Index = -1;
 
@@ -46,6 +47,7 @@ public final class TestBotPlayer implements BotPlayerView {
     }
 
     void resetHandContribution() {
+        folded = false;
         bet = 0;
         committed = 0;
     }
@@ -60,6 +62,15 @@ public final class TestBotPlayer implements BotPlayerView {
     @Override
     public double getBote() {
         return committed;
+    }
+
+    /** Folded seats keep their table position until the next hand. */
+    public void fold() {
+        folded = true;
+    }
+
+    public boolean isContending() {
+        return activo && !folded;
     }
 
     public void setActivo(boolean activo) {

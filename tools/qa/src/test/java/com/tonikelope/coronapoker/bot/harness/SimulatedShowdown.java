@@ -29,7 +29,7 @@ final class SimulatedShowdown {
             TestBotPlayer player = players[seat];
             CorePlayerController potSeat = CorePlayerController.remote(player.getNickname());
             potSeat.getState().setPotContribution(player.getBote());
-            if (!player.isActivo()) {
+            if (!player.isContending()) {
                 potSeat.markFoldedOnRecover();
             } else {
                 hand[0] = player.getHoleCard1Index();
@@ -38,6 +38,13 @@ final class SimulatedShowdown {
             }
             potSeats.add(potSeat);
             main.addPlayerController(potSeat);
+        }
+        for (int seat = 0; seat < players.length; seat++) {
+            double tableAnte = dealer.tableAntePaidBy(players[seat]);
+            if (tableAnte > 0) {
+                main.recordTableAnte(potSeats.get(seat), tableAnte);
+                break;
+            }
         }
         main.genSidePots();
 
@@ -58,7 +65,7 @@ final class SimulatedShowdown {
             List<Integer> layerWinners = new ArrayList<>();
             for (GamePlayerController contender : layer.getPlayerControllers()) {
                 int seat = potSeats.indexOf(contender);
-                if (!players[seat].isActivo()) {
+                if (!players[seat].isContending()) {
                     continue;
                 }
                 if (ranks[seat] > best) {

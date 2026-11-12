@@ -20,6 +20,20 @@ package com.tonikelope.coronapoker.bot.eval;
  */
 public interface BotEvaluator extends HandStrengthEvaluator, DrawPotentialEvaluator, HandRankResolver {
 
+    /**
+     * Ranks legal two-card holdings on this public board at {@code first * 52 + second}
+     * for first &lt; second. Blocked entries are -1. Implementations that only
+     * provide aggregate odds can leave the range model unavailable.
+     */
+    default int[] opponentRanks(int[] board) {
+        return null;
+    }
+
+    /** Heads-up preflop showdown share against weighted opponent holdings. */
+    default double preflopAllInEquity(int hole1, int hole2, double[][] weights) {
+        return Double.NaN;
+    }
+
     /** Evaluates one public board for every pot size from zero to maxOpponents. */
     default PostflopEvaluation evaluatePostflop(int hole1, int hole2, int[] board, int maxOpponents) {
         ShowdownOdds odds = showdownOdds(hole1, hole2, board);

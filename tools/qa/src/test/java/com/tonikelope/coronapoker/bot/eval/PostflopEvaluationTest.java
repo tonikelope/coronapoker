@@ -35,9 +35,61 @@ class PostflopEvaluationTest {
     @Test
     void theOnlyAceOfClubsCannotBeInBothOpponentsHands() {
         int[] river = {0, 2, 5, 9, 24};
-        PostflopEvaluation actual = evaluator.evaluatePostflop(11, 14, river, 2);
+        PostflopEvaluation actual = evaluator.evaluatePostflop(11, 14, river, 9);
         assertEquals(43.0 / 45, actual.equity(1), 1e-12);
         assertEquals(41.0 / 45, actual.equity(2), 1e-12);
+        assertEquals(39.0 / 45, actual.equity(3), 1e-12);
+        for (int rivals = 4; rivals <= 9; rivals++) {
+            double exact = (45 - 2.0 * rivals) / 45;
+            assertEquals(exact, actual.equity(rivals), 1e-12);
+        }
+    }
+
+    @Test
+    void royalFlushOnBoardSplitsExactlyAcrossEveryTableSize() {
+        var actual = evaluator.evaluatePostflop(13, 26, new int[]{8, 9, 10, 11, 12}, 9);
+        for (int rivals = 1; rivals <= 9; rivals++) {
+            assertEquals(1.0 / (rivals + 1), actual.equity(rivals), 1e-12);
+        }
+    }
+
+    @Test
+    void threeRiverOpponentsMatchExhaustiveDisjointHoldingsWithChops() {
+        int[] river = {0, 14, 31, 35, 22};
+        int hole1 = 23, hole2 = 45;
+        int[] ranks = evaluator.opponentRanks(river);
+        int hero = ranks[hole1 * 52 + hole2];
+        long[] masks = new long[990];
+        int[] tied = new int[990];
+        long heroCards = (1L << hole1) | (1L << hole2);
+        int candidates = 0;
+        for (int a = 0; a < 51; a++) {
+            for (int b = a + 1; b < 52; b++) {
+                long mask = (1L << a) | (1L << b);
+                int rank = ranks[a * 52 + b];
+                if ((mask & heroCards) == 0 && rank >= 0 && rank <= hero) {
+                    masks[candidates] = mask;
+                    tied[candidates++] = rank == hero ? 1 : 0;
+                }
+            }
+        }
+        long payout = 0;
+        for (int a = 0; a < candidates - 2; a++) {
+            for (int b = a + 1; b < candidates - 1; b++) {
+                if ((masks[a] & masks[b]) != 0) {
+                    continue;
+                }
+                long used = masks[a] | masks[b];
+                for (int c = b + 1; c < candidates; c++) {
+                    if ((used & masks[c]) == 0) {
+                        payout += 72 / (1 + tied[a] + tied[b] + tied[c]);
+                    }
+                }
+            }
+        }
+        double expected = payout / (12.0 * 990 * 903 * 820);
+        assertTrue(expected > 0 && expected < 1);
+        assertEquals(expected, evaluator.evaluatePostflop(hole1, hole2, river, 3).equity(3), 1e-12);
     }
 
     @Test
@@ -92,9 +144,13 @@ class PostflopEvaluationTest {
                 }
             }
         }
-        for (int opponents = 1; opponents <= 9; opponents++) {
+        for (int opponents = 1; opponents <= 2; opponents++) {
             assertEquals(expected[opponents] / runouts, actual.equity(opponents), 1e-12,
                     "pot share vs " + opponents);
+        }
+        for (int opponents = 3; opponents <= 9; opponents++) {
+            assertTrue(actual.equity(opponents) >= 0);
+            assertTrue(actual.equity(opponents) <= actual.equity(opponents - 1));
         }
         return actual;
     }
@@ -147,13 +203,8 @@ class PostflopEvaluationTest {
         double exactThreeWay = threeWayUnits / (6.0 * 990 * 903);
         double win = wins / 990.0;
         double tie = ties / 990.0;
-        for (int n = 1; n < expected.length; n++) {
-            // Independent expression: integrate (win + tie*x)^n using
-            // its antiderivative. Each tie splits the pot across winners.
-            double share = tie == 0 ? Math.pow(win, n)
-                    : (Math.pow(win + tie, n + 1) - Math.pow(win, n + 1)) / ((n + 1) * tie);
-            expected[n] += n == 1 ? share : n == 2 ? exactThreeWay : Math.min(share, exactThreeWay);
-        }
+        expected[1] += win + tie / 2;
+        expected[2] += exactThreeWay;
     }
 
     private static final class CountingEvaluator extends HandEvaluator {

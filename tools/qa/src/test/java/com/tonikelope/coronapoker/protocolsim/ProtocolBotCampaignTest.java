@@ -12,6 +12,7 @@ import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.harness.MultiwaySimulator;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.bot.harness.TestBotPlayer;
 import java.util.SplittableRandom;
 import java.util.logging.Level;
@@ -63,10 +64,14 @@ class ProtocolBotCampaignTest {
     private static void runOne(long campaignSeed, int hand, BotEvaluator evaluator) {
         long handSeed = mix64(campaignSeed + hand);
         SplittableRandom random = new SplittableRandom(handSeed);
-        // Hand zero is the production table-size boundary; later hands vary 3..10.
-        int seats = hand == 0 ? 10 : 3 + random.nextInt(8);
+        // Start at the maximum and cover each supported size before randomizing.
+        int seats = hand == 0 ? 10 : hand < 9 ? hand + 1 : 2 + random.nextInt(9);
         MultiwaySimulator sim = new MultiwaySimulator(
                 seats, handSeed, STARTING_STACK, BIG_BLIND, evaluator);
+        AnteMode[] modes = AnteMode.values();
+        int ante = random.nextInt(modes.length + 1);
+        sim.setForcedBets(ante == modes.length ? null : modes[ante], seats > 2 && random.nextBoolean());
+        sim.dealerView().requireLegalBotRaises();
         Bot.Difficulty[] difficulties = new Bot.Difficulty[seats];
         Bot.Difficulty[] available = Bot.Difficulty.values();
         double startingTotal = 0;

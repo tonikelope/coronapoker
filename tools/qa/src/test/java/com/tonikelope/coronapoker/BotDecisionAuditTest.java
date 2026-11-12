@@ -30,6 +30,281 @@ class BotDecisionAuditTest {
     }
 
     @Test
+    void hardSizesALateOpenDifferentlyFromAnIsolationRaise() {
+        TestBotPlayer hero = new TestBotPlayer("button", 200);
+        TestBotPlayer small = new TestBotPlayer("small", 200);
+        TestBotPlayer big = new TestBotPlayer("big", 200);
+        TestBotPlayer early = new TestBotPlayer("early", 200);
+        TestDealer dealer = headsUp(hero, big);
+        dealer.setSeating(List.of(hero, small, big, early));
+        dealer.setRoles(hero.getNickname(), small.getNickname(), big.getNickname(), early.getNickname());
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setCurrentBet(2);
+        hero.setHoleCards(12, 25);
+        small.commit(1);
+        big.commit(2);
+        early.setActivo(false);
+        dealer.setPot(3);
+        Bot bot = hardBot(hero, dealer);
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(2));
+        assertEquals(4, bot.getBetSize());
+
+        early.setActivo(true);
+        early.commit(2);
+        dealer.setLimpersCount(1);
+        dealer.setPot(5);
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(3));
+        assertEquals(7, bot.getBetSize());
+    }
+
+    @Test
+    void hardPricesAnOffsuitColdCallWithPlayersStillToAct() {
+        TestBotPlayer opener = new TestBotPlayer("opener", 200);
+        TestBotPlayer first = new TestBotPlayer("first", 200);
+        TestBotPlayer second = new TestBotPlayer("second", 200);
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer cutoff = new TestBotPlayer("cutoff", 200);
+        TestBotPlayer button = new TestBotPlayer("button", 200);
+        TestBotPlayer small = new TestBotPlayer("small", 200);
+        TestBotPlayer big = new TestBotPlayer("big", 200);
+        TestDealer dealer = headsUp(hero, opener);
+        dealer.setSeating(List.of(opener, first, second, hero, cutoff, button, small, big));
+        dealer.setRoles(button.getNickname(), small.getNickname(), big.getNickname(), opener.getNickname());
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setCurrentBet(7);
+        dealer.setBetCount(1);
+        dealer.setLastAggressor(opener);
+        opener.commit(7);
+        small.commit(1);
+        big.commit(2);
+        first.setActivo(false);
+        second.setActivo(false);
+        dealer.setPot(10);
+        hero.setHoleCards(12, 22); // Ac Jd
+        Bot bot = hardBot(hero, dealer);
+        assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(5));
+
+        first.setActivo(true);
+        second.setActivo(true);
+        first.commit(7);
+        second.commit(7);
+        dealer.setPot(24);
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(7));
+    }
+
+    @Test
+    void hardCanUseALegalSmallSemiBluffRaiseAgainstAFrequentContinuationBettor() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("cbet-reader", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 35);
+        dealer.setLastAggressor(villain);
+        dealer.setLastRaise(35);
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.32, 0, new Potential(0.13, 0.02)));
+        bot.setRng(new Random(1) {
+            @Override
+            public int nextInt(int bound) {
+                return bound / 2;
+            }
+        });
+        Bot.OpponentTracker stats = new Bot.OpponentTracker();
+        for (int hand = 1; hand <= 40; hand++) {
+            stats.recordHandPlayed();
+            if (hand <= 12) {
+                stats.recordVPIP(hand);
+                stats.recordPostflopDecision(Crupier.FLOP, false, false, true, false);
+            }
+        }
+        stats.recordPFR(40);
+        Bot.TRACKER_MEMORY.put(villain.getNickname(), stats);
+        try {
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            stats.recordPostflopDecision(Crupier.FLOP, false, false, true, false);
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+            assertEquals(70, bot.getBetSize());
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
+    @Test
+    void hardUsesOnlyPublicOpponentInformationInAMultiwayDecision() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer bettor = new TestBotPlayer("bettor", 300);
+        TestBotPlayer second = new TestBotPlayer("second", 300);
+        TestBotPlayer third = new TestBotPlayer("third", 300);
+        TestDealer dealer = postflopFacingBet(hero, bettor, 30);
+        dealer.setSeating(List.of(hero, bettor, second, third));
+        dealer.setLastAggressor(bettor);
+        dealer.setLastRaise(30);
+        second.commit(35);
+        second.setBet(0);
+        third.commit(35);
+        third.setBet(0);
+        dealer.setPot(170);
+
+        Bot withPrivateCards = hardBot(hero, dealer);
+        bettor.setHoleCards(12, 25);
+        second.setHoleCards(1, 2);
+        third.setHoleCards(26, 29);
+        int firstDecision = withPrivateCards.calculateBotDecision(3);
+
+        bettor.setHoleCards(4, 18);
+        second.setHoleCards(15, 21);
+        third.setHoleCards(36, 46);
+        Bot afterChangingPrivateCards = hardBot(hero, dealer);
+        assertEquals(firstDecision, afterChangingPrivateCards.calculateBotDecision(3));
+        assertEquals(withPrivateCards.getBetSize(), afterChangingPrivateCards.getBetSize());
+
+        for (Bot.Profile profile : Bot.Profile.values()) {
+            assertEquals(decisionWithPublicLine(profile, "table-opponent-"),
+                    decisionWithPublicLine(profile, "CoronaBot$"), profile.name());
+        }
+    }
+
+    private record PublicDecision(int action, double raiseTo) {}
+
+    private static PublicDecision decisionWithPublicLine(Bot.Profile profile, String rivalPrefix) {
+        TestBotPlayer hero = new TestBotPlayer("hero", 140);
+        List<TestBotPlayer> rivals = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            rivals.add(new TestBotPlayer(rivalPrefix + (i + 1), 140));
+        }
+        TestBotPlayer bettor = rivals.get(0);
+        TestDealer dealer = postflopFacingBet(hero, bettor, 30);
+        List<TestBotPlayer> seats = new ArrayList<>(rivals);
+        seats.add(0, hero);
+        dealer.setSeating(seats);
+        dealer.setLastAggressor(bettor);
+        dealer.setLastRaise(30);
+        dealer.setPot(205);
+        try {
+            for (int i = 0; i < rivals.size(); i++) {
+                TestBotPlayer rival = rivals.get(i);
+                if (rival != bettor) {
+                    rival.commit(35);
+                    rival.setBet(0);
+                }
+                Bot.OpponentTracker stats = new Bot.OpponentTracker();
+                for (int hand = 1; hand <= 24; hand++) {
+                    stats.recordHandPlayed();
+                    if (hand % (i + 2) == 0) {
+                        stats.recordVPIP(hand);
+                        stats.recordPFR(hand);
+                    }
+                }
+                stats.recordVPIP(24);
+                stats.recordPostflopDecision(Crupier.FLOP, false, false, rival == bettor, false);
+                Bot.TRACKER_MEMORY.put(rival.getNickname(), stats);
+            }
+            Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, profile, true);
+            int action = bot.calculateBotDecision(rivals.size());
+            return new PublicDecision(action, bot.getBetSize());
+        } finally {
+            rivals.forEach(rival -> Bot.TRACKER_MEMORY.remove(rival.getNickname()));
+        }
+    }
+
+    @Test
+    void hardStationCanRaisePremiumHandsWithoutChangingEasyStation() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer villain = new TestBotPlayer("villain", 200);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setCurrentBet(2);
+        dealer.setPot(3);
+        hero.commit(1);
+        villain.commit(2);
+        hero.setHoleCards(12, 25);
+        Bot hard = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.STATION, true);
+        Bot easy = deterministicBot(hero, dealer, Bot.Difficulty.EASY, Bot.Profile.STATION, true);
+        assertEquals(GamePlayerController.BET, hard.calculateBotDecision(1));
+        assertEquals(GamePlayerController.CHECK, easy.calculateBotDecision(1));
+    }
+
+    @Test
+    void hardStationDefendsSpeculativeHandsOnlyAtTheRightPrice() {
+        assertEquals(GamePlayerController.FOLD, hardStationDefends(16, 0));
+        assertEquals(GamePlayerController.CHECK, hardStationDefends(4, 2));
+    }
+
+    private static int hardStationDefends(int open, int callers) {
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer villain = new TestBotPlayer("villain", 200);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setBetCount(1);
+        dealer.setCurrentBet(open);
+        dealer.setLastAggressor(villain);
+        hero.setHoleCards(12, 16); // Ac 5d
+        hero.commit(1);
+        villain.commit(open);
+        List<TestBotPlayer> seats = new ArrayList<>(List.of(villain));
+        for (int i = 0; i < callers; i++) {
+            TestBotPlayer caller = new TestBotPlayer("caller-" + i, 200);
+            caller.commit(open);
+            seats.add(caller);
+        }
+        seats.add(hero);
+        dealer.setSeating(seats);
+        dealer.setPot(1 + open * (callers + 1));
+        return deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.STATION, true)
+                .calculateBotDecision(callers + 1);
+    }
+
+    @Test
+    void hardUsesThePriceOfAClosedPreflopCallEvenWithAPoorStartingHand() {
+        assertEquals(GamePlayerController.CHECK, closedPreflopCall(6));
+        assertEquals(GamePlayerController.FOLD, closedPreflopCall(80));
+    }
+
+    @Test
+    void squeezeRequiresAnActualCallerInsteadOfPlayersStillWaitingToAct() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 200);
+        TestBotPlayer opener = new TestBotPlayer("opener", 200);
+        TestBotPlayer caller = new TestBotPlayer("caller", 200);
+        TestBotPlayer smallBlind = new TestBotPlayer("sb", 200);
+        TestBotPlayer bigBlind = new TestBotPlayer("bb", 200);
+        TestDealer dealer = headsUp(hero, opener);
+        dealer.setSeating(List.of(opener, caller, hero, smallBlind, bigBlind));
+        dealer.setRoles(hero.getNickname(), smallBlind.getNickname(), bigBlind.getNickname(), opener.getNickname());
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setCurrentBet(6);
+        dealer.setLastRaise(4);
+        dealer.setBetCount(1);
+        dealer.setLastAggressor(opener);
+        opener.commit(6);
+        smallBlind.commit(1);
+        bigBlind.commit(2);
+        caller.setActivo(false);
+        dealer.setPot(9);
+        hero.setHoleCards(11, 10); // Kc Qc
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.LAG, true);
+        forceAggressiveRolls(bot);
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(3));
+
+        caller.setActivo(true);
+        caller.commit(6);
+        dealer.setPot(15);
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(4));
+    }
+
+    private static int closedPreflopCall(double shove) {
+        TestBotPlayer hero = new TestBotPlayer("hero", 100);
+        TestBotPlayer villain = new TestBotPlayer("villain", shove);
+        TestDealer dealer = headsUp(hero, villain);
+        hero.setHoleCards(5, 13); // 7c 2d
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setBetCount(2);
+        dealer.setCurrentBet(shove);
+        dealer.setLastAggressor(villain);
+        hero.commit(4);
+        villain.commit(shove);
+        dealer.setPot(shove + 4);
+        return hardBot(hero, dealer).calculateBotDecision(1);
+    }
+
+    @Test
     void botReadsItsDealersObservationsAndAllInCallsDoNotRaiseAggression() {
         Crupier dealer = new Crupier();
         TestBotPlayer hero = new TestBotPlayer("audit-hero", 100);
@@ -173,11 +448,11 @@ class BotDecisionAuditTest {
         Bot bot = hardBot(hero, dealer);
         assertFalse(bot.isInPositionPostflop());
 
-        button.setActivo(false);
+        button.fold();
         assertTrue(bot.isInPositionPostflop());
 
-        button.setActivo(true);
-        button.setStack(0);
+        TestBotPlayer allInButton = new TestBotPlayer("button", 0);
+        dealer.setSeating(List.of(allInButton, villain, hero));
         assertTrue(bot.isInPositionPostflop());
     }
 
@@ -417,6 +692,22 @@ class BotDecisionAuditTest {
         assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(2));
     }
 
+    @ParameterizedTest
+    @EnumSource(value = Bot.Difficulty.class, names = {"EASY", "MEDIUM"})
+    void recreationalMistakesCannotFoldAnUnbeatableRiverHand(Bot.Difficulty difficulty) {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("villain", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 60);
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        Bot bot = deterministicBot(hero, dealer, difficulty, Bot.Profile.TAG, true);
+        bot.setContext(dealer, new FixedOdds(0.98, 0.02, Potential.ZERO));
+        forceAggressiveRolls(bot);
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+    }
+
     @Test
     void unbeatableRiverHandThatCanTieStillCallsAnOverbet() {
         TestBotPlayer hero = new TestBotPlayer("hero", 1000);
@@ -452,6 +743,40 @@ class BotDecisionAuditTest {
         Bot bot = hardBot(hero, dealer);
         bot.setContext(dealer, new FixedOdds(0.05, 0, new Potential(0.35, 0.05)));
         assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(4));
+    }
+
+    @Test
+    void hardAccountsForThePlayerWhoCanStillOvercallOnTheRiver() {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("bettor", 300);
+        TestBotPlayer behind = new TestBotPlayer("overcall-station", 300);
+        TestDealer dealer = postflopFacingBet(hero, villain, 30);
+        dealer.setSeating(List.of(hero, behind, villain));
+        dealer.setRoles(behind.getNickname(), villain.getNickname(), hero.getNickname(), hero.getNickname());
+        dealer.setStreet(Crupier.RIVER);
+        dealer.appendBoardCard(16);
+        dealer.appendBoardCard(33);
+        dealer.setRaiseAllowed(false);
+        behind.commit(35);
+        behind.setBet(0);
+        dealer.setPot(135);
+        Bot bot = hardBot(hero, dealer);
+        bot.setContext(dealer, new FixedOdds(0.38));
+        Bot.OpponentTracker station = new Bot.OpponentTracker();
+        for (int i = 0; i < 20; i++) {
+            station.recordPostFlopCall();
+            station.recordPostflopDecision(Crupier.RIVER, true, false, false, false);
+        }
+        Bot.TRACKER_MEMORY.put(behind.getNickname(), station);
+        try {
+            // Call is 30. With an overcall, 195 is contested three ways.
+            // If that player is already all-in, 60 belongs to a heads-up side pot.
+            assertEquals(GamePlayerController.FOLD, bot.calculateBotDecision(2));
+            behind.setStack(0);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(2));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(behind.getNickname());
+        }
     }
 
     @Test
@@ -516,6 +841,103 @@ class BotDecisionAuditTest {
         assertEquals(1.0 / 8, stats.openingBetRate(Crupier.TURN, 0), 1e-12);
         assertEquals(0, stats.openingBetRate(Crupier.FLOP, 0));
         assertEquals((12 * 0.35 + 0.30) / 12.90, stats.foldToBetRate(Crupier.RIVER, false, 0.35), 1e-12);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Bot.Profile.class)
+    void hardPricesASmallProbeAndUsesItOnlyOncePerHand(Bot.Profile profile) {
+        verifySmallProbe(profile, 4);
+    }
+
+    @Test
+    void hardStationUsesTheProbeWhenAThreeHandedPotBecomesHeadsUp() {
+        verifySmallProbe(Bot.Profile.STATION, 3);
+    }
+
+    private void verifySmallProbe(Bot.Profile profile, int seats) {
+        TestBotPlayer hero = new TestBotPlayer("hero", 300);
+        TestBotPlayer villain = new TestBotPlayer("station-probe-target", 300);
+        TestBotPlayer foldedA = new TestBotPlayer("folded-a", 300);
+        TestBotPlayer foldedB = new TestBotPlayer("folded-b", 300);
+        foldedA.fold();
+        foldedB.fold();
+        hero.setHoleCards(3, 18);
+        hero.commit(8);
+        villain.commit(8);
+        hero.setBet(0);
+        villain.setBet(0);
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setSeating(seats == 3 ? List.of(hero, villain, foldedA) : List.of(hero, villain, foldedA, foldedB));
+        dealer.setStreet(Crupier.FLOP);
+        dealer.setPot(16);
+        for (int card : new int[]{11, 25, 31}) {
+            dealer.appendBoardCard(card);
+        }
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, profile, true);
+        bot.setContext(dealer, new FixedOdds(0.30));
+
+        Bot.OpponentTracker calls = new Bot.OpponentTracker();
+        Bot.OpponentTracker folds = new Bot.OpponentTracker();
+        for (int street : new int[]{Crupier.FLOP, Crupier.TURN}) {
+            for (int i = 0; i < 24; i++) {
+                calls.recordPostflopDecision(street, true, false, false, false);
+                folds.recordPostflopDecision(street, true, false, false, true);
+            }
+        }
+        try {
+            Bot.TRACKER_MEMORY.put(villain.getNickname(), calls);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            Bot.TRACKER_MEMORY.put(villain.getNickname(), folds);
+            dealer.setRaiseAllowed(false);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+            dealer.setRaiseAllowed(true);
+            assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+            assertEquals(2, bot.getBetSize(), 1e-12);
+
+            hero.commit(2);
+            villain.commit(2);
+            hero.setBet(0);
+            villain.setBet(0);
+            dealer.setPot(20);
+            dealer.setStreet(Crupier.TURN);
+            dealer.appendBoardCard(46);
+            assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
+        } finally {
+            Bot.TRACKER_MEMORY.remove(villain.getNickname());
+        }
+    }
+
+    @Test
+    void hardStationUsesTheHeadsUpButtonForValueAndKeepsSpeculativeLimps() {
+        TestBotPlayer hero = new TestBotPlayer("station-button", 200);
+        TestBotPlayer villain = new TestBotPlayer("station-big-blind", 200);
+        hero.commit(1);
+        villain.commit(2);
+        hero.setHoleCards(10, 9); // QJs
+        TestDealer dealer = headsUp(hero, villain);
+        dealer.setStreet(Crupier.PREFLOP);
+        dealer.setPot(3);
+        dealer.setCurrentBet(2);
+        dealer.setLastRaise(2);
+        TestBotPlayer eliminated = new TestBotPlayer("eliminated", 0);
+        eliminated.setActivo(false);
+        TestBotPlayer sittingOut = new TestBotPlayer("sitting-out", 200);
+        sittingOut.setActivo(false);
+        dealer.setSeating(List.of(hero, villain, eliminated, sittingOut));
+        Bot bot = deterministicBot(hero, dealer, Bot.Difficulty.HARD, Bot.Profile.STATION, true);
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+
+        hero.setHoleCards(3, 16); // 55 can open for value as well.
+        bot.resetBot();
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+
+        hero.setHoleCards(12, 16); // A5o can open, unlike K8o.
+        bot.resetBot();
+        assertEquals(GamePlayerController.BET, bot.calculateBotDecision(1));
+
+        hero.setHoleCards(11, 19);
+        bot.resetBot();
+        assertEquals(GamePlayerController.CHECK, bot.calculateBotDecision(1));
     }
 
     @Test

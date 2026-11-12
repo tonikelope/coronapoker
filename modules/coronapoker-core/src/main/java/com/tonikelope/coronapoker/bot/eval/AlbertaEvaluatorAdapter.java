@@ -15,6 +15,8 @@ package com.tonikelope.coronapoker.bot.eval;
 
 import org.alberta.poker.ai.HandPotential;
 import org.alberta.poker.ai.model.WeightTable;
+import java.util.Arrays;
+import java.util.SplittableRandom;
 
 /**
  * Adapter that exposes the legacy University of Alberta Poker Research Group
@@ -29,6 +31,8 @@ import org.alberta.poker.ai.model.WeightTable;
  * multiple bots must evaluate concurrently, instantiate one adapter per bot.
  */
 public final class AlbertaEvaluatorAdapter implements BotEvaluator {
+
+    private static final int PREFLOP_SAMPLES = 4096;
 
     private final org.alberta.poker.HandEvaluator he;
     private final HandPotential hp;
@@ -45,6 +49,71 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
     @Override
     public double handStrength(int hole1, int hole2, int[] board) {
         return showdownOdds(hole1, hole2, board).equity(1);
+    }
+
+    @Override
+    public double preflopAllInEquity(int hole1, int hole2, double[][] weights) {
+        requireCardIndex(hole1, "hole1");
+        requireCardIndex(hole2, "hole2");
+        if (hole1 == hole2) {
+            throw new IllegalArgumentException("Duplicate hole card");
+        }
+        int[] deck = new int[50];
+        for (int card = 0, next = 0; card < 52; card++) {
+            if (card != hole1 && card != hole2) {
+                deck[next++] = card;
+            }
+        }
+        double[] cumulative = new double[50 * 49 / 2];
+        int[] firstIndex = new int[cumulative.length];
+        int[] secondIndex = new int[cumulative.length];
+        double total = 0;
+        int pairs = 0;
+        for (int first = 0; first < deck.length; first++) {
+            for (int second = first + 1; second < deck.length; second++) {
+                double weight = weights == null ? 1 : weights[deck[first]][deck[second]];
+                if (weight > 0) {
+                    total += weight;
+                    cumulative[pairs] = total;
+                    firstIndex[pairs] = first;
+                    secondIndex[pairs++] = second;
+                }
+            }
+        }
+        if (pairs == 0) {
+            return Double.NaN;
+        }
+
+        // Stratify opponent holdings, then draw a board without replacement.
+        // A private fixed stream keeps this estimate independent of the bot's action RNG.
+        SplittableRandom rng = new SplittableRandom(0x7A5181E3L);
+        int[] available = new int[48];
+        int[] hero = {hole1, hole2, 0, 0, 0, 0, 0};
+        int[] opponent = new int[hero.length];
+        int share = 0;
+        for (int sample = 0; sample < PREFLOP_SAMPLES; sample++) {
+            double draw = total * (sample + rng.nextDouble()) / PREFLOP_SAMPLES;
+            int pair = Arrays.binarySearch(cumulative, 0, pairs, draw);
+            if (pair < 0) {
+                pair = -pair - 1;
+            }
+            int first = firstIndex[pair];
+            int second = secondIndex[pair];
+            opponent[0] = deck[first];
+            opponent[1] = deck[second];
+            System.arraycopy(deck, 0, available, 0, first);
+            System.arraycopy(deck, first + 1, available, first, second - first - 1);
+            System.arraycopy(deck, second + 1, available, second - 1, deck.length - second - 1);
+            for (int i = 0; i < 5; i++) {
+                int chosen = i + rng.nextInt(available.length - i);
+                int card = available[chosen];
+                available[chosen] = available[i];
+                hero[i + 2] = opponent[i + 2] = card;
+            }
+            int comparison = Integer.compare(rankHand(hero), rankHand(opponent));
+            share += 1 + comparison;
+        }
+        return share / (2.0 * PREFLOP_SAMPLES);
     }
 
     @Override
@@ -158,6 +227,33 @@ public final class AlbertaEvaluatorAdapter implements BotEvaluator {
     @Override
     public int rankHand(int[] cards) {
         return he.rankHand(toHand(cards));
+    }
+
+    @Override
+    public int[] opponentRanks(int[] board) {
+        int cardCount = org.alberta.poker.Card.NUM_CARDS;
+        int[] ranks = new int[cardCount * cardCount];
+        java.util.Arrays.fill(ranks, -1);
+        org.alberta.poker.Hand hand = toHand(board);
+        long blocked = 0;
+        for (int card : board) {
+            blocked |= 1L << card;
+        }
+        for (int first = 0; first < cardCount; first++) {
+            if ((blocked & (1L << first)) != 0) {
+                continue;
+            }
+            hand.addCard(first);
+            for (int second = first + 1; second < cardCount; second++) {
+                if ((blocked & (1L << second)) == 0) {
+                    hand.addCard(second);
+                    ranks[first * cardCount + second] = he.rankHand(hand);
+                    hand.removeCard();
+                }
+            }
+            hand.removeCard();
+        }
+        return ranks;
     }
 
     @Override

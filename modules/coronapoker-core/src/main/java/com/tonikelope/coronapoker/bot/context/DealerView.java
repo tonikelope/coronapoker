@@ -68,6 +68,11 @@ public interface DealerView {
 
     BotPlayerView getLast_aggressor();
 
+    /** Last player to increase the price, including a short all-in. */
+    default BotPlayerView getLastWagerAggressor() {
+        return getLast_aggressor();
+    }
+
     /** Last seat to increase the preflop wager in this hand. */
     default String getPreflopAggressorNick() {
         return null;

@@ -82,6 +82,16 @@ public final class MemoizedAlbertaEvaluator implements BotEvaluator {
     }
 
     @Override
+    public int[] opponentRanks(int[] board) {
+        return delegate.opponentRanks(board);
+    }
+
+    @Override
+    public double preflopAllInEquity(int hole1, int hole2, double[][] weights) {
+        return delegate.preflopAllInEquity(hole1, hole2, weights);
+    }
+
+    @Override
     public int compareHands(int[] cards1, int[] cards2) {
         return delegate.compareHands(cards1, cards2);
     }

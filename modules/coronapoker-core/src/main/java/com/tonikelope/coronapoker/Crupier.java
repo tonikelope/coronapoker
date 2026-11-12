@@ -4312,6 +4312,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean barajando = false;
     private volatile ArrayList<String> cartas_locales_recibidas = null;
     private volatile GamePlayerController last_aggressor = null;
+    private volatile GamePlayerController lastWagerAggressor;
     private String preflopAggressorNick;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
@@ -20226,6 +20227,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return last_aggressor;
     }
 
+    @Override
+    public GamePlayerController getLastWagerAggressor() {
+        return lastWagerAggressor;
+    }
+
     private boolean enviarCartasComunitarias(java.util.ArrayList<GamePlayerController> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating SRA street unlock: {0}", street);
 
@@ -21906,6 +21912,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int decision = -1;
 
             resetBetPlayerDecisions(players(), null, false);
+            lastWagerAggressor = null;
             LinkedHashMap<String, Long> committedBySeat = new LinkedHashMap<>();
             for (GamePlayerController jugador : resisten) {
                 if (jugador.isActivo() && jugador.getDecision() != GamePlayerController.FOLD
@@ -22481,6 +22488,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         this.conta_bet++;
                         this.apuesta_actual = current_player.getBet();
+                        this.lastWagerAggressor = current_player;
                         resetBetPlayerDecisions(players(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
 
                         if (street == PREFLOP) {

@@ -37,6 +37,7 @@ import com.tonikelope.coronapoker.bot.eval.PostflopEvaluation;
 import com.tonikelope.coronapoker.core.game.CardCode;
 import com.tonikelope.coronapoker.core.game.GameCardController;
 import com.tonikelope.coronapoker.core.game.GameOpponentStats;
+import com.tonikelope.coronapoker.core.game.GameOpponentStats.PostflopAction;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
@@ -45,6 +46,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntToDoubleFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -149,6 +151,7 @@ public class Bot {
 
         private int handsPlayed = 0;
         private boolean playedVoluntarilyPreflop;
+        private boolean raisedPreflopThisHand;
         private int voluntarilyPutInPot = 0;
         private int preflopRaises = 0;
         private int postFlopBetsAndRaises = 0;
@@ -159,12 +162,18 @@ public class Bot {
         private int blindFolds;
         private final int[][] betsFaced = new int[2][3];
         private final int[][] foldsToBet = new int[2][3];
+        private final int[] raisesToBet = new int[3];
         private final int[] openingOpportunities = new int[3];
         private final int[] openingBets = new int[3];
+        private final PostflopAction[] postflopActions = {
+            PostflopAction.NONE, PostflopAction.NONE, PostflopAction.NONE
+        };
 
         public void recordHandPlayed() {
             handsPlayed++;
             playedVoluntarilyPreflop = false;
+            raisedPreflopThisHand = false;
+            Arrays.fill(postflopActions, PostflopAction.NONE);
         }
 
         public void recordVPIP(int handId) {
@@ -176,6 +185,7 @@ public class Bot {
         }
 
         public void recordPFR(int handId) {
+            raisedPreflopThisHand = true;
             if (lastPfrHand != handId) {
                 preflopRaises++;
                 lastPfrHand = handId;
@@ -207,11 +217,19 @@ public class Bot {
         public void recordPostflopDecision(int street, boolean facingBet, boolean invested, boolean raised,
                 boolean folded) {
             int index = street - Crupier.FLOP;
+            PostflopAction action = folded ? PostflopAction.FOLD
+                    : facingBet ? (raised ? PostflopAction.RAISE : PostflopAction.CALL)
+                    : (raised ? PostflopAction.BET : PostflopAction.CHECK);
+            if (action.ordinal() > postflopActions[index].ordinal()) {
+                postflopActions[index] = action;
+            }
             if (facingBet) {
                 int wager = invested ? 1 : 0;
                 betsFaced[wager][index]++;
                 if (folded) {
                     foldsToBet[wager][index]++;
+                } else if (raised) {
+                    raisesToBet[index]++;
                 }
             } else if (!folded) {
                 openingOpportunities[index]++;
@@ -219,6 +237,22 @@ public class Bot {
                     openingBets[index]++;
                 }
             }
+        }
+
+        @Override
+        public PostflopAction postflopAction(int street) {
+            return postflopActions[street - Crupier.FLOP];
+        }
+
+        @Override
+        public boolean raisedPreflopThisHand() {
+            return raisedPreflopThisHand;
+        }
+
+        @Override
+        public double raiseToBetRate(int street, double prior) {
+            int index = street - Crupier.FLOP;
+            return (raisesToBet[index] + 10 * prior) / (betsFaced[0][index] + betsFaced[1][index] + 10);
         }
 
         @Override
@@ -264,6 +298,11 @@ public class Bot {
             return handsPlayed == 0 ? 0 : (double) preflopRaises / handsPlayed;
         }
 
+        @Override
+        public double preflopRaiseRate(double prior) {
+            return (preflopRaises + 24 * prior) / (handsPlayed + 24);
+        }
+
         public double getAF() {
             if (postFlopCalls == 0) {
                 return postFlopBetsAndRaises > 0 ? 3.0 : 1.0;
@@ -281,6 +320,13 @@ public class Bot {
 
         public boolean isManiac() {
             return handsPlayed > 10 && getVPIP() > 0.35 && getAF() > 2.0;
+        }
+
+        @Override
+        public boolean isUnselectiveBettor() {
+            int leads = openingBets[0] + openingBets[1] + openingBets[2];
+            int opportunities = openingOpportunities[0] + openingOpportunities[1] + openingOpportunities[2];
+            return preflopRaises >= 3 && getPFR() > 0.55 && leads >= 2 && 4 * leads >= 3 * opportunities;
         }
 
         public boolean hasEnoughData() {
@@ -332,6 +378,7 @@ public class Bot {
     private int[] cachedEvaluationBoard;
     private int cachedEvaluationOpponents;
     private PostflopEvaluation cachedEvaluation;
+    private OpponentRangeModel cachedOpponentRangeModel;
     private double[][] cachedRangeWeights;
     private ShowdownOdds cachedRangeOdds;
 
@@ -699,7 +746,10 @@ public class Bot {
                 targetBet = Math.min(minRaise * 3.0f, (pot > 0 ? pot * 1.5f : minRaise * 4.0f));
             } else {
                 int limpers = dealer.getLimpersCount();
-                targetBet = (2.5f + (limpers * 1.0f)) * bb;
+                boolean smallSteal = effectiveDifficulty() == Difficulty.HARD && limpers == 0
+                        && dealer.getStraddleUtgNick() == null && determinePosition() == Position.LATE
+                        && !cpuPlayer.getNickname().equals(dealer.getSb_nick());
+                targetBet = ((smallSteal ? 2.0f : 2.5f) + limpers) * bb;
             }
         } else {
             BoardTexture texture = calculateFullBoardTexture();
@@ -847,6 +897,12 @@ public class Bot {
             return planned;
         }
         double strength = lastEffectiveStrength;
+        if (toCall > 0 && dealer().getStreet() == Crupier.RIVER) {
+            ShowdownOdds odds = cachedEvaluation.currentOdds();
+            if (odds.win() + odds.tie() >= 1 - 1e-12) {
+                return planned;
+            }
+        }
 
         // 1. Sticky calldown: weak made hand calls bet instead of folding.
         if (planned == GamePlayerController.FOLD && toCall > 0f
@@ -855,12 +911,11 @@ public class Bot {
             return GamePlayerController.CHECK;
         }
 
-        // 2. Hero fold: strong hand folds to a bet that should be called
-        // or raised. Direct equity surrender on a value spot.
-        if (planned == GamePlayerController.CHECK && toCall > 0f && strength > 0.62) {
+        // 2. A recreational player can surrender a strong but beatable hand.
+        if (planned == GamePlayerController.CHECK && toCall > 0 && strength > 0.62) {
             return GamePlayerController.FOLD;
         }
-        if (planned == GamePlayerController.BET && toCall > 0f && strength > 0.70) {
+        if (planned == GamePlayerController.BET && toCall > 0 && strength > 0.70) {
             return GamePlayerController.FOLD;
         }
 
@@ -880,6 +935,12 @@ public class Bot {
         int betCount = dealer.getConta_bet();
 
         if (street == Crupier.PREFLOP) {
+            if (effectiveDifficulty() == Difficulty.HARD && opponentsCount == 1) {
+                int committedDecision = closedPreflopDecision(dealer, betCount);
+                if (committedDecision != GamePlayerController.NODEC) {
+                    return committedDecision;
+                }
+            }
             int decision = calculatePreflopAction(betCount, activePlayers, handTier);
             if (decision == GamePlayerController.FOLD) {
                 if (callCost() == 0) {
@@ -913,6 +974,7 @@ public class Bot {
             cachedEvaluationBoard = board;
             cachedEvaluationOpponents = maxOpponents;
             cachedRangeWeights = null;
+            cachedOpponentRangeModel = null;
         }
         PostflopEvaluation evaluation = cachedEvaluation;
         ShowdownOdds odds = evaluation.currentOdds();
@@ -999,7 +1061,11 @@ public class Bot {
             }
         }
 
-        GameOpponentStats targetStats = getPrimaryOpponentStats();
+        BotPlayerView bettor = dealer.getLastWagerAggressor();
+        GameOpponentStats targetStats = bettor != null && isOpponentInHand(bettor) ? opponentStats(bettor) : null;
+        OpponentRangeModel.HoldingRange observedBettorRange = callCost > 0
+                ? observedOpponentRange(board, bettor, targetStats) : null;
+        ShowdownOdds observedBettorOdds = observedBettorRange == null ? null : observedBettorRange.odds();
         double difficultyNoise = (effectiveDifficulty() == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
 
         if (skillLevel != Skill.RECREATIONAL) {
@@ -1022,7 +1088,8 @@ public class Bot {
                     equityAdjustment -= 0.03;
                 }
             }
-            if (effectiveDifficulty() == Difficulty.HARD && opponentsCount == 1 && betCount == 1
+            if (observedBettorOdds == null && effectiveDifficulty() == Difficulty.HARD
+                    && opponentsCount == 1 && betCount == 1
                     && street >= Crupier.TURN && targetStats != null) {
                 double openingRate = targetStats.openingBetRate(street, 1);
                 double rangePenalty = odds.equity(1) - equityAgainstStrongestHands(odds, openingRate);
@@ -1046,9 +1113,15 @@ public class Bot {
         }
         RangeEquity range = null;
         if (!certainRiver) {
-            if (callCost > 0) {
-                range = bettorEquity(opponentsCount, board, equity, targetStats, odds, street, betCount);
-            } else if (street == Crupier.RIVER && equity.length == 2) {
+            if (street == Crupier.RIVER && maxOpponents == 2) {
+                range = riverTwoOpponentEquity(board, equity, evaluation, bettor, observedBettorRange);
+            } else if (maxOpponents >= 4 || (street == Crupier.RIVER && maxOpponents == 3)) {
+                range = jointOpponentEquity(board, equity, evaluation, bettor, observedBettorRange);
+            }
+            if (range == null && callCost > 0) {
+                range = bettorEquity(bettor, opponentsCount, board, equity, targetStats, odds, observedBettorRange,
+                        street, betCount);
+            } else if (range == null && street == Crupier.RIVER && equity.length == 2) {
                 range = riverOpponentEquity(board, equity, odds);
             }
         }
@@ -1077,26 +1150,151 @@ public class Bot {
         return decision;
     }
 
-    private record RangeEquity(String opponent, ShowdownOdds odds, double[] shares) {}
+    private record RangeEquity(String opponent, ShowdownOdds odds, double[] shares,
+            String otherOpponent, double otherShare, JointEquity joint) {
 
-    private RangeEquity bettorEquity(int opponents, int[] board, double[] equity,
-            GameOpponentStats stats, ShowdownOdds odds, int street, int betCount) {
+        private RangeEquity(String opponent, ShowdownOdds odds, double[] shares) {
+            this(opponent, odds, shares, null, 0, null);
+        }
+
+        private RangeEquity(String opponent, ShowdownOdds odds, double[] shares, String otherOpponent, double otherShare) {
+            this(opponent, odds, shares, otherOpponent, otherShare, null);
+        }
+    }
+
+    private record JointEquity(IntToDoubleFunction showdown, double[] adjusted, PostflopEvaluation uniform) {
+        double share(int mask) {
+            int count = Integer.bitCount(mask);
+            double expected = showdown.applyAsDouble(mask);
+            return Double.isFinite(expected) ? blendRangeEquity(adjusted[count], uniform.equity(count), expected)
+                    : adjusted[count];
+        }
+    }
+
+    private RangeEquity jointOpponentEquity(int[] board, double[] equity, PostflopEvaluation evaluation,
+            BotPlayerView bettor, OpponentRangeModel.HoldingRange bettorRange) {
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+            return null;
+        }
+        OpponentRangeModel.HoldingRange[] holdings = new OpponentRangeModel.HoldingRange[equity.length - 1];
+        int seats = 0;
+        int observed = 0;
+        for (BotPlayerView opponent : dealer().getPlayersInSeatingOrder()) {
+            if (!isOpponentInHand(opponent)) {
+                continue;
+            }
+            if (seats == holdings.length) {
+                return null;
+            }
+            var range = opponent == bettor && bettorRange != null ? bettorRange
+                    : observedOpponentRange(board, opponent, opponentStats(opponent));
+            holdings[seats++] = range;
+            if (range != null) {
+                observed++;
+            }
+        }
+        if (observed < 2 || seats != holdings.length) {
+            return null;
+        }
+        IntToDoubleFunction showdown;
+        if (seats == 3) {
+            showdown = cachedOpponentRangeModel.threeSeatShowdown(holdings)::share;
+        } else {
+            showdown = cachedOpponentRangeModel.jointShowdown(holdings)::share;
+        }
+        if (!Double.isFinite(showdown.applyAsDouble((1 << seats) - 1))) {
+            return null;
+        }
+        JointEquity model = new JointEquity(showdown, equity, evaluation);
+        double[] shares = equity.clone();
+        shares[seats] = model.share((1 << seats) - 1);
+        return new RangeEquity(null, null, shares, null, 0, model);
+    }
+
+    private ShowdownOdds observedOpponentOdds(int[] board, BotPlayerView opponent, GameOpponentStats stats) {
+        OpponentRangeModel.HoldingRange range = observedOpponentRange(board, opponent, stats);
+        return range == null ? null : range.odds();
+    }
+
+    private OpponentRangeModel.HoldingRange observedOpponentRange(int[] board, BotPlayerView opponent,
+            GameOpponentStats stats) {
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+                || stats == null || stats.isManiac() || stats.isUnselectiveBettor()
+                || opponent == null || !isOpponentInHand(opponent)) {
+            return null;
+        }
+        if (cachedOpponentRangeModel == null) {
+            cachedOpponentRangeModel = new OpponentRangeModel(evaluator, holeCard1.getIndex(), holeCard2.getIndex(), board);
+        }
+        boolean raisedPreflop = stats.raisedPreflopThisHand()
+                || opponent.getNickname().equals(dealer().getPreflopAggressorNick());
+        return cachedOpponentRangeModel.range(stats, raisedPreflop);
+    }
+
+    private RangeEquity riverTwoOpponentEquity(int[] board, double[] equity, PostflopEvaluation evaluation,
+            BotPlayerView bettor, OpponentRangeModel.HoldingRange bettorRange) {
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL) {
+            return null;
+        }
+        String firstOpponent = null;
+        OpponentRangeModel.HoldingRange firstRange = null;
+        for (BotPlayerView opponent : dealer().getPlayersInSeatingOrder()) {
+            if (!isOpponentInHand(opponent)) {
+                continue;
+            }
+            OpponentRangeModel.HoldingRange current = bettorRange != null && opponent == bettor ? bettorRange
+                    : observedOpponentRange(board, opponent, opponentStats(opponent));
+            if (current == null) {
+                return null;
+            }
+            if (firstRange == null) {
+                firstOpponent = opponent.getNickname();
+                firstRange = current;
+                continue;
+            }
+            double firstShare = blendRangeEquity(equity[1], evaluation.equity(1), firstRange.odds().equity(1));
+            double otherShare = blendRangeEquity(equity[1], evaluation.equity(1), current.odds().equity(1));
+            double weighted = cachedOpponentRangeModel.twoOpponentShare(firstRange, current);
+            double combined = Math.min(Math.min(firstShare, otherShare),
+                    blendRangeEquity(equity[2], evaluation.equity(2), weighted));
+            return new RangeEquity(firstOpponent, firstRange.odds(), new double[]{1, firstShare, combined},
+                    opponent.getNickname(), otherShare);
+        }
+        return null;
+    }
+
+    private static double blendRangeEquity(double adjusted, double uniform, double weighted) {
+        return clampEquity(adjusted + 0.8 * (weighted - uniform));
+    }
+
+    private RangeEquity bettorEquity(BotPlayerView aggressor, int opponents, int[] board, double[] equity,
+            GameOpponentStats stats, ShowdownOdds odds, OpponentRangeModel.HoldingRange observedRange,
+            int street, int betCount) {
+        ShowdownOdds observedOdds = observedRange == null ? null : observedRange.odds();
         DealerView table = dealer();
-        BotPlayerView aggressor = table.getLast_aggressor();
-        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL || opponents > 3
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL
+                || (opponents > 3 && observedOdds == null)
                 || stats == null || stats.isManiac() || aggressor == null || !isOpponentInHand(aggressor)) {
             return null;
         }
         boolean raisedPreflop = aggressor.getNickname().equals(table.getPreflopAggressorNick());
-        ShowdownOdds rangeOdds = odds;
-        if (raisedPreflop || stats.playedVoluntarilyPreflop()) {
+        ShowdownOdds rangeOdds = observedOdds == null ? odds : observedOdds;
+        if (observedOdds == null && (raisedPreflop || stats.playedVoluntarilyPreflop())) {
             rangeOdds = preflopRangeOdds(board, stats, raisedPreflop);
         }
         double adjustment = rangeOdds.equity(1) - odds.equity(1);
-        if (opponents > 1 && street >= Crupier.TURN && betCount == 1) {
+        if (observedOdds == null && opponents > 1 && street >= Crupier.TURN && betCount == 1) {
             double openingRate = stats.openingBetRate(street, 0.73);
             double rangePenalty = odds.equity(1) - equityAgainstStrongestHands(odds, openingRate);
             adjustment -= (street == Crupier.RIVER ? 0.65 : 0.55) * rangePenalty;
+        }
+        if (opponents == 1 && street < Crupier.RIVER && currentProfile == Profile.STATION && observedRange != null) {
+            // A passive line realizes its draws and improvements on the remaining board.
+            double terminalShare = cachedOpponentRangeModel.jointShowdown(
+                    new OpponentRangeModel.HoldingRange[]{observedRange}).share(1);
+            if (Double.isFinite(terminalShare)) {
+                adjustment = terminalShare - cachedEvaluation.equity(1);
+            }
         }
         if (Math.abs(adjustment) <= 1e-12) {
             return null;
@@ -1118,11 +1316,17 @@ public class Bot {
                 continue;
             }
             GameOpponentStats stats = opponentStats(opponent);
-            if (stats == null || !stats.playedVoluntarilyPreflop() || stats.isManiac()) {
+            if (stats == null || stats.isManiac()) {
                 return null;
             }
-            boolean raisedPreflop = opponent.getNickname().equals(dealer().getPreflopAggressorNick());
-            ShowdownOdds rangeOdds = preflopRangeOdds(board, stats, raisedPreflop);
+            ShowdownOdds rangeOdds = observedOpponentOdds(board, opponent, stats);
+            if (rangeOdds == null) {
+                if (!stats.playedVoluntarilyPreflop()) {
+                    return null;
+                }
+                boolean raisedPreflop = opponent.getNickname().equals(dealer().getPreflopAggressorNick());
+                rangeOdds = preflopRangeOdds(board, stats, raisedPreflop);
+            }
             double adjustment = rangeOdds.equity(1) - odds.equity(1);
             double share = clampEquity(equity[1] + 0.80 * adjustment);
             return new RangeEquity(opponent.getNickname(), rangeOdds, new double[]{1, share});
@@ -1173,6 +1377,9 @@ public class Bot {
             RaiseEvaluation raise, double ppot, double npot, double pot, int street,
             int activePlayers, BoardTexture boardTexture) {
         boolean valueBetPays = improvesEv(raise.ev(), checkEv);
+        if (activePlayers == 2 && profitableSmallProbe(checkEv, pot, street)) {
+            return GamePlayerController.BET;
+        }
 
         if (floatPlay && street == Crupier.TURN) {
             floatPlay = false;
@@ -1352,7 +1559,9 @@ public class Bot {
         double adjustedEvCall = evCall;
         if (!certainRiver && betRatio > 0.50) {
             if (currentProfile == Profile.STATION) {
-                adjustedEvCall += pot * 0.15;
+                if (effectiveDifficulty() != Difficulty.HARD) {
+                    adjustedEvCall += pot * 0.15;
+                }
             } else if (currentProfile == Profile.NIT) {
                 adjustedEvCall -= pot * 0.20;
             } else if (skillLevel == Skill.REGULAR && effectiveStrength < 0.70) {
@@ -1363,8 +1572,11 @@ public class Bot {
             adjustedEvCall += pot * 0.12;
         }
 
+        boolean allowsValueRaise = currentProfile != Profile.STATION
+                || (effectiveDifficulty() == Difficulty.HARD && effectiveStrength >= STRENGTH_NUT_TRAP
+                && raise.ev() > evCall + 0.08 * pot);
         if (potCommitted && evCall > 0) {
-            if (effectiveStrength >= STRENGTH_NUT_TRAP && raisePays && currentProfile != Profile.STATION) {
+            if (effectiveStrength >= STRENGTH_NUT_TRAP && raisePays && allowsValueRaise) {
                 logVerbose("Pot committed and very strong. Shoving (Re-raising).");
                 return GamePlayerController.BET;
             }
@@ -1378,7 +1590,7 @@ public class Bot {
         if (effectiveDifficulty() == Difficulty.HARD) {
             valueRaiseThreshold = 0.72;
         }
-        if (raisePays && raise.ev() > adjustedEvCall && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION) {
+        if (raisePays && raise.ev() > adjustedEvCall && effectiveStrength > valueRaiseThreshold && allowsValueRaise) {
             logVerbose("Raising for value. High EV.");
             return GamePlayerController.BET;
         }
@@ -1429,6 +1641,11 @@ public class Bot {
             }
         }
 
+        if (activePlayers == 2 && betCount == 1 && street == Crupier.FLOP
+                && profitableFlopCounterRaise(winProb, ppot, pot, callCost, evCall, boardTexture, targetStats)) {
+            return GamePlayerController.BET;
+        }
+
         if (adjustedEvCall > 0) {
             logVerbose("Calling due to positive adjusted EV.");
             return GamePlayerController.CHECK;
@@ -1445,6 +1662,40 @@ public class Bot {
 
     static double showdownEv(double equity, double winnings, double cost) {
         return equity * winnings - (1.0 - equity) * cost;
+    }
+
+    private boolean profitableFlopCounterRaise(double equity, double ppot, double pot, double callCost,
+            double callEv, BoardTexture texture, GameOpponentStats stats) {
+        if (effectiveDifficulty() != Difficulty.HARD || skillLevel == Skill.RECREATIONAL || currentProfile == Profile.STATION
+                || stats == null || stats.isManiac() || stats.postflopAction(Crupier.FLOP) != PostflopAction.BET
+                || !stats.raisedPreflopThisHand() || texture.totalScore >= 4 || callCost > 0.45 * pot
+                || equity < 0.15 || equity > 0.64 || (ppot < 0.12 && equity < 0.36)) {
+            return false;
+        }
+        DealerView table = dealer();
+        double wager = table.getApuesta_actual();
+        double target = finalBetTarget(BetRules.minRaiseTo(wager, table.getUltimo_raise(), table.getCiega_grande()));
+        double cost = target - cpuPlayer.getBet();
+        if (!canRaiseTo(target) || effectiveStackBehind() < 1.5 * cost) {
+            return false;
+        }
+        double open = stats.openingBetRate(Crupier.FLOP, 0.66);
+        double continueRange = 1 - stats.foldToBetRate(Crupier.FLOP, false, 0.52);
+        double foldPrior = Math.max(0, 1 - continueRange / Math.max(0.01, open));
+        double folds = Math.min(FOLD_EQ_CAP, stats.foldToBetRate(Crupier.FLOP, true, foldPrior));
+        if (folds < 0.20) {
+            return false;
+        }
+        ShowdownOdds raw = cachedEvaluation.currentOdds();
+        double lossWhenCalled = raw.equity(1) - equityAgainstStrongestHands(raw, 1 - folds);
+        double whenCalled = clampEquity(equity - 0.60 * lossWhenCalled);
+        double raiseEv = folds * pot + (1 - folds) * showdownEv(whenCalled, pot + target - wager, cost);
+        if (raiseEv <= Math.max(0, callEv) + 0.05 * pot || randInt(100) >= 65) {
+            return false;
+        }
+        lastBetSize = target;
+        logVerbose("Small semi-bluff raise against a frequent continuation bettor.");
+        return true;
     }
 
     private static boolean improvesEv(double candidate, double alternative) {
@@ -1479,6 +1730,19 @@ public class Bot {
 
         DealerView table = dealer();
         double wager = table.getApuesta_actual();
+        if (effectiveDifficulty() == Difficulty.HARD && wager == 0 && table.getPlayersInSeatingOrder().size() >= 3
+                && betCount < MAX_BET_COUNT && table.getCiega_pequeña() > 0) {
+            double chip = table.getCiega_pequeña();
+            double small = finalBetTarget(Math.max(table.getCiega_grande(), Math.ceil(0.18 * pot / chip) * chip));
+            if (small < lastBetSize && canRaiseTo(small)) {
+                RaiseEvaluation candidate = evaluatePotAction(small - cpuPlayer.getBet(), small, equity, range,
+                        texture, betCount, street, pot);
+                if (candidate.ev() > preferred.ev() + 0.02 * pot) {
+                    lastBetSize = small;
+                    return candidate;
+                }
+            }
+        }
         if (effectiveDifficulty() != Difficulty.HARD || opponents != 1 || betCount >= MAX_BET_COUNT
                 || MoneyMath.compare(wager, 0) <= 0) {
             return preferred;
@@ -1530,6 +1794,15 @@ public class Bot {
         double allFold = 1;
         int liveOpponents = 0;
         int modeledSeat = -1;
+        int otherModeledSeat = -1;
+        JointEquity joint = range == null ? null : range.joint();
+        int[] opponentBits = joint == null ? null : new int[tableSeats.size() - 1];
+        // A call can leave other players owing chips at the current price.
+        // Their matching chips can change which players contest each layer.
+        boolean pendingCalls = target == 0 && cost > 0 && equity.length > 2
+                && effectiveDifficulty() == Difficulty.HARD;
+        double matchTarget = pendingCalls ? table.getApuesta_actual() : target;
+        double potWhenResponding = pendingCalls ? pot + cost : pot;
         boolean checkedToInPosition = target > 0 && equity.length == 2 && street == Crupier.RIVER
                 && betCount == 0 && effectiveDifficulty() == Difficulty.HARD && isInPositionPostflop();
         for (BotPlayerView seat : tableSeats) {
@@ -1538,13 +1811,19 @@ public class Bot {
             }
             boolean live = isOpponentInHand(seat);
             if (live) {
+                if (opponentBits != null) {
+                    opponentBits[seats.size()] = 1 << liveOpponents;
+                }
                 liveOpponents++;
-                if (range != null && range.opponent().equals(seat.getNickname())) {
+                if (range != null && seat.getNickname().equals(range.opponent())) {
                     modeledSeat = seats.size();
+                } else if (range != null && seat.getNickname().equals(range.otherOpponent())) {
+                    otherModeledSeat = seats.size();
                 }
             }
-            double added = live && target > 0 ? Math.max(0, Math.min(seat.getStack(), target - seat.getBet())) : 0;
-            double fold = live ? foldProbability(seat, texture, betCount, street, pot, added, checkedToInPosition) : 1;
+            double added = live ? Math.max(0, Math.min(seat.getStack(), matchTarget - seat.getBet())) : 0;
+            double fold = live ? foldProbability(seat, texture, betCount, street, potWhenResponding,
+                    added, checkedToInPosition) : 1;
             seats.add(new BotPotOdds.Seat(PotMath.toCents(table.matchedContribution(seat)),
                     PotMath.toCents(added), fold));
             allFold *= fold;
@@ -1565,8 +1844,30 @@ public class Bot {
                 modeledEquity = called;
             }
         }
-        double ev = BotPotOdds.ev(PotMath.toCents(table.matchedContribution(cpuPlayer)), PotMath.toCents(cost),
-                PotMath.toCents(pot), seats, equity, modeledSeat, modeledEquity);
+        long committed = PotMath.toCents(table.matchedContribution(cpuPlayer));
+        double ev;
+        if (joint != null) {
+            ev = BotPotOdds.ev(committed, PotMath.toCents(cost), PotMath.toCents(pot), seats, eligible -> {
+                int mask = 0;
+                while (eligible != 0) {
+                    mask |= opponentBits[Integer.numberOfTrailingZeros(eligible)];
+                    eligible &= eligible - 1;
+                }
+                return joint.share(mask);
+            });
+        } else if (modeledSeat >= 0 && otherModeledSeat >= 0) {
+            int first = 1 << modeledSeat;
+            int other = 1 << otherModeledSeat;
+            ev = BotPotOdds.ev(committed, PotMath.toCents(cost), PotMath.toCents(pot), seats, eligible -> {
+                if ((eligible & first) != 0) {
+                    return range.shares()[Integer.bitCount(eligible)];
+                }
+                return (eligible & other) != 0 ? range.otherShare() : 1;
+            });
+        } else {
+            ev = BotPotOdds.ev(committed, PotMath.toCents(cost), PotMath.toCents(pot), seats,
+                    equity, modeledSeat, modeledEquity);
+        }
         return new RaiseEvaluation(ev, allFold);
     }
 
@@ -1620,6 +1921,51 @@ public class Bot {
             estimate += Math.min(0.20, estimate * removed / (1 - removed));
         }
         return Math.min(FOLD_EQ_CAP, estimate);
+    }
+
+    private boolean profitableSmallProbe(double checkEv, double pot, int street) {
+        if (effectiveDifficulty() != Difficulty.HARD || aggressiveLine) {
+            return false;
+        }
+        DealerView table = dealer();
+        int seats = table.getJugadoresActivos();
+        boolean station = currentProfile == Profile.STATION;
+        boolean stationAtMultiwayTable = station && seats >= 4;
+        boolean threeHandedStation = station && seats == 3;
+        double checkLimit = stationAtMultiwayTable ? 0.56 : 0.40;
+        if (threeHandedStation) {
+            checkLimit = 0.30;
+        }
+        if (table.getCiega_pequeña() <= 0 || seats < 2 || (seats < 4 && !station) || checkEv > checkLimit * pot) {
+            return false;
+        }
+        double size = finalBetTarget(table.getCiega_grande());
+        double cost = size - cpuPlayer.getBet();
+        if (cost > (stationAtMultiwayTable ? 0.36 : 0.30) * pot || !canRaiseTo(size)) {
+            return false;
+        }
+        for (BotPlayerView opponent : table.getPlayersInSeatingOrder()) {
+            if (!isOpponentInHand(opponent)) {
+                continue;
+            }
+            GameOpponentStats stats = opponentStats(opponent);
+            if (stats == null || stats.isStation()
+                    || stats.looksPassiveStation() || stats.isManiac()) {
+                return false;
+            }
+            boolean checked = stats.postflopAction(street) == PostflopAction.CHECK;
+            double prior = stationAtMultiwayTable ? (checked ? 0.56 : 0.52) : (checked ? 0.53 : 0.49);
+            double folds = stats.foldToBetRate(street, false, prior);
+            // Price the probe as if it lost whenever called.
+            double profit = folds * pot - (1 - folds) * cost;
+            double margin = threeHandedStation ? Math.max(0.09 * pot, 0.55 * cost) : 0.04 * pot;
+            if (profit > checkEv + margin) {
+                lastBetSize = size;
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     private boolean profitableBluffSize(RaiseEvaluation raise, double[] equity, RangeEquity range, double checkEv,
@@ -1764,7 +2110,51 @@ public class Bot {
                 holeCard1.getSuit() == holeCard2.getSuit(), high - low);
     }
 
+    private int closedPreflopDecision(DealerView table, int betCount) {
+        double cost = callCost();
+        if (cost == 0) {
+            return GamePlayerController.NODEC;
+        }
+        BotPlayerView opponent = null;
+        for (BotPlayerView seat : table.getPlayersInSeatingOrder()) {
+            if (isOpponentInHand(seat)) {
+                if (opponent != null) {
+                    return GamePlayerController.NODEC;
+                }
+                opponent = seat;
+            }
+        }
+        if (opponent == null || (MoneyMath.compare(cost, cpuPlayer.getStack()) < 0
+                && MoneyMath.compare(opponent.getStack(), 0) > 0)) {
+            return GamePlayerController.NODEC;
+        }
+
+        double[][] weights = null;
+        if (opponent.getNickname().equals(table.getPreflopAggressorNick())) {
+            double wagerInBlinds = table.getApuesta_actual() / table.getCiega_grande();
+            GameOpponentStats stats = opponentStats(opponent);
+            double openingRate = stats == null ? 0.28 : stats.preflopRaiseRate(0.28);
+            // Small shoves can be wide. A deep shove or a re-raise represents
+            // a narrower subset of the same seat's preflop aggression.
+            double width = Math.min(0.85, openingRate * (wagerInBlinds <= 5 ? 1.8 : wagerInBlinds <= 15 ? 1 : 0.60));
+            if (betCount >= 2) {
+                width *= betCount == 2 ? 0.65 : 0.40;
+            }
+            weights = StartingHandRanges.weights(width);
+        }
+        double equity = evaluator.preflopAllInEquity(holeCard1.getIndex(), holeCard2.getIndex(), weights);
+        if (!Double.isFinite(equity)) {
+            return GamePlayerController.NODEC;
+        }
+        double pot = contestablePot(cost);
+        // Use a small margin on raised pots for estimation and range uncertainty.
+        double margin = weights == null ? 0 : 0.015;
+        return showdownEv(equity - margin, pot, cost) >= 0
+                ? GamePlayerController.CHECK : GamePlayerController.FOLD;
+    }
+
     private int calculatePreflopAction(int betCount, int activePlayers, int handTier) {
+        int startingTier = handTier;
         Position pos = determinePosition();
         int v1 = holeCard1.getRank();
         int v2 = holeCard2.getRank();
@@ -1805,6 +2195,37 @@ public class Bot {
         }
 
         if (currentProfile == Profile.STATION && handTier <= 4 && betCount < 2) {
+            if (effectiveDifficulty() == Difficulty.HARD) {
+                if (handTier == 1) {
+                    return GamePlayerController.BET;
+                }
+                DealerView table = dealer();
+                String name = cpuPlayer.getNickname();
+                if (betCount == 0 && table.getLimpersCount() == 0 && !name.equals(table.getBb_nick())
+                        && !name.equals(table.getSb_nick())) {
+                    return handTier <= 2 || (handTier == 3 && pos == Position.LATE)
+                            ? GamePlayerController.BET : GamePlayerController.FOLD;
+                }
+                if (betCount == 0 && name.equals(table.getSb_nick())
+                        && table.getJugadoresActivos() == 2 && table.getLimpersCount() == 0
+                        && (startingTier <= 3 || (startingTier == 4 && (isPair || suited || high == 12)))) {
+                    // In heads-up, the button has position on every postflop street.
+                    return GamePlayerController.BET;
+                }
+                if (betCount == 1 && startingTier >= 4) {
+                    double cost = callCost();
+                    double limit = suited || isPair ? 0.36 : 0.27;
+                    if (cost > dealer().getCiega_grande() && cost > limit * (contestablePot(cost) + cost)) {
+                        return GamePlayerController.FOLD;
+                    }
+                }
+                if (betCount == 1 && handTier == 3 && activePlayers >= 4 && !suited && !isPair && pos != Position.LATE) {
+                    double cost = callCost();
+                    if (cost > 0.29 * (contestablePot(cost) + cost)) {
+                        return GamePlayerController.FOLD;
+                    }
+                }
+            }
             logVerbose("Preflop Station limp/call.");
             return GamePlayerController.CHECK;
         }
@@ -1814,7 +2235,18 @@ public class Bot {
         boolean isSB = myNick.equals(crupier.getSb_nick());
         boolean isBB = myNick.equals(crupier.getBb_nick());
 
-        if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && effectiveDifficulty() != Difficulty.EASY) {
+        if (effectiveDifficulty() == Difficulty.HARD && betCount == 1 && activePlayers >= 4 && handTier == 3
+                && !suited && !isPair && (high < 12 || low < 10) && cpuPlayer.getBet() == 0
+                && (pos == Position.EARLY || pos == Position.MIDDLE)) {
+            double cost = callCost();
+            if (cost > 0.29 * (contestablePot(cost) + cost)) {
+                return GamePlayerController.FOLD;
+            }
+        }
+
+        if (betCount == 1 && activePlayers >= 3 && handTier <= 3 && effectiveDifficulty() != Difficulty.EASY
+                && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR))
+                && hasSqueezeCaller(crupier)) {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
             if (randInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
@@ -2021,6 +2453,21 @@ public class Bot {
             default:
                 return GamePlayerController.FOLD;
         }
+    }
+
+    private boolean hasSqueezeCaller(DealerView table) {
+        String opener = table.getPreflopAggressorNick();
+        if (opener == null) {
+            return false;
+        }
+        for (BotPlayerView seat : table.getPlayersInSeatingOrder()) {
+            if (!opener.equals(seat.getNickname()) && isOpponentInHand(seat)
+                    && MoneyMath.compare(seat.getStack(), 0) > 0
+                    && MoneyMath.compare(seat.getBet(), table.getApuesta_actual()) == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static int evaluateHandTier(int high, int low, boolean isPair, boolean suited, int gap) {
@@ -2349,14 +2796,6 @@ public class Bot {
             }
         }
         return true;
-    }
-
-    private GameOpponentStats getPrimaryOpponentStats() {
-        BotPlayerView lastAggressor = dealer().getLast_aggressor();
-        if (lastAggressor == null || cpuPlayer.getNickname().equals(lastAggressor.getNickname())) {
-            return null;
-        }
-        return opponentStats(lastAggressor);
     }
 
     GameOpponentStats opponentStats(BotPlayerView opponent) {

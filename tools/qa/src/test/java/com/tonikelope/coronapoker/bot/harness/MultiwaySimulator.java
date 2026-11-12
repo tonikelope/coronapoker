@@ -10,6 +10,7 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.Helpers;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.security.SecureRandom;
@@ -28,7 +29,7 @@ import java.util.Set;
  *
  * <p>
  * This is the target environment for AAA validation — CoronaPoker is played
- * multi-way (3-10 seats), not heads-up. The button rotates every hand and
+ * tables of 2 to 10 seats. The button rotates every hand and
  * per-street action order follows standard rules:</p>
  *
  * <ul>
@@ -68,6 +69,9 @@ public final class MultiwaySimulator {
     private final double smallBlind;
     private final double startingStack;
 
+    private AnteMode anteMode;
+    private boolean straddle;
+
     // Per-hand transient flags (parallel arrays indexed by seat).
     private final boolean[] handVoluntary;
     private final boolean[] handRaisedPreflop;
@@ -77,7 +81,7 @@ public final class MultiwaySimulator {
 
     public MultiwaySimulator(int numSeats, long seed, double startingStack,
             double bigBlind, BotEvaluator evaluator) {
-        if (numSeats < 3 || numSeats > 10) {
+        if (numSeats < 2 || numSeats > 10) {
             throw new IllegalArgumentException("numSeats must be 3..10, got " + numSeats);
         }
         this.numSeats = numSeats;
@@ -121,6 +125,12 @@ public final class MultiwaySimulator {
 
     public BotStats stats(int seat) {
         return stats[seat];
+    }
+
+    /** Configure the forced bets used in subsequent hands. */
+    public void setForcedBets(AnteMode anteMode, boolean straddle) {
+        this.anteMode = anteMode;
+        this.straddle = straddle;
     }
 
     public TestDealer dealerView() {
@@ -186,9 +196,11 @@ public final class MultiwaySimulator {
             startStacks[i] = players[i].getStack();
         }
 
-        int sbIdx = (buttonIdx + 1) % numSeats;
-        int bbIdx = (buttonIdx + 2) % numSeats;
-        int utgIdx = (buttonIdx + 3) % numSeats;
+        boolean headsUp = numSeats == 2;
+        int sbIdx = headsUp ? buttonIdx : (buttonIdx + 1) % numSeats;
+        int bbIdx = (sbIdx + 1) % numSeats;
+        int utgIdx = headsUp ? sbIdx : (bbIdx + 1) % numSeats;
+        int firstPostflop = headsUp ? bbIdx : sbIdx;
         dealer.setRoles(players[buttonIdx].getNickname(),
                 players[sbIdx].getNickname(),
                 players[bbIdx].getNickname(),
@@ -203,6 +215,16 @@ public final class MultiwaySimulator {
         dealer.setBetCount(0);
         dealer.setLimpersCount(0);
         dealer.setLastAggressor(null);
+        postAntes(sbIdx, bbIdx);
+        int firstPreflop = utgIdx;
+        if (straddle && !headsUp && players[utgIdx].getStack() > 0) {
+            double posted = Math.min(2 * bigBlind, players[utgIdx].getStack());
+            players[utgIdx].commit(posted);
+            dealer.setPot(dealer.getBote_total() + posted);
+            dealer.setCurrentBet(Math.max(dealer.getApuesta_actual(), posted));
+            firstPreflop = (utgIdx + 1) % numSeats;
+            dealer.setStraddleUtgNick(players[firstPreflop].getNickname());
+        }
 
         for (Bot b : bots) {
             b.resetBot();
@@ -221,7 +243,7 @@ public final class MultiwaySimulator {
                 openStreet(runout, street);
             }
 
-            int firstToAct = (street == Crupier.PREFLOP) ? utgIdx : sbIdx;
+            int firstToAct = street == Crupier.PREFLOP ? firstPreflop : firstPostflop;
             boolean foldedOut = SimulatedBettingRound.play(dealer, players, bots, firstToAct,
                     MAX_ACTIONS_PER_STREET, this::recordAction);
 
@@ -255,13 +277,40 @@ public final class MultiwaySimulator {
         return new HandResult(winners, pot);
     }
 
+    private void postAntes(int sbIdx, int bbIdx) {
+        if (anteMode == null) {
+            return;
+        }
+        double ante = anteMode.amount(bigBlind);
+        int payer = switch (anteMode) {
+            case SMALL_BLIND -> sbIdx;
+            case BIG_BLIND -> bbIdx;
+            case BUTTON -> buttonIdx;
+            case TRADITIONAL -> -1;
+        };
+        for (int i = 0; i < numSeats; i++) {
+            if (payer >= 0 && payer != i) {
+                continue;
+            }
+            TestBotPlayer player = players[i];
+            double paid = Math.min(ante, player.getStack());
+            double streetBet = player.getBet();
+            player.commit(paid);
+            player.setBet(streetBet);
+            dealer.setPot(dealer.getBote_total() + paid);
+            if (payer == i) {
+                dealer.recordTableAnte(player, paid);
+            }
+        }
+    }
+
     private void rotateButton() {
         buttonIdx = (buttonIdx + 1) % numSeats;
     }
 
     private int findOnlyActive() {
         for (int i = 0; i < numSeats; i++) {
-            if (players[i].isActivo()) {
+            if (players[i].isContending()) {
                 return i;
             }
         }
@@ -271,7 +320,7 @@ public final class MultiwaySimulator {
     private int countActive() {
         int n = 0;
         for (TestBotPlayer p : players) {
-            if (p.isActivo()) {
+            if (p.isContending()) {
                 n++;
             }
         }
@@ -281,7 +330,7 @@ public final class MultiwaySimulator {
     private boolean noMoreBetting() {
         int withChips = 0;
         for (TestBotPlayer player : players) {
-            if (player.isActivo() && player.getStack() > 0 && ++withChips > 1) {
+            if (player.isContending() && player.getStack() > 0 && ++withChips > 1) {
                 return false;
             }
         }
@@ -342,7 +391,7 @@ public final class MultiwaySimulator {
             if (handRaisedPreflop[i]) {
                 stats[i].handsWithPreflopRaise++;
             }
-            if (reachedShowdown && players[i].isActivo()) {
+            if (reachedShowdown && players[i].isContending()) {
                 stats[i].handsReachedShowdown++;
                 if (winners.contains(i)) {
                     stats[i].handsWonAtShowdown++;

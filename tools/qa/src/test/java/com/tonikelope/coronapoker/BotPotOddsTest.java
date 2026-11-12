@@ -30,6 +30,13 @@ class BotPotOddsTest {
     }
 
     @Test
+    void differentOpponentRangesPriceTheMainAndSidePotsBySeat() {
+        var seats = List.of(seat(50, 0, 0), seat(100, 0, 0));
+        double[] shares = {1, 0.75, 0.50, 0.30};
+        assertEquals(45, BotPotOdds.ev(5000, 5000, 20000, seats, eligible -> shares[eligible]), 1e-9);
+    }
+
+    @Test
     void anOpponentsRangeDoesNotAffectBranchesWhereTheyFold() {
         var seats = List.of(seat(20, 0, 0), seat(20, 80, 0.5));
         assertEquals(20.5, BotPotOdds.ev(2000, 8000, 6000, seats,

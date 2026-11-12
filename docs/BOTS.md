@@ -98,9 +98,20 @@ and counts wins and ties against every legal heads-up holding on that runout.
 It averages the pot shares across runouts, so all opponents see the same
 future board. The uniform model is exact for one or two opponents and counts
 only disjoint hole-card pairs when two opponents are present. With three or
-more opponents it approximates their holdings as independent on each runout,
-bounded by the exact two-opponent share. The river uses the final board.
-Expected value uses the appropriate opponents for each eligible pot layer.
+more opponents, it applies blocker corrections to the uniform approximation.
+HARD can evaluate the ranges jointly with four or more opponents, or with
+three opponents on the river. This requires informative public observations
+for at least two opponents. The remaining ranges are uniform. The joint
+model conditions the ranges on a legal deal, removing the bot's cards, the
+board and any cards already assigned to another range. It uses one shared
+runout on the flop and turn.
+
+On the river, the three-opponent solver counts disjoint holdings exactly.
+The general solver enumerates small river range products exactly and uses
+deterministic importance sampling for larger products and earlier streets.
+Sparse or highly concentrated samples can fall back to the simpler equity
+model. Each side pot uses only its eligible opponents. The estimator splits
+the pot among tied winners.
 
 ### Card encoding
 
@@ -125,11 +136,12 @@ board. Draw potential retains parity with the Alberta reference.
 `AlbertaEvaluatorAdapter` uses the uncached `ppot_raw` path as a reference
 for uniform opponents. The weighted API uses the cached Alberta path with
 a Java fallback for seven-card ranking. The uniform enumeration supplies
-the base equity. HARD can reweight a bettor's holdings when they entered
-voluntarily preflop and up to three opponents remain. It also uses that
-information when pricing a heads-up river check or bet. With both hole-card pairs fixed, potential
-counts 990 two-card flop runouts, 45 one-card flop continuations, or 44
-possible rivers from the turn.
+the base equity. HARD reweights holdings using public preflop participation
+and observed checks, calls, bets and raises. When both opponents on the
+river have informative ranges, it evaluates their disjoint holdings
+together. Heads-up river decisions can also use the observed range.
+With both hole-card pairs fixed, potential counts 990 two-card flop runouts,
+45 one-card flop continuations, or 44 possible rivers from the turn.
 
 ---
 
@@ -289,9 +301,11 @@ abandoned if the opponent overbets or a nit applies real pressure.
 
 ## 7. Opponent modelling
 
-Each table owns an **`OpponentTracker`** per nickname across hands. The
-dealer records accepted actions and the bot reads the same observations.
-An all-in that only matches an existing bet counts as a call.
+Each table keeps **`GameOpponentStats`** per nickname across hands. The
+dealer records accepted actions from every seat and the bot reads the same
+public observations for human and bot opponents. An all-in that only
+matches an existing bet counts as a call. Folded seats still affect table
+size while their hands are ineligible for pot equity.
 
 - **VPIP** (voluntarily put money in pot), **PFR** (preflop raise) and **AF**
   (aggression factor) are the headline stats.
@@ -410,10 +424,12 @@ profile in `tools/qa/pom.xml`): `qa-fast` runs deterministic tests,
 slow non-bot lanes.
 Bot decision, pot, evaluator and simulator regressions run in `qa-fast`,
 `qa-all`, `qa-headless-all` and `qa-bots`. The statistical campaigns run
-only in the opt-in bot lane:
+in the opt-in bot lane. Run the extended table-size and profile gates with
+`qa-bot-quality`.
 
-```
+```sh
 mvn -f tools/reactor/pom.xml verify -P qa-bots
+mvn -f tools/reactor/pom.xml verify -P qa-bot-quality
 ```
 
 The offline betting rounds use the table's raise reducer and settle side pots
@@ -426,7 +442,7 @@ The statistical matchups reset stacks each hand at controlled depths.
 The difficulty checks require a minimum observed margin and evidence of an
 advantage over zero. Fixed-strategy matchups report session-level uncertainty.
 The fixed TAG has regression floors of `-35 bb/100` heads-up and
-`-100 bb/100` at a six-handed table that alternates between 40 and 100 BB.
+`-30 bb/100` at a six-handed table that alternates between 40 and 100 BB.
 Mixed fields shuffle five fixed opponents across seats with stacks from
 30 to 160 BB. Those gates require a positive edge supported by session
 results.
@@ -451,6 +467,7 @@ validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 | Decision engine | [`Bot.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Bot.java) |
 | Evaluation contracts | `bot/eval/BotEvaluator.java`, `HandStrengthEvaluator.java`, `DrawPotentialEvaluator.java`, `HandRankResolver.java`, `Potential.java` |
 | Evaluators | `bot/eval/AlbertaEvaluatorAdapter.java` (reference), `MemoizedAlbertaEvaluator.java` + `MemoizedHandPotential.java` (production) |
+| Weighted opponent ranges | `OpponentRangeModel.java`, `ThreeSeatShowdown.java`, `MultiwayRangeShowdown.java` |
 | Table/player contracts | `bot/context/DealerView.java`, `BotPlayerView.java` |
 | Combinatorial core | `org.alberta.poker.*` (`HandPotential`, `HandEvaluator`, `Deck`, `Hand`, `Card`) |
 | QA harness | [`tools/qa`](../tools/qa) |

@@ -332,9 +332,20 @@ mvn -f tools/reactor/pom.xml verify -P qa-headless-all
 | `qa-headless-all` | All non-visual integrity checks except bot quality and the environment-specific ACL smoke |
 | `qa-all` | Fast and slow replayable QA except bot quality |
 | `qa-bots` | Bot and simulator regressions, statistical matchups, evaluator parity and bot game-flow smoke |
+| `qa-bot-quality` | Extended HARD campaign for all profiles and table sizes from 2 to 10 |
 
 The focused profiles overlap with the aggregate lanes. Do not run `qa-fast`
 immediately before `qa-all` unless the duplicated work is intentional.
+Run the extended HARD profile campaign with
+`mvn -f tools/reactor/pom.xml verify -P qa-bot-quality`.
+Each profile plays 1,008 independent sessions of 60 hands per seed against
+five TAG opponents. The production profile mix is also tested at each table
+size from 2 to 10, with 480 to 504 sessions per seed. Each profile also plays
+600 sessions per seed at ten seats. A separate three-handed STATION gate
+checks results and style. All campaigns rotate seats and stack sizes. The gate requires a positive mean on each seed and a
+positive pooled 95% lower bound computed across sessions. Run this lane before
+accepting changes that may affect the quality of a HARD profile.
+
 The `bot-regression` tag selects the deterministic checks in `qa-bots`,
 including `BotDecisionAuditTest`, `BotPotOddsTest`, `AlbertaEvaluatorAdapterTest`,
 `SimulatorRulesTest` and `FixedStrategyBotTest`. The `bot-campaign` tag

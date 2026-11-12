@@ -177,6 +177,15 @@
             <id>qa-bots</id>
             <properties>
                 <qa.groups>bot-regression | bot-campaign</qa.groups>
+                <qa.excludedGroups>bot-quality</qa.excludedGroups>
+            </properties>
+        </profile>
+
+        <!-- Independent seeds and larger samples for each HARD profile. -->
+        <profile>
+            <id>qa-bot-quality</id>
+            <properties>
+                <qa.groups>bot-quality</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
             </properties>
         </profile>

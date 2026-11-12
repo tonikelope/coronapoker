@@ -29,7 +29,11 @@ class QaLaneWiringTest {
 
         String botBlock = profileBlock(pom, "qa-bots");
         assertTrue(botBlock.contains("<qa.groups>bot-regression | bot-campaign</qa.groups>"));
-        assertTrue(botBlock.contains("<qa.excludedGroups></qa.excludedGroups>"));
+        assertTrue(botBlock.contains("<qa.excludedGroups>bot-quality</qa.excludedGroups>"));
+
+        String qualityBlock = profileBlock(pom, "qa-bot-quality");
+        assertTrue(qualityBlock.contains("<qa.groups>bot-quality</qa.groups>"));
+        assertTrue(qualityBlock.contains("<qa.excludedGroups></qa.excludedGroups>"));
     }
 
     private static String profileBlock(String pom, String profile) {

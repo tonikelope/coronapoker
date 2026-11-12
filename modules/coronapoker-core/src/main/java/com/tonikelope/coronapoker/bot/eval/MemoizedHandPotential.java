@@ -129,18 +129,25 @@ final class MemoizedHandPotential {
         hero.addCard(hole2);
         int heroRank = evaluator.rankHand(hero);
         RunoutOdds odds = new RunoutOdds(1, live.length, opponents);
+        byte[] outcomes = opponents >= 3 ? new byte[live.length * live.length] : null;
         for (int a = 0; a < live.length - 1; a++) {
             opponent.addCard(live[a]);
             for (int b = a + 1; b < live.length; b++) {
                 opponent.addCard(live[b]);
-                odds.record(0, a, b, outcome(heroRank, evaluator.rankHand(opponent)));
+                int result = outcome(heroRank, evaluator.rankHand(opponent));
+                odds.record(0, a, b, result);
+                if (outcomes != null && result != BEHIND) {
+                    outcomes[a * live.length + b] = (byte) (result == AHEAD ? 1 : 2);
+                }
                 opponent.removeCard();
             }
             opponent.removeCard();
         }
         double[] equity = new double[opponents + 1];
         equity[0] = 1;
-        odds.addEquity(equity, 0, live.length);
+        if (opponents > 0) {
+            odds.addEquity(equity, 0, live.length, outcomes);
+        }
         return new PostflopEvaluation(odds.showdownOdds(0, live.length), Potential.ZERO, equity);
     }
 
@@ -255,10 +262,10 @@ final class MemoizedHandPotential {
                 for (int a = 0; a < cards; a++) {
                     if (twoCards) {
                         for (int b = a + 1; b < cards; b++) {
-                            terminal.addEquity(equity, a * cards + b, availableCards);
+                            terminal.addEquity(equity, a * cards + b, availableCards, null);
                         }
                     } else {
-                        terminal.addEquity(equity, a, availableCards);
+                        terminal.addEquity(equity, a, availableCards, null);
                     }
                 }
                 for (int i = 1; i <= opponents; i++) {
@@ -307,27 +314,18 @@ final class MemoizedHandPotential {
             return new ShowdownOdds((double) wins[runout] / pairs, (double) ties[runout] / pairs);
         }
 
-        private void addEquity(double[] equity, int runout, int availableCards) {
+        private void addEquity(double[] equity, int runout, int availableCards, byte[] riverOutcomes) {
             int opponentPairs = combinationsOfTwo(availableCards);
             double win = (double) wins[runout] / opponentPairs;
-            double unbeaten = (double) (wins[runout] + ties[runout]) / opponentPairs;
-            double shareVsTwo = equity.length > 2 ? exactShareVsTwo(runout, opponentPairs, availableCards) : 1;
-            double sum = 1;
-            double winPower = 1;
-            for (int i = 1; i < equity.length; i++) {
-                winPower *= win;
-                sum = sum * unbeaten + winPower;
-                if (i == 1) {
-                    equity[i] += sum / 2;
-                } else if (i == 2) {
-                    equity[i] += shareVsTwo;
-                } else {
-                    equity[i] += Math.min(shareVsTwo, sum / (i + 1));
-                }
+            double tie = (double) ties[runout] / opponentPairs;
+            equity[1] += win + tie / 2;
+            if (equity.length > 2) {
+                addMultiwayEquity(equity, runout, availableCards, opponentPairs, win, tie, riverOutcomes);
             }
         }
 
-        private double exactShareVsTwo(int runout, int pairs, int availableCards) {
+        private void addMultiwayEquity(double[] equity, int runout, int availableCards, int pairs,
+                double singleWin, double singleTie, byte[] riverOutcomes) {
             int win = wins[runout];
             int tie = ties[runout];
             int winWin = win * win + win;
@@ -344,7 +342,12 @@ final class MemoizedHandPotential {
                 tieTie -= t * t;
             }
             // Either order of a win and a tie pays half, and two ties pay a third.
-            return (winWin + winTie + tieTie / 3.0) / (pairs * combinationsOfTwo(availableCards - 2));
+            double total = pairs * combinationsOfTwo(availableCards - 2);
+            equity[2] += (winWin + winTie + tieTie / 3.0) / total;
+            if (equity.length > 3) {
+                MultiwayShowdown.addShares(equity, singleWin, singleTie, winWin / total,
+                        winTie / total, tieTie / total, riverOutcomes, availableCards);
+            }
         }
     }
 }

@@ -220,14 +220,14 @@ public final class HeadsUpSimulator {
             boolean foldedOut = SimulatedBettingRound.play(dealer, new TestBotPlayer[]{p1, p2},
                     new Bot[]{bot1, bot2}, first, MAX_ACTIONS_PER_STREET, this::recordAction);
             if (foldedOut) {
-                TestBotPlayer winner = p1.isActivo() ? p1 : p2;
+                TestBotPlayer winner = p1.isContending() ? p1 : p2;
                 double pot = dealer.getBote_total();
                 winner.setStack(winner.getStack() + pot);
                 winnerIndex = (winner == p1) ? 0 : 1;
                 finalizeHandStats(aStartStack, bStartStack, false, winnerIndex);
                 return new HandResult(winnerIndex, pot);
             }
-            if (!p1.isActivo() || !p2.isActivo()) {
+            if (!p1.isContending() || !p2.isContending()) {
                 break;
             }
             if (p1.getStack() <= 0 || p2.getStack() <= 0) {

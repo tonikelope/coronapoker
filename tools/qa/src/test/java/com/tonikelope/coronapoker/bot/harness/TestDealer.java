@@ -11,6 +11,7 @@ package com.tonikelope.coronapoker.bot.harness;
 import com.tonikelope.coronapoker.BettingRoundState;
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import java.util.Map;
 public final class TestDealer implements DealerView {
 
     private boolean raiseAllowed = true;
+    private boolean strictBotRaises;
     private BettingRoundState bettingRound;
     private int street;
     private double pot;
@@ -40,7 +42,11 @@ public final class TestDealer implements DealerView {
     private String sbNick;
     private String bbNick;
     private String utgNick;
+    private String straddleUtgNick;
+    private BotPlayerView tableAntePayer;
+    private double tableAnte;
     private BotPlayerView lastAggressor;
+    private BotPlayerView lastWagerAggressor;
     private String preflopAggressorNick;
     private final List<BotPlayerView> seating = new ArrayList<>();
     private final Map<String, Bot.OpponentTracker> opponents = new HashMap<>();
@@ -59,6 +65,14 @@ public final class TestDealer implements DealerView {
         }
     }
 
+    public void requireLegalBotRaises() {
+        strictBotRaises = true;
+    }
+
+    boolean requiresLegalBotRaises() {
+        return strictBotRaises;
+    }
+
     public void setRaiseAllowed(boolean raiseAllowed) {
         this.raiseAllowed = raiseAllowed;
     }
@@ -73,6 +87,7 @@ public final class TestDealer implements DealerView {
     }
 
     public void recordRaise(BotPlayerView player, boolean fullRaise) {
+        lastWagerAggressor = player;
         if (fullRaise) {
             lastAggressor = player;
         }
@@ -103,9 +118,15 @@ public final class TestDealer implements DealerView {
 
     public void setLastAggressor(BotPlayerView lastAggressor) {
         this.lastAggressor = lastAggressor;
+        this.lastWagerAggressor = lastAggressor;
         if (lastAggressor != null && street == Crupier.PREFLOP) {
             preflopAggressorNick = lastAggressor.getNickname();
         }
+    }
+
+    @Override
+    public BotPlayerView getLastWagerAggressor() {
+        return lastWagerAggressor;
     }
 
     @Override
@@ -125,7 +146,28 @@ public final class TestDealer implements DealerView {
         seating.addAll(players);
     }
 
+    void setStraddleUtgNick(String nickname) {
+        straddleUtgNick = nickname;
+    }
+
+    void recordTableAnte(BotPlayerView payer, double amount) {
+        tableAntePayer = payer;
+        tableAnte = amount;
+    }
+
+    double tableAntePaidBy(BotPlayerView player) {
+        return tableAntePayer == player ? tableAnte : 0;
+    }
+
+    @Override
+    public double matchedContribution(BotPlayerView player) {
+        return MoneyMath.clean(player.getBote() - tableAntePaidBy(player));
+    }
+
     public void resetBoard() {
+        straddleUtgNick = null;
+        tableAntePayer = null;
+        tableAnte = 0;
         Arrays.fill(boardCards, -1);
         boardSize = 0;
     }
@@ -200,7 +242,7 @@ public final class TestDealer implements DealerView {
 
     @Override
     public String getStraddleUtgNick() {
-        return null; // el harness no simula straddle
+        return straddleUtgNick;
     }
 
     @Override
@@ -215,6 +257,11 @@ public final class TestDealer implements DealerView {
     @Override
     public Bot.OpponentTracker getOpponentStats(String nickname) {
         return opponents.get(nickname);
+    }
+
+    @Override
+    public boolean isContender(BotPlayerView player) {
+        return player instanceof TestBotPlayer testPlayer ? testPlayer.isContending() : player.isActivo();
     }
 
     @Override

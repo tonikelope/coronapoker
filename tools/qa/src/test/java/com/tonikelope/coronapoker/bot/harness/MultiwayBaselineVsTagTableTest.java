@@ -18,6 +18,6 @@ class MultiwayBaselineVsTagTableTest extends MultiwayBaselineBase {
     void hardLimitsLossesAgainstASelectiveSixMaxTable() {
         String label = "HARD vs 5 fixed TAG";
         double bb100 = runMatchup(label, FixedStrategyBot.Strategy.TAG);
-        assertAtLeast(label, bb100, -100);
+        assertAtLeast(label, bb100, -30);
     }
 }

@@ -1,11 +1,14 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.bot.harness;
 
+import com.tonikelope.coronapoker.BetRules;
 import com.tonikelope.coronapoker.Bot;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
+import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.game.GamePlayerController;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -50,6 +53,70 @@ class SimulatorRulesTest {
         assertEquals(30, players[0].getStack());
         assertEquals(50, players[1].getStack());
         assertEquals(80, players[2].getStack());
+    }
+
+    @Test
+    void tableAnteGoesToTheMainPotWithoutChangingSidePotEligibility() {
+        TestBotPlayer[] players = {
+            paidSeat("short", 2, 12, 25),
+            paidSeat("kings", 100, 11, 24),
+            paidSeat("ante-payer", 102, 10, 23)
+        };
+        TestDealer dealer = river(204);
+        dealer.recordTableAnte(players[2], 2);
+        assertEquals(100, dealer.matchedContribution(players[2]));
+        assertEquals(Set.of(0, 1), SimulatedShowdown.settle(players, dealer, evaluator));
+        assertEquals(8, players[0].getStack());
+        assertEquals(196, players[1].getStack());
+        assertEquals(0, players[2].getStack());
+    }
+
+    @Test
+    void straddlerHasTheLastOptionAndTheAnteDoesNotIncreaseTheWager() {
+        var sim = new MultiwaySimulator(6, 20261112, 100, 2, evaluator);
+        int button = sim.currentButton();
+        int straddler = (button + 3) % 6;
+        int first = (straddler + 1) % 6;
+        List<Integer> preflop = new ArrayList<>();
+        sim.setForcedBets(AnteMode.BIG_BLIND, true);
+        for (int seat = 0; seat < sim.numSeats(); seat++) {
+            int index = seat;
+            sim.setBot(seat, new Bot(sim.player(seat)) {
+                @Override
+                public int calculateBotDecision(int opponents) {
+                    TestDealer dealer = sim.dealerView();
+                    if (dealer.getStreet() == Crupier.PREFLOP) {
+                        if (preflop.isEmpty()) {
+                            assertEquals(sim.player(first).getNickname(), dealer.getStraddleUtgNick());
+                            assertEquals(sim.player(straddler).getNickname(), dealer.getUtg_nick());
+                            assertEquals(9, dealer.getBote_total());
+                            assertEquals(4, dealer.getApuesta_actual());
+                            assertEquals(6, BetRules.minRaiseTo(dealer.getApuesta_actual(),
+                                    dealer.getUltimo_raise(), dealer.getCiega_grande()));
+                            assertEquals(0, dealer.getConta_bet());
+                        }
+                        preflop.add(index);
+                    }
+                    return GamePlayerController.CHECK;
+                }
+            });
+        }
+        sim.playOneHand();
+        assertEquals(List.of(first, (first + 1) % 6, (first + 2) % 6, (first + 3) % 6,
+                (first + 4) % 6, straddler), preflop);
+        assertEquals(0, sim.stats(straddler).handsWithPreflopRaise);
+    }
+
+    @Test
+    void foldsKeepTableSeatsAndAreClearedAtTheNextHand() {
+        TestBotPlayer player = new TestBotPlayer("button", 100);
+        TestDealer dealer = new TestDealer();
+        dealer.setSeating(List.of(player));
+        player.fold();
+        assertEquals(1, dealer.getJugadoresActivos());
+        assertFalse(dealer.isContender(player));
+        player.resetHandContribution();
+        assertTrue(dealer.isContender(player));
     }
 
     @Test
@@ -159,6 +226,8 @@ class SimulatorRulesTest {
         assertFalse(SimulatedBettingRound.play(dealer, players, bots, 0, 20, (seat, folded, raised, paid, toCall) -> {
             if (seat == 2 && raised) {
                 assertEquals(8, dealer.getUltimo_raise());
+                assertEquals("opener", dealer.getLast_aggressor().getNickname());
+                assertEquals("short", dealer.getLastWagerAggressor().getNickname());
                 assertFalse(dealer.canPlayerRaise("opener"));
                 assertFalse(dealer.canPlayerRaise("caller"));
                 assertTrue(dealer.canPlayerRaise("unacted"));

@@ -172,7 +172,8 @@ const send = request => new Promise((resolve, reject) => {
 });
 const query = new URLSearchParams(location.search);
 const botMarker = query.get('botMarker');
-const amountZeros = query.get('amountZeros') || 'if_space';
+const amountZeros = query.get('amountZeros');
+const keepTrailingZero = amountZeros === 'if_space' || amountZeros === 'always';
 const locale = query.get('lang') === 'en' ? 'en' : 'es';
 const t = key => strings[locale][key];
 let number, amount, integer, date, shortDate;
@@ -203,7 +204,9 @@ function translate() {
   for (const id of ['from', 'through']) $(id).placeholder = locale === 'en' ? 'YYYY-MM-DD' : 'AAAA-MM-DD';
   number = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
   amount = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: amountZeros === 'never' ? 0 : 2, maximumFractionDigits: 2
+    minimumFractionDigits: keepTrailingZero ? 2 : 0,
+    maximumFractionDigits: 2,
+    trailingZeroDisplay: 'stripIfInteger'
   });
   integer = new Intl.NumberFormat(locale);
   date = new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'});

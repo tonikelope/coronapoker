@@ -94,22 +94,37 @@ class GdxChipAmountTextTest {
     void amountZeroPreferenceUsesTheSameDefaultForStorageAndTheSelector() {
         Properties values = new Properties();
         var choice = GdxAppearanceOptions.AMOUNT_ZEROS;
-        assertEquals(GdxChipAmountText.ZeroMode.IF_SPACE,
+        assertEquals(GdxChipAmountText.ZeroMode.NEVER,
                 GdxChipAmountText.ZeroMode.configured(values));
-        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(choice, values));
         GdxAppearanceOptions.select(choice, values, 2);
         assertEquals(GdxChipAmountText.ZeroMode.ALWAYS,
                 GdxChipAmountText.ZeroMode.configured(values));
         GdxSettingsContract.restoreAppearancePageDefaults(values, 0, true);
-        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(choice, values));
         values.setProperty(choice.key(), "invalid");
-        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
-        assertEquals(GdxChipAmountText.ZeroMode.IF_SPACE,
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(choice, values));
+        assertEquals(GdxChipAmountText.ZeroMode.NEVER,
                 GdxChipAmountText.ZeroMode.configured(values));
         assertEquals("0.03 / 10", GdxChipAmountText.ZeroMode.NEVER.display("0.03 / 10.00"));
-        assertEquals("1.20K", GdxChipAmountText.ZeroMode.ALWAYS.display("1.2K"));
+        assertEquals("1.2K", GdxChipAmountText.ZeroMode.ALWAYS.display("1.2K"));
         assertEquals("0.10 / 0.20",
                 GdxChipAmountText.ZeroMode.ALWAYS.display("0.1 / 0.2"));
+    }
+
+    @Test
+    void everyModeKeepsWholeAmountsFreeOfDecimalZeros() {
+        for (var mode : GdxChipAmountText.ZeroMode.values()) {
+            assertEquals("9 / 0 / +3 / -7", mode.display("9.00 / 0.00 / +3.0 / -7.00"));
+            assertEquals("RAISE (+10)", mode.display("RAISE (+10.00)"));
+            assertEquals("10", mode.display("10"));
+            assertEquals("1.00001K", mode.display("1.00001K"));
+            assertEquals("6.02", mode.display("6.02"));
+            assertEquals("PAIR (60.00%)", mode.display("PAIR (60.00%)"));
+        }
+        assertEquals("6.2", GdxChipAmountText.ZeroMode.NEVER.display("6.20"));
+        assertEquals("6.20", GdxChipAmountText.ZeroMode.IF_SPACE.display("6.2"));
+        assertEquals("6.20", GdxChipAmountText.ZeroMode.ALWAYS.display("6.2"));
     }
 
     @Test

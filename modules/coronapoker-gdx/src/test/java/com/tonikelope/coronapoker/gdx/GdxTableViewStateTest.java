@@ -2315,19 +2315,19 @@ final class GdxTableViewStateTest {
     void communityHudKeepsSwingBlindFlagsAndCompactHandCounter() {
         GdxGameText spanish = new GdxGameText("es");
 
-        assertEquals("CIEGAS  (A) 0.10 / 0.20",
+        assertEquals("CIEGAS  (A) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.TRADITIONAL, 0, 1, 0));
-        assertEquals("CIEGAS  (BBA) 0.10 / 0.20",
+        assertEquals("CIEGAS  (BBA) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.BIG_BLIND, 0, 1, 0));
-        assertEquals("CIEGAS  (BA) 0.10 / 0.20",
+        assertEquals("CIEGAS  (BA) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.BUTTON, 0, 1, 0));
-        assertEquals("CIEGAS  (SBA) 0.10 / 0.20",
+        assertEquals("CIEGAS  (SBA) 0.1 / 0.2",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.SMALL_BLIND, 0, 1, 0));
-        assertEquals("CIEGAS  0.20 / 0.40 @ 3* (2)",
+        assertEquals("CIEGAS  0.2 / 0.4 @ 3* (2)",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.2d, 0.4d, null, 3, 2, 2));
         assertEquals("CIEGAS  1 / 2 @ 15'",
@@ -3271,11 +3271,11 @@ final class GdxTableViewStateTest {
                 ActionControlState.RaiseAction.DISABLED,
                 0d, 0d, 0d, 0d, false, false, -1, 0d, 10d);
 
-        assertEquals("IR (+0.20)",
+        assertEquals("IR (+0.2)",
                 CoronaPokerGdxTable.callLabel(disabledWithCall, spanish));
         assertEquals("PASAR", CoronaPokerGdxTable.callLabel(
                 disabledCheck, spanish));
-        assertEquals("CALL (+0.20)",
+        assertEquals("CALL (+0.2)",
                 CoronaPokerGdxTable.callLabel(disabledWithCall, english));
         assertEquals("CHECK", CoronaPokerGdxTable.callLabel(
                 disabledCheck, english));

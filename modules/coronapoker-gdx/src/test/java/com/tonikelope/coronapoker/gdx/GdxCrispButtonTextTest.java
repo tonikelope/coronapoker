@@ -34,7 +34,7 @@ final class GdxCrispButtonTextTest {
 
         GdxCrispButtonText.resolveAmountWithinBox(
                 glyph, "+10.00", 50, 10, tiers, result);
-        assertEquals("+10.0", result.text());
+        assertEquals("+10", result.text());
         assertSame(large, result.font());
 
         GdxCrispButtonText.resolveAmountWithinBox(
@@ -146,9 +146,9 @@ final class GdxCrispButtonTextTest {
         assertEquals("+0.30", result.text());
         assertSame(small, result.font());
 
-        GdxCrispButtonText.resolveAmountWithinBox(glyph, "+10", 80, 10, tiers,
+        GdxCrispButtonText.resolveAmountWithinBox(glyph, "+10.00", 30, 10, tiers,
                 result, GdxChipAmountText.ZeroMode.ALWAYS);
-        assertEquals("+10.00", result.text());
+        assertEquals("+10", result.text());
         assertSame(large, result.font());
     }
 

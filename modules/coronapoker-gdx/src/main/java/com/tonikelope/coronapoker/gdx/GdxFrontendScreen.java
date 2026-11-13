@@ -9823,7 +9823,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             choice.label(gameText),
                             GdxSettingsContract.markDefault(
                                     GdxAppearanceOptions.selectedLabel(choice, initialProperties, gameText),
-                                    amountZeroMode() == GdxChipAmountText.ZeroMode.IF_SPACE),
+                                    amountZeroMode() == GdxChipAmountText.ZeroMode.DEFAULT),
                             () -> openAppearanceChoiceDropdown(choice, anchor), true);
                 } else {
                     var option = page.options().get(row
@@ -10069,8 +10069,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, uppercase(label), row.label().x,
                 y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, row.label().width);
-        if (label.equals(settingsGameText("row.initial_buyin"))
-                || label.equals(settingsGameText("row.auto_call"))) {
+        if (label.equals(settingsGameText("row.auto_call"))) {
             moneyTextFit(uiFont, value, row.value().x + row.value().width / 2f,
                     y + h / 2f + 11f, enabled ? GOLD : DISABLED, true, row.value().width);
         } else {
@@ -12725,9 +12724,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void initialBuyinChoice(float x, float y, float width, float height,
             NewGameTableDraft draft, boolean economyEditable) {
         settingsChoice(x, y, width, height, settingsGameText("row.initial_buyin"),
-                GdxChipAmountText.displayChipLabel(
-                        GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
-                        amountZeroMode()),
+                GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
                 this::openInitialBuyinEditor, economyEditable && draft.fixedBuyin());
     }
 

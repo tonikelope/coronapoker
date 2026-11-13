@@ -219,18 +219,16 @@ final class GdxCrispButtonText {
     static void resolveAmountWithinBox(GlyphLayout glyph, String value,
             float contentWidth, float contentHeight, FontTiers tiers,
             Result result) {
-        resolveWithinBox(glyph, value, contentWidth, contentHeight, tiers,
-                result, FIT_AMOUNT_BOX);
+        resolveAmountWithinBox(glyph, value, contentWidth, contentHeight, tiers,
+                result, GdxChipAmountText.ZeroMode.IF_SPACE);
     }
 
     static void resolveAmountWithinBox(GlyphLayout glyph, String value,
             float contentWidth, float contentHeight, FontTiers tiers,
             Result result, GdxChipAmountText.ZeroMode mode) {
-        if (mode == GdxChipAmountText.ZeroMode.IF_SPACE) {
-            resolveAmountWithinBox(glyph, value, contentWidth, contentHeight, tiers, result);
-        } else {
-            resolveWithinBox(glyph, mode.display(value), contentWidth, contentHeight, tiers, result);
-        }
+        String text = mode.display(Objects.requireNonNullElse(value, ""));
+        resolveWithinBox(glyph, text, contentWidth, contentHeight, tiers, result,
+                mode == GdxChipAmountText.ZeroMode.IF_SPACE ? FIT_AMOUNT_BOX : FIT_BOX);
     }
 
     private static void resolveWithinBox(GlyphLayout glyph, String value,

@@ -122,12 +122,12 @@ final class GdxFunctionalLabelOracle {
                     projection.blindIncreaseInterval(),
                     projection.blindIncreaseType(),
                     projection.blindIncreaseCount());
-            assertTrue(visibleBlinds.contains(
-                    CoronaPokerGdxTable.formatAmount(info.smallBlind()))
-                    && visibleBlinds.contains(
-                            CoronaPokerGdxTable.formatAmount(info.bigBlind())),
-                    "GDX blind label omits the authoritative values: "
-                    + visibleBlinds);
+            var zeroMode = GdxChipAmountText.ZeroMode.DEFAULT;
+            String expectedBlinds = zeroMode.display(GdxChipAmountText.format(info.smallBlind()))
+                    + " / " + zeroMode.display(GdxChipAmountText.format(info.bigBlind()));
+            assertTrue(visibleBlinds.contains(" " + expectedBlinds + " ")
+                    || visibleBlinds.endsWith(" " + expectedBlinds),
+                    "GDX blind label omits the authoritative values: " + visibleBlinds);
             String visibleHand = CoronaPokerGdxTable.communityHandText(text,
                     projection.handNumber(), projection.maximumHands(),
                     projection.lastHand());

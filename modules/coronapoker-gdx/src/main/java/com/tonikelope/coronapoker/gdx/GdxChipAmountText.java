@@ -30,14 +30,17 @@ final class GdxChipAmountText {
             "([0-9]+(?:[.,][0-9]+)?)([KMB])", Pattern.CASE_INSENSITIVE);
 
     static final String ZEROS_KEY = "amount_decimal_zeros";
-    private static final Pattern AMOUNT_TOKEN = Pattern.compile(
-            "([+-]?[0-9]+(?:\\.[0-9]+)?)([KMB]?)");
-    private static final Pattern FRACTIONAL_AMOUNT = Pattern.compile(
-            "(?<![\\p{L}\\p{N}.,])[0-9]+\\.([0-9])(?=[KMB]?(?![\\p{L}\\p{N}.,%]))");
+    private static final String AMOUNT_START = "(?<![\\p{L}\\p{N}.,])[0-9]+";
+    private static final String AMOUNT_END = "(?![\\p{L}\\p{N}.,%])";
+    private static final Pattern WHOLE_AMOUNT_DECIMALS = Pattern.compile(
+            "(" + AMOUNT_START + ")\\.0+(?=[KMB]?" + AMOUNT_END + ")");
+    private static final Pattern SINGLE_CENT_DIGIT = Pattern.compile(
+            AMOUNT_START + "\\.[1-9]" + AMOUNT_END);
 
     enum ZeroMode {
         NEVER("never"), IF_SPACE("if_space"), ALWAYS("always");
 
+        static final ZeroMode DEFAULT = NEVER;
         final String setting;
 
         ZeroMode(String setting) {
@@ -45,44 +48,19 @@ final class GdxChipAmountText {
         }
 
         static ZeroMode configured(Properties properties) {
-            return switch (properties.getProperty(ZEROS_KEY, IF_SPACE.setting)) {
-                case "never" -> NEVER;
+            return switch (properties.getProperty(ZEROS_KEY, DEFAULT.setting)) {
+                case "if_space" -> IF_SPACE;
                 case "always" -> ALWAYS;
-                default -> IF_SPACE;
+                default -> DEFAULT;
             };
         }
 
         String display(String label) {
-            return switch (this) {
-                case NEVER -> trimFractionalZeros(label);
-                case IF_SPACE -> label;
-                case ALWAYS -> minimumTwoDecimals(label);
-            };
+            if (label.indexOf('.') < 0) return label;
+            String normalized = WHOLE_AMOUNT_DECIMALS.matcher(label).replaceAll("$1");
+            return this == NEVER ? trimFractionalZeros(normalized)
+                    : SINGLE_CENT_DIGIT.matcher(normalized).replaceAll(match -> match.group() + "0");
         }
-    }
-
-    static String displayChipLabel(String label, ZeroMode mode) {
-        if (mode == ZeroMode.ALWAYS && !AMOUNT_TOKEN.matcher(label).matches()) {
-            if (DOT_GROUPED_CHIPS.matcher(label).matches()) {
-                return label + ",00";
-            }
-            if (COMMA_GROUPED_CHIPS.matcher(label).matches()) {
-                return label + ".00";
-            }
-        }
-        return mode.display(label);
-    }
-
-    private static String minimumTwoDecimals(String label) {
-        var amount = AMOUNT_TOKEN.matcher(label);
-        if (amount.matches()) {
-            String number = amount.group(1);
-            int dot = number.indexOf('.');
-            if (dot < 0) return number + ".00" + amount.group(2);
-            if (dot == number.length() - 2) return number + "0" + amount.group(2);
-            return label;
-        }
-        return FRACTIONAL_AMOUNT.matcher(label).replaceAll(match -> match.group() + "0");
     }
 
     private static String trimFractionalZeros(String label) {

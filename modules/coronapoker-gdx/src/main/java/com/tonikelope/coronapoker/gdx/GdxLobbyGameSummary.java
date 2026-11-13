@@ -22,7 +22,7 @@ final class GdxLobbyGameSummary {
                         ? GdxChipAmountText.buyinLabel(settings.buyin(),
                                 text.language())
                         : settings.minBuyinBb() + " - " + settings.maxBuyinBb()
-                                + " BB", settings.fixedBuyin()));
+                                + " BB"));
         String rebuy = settings.rebuy() && settings.rebuyLimit()
                 ? text.translate("gdx.lobby.rebuy_limit",
                         settings.rebuyLimitCount())

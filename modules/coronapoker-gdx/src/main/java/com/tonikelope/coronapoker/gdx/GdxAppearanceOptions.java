@@ -34,8 +34,8 @@ final class GdxAppearanceOptions {
             new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
     static final Choice AMOUNT_ZEROS = exact(GdxChipAmountText.ZEROS_KEY,
-            "CEROS DECIMALES FINALES EN LOS IMPORTES",
-            GdxChipAmountText.ZeroMode.IF_SPACE.setting,
+            "CERO FINAL EN IMPORTES CON CÉNTIMOS",
+            GdxChipAmountText.ZeroMode.DEFAULT.setting,
             new String[]{"never", "if_space", "always"},
             new String[]{"NO", "SÓLO SI HAY SITIO", "SIEMPRE"});
 

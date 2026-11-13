@@ -5105,7 +5105,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static String callLabel(ActionControlState controls, GdxGameText text) {
-        return callLabel(controls, text, GdxChipAmountText.ZeroMode.IF_SPACE);
+        return callLabel(controls, text, GdxChipAmountText.ZeroMode.DEFAULT);
     }
 
     private static String callLabel(ActionControlState controls, GdxGameText text,
@@ -12318,7 +12318,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     actionContentWidth -= iconSize + 5f;
                 }
                 if (!actionLabel.isEmpty()) {
-                    drawFittedMoneyInBox(seatActionFont, displayActionAmount(actionLabel),
+                    drawFittedMoneyInBox(seatActionFont, actionLabel,
                             actionContentX,
                             seat.podY + 13f,
                             actionContentWidth, 32f,
@@ -16369,7 +16369,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             double bigBlind, AnteMode ante, int blindIncreaseInterval,
             int blindIncreaseType, int blindIncreaseCount) {
         return communityBlindsText(text, smallBlind, bigBlind, ante, blindIncreaseInterval,
-                blindIncreaseType, blindIncreaseCount, GdxChipAmountText.ZeroMode.IF_SPACE);
+                blindIncreaseType, blindIncreaseCount, GdxChipAmountText.ZeroMode.DEFAULT);
     }
 
     private static String communityBlindsText(GdxGameText text, double smallBlind,
@@ -20949,7 +20949,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 actionTextWidth -= iconSize + 6f;
             }
             batch.setColor(Color.WHITE);
-            drawFittedMoneyInBox(actionFont, displayActionAmount(localActionBadgeLabel),
+            drawFittedMoneyInBox(actionFont, localActionBadgeLabel,
                     actionTextX, actionBadge.y,
                     actionTextWidth, actionBadge.height,
                     localActionBadgeTextColor, localSeatOpacity);
@@ -21031,7 +21031,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (preActions) {
             if (localActionMemory) {
                 drawFittedMoneyInBox(localOutcomeCompactFont,
-                        displayActionAmount(localActionMemoryText),
+                        localActionMemoryText,
                         statusX, actionY + 8f, statusWidth,
                         actionHeight - 16f,
                         localHudStatusTextColor(false, null,
@@ -21056,7 +21056,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     checkVisualText, checkContentAlpha);
         } else if (localActionMemory) {
             drawFittedMoneyInBox(localOutcomeCompactFont,
-                    displayActionAmount(localActionMemoryText),
+                    localActionMemoryText,
                     statusX, actionY + 8f, statusWidth,
                     actionHeight - 16f,
                     localHudStatusTextColor(false, null, localActionKind),
@@ -26823,7 +26823,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxSettingsContract.markDefault(
                                         GdxAppearanceOptions.selectedLabel(choice,
                                                 tableSettingsProperties(), gameText),
-                                        amountZeroMode() == GdxChipAmountText.ZeroMode.IF_SPACE),
+                                        amountZeroMode() == GdxChipAmountText.ZeroMode.DEFAULT),
                                 true, alpha);
                     } else {
                         GdxSettingsContract.ToggleOption option =
@@ -30745,14 +30745,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 nativeTextTiers(font), crispButtonText);
         drawCenteredInBox(crispButtonText.font(), crispButtonText.text(),
                 x, y, width, height, color, alpha);
-    }
-
-    private String displayActionAmount(String label) {
-        if (amountZeroMode() != GdxChipAmountText.ZeroMode.ALWAYS) return label;
-        int start = label.lastIndexOf(" (+");
-        if (start < 0 || !label.endsWith(")")) return label;
-        return label.substring(0, start + 2) + amountZeroMode().display(
-                label.substring(start + 2, label.length() - 1)) + ")";
     }
 
     private GdxChipAmountText.ZeroMode amountZeroMode() {

@@ -1419,7 +1419,7 @@ final class GdxSettingsContract {
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
             properties.setProperty(GdxChipAmountText.ZEROS_KEY,
-                    GdxChipAmountText.ZeroMode.IF_SPACE.setting);
+                    GdxChipAmountText.ZeroMode.DEFAULT.setting);
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
                 properties.setProperty(option.key(),
                         Boolean.toString(option.fallback()));
@@ -1467,7 +1467,7 @@ final class GdxSettingsContract {
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
             if (!visualDefaults || GdxChipAmountText.ZeroMode.configured(properties)
-                    != GdxChipAmountText.ZeroMode.IF_SPACE) return false;
+                    != GdxChipAmountText.ZeroMode.DEFAULT) return false;
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
                 if (!booleanAtDefault(properties, option.key(),
                         option.fallback())) return false;

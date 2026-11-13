@@ -430,6 +430,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Matrix4 pixelProjection = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
+    private final GdxVolumeKeyRepeat volumeKeyRepeat = new GdxVolumeKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
@@ -1334,6 +1335,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             updatePromptOpen = true;
             captureFrontendModalInput();
         }
+        int volumeSteps = volumeKeyRepeat.update(frameDelta, shortcutBindings,
+                fileChooserPending() || settingsShortcutCaptureId != null);
+        if (volumeSteps != 0) {
+            adjustFrontendMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP * volumeSteps, false);
+        }
         updateTextKeyRepeat();
         updatePointerRepeat();
         updateLobbyVoiceRecording();
@@ -1755,6 +1761,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             drawTooltipTopLayer(dropdown == Dropdown.NONE ? null : dropdownClip);
         }
+        drawCenteredFeedbackTopLayer();
     }
 
     /**
@@ -1809,6 +1816,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (TextItem item : texts) drawTextItem(item);
         batch.end();
         drawFrontendTopLayers();
+        drawCenteredFeedbackTopLayer();
     }
 
     /**
@@ -1955,15 +1963,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltipHits.clear();
     }
 
-    private void drawFrontendTopLayers() {
-        if (surface == Surface.SCREENSHOTS
+    private void drawCenteredFeedbackTopLayer() {
+        if (elapsed < volumeOverlayUntil) {
+            drawVolumeOverlayTopLayer();
+        } else if (System.currentTimeMillis() < toastUntil) {
+            drawToastTopLayer();
+        } else if (surface == Surface.SCREENSHOTS
                 && !screenshotDeleteConfirmation
-                && !screenshotToast.isBlank()
-                && elapsed < screenshotToastUntil) {
+                && !screenshotToast.isBlank() && elapsed < screenshotToastUntil) {
             drawScreenshotToastTopLayer();
         }
-        if (elapsed < volumeOverlayUntil) drawVolumeOverlayTopLayer();
-        if (System.currentTimeMillis() < toastUntil) drawToastTopLayer();
+    }
+
+    private void drawFrontendTopLayers() {
         drawFrontendVersionLabelTopLayer();
         if (preferenceBoolean("gdx_show_fps", false)) {
             drawFrontendFpsCounter();
@@ -9709,11 +9721,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 percentage.width - 8f);
         themedButton(minus.x, minus.y, minus.width, minus.height, "-",
                 ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(-0.05f), enabled,
+                () -> adjustFrontendMasterVolume(-GdxSettingsContract.MASTER_VOLUME_STEP), enabled,
                 settingsStepperSignFont);
         themedButton(plus.x, plus.y, plus.width, plus.height, "+",
                 ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(0.05f), enabled,
+                () -> adjustFrontendMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP), enabled,
                 settingsStepperSignFont);
     }
 
@@ -11423,6 +11435,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     void suspendForTable(boolean preserveBackgroundTrack) {
+        volumeKeyRepeat.clear();
         tableAudioSuspended = true;
         stopLobbyTransientAudio();
         if (!preserveBackgroundTrack && backgroundMusic != null) {
@@ -13843,82 +13856,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawToastTopLayer() {
-        float w = GdxTransientNoticeLayout.contentWidth(
-                textWidth(uiFont, toast), 0f, 52f,
-                260f, 820f, WIDTH - 80f);
-        float x = WIDTH / 2f - w / 2f;
-        float y = 145f;
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        outerBox(x, y, w, 76f, ORANGE, GdxUiDialogStyle.NOTICE_FILL);
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(uiFont, toast,
-                x + 26f, y + 8f, w - 52f, 60f, Color.WHITE, 1f);
-        batch.end();
+        GdxTransientNoticeLayout.drawCentered(shapes, batch, viewport, uiFont,
+                glyph, nativeTextTiers(uiFont), crispButtonText, toast, ORANGE, 1f);
     }
 
     private void drawScreenshotToastTopLayer() {
-        float alpha = MathUtils.clamp(
-                (screenshotToastUntil - elapsed) / 0.25f, 0f, 1f);
-        float y = 875f;
-        float w = GdxTransientNoticeLayout.contentWidth(
-                textWidth(actionFont, screenshotToast), 0f, 36f,
-                220f, 820f, WIDTH - 80f);
-        float x = (WIDTH - w) / 2f;
-        float h = 64f;
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Color fill = GdxUiDialogStyle.NOTICE_FILL;
-        shapes.setColor(fill.r, fill.g, fill.b, alpha);
-        roundedRect(x, y, w, h, 10f);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
-        roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f, 9f, 2f);
-        shapes.end();
-        batch.begin();
-        drawFittedCenteredInBox(actionFont, screenshotToast,
-                x + 18f, y + 7f, w - 36f, h - 14f, Color.WHITE, alpha);
-        batch.end();
+        float alpha = MathUtils.clamp((screenshotToastUntil - elapsed)
+                / GdxTransientNoticeLayout.FADE_SECONDS, 0f, 1f);
+        GdxTransientNoticeLayout.drawCentered(shapes, batch, viewport, uiFont,
+                glyph, nativeTextTiers(uiFont), crispButtonText, screenshotToast, ORANGE, alpha);
     }
 
     private void drawVolumeOverlayTopLayer() {
-        float width = GdxVolumeOverlayStyle.WIDTH;
-        float height = GdxVolumeOverlayStyle.HEIGHT;
-        float x = (WIDTH - width) / 2f;
-        float y = (HEIGHT - height) / 2f;
-        float volume = masterVolume();
-        boolean outputAvailable = audioOutputAvailable();
-        Color accent = outputAvailable && volume > 0f
-                ? CYAN : LATENCY_RED;
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(accent);
-        roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
-        shapes.setColor(GdxUiDialogStyle.NOTICE_FILL);
-        roundedRect(x, y, width, height, 13f);
-        float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
-        float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
-        float barW = width - GdxVolumeOverlayStyle.BAR_RIGHT_INSET;
-        shapes.setColor(0.15f, 0.20f, 0.28f, 1f);
-        roundedRect(barX, barY, barW, GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
-        if (volume > 0f) {
-            shapes.setColor(accent);
-            roundedRect(barX, barY, barW * volume,
-                    GdxVolumeOverlayStyle.BAR_HEIGHT, 7f);
-        }
-        shapes.end();
-
-        batch.begin();
-        batch.setColor(outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED);
-        batch.draw(outputAvailable && volume > 0f ? soundIcon : muteIcon,
-                x + 22f, y + 21f, 58f, 58f);
-        String label = Math.round(volume * 100f) + "%";
-        drawFittedCenteredInBox(volumeOverlayFont, label, barX, barY, barW,
-                GdxVolumeOverlayStyle.BAR_HEIGHT, Color.WHITE, 1f);
-        batch.end();
+        GdxVolumeOverlayStyle.draw(shapes, batch, viewport, volumeOverlayFont,
+                glyph, soundIcon, muteIcon, masterVolume(), audioOutputAvailable());
     }
 
     /** Global counter shared by every non-table GDX surface and modal. */
@@ -16981,11 +16932,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
+        if (fileChooserPending()) return true;
+        boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
+        boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        boolean capturingShortcut = surface == Surface.SETTINGS
+                && settingsSession.section() == GdxSettingsContract.Section.SHORTCUTS
+                && settingsShortcutCaptureId != null;
+        String action = shortcutBindings.actionFor(keycode, alt, control, shift);
+        int volumeDirection = GdxVolumeOverlayStyle.shortcutDirection(action);
+        if (!capturingShortcut && volumeDirection != 0) {
+            if (volumeKeyRepeat.press(keycode, volumeDirection)) {
+                adjustFrontendMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP * volumeDirection);
+            }
+            return true;
+        }
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED);
             return true;
         }
-        if (fileChooserPending()) return true;
         if (profileBackupSelection != null && frontendNoticeMessage.isBlank()) {
             if (keycode == Input.Keys.ESCAPE) closeProfileBackupSelection();
             return true;
@@ -16997,22 +16965,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         editMenu = null;
-        boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
-                || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
-        boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
-                || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
-        boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
-                || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
         if (surface == Surface.LOBBY && activeField == null && control
                 && keycode == Input.Keys.C
                 && selectedLobbyChatSequence >= 0L) {
             copySelectedLobbyChatMessage();
             return true;
         }
-        if (surface == Surface.SETTINGS
-                && settingsSession.section()
-                        == GdxSettingsContract.Section.SHORTCUTS
-                && settingsShortcutCaptureId != null) {
+        if (capturingShortcut) {
             GdxShortcutBindings.Assignment assignment = shortcutBindings.assign(
                     settingsShortcutCaptureId, keycode, alt, control, shift);
             if (assignment == GdxShortcutBindings.Assignment.ASSIGNED) {
@@ -17025,9 +16984,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
-        String shortcut = activeField == null
-                ? shortcutBindings.actionFor(keycode, alt, control, shift)
-                : null;
+        String shortcut = activeField == null ? action : null;
         // F11 remains a non-configurable desktop escape hatch while the
         // canonical Swing shortcut (ALT+F by default) stays editable.
         if (keycode == Input.Keys.F11
@@ -17301,14 +17258,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             toggleMasterSound();
             return true;
         }
-        if (GdxShortcutBindings.VOLUME_UP.equals(shortcut)) {
-            adjustFrontendMasterVolume(0.05f);
-            return true;
-        }
-        if (GdxShortcutBindings.VOLUME_DOWN.equals(shortcut)) {
-            adjustFrontendMasterVolume(-0.05f);
-            return true;
-        }
         if (GdxShortcutBindings.VOICE_RECORD.equals(shortcut)
                 && surface == Surface.LOBBY) {
             if (lobbyVoiceRecorder == null) beginLobbyVoiceRecording();
@@ -17477,6 +17426,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void adjustFrontendMasterVolume(float delta) {
+        adjustFrontendMasterVolume(delta, true);
+    }
+
+    private void adjustFrontendMasterVolume(float delta, boolean playCue) {
         float volume = MathUtils.clamp(
                 Math.round((masterVolume() + delta) * 100f) / 100f,
                 0f, 1f);
@@ -17486,9 +17439,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             preferences.saveDeferred();
         }
         syncMusicForSurface();
-        volumeOverlayUntil = elapsed + 1f;
-        playPreferenceSound("misc/volume_change.wav",
-                "sonido_volumen", 0.72f);
+        volumeOverlayUntil = elapsed + GdxVolumeOverlayStyle.DURATION_SECONDS;
+        if (playCue) {
+            playPreferenceSound("misc/volume_change.wav", "sonido_volumen", 0.72f);
+        }
     }
 
     @Override
@@ -17905,6 +17859,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     @Override public boolean keyUp(int keycode) {
+        volumeKeyRepeat.release(keycode);
         textKeyRepeat.release(keycode);
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);

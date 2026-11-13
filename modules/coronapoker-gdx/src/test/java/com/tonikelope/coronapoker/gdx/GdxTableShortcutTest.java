@@ -156,11 +156,11 @@ final class GdxTableShortcutTest {
 
     @Test
     void finalSummaryKeepsBothVolumeShortcutsAvailable() {
-        assertEquals(0.01f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+        assertEquals(0.01f, CoronaPokerGdxTable.volumeShortcutDelta(
                 GdxShortcutBindings.VOLUME_UP));
-        assertEquals(-0.01f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+        assertEquals(-0.01f, CoronaPokerGdxTable.volumeShortcutDelta(
                 GdxShortcutBindings.VOLUME_DOWN));
-        assertEquals(0f, CoronaPokerGdxTable.finalSummaryVolumeDelta(
+        assertEquals(0f, CoronaPokerGdxTable.volumeShortcutDelta(
                 GdxShortcutBindings.PAUSE));
     }
 

@@ -26,6 +26,7 @@ import java.util.function.IntUnaryOperator;
 final class GdxSettingsContract {
 
     static final float DEFAULT_MASTER_VOLUME = 0.8f;
+    static final float MASTER_VOLUME_STEP = 0.01f;
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */

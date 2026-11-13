@@ -55,9 +55,12 @@ final class GdxCustomBotManagerContractTest {
                 "CustomBotProfileCatalog.writeTo(initialProperties"));
         assertTrue(source.contains(
                 "customBotAutomaticRebuyDraft = true"));
-        assertTrue(source.contains("float y = 145f;"));
-        assertFalse(source.contains(
-                "float y = customBotManagerOpen ? 502f : 145f;"));
+        int toast = source.indexOf("private void drawToastTopLayer()");
+        int screenshotToast = source.indexOf("private void drawScreenshotToastTopLayer()", toast);
+        assertTrue(toast >= 0 && screenshotToast > toast);
+        String toastRenderer = source.substring(toast, screenshotToast);
+        assertTrue(toastRenderer.contains("GdxTransientNoticeLayout.drawCentered("));
+        assertFalse(toastRenderer.contains("customBotManagerOpen"));
         assertTrue(source.contains(
                 "if (customBotManagerOpen\n"
                 + "                && !customBotDeleteConfirmation && amountY != 0f"));

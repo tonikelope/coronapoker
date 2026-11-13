@@ -1273,6 +1273,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTextEditState chatEdit = new GdxTextEditState();
     private final GdxTextEditState dialogAmountEdit = new GdxTextEditState();
     private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
+    private final GdxVolumeKeyRepeat volumeKeyRepeat = new GdxVolumeKeyRepeat();
     private final GdxKeyRepeat betShortcutRepeat = new GdxKeyRepeat();
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final List<RepeatHit> pointerRepeatHits = new ArrayList<>();
@@ -1570,6 +1571,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private PotPanelText potText = new PotPanelText("", "0");
 
     private float totalTime;
+    private float volumeOverlayUntil;
+    private float tableToastUntil;
+    private String tableToast = "";
     private float sceneTime;
     private float shuffleSoundDurationSeconds;
     private long shuffleSoundId = -1L;
@@ -1712,6 +1716,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final InputProcessor tableInput = new InputAdapter() {
         @Override
         public boolean keyDown(int keycode) {
+            boolean capturingShortcut = uiLayer == UI_SETTINGS
+                    && settingsSection() == GdxSettingsContract.Section.SHORTCUTS
+                    && shortcutCaptureId != null;
+            boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
+            boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+            boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+            String action = shortcutBindings.actionFor(keycode, alt, control, shift);
+            float volumeDelta = volumeShortcutDelta(action);
+            if (!capturingShortcut && volumeDelta != 0f) {
+                if (volumeKeyRepeat.press(keycode, GdxVolumeOverlayStyle.shortcutDirection(action))) {
+                    adjustMasterVolume(volumeDelta);
+                }
+                return true;
+            }
             if (tableRulesVisible() && rulesWindow.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED)
                     || tableGalleryInteractive() && tableGallery.key(KeyEvent.KEY_PRESSED, keycode, KeyEvent.CHAR_UNDEFINED)) {
                 floatingWindowInputThisFrame = true;
@@ -1739,15 +1760,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (finalSummary != null && uiLayer != UI_GAME_LOG) return true;
-            if (uiLayer == UI_SETTINGS && settingsSection()
-                    == GdxSettingsContract.Section.SHORTCUTS
-                    && shortcutCaptureId != null) {
-                boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
-                        || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
-                boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
-                        || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
-                boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
-                        || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+            if (capturingShortcut) {
+
                 GdxShortcutBindings.Assignment assignment
                         = shortcutBindings.assign(shortcutCaptureId, keycode,
                                 alt, control, shift);
@@ -1780,8 +1794,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (uiLayer == UI_GAME_LOG) {
-                boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
-                        || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
                 if (control && keycode == Input.Keys.A) {
                     List<String> lines = gameLogLines();
                     gameLogSelectionAnchor = lines.isEmpty() ? -1 : 0;
@@ -1836,6 +1848,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean keyUp(int keycode) {
+            volumeKeyRepeat.release(keycode);
             textKeyRepeat.release(keycode);
             betShortcutRepeat.release(keycode);
             if (tableRulesVisible() && rulesWindow.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
@@ -6544,6 +6557,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             remoteSeatEntryStartedAt = totalTime;
         }
         audioPreview.update(delta);
+        int volumeSteps = volumeKeyRepeat.update(delta, shortcutBindings,
+                shortcutCaptureId != null);
+        if (volumeSteps != 0) {
+            adjustMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP * volumeSteps, false);
+        }
         updateTextKeyRepeat(delta);
         if (startupIntroOnly) {
             renderStartupIntroFrame(delta);
@@ -6757,6 +6775,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (mediaFrontend != null) {
             mediaFrontend.drawTableMediaTooltip(!showMedia || galleryOwnsHover || rulesOwnsHover);
+        }
+        if (totalTime < volumeOverlayUntil) {
+            drawVolumeOverlayTopLayer();
+        } else if (totalTime < tableToastUntil) {
+            float alpha = MathUtils.clamp((tableToastUntil - totalTime)
+                    / GdxTransientNoticeLayout.FADE_SECONDS, 0f, 1f);
+            GdxTransientNoticeLayout.drawCentered(shapes, batch, viewport, uiFont,
+                    glyph, nativeTextTiers(uiFont), crispButtonText, tableToast, ORANGE, alpha);
         }
         if (screenshotRequested) {
             screenshotRequested = false;
@@ -7128,14 +7154,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (GdxShortcutBindings.MUTE.equals(shortcutAction)) {
                 toggleMasterSound();
-                return;
-            }
-            if (GdxShortcutBindings.VOLUME_UP.equals(shortcutAction)) {
-                adjustMasterVolume(0.01f);
-                return;
-            }
-            if (GdxShortcutBindings.VOLUME_DOWN.equals(shortcutAction)) {
-                adjustMasterVolume(-0.01f);
                 return;
             }
             if (GdxShortcutBindings.BUYIN.equals(shortcutAction)) {
@@ -17645,6 +17663,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void adjustMasterVolume(float delta) {
+        adjustMasterVolume(delta, true);
+    }
+
+    private void adjustMasterVolume(float delta, boolean playCue) {
         effectsVolume = MathUtils.clamp(
                 Math.round((effectsVolume + delta) * 100f) / 100f,
                 0f, 1f);
@@ -17657,11 +17679,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
         GdxVoicePlayback.refreshVolume(effectsVolume);
-        postTableNotice(GdxTableChatFeed.Kind.INFO, "",
-                gameText.translate("gdx.settings.row.master_volume")
-                        + " " + Math.round(effectsVolume * 100f) + "%");
-        playPreferenceSound(GdxSoundFeedback.VOLUME_CHANGE,
-                "sonido_volumen", 0.72f);
+        volumeOverlayUntil = totalTime + GdxVolumeOverlayStyle.DURATION_SECONDS;
+        if (playCue) {
+            playPreferenceSound(GdxSoundFeedback.VOLUME_CHANGE, "sonido_volumen", 0.72f);
+        }
+    }
+
+    private void drawVolumeOverlayTopLayer() {
+        GdxVolumeOverlayStyle.draw(shapes, batch, viewport, uiFont,
+                glyph, soundIcon, muteIcon, effectsVolume, audioOutputAvailable());
     }
 
     private boolean musicEnabled() {
@@ -21667,11 +21693,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 GdxSettingsContract.masterVolumeRow(page)),
                                 rowW);
                 if (volume.minusButton().contains(x, y)) {
-                    adjustMasterVolume(-0.05f);
+                    adjustMasterVolume(-GdxSettingsContract.MASTER_VOLUME_STEP);
                     return;
                 }
                 if (volume.plusButton().contains(x, y)) {
-                    adjustMasterVolume(0.05f);
+                    adjustMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP);
                     return;
                 }
             }
@@ -23428,11 +23454,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             boolean completed = saved;
             if (Gdx.app != null) {
-                Gdx.app.postRunnable(() -> postTableNotice(
-                        completed ? GdxTableChatFeed.Kind.SUCCESS
-                                : GdxTableChatFeed.Kind.WARNING, "",
-                        gameText.translate(completed ? "gdx.screenshot.saved"
-                                : "gdx.screenshot.save_failed")));
+                Gdx.app.postRunnable(() -> showTableToast(gameText.translate(
+                        completed ? "gdx.screenshot.saved" : "gdx.screenshot.save_failed")));
             }
         }, "coronapoker-gdx-screenshot");
         writer.setDaemon(true);
@@ -23634,9 +23657,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (completed && afterSuccess != null) afterSuccess.run();
                     String key = completed ? successKey : failureKey;
                     if (key != null && !key.isBlank()) {
-                        postTableNotice(completed ? GdxTableChatFeed.Kind.SUCCESS
-                                : GdxTableChatFeed.Kind.WARNING, "",
-                                gameText.translate(key));
+                        showTableToast(gameText.translate(key));
                     }
                 });
             }
@@ -23773,8 +23794,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void postTableNotice(GdxTableChatFeed.Kind kind, String sender,
             String text) {
         if (disposed || text == null || text.isBlank()) return;
-        chatFeed.add(GdxTableChatFeed.Line.notice(kind, sender, text),
-                totalTime, true);
+        if (sender.isEmpty()) {
+            showTableToast(text);
+        } else {
+            chatFeed.add(GdxTableChatFeed.Line.notice(kind, sender, text),
+                    totalTime, true);
+        }
+    }
+
+    private void showTableToast(String text) {
+        if (disposed || text == null || text.isBlank()) return;
+        tableToast = text;
+        tableToastUntil = totalTime + GdxTransientNoticeLayout.DURATION_SECONDS;
     }
 
     private void showShortcutToast(String status) {
@@ -29693,9 +29724,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 control, shift);
         if (GdxShortcutBindings.MUTE.equals(shortcut)) {
             toggleMasterSound();
-        } else {
-            float delta = finalSummaryVolumeDelta(shortcut);
-            if (delta != 0f) adjustMasterVolume(delta);
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F11)
                 || (Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
@@ -29737,10 +29765,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // final surface consumes them before any control underneath.
     }
 
-    static float finalSummaryVolumeDelta(String shortcut) {
-        if (GdxShortcutBindings.VOLUME_UP.equals(shortcut)) return 0.01f;
-        if (GdxShortcutBindings.VOLUME_DOWN.equals(shortcut)) return -0.01f;
-        return 0f;
+    static float volumeShortcutDelta(String shortcut) {
+        return GdxSettingsContract.MASTER_VOLUME_STEP
+                * GdxVolumeOverlayStyle.shortcutDirection(shortcut);
     }
 
     private void handleFinalSummaryTarget(int target) {
@@ -30252,6 +30279,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     void suspendRetainedFinalSummary() {
+        volumeKeyRepeat.clear();
         if (backgroundMusic != null) backgroundMusic.pause();
     }
 

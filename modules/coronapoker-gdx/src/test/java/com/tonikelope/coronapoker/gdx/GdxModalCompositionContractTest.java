@@ -21,9 +21,7 @@ final class GdxModalCompositionContractTest {
                 "restoreDefaultFrontendRenderState();", blur);
         int shade = source.indexOf("drawUnifiedModalBackdrop();", restore);
         int modal = source.indexOf("if (hasVisibleFrontendModal())", shade);
-        int toast = source.indexOf("drawToastTopLayer();", modal);
-        int signature = source.indexOf(
-                "drawFrontendVersionLabelTopLayer();", modal);
+        int toast = source.indexOf("drawCenteredFeedbackTopLayer();", modal);
 
         assertTrue(blur >= 0 && restore > blur);
         assertTrue(shade > restore,
@@ -32,8 +30,6 @@ final class GdxModalCompositionContractTest {
                 "the common shade must be ready before modal chrome");
         assertTrue(toast > modal,
                 "transient feedback must remain visible above every modal");
-        assertTrue(signature > toast,
-                "the product signature must be a sharp top layer");
         assertEquals(1, occurrences(source, "drawToastTopLayer();"),
                 "frontend feedback needs one common top-layer pass");
         assertEquals(1, occurrences(source,
@@ -41,6 +37,25 @@ final class GdxModalCompositionContractTest {
         assertEquals(2, occurrences(source,
                 "restoreDefaultFrontendRenderState();"),
                 "root and nested blur passes need the same restoration");
+    }
+
+    @Test
+    void volumeAndActionNoticesAreComposedAfterTheVideoAndDialogs() throws IOException {
+        String frontend = source("GdxFrontendScreen.java");
+        int video = frontend.indexOf("drawPokerVideoTopLayer();");
+        int rules = frontend.indexOf("rulesWindow.draw(", video);
+        int frontendFeedback = frontend.indexOf("drawCenteredFeedbackTopLayer();", rules);
+        assertTrue(video >= 0 && rules > video && frontendFeedback > rules);
+
+        String table = source("CoronaPokerGdxTable.java");
+        int tableVideo = table.indexOf("mediaFrontend.drawTableMedia(");
+        int tableDialog = table.indexOf("drawActiveDialog();", tableVideo);
+        int tableTooltip = table.indexOf("mediaFrontend.drawTableMediaTooltip(", tableDialog);
+        int volume = table.indexOf("drawVolumeOverlayTopLayer();", tableTooltip);
+        int notice = table.indexOf("GdxTransientNoticeLayout.drawCentered(", volume);
+        assertTrue(tableVideo >= 0 && tableDialog > tableVideo && tableTooltip > tableDialog);
+        assertTrue(volume > tableTooltip && notice > volume);
+        assertTrue(table.contains("postRunnable(() -> showTableToast(gameText.translate("));
     }
 
     @Test

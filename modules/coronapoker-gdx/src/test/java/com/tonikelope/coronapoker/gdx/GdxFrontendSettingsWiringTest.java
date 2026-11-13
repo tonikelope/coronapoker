@@ -676,7 +676,7 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
-        assertTrue(method.contains("float y = 145f;"));
+        assertTrue(method.contains("GdxTransientNoticeLayout.drawCentered("));
         assertFalse(method.contains("customBotManagerOpen"),
                 "dialogs must not move the global notification layer");
         assertTrue(frontend.contains(

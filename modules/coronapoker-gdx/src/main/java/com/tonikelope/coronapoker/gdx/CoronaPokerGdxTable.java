@@ -281,7 +281,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int ALL_IN_EMBER_COUNT = 25;
     static final float ALL_IN_CINEMATIC_POT_ALPHA = 0.50f;
     static final float DERIVED_POT_OVERLAY_ALPHA = 1f;
-    private static final float DERIVED_POT_OVERLAY_HEIGHT = 46f;
+    private static final int DERIVED_POT_OVERLAY_FONT_SIZE = 32;
+    private static final float DERIVED_POT_OVERLAY_HEIGHT = 39f;
     private static final float DERIVED_POT_OVERLAY_BOTTOM_GAP = 4f;
     private static final float DERIVED_POT_OVERLAY_STACK_GAP = 8f;
     private static final int WINNER_GLOW_PARTICLE_COUNT = 72;
@@ -12360,7 +12361,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         for (Overlay overlay : overlays) {
-            drawFittedCenteredInBox(localOutcomeMediumFont,
+            drawFittedCenteredInBox(
+                    localOutcomeNativeFont(DERIVED_POT_OVERLAY_FONT_SIZE),
                     overlay.label(), overlay.x() + 10f,
                     overlay.y() + 5f, overlay.width() - 20f,
                     overlay.height() - 10f, Color.WHITE,

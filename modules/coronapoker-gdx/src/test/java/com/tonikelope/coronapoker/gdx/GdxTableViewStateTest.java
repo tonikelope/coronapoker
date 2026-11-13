@@ -61,7 +61,7 @@ final class GdxTableViewStateTest {
         Rectangle clamped = CoronaPokerGdxTable.timedOutKickOverlayBounds(
                 1_900f, 1_060f, 1_920f, 1_080f, true);
 
-        assertEquals(50f, aboveSidePot.y - ordinary.y, 0.001f);
+        assertEquals(43f, aboveSidePot.y - ordinary.y, 0.001f);
         assertTrue(clamped.x >= 8f);
         assertTrue(clamped.y >= 8f);
         assertTrue(clamped.x + clamped.width <= 1_912f);
@@ -75,6 +75,7 @@ final class GdxTableViewStateTest {
 
         assertEquals(204f, overlay.x, 0.001f);
         assertEquals(182f, overlay.width, 0.001f);
+        assertEquals(39f, overlay.height, 0.001f);
         assertEquals(386f, overlay.x + overlay.width, 0.001f,
                 "the badge must finish on the PlayerPod right rim");
         assertEquals(424f, overlay.y, 0.001f,

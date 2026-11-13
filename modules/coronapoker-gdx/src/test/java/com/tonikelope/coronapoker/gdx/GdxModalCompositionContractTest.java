@@ -93,8 +93,11 @@ final class GdxModalCompositionContractTest {
                 "/** Language is a menu action", helperStart);
         String helper = source.substring(helperStart, helperEnd);
 
-        assertEquals(3, occurrences(source, "exitButton("),
-                "menu and lobby confirmation share the centered exit helper");
+        assertEquals(4, occurrences(source, "exitButton("),
+                "menu and both confirmations share the centered exit helper");
+        assertTrue(source.contains(
+                "exitButton(exit.x, exit.y, exit.width, exit.height,"),
+                "application exit confirmation must use the shared composition");
         assertTrue(source.contains("exitButton(975f, 205f, 350f, 82f,"),
                 "main-menu exit must use the shared composition");
         assertTrue(source.contains("iconButton(35f, 55f, 220f, 70f,"),

@@ -20,7 +20,7 @@ import java.awt.event.MouseEvent;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-/** A floating document window shared by About and the table. */
+/** A floating document window shared by About, the lobby and the table. */
 final class GdxRobertRulesWindow implements AutoCloseable {
 
     static final String ICON = "images/open-book.png";

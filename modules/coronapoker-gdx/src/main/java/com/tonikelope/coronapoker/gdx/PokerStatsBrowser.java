@@ -98,13 +98,14 @@ final class PokerStatsBrowser implements AutoCloseable {
     private int height;
 
     PokerStatsBrowser(StatsRepository repository, String player, boolean english,
-            boolean animate, int width, int height) {
+            boolean animate, int width, int height, GdxChipAmountText.ZeroMode zeroMode) {
         this.repository = repository;
         preferredPlayer = player;
         this.width = width;
         this.height = height;
         pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es")
-                + "&motion=" + (animate ? "1" : "0") + "&botMarker=" + BotNickname.MARKER;
+                + "&motion=" + (animate ? "1" : "0") + "&botMarker=" + BotNickname.MARKER
+                + "&amountZeros=" + zeroMode.setting;
         json.setUsePrototypes(false);
         json.setTypeName(null);
         double scale = scale();

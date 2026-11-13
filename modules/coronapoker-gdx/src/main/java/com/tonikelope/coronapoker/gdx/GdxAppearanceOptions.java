@@ -33,6 +33,12 @@ final class GdxAppearanceOptions {
             new String[]{"streets", "covered"},
             new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
+    static final Choice AMOUNT_ZEROS = exact(GdxChipAmountText.ZEROS_KEY,
+            "CEROS DECIMALES FINALES EN LOS IMPORTES",
+            GdxChipAmountText.ZeroMode.IF_SPACE.setting,
+            new String[]{"never", "if_space", "always"},
+            new String[]{"NO", "SÓLO SI HAY SITIO", "SIEMPRE"});
+
     static final List<Choice> ANIMATION_CHOICES = List.of(
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
@@ -195,7 +201,8 @@ final class GdxAppearanceOptions {
         String configured = properties.getProperty(choice.key(),
                 choice.fallback());
         int exact = choice.values().indexOf(configured);
-        if (exact >= 0 || !choice.numericNearest()) return Math.max(0, exact);
+        if (exact >= 0) return exact;
+        if (!choice.numericNearest()) return choice.values().indexOf(choice.fallback());
         try {
             int number = Integer.parseInt(configured);
             int selected = 0;

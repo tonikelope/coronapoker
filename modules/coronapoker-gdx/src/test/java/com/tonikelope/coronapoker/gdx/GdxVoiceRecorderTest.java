@@ -1,6 +1,8 @@
 package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -11,8 +13,10 @@ import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
@@ -34,6 +38,110 @@ class GdxVoiceRecorderTest {
         assertEquals(GdxVoiceRecorder.Outcome.OK, recorder.outcome());
         assertNull(com.tonikelope.coronapoker.core.audio.VoiceWavContract
                 .validationError(wav));
+    }
+
+    @Test
+    void releaseBeforeTheFirstAudioCallbackKeepsProcessingAndCompletesOnce()
+            throws Exception {
+        var callbacks = new LinkedBlockingQueue<Runnable>();
+        var capture = new GdxVoiceCapture(callbacks::add);
+        var recorder = recorder(new SimulatedCapture(audiblePcm(4000), true));
+        var result = new AtomicReference<GdxVoiceCapture.Result>();
+        var completions = new AtomicInteger();
+
+        try {
+            capture.start(recorder, completed -> {
+                completions.incrementAndGet();
+                result.set(completed);
+            });
+            // Let the microphone deliver data while the render thread has not
+            // yet handled the queued first-audio callback.
+            awaitCaptured(recorder, GdxVoiceRecorder.MIN_MILLIS);
+            capture.finish(false);
+            capture.finish(false);
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (result.get() == null && System.nanoTime() < deadline) {
+                assertFalse(capture.recording());
+                assertEquals(0f, capture.secondsLeft());
+                assertEquals("gdx.lobby.voice_processing", capture.progressKey("recording"));
+                Runnable callback = callbacks.poll(100, TimeUnit.MILLISECONDS);
+                if (callback != null) callback.run();
+            }
+
+            assertNotNull(result.get());
+            assertNotNull(result.get().wav());
+            assertEquals(GdxVoiceRecorder.Outcome.OK, result.get().outcome());
+            assertFalse(capture.busy());
+            assertFalse(capture.recording());
+            Runnable lateCallback;
+            while ((lateCallback = callbacks.poll()) != null) lateCallback.run();
+            assertEquals(1, completions.get());
+        } finally {
+            capture.reset();
+        }
+    }
+
+    @Test
+    void cancellingDuringProcessingIgnoresLateAudioAndDoesNotSend() throws Exception {
+        var callbacks = new LinkedBlockingQueue<Runnable>();
+        var capture = new GdxVoiceCapture(callbacks::add);
+        var recorder = recorder(new SimulatedCapture(audiblePcm(4000), true));
+        var result = new AtomicReference<GdxVoiceCapture.Result>();
+
+        try {
+            capture.start(recorder, result::set);
+            awaitCaptured(recorder, GdxVoiceRecorder.MIN_MILLIS);
+            capture.finish(false);
+            capture.finish(true);
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (result.get() == null && System.nanoTime() < deadline) {
+                assertFalse(capture.recording());
+                Runnable callback = callbacks.poll(100, TimeUnit.MILLISECONDS);
+                if (callback != null) callback.run();
+            }
+
+            assertNotNull(result.get());
+            assertNull(result.get().wav());
+            assertEquals(GdxVoiceRecorder.Outcome.ABORTED, result.get().outcome());
+            assertFalse(capture.busy());
+        } finally {
+            capture.reset();
+        }
+    }
+
+    @Test
+    void failedDeviceOpenReleasesTheCapture() throws Exception {
+        var callbacks = new LinkedBlockingQueue<Runnable>();
+        var capture = new GdxVoiceCapture(callbacks::add);
+        var result = new AtomicReference<GdxVoiceCapture.Result>();
+
+        capture.start(new GdxVoiceRecorder(format -> {
+            throw new javax.sound.sampled.LineUnavailableException();
+        }), result::set);
+        assertTrue(capture.held());
+        Runnable completion = callbacks.poll(2, TimeUnit.SECONDS);
+        assertNotNull(completion);
+        completion.run();
+
+        assertNotNull(result.get());
+        assertEquals(GdxVoiceRecorder.Outcome.NO_LINE, result.get().outcome());
+        assertFalse(capture.busy());
+    }
+
+    @Test
+    void recordingDropsLongLeadingSilenceBeforeEncoding() throws Exception {
+        byte[] pcm = new byte[48_000];
+        pcm[1] = 32;
+        System.arraycopy(audiblePcm(9_600), 0, pcm, 38_400, 9_600);
+        var recorder = recorder(new SimulatedCapture(pcm, true));
+        assertEquals(GdxVoiceRecorder.Outcome.RECORDING, recorder.start(null, null));
+        awaitCaptured(recorder, 1_500L);
+        byte[] wav = recorder.stopAndEncode();
+        assertNotNull(wav);
+        assertEquals(400L, com.tonikelope.coronapoker.core.audio.VoiceWavContract
+                .durationMillis(wav));
     }
 
     @Test

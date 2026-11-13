@@ -92,7 +92,7 @@ final class GdxSceneTransitionContractTest {
         assertTrue(frontend.contains(
                 "\"exit.salir_del_juego_pregunta\""));
         assertTrue(frontend.contains(
-                "ButtonTone.DANGER, this::confirmApplicationExit"));
+                "this::confirmApplicationExit, true"));
 
         assertTrue(closeStart >= 0 && closeEnd > closeStart);
         String close = shell.substring(closeStart, closeEnd);

@@ -296,7 +296,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final Pattern CHAT_WRAP_TOKEN = Pattern.compile(
             "#[0-9]{1,4}#|\\s+|[^\\s#]+|#");
     private static final int CHAT_TEXT_MAX_LINES = 8;
-    private static final float VOICE_RECORD_MAX_SECONDS = 15f;
     private static final float VOICE_STATUS_SECONDS = 2.8f;
     private static final float VOICE_SENT_STATUS_SECONDS = 1.15f;
     private static final float INPUT_CARET_HALF_PERIOD_SECONDS = 0.50f;
@@ -436,7 +435,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Matrix4 pixelProjection = new Matrix4();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
-    private final GdxVolumeKeyRepeat volumeKeyRepeat = new GdxVolumeKeyRepeat();
+    private final GdxVolumeKeyRepeat volumeKeyRepeat =
+            new GdxVolumeKeyRepeat(this::playVolumePreview);
     private final GdxKeyRepeat pointerRepeat = new GdxKeyRepeat();
     private final Properties initialProperties;
     private final PreferencesService preferences;
@@ -483,7 +483,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private TextureRegion lobbyImageIcon;
     private TextureRegion lobbyVoiceIcon;
     private Texture aboutMourningIcon;
-    private Texture aboutBookIcon;
+    private Texture robertRulesIcon;
     private Texture aboutCrossIcon;
     private Texture aboutModIcon;
     private Sound soundEnabledCue;
@@ -612,17 +612,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float lobbyImageSendAllowedAt;
     private boolean lobbyEmojiPickerOpen;
     private int lobbyEmojiPage;
-    private volatile GdxVoiceRecorder lobbyVoiceRecorder;
-    private boolean lobbyVoiceOpening;
-    private boolean lobbyVoiceLive;
-    private boolean lobbyVoiceStopping;
+    private final GdxVoiceCapture lobbyVoiceCapture = new GdxVoiceCapture();
     private final GdxPointerHold lobbyVoicePointer = new GdxPointerHold();
-    private float lobbyVoiceLiveAt;
+    private int lobbyVoiceKey = Input.Keys.UNKNOWN;
     private String lobbyVoiceStatus = "";
     private float lobbyVoiceStatusAt;
     private float lobbyVoiceStatusSeconds = VOICE_STATUS_SECONDS;
     private long lobbyChatVoiceSequence = -1L;
-    private boolean lobbyChatVoicePaused;
+    private GdxVoicePlayback.Request lobbyChatVoice;
     private long lastLobbyMediaSequence = -1L;
     private FingerprintDialog fingerprintDialog;
     private boolean lobbyCommandPending;
@@ -731,6 +728,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private List<GdxVoiceNoteLibrary.Entry> voiceNotes = List.of();
     private int voiceNotesPage;
     private GdxVoiceNoteLibrary.Entry voiceNotePlaying;
+    private GdxVoicePlayback.Request voiceNotePreview;
     private GdxVoiceNoteLibrary.Entry voiceNoteDeleteConfirmation;
     private boolean voiceNotesPurgeConfirmation;
     private boolean aboutOpen;
@@ -950,7 +948,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 filteredTexture("images/fast_panel/mic.png"));
         emojiAtlas = GdxEmojiAtlas.retain();
         aboutMourningIcon = filteredTexture("images/luto.png");
-        aboutBookIcon = silhouetteTexture(GdxRobertRulesWindow.ICON,
+        robertRulesIcon = silhouetteTexture(GdxRobertRulesWindow.ICON,
                 new Color(0xeaf8ffff));
         aboutCrossIcon = filteredTexture("images/cruz.png");
         aboutModIcon = externalTexture(
@@ -1256,7 +1254,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void activateSurface(Surface next) {
         Objects.requireNonNull(next, "next");
         if (surface != next) {
-            if (surface == Surface.LOBBY) lobbyGallery.close();
+            if (surface == Surface.LOBBY) {
+                lobbyGallery.close();
+                stopLobbyTransientAudio();
+            }
             rulesWindow.close();
             hoverAnimations.clear();
             if (initialBuyinInput != null) closeInitialBuyinEditor();
@@ -1479,6 +1480,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawSettingsRowsTextLayer();
         drawStatsChartTextLayer();
         drawLobbyChatLayer(lobbyRootBackdrop);
+        if (surface == Surface.LOBBY && !lobbyEmojiPickerOpen
+                && (lobbyVoiceCapture.busy() || !lobbyVoiceStatus.isEmpty())) {
+            drawLobbyVoiceStatus(535f, lobbyGallery.isOpen() ? 132f : 261f,
+                    820f, lobbyGallery.isOpen());
+        }
         drawSettingsDebugLayer();
         if (videoOwnsHover) {
             tooltipHits.clear();
@@ -1704,7 +1710,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                 - ABOUT_MOURNING_ICON_SIZE / 2f,
                         ABOUT_MOURNING_ICON_SIZE,
                         ABOUT_MOURNING_ICON_SIZE);
-                batch.draw(aboutBookIcon, WIDTH / 2f - 21f, 244f,
+                batch.draw(robertRulesIcon, WIDTH / 2f - 21f, 244f,
                         42f, 42f);
                 batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
                         23f, 15f);
@@ -3414,7 +3420,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsBrowser = new PokerStatsBrowser(statsRepository,
                 connection.nickname(),
                 "en".equalsIgnoreCase(gameText.language()),
-                preferenceBoolean("animaciones", true), statsBrowserWidth(), statsBrowserHeight());
+                preferenceBoolean("animaciones", true), statsBrowserWidth(), statsBrowserHeight(),
+                amountZeroMode());
     }
 
     private int statsBrowserWidth() {
@@ -4590,7 +4597,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     y + 7f, Color.WHITE, false, widths[2]);
             statsTextFit(smallFont, Integer.toString(row.handCounter()),
                     columns[3], y + 7f, Color.WHITE, false, widths[3]);
-            statsTextFit(smallFont, money(row.profit()), columns[4], y + 7f,
+            moneyTextFit(smallFont, money(row.profit()), columns[4], y + 7f,
                     new Color(0x64df86ff), false, widths[4]);
         }
     }
@@ -4672,7 +4679,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsSummaryLine(gameText.translate("stats.manos"),
                 Integer.toString(game.hands()), y); y -= 40f;
         statsSummaryLine(gameText.translate("stats.buyin"),
-                Integer.toString(game.buyin()), y); y -= 40f;
+                money(game.buyin()), y); y -= 40f;
         statsSummaryLine(gameText.translate("gdx.stats.blinds"),
                 money(game.smallBlind()) + " / "
                         + money(game.smallBlind() * 2d), y); y -= 40f;
@@ -4892,9 +4899,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     "*****");
             statsTextFit(smallFont, statsHandRank(row.handValue()), columns[3],
                     y + 7f, Color.WHITE, false, widths[3]);
-            statsTextFit(smallFont, money(row.pay()), columns[4], y + 7f,
+            moneyTextFit(smallFont, money(row.pay()), columns[4], y + 7f,
                     Color.WHITE, false, widths[4]);
-            statsTextFit(smallFont, money(row.profit()), columns[5], y + 7f,
+            moneyTextFit(smallFont, money(row.profit()), columns[5], y + 7f,
                     result, false, widths[5]);
         }
         if (statsShowdown.isEmpty()) {
@@ -5040,9 +5047,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 86f, y + 8f, MUTED, false);
         float valueWidth = 348f - labelWidth - 12f;
         String safe = Objects.requireNonNullElse(value, "-----");
-        BitmapFont font = fits(smallFont, safe, valueWidth) ? smallFont : tinyFont;
-        text(font, ellipsize(font, safe, valueWidth),
-                98f + labelWidth, y + 8f, Color.WHITE, false);
+        if (label.equals(gameText.translate("gdx.stats.blinds"))
+                || label.equals(gameText.translate("stats.bote"))
+                || label.equals(gameText.translate("stats.buyin"))) {
+            moneyTextFit(smallFont, safe, 98f + labelWidth, y + 8f,
+                    Color.WHITE, false, valueWidth);
+        } else {
+            BitmapFont font = fits(smallFont, safe, valueWidth) ? smallFont : tinyFont;
+            text(font, ellipsize(font, safe, valueWidth),
+                    98f + labelWidth, y + 8f, Color.WHITE, false);
+        }
     }
 
     private void drawStatsBalances() {
@@ -5096,9 +5110,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 money(row.buyin()), money(row.profit()),
                 String.format(Locale.ROOT, "%.1f%%", row.roiPercent()) };
             for (int column = 0; column < values.length; column++) {
-                statsTextFit(tinyFont, values[column], columns[column], y + 6f,
-                        column >= 3 ? profit : Color.WHITE,
-                        false, widths[column]);
+                Color color = column >= 3 ? profit : Color.WHITE;
+                if (column >= 1 && column <= 3) {
+                    moneyTextFit(tinyFont, values[column], columns[column], y + 6f,
+                            color, false, widths[column]);
+                } else {
+                    statsTextFit(tinyFont, values[column], columns[column], y + 6f,
+                            color, false, widths[column]);
+                }
             }
         }
     }
@@ -5153,7 +5172,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float valueX = positive
                     ? Math.min(middle + bar + 10f, x + width - 75f)
                     : Math.max(middle - bar - 80f, x);
-            chartTextFit(tinyFont, money(row.profit()), valueX,
+            chartMoneyTextFit(tinyFont, money(row.profit()), valueX,
                     cy + 7f, positive ? new Color(0x64df86ff)
                             : new Color(0xff6b6bff),
                     false, 75f);
@@ -5183,7 +5202,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     statsChartLength(plotW), statsChartLength(1f));
             double value = minimumStack
                     + (maximumStack - minimumStack) * line / 4d;
-            chartTextFit(tinyFont, money(value), x, gy + 6f, MUTED,
+            chartMoneyTextFit(tinyFont, money(value), x, gy + 6f, MUTED,
                     false, 45f);
         }
         Map<String, List<StatsRepository.BalancePoint>> series =
@@ -5724,9 +5743,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
                 () -> applicationExitConfirmation = false, true);
-        themedButton(exit.x, exit.y, exit.width, exit.height,
+        exitButton(exit.x, exit.y, exit.width, exit.height,
                 uppercase(gameText.translate("ui.salir")),
-                ButtonTone.DANGER, this::confirmApplicationExit, true);
+                this::confirmApplicationExit, true);
     }
 
     private void confirmApplicationExit() {
@@ -6186,8 +6205,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(titleFont, lobbyTitle, WIDTH / 2f, 1004f, GOLD, true, 900f);
         drawLobbyDigitalClock(LOBBY_CLOCK.format(Instant.now()));
 
-        lobbyPanel(35f, 180f, 430f, 650f,
+        float gamePanelX = 35f;
+        float gamePanelY = 180f;
+        float gamePanelWidth = 430f;
+        float gamePanelHeight = 650f;
+        lobbyPanel(gamePanelX, gamePanelY, gamePanelWidth, gamePanelHeight,
                 uppercase(gameText.translate("game.timba")));
+        drawLobbyRulesButton(gamePanelX + gamePanelWidth,
+                gamePanelY + gamePanelHeight);
         float connectionY = state.host() ? LOBBY_CONNECTION_Y : 694f;
         float connectionHeight = state.host()
                 ? LOBBY_CONNECTION_HEIGHT : 62f;
@@ -6292,9 +6317,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "tooltip.chat.images", this::toggleLobbyImageGallery, true, 44f);
         boolean voiceAllowed = canUseLobbyVoice();
         boolean voiceEnabled = voiceAllowed && !lobbyCommandPending
-                && !lobbyVoiceStopping;
+                && (!lobbyVoiceCapture.busy() || lobbyVoiceCapture.held());
         String voiceTooltip;
-        if (lobbyVoiceLive || lobbyVoiceOpening) {
+        if (lobbyVoiceCapture.held()) {
             voiceTooltip = "tooltip.chat.voice_release";
         } else if (!voiceAllowed) {
             voiceTooltip = "tooltip.chat.voice_disabled";
@@ -6312,9 +6337,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         elapsed, lobbyTextSendAllowedAt, lobbyChatDraft));
         if (lobbyEmojiPickerOpen) {
             drawLobbyEmojiPicker(525f, 315f, 840f, 390f);
-        } else if (!lobbyVoiceStatus.isEmpty()) {
-            drawLobbyVoiceStatus(535f, lobbyGallery.isOpen() ? 132f : 312f,
-                    820f, lobbyGallery.isOpen());
+
         }
 
         lobbyPanel(1425f, 180f, 460f, 650f, "");
@@ -6756,8 +6779,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         messageHeight - LOBBY_IMAGE_VERTICAL_INSET,
                         Color.WHITE);
             } else if (message.type() == LobbyChatMessage.Type.VOICE) {
-                boolean active = lobbyChatVoiceSequence
-                        == message.sequence();
+                boolean active = lobbyChatVoice != null
+                        && lobbyChatVoiceSequence == message.sequence();
                 float stopX = bubbleX + bubbleW - 44f;
                 float playX = stopX - 46f;
                 textFit(smallFont, uppercase(gameText.translate(
@@ -6765,11 +6788,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         y + 23f, Color.WHITE, false,
                         Math.max(0f, bodyWidth - 94f));
                 lobbyVoiceControls.add(new LobbyVoiceControlItem(
-                        playX, stopX, y, active, lobbyChatVoicePaused));
-                hit(playX, y + 7f, 40f, messageHeight - 14f,
-                        () -> toggleLobbyChatVoice(message));
-                hit(stopX, y + 7f, 40f, messageHeight - 14f,
-                        this::stopLobbyChatVoice);
+                        playX, stopX, y, active,
+                        active && lobbyChatVoice.playing(),
+                        active && lobbyChatVoice.loading()));
+                float hitY = Math.max(y + 7f, lobbyChatViewport.y);
+                float hitHeight = Math.min(y + messageHeight - 7f,
+                        lobbyChatViewport.y + lobbyChatViewport.height) - hitY;
+                if (hitHeight > 0f) {
+                    hit(playX, hitY, 40f, hitHeight,
+                            () -> toggleLobbyChatVoice(message));
+                    if (active) hit(stopX, hitY, 40f, hitHeight, this::stopLobbyChatVoice);
+                }
             }
         }
         moveTail(texts, textStart, lobbyChatTexts);
@@ -6854,7 +6883,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         for (LobbyVoiceControlItem item : lobbyVoiceControls) {
             shapes.setColor(item.active ? CYAN : Color.WHITE);
-            if (item.active && !item.paused) {
+            if (item.loading) {
+                for (int dot = 0; dot < 3; dot++) {
+                    shapes.circle(item.playX + 12f + 7f * dot, item.y + 27.5f, 2f, 12);
+                }
+            } else if (item.playing) {
                 shapes.rect(item.playX + 13f, item.y + 18f, 5f, 19f);
                 shapes.rect(item.playX + 23f, item.y + 18f, 5f, 19f);
             } else {
@@ -7363,6 +7396,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
+    private void drawLobbyRulesButton(float panelRight, float panelTop) {
+        float size = 36f;
+        float x = panelRight - 34f - size;
+        float y = panelTop - 17f - size;
+        themedButton(x, y, size, size, "", ButtonTone.NEUTRAL,
+                this::openRobertRules, true, smallFont);
+        float bookSize = 24f;
+        float inset = (size - bookSize) / 2f;
+        uiImages.add(new UiImageItem(robertRulesIcon, x + inset, y + inset,
+                bookSize, bookSize, hovered(x, y, size, size) ? CYAN : GOLD));
+        tooltip(x, y, size, size, "tooltip.robert_rules");
+    }
+
     private void drawLobbyGameInfo(LobbySnapshot state, float y) {
         float x = LOBBY_LEFT_CONTENT_X;
         float width = LOBBY_LEFT_CONTENT_WIDTH;
@@ -7408,19 +7454,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<GdxLobbyGameSummary.Row> rows = GdxLobbyGameSummary.rows(
                 settings, gameText);
         float rowHeight = lobbyInfoRowHeight(rows.size());
-        String[] rowContents = rows.stream()
-                .map(row -> row.label() + "    " + row.value())
-                .toArray(String[]::new);
-        BitmapFont rowFont = GdxCrispButtonText.resolveAllWithinBox(glyph,
-                rowContents, contentWidth, rowHeight - 4f,
-                nativeTextTiers(smallFont));
+        var zeroMode = amountZeroMode();
+        var rowFonts = nativeTextTiers(smallFont);
         float rowsTop = headerBottom - LOBBY_GAME_INFO_BODY_PADDING;
         for (int index = 0; index < rows.size(); index++) {
             GdxLobbyGameSummary.Row row = rows.get(index);
             float rowBottom = rowsTop - (index + 1) * rowHeight;
+            String prefix = row.label() + "    ";
+            String value = row.displayValue(zeroMode);
+            if (row.monetary() && zeroMode == GdxChipAmountText.ZeroMode.IF_SPACE) {
+                GdxCrispButtonText.resolveAmountWithinBox(glyph, prefix + value,
+                        contentWidth, rowHeight - 4f, rowFonts, crispButtonText);
+            } else {
+                GdxCrispButtonText.resolveWithinBox(glyph, prefix + value,
+                        contentWidth, rowHeight - 4f, rowFonts, crispButtonText);
+            }
+            BitmapFont rowFont = crispButtonText.font();
+            String fitted = crispButtonText.text().substring(prefix.length());
             float baseline = rowBottom + (rowHeight + rowFont.getCapHeight()) / 2f;
             text(rowFont, row.label(), contentX, baseline, MUTED, false);
-            text(rowFont, row.value(), contentRight - textWidth(rowFont, row.value()),
+            text(rowFont, fitted, contentRight - textWidth(rowFont, fitted),
                     baseline, Color.WHITE, false);
             if (index < rows.size() - 1) {
                 shapes.setColor(new Color(0x31445f77));
@@ -7434,8 +7487,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 - 2f * LOBBY_GAME_INFO_BODY_PADDING) / rowCount;
     }
 
-    private static String money(double amount) {
-        return String.format(Locale.ROOT, "%.2f", amount);
+    private GdxChipAmountText.ZeroMode amountZeroMode() {
+        return GdxChipAmountText.ZeroMode.configured(initialProperties);
+    }
+
+    private String money(double amount) {
+        return amountZeroMode().display(String.format(Locale.ROOT, "%.2f", amount));
     }
 
     private String lobbyPhaseText(LobbySnapshot state) {
@@ -7948,8 +8005,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeVoiceNotes() {
-        GdxVoicePlayback.stop();
-        voiceNotePlaying = null;
+        stopVoiceNotePreview();
         voiceNoteDeleteConfirmation = null;
         voiceNotesPurgeConfirmation = false;
         voiceNotesOpen = false;
@@ -8053,34 +8109,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void toggleVoiceNotePreview(GdxVoiceNoteLibrary.Entry entry) {
-        if (!audioOutputAvailable()) {
-            showToast(gameText.translate("gdx.audio.no_output_device"));
-            return;
-        }
         if (entry.equals(voiceNotePlaying)) {
-            GdxVoicePlayback.stop();
-            voiceNotePlaying = null;
+            stopVoiceNotePreview();
             return;
         }
-        GdxVoicePlayback.stop();
+        String blocked = voicePlaybackBlock();
+        if (blocked != null) {
+            showToast(gameText.translate(blocked));
+            return;
+        }
+        GdxVoicePlayback.Request request = GdxVoicePlayback.playManual(
+                () -> voiceNoteLibrary.read(entry), masterVolume(),
+                () -> !disposed && voiceNotesOpen && voicePlaybackBlock() == null, null);
         voiceNotePlaying = entry;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return voiceNoteLibrary.read(entry);
-            } catch (IOException failure) {
-                throw new CompletionException(failure);
+        voiceNotePreview = request;
+        request.completion().whenComplete((ignored, failure) -> Gdx.app.postRunnable(() -> {
+            if (disposed || voiceNotePreview != request) return;
+            stopVoiceNotePreview();
+            if (failure != null && voiceNotesOpen) {
+                showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
             }
-        }, recoveryExecutor).thenCompose(wav -> GdxVoicePlayback.play(wav,
-                masterVolume(), null)).whenComplete((ignored, failure) ->
-                Gdx.app.postRunnable(() -> {
-                    if (entry.equals(voiceNotePlaying)) {
-                        voiceNotePlaying = null;
-                    }
-                    if (failure != null && voiceNotesOpen) {
-                        showToast(gameText.translate(
-                                "gdx.lobby.voice_playback_failed"));
-                    }
-                }));
+        }));
+    }
+
+    private void stopVoiceNotePreview() {
+        if (voiceNotePreview != null) voiceNotePreview.stop();
+        voiceNotePreview = null;
+        voiceNotePlaying = null;
     }
 
     private void confirmVoiceNoteDeletion() {
@@ -8089,8 +8144,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         voiceNoteDeleteConfirmation = null;
         voiceNotesPurgeConfirmation = false;
         voiceNotesLoading = true;
-        GdxVoicePlayback.stop();
-        voiceNotePlaying = null;
+        stopVoiceNotePreview();
         CompletableFuture.supplyAsync(() -> {
             try {
                 return purge ? voiceNoteLibrary.purge()
@@ -8398,69 +8452,38 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !preferenceBoolean("audio_block_voice_messages", false);
     }
 
-    private void beginLobbyVoiceRecording() {
-        if (!canUseLobbyVoice() || lobbyVoiceRecorder != null
-                || lobbyVoiceStopping) return;
-        GdxVoiceRecorder recorder = new GdxVoiceRecorder(initialProperties);
-        lobbyVoiceRecorder = recorder;
-        lobbyVoiceOpening = true;
-        lobbyVoiceLive = false;
-        setLobbyVoiceStatus("gdx.lobby.voice_opening");
-        CompletableFuture.supplyAsync(() -> recorder.start(
-                () -> Gdx.app.postRunnable(() -> {
-                    if (disposed || lobbyVoiceRecorder != recorder) return;
-                    lobbyVoiceOpening = false;
-                    lobbyVoiceLive = true;
-                    lobbyVoiceLiveAt = elapsed;
-                    setLobbyVoiceStatus("gdx.lobby.voice_recording");
-                }), () -> Gdx.app.postRunnable(() -> {
-                    if (!disposed && lobbyVoiceRecorder == recorder) {
-                        finishLobbyVoiceRecording(false);
-                    }
-                }))).whenComplete((outcome, failure) ->
-                        Gdx.app.postRunnable(() -> {
-                            if (disposed || lobbyVoiceRecorder != recorder) return;
-                            if (failure != null
-                                    || outcome != GdxVoiceRecorder.Outcome.RECORDING) {
-                                lobbyVoiceOpening = false;
-                                lobbyVoiceLive = false;
-                                lobbyVoiceRecorder = null;
-                                setLobbyVoiceStatus(
-                                        "gdx.lobby.voice_unavailable");
-                            }
-                        }));
+    private boolean beginLobbyVoiceRecording() {
+        if (!canUseLobbyVoice() || lobbyCommandPending || lobbyVoiceCapture.busy()) {
+            return false;
+        }
+        LobbySession session = lobbySession;
+        lobbyVoiceStatus = "";
+        stopLobbyChatVoice();
+        GdxVoicePlayback.stop();
+        lobbyVoiceCapture.start(new GdxVoiceRecorder(initialProperties),
+                result -> completeLobbyVoiceRecording(session, result));
+        syncMusicForSurface();
+        return true;
     }
 
     private void finishLobbyVoiceRecording(boolean discard) {
-        GdxVoiceRecorder recorder = lobbyVoiceRecorder;
-        if (recorder == null || lobbyVoiceStopping) return;
-        lobbyVoiceStopping = true;
-        lobbyVoiceOpening = false;
-        lobbyVoiceLive = false;
-        setLobbyVoiceStatus(discard
-                ? "gdx.lobby.voice_cancelled"
-                : "gdx.lobby.voice_processing");
-        if (discard) recorder.abort();
-        CompletableFuture.supplyAsync(() -> discard
-                ? null : recorder.stopAndEncode()).whenComplete((wav, failure) ->
-                        Gdx.app.postRunnable(() -> {
-                            if (lobbyVoiceRecorder == recorder) {
-                                lobbyVoiceRecorder = null;
-                            }
-                            lobbyVoiceStopping = false;
-                            if (disposed || discard) return;
-                            if (failure != null || wav == null) {
-                                setLobbyVoiceStatus(
-                                        "gdx.lobby.voice_discarded");
-                                return;
-                            }
-                            processOwnLobbyVoice(wav);
-                            setLobbyVoiceStatus("gdx.lobby.voice_sending");
-                            submitLobbyCommand(new LobbyCommand.SendVoice(wav), () -> {
-                                setLobbyVoiceStatus("gdx.lobby.voice_sent",
-                                        VOICE_SENT_STATUS_SECONDS);
-                            });
-                        }));
+        lobbyVoiceCapture.finish(discard);
+    }
+
+    private void completeLobbyVoiceRecording(LobbySession session,
+            GdxVoiceCapture.Result result) {
+        if (disposed || lobbySession != session) return;
+        syncMusicForSurface();
+        if (result.wav() == null) {
+            setLobbyVoiceStatus(result.statusKey());
+            return;
+        }
+        processOwnLobbyVoice(result.wav());
+        setLobbyVoiceStatus("gdx.lobby.voice_sending");
+        submitLobbyCommand(new LobbyCommand.SendVoice(result.wav()),
+                () -> setLobbyVoiceStatus("gdx.lobby.voice_sent",
+                        VOICE_SENT_STATUS_SECONDS),
+                () -> setLobbyVoiceStatus("gdx.table.chat.send_failed"));
     }
 
     private void setLobbyVoiceStatus(String translationKey) {
@@ -8480,67 +8503,35 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         .isValid(wav)) return;
         persistLobbyVoiceNote(current.localNickname(), wav);
         if (preferenceBoolean("audio_play_own_voice", true)
-                && preferenceBoolean("voice_messages", true)
-                && !preferenceBoolean("audio_block_voice_messages", false)) {
+                && preferenceBoolean("voice_messages", true)) {
             playLobbyVoice(wav);
         }
     }
 
     private void cancelLobbyVoiceRecording() {
         lobbyVoicePointer.clear();
-        GdxVoiceRecorder recorder = lobbyVoiceRecorder;
-        if (recorder == null) return;
-        recorder.abort();
-        lobbyVoiceRecorder = null;
-        lobbyVoiceOpening = false;
-        lobbyVoiceLive = false;
-        lobbyVoiceStopping = false;
+        lobbyVoiceKey = Input.Keys.UNKNOWN;
+        boolean wasBusy = lobbyVoiceCapture.busy();
+        lobbyVoiceCapture.reset();
         lobbyVoiceStatus = "";
+        if (wasBusy && !disposed) syncMusicForSurface();
     }
 
     private void updateLobbyVoiceRecording() {
-        if (lobbyVoiceLive
-                && elapsed - lobbyVoiceLiveAt >= VOICE_RECORD_MAX_SECONDS) {
-            finishLobbyVoiceRecording(false);
-        }
-        if (!lobbyVoiceOpening && !lobbyVoiceLive && !lobbyVoiceStopping
-                && !lobbyVoiceStatus.isEmpty()
+        lobbyVoiceCapture.update();
+        if (!lobbyVoiceCapture.busy() && !lobbyVoiceStatus.isEmpty()
                 && elapsed - lobbyVoiceStatusAt > lobbyVoiceStatusSeconds) {
             lobbyVoiceStatus = "";
         }
     }
 
-    private void drawLobbyVoiceStatus(float x, float y, float w, boolean compact) {
-        boolean active = lobbyVoiceOpening || lobbyVoiceLive
-                || lobbyVoiceStopping;
-        float panelW = Math.min(720f, w);
-        float panelH = compact ? 44f : 92f;
-        float inset = compact ? 7f : 15f;
-        float panelX = x + (w - panelW) / 2f;
-        shapes.setColor(0.008f, 0.035f, 0.055f, 0.95f);
-        roundedRect(panelX, y, panelW, panelH, 15f);
-        shapes.setColor(active ? new Color(0xe53935ff) : LINE);
-        roundedRect(panelX + 16f, y + inset, 7f, panelH - 2f * inset, 3f);
-        if (lobbyVoiceLive) {
-            shapes.setColor(0.08f, 0.16f, 0.24f, 0.96f);
-            float timerHeight = compact ? 28f : 44f;
-            roundedRect(panelX + panelW - 110f,
-                    y + (panelH - timerHeight) / 2f, 88f, timerHeight, 10f);
-            float remaining = Math.max(0f, VOICE_RECORD_MAX_SECONDS
-                    - (elapsed - lobbyVoiceLiveAt));
-            shapes.setColor(0.17f, 0.92f, 0.62f, 0.92f);
-            roundedRect(panelX + 84f, y + (compact ? 4f : 12f),
-                    (panelW - 216f) * remaining
-                            / VOICE_RECORD_MAX_SECONDS,
-                    compact ? 3f : 7f, 2f);
-            textFit(smallFont, (int) Math.ceil(remaining) + " s",
-                    panelX + panelW - 66f, y + panelH / 2f + 8f,
-                    Color.WHITE, true, 80f);
-        }
-        textFit(smallFont, lobbyVoiceStatus,
-                panelX + 38f, y + panelH / 2f + 10f,
-                active ? Color.WHITE : GOLD, false,
-                panelW - (lobbyVoiceLive ? 174f : 76f));
+    private void drawLobbyVoiceStatus(float x, float y, float width, boolean compact) {
+        String progress = lobbyVoiceCapture.progressKey("gdx.lobby.voice_recording");
+        String status = progress == null ? lobbyVoiceStatus
+                : uppercase(gameText.translate(progress));
+        GdxVoiceStatusPanel.draw(shapes, batch, viewport, glyph,
+                nativeTextTiers(smallFont), crispButtonText, status,
+                lobbyVoiceCapture, x + width / 2f, y, width, compact);
     }
 
     private void handleLobbyMedia(LobbySnapshot next) {
@@ -8665,102 +8656,58 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 });
     }
 
-    private void playLobbyVoice(LobbyChatMessage message) {
-        if (!audioOutputAvailable() || !audioControl.enabled()
-                || preferenceBoolean("audio_block_voice_messages", false)) {
-            showToast(gameText.translate(audioOutputAvailable()
-                    ? "gdx.lobby.voice_playback_disabled"
-                    : "gdx.audio.no_output_device"));
-            return;
-        }
-        try {
-            byte[] wav = Base64.getDecoder().decode(message.content());
-            if (!com.tonikelope.coronapoker.core.audio.VoiceWavContract
-                    .isValid(wav)) {
-                showToast(gameText.translate("gdx.lobby.voice_invalid"));
-                return;
-            }
-            playLobbyVoice(wav);
-        } catch (IllegalArgumentException malformed) {
-            showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
-        }
+    private String voicePlaybackBlock() {
+        return GdxVoicePlayback.blockedReason(audioOutputAvailable(),
+                audioControl.enabled() && masterVolume() > 0f,
+                preferenceBoolean("audio_block_voice_messages", false));
     }
 
     private void toggleLobbyChatVoice(LobbyChatMessage message) {
-        if (lobbyChatVoiceSequence == message.sequence()) {
-            lobbyChatVoicePaused = !lobbyChatVoicePaused;
-            if (lobbyChatVoicePaused) GdxVoicePlayback.pause();
-            else GdxVoicePlayback.resume();
+        String blocked = voicePlaybackBlock();
+        if (blocked != null) {
+            showToast(gameText.translate(blocked));
             return;
         }
-        stopLobbyChatVoice();
+        if (lobbyVoiceCapture.busy()) return;
+        if (lobbyChatVoice != null && lobbyChatVoiceSequence == message.sequence()) {
+            lobbyChatVoice.togglePause();
+            return;
+        }
+        GdxVoicePlayback.Request request = GdxVoicePlayback.playManual(
+                () -> Base64.getDecoder().decode(message.content()), masterVolume(),
+                () -> !disposed && surface == Surface.LOBBY
+                        && voicePlaybackBlock() == null && !lobbyVoiceCapture.busy(), null);
         lobbyChatVoiceSequence = message.sequence();
-        lobbyChatVoicePaused = false;
-        playLobbyVoice(message, message.sequence());
-    }
-
-    private void playLobbyVoice(LobbyChatMessage message, long sequence) {
-        if (!audioOutputAvailable() || !audioControl.enabled()
-                || preferenceBoolean("audio_block_voice_messages", false)) {
-            showToast(gameText.translate(audioOutputAvailable()
-                    ? "gdx.lobby.voice_playback_disabled"
-                    : "gdx.audio.no_output_device"));
+        lobbyChatVoice = request;
+        request.completion().whenComplete((ignored, failure) -> Gdx.app.postRunnable(() -> {
+            if (disposed || lobbyChatVoice != request) return;
+            lobbyChatVoice = null;
             lobbyChatVoiceSequence = -1L;
-            return;
-        }
-        try {
-            byte[] wav = Base64.getDecoder().decode(message.content());
-            if (!com.tonikelope.coronapoker.core.audio.VoiceWavContract
-                    .isValid(wav)) {
-                showToast(gameText.translate("gdx.lobby.voice_invalid"));
-                lobbyChatVoiceSequence = -1L;
-                return;
+            if (failure != null) {
+                showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
             }
-            GdxVoicePlayback.play(wav, masterVolume(), () -> {
-                if (lobbyChatVoiceSequence == sequence
-                        && lobbyChatVoicePaused) {
-                    GdxVoicePlayback.pause();
-                }
-            }).whenComplete((ignored, failure) -> {
-                if (Gdx.app == null) return;
-                Gdx.app.postRunnable(() -> {
-                    if (lobbyChatVoiceSequence == sequence) {
-                        lobbyChatVoiceSequence = -1L;
-                        lobbyChatVoicePaused = false;
-                    }
-                    if (!disposed && failure != null) {
-                        showToast(gameText.translate(
-                                "gdx.lobby.voice_playback_failed"));
-                    }
-                });
-            });
-        } catch (IllegalArgumentException malformed) {
-            lobbyChatVoiceSequence = -1L;
-            showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
-        }
+        }));
     }
 
     private void stopLobbyChatVoice() {
+        if (lobbyChatVoice != null) lobbyChatVoice.stop();
+        lobbyChatVoice = null;
         lobbyChatVoiceSequence = -1L;
-        lobbyChatVoicePaused = false;
-        GdxVoicePlayback.stop();
     }
 
     private void playLobbyVoice(byte[] wav) {
-        if (!audioOutputAvailable() || !audioControl.enabled()
-                || preferenceBoolean("audio_block_voice_messages", false)) {
-            return;
-        }
-        GdxVoicePlayback.play(wav, masterVolume(), null)
+        if (voicePlaybackBlock() != null) return;
+        GdxVoicePlayback.play(wav, masterVolume(),
+                () -> !disposed && surface == Surface.LOBBY
+                        && voicePlaybackBlock() == null && !lobbyVoiceCapture.busy(), null)
                 .whenComplete((ignored, failure) -> {
-            if (failure == null || Gdx.app == null) return;
-            Gdx.app.postRunnable(() -> {
-                if (!disposed) {
-                    showToast(gameText.translate(
-                            "gdx.lobby.voice_playback_failed"));
-                }
-            });
-        });
+                    if (failure == null || Gdx.app == null) return;
+                    Gdx.app.postRunnable(() -> {
+                        if (!disposed && surface == Surface.LOBBY) {
+                            showToast(gameText.translate("gdx.lobby.voice_playback_failed"));
+                        }
+                    });
+                });
     }
 
     private void clearLobbyMedia() {
@@ -8773,8 +8720,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void submitLobbyCommand(LobbyCommand command, Runnable success) {
+        submitLobbyCommand(command, success, null);
+    }
+
+    private void submitLobbyCommand(LobbyCommand command, Runnable success,
+            Runnable onFailure) {
         LobbySession session = lobbySession;
         if (session == null || lobbyCommandPending) {
+            if (onFailure != null) onFailure.run();
             return;
         }
         lobbyCommandPending = true;
@@ -8792,7 +8745,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             if (command instanceof LobbyCommand.StartGame) {
                                 lobbyGameStarting = false;
                             }
-                            showToast(submissionError(cause));
+                            if (onFailure != null) onFailure.run();
+                            else showToast(submissionError(cause));
                         }
                     }));
         } catch (RuntimeException failure) {
@@ -8800,7 +8754,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (command instanceof LobbyCommand.StartGame) {
                 lobbyGameStarting = false;
             }
-            showToast(submissionError(failure));
+            if (onFailure != null) onFailure.run();
+            else showToast(submissionError(failure));
         }
     }
 
@@ -9797,7 +9752,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
                     groups, 1f);
             String[] keys = {"baraja", "trasera", "color_tapete",
-                "nivel_luz"};
+                "nivel_luz", GdxChipAmountText.ZEROS_KEY};
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
                 float currentY = rows.rowY(row);
                 Rectangle bounds = GdxSettingsLayout.groupedRow(baseX,
@@ -9860,6 +9815,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                                     .DEFAULT_LIGHT_LEVEL)))),
                             () -> adjustLightLevel(-1),
                             () -> adjustLightLevel(1));
+                } else if (row == GdxSettingsContract.APPEARANCE_AMOUNT_ZEROS_ROW) {
+                    var choice = GdxAppearanceOptions.AMOUNT_ZEROS;
+                    Rectangle anchor = settingsDropdownAnchor(
+                            bounds.x, bounds.y, bounds.width, bounds.height);
+                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width, bounds.height,
+                            choice.label(gameText),
+                            GdxSettingsContract.markDefault(
+                                    GdxAppearanceOptions.selectedLabel(choice, initialProperties, gameText),
+                                    amountZeroMode() == GdxChipAmountText.ZeroMode.IF_SPACE),
+                            () -> openAppearanceChoiceDropdown(choice, anchor), true);
                 } else {
                     var option = page.options().get(row
                             - GdxSettingsContract.APPEARANCE_PRIMARY_ROW_COUNT);
@@ -10104,10 +10069,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, uppercase(label), row.label().x,
                 y + h / 2f + 10f,
                 enabled ? Color.WHITE : DISABLED, false, row.label().width);
-        textFit(uiFont, value,
-                row.value().x + row.value().width / 2f,
-                y + h / 2f + 11f, enabled ? GOLD : DISABLED, true,
-                row.value().width);
+        if (label.equals(settingsGameText("row.initial_buyin"))
+                || label.equals(settingsGameText("row.auto_call"))) {
+            moneyTextFit(uiFont, value, row.value().x + row.value().width / 2f,
+                    y + h / 2f + 11f, enabled ? GOLD : DISABLED, true, row.value().width);
+        } else {
+            textFit(uiFont, value, row.value().x + row.value().width / 2f,
+                    y + h / 2f + 11f, enabled ? GOLD : DISABLED, true, row.value().width);
+        }
         shapes.setColor(enabled ? GOLD : DISABLED);
         float cy = y + h / 2f;
         float arrowX = row.arrow().x + row.arrow().width / 2f;
@@ -10165,10 +10134,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsLayout.rowTextBaseline(y), valueColor, true,
                     statusWidth);
         }
-        textFit(uiFont, value,
-                row.value().x + row.value().width / 2f,
-                GdxSettingsLayout.rowTextBaseline(y),
-                valueColor, true, row.value().width - 12f);
+        float valueX = row.value().x + row.value().width / 2f;
+        if (label.equals(settingsGameText("row.initial_blinds"))) {
+            moneyTextFit(uiFont, value, valueX, GdxSettingsLayout.rowTextBaseline(y),
+                    valueColor, true, row.value().width - 12f);
+        } else {
+            textFit(uiFont, value, valueX, GdxSettingsLayout.rowTextBaseline(y),
+                    valueColor, true, row.value().width - 12f);
+        }
         shapes.setColor(enabled ? GOLD : DISABLED);
         float cx = row.arrow().x + row.arrow().width / 2f;
         float cy = row.arrow().y + row.arrow().height / 2f;
@@ -10320,10 +10293,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 minusBounds.x + minusBounds.width / 2f,
                 GdxSettingsLayout.stepperSignBaseline(y),
                 enabled ? Color.WHITE : DISABLED, true);
-        textFit(uiFont, value, valueBounds.x + valueBounds.width / 2f,
-                GdxSettingsLayout.stepperValueBaseline(y),
-                valueColor, true,
-                valueBounds.width - 12f);
+        float valueX = valueBounds.x + valueBounds.width / 2f;
+        float valueBaseline = GdxSettingsLayout.stepperValueBaseline(y);
+        if (label.equals(settingsGameText("row.cap"))) {
+            moneyTextFit(uiFont, value, valueX, valueBaseline,
+                    valueColor, true, valueBounds.width - 12f);
+        } else {
+            textFit(uiFont, value, valueX, valueBaseline,
+                    valueColor, true, valueBounds.width - 12f);
+        }
         text(settingsStepperSignFont, "+",
                 plusBounds.x + plusBounds.width / 2f,
                 GdxSettingsLayout.stepperSignBaseline(y),
@@ -11368,7 +11346,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void toggleMasterSoundState() {
         boolean enabled = audioControl.toggle(surface != Surface.SETTINGS);
-        if (!enabled) GdxVoicePlayback.stop();
+        if (!enabled) {
+            stopLobbyChatVoice();
+            stopVoiceNotePreview();
+            GdxVoicePlayback.stop();
+        }
         syncMusicForSurface();
     }
 
@@ -11396,7 +11378,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     void audioOutputAvailabilityChanged(boolean available) {
-        if (!available) GdxVoicePlayback.stop();
+        if (!available) {
+            stopLobbyChatVoice();
+            stopVoiceNotePreview();
+            GdxVoicePlayback.stop();
+        }
         syncMusicForSurface();
     }
 
@@ -11427,7 +11413,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !statsDialogMusic && !customBotDialogMusic
                 && preferenceBoolean("sonido_ascensor", true));
         boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
-                musicMasterEnabled() && lobbyMusic
+                musicMasterEnabled() && lobbyMusic && !lobbyVoiceCapture.busy()
                 && preferenceBoolean("musica_sala_espera", true));
         boolean playAbout = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && aboutDialogMusic
@@ -11498,6 +11484,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void stopLobbyTransientAudio() {
         cancelLobbyVoiceRecording();
         stopLobbyChatVoice();
+        GdxVoicePlayback.stop();
     }
 
     void resumeMusic() {
@@ -12289,13 +12276,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         gameSettingTooltip(rightX, 194f, rowWidth, 102f, "blind_cap_level");
     }
 
-    private static String blindLevelLabel(NewGameTableDraft.BlindLevel level) {
-        return GdxSettingsContract.blindLevelLabel(level.smallBlind(),
-                level.bigBlind());
+    private String blindLevelLabel(NewGameTableDraft.BlindLevel level) {
+        return formatBlind(level.smallBlind()) + " / " + formatBlind(level.bigBlind());
     }
 
-    private static String formatBlind(double value) {
-        return GdxSettingsContract.blindAmountLabel(value);
+    private String formatBlind(double value) {
+        return amountZeroMode().display(GdxSettingsContract.blindAmountLabel(value));
     }
 
     private void selectBlindLevelOption(int option) {
@@ -12621,7 +12607,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         text(headingFont, "-", x + 38f, y + 48f, Color.WHITE, true);
         text(headingFont, "+", x + width - 38f, y + 48f,
                 Color.WHITE, true);
-        textFit(headingFont, formatBlind(value), x + width / 2f,
+        moneyTextFit(headingFont, formatBlind(value), x + width / 2f,
                 y + 49f, GOLD, true, width - side * 2f - 24f);
         repeatHit(x, y, side + 6f, 72f, minus);
         repeatHit(x + width - side - 6f, y, side + 6f, 72f, plus);
@@ -12739,7 +12725,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void initialBuyinChoice(float x, float y, float width, float height,
             NewGameTableDraft draft, boolean economyEditable) {
         settingsChoice(x, y, width, height, settingsGameText("row.initial_buyin"),
-                GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
+                GdxChipAmountText.displayChipLabel(
+                        GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
+                        amountZeroMode()),
                 this::openInitialBuyinEditor, economyEditable && draft.fixedBuyin());
     }
 
@@ -14539,8 +14527,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
                 enabled && pressed(x, y, w, h), 1f);
-        textFit(uiFont, value, x + 22f, y + 46f,
-                enabled ? Color.WHITE : DISABLED, false, w - 92f);
+        Color valueColor = enabled ? Color.WHITE : DISABLED;
+        if (label.equals(gameText.translate("gdx.settings.game.row.initial_blinds"))) {
+            moneyTextFit(uiFont, value, x + 22f, y + 46f, valueColor, false, w - 92f);
+        } else {
+            textFit(uiFont, value, x + 22f, y + 46f, valueColor, false, w - 92f);
+        }
         shapes.setColor(enabled ? GOLD : DISABLED);
         float cx = x + w - 38f;
         float cy = y + 39f;
@@ -14676,7 +14668,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case SERVER_HISTORY -> connection == null ? List.of()
                     : connection.serverHistory();
             case BLIND_LEVEL -> dropdownTableTarget().blindLevels().stream()
-                    .map(GdxFrontendScreen::blindLevelLabel).toList();
+                    .map(this::blindLevelLabel).toList();
             case BLIND_STRUCTURE_EDITOR -> blindStructureEditor.entries()
                     .stream().map(BlindStructureCatalog.Entry::name).toList();
             case DECK -> presentationSettings.availableDecks().stream()
@@ -14990,10 +14982,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 roundedRect(x + 12f, rowY + 12f, 4f, rowH - 24f, 2f);
             }
             if (interactive) {
-                textFit(smallFont, options.get(option), x + 28f,
-                        rowY + GdxSettingsLayout.POPUP_TEXT_BASELINE,
-                        active ? GOLD : Color.WHITE, false,
-                        w - 34f - rowRightInset);
+                float baseline = rowY + GdxSettingsLayout.POPUP_TEXT_BASELINE;
+                Color optionColor = active ? GOLD : Color.WHITE;
+                if (dropdown == Dropdown.BLIND_LEVEL) {
+                    moneyTextFit(smallFont, options.get(option), x + 28f,
+                            baseline, optionColor, false, w - 34f - rowRightInset);
+                } else {
+                    textFit(smallFont, options.get(option), x + 28f,
+                            baseline, optionColor, false, w - 34f - rowRightInset);
+                }
                 int selectedOption = option;
                 hit(x + 6f, rowY + 3f, w - 6f - rowRightInset,
                         rowH - 6f, () -> {
@@ -16126,6 +16123,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : new TextItem(item.font(), clipped, x, y, item.color(), centered);
     }
 
+    private void chartMoneyTextFit(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        List<TextItem> target = statsChartCanvasActive ? statsChartTexts : texts;
+        target.add(fittedMoneyTextItem(font, value,
+                statsChartCanvasActive ? statsChartX(x) : x,
+                statsChartCanvasActive ? statsChartY(y) : y, color, centered, maxWidth));
+    }
+
     private void chartTextFit(BitmapFont font, String value, float x, float y,
             Color color, boolean centered, float maxWidth) {
         List<TextItem> target = statsChartCanvasActive
@@ -16142,6 +16147,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // until a genuine italic font asset is available.
         activeTextItems().add(fittedTextItem(
                 preferred, value, x, y, color, centered, maxWidth));
+    }
+
+    private void moneyTextFit(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        activeTextItems().add(fittedMoneyTextItem(font, value, x, y, color, centered, maxWidth));
+    }
+
+    private TextItem fittedMoneyTextItem(BitmapFont font, String value, float x, float y,
+            Color color, boolean centered, float maxWidth) {
+        GdxCrispButtonText.resolveAmountWithinBox(glyph, value, maxWidth,
+                Float.POSITIVE_INFINITY, nativeTextTiers(font), crispButtonText, amountZeroMode());
+        return new TextItem(crispButtonText.font(), crispButtonText.text(),
+                x, y, new Color(color), centered);
     }
 
     private TextItem fittedTextItem(BitmapFont preferred, String value,
@@ -16409,11 +16427,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!blockingModal && surface == Surface.LOBBY
                 && button == Input.Buttons.LEFT
                 && voiceBounds.contains(pointer)) {
-            boolean enabled = canUseLobbyVoice() && !lobbyCommandPending
-                    && !lobbyVoiceStopping && lobbyVoiceRecorder == null;
-            if (enabled && lobbyVoicePointer.capture(pointerIndex, button)) {
+            if (lobbyVoiceKey == Input.Keys.UNKNOWN
+                    && !lobbyVoicePointer.active() && beginLobbyVoiceRecording()) {
+                lobbyVoicePointer.capture(pointerIndex, button);
                 pressedHit = new Hit(voiceBounds, () -> { }, false);
-                beginLobbyVoiceRecording();
             }
             return true;
         }
@@ -16572,6 +16589,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (lobbyVoicePointer.release(pointerIndex, button)) {
+            pressedHit = null;
+            clearPointerRepeat();
+            pointerSelectionField = null;
+            finishLobbyVoiceRecording(false);
+            return true;
+        }
         if (rulesWindow.isOpen()) {
             rulesWindow.touchUp(pointer.x, pointer.y, pointerIndex, button);
             return true;
@@ -16607,13 +16631,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
             statsEvidenceResizeHandle =
                     GdxFloatingGameLogLayout.ResizeHandle.NONE;
-            return true;
-        }
-        if (lobbyVoicePointer.release(pointerIndex, button)) {
-            pressedHit = null;
-            clearPointerRepeat();
-            pointerSelectionField = null;
-            finishLobbyVoiceRecording(false);
             return true;
         }
         boolean passwordWasRevealed = revealedPasswordField != null;
@@ -16994,7 +17011,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int volumeDirection = GdxVolumeOverlayStyle.shortcutDirection(action);
         if (!capturingShortcut && volumeDirection != 0) {
             if (volumeKeyRepeat.press(keycode, volumeDirection)) {
-                adjustFrontendMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP * volumeDirection);
+                adjustFrontendMasterVolume(
+                        GdxSettingsContract.MASTER_VOLUME_STEP * volumeDirection, false);
             }
             return true;
         }
@@ -17201,8 +17219,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 statsConfirmation = StatsConfirmation.NONE;
                 return true;
             }
-            if (lobbyVoiceRecorder != null) {
-                cancelLobbyVoiceRecording();
+            if (lobbyVoiceCapture.busy()) {
+                finishLobbyVoiceRecording(true);
                 return true;
             }
             if (surface == Surface.LOBBY && lobbyConfirmation != null) {
@@ -17308,7 +17326,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (GdxShortcutBindings.VOICE_RECORD.equals(shortcut)
                 && surface == Surface.LOBBY) {
-            if (lobbyVoiceRecorder == null) beginLobbyVoiceRecording();
+            if (lobbyVoiceKey == Input.Keys.UNKNOWN
+                    && !lobbyVoicePointer.active() && beginLobbyVoiceRecording()) {
+                lobbyVoiceKey = keycode;
+            }
             return true;
         }
         boolean hostPages = surface == Surface.NEW_GAME
@@ -17488,9 +17509,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         syncMusicForSurface();
         volumeOverlayUntil = elapsed + GdxVolumeOverlayStyle.DURATION_SECONDS;
-        if (playCue) {
-            playPreferenceSound("misc/volume_change.wav", "sonido_volumen", 0.72f);
-        }
+        if (playCue) playVolumePreview();
+    }
+
+    private void playVolumePreview() {
+        playPreferenceSound(GdxSoundFeedback.VOLUME_CHANGE, "sonido_volumen", 0.72f);
     }
 
     @Override
@@ -17855,7 +17878,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyImageIcon.getTexture().dispose();
         lobbyVoiceIcon.getTexture().dispose();
         aboutMourningIcon.dispose();
-        aboutBookIcon.dispose();
+        robertRulesIcon.dispose();
         aboutCrossIcon.dispose();
         if (aboutModIcon != null) aboutModIcon.dispose();
         soundEnabledCue.dispose();
@@ -17909,6 +17932,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean keyUp(int keycode) {
         volumeKeyRepeat.release(keycode);
         textKeyRepeat.release(keycode);
+        if (keycode == lobbyVoiceKey && lobbyVoiceKey != Input.Keys.UNKNOWN) {
+            lobbyVoiceKey = Input.Keys.UNKNOWN;
+            finishLobbyVoiceRecording(false);
+            return true;
+        }
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);
             return true;
@@ -17917,10 +17945,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyGallery.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED)) return true;
         if (statsBrowserInput() && statsBrowserFocused) {
             statsBrowser.key(KeyEvent.KEY_RELEASED, keycode, KeyEvent.CHAR_UNDEFINED);
-            return true;
-        }
-        if (keycode == Input.Keys.F9 && lobbyVoiceRecorder != null) {
-            finishLobbyVoiceRecording(false);
             return true;
         }
         return false;
@@ -18243,7 +18267,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record LobbyVoiceControlItem(float playX, float stopX, float y,
-            boolean active, boolean paused) {
+            boolean active, boolean playing, boolean loading) {
     }
 
     private record UiImageItem(Texture texture, TextureRegion region,

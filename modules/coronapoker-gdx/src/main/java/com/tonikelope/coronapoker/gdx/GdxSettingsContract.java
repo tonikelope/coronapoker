@@ -46,7 +46,8 @@ final class GdxSettingsContract {
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
-    static final int APPEARANCE_PRIMARY_ROW_COUNT = 4;
+    static final int APPEARANCE_AMOUNT_ZEROS_ROW = 4;
+    static final int APPEARANCE_PRIMARY_ROW_COUNT = 5;
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
@@ -665,6 +666,7 @@ final class GdxSettingsContract {
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "gdx_show_cpu_memory",
             "mostrar_coste_igualar", POT_PLAYER_COUNT_KEY, DIM_FOLDED_OPPONENTS_KEY,
+            GdxChipAmountText.ZEROS_KEY,
             "chat_images_ingame",
             TABLE_CHAT_FEED_KEY, TABLE_SPEAKING_EMOJI_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
@@ -1416,6 +1418,8 @@ final class GdxSettingsContract {
             properties.setProperty("color_tapete", "verde");
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
+            properties.setProperty(GdxChipAmountText.ZEROS_KEY,
+                    GdxChipAmountText.ZeroMode.IF_SPACE.setting);
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
                 properties.setProperty(option.key(),
                         Boolean.toString(option.fallback()));
@@ -1462,7 +1466,8 @@ final class GdxSettingsContract {
                     && stringAtDefault(properties, "nivel_luz",
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
-            if (!visualDefaults) return false;
+            if (!visualDefaults || GdxChipAmountText.ZeroMode.configured(properties)
+                    != GdxChipAmountText.ZeroMode.IF_SPACE) return false;
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
                 if (!booleanAtDefault(properties, option.key(),
                         option.fallback())) return false;

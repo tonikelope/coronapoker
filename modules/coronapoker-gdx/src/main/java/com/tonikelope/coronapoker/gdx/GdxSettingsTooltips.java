@@ -236,6 +236,8 @@ final class GdxSettingsTooltips {
             case "color_tapete" -> "tooltip.cfg.table_felt";
             case "nivel_luz" -> "tooltip.cfg.nivel_luz";
             case "show_time" -> "gdx.settings.tooltip.show_time";
+            case GdxChipAmountText.ZEROS_KEY ->
+                "gdx.settings.tooltip.amount_decimal_zeros";
             case "mostrar_coste_igualar" ->
                 "gdx.settings.tooltip.show_call_cost";
             case GdxSettingsContract.POT_PLAYER_COUNT_KEY ->

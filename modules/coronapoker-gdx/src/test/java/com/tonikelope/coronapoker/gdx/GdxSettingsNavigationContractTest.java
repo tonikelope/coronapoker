@@ -276,6 +276,41 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
+    void fastAccessFadesTheActionsBeforeRetractingAndFinishesTheIconTransition() {
+        int count = 11;
+        float expandedWidth = CoronaPokerGdxTable.fastBarPanelWidth(count, 0f);
+        float compactWidth = CoronaPokerGdxTable.fastBarPanelWidth(count, 1f);
+        assertEquals(66f, compactWidth);
+        assertEquals(expandedWidth, CoronaPokerGdxTable.fastBarPanelWidth(count, 0.5f));
+        assertEquals(1f, CoronaPokerGdxTable.fastBarActionsOpacity(0f));
+        assertEquals(0.5f, CoronaPokerGdxTable.fastBarActionsOpacity(0.25f));
+        assertEquals(0f, CoronaPokerGdxTable.fastBarActionsOpacity(0.5f));
+        assertTrue(CoronaPokerGdxTable.fastBarPanelWidth(count, 0.75f) < expandedWidth);
+        assertTrue(CoronaPokerGdxTable.fastBarPanelWidth(count, 0.75f) > compactWidth);
+        assertEquals(0f, CoronaPokerGdxTable.fastBarMenuIconOpacity(0f));
+        assertEquals(0.5f, CoronaPokerGdxTable.fastBarMenuIconOpacity(0.5f));
+        assertTrue(CoronaPokerGdxTable.fastBarMenuIconOpacity(0.99f) > 0.99f);
+        assertEquals(1f, CoronaPokerGdxTable.fastBarMenuIconOpacity(1f));
+    }
+
+    @Test
+    void fastAccessOpeningFitsAllButtonsInsideTheExpandingPanel() {
+        int count = 11;
+        float compactWidth = CoronaPokerGdxTable.fastBarPanelWidth(count, 1f);
+        float expandedWidth = CoronaPokerGdxTable.fastBarPanelWidth(count, 0f);
+        assertEquals(compactWidth, CoronaPokerGdxTable.fastAccessOpeningWidth(count, 0f));
+        assertEquals(expandedWidth, CoronaPokerGdxTable.fastAccessOpeningWidth(count, 1f));
+        for (float openness : new float[]{0.1f, 0.25f, 0.5f, 0.75f, 1f}) {
+            float right = 18f + CoronaPokerGdxTable.fastAccessOpeningWidth(count, openness);
+            float lastX = CoronaPokerGdxTable.fastAccessButtonX(count - 1, openness);
+            assertEquals(right - 7f, lastX + 52f * openness, 0.001f);
+            assertEquals(25f, CoronaPokerGdxTable.fastAccessButtonX(0, openness));
+            float firstActionX = CoronaPokerGdxTable.fastAccessButtonX(1, openness);
+            assertEquals(77f + 7f * openness, firstActionX, 0.001f);
+        }
+    }
+
+    @Test
     void fastAccessSurfaceOwnsButtonsPaddingAndGaps() {
         // Closed bar owns its complete painted panel, not only the icon.
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(

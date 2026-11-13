@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.core.network;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -7,6 +8,7 @@ import com.tonikelope.coronapoker.CoreGameTableFactory;
 import com.tonikelope.coronapoker.Crupier;
 import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.DatabaseService;
+import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
@@ -32,6 +34,7 @@ import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -97,6 +100,20 @@ class NetworkHumanGameTableIntegrationTest {
                 // canonical dealer is waiting for a human, not between hands.
                 await(() -> hostRenderer.heldAction.get()
                         || clientRenderer.heldAction.get(), Duration.ofSeconds(5));
+                byte[] voice = NetworkLobbyGatewayTest.validVoiceWav();
+                client.submit(new LobbyCommand.SendVoice(voice)).toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS);
+                await(() -> host.snapshot().chat().stream().anyMatch(message ->
+                        message.type() == LobbyChatMessage.Type.VOICE
+                                && message.nickname().equals("Invitado")),
+                        Duration.ofSeconds(3));
+                var receivedNotes = host.snapshot().chat().stream()
+                        .filter(message -> message.type() == LobbyChatMessage.Type.VOICE
+                                && message.nickname().equals("Invitado")).toList();
+                assertEquals(1, receivedNotes.size());
+                assertArrayEquals(voice, Base64.getDecoder().decode(
+                        receivedNotes.get(0).content()));
+
                 TableSession pausingTable = hostRenderer.heldAction.get()
                         ? hostTable : clientTable;
                 pausingTable.commands().submit(new TableCommand.TogglePause());

@@ -172,6 +172,7 @@ const send = request => new Promise((resolve, reject) => {
 });
 const query = new URLSearchParams(location.search);
 const botMarker = query.get('botMarker');
+const amountZeros = query.get('amountZeros') || 'if_space';
 const locale = query.get('lang') === 'en' ? 'en' : 'es';
 const t = key => strings[locale][key];
 let number, amount, integer, date, shortDate;
@@ -201,7 +202,9 @@ function translate() {
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
   for (const id of ['from', 'through']) $(id).placeholder = locale === 'en' ? 'YYYY-MM-DD' : 'AAAA-MM-DD';
   number = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
-  amount = new Intl.NumberFormat(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  amount = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: amountZeros === 'never' ? 0 : 2, maximumFractionDigits: 2
+  });
   integer = new Intl.NumberFormat(locale);
   date = new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'});
   shortDate = new Intl.DateTimeFormat(locale, {day:'numeric', month:'short', year:'2-digit'});
@@ -226,6 +229,39 @@ function headings(id, labels) {
 
 function val(n) { return n == null ? '–' : number.format(n); }
 function money(n) { return n == null ? '–' : amount.format(n); }
+
+const moneyMeasure = document.createElement('canvas').getContext('2d');
+const moneyFitObserver = new ResizeObserver(entries => {
+  for (const {target} of entries) fitMoneyLabel(target);
+});
+
+function fitMoneyLabel(label) {
+  const available = label.getBoundingClientRect().width;
+  if (available <= 0) return;
+  const {fontFamily, fontSize, fontWeight, letterSpacing} = getComputedStyle(label);
+  moneyMeasure.font = `${fontWeight} ${fontSize} ${fontFamily}`;
+  moneyMeasure.letterSpacing = letterSpacing === 'normal' ? '0px' : letterSpacing;
+  let text = label.dataset.fullAmount;
+  if (amountZeros === 'if_space') {
+    const trailingZero = locale === 'en' ? /\.([0-9]*?)0\b/g : /,([0-9]*?)0\b/g;
+    while (moneyMeasure.measureText(text).width > available) {
+      const matches = [...text.matchAll(trailingZero)];
+      const match = matches.at(-1);
+      if (!match) break;
+      const keep = match[1] ? match[0].slice(0, -1) : '';
+      text = text.slice(0, match.index) + keep + text.slice(match.index + match[0].length);
+    }
+  }
+  if (label.textContent !== text) label.textContent = text;
+}
+
+function observeMoneyLabel(label) {
+  if (amountZeros === 'if_space') {
+    label.dataset.fullAmount = label.textContent;
+    moneyFitObserver.observe(label);
+  }
+  return label;
+}
 function signed(n, formatter = val) { return (n > 0 ? '+' : '') + formatter(n); }
 function tone(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : ''; }
 function rateText(rate, key) {
@@ -289,13 +325,14 @@ function selectTab(id, focus = false) {
   }
 }
 
-function statCard(label, value, caption, icon, hero, cls) {
+function statCard(label, value, caption, icon, hero, cls, monetary = false) {
   const card = create('div', null, hero ? 'kpi hero' : 'kpi');
   const top = create('div', label, 'kpi-label');
   const glyph = create('span', icon, 'kpi-icon');
   glyph.setAttribute('aria-hidden', 'true');
   top.append(glyph);
-  card.append(top, create('strong', value, cls));
+  const amountLabel = create('strong', value, cls);
+  card.append(top, monetary ? observeMoneyLabel(amountLabel) : amountLabel);
   if (caption) card.append(create('small', caption));
   return card;
 }
@@ -303,8 +340,8 @@ function statCard(label, value, caption, icon, hero, cls) {
 function showOverview() {
   const v = view;
   $('kpis').replaceChildren(
-    statCard(t('net'), signed(v?.net, money), v?.net == null ? t('noBalance') : '', '↗', true, tone(v?.net)),
-    statCard(t('hourly'), signed(v?.hourly, money), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed'), '◷', false, tone(v?.hourly)),
+    statCard(t('net'), signed(v?.net, money), v?.net == null ? t('noBalance') : '', '↗', true, tone(v?.net), true),
+    statCard(t('hourly'), signed(v?.hourly, money), v?.hourly == null ? t('noDuration') : duration(v.timedSeconds) + ' ' + t('timed'), '◷', false, tone(v?.hourly), true),
     statCard(t('hands'), v ? integer.format(v.hands) : '–', t('settled'), '♠', false, ''),
     statCard(t('sessionCount'), v ? integer.format(v.sessionCount) : '–',
       v?.sessionsWithBalance ? integer.format(v.winningSessions) + '/' + integer.format(v.sessionsWithBalance) + ' ' + t('profitable') : t('noBalance'), '▤', false, '')
@@ -730,7 +767,8 @@ function showHand() {
     ['pot', money(hand.pot)], ['duration', clock]
   ].map(([key, value]) => {
     const fact = create('div', null);
-    fact.append(create('span', t(key)), create('strong', value));
+    const label = create('strong', value);
+    fact.append(create('span', t(key)), key === 'duration' ? label : observeMoneyLabel(label));
     return fact;
   }));
   $('hand-board').textContent = t('noCard');
@@ -887,6 +925,7 @@ async function refreshClassic() {
 }
 
 function render() {
+  moneyFitObserver.disconnect();
   if (!window.echarts) return;
   if (activeTab === 'overview') showOverview();
   if (activeTab === 'sessions') showSessions();

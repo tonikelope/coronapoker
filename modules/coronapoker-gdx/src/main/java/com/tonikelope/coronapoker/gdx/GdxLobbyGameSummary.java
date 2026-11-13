@@ -22,7 +22,7 @@ final class GdxLobbyGameSummary {
                         ? GdxChipAmountText.buyinLabel(settings.buyin(),
                                 text.language())
                         : settings.minBuyinBb() + " - " + settings.maxBuyinBb()
-                                + " BB"));
+                                + " BB", settings.fixedBuyin()));
         String rebuy = settings.rebuy() && settings.rebuyLimit()
                 ? text.translate("gdx.lobby.rebuy_limit",
                         settings.rebuyLimitCount())
@@ -32,7 +32,7 @@ final class GdxLobbyGameSummary {
 
         NewGameTableDraft.BlindLevel blind = settings.selectedBlindLevel();
         rows.add(new Row(text.translate(GAME_ROW + "initial_blinds"),
-                blindLabel(blind)));
+                blindLabel(blind), true));
         String interval = !settings.increaseBlinds() ? toggle(false, text)
                 : text.translate(settings.blindIncreaseType()
                         == NewGameTableDraft.BlindIncreaseType.MINUTES
@@ -44,7 +44,7 @@ final class GdxLobbyGameSummary {
             int capIndex = Math.min(settings.blindLevels().size() - 1,
                     settings.blindLevelIndex() + settings.blindCapRaises());
             rows.add(new Row(text.translate(GAME_ROW + "blind_cap"),
-                    blindLabel(settings.blindLevels().get(capIndex))));
+                    blindLabel(settings.blindLevels().get(capIndex)), true));
         }
 
         String rabbitMode = switch (settings.rabbitHunting()) {
@@ -66,7 +66,7 @@ final class GdxLobbyGameSummary {
                 settings.ante()
                         ? GdxChipAmountText.format(mode.amount(blind.bigBlind()), 2)
                                 + " / " + text.translate(mode.labelKey())
-                        : toggle(false, text)));
+                        : toggle(false, text), settings.ante()));
         rows.add(new Row(text.translate(GAME_ROW + "straddle"),
                 settings.straddle() ? text.translate("gdx.lobby.straddle")
                         : toggle(false, text)));
@@ -86,6 +86,13 @@ final class GdxLobbyGameSummary {
                 : "ui.option_pane.no");
     }
 
-    record Row(String label, String value) {
+    record Row(String label, String value, boolean monetary) {
+        Row(String label, String value) {
+            this(label, value, false);
+        }
+
+        String displayValue(GdxChipAmountText.ZeroMode mode) {
+            return monetary ? mode.display(value) : value;
+        }
     }
 }

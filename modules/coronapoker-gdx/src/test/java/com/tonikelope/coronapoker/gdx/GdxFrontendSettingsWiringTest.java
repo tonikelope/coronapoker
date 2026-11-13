@@ -434,7 +434,7 @@ final class GdxFrontendSettingsWiringTest {
                 + "coronapoker/gdx/GdxFrontendScreen.java"),
                 StandardCharsets.UTF_8);
         int start = frontend.indexOf("private void drawBlindsPage()");
-        int end = frontend.indexOf("private static String blindLevelLabel(", start);
+        int end = frontend.indexOf("private String blindLevelLabel(", start);
         assertTrue(start >= 0 && end > start);
         String method = frontend.substring(start, end);
 
@@ -814,7 +814,7 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(start >= 0 && end > start);
         String method = table.substring(start, end);
         assertTrue(method.contains(
-                "drawFittedCenteredInBox(actionFont, blinds,"));
+                "drawFittedMoneyInBox(actionFont, blinds,"));
         assertTrue(method.contains(
                 "drawFittedCenteredInBox(actionFont, hand,"));
         assertFalse(method.contains("float iconX = communityPauseX"),

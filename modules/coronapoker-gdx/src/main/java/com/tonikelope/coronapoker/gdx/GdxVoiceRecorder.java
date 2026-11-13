@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import javax.sound.sampled.AudioFileFormat;
@@ -37,6 +38,9 @@ final class GdxVoiceRecorder {
     private static final int MAX_PCM_BYTES = (int) SAMPLE_RATE * 2 * MAX_SECONDS;
     private static final int MIN_PCM_BYTES = (int) SAMPLE_RATE * 2 * MIN_MILLIS / 1000;
     private static final int SILENCE_PEAK = 8;
+    private static final int ONSET_RMS = 48;
+    private static final int ONSET_BLOCKS = 3;
+    private static final int LEADING_CONTEXT_BLOCKS = 10;
     private static final int CAPTURE_TARGET_PEAK = 29_490;
     private static final float MAX_CAPTURE_GAIN = 4f;
 
@@ -75,37 +79,50 @@ final class GdxVoiceRecorder {
 
     /** Opens the device synchronously; callers must invoke it off the render thread. */
     Outcome start(Runnable onLive, Runnable onEnded) {
+        if (stopRequested) {
+            finished.countDown();
+            return Outcome.ABORTED;
+        }
+        TargetDataLine opened = null;
         try {
-            line = lineProvider.open(PCM_FORMAT);
-            line.open(PCM_FORMAT);
-            line.start();
+            opened = lineProvider.open(PCM_FORMAT);
+            opened.open(PCM_FORMAT);
+            opened.start();
         } catch (Exception unavailable) {
-            closeLine();
+            closeDevice(opened);
             finished.countDown();
             return finish(Outcome.NO_LINE);
         }
-        if (stopRequested) {
-            closeLine();
+        boolean accepted;
+        synchronized (this) {
+            accepted = !stopRequested;
+            if (accepted) {
+                line = opened;
+                recording = true;
+                outcome = Outcome.RECORDING;
+            }
+        }
+        if (!accepted) {
+            closeDevice(opened);
             finished.countDown();
             return finish(Outcome.ABORTED);
         }
-        recording = true;
-        outcome = Outcome.RECORDING;
-        Thread capture = new Thread(() -> capture(onLive, onEnded),
+        TargetDataLine device = opened;
+        Thread capture = new Thread(() -> capture(device, onLive, onEnded),
                 "coronapoker-gdx-voice-capture");
         capture.setDaemon(true);
         capture.start();
         return Outcome.RECORDING;
     }
 
-    private void capture(Runnable onLive, Runnable onEnded) {
+    private void capture(TargetDataLine device, Runnable onLive, Runnable onEnded) {
         byte[] buffer = new byte[1600];
         try {
             while (recording && pcm.size() < MAX_PCM_BYTES) {
                 int wanted = alignFrames(Math.min(buffer.length,
                         MAX_PCM_BYTES - pcm.size()));
                 if (wanted <= 0) break;
-                int count = line.read(buffer, 0, wanted);
+                int count = device.read(buffer, 0, wanted);
                 if (count <= 0) break;
                 if (!gotAudio) {
                     gotAudio = true;
@@ -151,6 +168,7 @@ final class GdxVoiceRecorder {
         if (peakAmplitude(bytes) <= SILENCE_PEAK) {
             return failed(Outcome.SILENT);
         }
+        bytes = trimLeadingSilence(bytes);
         try {
             byte[] encoded = encodePcm(automaticGain
                     ? applySafeCaptureGain(bytes) : bytes);
@@ -193,11 +211,24 @@ final class GdxVoiceRecorder {
     }
 
     void abort() {
+        TargetDataLine current = markAborted();
+        closeDevice(current);
+        finished.countDown();
+    }
+
+    void requestAbort() {
+        TargetDataLine current = markAborted();
+        CompletableFuture.runAsync(() -> {
+            closeDevice(current);
+            finished.countDown();
+        });
+    }
+
+    private synchronized TargetDataLine markAborted() {
         stopRequested = true;
         recording = false;
         finish(Outcome.ABORTED);
-        closeLine();
-        finished.countDown();
+        return takeLine();
     }
 
     private byte[] failed(Outcome result) {
@@ -229,8 +260,16 @@ final class GdxVoiceRecorder {
     }
 
     private void closeLine() {
+        closeDevice(takeLine());
+    }
+
+    private synchronized TargetDataLine takeLine() {
         TargetDataLine current = line;
         line = null;
+        return current;
+    }
+
+    private static void closeDevice(TargetDataLine current) {
         if (current == null) return;
         try { current.stop(); } catch (RuntimeException ignored) { }
         try { current.flush(); } catch (RuntimeException ignored) { }
@@ -239,6 +278,37 @@ final class GdxVoiceRecorder {
 
     private static int alignFrames(int bytes) {
         return bytes - bytes % PCM_FORMAT.getFrameSize();
+    }
+
+    /**
+     * Skip long stretches of near-silence while retaining the start of speech.
+     * An isolated device click does not count as an onset.
+     */
+    static byte[] trimLeadingSilence(byte[] pcm) {
+        // Ten milliseconds per block, with 100 ms of audio before the onset.
+        int blockBytes = (int) SAMPLE_RATE * PCM_FORMAT.getFrameSize() / 100;
+        long onsetEnergy = (long) ONSET_RMS * ONSET_RMS * (blockBytes / 2);
+        int consecutive = 0;
+        int trim = 0;
+        for (int offset = 0; offset + blockBytes <= pcm.length; offset += blockBytes) {
+            long energy = 0;
+            for (int i = offset; i < offset + blockBytes; i += 2) {
+                int sample = (short) ((pcm[i] & 0xff) | (pcm[i + 1] << 8));
+                energy += (long) sample * sample;
+            }
+            if (energy >= onsetEnergy) {
+                if (++consecutive == ONSET_BLOCKS) {
+                    int precedingBlocks = LEADING_CONTEXT_BLOCKS + ONSET_BLOCKS - 1;
+                    trim = Math.max(0, offset - precedingBlocks * blockBytes);
+                    break;
+                }
+            } else {
+                consecutive = 0;
+            }
+        }
+        if (trim < LEADING_CONTEXT_BLOCKS * blockBytes
+                || pcm.length - trim < MIN_PCM_BYTES) return pcm;
+        return Arrays.copyOfRange(pcm, trim, pcm.length);
     }
 
     private static int peakAmplitude(byte[] bytes) {

@@ -1575,7 +1575,7 @@ class NetworkLobbyGatewayTest {
                 joining ? null : new NewGameTableDraft().snapshot());
     }
 
-    private static byte[] validVoiceWav() throws Exception {
+    static byte[] validVoiceWav() throws Exception {
         byte[] pcm = new byte[16_000 * 2 / 5];
         for (int index = 0; index + 1 < pcm.length; index += 2) {
             short sample = (short) (Math.sin(index / 11d) * 10_000);

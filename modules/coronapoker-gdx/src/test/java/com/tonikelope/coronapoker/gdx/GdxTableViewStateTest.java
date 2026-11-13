@@ -1898,6 +1898,14 @@ final class GdxTableViewStateTest {
                 width, height, width - 41f, 158f, 0, 12));
         assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
                 width, height, 41f, 158f, 3, 12));
+        assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, width - 41f, 158f, 3, 12));
+        assertEquals(6, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, 41f, 186f, 3, 12));
+        assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, 41f, 188f, 3, 12));
+        assertEquals(-1, CoronaPokerGdxTable.finalSummaryPointerTargetAt(
+                width, height, width - 64f, 182f, 0, 12));
     }
 
     @Test

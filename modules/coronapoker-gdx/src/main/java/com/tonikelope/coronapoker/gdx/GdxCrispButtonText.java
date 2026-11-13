@@ -16,6 +16,7 @@ final class GdxCrispButtonText {
     private static final int FIT_WIDTH = 1;
     private static final int FIT_BOX = 2;
     private static final int FIT_WRAPPED = 3;
+    private static final int FIT_AMOUNT_BOX = 4;
     private static final int FIT_CACHE_CAPACITY = 64;
     private static final int GROUP_CACHE_CAPACITY = 8;
 
@@ -35,6 +36,7 @@ final class GdxCrispButtonText {
          * outlive the atlases whose metrics produced them.
          */
         private final String[] cachedText = new String[FIT_CACHE_CAPACITY];
+        private final String[] cachedFittedText = new String[FIT_CACHE_CAPACITY];
         private final int[] cachedMode = new int[FIT_CACHE_CAPACITY];
         private final int[] cachedFirst = new int[FIT_CACHE_CAPACITY];
         private final int[] cachedSecond = new int[FIT_CACHE_CAPACITY];
@@ -87,7 +89,7 @@ final class GdxCrispButtonText {
             return new FontTiers(family);
         }
 
-        BitmapFont cached(int mode, String text, float first, float second,
+        private int cachedSlot(int mode, String text, float first, float second,
                 int auxiliary) {
             int firstBits = Float.floatToIntBits(first);
             int secondBits = Float.floatToIntBits(second);
@@ -98,17 +100,29 @@ final class GdxCrispButtonText {
                     && cachedSecond[slot] == secondBits
                     && cachedAuxiliary[slot] == auxiliary
                     && text.equals(cachedText[slot])
-                            ? cachedFont[slot] : null;
+                            ? slot : -1;
+        }
+
+        BitmapFont cached(int mode, String text, float first, float second,
+                int auxiliary) {
+            int slot = cachedSlot(mode, text, first, second, auxiliary);
+            return slot < 0 ? null : cachedFont[slot];
         }
 
         void cache(int mode, String text, float first, float second,
                 int auxiliary, BitmapFont font) {
+            cache(mode, text, first, second, auxiliary, font, text);
+        }
+
+        private void cache(int mode, String text, float first, float second,
+                int auxiliary, BitmapFont font, String fittedText) {
             int firstBits = Float.floatToIntBits(first);
             int secondBits = Float.floatToIntBits(second);
             int slot = fitCacheSlot(mode, text, firstBits, secondBits,
                     auxiliary);
             cachedMode[slot] = mode;
             cachedText[slot] = text;
+            cachedFittedText[slot] = fittedText;
             cachedFirst[slot] = firstBits;
             cachedSecond[slot] = secondBits;
             cachedAuxiliary[slot] = auxiliary;
@@ -197,29 +211,62 @@ final class GdxCrispButtonText {
     static void resolveWithinBox(GlyphLayout glyph, String value,
             float contentWidth, float contentHeight, FontTiers tiers,
             Result result) {
+        resolveWithinBox(glyph, value, contentWidth, contentHeight, tiers,
+                result, FIT_BOX);
+    }
+
+    /** Tries removing fractional zeros one at a time before a smaller tier. */
+    static void resolveAmountWithinBox(GlyphLayout glyph, String value,
+            float contentWidth, float contentHeight, FontTiers tiers,
+            Result result) {
+        resolveWithinBox(glyph, value, contentWidth, contentHeight, tiers,
+                result, FIT_AMOUNT_BOX);
+    }
+
+    static void resolveAmountWithinBox(GlyphLayout glyph, String value,
+            float contentWidth, float contentHeight, FontTiers tiers,
+            Result result, GdxChipAmountText.ZeroMode mode) {
+        if (mode == GdxChipAmountText.ZeroMode.IF_SPACE) {
+            resolveAmountWithinBox(glyph, value, contentWidth, contentHeight, tiers, result);
+        } else {
+            resolveWithinBox(glyph, mode.display(value), contentWidth, contentHeight, tiers, result);
+        }
+    }
+
+    private static void resolveWithinBox(GlyphLayout glyph, String value,
+            float contentWidth, float contentHeight, FontTiers tiers,
+            Result result, int mode) {
         Objects.requireNonNull(glyph, "glyph");
         Objects.requireNonNull(tiers, "tiers");
         Objects.requireNonNull(result, "result");
         String text = Objects.requireNonNullElse(value, "");
         float width = Math.max(0f, contentWidth);
         float height = Math.max(0f, contentHeight);
-        BitmapFont cached = tiers.cached(FIT_BOX, text, width, height, 0);
-        if (cached != null) {
-            result.font = cached;
-            result.text = text;
+        int slot = tiers.cachedSlot(mode, text, width, height, 0);
+        if (slot >= 0) {
+            result.font = tiers.cachedFont[slot];
+            result.text = tiers.cachedFittedText[slot];
             return;
         }
         for (BitmapFont font : tiers.fonts) {
             glyph.setText(font, text);
-            if (glyph.width <= width && glyph.height <= height) {
-                tiers.cache(FIT_BOX, text, width, height, 0, font);
+            if (glyph.height > height) continue;
+            String candidate = text;
+            while (mode == FIT_AMOUNT_BOX && glyph.width > width) {
+                String shorter = GdxChipAmountText.removeLastFractionalZero(candidate);
+                if (shorter.equals(candidate)) break;
+                candidate = shorter;
+                glyph.setText(font, candidate);
+            }
+            if (glyph.width <= width) {
+                tiers.cache(mode, text, width, height, 0, font, candidate);
                 result.font = font;
-                result.text = text;
+                result.text = candidate;
                 return;
             }
         }
         BitmapFont smallest = tiers.fonts[tiers.fonts.length - 1];
-        tiers.cache(FIT_BOX, text, width, height, 0, smallest);
+        tiers.cache(mode, text, width, height, 0, smallest);
         result.font = smallest;
         result.text = text;
     }

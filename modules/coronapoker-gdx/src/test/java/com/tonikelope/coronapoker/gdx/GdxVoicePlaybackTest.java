@@ -4,6 +4,7 @@ import com.tonikelope.coronapoker.core.audio.VoiceWavContract;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
@@ -34,6 +35,33 @@ final class GdxVoicePlaybackTest {
                         () -> playbackStarted.set(true))
                         .get(5, TimeUnit.SECONDS));
         assertFalse(playbackStarted.get());
+    }
+
+    @Test
+    void playbackReportsTheActualBlockingSetting() {
+        assertEquals("gdx.audio.no_output_device",
+                GdxVoicePlayback.blockedReason(false, true, false));
+        assertEquals("gdx.lobby.voice_playback_disabled",
+                GdxVoicePlayback.blockedReason(true, true, true));
+        assertEquals("gdx.lobby.voice_sound_muted",
+                GdxVoicePlayback.blockedReason(true, false, false));
+        assertNull(GdxVoicePlayback.blockedReason(true, true, false));
+    }
+
+    @Test
+    void previouslySavedNotesSkipDeviceClicksAndLeadingSilence() throws Exception {
+        byte[] pcm = new byte[48_000];
+        pcm[1] = 32; // Isolated device click.
+        for (int i = 38_400; i < pcm.length; i += 2) pcm[i + 1] = 16;
+        byte[] original = GdxVoiceRecorder.encodePcm(pcm);
+        byte[] decoded = GdxVoicePlayback.playbackPcmWav(original);
+        assertEquals(1_500L, VoiceWavContract.durationMillis(original));
+        try (var audio = AudioSystem.getAudioInputStream(new ByteArrayInputStream(decoded))) {
+            byte[] played = audio.readAllBytes();
+            assertEquals(12_800, played.length);
+            assertEquals(0, played[1]);
+            assertFalse(played[3_201] == 0, "Speech onset must be preserved");
+        }
     }
 
     @Test

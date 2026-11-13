@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 class GdxChipAmountTextTest {
@@ -66,6 +67,49 @@ class GdxChipAmountTextTest {
         assertEquals("SUBE (+200K)", GdxChipAmountText.actionLabel("SUBE (+200000)"));
         assertEquals("CHECK", GdxChipAmountText.actionLabel("CHECK"));
         assertEquals("", GdxChipAmountText.compactLabel(""));
+    }
+
+    @Test
+    void removesOnlyOneTrailingDecimalZeroFromTheRightmostEligibleAmount() {
+        assertEquals("0.10 / 0.2 @ 20' (10)",
+                GdxChipAmountText.removeLastFractionalZero("0.10 / 0.20 @ 20' (10)"));
+        assertEquals("0.1 / 0.25",
+                GdxChipAmountText.removeLastFractionalZero("0.10 / 0.25"));
+        assertEquals("RAISE (+10.0)",
+                GdxChipAmountText.removeLastFractionalZero("RAISE (+10.00)"));
+        assertEquals("RAISE (+10)",
+                GdxChipAmountText.removeLastFractionalZero("RAISE (+10.0)"));
+        assertEquals("9.5 + 10",
+                GdxChipAmountText.removeLastFractionalZero("9.50 + 10"));
+        assertEquals("-1.02K", GdxChipAmountText.removeLastFractionalZero("-1.020K"));
+        assertEquals("0.01 / 200",
+                GdxChipAmountText.removeLastFractionalZero("0.01 / 200"));
+        assertEquals("PAIR (65.50%)",
+                GdxChipAmountText.removeLastFractionalZero("PAIR (65.50%)"));
+        assertEquals("1,000.00",
+                GdxChipAmountText.removeLastFractionalZero("1,000.00"));
+    }
+
+    @Test
+    void amountZeroPreferenceUsesTheSameDefaultForStorageAndTheSelector() {
+        Properties values = new Properties();
+        var choice = GdxAppearanceOptions.AMOUNT_ZEROS;
+        assertEquals(GdxChipAmountText.ZeroMode.IF_SPACE,
+                GdxChipAmountText.ZeroMode.configured(values));
+        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
+        GdxAppearanceOptions.select(choice, values, 2);
+        assertEquals(GdxChipAmountText.ZeroMode.ALWAYS,
+                GdxChipAmountText.ZeroMode.configured(values));
+        GdxSettingsContract.restoreAppearancePageDefaults(values, 0, true);
+        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
+        values.setProperty(choice.key(), "invalid");
+        assertEquals(1, GdxAppearanceOptions.selectedIndex(choice, values));
+        assertEquals(GdxChipAmountText.ZeroMode.IF_SPACE,
+                GdxChipAmountText.ZeroMode.configured(values));
+        assertEquals("0.03 / 10", GdxChipAmountText.ZeroMode.NEVER.display("0.03 / 10.00"));
+        assertEquals("1.20K", GdxChipAmountText.ZeroMode.ALWAYS.display("1.2K"));
+        assertEquals("0.10 / 0.20",
+                GdxChipAmountText.ZeroMode.ALWAYS.display("0.1 / 0.2"));
     }
 
     @Test

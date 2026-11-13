@@ -26,7 +26,6 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     private static final float DEFAULT_HEIGHT = 760f;
     private static final Color ACCENT = new Color(0x16839aff);
     private static final Color PANEL = new Color(0x0b1522ff);
-    private static final Color GRIP = new Color(0x3e6079ff);
 
     private final GdxFloatingWindowPointer pointer = new GdxFloatingWindowPointer();
     private final GlyphLayout title = new GlyphLayout();
@@ -141,10 +140,6 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         Rectangle close = closeBounds();
         GdxUiDialogStyle.drawWindowClose(shapes, close.x, close.y, close.width, close.height,
                 true, close.contains(x, y) ? 1f : 0f, gesture == Gesture.CLOSE, 1f);
-        shapes.setColor(GRIP);
-        float right = panel.x + panel.width;
-        shapes.rectLine(right - 17f, panel.y + 7f, right - 7f, panel.y + 17f, 2f);
-        shapes.rectLine(right - 12f, panel.y + 7f, right - 7f, panel.y + 12f, 2f);
         shapes.end();
 
         batch.begin();

@@ -74,12 +74,6 @@ final class GdxRobertRulesWindowTest {
     }
 
     @Test
-    void maximizedWindowFillsTheViewportToTheWindowMargin() {
-        assertEquals(new Rectangle(16f, 16f, 1888f, 1048f),
-                GdxRobertRulesWindow.maximizedBounds(1920f, 1080f));
-    }
-
-    @Test
     void sharedHeaderCentersTheTitleAndCloseButtonAboveThePdf() {
         Rectangle panel = GdxFloatingGameLogLayout.initial(1920f, 1080f);
         Rectangle title = GdxFloatingGameLogLayout.headerBounds(panel);

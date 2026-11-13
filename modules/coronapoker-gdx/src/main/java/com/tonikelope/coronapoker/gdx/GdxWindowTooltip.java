@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 /** Hover help painted above the chrome and Chromium texture of a floating window. */
 final class GdxWindowTooltip {
+    private static final Color BORDER = new Color(0x31445fff);
     private final GdxTooltipDelay delay = new GdxTooltipDelay();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
@@ -33,7 +34,8 @@ final class GdxWindowTooltip {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        GdxUiDialogStyle.drawInset(shapes, box.x, box.y, box.width, box.height, 1f);
+        GdxUiDialogStyle.drawPanel(shapes, box.x, box.y, box.width, box.height,
+                GdxUiDialogStyle.TOOLTIP_FILL, BORDER, 1f);
         shapes.end();
         batch.begin();
         GdxPixelText.draw(font, batch, glyph, box.x + 14f,

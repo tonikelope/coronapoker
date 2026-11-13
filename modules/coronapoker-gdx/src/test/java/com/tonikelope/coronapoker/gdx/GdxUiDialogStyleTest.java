@@ -27,10 +27,12 @@ final class GdxUiDialogStyleTest {
         assertTrue(insetAlpha < panelAlpha,
                 "nested reading surfaces must not make the shell opaque");
         assertEquals(0.68f, GdxUiDialogStyle.BACKDROP_ALPHA);
+        assertEquals(1f, GdxUiDialogStyle.NOTICE_FILL.a);
+        assertEquals(1f, GdxUiDialogStyle.TOOLTIP_FILL.a);
     }
 
     @Test
-    void confirmationsNoticesAndTablePromptsUseTheSharedSettingsMaterial()
+    void confirmationsUseTheSharedSettingsMaterialAndNoticesUseOpaquePanels()
             throws Exception {
         String base = "src/main/java/com/tonikelope/coronapoker/gdx/";
         String frontend = Files.readString(Path.of(base
@@ -44,7 +46,7 @@ final class GdxUiDialogStyleTest {
                 "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(frontend,
                 "private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(",
-                "GdxUiDialogStyle.drawPanel(");
+                "GdxUiDialogStyle.drawNoticePanel(");
         assertMethodSectionUses(table, "private void drawActiveDialog()",
                 "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
@@ -52,7 +54,7 @@ final class GdxUiDialogStyleTest {
                 "GdxUiDialogStyle.drawPanel(");
         assertMethodSectionUses(table,
                 "private void drawCanonicalNoticeDialog(",
-                "GdxUiDialogStyle.drawPanel(");
+                "GdxUiDialogStyle.drawNoticePanel(");
         assertMethodSectionUses(table,
                 "private void drawSettingsDiscardDialog(",
                 "GdxUiDialogStyle.drawPanel(");

@@ -38,6 +38,10 @@ final class GdxTableChatFeed {
             return new Line(kind, sender, text, false, -1, null);
         }
 
+        boolean isNotice() {
+            return kind != Kind.TEXT && kind != Kind.MEDIA;
+        }
+
         boolean isVoice() {
             return voiceSequence >= 0;
         }

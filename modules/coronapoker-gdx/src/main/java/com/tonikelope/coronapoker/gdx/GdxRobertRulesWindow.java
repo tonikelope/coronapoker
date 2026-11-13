@@ -34,7 +34,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
     private static final long RESIZE_INTERVAL = TimeUnit.MILLISECONDS.toNanos(72);
     private static final Color PANEL = new Color(0x0b1522ff);
     private static final Color BORDER = new Color(GdxSettingsStyle.CYAN_RGBA);
-    private static final Color GRIP = new Color(0x16839aff);
     private static final Color TRACK = new Color(GdxSettingsStyle.TOGGLE_OFF_RGBA);
     private static final Color GOLD = new Color(GdxSettingsStyle.GOLD_RGBA);
 
@@ -43,7 +42,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
     private final GlyphLayout label = new GlyphLayout();
     private final GdxWindowTooltip tooltip = new GdxWindowTooltip();
     private Rectangle panel;
-    private Rectangle restoredPanel;
     private Rectangle start;
     private float startX;
     private float startY;
@@ -116,17 +114,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         return GdxFloatingGameLogLayout.closeBounds(panel);
     }
 
-    private Rectangle maximizeBounds() {
-        Rectangle close = closeBounds();
-        return new Rectangle(close.x - close.width - 8f, close.y, close.width, close.height);
-    }
-
-    private Rectangle titleBounds() {
-        Rectangle title = GdxFloatingGameLogLayout.headerBounds(panel);
-        title.width = maximizeBounds().x - title.x - 10f;
-        return title;
-    }
-
     private Rectangle sliderBounds() {
         return new Rectangle(panel.x + (panel.width - 310f) / 2f,
                 panel.y + 10f, 250f, 29f);
@@ -150,7 +137,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         boolean failed = browser.failed();
         Texture pdf = failed ? null : browser.texture(browserWidth, browserHeight, browserScale);
         Rectangle close = closeBounds();
-        Rectangle maximize = maximizeBounds();
         Rectangle slider = sliderBounds();
         Rectangle track = trackBounds();
         float fill = track.width * (opacity - MIN_OPACITY) / (MAX_OPACITY - MIN_OPACITY);
@@ -174,19 +160,12 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         }
         GdxUiDialogStyle.drawWindowClose(shapes, close.x, close.y, close.width, close.height,
                 true, close.contains(x, y) ? 1f : 0f, gesture == Gesture.CLOSE, 1f);
-        drawMaximizeButton(shapes, maximize, x, y);
         shapes.setColor(TRACK);
         GdxAntialiasedRoundedRect.fill(shapes, track.x, track.y, track.width, track.height, 2.5f);
         shapes.setColor(GOLD);
         if (fill > 0f) GdxAntialiasedRoundedRect.fill(shapes, track.x, track.y, fill, track.height, 2.5f);
         if (slider.contains(x, y) || gesture == Gesture.OPACITY) shapes.setColor(Color.WHITE);
         shapes.circle(track.x + fill, track.y + track.height / 2f, 5f, 20);
-        if (restoredPanel == null) {
-            shapes.setColor(GRIP);
-            float right = panel.x + panel.width;
-            shapes.rectLine(right - 20f, panel.y + 8f, right - 8f, panel.y + 20f, 2f);
-            shapes.rectLine(right - 14f, panel.y + 8f, right - 8f, panel.y + 14f, 2f);
-        }
         shapes.end();
 
         batch.begin();
@@ -197,7 +176,7 @@ final class GdxRobertRulesWindow implements AutoCloseable {
                     : "gdx.rules.loading"), web, Align.center);
         }
         GdxUiDialogStyle.drawWindowTitle(batch, titleFont, label, text.translate(TITLE),
-                titleBounds(), viewport, 1f);
+                GdxFloatingGameLogLayout.headerBounds(panel), viewport, 1f);
         drawLabel(batch, smallFont, opacity + " %",
                 new Rectangle(slider.x + slider.width + 5f, slider.y, 55f, slider.height),
                 Align.center);
@@ -211,8 +190,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         String help = null;
         if (gesture == Gesture.NONE) {
             if (slider.contains(x, y)) help = text.translate("gdx.rules.opacity", opacity);
-            else if (maximize.contains(x, y)) help = text.translate(restoredPanel == null
-                    ? "gdx.window.maximize" : "gdx.window.restore");
             else if (close.contains(x, y)) help = text.translate("ui.cerrar");
         }
         tooltip.draw(shapes, batch, smallFont, viewport, x, y, help);
@@ -249,21 +226,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
                 && Math.abs(pixelHeight - sourceHeight) <= rounding;
     }
 
-    private void drawMaximizeButton(ShapeRenderer shapes, Rectangle bounds, float x, float y) {
-        GdxUiButtonStyle.draw(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
-                GdxUiButtonStyle.Tone.NEUTRAL, true, bounds.contains(x, y) ? 1f : 0f,
-                gesture == Gesture.MAXIMIZE, 1f);
-        float size = Math.min(bounds.width, bounds.height) * 0.40f;
-        float left = bounds.x + (bounds.width - size) / 2f;
-        float bottom = bounds.y + (bounds.height - size) / 2f;
-        shapes.setColor(Color.WHITE);
-        if (restoredPanel != null) {
-            shapes.rectLine(left + 3f, bottom + size + 3f, left + size + 3f, bottom + size + 3f, 1.8f);
-            shapes.rectLine(left + size + 3f, bottom + size + 3f, left + size + 3f, bottom + 3f, 1.8f);
-        }
-        GdxAntialiasedRoundedRect.outline(shapes, left, bottom, size, size, 2f, 1.8f);
-    }
-
     private void drawLabel(SpriteBatch batch, BitmapFont font, String value, Rectangle box, int align) {
         label.setText(font, value, 0, value.length(), Color.WHITE, box.width, align, false, "…");
         GdxPixelText.draw(font, batch, label, box.x, box.y + (box.height + label.height) / 2f, viewport);
@@ -290,9 +252,8 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         }
         resize = resizeHandleAt(x, y);
         if (closeBounds().contains(x, y)) gesture = Gesture.CLOSE;
-        else if (maximizeBounds().contains(x, y)) gesture = Gesture.MAXIMIZE;
         else if (resize != GdxFloatingGameLogLayout.ResizeHandle.NONE) begin(Gesture.RESIZE, x, y);
-        else if (restoredPanel == null && titleBounds().contains(x, y)) begin(Gesture.MOVE, x, y);
+        else if (GdxFloatingGameLogLayout.headerBounds(panel).contains(x, y)) begin(Gesture.MOVE, x, y);
         else if (sliderBounds().contains(x, y)) {
             gesture = Gesture.OPACITY;
             opacity = opacityAt(trackBounds(), x);
@@ -320,7 +281,7 @@ final class GdxRobertRulesWindow implements AutoCloseable {
                     worldWidth(), worldHeight());
             case OPACITY -> opacity = opacityAt(trackBounds(), x);
             case WEB -> mouse(MouseEvent.MOUSE_DRAGGED, x, y);
-            case NONE, CLOSE, MAXIMIZE -> { }
+            case NONE, CLOSE -> { }
         }
         return true;
     }
@@ -335,7 +296,6 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         }
         switch (gesture) {
             case CLOSE -> { if (closeBounds().contains(x, y)) close(); }
-            case MAXIMIZE -> { if (maximizeBounds().contains(x, y)) toggleMaximize(); }
             case OPACITY -> { opacity = opacityAt(trackBounds(), x); saveOpacity(); }
             case WEB -> mouse(MouseEvent.MOUSE_RELEASED, x, y);
             case RESIZE -> measureBrowser(documentBounds(panel));
@@ -423,29 +383,11 @@ final class GdxRobertRulesWindow implements AutoCloseable {
     }
 
     private void resizePanel() {
-        panel = restoredPanel == null ? GdxFloatingGameLogLayout.normalize(panel, worldWidth(), worldHeight())
-                : maximizedBounds(worldWidth(), worldHeight());
-    }
-
-    static Rectangle maximizedBounds(float worldWidth, float worldHeight) {
-        float margin = GdxFloatingGameLogLayout.SCREEN_MARGIN;
-        return new Rectangle(margin, margin, worldWidth - 2f * margin, worldHeight - 2f * margin);
-    }
-
-    private void toggleMaximize() {
-        if (restoredPanel == null) {
-            restoredPanel = panel;
-        } else {
-            panel = restoredPanel;
-            restoredPanel = null;
-        }
-        resizePanel();
-        measureBrowser(documentBounds(panel));
+        panel = GdxFloatingGameLogLayout.normalize(panel, worldWidth(), worldHeight());
     }
 
     private GdxFloatingGameLogLayout.ResizeHandle sideResizeHandle(float x, float y) {
-        return restoredPanel == null ? sideResizeHandle(panel, x, y)
-                : GdxFloatingGameLogLayout.ResizeHandle.NONE;
+        return sideResizeHandle(panel, x, y);
     }
 
     static GdxFloatingGameLogLayout.ResizeHandle sideResizeHandle(Rectangle panel, float x, float y) {
@@ -462,7 +404,7 @@ final class GdxRobertRulesWindow implements AutoCloseable {
     }
 
     private GdxFloatingGameLogLayout.ResizeHandle resizeHandleAt(float x, float y) {
-        if (restoredPanel != null || documentBounds(panel).contains(x, y)) {
+        if (documentBounds(panel).contains(x, y)) {
             return GdxFloatingGameLogLayout.ResizeHandle.NONE;
         }
         var side = sideResizeHandle(x, y);
@@ -477,7 +419,7 @@ final class GdxRobertRulesWindow implements AutoCloseable {
             case TOP, BOTTOM -> Cursor.SystemCursor.VerticalResize;
             case TOP_LEFT, BOTTOM_RIGHT -> Cursor.SystemCursor.NWSEResize;
             case TOP_RIGHT, BOTTOM_LEFT -> Cursor.SystemCursor.NESWResize;
-            case NONE -> restoredPanel == null && titleBounds().contains(x, y)
+            case NONE -> GdxFloatingGameLogLayout.headerBounds(panel).contains(x, y)
                     ? Cursor.SystemCursor.AllResize : Cursor.SystemCursor.Arrow;
         };
     }
@@ -532,5 +474,5 @@ final class GdxRobertRulesWindow implements AutoCloseable {
         webContextPointer.clear();
     }
 
-    private enum Gesture { NONE, WEB, MOVE, RESIZE, OPACITY, MAXIMIZE, CLOSE }
+    private enum Gesture { NONE, WEB, MOVE, RESIZE, OPACITY, CLOSE }
 }

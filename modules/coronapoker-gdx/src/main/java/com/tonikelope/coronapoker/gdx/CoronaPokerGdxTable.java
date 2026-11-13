@@ -497,6 +497,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float QUICK_CHAT_SCREEN_MARGIN = 18f;
     /** Keep the local controls and quick-access bar below the chat. */
     static final float QUICK_CHAT_PANEL_Y = LOCAL_HUD_SAFE_TOP;
+    static final int QUICK_CHAT_INPUT_FONT_SIZE = 21;
+    static final float QUICK_CHAT_INPUT_FONT_BORDER = 0.8f;
     private static final Color QUICK_CHAT_TOGGLE_ON = new Color(0x2f8f6bff);
     private static final Color QUICK_CHAT_TOGGLE_KNOB = new Color(0xe4f5ebff);
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
@@ -3804,7 +3806,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 1 -> uiFont = font(creationFontGenerator,
                     GdxVolumeOverlayStyle.FONT_SIZE,
                     GdxVolumeOverlayStyle.FONT_BORDER);
-            case 2 -> smallFont = font(creationFontGenerator, 21, 0.8f);
+            case 2 -> smallFont = font(creationFontGenerator,
+                    QUICK_CHAT_INPUT_FONT_SIZE, QUICK_CHAT_INPUT_FONT_BORDER);
             case 3 -> versionFont = font(creationFontGenerator,
                     GdxProductVersionBrand.FONT_SIZE, 0f);
             case 4 -> playerNameFont = font(creationFontGenerator, 22, 1.6f);
@@ -4481,7 +4484,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             mediumUiFont = replaceFont(mediumUiFont,
                     font(generator, 38, 0f, profile));
             smallFont = replaceFont(smallFont,
-                    font(generator, 21, 0.8f, profile));
+                    font(generator, QUICK_CHAT_INPUT_FONT_SIZE,
+                            QUICK_CHAT_INPUT_FONT_BORDER, profile));
             versionFont = replaceFont(versionFont, font(generator,
                     GdxProductVersionBrand.FONT_SIZE, 0f, profile));
             playerNameFont = replaceFont(playerNameFont,
@@ -11706,7 +11710,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport.getWorldWidth() - width - 8f);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.96f * alpha);
+        Color fill = GdxUiDialogStyle.TOOLTIP_FILL;
+        shapes.setColor(fill.r, fill.g, fill.b, alpha);
         roundedRect(x, y, width, 36f, 7f);
         shapes.end();
         batch.begin();
@@ -16147,8 +16152,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, POT_GOLD, 1f);
+        GdxUiDialogStyle.drawNoticePanel(shapes, panelX, panelY,
+                panelW, panelH, POT_GOLD);
         shapes.setColor(0.10f, 0.15f, 0.22f, 1f);
         roundedRect(panelX + 34f, panelY + 24f,
                 panelW - 68f, 12f, 6f);
@@ -16187,8 +16192,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelY = (height - panelH) / 2f;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, LATENCY_ORANGE, 1f);
+        GdxUiDialogStyle.drawNoticePanel(shapes, panelX, panelY,
+                panelW, panelH, LATENCY_ORANGE);
         shapes.end();
 
         batch.begin();
@@ -21149,7 +21154,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             roundedRect(x, y, width, height, 8f);
         }
         float inset = rim == null ? 0f : 1.5f;
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f);
+        shapes.setColor(GdxUiDialogStyle.TOOLTIP_FILL);
         roundedRect(x + inset, y + inset, width - 2f * inset,
                 height - 2f * inset, 8f - inset);
         shapes.end();
@@ -23851,8 +23856,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
-                panelW, panelH, accent, 1f);
+        if (dialog.isNotice()) {
+            GdxUiDialogStyle.drawNoticePanel(shapes, panelX, panelY,
+                    panelW, panelH, accent);
+        } else {
+            GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
+                    panelW, panelH, accent, 1f);
+        }
         GdxUiDialogStyle.drawInset(shapes, panelX + 28f,
                 panelY + 125f, panelW - 56f, panelH - 222f, 1f);
         if (dialog.isRunItTwice()) {
@@ -24228,8 +24238,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawNoticePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
         if (hasAction) {
             drawDialogButton(button.x, button.y, button.width, button.height,
                     error ? FOLD_RED : POT_GOLD,
@@ -25127,7 +25137,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float boxY = bounds.y;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapes.setColor(0.005f, 0.020f, 0.032f, 0.97f * alpha);
+        Color fill = GdxUiDialogStyle.TOOLTIP_FILL;
+        shapes.setColor(fill.r, fill.g, fill.b, alpha);
         roundedRect(boxX, boxY, boxW, boxH, 8f);
         shapes.end();
 
@@ -29047,22 +29058,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxTableChatFeed.Line recording = GdxTableChatFeed.Line.notice(
                     GdxTableChatFeed.Kind.WARNING, "", gameText.translate(
                             "gdx.table.chat.voice_recording") + " (" + remaining + " s)");
-            layoutChatLine(chatLineGlyph, recording, recording.text(), width);
-            drawChatLine(chatLineGlyph, x, rowBottom + chatLineGlyph.height + 5f, 1f);
+            layoutChatLine(chatLineGlyph, recording, recording.text(),
+                    Math.max(1f, width - 16f));
+            drawTableNoticeLine(chatLineGlyph, x, rowBottom, width, 1f);
             rowBottom += chatLineGlyph.height + 10f;
         }
         for (int index = lines.size() - 1; index >= 0; index--) {
             GdxTableChatFeed.Visible visible = lines.get(index);
+            boolean notice = visible.line().isNotice();
             GlyphLayout layout = feedGlyphs.computeIfAbsent(visible.line(),
-                    line -> layoutFeedLine(line, width));
-            float rowHeight = layout.height + 9f;
+                    line -> layoutFeedLine(line, notice ? Math.max(1f, width - 16f) : width));
+            float rowHeight = layout.height + (notice ? 10f : 9f);
             if (index == lines.size() - 1) rowBottom -= (1f - slide) * rowHeight;
-            drawChatLine(layout, x, rowBottom + rowHeight - 4f,
-                    visible.alpha(totalTime));
+            float alpha = visible.alpha(totalTime);
+            if (notice) {
+                drawTableNoticeLine(layout, x, rowBottom, width, alpha);
+            } else {
+                drawChatLine(layout, x, rowBottom + rowHeight - 4f, alpha);
+            }
             rowBottom += rowHeight;
         }
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+    }
+
+    private void drawTableNoticeLine(GlyphLayout layout, float x,
+            float bottom, float availableWidth, float alpha) {
+        drawRoundedTextureInBatch(solidWhiteTexture, x, bottom,
+                Math.min(availableWidth, layout.width + 16f), layout.height + 8f,
+                5f, 0f, GdxUiDialogStyle.NOTICE_FILL, alpha);
+        drawChatLine(layout, x + 8f, bottom + layout.height + 4f, alpha);
     }
 
     private GlyphLayout layoutFeedLine(GdxTableChatFeed.Line line, float width) {
@@ -30166,7 +30191,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(0f, 0f, width, height, 0f);
         shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.92f);
         roundedRect(boxX - 2f, boxY - 2f, boxW + 4f, boxH + 4f, 15f);
-        shapes.setColor(0.006f, 0.024f, 0.040f, 0.98f);
+        shapes.setColor(GdxUiDialogStyle.NOTICE_FILL);
         roundedRect(boxX, boxY, boxW, boxH, 13f);
         for (int index = 0; index < 8; index++) {
             float phase = totalTime * 4.2f - index * MathUtils.PI2 / 8f;

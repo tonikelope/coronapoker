@@ -98,6 +98,27 @@ final class GdxLobbyChatLayoutTest {
     }
 
     @Test
+    void eachGifResumesAtItsOwnPositionAfterScrollingOutOfView() {
+        var first = new GdxFrontendScreen.LobbyGifClock();
+        var second = new GdxFrontendScreen.LobbyGifClock();
+        float frameDelta = 0.02f;
+
+        assertEquals(0f, first.update(1L, frameDelta));
+        assertEquals(frameDelta, first.update(2L, frameDelta));
+        assertEquals(0f, second.update(3L, frameDelta));
+        for (long frame = 4L; frame <= 1_000L; frame++) {
+            second.update(frame, frameDelta);
+        }
+        assertEquals(998f * frameDelta, second.update(1_001L, frameDelta), 0.0001f);
+
+        assertEquals(frameDelta, first.update(1_001L, frameDelta));
+        assertEquals(frameDelta, first.update(1_001L, frameDelta));
+        assertEquals(2f * frameDelta, first.update(1_002L, frameDelta));
+        assertEquals(2f * frameDelta, first.update(4_000L, frameDelta));
+        assertEquals(3f * frameDelta, first.update(4_001L, frameDelta), 0.0001f);
+    }
+
+    @Test
     void historyLayerRemainsVisibleWhenThereIsRoomAndTheEmojiPickerIsClosed() {
         assertTrue(GdxFrontendScreen.shouldDrawLobbyChatLayer(
                 true, false, 806f, 420f));

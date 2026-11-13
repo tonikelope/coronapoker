@@ -472,6 +472,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Texture soundIcon;
     private Texture muteIcon;
     private Texture talkIcon;
+    private TextureRegion lobbyConnectionCopyIcon;
     private TextureRegion lobbyImageIcon;
     private TextureRegion lobbyVoiceIcon;
     private Texture aboutMourningIcon;
@@ -509,6 +510,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont debugLogFont;
     private BitmapFont debugLogBoldFont;
     private BitmapFont smallFont;
+    private BitmapFont lobbyComposerFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
     private GdxCrispButtonText.FontTiers actionButtonFontTiers;
@@ -932,6 +934,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon = filteredTexture("images/sound.png");
         muteIcon = filteredTexture("images/mute.png");
         talkIcon = filteredTexture("images/talk.png");
+        lobbyConnectionCopyIcon = new TextureRegion(
+                silhouetteTexture("images/menu/copy.png", Color.WHITE),
+                3, 3, 18, 18);
         lobbyImageIcon = new TextureRegion(
                 filteredTexture("images/fast_panel/image.png"));
         lobbyVoiceIcon = new TextureRegion(
@@ -1057,6 +1062,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         BitmapFont nextUi;
         BitmapFont nextVolume;
         BitmapFont nextSmall;
+        BitmapFont nextLobbyComposer;
         BitmapFont nextTiny;
         BitmapFont nextVersion;
         BitmapFont nextFps;
@@ -1089,6 +1095,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxVolumeOverlayStyle.FONT_BORDER, profile);
             nextSmall = font(generator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f,
                     profile);
+            nextLobbyComposer = font(generator,
+                    CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_SIZE,
+                    CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_BORDER, profile);
             nextTiny = font(generator, GdxSettingsStyle.TINY_FONT_SIZE, 0f,
                     profile);
             nextVersion = font(generator, GdxProductVersionBrand.FONT_SIZE,
@@ -1119,6 +1128,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         disposeFont(uiFont);
         disposeFont(volumeOverlayFont);
         disposeFont(smallFont);
+        disposeFont(lobbyComposerFont);
         disposeFont(tinyFont);
         disposeFont(versionFont);
         disposeFont(fpsFont);
@@ -1134,6 +1144,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         uiFont = nextUi;
         volumeOverlayFont = nextVolume;
         smallFont = nextSmall;
+        lobbyComposerFont = nextLobbyComposer;
         tinyFont = nextTiny;
         lobbyChatLayout = null;
         versionFont = nextVersion;
@@ -1163,6 +1174,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             buttonCompactFont, smallFont, buttonTinyFont, tinyFont,
             versionFont
         };
+        nativeTextTiers.put(lobbyComposerFont,
+                new GdxCrispButtonText.FontTiers(lobbyComposerFont, smallFont,
+                        buttonTinyFont, tinyFont, versionFont));
         for (BitmapFont font : standard) {
             if (font != null) {
                 nativeTextTiers.put(font,
@@ -3004,8 +3018,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
-        GdxUiDialogStyle.drawPanel(shapes, panel.x, panel.y,
-                panel.width, panel.height, error ? ORANGE : CYAN_DARK, 1f);
+        GdxUiDialogStyle.drawNoticePanel(shapes, panel.x, panel.y,
+                panel.width, panel.height, error ? ORANGE : CYAN_DARK);
         textFit(headingFont, uppercase(title),
                 titleBounds.x + titleBounds.width / 2f,
                 titleBounds.y + titleBounds.height * 0.76f,
@@ -6167,6 +6181,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 state.host() && "UPNP_OK".equals(state.statusDetail()));
         float connectionLabelX = LOBBY_LEFT_CONTENT_X + 16f;
         float connectionValueX = connectionLayout.valueX();
+        Rectangle copyBounds = state.host() ? lobbyConnectionCopyBounds() : null;
+        float serverWidth = copyBounds == null ? connectionLayout.fullValueWidth()
+                : copyBounds.x - LOBBY_CONNECTION_STATUS_GAP - connectionValueX;
         float serverBaseline = 733f;
         text(tinyFont, uppercase(gameText.translate(
                 state.host() ? "gdx.lobby.local_address" : "ui.servidor")),
@@ -6174,20 +6191,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (connectionLayout.statusVisible()) {
             String networkStatus = lobbyNetworkStatusText(
                     state.statusDetail(), gameText);
-            outerBox(connectionLayout.statusX(), serverBaseline - 26f,
-                    connectionLayout.statusWidth(), 34f,
+            outerBox(connectionLayout.statusX(), LOBBY_PUBLIC_ADDRESS_BASELINE - 16f,
+                    connectionLayout.statusWidth(), 22f,
                     new Color(0x46d78dff), new Color(0x103a2dd9));
             textFit(tinyFont, uppercase(networkStatus),
                     connectionLayout.statusX()
                             + connectionLayout.statusWidth() / 2f,
-                    serverBaseline - 2f, new Color(0x76f0adff), true,
+                    LOBBY_PUBLIC_ADDRESS_BASELINE - 1f, new Color(0x76f0adff), true,
                     connectionLayout.statusWidth() - 12f);
         }
         String serverEndpoint = displayedLobbyEndpoint(state);
         textFit(smallFont, serverEndpoint, connectionValueX,
                 serverBaseline,
-                Color.WHITE, false, connectionLayout.valueWidth());
-        if (state.host()) {
+                Color.WHITE, false, serverWidth);
+        if (copyBounds != null) {
             text(tinyFont, uppercase(gameText.translate(
                     "gdx.lobby.public_address")), connectionLabelX,
                     LOBBY_PUBLIC_ADDRESS_BASELINE,
@@ -6203,10 +6220,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(smallFont, publicAddress, connectionValueX,
                     LOBBY_PUBLIC_ADDRESS_BASELINE,
                     publicEndpoint.isBlank() ? DISABLED : Color.WHITE,
-                    false, connectionLayout.fullValueWidth());
-            hit(LOBBY_LEFT_CONTENT_X, connectionY,
-                    LOBBY_LEFT_CONTENT_WIDTH, connectionHeight,
-                    this::copyLobbyConnectionData);
+                    false, connectionLayout.valueWidth());
+            compactIconButton(copyBounds, lobbyConnectionCopyIcon,
+                    "conn.copiar_datos_de_conexion", this::copyLobbyConnectionData,
+                    true, 18f);
         }
         drawLobbyGameInfo(state, state.host() ? LOBBY_GAME_INFO_Y
                 : connectionY - 12f - LOBBY_GAME_INFO_HEIGHT);
@@ -6245,8 +6262,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle emojiBounds = lobbyComposerEmojiBounds();
         Rectangle imageBounds = lobbyComposerImageBounds();
         Rectangle voiceBounds = lobbyVoiceButtonBounds();
-        drawLobbyInput(lobbyComposerInputBounds(), "lobbyChat", lobbyChatDraft,
-                "gdx.lobby.message_placeholder");
+        drawLobbyComposer(lobbyComposerInputBounds());
         Runnable toggleEmoji = () -> {
             lobbyEmojiPickerOpen = !lobbyEmojiPickerOpen;
             activateField("lobbyChat");
@@ -7111,8 +7127,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawLobbyImageMessage(LobbyChatMessage message, float x,
             float y, float width, float height, Color color) {
+        if (y >= lobbyChatViewport.y + lobbyChatViewport.height
+                || y + height <= lobbyChatViewport.y) return;
         LobbyMedia media = lobbyMedia.get(message.sequence());
-        Texture thumbnail = media == null ? null : media.frameAt(elapsed);
+        Texture thumbnail = media == null ? null
+                : media.frameAt(Gdx.graphics.getFrameId(), frameDelta);
         if (thumbnail != null) {
             float scale = Math.min(width / Math.max(1f, thumbnail.getWidth()),
                     height / Math.max(1f, thumbnail.getHeight()));
@@ -7149,41 +7168,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private void drawLobbyInput(Rectangle bounds, String fieldId, String draft,
-            String placeholderKey) {
+    private void drawLobbyComposer(Rectangle bounds) {
         float x = bounds.x;
         float y = bounds.y;
         float w = bounds.width;
         float h = bounds.height;
         float centerY = y + h / 2f;
-        float textY = centerY + uiFont.getCapHeight() / 2f;
-        float caretY = centerY - 18f;
-        boolean focused = fieldId.equals(activeField);
+        boolean focused = "lobbyChat".equals(activeField);
         flatOuterBox(x, y, w, h,
                 focused || hovered(x, y, w, h) ? CYAN : LINE,
                 pressed(x, y, w, h) ? new Color(0x0b1424ff) : PANEL_LIGHT);
-        if ("lobbyChat".equals(fieldId) && !draft.isEmpty()) {
-            drawLobbyComposerValue(draft, x + 22f, centerY, w - 44f,
-                    focused);
+        if (lobbyChatDraft.isEmpty()) {
+            textFit(lobbyComposerFont, gameText.translate("gdx.lobby.message_placeholder"),
+                    x + 22f, centerY + lobbyComposerFont.getCapHeight() / 2f,
+                    DISABLED, false, w - 44f);
+            drawInputCaret(x + 22f, centerY - 18f, 36f, focused);
         } else {
-            String raw = draft.isEmpty() ? gameText.translate(placeholderKey) : draft;
-            FrontendInputWindow window = draft.isEmpty()
-                    ? new FrontendInputWindow(raw, 0, 0, 0f, 0f, 0f)
-                    : frontendInputWindow(uiFont, draft,
-                            draft, w - 44f, focused);
-            drawInputSelection(x + 22f, caretY, 36f, window, focused);
-            if (draft.isEmpty()) {
-                textFit(uiFont, window.text(), x + 22f, textY,
-                        DISABLED, false, w - 44f);
-            } else {
-                text(uiFont, window.text(), x + 22f, textY,
-                        Color.WHITE, false);
-            }
-            drawInputCaret(x + 22f + window.caretOffset(), caretY, 36f,
+            drawLobbyComposerValue(lobbyChatDraft, x + 22f, centerY, w - 44f,
                     focused);
         }
-        textFieldHits.add(new TextFieldHit(fieldId, bounds));
-        hit(x, y, w, h, () -> activateField(fieldId));
+        textFieldHits.add(new TextFieldHit("lobbyChat", bounds));
+        hit(x, y, w, h, () -> activateField("lobbyChat"));
     }
 
     /**
@@ -7209,8 +7214,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         COMPOSER_EMOJI_SIZE,
                         COMPOSER_EMOJI_SIZE));
             } else if (!run.text().isEmpty()) {
-                text(uiFont, run.text(), cursor,
-                        centerY + uiFont.getCapHeight() / 2f, Color.WHITE, false);
+                text(lobbyComposerFont, run.text(), cursor,
+                        centerY + lobbyComposerFont.getCapHeight() / 2f,
+                        Color.WHITE, false);
             }
             cursor += run.width();
         }
@@ -7271,7 +7277,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private List<LobbyTextRun> lobbyComposerRuns(String raw) {
-        return lobbyTextRuns(raw, uiFont, COMPOSER_EMOJI_ADVANCE);
+        return lobbyTextRuns(raw, lobbyComposerFont, COMPOSER_EMOJI_ADVANCE);
     }
 
     private List<LobbyTextRun> lobbyTextRuns(String raw, BitmapFont font,
@@ -7411,6 +7417,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 text.translate("gdx.lobby.anti_dos_connection_blocked");
             default -> statusDetail;
         };
+    }
+
+    static Rectangle lobbyConnectionCopyBounds() {
+        float size = 36f;
+        return new Rectangle(LOBBY_LEFT_CONTENT_X + LOBBY_LEFT_CONTENT_WIDTH
+                - LOBBY_CONNECTION_RIGHT_PADDING - size,
+                LOBBY_CONNECTION_Y + LOBBY_CONNECTION_HEIGHT - 8f - size,
+                size, size);
     }
 
     private void copyLobbyConnectionData() {
@@ -13837,7 +13851,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        outerBox(x, y, w, 76f, ORANGE, PANEL_LIGHT);
+        outerBox(x, y, w, 76f, ORANGE, GdxUiDialogStyle.NOTICE_FILL);
         shapes.end();
         batch.begin();
         drawFittedCenteredInBox(uiFont, toast,
@@ -13857,10 +13871,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, 0.90f * alpha);
-        roundedRect(x - 2f, y - 2f, w + 4f, h + 4f, 12f);
-        shapes.setColor(0.01f, 0.03f, 0.05f, 0.96f * alpha);
+        Color fill = GdxUiDialogStyle.NOTICE_FILL;
+        shapes.setColor(fill.r, fill.g, fill.b, alpha);
         roundedRect(x, y, w, h, 10f);
+        shapes.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
+        roundedRectOutline(x + 1f, y + 1f, w - 2f, h - 2f, 9f, 2f);
         shapes.end();
         batch.begin();
         drawFittedCenteredInBox(actionFont, screenshotToast,
@@ -13880,11 +13895,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        // Keep this composition pixel-for-pixel equivalent to the table
-        // overlay, including its outlined text, without projecting a shadow.
-        shapes.setColor(accent.r, accent.g, accent.b, 0.92f);
+        shapes.setColor(accent);
         roundedRect(x - 2f, y - 2f, width + 4f, height + 4f, 15f);
-        shapes.setColor(0.012f, 0.027f, 0.047f, 0.98f);
+        shapes.setColor(GdxUiDialogStyle.NOTICE_FILL);
         roundedRect(x, y, width, height, 13f);
         float barX = x + GdxVolumeOverlayStyle.BAR_X_OFFSET;
         float barY = y + GdxVolumeOverlayStyle.BAR_Y_OFFSET;
@@ -14247,7 +14260,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 hovered.performanceImpact
                         == GdxSettingsContract.PerformanceImpact.NONE
                                 ? CYAN_DARK : accent,
-                new Color(0x071221f8));
+                GdxUiDialogStyle.TOOLTIP_FILL);
         shapes.end();
         batch.begin();
         tinyFont.setColor(hovered.performanceImpact
@@ -17836,6 +17849,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundIcon.dispose();
         muteIcon.dispose();
         talkIcon.dispose();
+        lobbyConnectionCopyIcon.getTexture().dispose();
         lobbyImageIcon.getTexture().dispose();
         lobbyVoiceIcon.getTexture().dispose();
         aboutMourningIcon.dispose();
@@ -17882,6 +17896,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         uiFont.dispose();
         volumeOverlayFont.dispose();
         smallFont.dispose();
+        lobbyComposerFont.dispose();
         fpsFont.dispose();
         debugLogFont.dispose();
         debugLogBoldFont.dispose();
@@ -18285,21 +18300,33 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float selectionOffset, float selectionWidth) {
     }
 
+    static final class LobbyGifClock {
+        private long lastVisibleFrame = Long.MIN_VALUE;
+        private double seconds;
+
+        float update(long frame, float delta) {
+            // The decoder queue stops advancing when the image is not drawn.
+            // Resume from the previous position after a gap in visibility.
+            if (frame == lastVisibleFrame + 1L) seconds += delta;
+            lastVisibleFrame = frame;
+            return (float) seconds;
+        }
+    }
+
     private static final class LobbyMedia {
+        private final LobbyGifClock gifClock = new LobbyGifClock();
         private boolean loading = true;
         private boolean failed;
         private Texture image;
         private StreamingGifTextureAnimation gif;
-        private float gifStartedAt = Float.NaN;
 
-        private Texture frameAt(float elapsed) {
+        private Texture frameAt(long frame, float delta) {
             if (gif == null) return image;
             if (gif.failed()) {
                 failed = true;
                 return null;
             }
-            if (Float.isNaN(gifStartedAt)) gifStartedAt = elapsed;
-            return gif.frameAt(Math.max(0f, elapsed - gifStartedAt));
+            return gif.frameAt(gifClock.update(frame, delta));
         }
 
         private void dispose() {
@@ -18307,7 +18334,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (gif != null) gif.dispose();
             image = null;
             gif = null;
-            gifStartedAt = Float.NaN;
         }
     }
 

@@ -39,6 +39,8 @@ final class GdxUiDialogStyle {
         GdxPixelText.draw(font, batch, glyph, bounds.x,
                 bounds.y + (bounds.height + glyph.height) / 2f, viewport);
     }
+    static final Color NOTICE_FILL = new Color(PANEL_RGBA | 0xff);
+    static final Color TOOLTIP_FILL = new Color(0x071221ff);
     private static final Color PANEL = new Color(PANEL_RGBA);
     private static final Color INSET = new Color(INSET_RGBA);
     private static final Color LINE = new Color(0x31445fff);
@@ -155,6 +157,11 @@ final class GdxUiDialogStyle {
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 18f);
         drawPanelOutline(shapes, x, y, width, height, accent, alpha);
+    }
+
+    static void drawNoticePanel(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent) {
+        drawPanel(shapes, x, y, width, height, NOTICE_FILL, accent, 1f);
     }
 
     static void drawPanelOutline(ShapeRenderer shapes, float x, float y,

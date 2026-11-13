@@ -32,6 +32,7 @@ final class GdxGameLogSink implements GameLogSink {
     private Path logFile;
     private boolean persistenceFailureReported;
     private List<ShowdownEntry> showdown = List.of();
+    private Snapshot cachedSnapshot;
 
     /** In-memory sink used by tests and renderer-only previews. */
     GdxGameLogSink() {
@@ -62,6 +63,7 @@ final class GdxGameLogSink implements GameLogSink {
         if (overflow > 0) {
             lines.subList(0, overflow).clear();
         }
+        cachedSnapshot = null;
         appendPersisted(added);
     }
 
@@ -75,6 +77,7 @@ final class GdxGameLogSink implements GameLogSink {
             persistedLines.set(index, rewriteShowdownLine(
                     persistedLines.get(index), showdown));
         }
+        cachedSnapshot = null;
         rewritePersisted();
     }
 
@@ -124,13 +127,17 @@ final class GdxGameLogSink implements GameLogSink {
     }
 
     synchronized Snapshot snapshot() {
-        return new Snapshot(List.copyOf(lines), showdown);
+        if (cachedSnapshot == null) {
+            cachedSnapshot = new Snapshot(List.copyOf(lines), showdown);
+        }
+        return cachedSnapshot;
     }
 
     synchronized void reset() {
         lines.clear();
         persistedLines.clear();
         showdown = List.of();
+        cachedSnapshot = null;
         beginPersistentSession();
     }
 
@@ -139,6 +146,7 @@ final class GdxGameLogSink implements GameLogSink {
         lines.clear();
         persistedLines.clear();
         showdown = List.of();
+        cachedSnapshot = null;
         truncatePersistentSession();
         Objects.requireNonNull(messages, "messages").forEach(this::print);
     }

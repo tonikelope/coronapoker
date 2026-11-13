@@ -87,9 +87,10 @@ final class GdxFrameRateOverlayStyleTest {
                 "CoronaPokerGdxTable.java"));
 
         assertTrue(frontend.contains(
-                "nextFps = GdxFrameRateOverlayStyle.font(profile)"));
+                "GdxFrameRateOverlayStyle.fontSpec(mono,"));
         assertTrue(table.contains(
                 "fpsFont = GdxFrameRateOverlayStyle.font("));
+        assertTrue(table.contains("GdxFrameRateOverlayStyle.fontSpec(mono,"));
         assertTrue(table.contains("GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));
     }
 

@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.DatabaseService;
@@ -62,6 +63,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private GdxProfileBackupTransfer.Request profileBackupRequest;
     private LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
+    private ShaderProgram allInFireShader;
     private volatile CoronaPokerGdxTable table;
     private PendingTableOpen pendingTableOpen;
     private CoronaPokerGdxTable suspendedFinalTable;
@@ -169,6 +171,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 menu::releaseStartupAudio, preferences, presentationSettings);
         startupIntro.create();
         startupIntro.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        allInFireShader = CoronaPokerGdxTable.createAllInFireShader();
         Gdx.input.setInputProcessor(null);
         // Re-apply the swap interval after the native window and its target
         // monitor exist. On mixed-refresh Windows desktops the configuration
@@ -432,6 +435,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                         presentationSettings, identityTrust);
                 candidate.shareBackgroundMusic(menu.tableBackgroundMusic());
                 candidate.shareMediaFrontend(menu);
+                candidate.shareAllInFireShader(allInFireShader);
                 candidate.beginCreate();
                 pendingTableOpen = new PendingTableOpen(candidate,
                         openingBarrier);
@@ -469,6 +473,8 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 case 2 -> flushPendingIdentityGameLogNotices();
                 case 3 -> {
                     table = pending.table;
+                    table.continuePreparationAnimation(
+                            menu.preparationAnimationTime());
                     menu.pokerVideoOverlay().minimizeForTable();
                     // The lobby keeps its last hit map while the table is
                     // visible. Leaving it installed would make one table click
@@ -798,6 +804,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         CoronaPokerGdxTable suspended = suspendedFinalTable;
         suspendedFinalTable = null;
         if (suspended != null && suspended != current) suspended.dispose();
+        if (allInFireShader != null) allInFireShader.dispose();
         if (menu != null) {
             menu.dispose();
             menu = null;

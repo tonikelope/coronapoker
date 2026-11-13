@@ -81,9 +81,10 @@ final class GdxTableDialogLayoutTest {
                 "CoronaPokerGdxTable.java"));
 
         assertTrue(table.contains(
-                "dialogAmountFont = font(creationFontGenerator, 100, 0f)"));
+                "createNextLargeFont(100, 0f, Color.WHITE,"));
+        assertTrue(table.contains("font -> dialogAmountFont = font"));
         assertTrue(table.contains(
-                "font(generator, 100, 0f, profile)"));
+                "new GdxFontRefresh.Font(mclaren, 100, 0f,"));
         assertTrue(table.contains(
                 "? dialogAmountFont : uiFont, amountText"));
         assertTrue(table.contains(

@@ -1,14 +1,15 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import java.util.function.Consumer;
 
 /** One visual and typographic contract for the global FPS/VSync overlay. */
 final class GdxFrameRateOverlayStyle {
@@ -41,13 +42,15 @@ final class GdxFrameRateOverlayStyle {
     }
 
     static BitmapFont font(GdxAdaptiveFontQuality.Profile profile) {
-        FreeTypeFontGenerator generator = GdxMonospaceFonts.generator(false);
-        try {
-            return GdxAdaptiveFontQuality.generate(generator, FONT_SIZE, 0f,
-                    Color.WHITE, new Color(0x02050ccc), null, profile);
-        } finally {
-            generator.dispose();
-        }
+        return fontSpec(GdxMonospaceFonts.source(false), ignored -> {})
+                .generate(profile);
+    }
+
+    static GdxFontRefresh.Font fontSpec(FileHandle source,
+            Consumer<BitmapFont> install) {
+        return new GdxFontRefresh.Font(source, FONT_SIZE, 0f,
+                new Color(0x02050ccc),
+                GdxAdaptiveFontQuality.charactersWith(null), install);
     }
 
     static void draw(ShapeRenderer shapes, SpriteBatch batch, BitmapFont font,

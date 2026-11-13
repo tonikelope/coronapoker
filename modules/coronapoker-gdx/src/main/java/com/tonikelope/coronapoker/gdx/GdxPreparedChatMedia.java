@@ -57,12 +57,16 @@ final class GdxPreparedChatMedia implements Disposable {
 
     static CompletableFuture<GdxPreparedChatMedia> prepareAsync(String url,
             String label) {
+        // The lobby chooses the frame size when the image is drawn.
+        return prepareAsync(url, label, Integer.MAX_VALUE);
+    }
+
+    static CompletableFuture<GdxPreparedChatMedia> prepareAsync(String url,
+            String label, int gifMaxWidth) {
         return CompletableFuture.supplyAsync(() -> {
             byte[] data = GdxChatImageLoader.download(url);
             try {
-                // Preparation inspects the GIF without decoding its frames.
-                // The lobby chooses the frame size when the image is drawn.
-                return prepare(data, label, Integer.MAX_VALUE);
+                return prepare(data, label, gifMaxWidth);
             } catch (IOException | RuntimeException invalid) {
                 throw new CompletionException(invalid);
             }

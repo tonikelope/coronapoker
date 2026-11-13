@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry;
@@ -18,6 +19,21 @@ final class GdxGameLogSinkTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void reusesTheSnapshotUntilTheLogChanges() {
+        GdxGameLogSink sink = new GdxGameLogSink();
+        sink.print("Ana (---) PAREJA DE ASES");
+        var original = sink.snapshot();
+        assertSame(original, sink.snapshot());
+        sink.updateShowdownCards(List.of(new ShowdownEntry("Ana", false, "", "")));
+        assertEquals(List.of("Ana (***) PAREJA DE ASES"), sink.snapshot().lines());
+        assertEquals(List.of("Ana (---) PAREJA DE ASES"), original.lines());
+        sink.replaceHistory(List.of("Historial recuperado"));
+        assertEquals(List.of("Historial recuperado"), sink.snapshot().lines());
+        sink.reset();
+        assertTrue(sink.snapshot().lines().isEmpty());
+    }
 
     @Test
     void showdownRewritesOriginalRowsExactlyOnceLikeSwing() {

@@ -142,7 +142,7 @@ final class GdxAdaptiveFontQualityTest {
                 "private boolean createNextReportAndLogFont()",
                 "private void disposeCreationFontGenerator()");
         String rebuild = section(source,
-                "private void rebuildFonts(",
+                "private List<GdxFontRefresh.Font> displayFonts()",
                 "private void rebuildButtonFontTiers()");
 
         assertTrue(startup.contains("fonts/McLaren-Regular.ttf"));

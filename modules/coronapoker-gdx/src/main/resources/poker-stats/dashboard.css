@@ -338,6 +338,12 @@ tbody tr:nth-child(even) { background: #182a433b; }
 tbody tr:hover, tbody tr.selected { background: #1d3554; }
 .session-status { margin-left: .4rem; color: var(--muted); font-size: .74rem; }
 .pagination { display: flex; align-items: center; justify-content: flex-end; gap: .56rem; margin-top: .65rem; color: var(--muted); font-size: .8rem; }
+:where(#sessions) .panel { padding-block: .68rem; }
+#sessions .panel-heading { margin-bottom: .44rem; }
+#sessions .section-mark { display: block; }
+#sessions .section-mark + h2 { margin-top: .14rem; }
+#sessions :is(th, td) { padding-block: .46rem; }
+#sessions .pagination { margin-top: .48rem; }
 #compare > .panel + .panel { margin: var(--gap) 0 0; }
 .classic-select select { max-width: min(19rem, 56vw); }
 .poker-card { display: inline-block; min-width: 1.65rem; margin-left: .15rem; padding: .09rem .14rem; border: 1px solid #bacbe1; border-radius: .25rem; background: #e2eaf5; color: #101c2b; text-align: center; }

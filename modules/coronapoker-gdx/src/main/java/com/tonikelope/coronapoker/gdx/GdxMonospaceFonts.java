@@ -14,6 +14,10 @@ final class GdxMonospaceFonts {
     }
 
     static FreeTypeFontGenerator generator(boolean bold) {
+        return new FreeTypeFontGenerator(source(bold));
+    }
+
+    static FileHandle source(boolean bold) {
         ArrayList<String> candidates = new ArrayList<>();
         String windows = System.getenv("WINDIR");
         if (windows != null && !windows.isBlank()) {
@@ -26,11 +30,10 @@ final class GdxMonospaceFonts {
         candidates.add("/System/Library/Fonts/Menlo.ttc");
         for (String candidate : candidates) {
             FileHandle file = Gdx.files.absolute(candidate);
-            if (file.exists()) return new FreeTypeFontGenerator(file);
+            if (file.exists()) return file;
         }
         // Portable final fallback for uncommon systems without a native
         // fixed-pitch family. Windows, Linux and macOS use the faces above.
-        return new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/Inter-Medium.ttf"));
+        return Gdx.files.internal("fonts/Inter-Medium.ttf");
     }
 }

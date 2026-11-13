@@ -21,7 +21,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -527,8 +526,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxCrispButtonText.Result crispButtonText =
             new GdxCrispButtonText.Result();
     private GdxAdaptiveFontQuality.Profile fontQualityProfile;
-    private GdxAdaptiveFontQuality.Profile pendingFontQualityProfile;
-    private long fontQualityRefreshAfterNanos;
+    private final GdxFontRefresh fontRefresh = new GdxFontRefresh();
     private int page;
     private String activeField;
     private long toastUntil;
@@ -834,6 +832,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private List<GdxScreenshotStore.Shot> screenshots = List.of();
     private int screenshotIndex;
     private Texture screenshotTexture;
+    private final GdxScreenshotPreview screenshotPreview = new GdxScreenshotPreview();
     private String screenshotError = "";
     private String screenshotToast = "";
     private float screenshotToastUntil;
@@ -1042,120 +1041,87 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
-            float border) {
-        return font(generator, size, border,
-                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
-    }
-
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
-            float border, GdxAdaptiveFontQuality.Profile profile) {
-        return GdxAdaptiveFontQuality.generate(generator, size, border,
-                Color.WHITE, new Color(0x02050ccc),
-                FRONTEND_EXTRA_FONT_CHARACTERS,
-                profile);
+    private List<GdxFontRefresh.Font> displayFonts() {
+        var mclaren = Gdx.files.internal("fonts/McLaren-Regular.ttf");
+        var mono = GdxMonospaceFonts.source(false);
+        var bold = GdxMonospaceFonts.source(true);
+        Color border = new Color(0x02050ccc);
+        String characters = GdxAdaptiveFontQuality.charactersWith(
+                FRONTEND_EXTRA_FONT_CHARACTERS);
+        return List.of(
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.TITLE_FONT_SIZE, GdxSettingsStyle.TITLE_FONT_BORDER,
+                        border, characters,
+                        font -> titleFont = replaceFont(titleFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.HEADING_FONT_SIZE, GdxSettingsStyle.HEADING_FONT_BORDER,
+                        border, characters,
+                        font -> headingFont = replaceFont(headingFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE, GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER,
+                        border, characters,
+                        font -> settingsStepperSignFont = replaceFont(settingsStepperSignFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.ACTION_FONT_SIZE, GdxSettingsStyle.ACTION_FONT_BORDER,
+                        border, characters,
+                        font -> actionFont = replaceFont(actionFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        22, GdxSettingsStyle.ACTION_FONT_BORDER,
+                        border, characters,
+                        font -> buttonMediumFont = replaceFont(buttonMediumFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        20, GdxSettingsStyle.ACTION_FONT_BORDER,
+                        border, characters,
+                        font -> buttonCompactFont = replaceFont(buttonCompactFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        16, 0f,
+                        border, characters,
+                        font -> buttonTinyFont = replaceFont(buttonTinyFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.BODY_FONT_SIZE, 0f,
+                        border, characters,
+                        font -> uiFont = replaceFont(uiFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxVolumeOverlayStyle.FONT_SIZE, GdxVolumeOverlayStyle.FONT_BORDER,
+                        border, characters,
+                        font -> volumeOverlayFont = replaceFont(volumeOverlayFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.SMALL_FONT_SIZE, 0f,
+                        border, characters,
+                        font -> smallFont = replaceFont(smallFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_SIZE, CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_BORDER,
+                        border, characters,
+                        font -> lobbyComposerFont = replaceFont(lobbyComposerFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.TINY_FONT_SIZE, 0f,
+                        border, characters,
+                        font -> tinyFont = replaceFont(tinyFont, font)),
+                new GdxFontRefresh.Font(mclaren,
+                        GdxProductVersionBrand.FONT_SIZE, 0f,
+                        border, characters,
+                        font -> versionFont = replaceFont(versionFont, font)),
+                GdxFrameRateOverlayStyle.fontSpec(mono,
+                        font -> fpsFont = replaceFont(fpsFont, font)),
+                new GdxFontRefresh.Font(mono,
+                        20, 0f,
+                        border, characters,
+                        font -> debugLogFont = replaceFont(debugLogFont, font)),
+                new GdxFontRefresh.Font(bold,
+                        20, 0f,
+                        border, characters,
+                        font -> debugLogBoldFont = replaceFont(debugLogBoldFont, font)));
     }
 
     private void rebuildFonts(GdxAdaptiveFontQuality.Profile profile) {
-        BitmapFont nextTitle;
-        BitmapFont nextHeading;
-        BitmapFont nextStepperSign;
-        BitmapFont nextAction;
-        BitmapFont nextButtonMedium;
-        BitmapFont nextButtonCompact;
-        BitmapFont nextButtonTiny;
-        BitmapFont nextUi;
-        BitmapFont nextVolume;
-        BitmapFont nextSmall;
-        BitmapFont nextLobbyComposer;
-        BitmapFont nextTiny;
-        BitmapFont nextVersion;
-        BitmapFont nextFps;
-        BitmapFont nextDebugLog;
-        BitmapFont nextDebugLogBold;
-        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
-                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
-        try {
-            nextTitle = font(generator, GdxSettingsStyle.TITLE_FONT_SIZE,
-                    GdxSettingsStyle.TITLE_FONT_BORDER, profile);
-            nextHeading = font(generator, GdxSettingsStyle.HEADING_FONT_SIZE,
-                    GdxSettingsStyle.HEADING_FONT_BORDER, profile);
-            nextStepperSign = font(generator,
-                    GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
-                    GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER, profile);
-            nextAction = font(generator, GdxSettingsStyle.ACTION_FONT_SIZE,
-                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
-            // Native two-pixel steps keep long button labels sharp. They are
-            // selected instead of scaling one atlas to an arbitrary fraction.
-            nextButtonMedium = font(generator, 22,
-                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
-            nextButtonCompact = font(generator, 20,
-                    GdxSettingsStyle.ACTION_FONT_BORDER, profile);
-            nextButtonTiny = font(generator, 16, 0f, profile);
-            nextUi = font(generator, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
-                    profile);
-            // The volume feedback remains the same high-contrast McLaren face;
-            // only its backing atlas density follows the physical framebuffer.
-            nextVolume = font(generator, GdxVolumeOverlayStyle.FONT_SIZE,
-                    GdxVolumeOverlayStyle.FONT_BORDER, profile);
-            nextSmall = font(generator, GdxSettingsStyle.SMALL_FONT_SIZE, 0f,
-                    profile);
-            nextLobbyComposer = font(generator,
-                    CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_SIZE,
-                    CoronaPokerGdxTable.QUICK_CHAT_INPUT_FONT_BORDER, profile);
-            nextTiny = font(generator, GdxSettingsStyle.TINY_FONT_SIZE, 0f,
-                    profile);
-            nextVersion = font(generator, GdxProductVersionBrand.FONT_SIZE,
-                    0f, profile);
-        } finally {
-            generator.dispose();
+        for (var font : displayFonts()) {
+            font.install().accept(font.generate(profile));
         }
-        nextFps = GdxFrameRateOverlayStyle.font(profile);
-        generator = GdxMonospaceFonts.generator(false);
-        try {
-            nextDebugLog = font(generator, 20, 0f, profile);
-        } finally {
-            generator.dispose();
-        }
-        generator = GdxMonospaceFonts.generator(true);
-        try {
-            nextDebugLogBold = font(generator, 20, 0f, profile);
-        } finally {
-            generator.dispose();
-        }
-        disposeFont(titleFont);
-        disposeFont(headingFont);
-        disposeFont(settingsStepperSignFont);
-        disposeFont(actionFont);
-        disposeFont(buttonMediumFont);
-        disposeFont(buttonCompactFont);
-        disposeFont(buttonTinyFont);
-        disposeFont(uiFont);
-        disposeFont(volumeOverlayFont);
-        disposeFont(smallFont);
-        disposeFont(lobbyComposerFont);
-        disposeFont(tinyFont);
-        disposeFont(versionFont);
-        disposeFont(fpsFont);
-        disposeFont(debugLogFont);
-        disposeFont(debugLogBoldFont);
-        titleFont = nextTitle;
-        headingFont = nextHeading;
-        settingsStepperSignFont = nextStepperSign;
-        actionFont = nextAction;
-        buttonMediumFont = nextButtonMedium;
-        buttonCompactFont = nextButtonCompact;
-        buttonTinyFont = nextButtonTiny;
-        uiFont = nextUi;
-        volumeOverlayFont = nextVolume;
-        smallFont = nextSmall;
-        lobbyComposerFont = nextLobbyComposer;
-        tinyFont = nextTiny;
+        installFontProfile(profile);
+    }
+
+    private void installFontProfile(GdxAdaptiveFontQuality.Profile profile) {
         lobbyChatLayout = null;
-        versionFont = nextVersion;
-        fpsFont = nextFps;
-        debugLogFont = nextDebugLog;
-        debugLogBoldFont = nextDebugLogBold;
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 actionFont, uiFont, buttonMediumFont, buttonCompactFont,
                 smallFont, buttonTinyFont, tinyFont, versionFont);
@@ -1163,11 +1129,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 smallFont, buttonTinyFont, tinyFont, versionFont);
         rebuildNativeTextTiers();
         fontQualityProfile = profile;
-        pendingFontQualityProfile = null;
     }
 
-    private static void disposeFont(BitmapFont font) {
-        if (font != null) font.dispose();
+    private static BitmapFont replaceFont(BitmapFont previous, BitmapFont next) {
+        if (previous != null) previous.dispose();
+        return next;
     }
 
     /** Native FreeType sizes shared by every non-table surface. */
@@ -1208,12 +1174,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void refreshFontQualityIfDue() {
-        if (pendingFontQualityProfile == null
-                || System.nanoTime() < fontQualityRefreshAfterNanos) return;
-        GdxAdaptiveFontQuality.Profile current =
-                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
-        pendingFontQualityProfile = null;
-        if (!current.equals(fontQualityProfile)) rebuildFonts(current);
+        fontRefresh.update(this::displayFonts, this::installFontProfile);
     }
 
     /**
@@ -1289,6 +1250,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void render() {
         GdxPixelText.beginFrame();
         refreshFontQualityIfDue();
+        if (surface == Surface.SCREENSHOTS) updateScreenshotPreview();
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         refreshPointerFromDevice();
         prepareFrontendGraphicsState();
@@ -2795,6 +2757,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeScreenshotViewer() {
         screenshotGeneration++;
+        screenshotPreview.close();
         disposeScreenshotTexture();
         screenshots = List.of();
         screenshotError = "";
@@ -2829,20 +2792,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void loadScreenshotTexture() {
         disposeScreenshotTexture();
-        if (screenshots.isEmpty()) return;
+        if (screenshots.isEmpty()) {
+            screenshotPreview.close();
+            return;
+        }
+        screenshotError = "";
         screenshotIndex = MathUtils.clamp(screenshotIndex, 0,
                 screenshots.size() - 1);
+        screenshotPreview.request(screenshots.get(screenshotIndex).file());
+    }
+
+    private void updateScreenshotPreview() {
         try {
-            Path selected = screenshots.get(screenshotIndex).file();
-            // Start the AWT decode before GDX performs its own PNG decode and
-            // GPU upload. By the time the texture becomes visible, the
-            // clipboard bitmap is normally ready even for an immediate click.
-            GdxImageClipboard.prepare(selected);
-            screenshotTexture = new Texture(Gdx.files.absolute(
-                    selected.toString()), true);
-            screenshotTexture.setFilter(TextureFilter.MipMapLinearLinear,
-                    TextureFilter.Linear);
-            screenshotError = "";
+            Texture ready = screenshotPreview.poll();
+            if (ready != null) screenshotTexture = ready;
         } catch (RuntimeException failure) {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.open_failed"));
@@ -2954,6 +2917,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     bounds.width, bounds.height));
         }
         String message = !screenshotError.isBlank() ? screenshotError
+                : screenshotPreview.loading()
+                        ? gameText.translate("gdx.loading")
                 : screenshots.isEmpty()
                         ? uppercase(gameText.translate("ui.no_capturas")) : "";
         if (!message.isBlank()) {
@@ -8200,6 +8165,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, gameText.translate("game.inicializando_timba"),
                 layout.centerX(), layout.statusY(), GdxUiDialogStyle.PREPARATION_STATUS,
                 true, layout.labelWidth());
+    }
+
+    float preparationAnimationTime() {
+        return elapsed;
     }
 
     private void drawNewGameSubmissionOverlay() {
@@ -16320,16 +16289,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyGallery.resize(viewport);
         rulesWindow.resize();
         if (titleFont == null) return;
-        GdxAdaptiveFontQuality.Profile current =
-                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
-        if (current.equals(fontQualityProfile)) {
-            pendingFontQualityProfile = null;
-            return;
-        }
-        pendingFontQualityProfile = current;
-        // Window drags emit many resize events. Rebuild once after they settle
-        // so changing monitor or display mode remains hitch-free while moving.
-        fontQualityRefreshAfterNanos = System.nanoTime() + 300_000_000L;
+        fontRefresh.resize(fontQualityProfile,
+                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
     }
 
     @Override
@@ -17835,6 +17796,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void dispose() {
         rulesWindow.close();
         disposed = true;
+        fontRefresh.close();
         if (updateCheck != null) updateCheck.cancel(true);
         lobbyGallery.close();
         closeStatsDashboard();
@@ -17852,6 +17814,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxVoicePlayback.stop();
         clearLobbyMedia();
         disposeAboutEasterEgg();
+        screenshotPreview.close();
         disposeScreenshotTexture();
         submissions.cancel();
         closeLobbySubscription();

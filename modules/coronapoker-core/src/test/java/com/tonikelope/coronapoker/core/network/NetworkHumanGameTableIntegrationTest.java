@@ -806,8 +806,8 @@ class NetworkHumanGameTableIntegrationTest {
                     assertTrue(renderer.sawLastHand.get());
                     List<String> expectedLog = startingMode == null ? List.of()
                             : startingMode == AnteMode.TRADITIONAL
-                                    ? List.of("game.antes_activos [" + (legacyFossil ? "0.1" : "0.02") + "]")
-                                    : List.of("game.ante_single [0.2, " + startingMode.labelKey() + "]");
+                                    ? List.of("game.antes_activos [" + (legacyFossil ? "0.10" : "0.02") + "]")
+                                    : List.of("game.ante_single [0.20, " + startingMode.labelKey() + "]");
                     assertEquals(expectedLog, anteLog);
                 } finally {
                     host.close();

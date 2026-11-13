@@ -28,7 +28,9 @@ public interface GameValueFormatter {
 
         @Override
         public String money(double amount) {
-            return BigDecimal.valueOf(MoneyMath.clean(amount)).stripTrailingZeros().toPlainString();
+            BigDecimal value = BigDecimal.valueOf(MoneyMath.clean(amount))
+                    .stripTrailingZeros();
+            return value.setScale(value.scale() > 0 ? 2 : 0).toPlainString();
         }
 
         @Override

@@ -10,6 +10,9 @@ class GdxChipAmountTextTest {
     @Test
     void usesExactSuffixesAndPreservesSmallChipAmounts() {
         assertEquals("0.02", GdxChipAmountText.format(0.02d));
+        assertEquals("0.10", GdxChipAmountText.format(0.10d));
+        assertEquals("-2.50", GdxChipAmountText.format(-2.50d));
+        assertEquals("2", GdxChipAmountText.format(2d));
         assertEquals("999.99", GdxChipAmountText.format(999.99d));
         assertEquals("1K", GdxChipAmountText.format(1_000d));
         assertEquals("200K", GdxChipAmountText.format(200_000d));
@@ -58,6 +61,8 @@ class GdxChipAmountTextTest {
     void keepsTheSignsAndSurroundingTextOfTheGameLabels() {
         assertEquals("+100K", GdxChipAmountText.compactLabel("+100000"));
         assertEquals("+2.50", GdxChipAmountText.compactLabel("+2.50"));
+        assertEquals("+0.20", GdxChipAmountText.compactLabel("+0.2"));
+        assertEquals("SUBE (+0.60)", GdxChipAmountText.actionLabel("SUBE (+0.6)"));
         assertEquals("SUBE (+200K)", GdxChipAmountText.actionLabel("SUBE (+200000)"));
         assertEquals("CHECK", GdxChipAmountText.actionLabel("CHECK"));
         assertEquals("", GdxChipAmountText.compactLabel(""));

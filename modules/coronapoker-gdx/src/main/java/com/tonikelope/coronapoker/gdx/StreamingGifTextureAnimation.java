@@ -96,6 +96,7 @@ final class StreamingGifTextureAnimation implements Disposable {
             return;
         }
         decoded.addAll(primedFrames);
+        FrameSize outputSize = timing == null ? null : timing.size();
         Thread worker = new Thread(() -> {
             try {
                 byte[] data = source.read();
@@ -109,7 +110,7 @@ final class StreamingGifTextureAnimation implements Disposable {
                     decode(data, label, maxWidth,
                             timing == null ? -1 : timing.frameEndMs().length,
                             primedFrameCount,
-                            frame -> {
+                            outputSize, frame -> {
                         if (disposed) return;
                         decodedWidth = frame.width();
                         decodedHeight = frame.height();
@@ -323,16 +324,15 @@ final class StreamingGifTextureAnimation implements Disposable {
                 prepared.primedFrames, prepared.preloadedFrames, false);
     }
 
-    /**
-     * Gallery variant: keeps the previous trilinear minification quality while
-     * retaining only one GPU texture instead of one texture per GIF frame.
-     */
+    /** Starts a chat GIF prepared at its original size without priming frames. */
     static StreamingGifTextureAnimation loadLoopingMipmapped(
-            PreparedLooping prepared) {
-        Objects.requireNonNull(prepared, "prepared");
-        return new StreamingGifTextureAnimation(() -> prepared.data,
-                prepared.label, prepared.maxWidth, true, prepared.timing,
-                prepared.primedFrames, prepared.preloadedFrames, true);
+            PreparedLooping prepared, FrameSize size) {
+        GifTiming original = prepared.timing();
+        GifTiming output = new GifTiming(size.width(), size.height(),
+                original.frameEndMs(), original.durationMs());
+        return new StreamingGifTextureAnimation(prepared::data,
+                prepared.label(), size.width(), true, output,
+                List.of(), null, true);
     }
 
     /** Returns the current frame, or {@code null} while the first one decodes. */
@@ -503,6 +503,14 @@ final class StreamingGifTextureAnimation implements Disposable {
             int knownFrameCount, int skippedOutputFrames,
             Consumer<CpuFrame> consumer, BooleanSupplier cancelled)
             throws IOException {
+        decode(data, label, maxWidth, knownFrameCount, skippedOutputFrames,
+                null, consumer, cancelled);
+    }
+
+    private static void decode(byte[] data, String label, int maxWidth,
+            int knownFrameCount, int skippedOutputFrames, FrameSize outputSize,
+            Consumer<CpuFrame> consumer, BooleanSupplier cancelled)
+            throws IOException {
         Objects.requireNonNull(data, "data");
         Objects.requireNonNull(consumer, "consumer");
         Objects.requireNonNull(cancelled, "cancelled");
@@ -547,11 +555,11 @@ final class StreamingGifTextureAnimation implements Disposable {
                     logicalHeight = reader.getHeight(0);
                 }
 
-                float scale = Math.min(1f, maxWidth / (float) logicalWidth);
-                int outputWidth = Math.max(1,
-                        Math.round(logicalWidth * scale));
-                int outputHeight = Math.max(1,
-                        Math.round(logicalHeight * scale));
+                FrameSize size = outputSize != null ? outputSize
+                        : new FrameSize(logicalWidth, logicalHeight)
+                                .fitWithin(maxWidth, Integer.MAX_VALUE);
+                int outputWidth = size.width();
+                int outputHeight = size.height();
                 BufferedImage canvas = new BufferedImage(logicalWidth,
                         logicalHeight, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D graphics = canvas.createGraphics();
@@ -718,11 +726,8 @@ final class StreamingGifTextureAnimation implements Disposable {
                     logicalWidth = reader.getWidth(0);
                     logicalHeight = reader.getHeight(0);
                 }
-                float scale = Math.min(1f, maxWidth / (float) logicalWidth);
-                int outputWidth = Math.max(1,
-                        Math.round(logicalWidth * scale));
-                int outputHeight = Math.max(1,
-                        Math.round(logicalHeight * scale));
+                FrameSize size = new FrameSize(logicalWidth, logicalHeight)
+                        .fitWithin(maxWidth, Integer.MAX_VALUE);
                 long elapsed = 0L;
                 long[] frameEnds = new long[count];
                 for (int frame = 0; frame < count; frame++) {
@@ -730,7 +735,7 @@ final class StreamingGifTextureAnimation implements Disposable {
                             reader.getImageMetadata(frame)).delayMs();
                     frameEnds[frame] = elapsed;
                 }
-                return new GifTiming(outputWidth, outputHeight, frameEnds,
+                return new GifTiming(size.width(), size.height(), frameEnds,
                         elapsed);
             } finally {
                 reader.dispose();
@@ -844,8 +849,24 @@ final class StreamingGifTextureAnimation implements Disposable {
             String disposal) {
     }
 
+    record FrameSize(int width, int height) {
+
+        FrameSize fitWithin(int maxWidth, int maxHeight) {
+            if (width <= maxWidth && height <= maxHeight) return this;
+            float scale = Math.min(maxWidth / (float) width,
+                    maxHeight / (float) height);
+            return new FrameSize(
+                    Math.max(1, Math.min(maxWidth, Math.round(width * scale))),
+                    Math.max(1, Math.min(maxHeight, Math.round(height * scale))));
+        }
+    }
+
     record GifTiming(int width, int height, long[] frameEndMs,
             long durationMs) {
+
+        FrameSize size() {
+            return new FrameSize(width, height);
+        }
     }
 
     /**

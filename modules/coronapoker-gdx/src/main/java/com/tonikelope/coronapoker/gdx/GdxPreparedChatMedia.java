@@ -56,11 +56,13 @@ final class GdxPreparedChatMedia implements Disposable {
     }
 
     static CompletableFuture<GdxPreparedChatMedia> prepareAsync(String url,
-            String label, int gifMaxWidth) {
+            String label) {
         return CompletableFuture.supplyAsync(() -> {
             byte[] data = GdxChatImageLoader.download(url);
             try {
-                return prepare(data, label, gifMaxWidth);
+                // Preparation inspects the GIF without decoding its frames.
+                // The lobby chooses the frame size when the image is drawn.
+                return prepare(data, label, Integer.MAX_VALUE);
             } catch (IOException | RuntimeException invalid) {
                 throw new CompletionException(invalid);
             }
@@ -87,13 +89,13 @@ final class GdxPreparedChatMedia implements Disposable {
         }
     }
 
-    StreamingGifTextureAnimation startGif() {
+    StreamingGifTextureAnimation.PreparedLooping takeGif() {
         if (gif == null) {
             throw new IllegalStateException("No prepared GIF");
         }
         StreamingGifTextureAnimation.PreparedLooping ready = gif;
         gif = null;
-        return StreamingGifTextureAnimation.loadLoopingMipmapped(ready);
+        return ready;
     }
 
     @Override

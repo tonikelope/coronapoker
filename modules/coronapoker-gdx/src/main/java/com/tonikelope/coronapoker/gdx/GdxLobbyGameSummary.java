@@ -64,7 +64,7 @@ final class GdxLobbyGameSummary {
         AnteMode mode = settings.anteMode();
         rows.add(new Row(text.translate(GAME_ROW + "ante"),
                 settings.ante()
-                        ? GdxChipAmountText.format(mode.amount(blind.bigBlind()))
+                        ? GdxChipAmountText.format(mode.amount(blind.bigBlind()), 2)
                                 + " / " + text.translate(mode.labelKey())
                         : toggle(false, text)));
         rows.add(new Row(text.translate(GAME_ROW + "straddle"),

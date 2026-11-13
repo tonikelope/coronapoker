@@ -1001,7 +1001,7 @@ final class GdxSettingsContractTest {
         assertEquals("0.10", GdxSettingsContract.blindAmountLabel(0.1d));
         assertEquals("0.20", GdxSettingsContract.blindAmountLabel(0.2d));
         assertEquals("1", GdxSettingsContract.blindAmountLabel(1d));
-        assertEquals("1.5", GdxSettingsContract.blindAmountLabel(1.5d));
+        assertEquals("1.50", GdxSettingsContract.blindAmountLabel(1.5d));
         assertEquals("0.10 / 0.20",
                 GdxSettingsContract.blindLevelLabel(0.1d, 0.2d));
     }

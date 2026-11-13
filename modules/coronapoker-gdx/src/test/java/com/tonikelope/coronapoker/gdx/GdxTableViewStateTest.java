@@ -2307,19 +2307,19 @@ final class GdxTableViewStateTest {
     void communityHudKeepsSwingBlindFlagsAndCompactHandCounter() {
         GdxGameText spanish = new GdxGameText("es");
 
-        assertEquals("CIEGAS  (A) 0.1 / 0.2",
+        assertEquals("CIEGAS  (A) 0.10 / 0.20",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.TRADITIONAL, 0, 1, 0));
-        assertEquals("CIEGAS  (BBA) 0.1 / 0.2",
+        assertEquals("CIEGAS  (BBA) 0.10 / 0.20",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.BIG_BLIND, 0, 1, 0));
-        assertEquals("CIEGAS  (BA) 0.1 / 0.2",
+        assertEquals("CIEGAS  (BA) 0.10 / 0.20",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.BUTTON, 0, 1, 0));
-        assertEquals("CIEGAS  (SBA) 0.1 / 0.2",
+        assertEquals("CIEGAS  (SBA) 0.10 / 0.20",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.1d, 0.2d, AnteMode.SMALL_BLIND, 0, 1, 0));
-        assertEquals("CIEGAS  0.2 / 0.4 @ 3* (2)",
+        assertEquals("CIEGAS  0.20 / 0.40 @ 3* (2)",
                 CoronaPokerGdxTable.communityBlindsText(
                         spanish, 0.2d, 0.4d, null, 3, 2, 2));
         assertEquals("CIEGAS  1 / 2 @ 15'",
@@ -2374,13 +2374,13 @@ final class GdxTableViewStateTest {
         GdxGameText spanish = new GdxGameText("es");
         GdxGameText english = new GdxGameText("en");
 
-        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE", "12.5"),
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE", "12.50"),
                 CoronaPokerGdxTable.communityPotText(spanish, "", 12.5d));
         assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-A", "7.45"),
                 CoronaPokerGdxTable.communityPotText(spanish, "BOTE-A:", 7.45d));
         assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-B", "7.45"),
                 CoronaPokerGdxTable.communityPotText(spanish, "BOTE-B:", 7.45d));
-        assertEquals(new CoronaPokerGdxTable.PotPanelText("POT", "12.5"),
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("POT", "12.50"),
                 CoronaPokerGdxTable.communityPotText(english, "", 12.5d));
         assertEquals(new CoronaPokerGdxTable.PotPanelText("POT-B", "7.45"),
                 CoronaPokerGdxTable.communityPotText(english,
@@ -3263,11 +3263,11 @@ final class GdxTableViewStateTest {
                 ActionControlState.RaiseAction.DISABLED,
                 0d, 0d, 0d, 0d, false, false, -1, 0d, 10d);
 
-        assertEquals("IR (+0.2)",
+        assertEquals("IR (+0.20)",
                 CoronaPokerGdxTable.callLabel(disabledWithCall, spanish));
         assertEquals("PASAR", CoronaPokerGdxTable.callLabel(
                 disabledCheck, spanish));
-        assertEquals("CALL (+0.2)",
+        assertEquals("CALL (+0.20)",
                 CoronaPokerGdxTable.callLabel(disabledWithCall, english));
         assertEquals("CHECK", CoronaPokerGdxTable.callLabel(
                 disabledCheck, english));
@@ -4152,7 +4152,7 @@ final class GdxTableViewStateTest {
         assertEquals(TableSnapshot.ActionKind.NONE,
                 player(state, "early").actionKind());
         assertEquals("", player(state, "early").lastAction());
-        assertEquals("SUBE (+0.6)", state.actionLabel("raiser"));
+        assertEquals("SUBE (+0.60)", state.actionLabel("raiser"));
         assertEquals("NO VA", state.actionLabel("folded"));
         assertEquals("ALL IN", state.actionLabel("allin"));
 
@@ -4501,7 +4501,7 @@ final class GdxTableViewStateTest {
         assertEquals("RESUBE", state.actionLabel("ana"));
         assertEquals("RESUBE", player(state, "ana").lastAction());
         assertEquals("NO VA", state.actionLabel("borja"));
-        assertEquals("+0.2", state.callCostText());
+        assertEquals("+0.20", state.callCostText());
 
         state.apply(new TableVisualEvent.TurnTimer(5, "ana", 30_000,
                 30_000, TableVisualEvent.TurnTimer.Phase.START));

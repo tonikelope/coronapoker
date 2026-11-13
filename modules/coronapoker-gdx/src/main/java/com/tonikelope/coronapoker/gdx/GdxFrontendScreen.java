@@ -310,6 +310,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float LOBBY_CHAT_EMOJI_SIZE = 27f;
     private static final float LOBBY_CHAT_EMOJI_ADVANCE = 31f;
     private static final float LOBBY_CHAT_BUBBLE_PADDING = 14f;
+    private static final float LOBBY_IMAGE_BUBBLE_WIDTH = 430f;
+    private static final float LOBBY_IMAGE_BUBBLE_HEIGHT = 280f;
+    private static final float LOBBY_IMAGE_VERTICAL_INSET = 55f;
     private static final float LOBBY_CHAT_HEADER_AVATAR_OFFSET = 38f;
     private static final float LOBBY_VIDEO_LINK_TITLE_INSET = 37f;
     private static final DateTimeFormatter CHAT_TIME = DateTimeFormatter
@@ -419,6 +422,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Color customBotSelectionBorder = new Color();
     private GdxEmojiAtlas emojiAtlas;
     private final Map<Long, LobbyMedia> lobbyMedia = new HashMap<>();
+    private StreamingGifTextureAnimation.FrameSize lobbyGifBounds;
+    private StreamingGifTextureAnimation.FrameSize pendingLobbyGifBounds;
+    private long lobbyGifResizeAtNanos;
     private final GdxImageGalleryWindow lobbyGallery = new GdxImageGalleryWindow();
     private final GdxRobertRulesWindow rulesWindow = new GdxRobertRulesWindow();
     private final Map<String, Float> toggleAnimations = new HashMap<>();
@@ -6685,6 +6691,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyChatScroll = MathUtils.clamp(lobbyChatScroll, 0, maximumScroll);
         lobbyChatViewport.set(x - 2f, top - viewportHeight,
                 contentWidth + 4f, viewportHeight);
+        if (!lobbyMedia.isEmpty()) updateLobbyGifBounds(contentWidth - 48f);
         int textStart = texts.size();
         int avatarStart = lobbyAvatars.size();
         int imageStart = uiImages.size();
@@ -6745,7 +6752,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 });
             } else if (message.type() == LobbyChatMessage.Type.IMAGE) {
                 drawLobbyImageMessage(message, bodyX,
-                        y + 12f, bodyWidth, messageHeight - 55f,
+                        y + 12f, bodyWidth,
+                        messageHeight - LOBBY_IMAGE_VERTICAL_INSET,
                         Color.WHITE);
             } else if (message.type() == LobbyChatMessage.Type.VOICE) {
                 boolean active = lobbyChatVoiceSequence
@@ -6944,7 +6952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static float lobbyMessageHeight(LobbyChatMessage.Type type,
             int textLineCount) {
         return switch (type) {
-            case IMAGE -> 280f;
+            case IMAGE -> LOBBY_IMAGE_BUBBLE_HEIGHT;
             case PLAYER_JOINED, PLAYER_LEFT -> 44f;
             case TEXT -> 82f + Math.max(0, textLineCount - 1) * 32f;
             default -> 70f;
@@ -6955,7 +6963,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float desiredWidth, float availableWidth) {
         float maximum = Math.max(0f, availableWidth);
         float preferred = switch (type) {
-            case IMAGE -> 430f;
+            case IMAGE -> LOBBY_IMAGE_BUBBLE_WIDTH;
             case VOICE -> 390f;
             default -> desiredWidth;
         };
@@ -7137,18 +7145,55 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : avatarDefault;
     }
 
+    private void updateLobbyGifBounds(float availableWidth) {
+        float width = lobbyMessageWidth(LobbyChatMessage.Type.IMAGE, 0f,
+                availableWidth) - 2f * LOBBY_CHAT_BUBBLE_PADDING;
+        float height = LOBBY_IMAGE_BUBBLE_HEIGHT - LOBBY_IMAGE_VERTICAL_INSET;
+        int pixelWidth = Math.max(1, Math.round(width * viewport.getScreenWidth()
+                / WIDTH * Gdx.graphics.getBackBufferWidth()
+                / Math.max(1, Gdx.graphics.getWidth())));
+        int pixelHeight = Math.max(1, Math.round(height * viewport.getScreenHeight()
+                / HEIGHT * Gdx.graphics.getBackBufferHeight()
+                / Math.max(1, Gdx.graphics.getHeight())));
+        if (lobbyGifBounds != null && lobbyGifBounds.width() == pixelWidth
+                && lobbyGifBounds.height() == pixelHeight) {
+            pendingLobbyGifBounds = null;
+            return;
+        }
+        long now = System.nanoTime();
+        if (lobbyGifBounds == null) {
+            lobbyGifBounds = new StreamingGifTextureAnimation.FrameSize(
+                    pixelWidth, pixelHeight);
+        } else if (pendingLobbyGifBounds == null
+                || pendingLobbyGifBounds.width() != pixelWidth
+                || pendingLobbyGifBounds.height() != pixelHeight) {
+            pendingLobbyGifBounds = new StreamingGifTextureAnimation.FrameSize(
+                    pixelWidth, pixelHeight);
+            lobbyGifResizeAtNanos = now + 150_000_000L;
+        } else if (now - lobbyGifResizeAtNanos >= 0L) {
+            lobbyGifBounds = pendingLobbyGifBounds;
+            pendingLobbyGifBounds = null;
+        }
+    }
+
     private void drawLobbyImageMessage(LobbyChatMessage message, float x,
             float y, float width, float height, Color color) {
         if (y >= lobbyChatViewport.y + lobbyChatViewport.height
                 || y + height <= lobbyChatViewport.y) return;
         LobbyMedia media = lobbyMedia.get(message.sequence());
-        Texture thumbnail = media == null ? null
-                : media.frameAt(Gdx.graphics.getFrameId(), frameDelta);
+        Texture thumbnail = media == null ? null : media.frameAt(
+                lobbyGifBounds, Gdx.graphics.getFrameId(), frameDelta);
         if (thumbnail != null) {
-            float scale = Math.min(width / Math.max(1f, thumbnail.getWidth()),
-                    height / Math.max(1f, thumbnail.getHeight()));
-            float drawnWidth = thumbnail.getWidth() * scale;
-            float drawnHeight = thumbnail.getHeight() * scale;
+            // Keep the on-screen aspect ratio stable as frame sizes round
+            // to different whole pixels on different displays.
+            var original = media.gifOriginalSize;
+            int imageWidth = original == null ? thumbnail.getWidth()
+                    : original.width();
+            int imageHeight = original == null ? thumbnail.getHeight()
+                    : original.height();
+            float scale = Math.min(width / imageWidth, height / imageHeight);
+            float drawnWidth = imageWidth * scale;
+            float drawnHeight = imageHeight * scale;
             uiImages.add(new UiImageItem(thumbnail,
                     x + (width - drawnWidth) / 2f,
                     y + (height - drawnHeight) / 2f,
@@ -8587,7 +8632,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         LobbyMedia media = new LobbyMedia();
         lobbyMedia.put(message.sequence(), media);
         GdxPreparedChatMedia.prepareAsync(message.content(),
-                "lobby-chat:" + message.sequence(), 240)
+                "lobby-chat:" + message.sequence())
                 .whenComplete((prepared, failure) -> {
                     if (Gdx.app == null) {
                         if (prepared != null) prepared.dispose();
@@ -8599,14 +8644,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             if (prepared != null) prepared.dispose();
                             return;
                         }
-                        media.loading = false;
                         if (failure != null || prepared == null) {
                             media.failed = true;
                             return;
                         }
                         try {
                             if (prepared.animated()) {
-                                media.gif = prepared.startGif();
+                                media.gifSource = prepared.takeGif();
+                                media.gifOriginalSize = media.gifSource
+                                        .timing().size();
                             } else {
                                 media.image = prepared.uploadImage();
                             }
@@ -8722,6 +8768,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             media.dispose();
         }
         lobbyMedia.clear();
+        lobbyGifBounds = null;
+        pendingLobbyGifBounds = null;
     }
 
     private void submitLobbyCommand(LobbyCommand command, Runnable success) {
@@ -18269,14 +18317,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private static final class LobbyMedia {
-        private final LobbyGifClock gifClock = new LobbyGifClock();
-        private boolean loading = true;
+        private LobbyGifClock gifClock;
         private boolean failed;
         private Texture image;
+        private StreamingGifTextureAnimation.PreparedLooping gifSource;
+        private StreamingGifTextureAnimation.FrameSize gifOriginalSize;
+        private StreamingGifTextureAnimation.FrameSize gifBounds;
         private StreamingGifTextureAnimation gif;
 
-        private Texture frameAt(long frame, float delta) {
-            if (gif == null) return image;
+        private Texture frameAt(StreamingGifTextureAnimation.FrameSize bounds,
+                long frame, float delta) {
+            if (gifSource == null || failed) return image;
+            if (!bounds.equals(gifBounds)) {
+                gifBounds = bounds;
+                var size = gifOriginalSize.fitWithin(
+                        bounds.width(), bounds.height());
+                if (gif == null || gif.width() != size.width()
+                        || gif.height() != size.height()) {
+                    if (gif != null) gif.dispose();
+                    gif = StreamingGifTextureAnimation.loadLoopingMipmapped(
+                            gifSource, size);
+                    gifClock = new LobbyGifClock();
+                }
+            }
             if (gif.failed()) {
                 failed = true;
                 return null;
@@ -18288,6 +18351,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (image != null) image.dispose();
             if (gif != null) gif.dispose();
             image = null;
+            gifSource = null;
             gif = null;
         }
     }

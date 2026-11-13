@@ -52,7 +52,7 @@ final class GdxLobbyGameSummaryTest {
         assertEquals("1.00 / 2.00", summary.get("Ciegas iniciales"));
         assertEquals("Cada 12 manos", summary.get("Subida de ciegas"));
         assertEquals("2.00 / 4.00", summary.get("Tope de ciegas"));
-        assertEquals("2 / Ciega grande (BBA)", summary.get("Ante"));
+        assertEquals("2.00 / Ciega grande (BBA)", summary.get("Ante"));
         assertEquals("Opcional (2 BB)", summary.get("Straddle"));
         assertEquals(received.minBuyinBb() + " - " + received.maxBuyinBb()
                 + " BB", summary.get("Buy-in"));
@@ -61,6 +61,17 @@ final class GdxLobbyGameSummaryTest {
         assertEquals("Gratis » SB » BB", summary.get("Rabbit hunting"));
         assertEquals("Sí", summary.get("Run it twice"));
         assertEquals("Sí", summary.get("IWTSTH"));
+    }
+
+    @Test
+    void summaryKeepsBothDecimalsForFractionalBlindsAndAnte() {
+        NewGameTableDraft draft = new NewGameTableDraft();
+        draft.setAnte(true);
+        draft.setAnteMode(AnteMode.BIG_BLIND);
+
+        Map<String, String> summary = values(draft.snapshot(), "es");
+        assertEquals("0.10 / 0.20", summary.get("Ciegas iniciales"));
+        assertEquals("0.20 / Ciega grande (BBA)", summary.get("Ante"));
     }
 
     @Test

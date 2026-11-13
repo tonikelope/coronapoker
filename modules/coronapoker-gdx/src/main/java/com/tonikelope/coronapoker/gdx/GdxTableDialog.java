@@ -512,8 +512,9 @@ final class GdxTableDialog {
     }
 
     private static String decimalText(BigDecimal value) {
-        return value.setScale(2, RoundingMode.HALF_UP)
-                .stripTrailingZeros().toPlainString();
+        BigDecimal rounded = value.setScale(2, RoundingMode.HALF_UP);
+        int decimals = rounded.stripTrailingZeros().scale() > 0 ? 2 : 0;
+        return rounded.setScale(decimals).toPlainString();
     }
 
     static String plainText(String value) {

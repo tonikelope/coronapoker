@@ -34,8 +34,9 @@ final class GdxChipAmountText {
     static String format(double amount, int minimumDecimals) {
         BigDecimal value = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
         if (value.abs().compareTo(THOUSAND) >= 0) return withSuffix(value);
-        value = value.stripTrailingZeros();
-        return value.setScale(Math.max(minimumDecimals, value.scale())).toPlainString();
+        BigDecimal normalized = value.stripTrailingZeros();
+        int decimals = normalized.scale() > 0 ? 2 : 0;
+        return value.setScale(Math.max(minimumDecimals, decimals)).toPlainString();
     }
 
     static String buyinLabel(int amount, String language) {
@@ -83,8 +84,10 @@ final class GdxChipAmountText {
     static String compactLabel(String label) {
         if (!DECIMAL.matcher(label).matches()) return label;
         BigDecimal value = new BigDecimal(label);
-        if (value.abs().compareTo(THOUSAND) < 0) return label;
-        return (label.startsWith("+") ? "+" : "") + withSuffix(value);
+        if (value.abs().compareTo(THOUSAND) >= 0) {
+            return (label.startsWith("+") ? "+" : "") + withSuffix(value);
+        }
+        return value.scale() == 1 ? label + "0" : label;
     }
 
     static String actionLabel(String label) {

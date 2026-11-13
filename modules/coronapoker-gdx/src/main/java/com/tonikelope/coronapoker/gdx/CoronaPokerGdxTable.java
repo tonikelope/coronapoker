@@ -82,6 +82,8 @@ import java.util.IdentityHashMap;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.awt.event.KeyEvent;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Year;
@@ -18527,7 +18529,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         player.nickname());
                 float shown = probability == null ? percentage
                         : probability.valueAt(System.nanoTime());
-                return handName + " (" + formatAmount(shown) + "%)";
+                String percent = BigDecimal.valueOf(shown)
+                        .setScale(2, RoundingMode.HALF_UP)
+                        .stripTrailingZeros().toPlainString();
+                return handName + " (" + percent + "%)";
             }
             // Revealing the cards is not a poker result. Keep the action
             // surface absent until the ordered HandResult supplies the real

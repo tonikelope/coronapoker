@@ -75,6 +75,57 @@ class StreamingGifTextureAnimationTest {
     }
 
     @Test
+    void chatGifFitsBothPhysicalPixelLimitsWithoutUpscalingSmallSources()
+            throws Exception {
+        byte[] data;
+        try (InputStream input = getClass().getResourceAsStream(
+                "/cinematics/allin/casinoroyale.gif")) {
+            assertNotNull(input);
+            data = input.readAllBytes();
+        }
+        var source = StreamingGifTextureAnimation.prepareLooping(
+                data, "chat", Integer.MAX_VALUE);
+        var original = source.timing().size();
+        assertEquals(new StreamingGifTextureAnimation.FrameSize(800, 333),
+                original);
+        assertEquals(new StreamingGifTextureAnimation.FrameSize(402, 167),
+                original.fitWithin(402, 225));
+        assertEquals(new StreamingGifTextureAnimation.FrameSize(536, 223),
+                original.fitWithin(536, 300));
+        assertEquals(new StreamingGifTextureAnimation.FrameSize(64, 225),
+                new StreamingGifTextureAnimation.FrameSize(200, 700)
+                        .fitWithin(402, 225));
+        assertEquals(new StreamingGifTextureAnimation.FrameSize(1, 225),
+                new StreamingGifTextureAnimation.FrameSize(2, 900)
+                        .fitWithin(402, 225));
+        var small = new StreamingGifTextureAnimation.FrameSize(96, 64);
+        assertEquals(small, small.fitWithin(402, 225));
+
+        // Reload at a different size using the same inspected source. Reading
+        // the CPU queue checks the actual output without a graphics context.
+        for (var size : List.of(original.fitWithin(402, 225),
+                original.fitWithin(536, 300))) {
+            var animation = StreamingGifTextureAnimation.loadLoopingMipmapped(
+                    source, size);
+            try {
+                long deadline = System.nanoTime() + 5_000_000_000L;
+                var frame = animation.decodedFrameAt(0f);
+                while (frame == null && !animation.failed()
+                        && System.nanoTime() - deadline < 0L) {
+                    Thread.sleep(5L);
+                    frame = animation.decodedFrameAt(0f);
+                }
+                assertNotNull(frame, () -> String.valueOf(animation.failure()));
+                assertEquals(size.width(), frame.width());
+                assertEquals(size.height(), frame.height());
+                assertEquals(size.width() * size.height() * 4, frame.rgba().length);
+            } finally {
+                animation.dispose();
+            }
+        }
+    }
+
+    @Test
     void shuffleMetadataPreservesCanonicalLoopAndAudioCutoff()
             throws Exception {
         byte[] data;

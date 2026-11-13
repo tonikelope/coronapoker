@@ -63,8 +63,8 @@ final class GdxGameLogSinkTest {
         assertTrue(log.contains("NICK"));
         assertTrue(log.contains("RESULTADO"));
         assertTrue(log.contains("local"));
-        assertTrue(log.contains("GANA 2.5"));
-        assertTrue(log.contains("PIERDE 2.5"));
+        assertTrue(log.contains("GANA 2.50"));
+        assertTrue(log.contains("PIERDE 2.50"));
         assertTrue(log.contains("NI GANA NI PIERDE"));
     }
 

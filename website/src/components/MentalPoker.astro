@@ -1,0 +1,207 @@
+---
+import { docs, mentalPokerPaper, type copy, type Locale } from '../content';
+
+interface Props {
+  text: (typeof copy)[Locale]['mental'];
+}
+
+const { text } = Astro.props;
+const numbers = ['01', '02', '03'];
+const marks = ['♠', '♥', '♦'];
+const { deal, shuffle } = text;
+const hand = [['A', '♠'], ['Q', '♠']];
+const streets = [
+  [['J', '♦'], ['9', '♣'], ['7', '♦']],
+  [['4', '♥']],
+  [['K', '♣']],
+];
+---
+<section class="mental" id="mental-poker" aria-labelledby="mental-title">
+  <div class="wrap mental-intro reveal">
+    <div>
+      <p class="eyebrow"><span></span> Mental Poker</p>
+      <h2 id="mental-title">{text.title}</h2>
+    </div>
+    <p class="body-copy">{text.intro}</p>
+  </div>
+
+  <div class="wrap reveal" data-mental>
+    <div class="protocol" aria-label={text.walkthrough}>
+      <div class="protocol-top">
+        <span>{text.walkthrough}</span>
+        <span class="protocol-example">{text.example}</span>
+      </div>
+      <div class="protocol-controls" hidden>
+        {text.steps.map((step, index) => (
+          <button type="button" data-mental-tab={index} aria-controls={`mental-step-${index}`} aria-pressed={index === 0}>
+            <span>{numbers[index]}</span>{step.label}
+          </button>
+        ))}
+      </div>
+      {text.steps.map((step, index) => (
+        <div id={`mental-step-${index}`} class="protocol-stage" data-mental-stage>
+          <div class="protocol-explanation">
+            <div class="protocol-stage-number" aria-hidden="true">{numbers[index]}</div>
+            <h3>{step.label}</h3>
+            <p>{step.body}</p>
+            {index === 0 &&
+              <div class="shuffle-question">
+                <h4>{shuffle.whatIf}</h4>
+                <p>{shuffle.answer}</p>
+              </div>
+            }
+            {index < text.steps.length - 1 &&
+              <button type="button" class="text-link protocol-next" data-mental-next={index + 1} hidden>{text.next} <span aria-hidden="true">→</span></button>
+            }
+          </div>
+
+          {index === 0 &&
+            <div class="diagram shuffle" data-shuffle>
+              <ol class="shuffle-players" data-shuffle-players>
+                {text.names.map((name, player) => (
+                  <li aria-current={player === 0 ? 'step' : undefined}>
+                    <span class={`mini-lock shade-${player}`} aria-hidden="true">{marks[player]}</span>
+                    <span>{name}{player === 0 && <small>{shuffle.host}</small>}</span>
+                  </li>
+                ))}
+              </ol>
+              <div class="shuffle-felt">
+                <span class="shuffle-deck-label">{shuffle.deck}</span>
+                <div class="shuffle-cards" data-shuffle-cards aria-hidden="true">
+                  {Array.from({ length: 52 }, () => (
+                    <div class="shuffle-card">
+                      {marks.map((mark, index) => <span class={`mini-lock shade-${index}`}>{mark}</span>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div class="shuffle-controls" data-shuffle-controls hidden>
+                <p class="shuffle-status" role="status" data-shuffle-status>{shuffle.states[0]}</p>
+                <button type="button" class="deal-forward" data-shuffle-play>{shuffle.actions[0]}</button>
+              </div>
+              <ol class="deal-fallback shuffle-frames" data-shuffle-frames data-shuffle-replay={shuffle.replay}>
+                {shuffle.states.map((state, index) => (
+                  <li data-play={shuffle.actions[index]} data-mixing={shuffle.mixing[index]}>{state}</li>
+                ))}
+              </ol>
+            </div>
+          }
+
+          {index === 1 &&
+            <div class="diagram diagram-verify">
+              <div class="proof">
+                <div class="proof-cards" aria-hidden="true">
+                  <div class="playing-card card-back"></div>
+                  <div class="playing-card card-back"><span>✓</span></div>
+                </div>
+                <ul>
+                  <li>{text.deckCheck}</li>
+                  <li>{text.copiesCheck}</li>
+                  <li>{text.secretOrder}</li>
+                </ul>
+              </div>
+              <div class="proof-people">
+                <span>{text.verified}</span>
+                <div>{text.names.map(name => <span><b aria-hidden="true">✓</b> {name}</span>)}</div>
+              </div>
+            </div>
+          }
+
+          {index === 2 &&
+            <div class="diagram deal" data-deal>
+              <div class="deal-scene">
+                <div class="deal-hand">
+                  <div class="deal-group" data-deal-group="3">
+                    <span class="deal-label">{deal.hole}</span>
+                    <div class="deal-cards" aria-hidden="true">
+                      {hand.map(([rank, suit]) => (
+                        <div class="deal-card">
+                          <span class="playing-card card-back" data-card-back hidden>♦</span>
+                          <span class="playing-card starting" data-card-face><sup>{rank}</sup>{suit}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <span class="deal-caption" data-cards-sealed hidden>{deal.sealed}</span>
+                    <span class="deal-caption" data-cards-open>{deal.private}</span>
+                  </div>
+                  <div class="deal-locks" data-deal-locks hidden>
+                    <span class="deal-label">{deal.locks}</span>
+                    <div class="deal-lock-list" aria-hidden="true">
+                      {text.names.map((name, lock) => (
+                        <div data-deal-lock={lock + 1}>
+                          <span class={`mini-lock shade-${lock}`}>{marks[lock]}</span>
+                          <span class="deal-unlocked" hidden>✓</span>
+                          <span class="deal-lock-name">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div class="deal-board" role="group" aria-label={deal.board}>
+                  <span class="deal-label">{deal.board}</span>
+                  <div class="deal-board-key" data-deal-interactive hidden>
+                    <span>{deal.boardLocks}</span>
+                    <span title={deal.boardKey}>
+                      {text.names.map((name, index) => <span><b aria-hidden="true">{marks[index]}</b> {name}</span>)}
+                    </span>
+                  </div>
+                  <div class="deal-streets">
+                    {streets.map((cards, street) => (
+                      <div class="deal-group" data-deal-group={street + 4}>
+                        <div class="deal-cards" aria-hidden="true">
+                          {cards.map(([rank, suit]) => (
+                            <div class="deal-card">
+                              <span class="playing-card card-back" data-card-back hidden>♦</span>
+                              <span class:list={['playing-card', 'starting', { 'red-suit': suit === '♥' || suit === '♦' }]} data-card-face><sup>{rank}</sup>{suit}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <span class="street-label">{deal.streets[street]}</span>
+                        <div class="board-locks" data-deal-interactive hidden aria-hidden="true">
+                          {marks.map(mark => (
+                            <div class="board-lock-slot">
+                              <span class="mini-lock board-lock" data-cards-sealed>{mark}</span>
+                              <span class="deal-unlocked" data-cards-open hidden>✓</span>
+                            </div>
+                          ))}
+                        </div>
+                        <span class="sr-only" data-cards-sealed hidden>{deal.sealed}</span>
+                        <span class="sr-only" data-cards-open>{deal.public}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div class="deal-controls" data-deal-controls hidden>
+                <p class="deal-status" role="status" data-deal-status>{deal.frames[0][1]}</p>
+                <div class="deal-actions">
+                  <button type="button" class="deal-back" data-deal-back>{deal.back}</button>
+                  <button type="button" class="deal-forward" data-deal-forward>
+                    <span data-deal-action>{deal.frames[0][0]}</span>
+                    <span aria-hidden="true" data-deal-arrow>→</span>
+                  </button>
+                </div>
+              </div>
+              <ol class="deal-fallback" data-deal-frames data-replay-label={deal.reset}>
+                {deal.frames.map(([action, status]) => <li data-action={action}>{status}</li>)}
+              </ol>
+            </div>
+          }
+        </div>
+      ))}
+    </div>
+    <details class="protocol-more">
+      <summary>{text.detailsTitle}</summary>
+      <p>{text.details}</p>
+      <a class="text-link" href={`${docs}/docs/SECURITY.md#2-mental-poker-sra-cascade`} target="_blank" rel="noopener">{text.link} <span aria-hidden="true">↗</span></a>
+    </details>
+    <aside class="mental-credit" aria-label={text.credits}>
+      <div>
+        <p class="mental-credit-label">{text.credits}</p>
+        <p><cite>Mental Poker</cite><br />{text.paperAuthors}</p>
+        <p class="mental-citation">{text.paperSource}</p>
+      </div>
+      <a class="text-link" href={mentalPokerPaper} target="_blank" rel="noopener">{text.paperLink} <span aria-hidden="true">↗</span></a>
+    </aside>
+  </div>
+</section>

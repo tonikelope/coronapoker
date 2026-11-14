@@ -21,6 +21,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -519,6 +520,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont debugLogFont;
     private BitmapFont debugLogBoldFont;
     private BitmapFont smallFont;
+    private BitmapFont languageOptionFont;
+    private GdxAdaptiveFontQuality.Profile languageOptionFontProfile;
     private BitmapFont lobbyComposerFont;
     private BitmapFont tinyFont;
     private BitmapFont versionFont;
@@ -1151,6 +1154,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 smallFont, buttonTinyFont, tinyFont, versionFont);
         rebuildNativeTextTiers();
         fontQualityProfile = profile;
+        if (dropdown == Dropdown.LANGUAGE) ensureLanguageOptionFont();
     }
 
     private static BitmapFont replaceFont(BitmapFont previous, BitmapFont next) {
@@ -14597,6 +14601,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void prepareDropdown(Dropdown target) {
+        if (target == Dropdown.LANGUAGE) ensureLanguageOptionFont();
         dropdown = Objects.requireNonNull(target, "target");
         int selected = selectedDropdownOption(target);
         int count = dropdownOptions(target).size();
@@ -14604,6 +14609,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 Math.max(0, count
                         - GdxSettingsLayout.POPUP_MAX_VISIBLE_ROWS));
         clearActiveField();
+    }
+
+    private void ensureLanguageOptionFont() {
+        if (fontQualityProfile.equals(languageOptionFontProfile)) return;
+        var localeFonts = GdxLocaleFonts.forLanguageSelector();
+        String characters = localeFonts.charactersFor(
+                GdxAdaptiveFontQuality.charactersWith("…"),
+                String.join("", GdxGameText.languageLabels()));
+        var generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+        try {
+            languageOptionFont = replaceFont(languageOptionFont,
+                    GdxAdaptiveFontQuality.generateLocalized(generator, GdxSettingsStyle.SMALL_FONT_SIZE,
+                            0f, Color.WHITE, Color.CLEAR, characters, fontQualityProfile, localeFonts));
+            languageOptionFontProfile = fontQualityProfile;
+        } finally {
+            generator.dispose();
+        }
     }
 
     private int selectedDropdownOption(Dropdown target) {
@@ -14729,7 +14751,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case FELT -> GdxGamePresentationSettings.FELTS.stream()
                     .map(felt -> GdxAppearanceOptions.feltLabel(felt,
                             gameText)).toList();
-            case LANGUAGE -> GdxGameText.LANGUAGE_LABELS;
+            case LANGUAGE -> GdxGameText.languageLabels();
             case AUDIO_OUTPUT -> GdxAudioDevices.outputChoices().stream()
                     .map(device -> GdxAudioDevices.deviceLabel(device,
                             gameText)).toList();
@@ -14933,8 +14955,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void selectLanguageOption(int option) {
         if (pendingLanguage != null || option < 0
-                || option >= GdxGameText.LANGUAGES.size()) return;
-        var next = GdxGameText.LANGUAGES.get(option);
+                || option >= GdxGameText.languages().size()) return;
+        var next = GdxGameText.languages().get(option);
         if (next.tag().equals(gameText.language())) return;
         pendingLanguage = next;
         dropdown = Dropdown.NONE;
@@ -14984,11 +15006,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case HOST_ADDRESS -> 430f;
             default -> 590f;
         };
+        BitmapFont optionFont = dropdown == Dropdown.LANGUAGE ? languageOptionFont : smallFont;
         if (dropdownAnchored) {
             float contentWidth = 0f;
             for (String option : options) {
                 contentWidth = Math.max(contentWidth,
-                        textWidth(smallFont, option));
+                        textWidth(optionFont, option));
             }
             float desiredWidth = contentWidth + 40f
                     + (scrollable ? 24f : 6f);
@@ -15039,7 +15062,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     moneyTextFit(smallFont, options.get(option), x + 28f,
                             baseline, optionColor, false, w - 34f - rowRightInset);
                 } else {
-                    textFit(smallFont, options.get(option), x + 28f,
+                    textFit(optionFont, options.get(option), x + 28f,
                             baseline, optionColor, false, w - 34f - rowRightInset);
                 }
                 int selectedOption = option;
@@ -17973,6 +17996,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         uiFont.dispose();
         volumeOverlayFont.dispose();
         smallFont.dispose();
+        if (languageOptionFont != null) languageOptionFont.dispose();
         lobbyComposerFont.dispose();
         fpsFont.dispose();
         debugLogFont.dispose();

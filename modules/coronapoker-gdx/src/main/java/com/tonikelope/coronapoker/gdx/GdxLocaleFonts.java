@@ -12,30 +12,49 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Glyph repertoire for the active catalog, shared across the existing atlases. */
 final class GdxLocaleFonts {
 
     private static final String INTER = "fonts/Inter-Medium.ttf";
-    private final String fallbackPath;
+    private static final String JAPANESE = "fonts/CoronaPokerSans-JP.otf";
+    private static final String CHINESE = "fonts/CoronaPokerSans-SC.otf";
+    private static final String TAMIL = "fonts/CoronaPokerSans-Tamil.ttf";
+    private static final String SYMBOLS = "fonts/CoronaPokerSymbols.ttf";
+    private final List<String> fallbackPaths;
     private final String catalogCharacters;
     private final boolean tamil;
 
     GdxLocaleFonts(GdxGameText text) {
         tamil = "ta-IN".equals(text.language());
-        fallbackPath = switch (text.language()) {
-            case "es", "en" -> null;
-            case "ja-JP" -> "fonts/CoronaPokerSans-JP.otf";
-            case "zh-CN" -> "fonts/CoronaPokerSans-SC.otf";
-            case "ta-IN" -> "fonts/CoronaPokerSans-Tamil.ttf";
-            default -> INTER;
+        fallbackPaths = switch (text.language()) {
+            case "es", "en" -> List.of();
+            case "ja-JP" -> List.of(JAPANESE, INTER, SYMBOLS);
+            case "zh-CN" -> List.of(CHINESE, INTER, SYMBOLS);
+            case "ta-IN" -> List.of(TAMIL, INTER, SYMBOLS);
+            default -> List.of(INTER, SYMBOLS);
         };
-        catalogCharacters = fallbackPath == null ? "" : text.catalogCharacters();
+        catalogCharacters = fallbackPaths.isEmpty() ? "" : text.catalogCharacters();
     }
 
-    FileHandle fallback() {
-        return fallbackPath == null ? null : Gdx.files.internal(fallbackPath);
+    private GdxLocaleFonts() {
+        fallbackPaths = List.of(INTER, JAPANESE, CHINESE, TAMIL, SYMBOLS);
+        catalogCharacters = "";
+        tamil = true;
+    }
+
+    static GdxLocaleFonts forLanguageSelector() {
+        return new GdxLocaleFonts();
+    }
+
+    List<FileHandle> fallbacks() {
+        return fallbackPaths.stream().map(Gdx.files::internal).toList();
+    }
+
+    boolean hasFallbacks() {
+        return !fallbackPaths.isEmpty();
     }
 
     String characters(String base) {
@@ -46,7 +65,7 @@ final class GdxLocaleFonts {
     }
 
     String charactersFor(String base, String text) {
-        if (fallbackPath == null) return base;
+        if (fallbackPaths.isEmpty()) return base;
         var characters = new LinkedHashSet<Integer>();
         base.chars().forEach(characters::add);
         String visible = tamil ? shapeTamil(text) : text;

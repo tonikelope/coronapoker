@@ -89,7 +89,7 @@ final class GdxAdaptiveFontQuality {
     static BitmapFont generateLocalized(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor, String characters,
             Profile profile, GdxLocaleFonts localeFonts) {
-        if (localeFonts == null || localeFonts.fallback() == null) {
+        if (localeFonts == null || !localeFonts.hasFallbacks()) {
             return generateForCharacters(generator, size, border, color, borderColor,
                     characters, profile);
         }
@@ -145,25 +145,17 @@ final class GdxAdaptiveFontQuality {
         packer.getTransparentColor().a = 0f;
         parameter.packer = packer;
         try {
-            FileHandle fallback = localeFonts == null ? null : localeFonts.fallback();
             BitmapFont.BitmapFontData data;
-            if (fallback == null) {
+            if (localeFonts == null || !localeFonts.hasFallbacks()) {
                 data = generator.generateData(parameter);
             } else {
                 var supported = new StringBuilder(characters.length());
                 String missing = missingCharacters(generator, characters, supported);
                 parameter.characters = supported.toString();
                 data = generator.generateData(parameter, localeFonts.fontData());
-                if (!missing.isEmpty()) {
-                    String remaining = addFallbackGlyphs(data, fallback, parameter, missing);
-                    if (!remaining.isEmpty()) {
-                        remaining = addFallbackGlyphs(data,
-                                Gdx.files.internal("fonts/Inter-Medium.ttf"), parameter, remaining);
-                    }
-                    if (!remaining.isEmpty()) {
-                        addFallbackGlyphs(data, Gdx.files.internal("fonts/CoronaPokerSymbols.ttf"),
-                                parameter, remaining);
-                    }
+                for (FileHandle fallback : localeFonts.fallbacks()) {
+                    if (missing.isEmpty()) break;
+                    missing = addFallbackGlyphs(data, fallback, parameter, missing);
                 }
             }
             return new PreparedFont(data, packer, (float) size / rasterSize);

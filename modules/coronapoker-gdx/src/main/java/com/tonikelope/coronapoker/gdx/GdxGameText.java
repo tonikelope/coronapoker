@@ -5,7 +5,9 @@ import com.tonikelope.coronapoker.core.game.GameText;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.text.Collator;
 import java.text.MessageFormat;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -19,40 +21,12 @@ final class GdxGameText implements GameText {
 
     private static final String FALLBACK_LANGUAGE = "en";
 
-    // Pin Spanish and English, then order the selector labels alphabetically.
-    static final List<Language> LANGUAGES = List.of(
-            new Language("es", "Español"),
-            new Language("en", "English"),
-            new Language("af-ZA", "Afrikaans"),
-            new Language("bg-BG", "Bulgarian"),
-            new Language("ca-ES", "Català"),
-            new Language("cs-CZ", "Czech"),
-            new Language("da-DK", "Dansk"),
-            new Language("de-DE", "Deutsch"),
-            new Language("fr-FR", "Français"),
-            new Language("gd-GB", "Gàidhlig"),
-            new Language("gl-ES", "Galego"),
-            new Language("el-GR", "Greek"),
-            new Language("it-IT", "Italiano"),
-            new Language("ja-JP", "Japanese"),
-            new Language("lt-LT", "Lithuanian"),
-            new Language("hu-HU", "Magyar"),
-            new Language("nl-NL", "Nederlands"),
-            new Language("nb-NO", "Norsk bokmål"),
-            new Language("pl-PL", "Polski"),
-            new Language("pt-BR", "Português (Brasil)"),
-            new Language("pt-PT", "Português (Portugal)"),
-            new Language("ru-RU", "Russian"),
-            new Language("zh-CN", "Simplified Chinese"),
-            new Language("sk-SK", "Slovak"),
-            new Language("fi-FI", "Suomi"),
-            new Language("sv-SE", "Svenska"),
-            new Language("ta-IN", "Tamil"),
-            new Language("tr-TR", "Turkish"),
-            new Language("uk-UA", "Ukrainian"),
-            new Language("vi-VN", "Vietnamese"));
-    static final List<String> LANGUAGE_LABELS = LANGUAGES.stream()
-            .map(Language::label).toList();
+    private static final List<String> LANGUAGE_TAGS = List.of(
+            "es", "en", "af-ZA", "bg-BG", "ca-ES", "cs-CZ",
+            "da-DK", "de-DE", "fr-FR", "gd-GB", "gl-ES", "el-GR",
+            "it-IT", "ja-JP", "lt-LT", "hu-HU", "nl-NL", "nb-NO",
+            "pl-PL", "pt-BR", "pt-PT", "ru-RU", "zh-CN", "sk-SK",
+            "fi-FI", "sv-SE", "ta-IN", "tr-TR", "uk-UA", "vi-VN");
 
     private final Properties defaults;
     private volatile Selection selection;
@@ -108,9 +82,9 @@ final class GdxGameText implements GameText {
 
     static String supportedLanguage(Locale locale) {
         String tag = locale.stripExtensions().toLanguageTag();
-        for (Language option : LANGUAGES) {
-            if (option.tag().equalsIgnoreCase(tag)) {
-                return option.tag();
+        for (String option : LANGUAGE_TAGS) {
+            if (option.equalsIgnoreCase(tag)) {
+                return option;
             }
         }
         String language = locale.getLanguage();
@@ -121,9 +95,9 @@ final class GdxGameText implements GameText {
                 || List.of("TW", "HK", "MO").contains(locale.getCountry()))) {
             return FALLBACK_LANGUAGE;
         }
-        for (Language option : LANGUAGES) {
-            if (option.tag().equals(language) || option.tag().startsWith(language + "-")) {
-                return option.tag();
+        for (String option : LANGUAGE_TAGS) {
+            if (option.equals(language) || option.startsWith(language + "-")) {
+                return option;
             }
         }
         return FALLBACK_LANGUAGE;
@@ -146,15 +120,37 @@ final class GdxGameText implements GameText {
 
     int languageIndex() {
         String active = language();
-        for (int index = 0; index < LANGUAGES.size(); index++) {
-            if (LANGUAGES.get(index).tag().equals(active)) {
+        for (int index = 0; index < languages().size(); index++) {
+            if (languages().get(index).tag().equals(active)) {
                 return index;
             }
         }
         throw new IllegalStateException("Unsupported active language: " + active);
     }
 
+    static List<Language> languages() {
+        return LanguageSelector.LANGUAGES;
+    }
+
+    static List<String> languageLabels() {
+        return LanguageSelector.LABELS;
+    }
+
     record Language(String tag, String label) { }
+
+    // Only the selector needs the names from the other catalogs.
+    private static final class LanguageSelector {
+        private static final List<Language> LANGUAGES = orderedLanguages();
+        private static final List<String> LABELS = LANGUAGES.stream().map(Language::label).toList();
+
+        private static List<Language> orderedLanguages() {
+            var alphabet = Collator.getInstance(Locale.ROOT);
+            return LANGUAGE_TAGS.stream()
+                    .map(tag -> new Language(tag, load(tag).getProperty("gdx.language_name", tag)))
+                    .sorted(Comparator.comparing(Language::label, alphabet).thenComparing(Language::tag))
+                    .toList();
+        }
+    }
 
     private static Properties load(String language) {
         String resource = "/i18n/messages_" + language.replace('-', '_')

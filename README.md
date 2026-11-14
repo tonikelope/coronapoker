@@ -282,8 +282,8 @@ contain your identity keys and game history.
 ## 🌍 Internationalization
 
 Use the language selector on the main menu to change interface language.
-Spanish and English appear first, followed by the other languages in
-alphabetical order by their displayed names. CoronaPoker remembers your choice.
+The selector shows every language by its native name and sorts all entries
+alphabetically. CoronaPoker remembers your choice.
 On first launch it uses a supported system language and falls back to English.
 It shows progress while preparing the fonts for a language change.
 Brazilian and European Portuguese have separate translations.

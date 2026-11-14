@@ -80,27 +80,25 @@ final class GdxGameTextTest {
     }
 
     @Test
-    void languageSelectorPinsSpanishAndEnglishThenSortsByVisibleLabel() {
-        var labels = GdxGameText.LANGUAGE_LABELS;
-        assertEquals("Español", labels.get(0));
-        assertEquals("English", labels.get(1));
-        var remaining = labels.subList(2, labels.size());
-        assertEquals(remaining.stream().sorted(Collator.getInstance(Locale.ROOT)).toList(),
-                remaining);
+    void languageSelectorSortsAllNativeNames() {
+        var labels = GdxGameText.languageLabels();
+        assertEquals("Afrikaans", labels.get(0));
+        assertEquals(labels.stream().sorted(Collator.getInstance(Locale.ROOT)).toList(), labels);
     }
 
     @Test
     void allSelectableLanguagesLoadPackagedCatalogs() throws Exception {
-        assertEquals(30, GdxGameText.LANGUAGES.size());
+        assertEquals(30, GdxGameText.languages().size());
         Properties english = messages("en");
-        for (int index = 0; index < GdxGameText.LANGUAGES.size(); index++) {
-            String language = GdxGameText.LANGUAGES.get(index).tag();
+        for (int index = 0; index < GdxGameText.languages().size(); index++) {
+            String language = GdxGameText.languages().get(index).tag();
             Properties expected = messages(language.replace('-', '_'));
             GdxGameText text = new GdxGameText(language);
             assertEquals(index, text.languageIndex());
             assertEquals(english.stringPropertyNames(), expected.stringPropertyNames());
             assertEquals(expected.getProperty("gdx.language_name"),
                     text.translate("gdx.language_name"));
+            assertEquals(text.translate("gdx.language_name"), GdxGameText.languageLabels().get(index));
             if (language.length() == 2) continue;
             Pattern argument = Pattern.compile("\\{(\\d+)(?:,([a-z]+),)?");
             for (String key : english.stringPropertyNames()) {

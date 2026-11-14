@@ -24369,8 +24369,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     nativeTextTiers(uiFont), crispButtonText);
             BitmapFont selected = crispButtonText.font();
             selected.setColor(Color.WHITE);
-            glyph.setText(selected, crispButtonText.text(), Color.WHITE,
-                    messageW, Align.left, true);
+            GdxUiDialogStyle.layoutMessage(glyph, selected,
+                    crispButtonText.text(), messageW, Align.left);
             GdxPixelText.draw(selected, batch, glyph, messageX,
                     messageY + (messageH + glyph.height) / 2f, viewport);
             selected.setColor(Color.WHITE);
@@ -24394,8 +24394,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     nativeTextTiers(preferredMessageFont), crispButtonText);
             BitmapFont selected = crispButtonText.font();
             selected.setColor(Color.WHITE);
-            glyph.setText(selected, crispButtonText.text(), Color.WHITE,
-                    messageBounds.width, Align.center, true);
+            if (dialog.isHandLimit()) {
+                glyph.setText(selected, crispButtonText.text(), Color.WHITE,
+                        messageBounds.width, Align.center, true);
+            } else {
+                GdxUiDialogStyle.layoutMessage(glyph, selected,
+                        crispButtonText.text(), messageBounds.width, Align.center);
+            }
             GdxPixelText.draw(selected, batch, glyph, messageBounds.x,
                 dialog.isHandLimit() ? panelY + 414f
                         : messageBounds.y
@@ -24616,8 +24621,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 nativeTextTiers(preferredFont), crispButtonText);
         BitmapFont selected = crispButtonText.font();
         selected.setColor(Color.WHITE);
-        glyph.setText(selected, crispButtonText.text(), Color.WHITE,
-                bounds.width, Align.center, true);
+        GdxUiDialogStyle.layoutMessage(glyph, selected,
+                crispButtonText.text(), bounds.width, Align.center);
         GdxPixelText.draw(selected, batch, glyph, bounds.x,
                 bounds.y + (bounds.height + glyph.height) / 2f, viewport);
         selected.setColor(Color.WHITE);

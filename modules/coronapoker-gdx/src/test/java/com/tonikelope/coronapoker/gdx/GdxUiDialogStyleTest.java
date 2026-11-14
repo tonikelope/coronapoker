@@ -4,7 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.BitmapFont.BitmapFontData;
+import com.badlogic.gdx.graphics.g2d.BitmapFont.Glyph;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Align;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,6 +19,52 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class GdxUiDialogStyleTest {
+
+    @Test
+    void dialogProseJustifiesWrappedLinesAndPreservesParagraphEndings() {
+        var layout = new GlyphLayout();
+        GdxUiDialogStyle.layoutMessage(layout, messageFont(),
+                "a b c\n\np:q", 36f, Align.center);
+
+        assertEquals(3, layout.runs.size);
+        assertEquals(36f, layout.runs.get(0).width);
+        assertEquals(16f, layout.runs.get(0).xAdvances.get(2));
+        assertEquals(10f, layout.runs.get(1).width);
+        assertEquals(30f, layout.runs.get(2).width);
+        assertEquals(-36f, layout.runs.get(2).y);
+        layout.runs.forEach(line -> assertEquals(0f, line.x));
+    }
+
+    @Test
+    void shortDialogTextStaysCenteredAndWideGapsStayNatural() {
+        var layout = new GlyphLayout();
+        BitmapFont font = messageFont();
+        GdxUiDialogStyle.layoutMessage(layout, font,
+                "a b", 50f, Align.center);
+        assertEquals(10f, layout.runs.first().x);
+
+        GdxUiDialogStyle.layoutMessage(layout, font,
+                "a b cc", 48f, Align.center);
+        assertEquals(30f, layout.runs.first().width);
+        assertEquals(0f, layout.runs.first().x);
+    }
+
+    private static BitmapFont messageFont() {
+        var data = new BitmapFontData();
+        data.capHeight = 10f;
+        data.spaceXadvance = 10f;
+        data.down = -12f;
+        data.blankLineScale = 1f;
+        var font = new BitmapFont(data, new TextureRegion(), false);
+        for (char character : " abc:pq".toCharArray()) {
+            var glyph = new Glyph();
+            glyph.id = character;
+            glyph.width = 10;
+            glyph.xadvance = 10;
+            data.setGlyph(character, glyph);
+        }
+        return font;
+    }
 
     @Test
     void sharedDialogMaterialMatchesTheSettingsSurface() {

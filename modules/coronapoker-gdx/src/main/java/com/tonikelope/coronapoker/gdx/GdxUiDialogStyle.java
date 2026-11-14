@@ -3,6 +3,8 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout.GlyphRun;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout.WrapState;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
@@ -57,6 +59,43 @@ final class GdxUiDialogStyle {
         if (message == null) return "";
         return message.replace("\r\n", "\n")
                 .replace('\r', '\n').strip();
+    }
+
+    static void layoutMessage(GlyphLayout layout, BitmapFont font,
+            String message, float width, int shortTextAlignment) {
+        layout.setText(font, message, Color.WHITE, width,
+                shortTextAlignment, true);
+        for (GlyphRun line : layout.runs) {
+            if (line.wrapState == WrapState.wrapped) {
+                for (GlyphRun paragraphLine : layout.runs) {
+                    paragraphLine.x = 0f;
+                    if (paragraphLine.wrapState == WrapState.wrapped) {
+                        justifyLine(paragraphLine, width, font.getSpaceXadvance());
+                        layout.width = Math.max(layout.width, paragraphLine.width);
+                    }
+                }
+                return;
+            }
+        }
+    }
+
+    private static void justifyLine(GlyphRun line, float width,
+            float spaceWidth) {
+        int gaps = 0;
+        for (int i = 0; i < line.glyphs.size - 1; i++) {
+            if (line.glyphs.get(i).id == ' ') gaps++;
+        }
+        if (gaps == 0) return;
+
+        float extraPerSpace = (width - line.width) / gaps;
+        // Leave unusually short lines ragged rather than making holes in the text.
+        if (extraPerSpace <= 0f || extraPerSpace > spaceWidth * 1.5f) return;
+        for (int i = 0; i < line.glyphs.size - 1; i++) {
+            if (line.glyphs.get(i).id == ' ') {
+                line.xAdvances.incr(i + 1, extraPerSpace);
+            }
+        }
+        line.width = width;
     }
 
     static ConfirmationLayout confirmationLayout(float worldWidth,

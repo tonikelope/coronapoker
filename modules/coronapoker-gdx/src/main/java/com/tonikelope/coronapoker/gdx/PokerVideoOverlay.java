@@ -841,9 +841,13 @@ final class PokerVideoOverlay implements AutoCloseable {
                         videoBounds.y + videoBounds.height / 2f + 30f,
                         size, size);
             }
-            GdxPixelText.draw(tinyFont, batch, message, videoBounds.x + 30f,
-                    videoBounds.y + videoBounds.height / 2f + (canRetry() ? 50f : 2f),
-                    videoBounds.width - 60f, Align.center, true, viewport);
+            float messageCenterY = videoBounds.y + videoBounds.height / 2f
+                    + (canRetry() ? 35f : -8f);
+            GdxUiDialogStyle.layoutMessage(glyph, tinyFont,
+                    GdxUiDialogStyle.formatNoticeMessage(message), tinyFont.getColor(),
+                    videoBounds.width - 60f, canRetry() ? 72f : 48f, Align.center);
+            GdxPixelText.draw(tinyFont, batch, glyph, videoBounds.x + 30f,
+                    messageCenterY + glyph.height / 2f, viewport);
             if (canRetry()) {
                 tinyFont.setColor(GOLD);
                 GdxPixelText.draw(tinyFont, batch, text.translate("gdx.video.retry"),

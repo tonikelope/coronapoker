@@ -61,22 +61,57 @@ final class GdxUiDialogStyle {
                 .replace('\r', '\n').strip();
     }
 
+    static BitmapFont fitMessage(GlyphLayout layout, String message,
+            Color color, float width, float height, int shortTextAlignment,
+            GdxCrispButtonText.FontTiers tiers, GdxCrispButtonText.Result fit) {
+        String text = formatNoticeMessage(message);
+        GdxCrispButtonText.resolveWrapped(layout, text, color, width, height,
+                shortTextAlignment, tiers, fit);
+        BitmapFont font = fit.font();
+        layoutMessage(layout, font, text, color, width, height, shortTextAlignment);
+        return font;
+    }
+
     static void layoutMessage(GlyphLayout layout, BitmapFont font,
-            String message, float width, int shortTextAlignment) {
-        layout.setText(font, message, Color.WHITE, width,
-                shortTextAlignment, true);
+            String message, Color color, float width, float height,
+            int shortTextAlignment) {
+        layout.setText(font, message, color, width, shortTextAlignment, true);
+        if (layout.height > height || layout.width > width) {
+            String excerpt = fittingExcerpt(layout, font, message, color,
+                    width, height);
+            layout.setText(font, excerpt, color, width, shortTextAlignment, true);
+        }
+        if (layout.runs.size < 2) return;
         for (GlyphRun line : layout.runs) {
+            line.x = 0f;
             if (line.wrapState == WrapState.wrapped) {
-                for (GlyphRun paragraphLine : layout.runs) {
-                    paragraphLine.x = 0f;
-                    if (paragraphLine.wrapState == WrapState.wrapped) {
-                        justifyLine(paragraphLine, width, font.getSpaceXadvance());
-                        layout.width = Math.max(layout.width, paragraphLine.width);
-                    }
-                }
-                return;
+                justifyLine(line, width, font.getSpaceXadvance());
+                layout.width = Math.max(layout.width, line.width);
             }
         }
+    }
+
+    private static String fittingExcerpt(GlyphLayout layout, BitmapFont font,
+            String message, Color color, float width, float height) {
+        String ellipsis = "…";
+        layout.setText(font, ellipsis, color, width, Align.left, true);
+        if (layout.height > height || layout.width > width) return "";
+        String excerpt = ellipsis;
+        int lower = 1;
+        int upper = message.codePointCount(0, message.length()) - 1;
+        while (lower <= upper) {
+            int count = lower + (upper - lower) / 2;
+            int end = message.offsetByCodePoints(0, count);
+            String candidate = message.substring(0, end).stripTrailing() + ellipsis;
+            layout.setText(font, candidate, color, width, Align.left, true);
+            if (layout.height <= height && layout.width <= width) {
+                excerpt = candidate;
+                lower = count + 1;
+            } else {
+                upper = count - 1;
+            }
+        }
+        return excerpt;
     }
 
     private static void justifyLine(GlyphRun line, float width,
@@ -88,7 +123,7 @@ final class GdxUiDialogStyle {
         if (gaps == 0) return;
 
         float extraPerSpace = (width - line.width) / gaps;
-        // Leave unusually short lines ragged rather than making holes in the text.
+        // Limit the extra space so the gaps between words stay readable.
         if (extraPerSpace <= 0f || extraPerSpace > spaceWidth * 1.5f) return;
         for (int i = 0; i < line.glyphs.size - 1; i++) {
             if (line.glyphs.get(i).id == ' ') {

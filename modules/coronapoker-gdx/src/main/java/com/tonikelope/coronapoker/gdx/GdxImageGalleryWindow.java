@@ -154,22 +154,19 @@ final class GdxImageGalleryWindow implements AutoCloseable {
                         Math.round(web.width * px) / px, Math.round(web.height * py) / py);
             }
         } else {
-            drawLabel(batch, statusFont, text.translate(browser.failed()
-                    ? "gdx.lobby.image_search_unavailable" : "gdx.lobby.media_loading"),
-                    web, GdxUiDialogStyle.PREPARATION_STATUS, Align.center);
+            String message = text.translate(browser.failed()
+                    ? "gdx.lobby.image_search_unavailable" : "gdx.lobby.media_loading");
+            GdxUiDialogStyle.layoutMessage(title, statusFont, message,
+                    GdxUiDialogStyle.PREPARATION_STATUS, web.width - 48f,
+                    web.height - 48f, Align.center);
+            GdxPixelText.draw(statusFont, batch, title, web.x + 24f,
+                    web.y + (web.height + title.height) / 2f, viewport);
         }
         GdxUiDialogStyle.drawWindowTitle(batch, titleFont, title, text.translate("gdx.lobby.image_gallery"),
                 titleDragBounds(), viewport, 1f);
         batch.end();
         tooltip.draw(shapes, batch, statusFont, viewport, x, y,
                 gesture == Gesture.NONE && close.contains(x, y) ? text.translate("ui.cerrar") : null);
-    }
-
-    private void drawLabel(SpriteBatch batch, BitmapFont font, String value,
-            Rectangle bounds, Color color, int align) {
-        title.setText(font, value, 0, value.length(), color, bounds.width, align, false, "…");
-        GdxPixelText.draw(font, batch, title, bounds.x,
-                bounds.y + (bounds.height + title.height) / 2f, viewport);
     }
 
     boolean isOpen() {

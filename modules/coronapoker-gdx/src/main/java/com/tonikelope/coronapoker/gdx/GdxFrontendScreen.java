@@ -31,6 +31,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -3057,18 +3058,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 titleBounds.y + titleBounds.height * 0.76f,
                 GOLD, false, titleBounds.width);
 
-        List<String> lines = wrapText(actionFont,
-                GdxUiDialogStyle.formatNoticeMessage(message),
-                messageBounds.width, 3);
-        float lineHeight = 34f;
-        float firstBaseline = messageBounds.y + messageBounds.height / 2f
-                + 12f + Math.max(0, lines.size() - 1) * lineHeight / 2f;
-        for (int index = 0; index < lines.size(); index++) {
-            textFit(actionFont, lines.get(index),
-                    messageBounds.x + messageBounds.width / 2f,
-                    firstBaseline - index * lineHeight,
-                    Color.WHITE, true, messageBounds.width);
-        }
+        dialogMessage(actionFont, message, messageBounds, Color.WHITE);
         return layout;
     }
 
@@ -3086,18 +3076,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 titleBounds.y + titleBounds.height * 0.76f,
                 error ? ORANGE : GOLD, true, titleBounds.width);
 
-        List<String> lines = wrapText(smallFont,
-                GdxUiDialogStyle.formatNoticeMessage(message),
-                messageBounds.width, 5);
-        float lineHeight = 34f;
-        float firstBaseline = messageBounds.y + messageBounds.height / 2f
-                + 12f + Math.max(0, lines.size() - 1) * lineHeight / 2f;
-        for (int index = 0; index < lines.size(); index++) {
-            textFit(smallFont, lines.get(index),
-                    messageBounds.x + messageBounds.width / 2f,
-                    firstBaseline - index * lineHeight,
-                    Color.WHITE, true, messageBounds.width);
-        }
+        dialogMessage(smallFont, message, messageBounds, Color.WHITE);
         return layout;
     }
 
@@ -3912,10 +3891,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         if (!statsEvidenceError.isBlank()) {
-            textFit(smallFont, statsEvidenceError,
-                    content.x + content.width / 2f,
-                    content.y + content.height / 2f,
-                    ORANGE, true, content.width - 60f);
+            dialogMessage(smallFont, statsEvidenceError,
+                    new Rectangle(content.x + 30f, content.y + 20f,
+                            content.width - 60f, content.height - 40f), ORANGE);
             statsEvidenceScrollMaximum = 0f;
             statsEvidenceScrollThumbHeight = track.height;
             return;
@@ -5655,14 +5633,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : "gdx.update.installing")
                 : (updatePromptForMod ? "gdx.mod_update.message"
                         : "gdx.update.message");
-        List<String> lines = wrapText(smallFont, gameText.translate(
-                messageKey, version), w - 130f, 3);
-        float lineY = y + 230f;
-        for (String line : lines) {
-            textFit(smallFont, line, WIDTH / 2f, lineY,
-                    Color.WHITE, true, w - 130f);
-            lineY -= 30f;
-        }
+        dialogMessage(smallFont, gameText.translate(messageKey, version),
+                new Rectangle(x + 65f, y + 136f, w - 130f, 108f), Color.WHITE);
         themedButton(x + 70f, y + 42f, 320f, 72f,
                 uppercase(gameText.translate("gdx.update.later")),
                 ButtonTone.NEUTRAL, this::dismissUpdatePrompt,
@@ -5864,36 +5836,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Color.WHITE, true, 620f);
         }
 
-        centeredWrappedText(smallFont,
-                gameText.translate("about.gracias_1"), WIDTH / 2f,
-                682f, w - 130f, 24f, 2, MUTED);
-        centeredWrappedText(smallFont,
-                gameText.translate("about.gracias_2"), WIDTH / 2f,
-                653f, w - 130f, 24f, 2, MUTED);
-        centeredWrappedText(smallFont,
-                gameText.translate("about.centimos"), WIDTH / 2f,
-                624f, w - 130f, 24f, 2, MUTED);
+        String thanks = gameText.translate("about.gracias_1") + " "
+                + gameText.translate("about.gracias_2");
+        dialogMessage(smallFont, thanks,
+                new Rectangle(x + 65f, 634f, w - 130f, 50f), MUTED);
+        dialogMessage(smallFont, gameText.translate("about.centimos"),
+                new Rectangle(x + 65f, 584f, w - 130f, 46f), MUTED);
 
         textFit(headingFont, gameText.translate("about.dedicado"),
                 WIDTH / 2f, ABOUT_MEMORIAL_CENTER_Y,
                 Color.WHITE, true, 830f);
 
-        float musicY = ABOUT_MUSIC_FIRST_LINE_Y;
         String[] musicKeys = {
             "about.musica_juego", "about.musica_espera",
             "about.musica_stats", "about.musica_gestor_bots",
             "about.musica_recuperacion", "about.musica_about"
         };
-        for (String key : musicKeys) {
-            centeredWrappedText(smallFont, gameText.translate(key),
-                    WIDTH / 2f, musicY, w - 150f, 24f, 2, MUTED);
-            musicY -= ABOUT_MUSIC_LINE_GAP;
-        }
+        String musicCredits = Arrays.stream(musicKeys)
+                .map(gameText::translate)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        float musicHeight = ABOUT_MUSIC_LINE_GAP * ABOUT_MUSIC_CREDIT_COUNT;
+        dialogMessage(smallFont, musicCredits,
+                new Rectangle(x + 75f, ABOUT_MUSIC_FIRST_LINE_Y - musicHeight,
+                        w - 150f, musicHeight), MUTED);
 
-        centeredWrappedText(smallFont, gameText.translate("about.copyright"),
-                WIDTH / 2f, ABOUT_COPYRIGHT_Y,
-                w - 150f, ABOUT_COPYRIGHT_LINE_HEIGHT,
-                ABOUT_COPYRIGHT_MAX_LINES, MUTED);
+        float copyrightHeight = ABOUT_COPYRIGHT_LINE_HEIGHT * ABOUT_COPYRIGHT_MAX_LINES;
+        dialogMessage(smallFont, gameText.translate("about.copyright"),
+                new Rectangle(x + 75f, ABOUT_COPYRIGHT_Y - copyrightHeight / 2f,
+                        w - 150f, copyrightHeight), MUTED);
         hit(WIDTH / 2f - 30f, 235f, 60f, 60f, this::openRobertRules);
         tooltip(WIDTH / 2f - 30f, 235f, 60f, 60f, "tooltip.robert_rules");
         textFit(smallFont, gameText.translate("about.hecho_a_mano"),
@@ -6560,11 +6530,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(uiFont, fingerprint.formatted(), 960f, 305f,
                     Color.WHITE, true, 760f);
         }
-        textFit(smallFont, gameText.translate(
+        dialogMessage(smallFont, gameText.translate(
                 dialog.mode() == FingerprintMode.IDENTITY
                         ? "gdx.identicon.identity_help"
                         : "gdx.identicon.session_help"),
-                960f, 255f, MUTED, true, 760f);
+                new Rectangle(580f, 245f, 760f, 42f), MUTED);
         if (dialog.mode() == FingerprintMode.IDENTITY
                 && dialog.identityPublicKey() != null) {
             boolean verified = identityTrust.isVerified(dialog.nickname(),
@@ -7743,8 +7713,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         field(660f, 490f, 600f,
                 gameText.translate("gdx.lobby.password_input"),
                 lobbyPasswordDraft, "lobbyPassword", true);
-        textFit(tinyFont, gameText.translate("gdx.lobby.password_hint"),
-                960f, LOBBY_PASSWORD_DIALOG_HINT_Y, MUTED, true, 650f);
+        dialogMessage(tinyFont, gameText.translate("gdx.lobby.password_hint"),
+                new Rectangle(635f, LOBBY_PASSWORD_DIALOG_HINT_Y - 30f,
+                        650f, 46f), MUTED);
         themedButton(590f, 370f, 165f, 64f,
                 gameText.translate("gdx.lobby.generate_password"),
                 ButtonTone.NEUTRAL, this::generateLobbyPassword,
@@ -7910,13 +7881,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 "gdx.network_blocks.title")), panel.x + 138f,
                 panel.y + panel.height - 76f, GOLD, false,
                 panel.width - 190f);
-        textFit(tinyFont, gameText.translate("gdx.network_blocks.help"),
-                panel.x + 48f, panel.y + panel.height - 158f,
-                MUTED, false, panel.width - 96f);
+        dialogMessage(tinyFont, gameText.translate("gdx.network_blocks.help"),
+                new Rectangle(panel.x + 48f, panel.y + panel.height - 184f,
+                        panel.width - 96f, 42f), MUTED, false);
         if (!networkBlockError.isBlank()) {
-            textFit(tinyFont, networkBlockError, panel.x + 48f,
-                    panel.y + 78f, LATENCY_RED, false,
-                    panel.width - 340f);
+            dialogMessage(tinyFont, networkBlockError,
+                    new Rectangle(panel.x + 48f, panel.y + 45f,
+                            panel.width - 340f, 42f), LATENCY_RED, false);
         }
     }
 
@@ -8060,8 +8031,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     ? gameText.translate("audio.purgar_notas_confirm")
                     : gameText.translate("audio.borrar_nota_confirm",
                             voiceNoteDeleteConfirmation.nickname());
-            textFit(actionFont, message, x + w / 2f, y + 475f,
-                    Color.WHITE, true, w - 150f);
+            dialogMessage(actionFont, message,
+                    new Rectangle(x + 75f, y + 416f, w - 150f, 94f), Color.WHITE);
             themedButton(x + 250f, y + 300f, 360f, 74f,
                     uppercase(gameText.translate("ui.cancelar")),
                     ButtonTone.NEUTRAL, () -> {
@@ -9413,9 +9384,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiDialogStyle.drawPanel(shapes, x, y, width, height, CYAN_DARK, 1f);
         String action = uppercase(gameText.translate(selection.actionKey()));
         textFit(headingFont, action, center, top - 56f, GOLD, true, width - 88f);
-        textFit(actionFont, gameText.translate(selection.importing()
+        dialogMessage(actionFont, gameText.translate(selection.importing()
                 ? "gdx.backup.import_select" : "gdx.backup.export_select"),
-                center, top - 92f, Color.WHITE, true, width - 88f);
+                new Rectangle(x + 44f, top - 121f, width - 88f, 47f), Color.WHITE);
 
         float rowY = top - 178f;
         float rowWidth = width - 88f;
@@ -9445,11 +9416,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         float notesY = rowY + 28f;
-        textFit(smallFont, gameText.translate("gdx.backup.restarts_game"),
-                center, notesY, Color.WHITE, true, width - 88f);
-        textFit(smallFont, gameText.translate(selection.importing()
+        dialogMessage(smallFont, gameText.translate("gdx.backup.restarts_game"),
+                new Rectangle(x + 44f, notesY - 24f, width - 88f, 34f), Color.WHITE);
+        dialogMessage(smallFont, gameText.translate(selection.importing()
                 ? "gdx.backup.keeps_profile" : "gdx.backup.private_zip"),
-                center, notesY - 32f, MUTED, true, width - 88f);
+                new Rectangle(x + 44f, notesY - 64f, width - 88f, 40f), MUTED);
         if (!selection.importing()) {
             textFit(smallFont, gameText.translate("gdx.backup.destination"),
                     center, notesY - 70f, GOLD, true, width - 88f);
@@ -11028,9 +10999,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 panelW, panelH);
         textFit(headingFont, uppercase(dialog.title()), title.x,
                 title.y + 33f, GOLD, false, title.width);
-        textFit(smallFont, dialog.message(), layout.detail().x
-                + layout.detail().width / 2f, layout.detail().y + 30f,
-                Color.WHITE, true, layout.detail().width);
+        dialogMessage(smallFont, dialog.message(), layout.detail(), Color.WHITE);
         settingsBooleanToggle(layout.enabled().x, layout.enabled().y,
                 layout.enabled().width,
                 settingsGameText("row.auto_call"),
@@ -12122,13 +12091,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : uppercase(gameText.translate(
                                 "gdx.newgame.overwrite_profile")),
                 960f, 625f, GOLD, true, 700f);
-        textFit(actionFont,
+        dialogMessage(actionFont,
                 presetDialog == PresetDialog.DELETE
                         ? uppercase(gameText.translate(
                                 "gdx.newgame.delete_profile_question", name))
                         : uppercase(gameText.translate(
                                 "gdx.newgame.overwrite_profile_question", name)),
-                960f, 535f, Color.WHITE, true, 700f);
+                new Rectangle(610f, 488f, 700f, 72f), Color.WHITE);
         themedButton(660f, 405f, 270f, 64f,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL, this::closePresetDialog, true);
@@ -12535,9 +12504,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(headingFont, uppercase(gameText.translate(
                 "blinds.gestionar_estructuras")), 275f, 905f,
                 GOLD, false, 1100f);
-        textFit(smallFont,
-                gameText.translate("gdx.newgame.blind_editor.help"),
-                275f, 858f, MUTED, false, 1100f);
+        dialogMessage(smallFont, gameText.translate("gdx.newgame.blind_editor.help"),
+                new Rectangle(275f, 798f, 1100f, 78f), MUTED, false);
 
         BlindStructureCatalog.Entry selected = blindStructureEditor.selected();
         boolean hasSelection = selected != null;
@@ -12837,8 +12805,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxChipAmountText.buyinLabel(target.maximumBuyin(), language));
         textFit(smallFont, range, 660f, 479f, MUTED, false, 600f);
         if (showError) {
-            textFit(smallFont, gameText.translate(error),
-                    660f, 444f, ORANGE, false, 600f);
+            dialogMessage(smallFont, gameText.translate(error),
+                    new Rectangle(660f, 418f, 600f, 40f), ORANGE, false);
         }
         themedButton(660f, 350f, 270f, 64f, gameText.translate("ui.cancelar"),
                 ButtonTone.NEUTRAL, this::closeInitialBuyinEditor, true);
@@ -15578,8 +15546,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         text(titleFont, uppercase(gameText.translate(
                         "gdx.avatar.crop.title")),
                 WIDTH / 2f, 985f, GOLD, true);
-        textFit(uiFont, gameText.translate("gdx.avatar.crop.hint"),
-                WIDTH / 2f, 924f, MUTED, true, 1140f);
+        dialogMessage(uiFont, gameText.translate("gdx.avatar.crop.hint"),
+                new Rectangle(WIDTH / 2f - 570f, 899f, 1140f, 51f), MUTED);
         shapes.setColor(new Color(0x07111fff));
         roundedRect(viewX - 12f, viewY - 12f,
                 AVATAR_CROP_VIEW_SIZE + 24f,
@@ -16244,7 +16212,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x, y, new Color(color), centered);
     }
 
+    private void dialogMessage(BitmapFont font, String message,
+            Rectangle bounds, Color color) {
+        dialogMessage(font, message, bounds, color, true);
+    }
+
+    private void dialogMessage(BitmapFont font, String message,
+            Rectangle bounds, Color color, boolean centered) {
+        activeTextItems().add(new TextItem(font, message, bounds.x, bounds.y,
+                new Color(color), centered, bounds.width, bounds.height));
+    }
+
     private void drawTextItem(TextItem item) {
+        if (item.wrapWidth > 0f) {
+            BitmapFont font = GdxUiDialogStyle.fitMessage(glyph, item.text,
+                    item.color, item.wrapWidth, item.wrapHeight,
+                    item.centered ? Align.center : Align.left,
+                    nativeTextTiers(item.font), crispButtonText);
+            GdxPixelText.draw(font, batch, glyph, item.x,
+                    item.y + (item.wrapHeight + glyph.height) / 2f, viewport);
+            return;
+        }
         item.font.setColor(item.color);
         glyph.setText(item.font, item.text);
         float x = item.centered ? item.x - glyph.width / 2f : item.x;
@@ -18323,7 +18311,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered) {
+            Color color, boolean centered, float wrapWidth, float wrapHeight) {
+
+        TextItem(BitmapFont font, String text, float x, float y, Color color,
+                boolean centered) {
+            this(font, text, x, y, color, centered, 0f, 0f);
+        }
     }
 
     record StatsCardGlyph(String rank, String suit, boolean red) {

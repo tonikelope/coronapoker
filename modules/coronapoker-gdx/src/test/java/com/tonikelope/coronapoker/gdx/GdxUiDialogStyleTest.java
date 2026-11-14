@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.BitmapFont.BitmapFontData;
 import com.badlogic.gdx.graphics.g2d.BitmapFont.Glyph;
@@ -24,7 +25,7 @@ final class GdxUiDialogStyleTest {
     void dialogProseJustifiesWrappedLinesAndPreservesParagraphEndings() {
         var layout = new GlyphLayout();
         GdxUiDialogStyle.layoutMessage(layout, messageFont(),
-                "a b c\n\np:q", 36f, Align.center);
+                "a b c\n\np:q", Color.WHITE, 36f, 80f, Align.center);
 
         assertEquals(3, layout.runs.size);
         assertEquals(36f, layout.runs.get(0).width);
@@ -40,13 +41,31 @@ final class GdxUiDialogStyleTest {
         var layout = new GlyphLayout();
         BitmapFont font = messageFont();
         GdxUiDialogStyle.layoutMessage(layout, font,
-                "a b", 50f, Align.center);
+                "a b", Color.WHITE, 50f, 80f, Align.center);
         assertEquals(10f, layout.runs.first().x);
 
         GdxUiDialogStyle.layoutMessage(layout, font,
-                "a b cc", 48f, Align.center);
+                "a b cc", Color.WHITE, 48f, 80f, Align.center);
         assertEquals(30f, layout.runs.first().width);
         assertEquals(0f, layout.runs.first().x);
+    }
+
+    @Test
+    void hardBreaksAlignLeftAndTextFitsTheAvailableHeight() {
+        var layout = new GlyphLayout();
+        BitmapFont font = messageFont();
+        GdxUiDialogStyle.layoutMessage(layout, font, "ab\np:q",
+                Color.WHITE, 50f, 80f, Align.center);
+        assertEquals(2, layout.runs.size);
+        assertEquals(20f, layout.runs.first().width);
+        layout.runs.forEach(line -> assertEquals(0f, line.x));
+
+        GdxUiDialogStyle.layoutMessage(layout, font, "a b c a b c a b c",
+                Color.WHITE, 36f, 22f, Align.center);
+        assertEquals(2, layout.runs.size);
+        assertEquals(22f, layout.height);
+        var lastLine = layout.runs.peek();
+        assertEquals('…', lastLine.glyphs.peek().id);
     }
 
     private static BitmapFont messageFont() {
@@ -56,7 +75,7 @@ final class GdxUiDialogStyleTest {
         data.down = -12f;
         data.blankLineScale = 1f;
         var font = new BitmapFont(data, new TextureRegion(), false);
-        for (char character : " abc:pq".toCharArray()) {
+        for (char character : " abc:pq…".toCharArray()) {
             var glyph = new Glyph();
             glyph.id = character;
             glyph.width = 10;

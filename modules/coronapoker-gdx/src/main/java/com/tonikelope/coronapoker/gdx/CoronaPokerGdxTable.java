@@ -10417,10 +10417,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "gdx.network_blocks.title")), panel.x + 138f,
                 panel.y + panel.height - 112f, panel.width - 190f,
                 72f, POT_GOLD, alpha);
-        drawLeftInBox(settingsTinyFont, gameText.translate(
-                "gdx.network_blocks.help"), panel.x + 48f,
-                panel.y + panel.height - 184f, panel.width - 96f,
-                42f, Color.LIGHT_GRAY, alpha);
+        drawDialogMessage(gameText.translate("gdx.network_blocks.help"),
+                new Rectangle(panel.x + 48f, panel.y + panel.height - 184f,
+                        panel.width - 96f, 42f), settingsTinyFont,
+                new Color(Color.LIGHT_GRAY).mul(1f, 1f, 1f, alpha), Align.left);
         for (int index = 0; index < blocks.size(); index++) {
             Rectangle row = GdxNetworkBlockDialogLayout.row(rows, index,
                     networkBlocksScroll);
@@ -10443,9 +10443,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     POT_GOLD, alpha);
         }
         if (!networkBlockError.isBlank()) {
-            drawLeftInBox(settingsTinyFont, networkBlockError,
-                    panel.x + 48f, panel.y + 45f,
-                    panel.width - 340f, 42f, FOLD_RED, alpha);
+            drawDialogMessage(networkBlockError,
+                    new Rectangle(panel.x + 48f, panel.y + 45f,
+                            panel.width - 340f, 42f), settingsTinyFont,
+                    new Color(FOLD_RED).mul(1f, 1f, 1f, alpha), Align.left);
         }
         batch.end();
     }
@@ -16353,11 +16354,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(Color.WHITE);
         batch.draw(fastButtonIcons[8], panelX + 36f,
                 panelY + 75f, 58f, 58f);
-        drawFittedCenteredInBox(actionFont,
-                uppercase(gameText.translate(
-                        "conn.el_servidor_ha_detenido_la")),
-                panelX + 112f, panelY + 65f,
-                panelW - 146f, 86f, Color.WHITE, 1f);
+        drawDialogMessage(uppercase(gameText.translate(
+                "conn.el_servidor_ha_detenido_la")),
+                new Rectangle(panelX + 112f, panelY + 65f, panelW - 146f, 86f),
+                actionFont);
         batch.end();
     }
 
@@ -16388,10 +16388,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameText.translate("conn.reconectando_con_el_servidor"),
                 panelX + 36f, panelY + 91f, panelW - 72f, 62f,
                 Color.WHITE, 1f);
-        drawFittedCenteredInBox(uiFont,
-                gameText.translate("table.reconnect_wait"),
-                panelX + 58f, panelY + 35f, panelW - 116f, 44f,
-                RECONNECT_TEXT, 1f);
+        drawDialogMessage(gameText.translate("table.reconnect_wait"),
+                new Rectangle(panelX + 58f, panelY + 35f, panelW - 116f, 44f),
+                uiFont, RECONNECT_TEXT, Align.center);
         batch.end();
     }
 
@@ -24349,34 +24348,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     dialog.positiveLabel(), dialog.runItTwiceVotes(),
                     POT_GOLD);
             Rectangle requirement = runItTwiceLayout.requirement();
-            drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
-                    "gdx.runittwice.unanimity",
-                    dialog.runItTwiceTotalVoters())),
-                    requirement.x, requirement.y, requirement.width,
-                    requirement.height, Color.LIGHT_GRAY, 1f);
+            drawDialogMessage(uppercase(gameText.translate(
+                    "gdx.runittwice.unanimity", dialog.runItTwiceTotalVoters())),
+                    requirement, smallFont, Color.LIGHT_GRAY, Align.center);
         } else if (dialog.isAutoCall()) {
             Rectangle detail = autoCallLayout.detail();
-            drawFittedCenteredInBox(smallFont, dialog.message(),
-                    detail.x, detail.y, detail.width, detail.height,
-                    Color.WHITE, 1f);
+            drawDialogMessage(dialog.message(), detail, smallFont);
         } else if (dialog.isZeroTrust()) {
             float messageX = panelX + 64f;
             float messageY = panelY + 128f;
             float messageW = panelW - 128f;
             float messageH = panelH - 250f;
-            GdxCrispButtonText.resolveWrapped(glyph, dialog.message(),
-                    Color.WHITE, messageW, messageH, Align.left,
-                    nativeTextTiers(uiFont), crispButtonText);
-            BitmapFont selected = crispButtonText.font();
-            selected.setColor(Color.WHITE);
-            GdxUiDialogStyle.layoutMessage(glyph, selected,
-                    crispButtonText.text(), messageW, Align.left);
-            GdxPixelText.draw(selected, batch, glyph, messageX,
-                    messageY + (messageH + glyph.height) / 2f, viewport);
-            selected.setColor(Color.WHITE);
+            drawDialogMessage(dialog.message(),
+                    new Rectangle(messageX, messageY, messageW, messageH),
+                    uiFont, Color.WHITE, Align.left);
         } else {
             Rectangle messageBounds = dialog.hasAmount()
-                    ? new Rectangle(panelX + 56f, panelY + 263f,
+                    ? new Rectangle(panelX + 56f,
+                            panelY + (dialog.isHandLimit() ? 357f : 263f),
                             panelW - 112f, 86f)
                     : standaloneOption != null
                             ? GdxTableDialogLayout
@@ -24384,29 +24373,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                             panelX, panelY, panelW, panelH)
                     : GdxTableDialogLayout.standardMessage(
                             panelX, panelY, panelW, panelH);
-            String message = dialog.isNotice()
-                    ? GdxUiDialogStyle.formatNoticeMessage(dialog.message())
-                    : dialog.message();
-            BitmapFont preferredMessageFont = dialog.isNotice()
-                    ? settingsActionFont : uiFont;
-            GdxCrispButtonText.resolveWrapped(glyph, message, Color.WHITE,
-                    messageBounds.width, messageBounds.height, Align.center,
-                    nativeTextTiers(preferredMessageFont), crispButtonText);
-            BitmapFont selected = crispButtonText.font();
-            selected.setColor(Color.WHITE);
-            if (dialog.isHandLimit()) {
-                glyph.setText(selected, crispButtonText.text(), Color.WHITE,
-                        messageBounds.width, Align.center, true);
-            } else {
-                GdxUiDialogStyle.layoutMessage(glyph, selected,
-                        crispButtonText.text(), messageBounds.width, Align.center);
-            }
-            GdxPixelText.draw(selected, batch, glyph, messageBounds.x,
-                dialog.isHandLimit() ? panelY + 414f
-                        : messageBounds.y
-                                + (messageBounds.height + glyph.height) / 2f,
-                    viewport);
-            selected.setColor(Color.WHITE);
+            drawDialogMessage(dialog.message(), messageBounds,
+                    dialog.isNotice() ? settingsActionFont : uiFont);
         }
         if (dialog.hasAmount()) {
             boolean editingAutoCall = dialog.isAutoCall() && dialog.autoCallAmountEditable()
@@ -24558,8 +24526,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
                 title.x, title.y, title.width, title.height, POT_GOLD, 1f);
-        drawCanonicalDialogMessage(dialog.message(), message,
-                settingsActionFont);
+        drawDialogMessage(dialog.message(), message, settingsActionFont);
         if (dialog.showsNegative()) {
             drawDialogButtonLabel(settingsActionFont,
                     uppercase(dialog.negativeLabel()),
@@ -24601,8 +24568,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(settingsHeadingFont,
                 uppercase(dialog.title()), title.x, title.y,
                 title.width, title.height, error ? ORANGE : POT_GOLD, 1f);
-        drawCanonicalDialogMessage(dialog.message(), message,
-                settingsBodyFont);
+        drawDialogMessage(dialog.message(), message, settingsBodyFont);
         if (hasAction) {
             String label = dialog.showsPositive()
                     ? dialog.positiveLabel() : dialog.negativeLabel();
@@ -24613,19 +24579,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawCanonicalDialogMessage(String text, Rectangle bounds,
+    private void drawDialogMessage(String text, Rectangle bounds,
             BitmapFont preferredFont) {
-        String formatted = GdxUiDialogStyle.formatNoticeMessage(text);
-        GdxCrispButtonText.resolveWrapped(glyph, formatted, Color.WHITE,
-                bounds.width, bounds.height, Align.center,
+        drawDialogMessage(text, bounds, preferredFont, Color.WHITE, Align.center);
+    }
+
+    private void drawDialogMessage(String text, Rectangle bounds,
+            BitmapFont preferredFont, Color color, int shortTextAlignment) {
+        BitmapFont font = GdxUiDialogStyle.fitMessage(glyph, text, color,
+                bounds.width, bounds.height, shortTextAlignment,
                 nativeTextTiers(preferredFont), crispButtonText);
-        BitmapFont selected = crispButtonText.font();
-        selected.setColor(Color.WHITE);
-        GdxUiDialogStyle.layoutMessage(glyph, selected,
-                crispButtonText.text(), bounds.width, Align.center);
-        GdxPixelText.draw(selected, batch, glyph, bounds.x,
+        GdxPixelText.draw(font, batch, glyph, bounds.x,
                 bounds.y + (bounds.height + glyph.height) / 2f, viewport);
-        selected.setColor(Color.WHITE);
     }
 
     private void drawSettingsDiscardDialog(GdxTableDialog dialog,
@@ -24653,18 +24618,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
                 title.x, title.y, title.width, title.height, POT_GOLD, 1f);
-        String text = GdxUiDialogStyle.formatNoticeMessage(
-                uppercase(dialog.message()));
-        GdxCrispButtonText.resolveWrapped(glyph, text, Color.WHITE,
-                message.width, message.height, Align.center,
-                nativeTextTiers(settingsActionFont), crispButtonText);
-        BitmapFont selected = crispButtonText.font();
-        selected.setColor(Color.WHITE);
-        glyph.setText(selected, crispButtonText.text(), Color.WHITE,
-                message.width, Align.center, true);
-        GdxPixelText.draw(selected, batch, glyph, message.x,
-                message.y + (message.height + glyph.height) / 2f, viewport);
-        selected.setColor(Color.WHITE);
+        drawDialogMessage(uppercase(dialog.message()), message, settingsActionFont);
         drawDialogButtonLabel(settingsActionFont,
                 uppercase(dialog.negativeLabel()), negative.x, negative.y,
                 negative.width, negative.height, Color.WHITE, 1f);
@@ -24805,10 +24759,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(uiFont, dialog.fingerprint().formatted(),
                 panelX + 55f, panelY + 178f,
                 panelW - 110f, 34f, Color.WHITE, 1f);
-        drawFittedCenteredInBox(smallFont,
-                gameText.translate("gdx.identicon.identity_help"),
-                panelX + 55f, panelY + 130f,
-                panelW - 110f, 34f, SEAT_RIM, 1f);
+        drawDialogMessage(gameText.translate("gdx.identicon.identity_help"),
+                new Rectangle(panelX + 55f, panelY + 128f, panelW - 110f, 44f),
+                smallFont, SEAT_RIM, Align.center);
         if (!dialog.local()) {
             boolean verified = identityTrust.isVerified(dialog.nickname(),
                     dialog.publicKey());
@@ -25982,8 +25935,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? gameText.translate("audio.purgar_notas_confirm")
                     : gameText.translate("audio.borrar_nota_confirm",
                             voiceNoteDeleteConfirmation.nickname());
-            drawFittedCenteredInBox(uiFont, message, x + 80f, y + 450f,
-                    w - 160f, 70f, Color.WHITE, 1f);
+            drawDialogMessage(message,
+                    new Rectangle(x + 80f, y + 450f, w - 160f, 70f), uiFont);
             drawDialogButtonLabel(actionFont,
                     uppercase(gameText.translate("ui.cancelar")),
                     x + 250f, y + 300f, 360f, 74f, Color.WHITE, 1f);

@@ -1,6 +1,5 @@
 document.addEventListener("webviewerloaded", () => {
-    const language = new URLSearchParams(location.search).get("gameLocale") === "es"
-        ? "es-ES" : "en-US";
+    const language = new URLSearchParams(location.search).get("gameLocale");
     document.documentElement.lang = language;
     const options = window.PDFViewerApplicationOptions;
     options.set("localeProperties", { lang: language });
@@ -10,17 +9,17 @@ document.addEventListener("webviewerloaded", () => {
     // budget independent of that window's size and retain a fixed upper limit.
     options.set("capCanvasAreaFactor", -1);
     options.set("maxCanvasPixels", 24 * 1024 * 1024);
-    installSelectionMenu(language === "es-ES");
+    installSelectionMenu(window.coronaCopy.labels);
 });
 
-function installSelectionMenu(spanish) {
+function installSelectionMenu(labels) {
     const viewer = document.getElementById("viewerContainer");
     const menu = document.createElement("div");
     const copy = document.createElement("button");
-    const copyLabel = spanish ? "Copiar" : "Copy";
+    const copyLabel = labels.copy;
     menu.className = "game-selection-menu";
     menu.setAttribute("role", "menu");
-    menu.setAttribute("aria-label", spanish ? "Texto seleccionado" : "Selected text");
+    menu.setAttribute("aria-label", labels.selectedText);
     menu.hidden = true;
     copy.type = "button";
     copy.setAttribute("role", "menuitem");
@@ -78,7 +77,7 @@ function installSelectionMenu(spanish) {
         copy.disabled = true;
         copyText(selectedText, () => close(true), () => {
             copy.disabled = false;
-            copy.textContent = spanish ? "Reintentar copia" : "Retry copy";
+            copy.textContent = labels.retryCopy;
             copy.focus({ preventScroll: true });
         });
     });

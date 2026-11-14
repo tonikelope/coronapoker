@@ -34,12 +34,12 @@ final class PokerVideoDocumentLoad {
         if (!painted && paintWaitingSince == 0) paintWaitingSince = now;
         if (waitingSince == 0) waitingSince = now;
         if (now - waitingSince >= TIMEOUT_NANOS) {
-            failed(loaded ? "El reproductor dejó de responder. Pulsa Reintentar."
-                    : "El navegador del vídeo no respondió. Pulsa Reintentar.");
+            failed(loaded ? "gdx.video.status.player_unresponsive"
+                    : "gdx.video.status.document_unresponsive");
             return true;
         }
         if (!painted && now - paintWaitingSince >= TIMEOUT_NANOS) {
-            failed("No se recibió la primera imagen del vídeo. Pulsa Reintentar.");
+            failed("gdx.video.status.first_frame_missing");
             return true;
         }
         return false;

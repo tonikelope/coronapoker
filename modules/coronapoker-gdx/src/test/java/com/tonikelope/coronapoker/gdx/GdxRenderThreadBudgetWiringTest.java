@@ -72,13 +72,31 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(blur.contains("boolean hasCachedFrame("));
 
         String frontend = source("GdxFrontendScreen.java");
-        assertTrue(frontend.contains("renderCachedLobbyLoadingFrame()"));
+        assertTrue(frontend.contains("renderCachedLoadingFrame()"));
         assertTrue(frontend.contains("modalBackdropBlur.endCaptureAndCache("));
         assertTrue(frontend.contains("modalBackdropBlur.hasCachedFrame("));
 
         String shell = source("GdxApplicationShell.java");
         assertTrue(shell.contains("switch (pending.handoffStep++)"));
         assertTrue(shell.contains("if (!pending.creationComplete)"));
+    }
+
+    @Test
+    void languageSelectionSchedulesAnAtlasReplacementBeforeUpdatingPreferences()
+            throws Exception {
+        String frontend = source("GdxFrontendScreen.java");
+        String select = method(frontend, "private void selectLanguageOption(",
+                "private void selectServerHistoryOption(");
+        String commit = method(frontend, "private void installRefreshedFonts(",
+                "private void fontRefreshFailed(");
+
+        assertTrue(select.contains("fontRefresh.replace("));
+        assertTrue(select.contains("captureFrontendModalInput()"));
+        assertFalse(select.contains("rebuildFonts("));
+        assertFalse(select.contains("languageChanged.accept("));
+        assertTrue(commit.contains("languageChanged.accept(language)"));
+        assertTrue(commit.contains("preferences.saveDeferred()"));
+        assertTrue(frontend.contains("pendingLanguage != null || lobbyLoadingOverlayVisible()"));
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Texture;
 import java.awt.EventQueue;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -76,7 +77,9 @@ final class GdxRobertRulesBrowser implements AutoCloseable {
 
     private void open(int width, int height, double scale, String language) {
         try {
-            Map<String, byte[]> assets = GdxRobertRulesAssets.load();
+            Map<String, byte[]> assets = new HashMap<>(GdxRobertRulesAssets.load());
+            assets.put(GdxWebLocalization.COPY_PATH, GdxWebLocalization.script(language, "gdx.web.rules_"));
+            assets.putAll(GdxWebLocalization.fonts(language));
             if (closed) return;
             CefClient created = PokerChromium.createClient(null);
             synchronized (this) {

@@ -220,7 +220,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         worldHeight = height;
         boolean wasAvailable = systemAvailable;
         systemAvailable = available;
-        String languageCode = PokerVideoSearch.languageCode(language);
+        String languageCode = GdxGameText.resolveLanguage(language);
         if (!text.language().equals(languageCode)) text.setLanguage(languageCode);
         if (!available) {
             titles.update(null);
@@ -455,7 +455,7 @@ final class PokerVideoOverlay implements AutoCloseable {
                         return;
                     }
                     appliedCatalogRevision = revision;
-                    appliedLanguage = PokerVideoSearch.languageCode(language);
+                    appliedLanguage = GdxGameText.resolveLanguage(language);
                     runtime = created;
                 }
                 loadingError = created.initializationError();
@@ -473,15 +473,13 @@ final class PokerVideoOverlay implements AutoCloseable {
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 if (generation == initializationGeneration.get() && !closed.get()) {
-                    loadingError = "Inicialización cancelada";
+                    loadingError = "gdx.video.status.startup_error";
                 }
             } catch (Exception failure) {
                 if (generation != initializationGeneration.get() || closed.get()) return;
                 java.util.logging.Logger.getLogger(PokerVideoOverlay.class.getName()).log(
                         java.util.logging.Level.WARNING, "Poker video catalogue initialization failed", failure);
-                loadingError = failure.getMessage() == null
-                        ? failure.getClass().getSimpleName()
-                        : failure.getMessage();
+                loadingError = "gdx.video.status.startup_error";
             } finally {
                 synchronized (initializationLock) { nativeStartupSince = 0L; }
                 if (generation == initializationGeneration.get()) catalogLoading = false;
@@ -824,7 +822,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             PokerVideoRuntime current = runtime;
             String playerLoading = current == null ? null : current.loadingKey();
             boolean empty = emptyFavorites();
-            String displayedError = loadingError;
+            String displayedError = loadingError == null ? null : text.translate(loadingError);
             if (displayedError == null && catalogLoading
                     && nativeStartupTimedOut(nativeStartupSince, System.nanoTime())) {
                 displayedError = text.translate("gdx.video.startup_timeout");
@@ -833,7 +831,7 @@ final class PokerVideoOverlay implements AutoCloseable {
             String message = empty ? text.translate("gdx.video.favorites.empty")
                     : displayedError == null
                     ? text.translate(catalogLoading || playerLoading == null ? loadingState : playerLoading)
-                    : "REPRODUCTOR NO DISPONIBLE\n" + displayedError;
+                    : displayedError;
             if (displayedError == null && !empty) {
                 Texture spade = loadingSpade();
                 float size = 34f;
@@ -856,7 +854,7 @@ final class PokerVideoOverlay implements AutoCloseable {
         boolean favoritesMode = catalog.favoritesMode();
         var selection = displayedSelection;
         String title = selection != null ? titles.title(selection.video())
-                : emptyFavorites() ? text.translate("gdx.video.favorites.label") : "VÍDEOS DE PÓKER";
+                : emptyFavorites() ? text.translate("gdx.video.favorites.label") : text.translate("gdx.settings.option.mostrar_videos_poker");
         float titleX = nextBounds.x + nextBounds.width + 12f;
         if (favoritesMode) {
             String counter = selection == null ? "0/0" : (selection.index() + 1) + "/" + selection.total();

@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Collator;
 import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Properties;
@@ -45,7 +46,7 @@ final class GdxGameTextTest {
 
         assertEquals(spanishKeys, englishKeys,
                 "GDX must never fall back to a different language or raw key");
-        assertEquals(873, spanishKeys.size(),
+        assertEquals(1120, spanishKeys.size(),
                 "new GDX labels must be added symmetrically");
         for (String key : spanishKeys) {
             assertFalse(spanish.getProperty(key).isBlank(), key + " empty in es");
@@ -76,6 +77,16 @@ final class GdxGameTextTest {
         assertEquals("en", GdxGameText.resolveLanguage("EN"));
         assertEquals(GdxGameText.supportedLanguage(Locale.getDefault()),
                 new GdxGameText(null).language());
+    }
+
+    @Test
+    void languageSelectorPinsSpanishAndEnglishThenSortsByVisibleLabel() {
+        var labels = GdxGameText.LANGUAGE_LABELS;
+        assertEquals("Español", labels.get(0));
+        assertEquals("English", labels.get(1));
+        var remaining = labels.subList(2, labels.size());
+        assertEquals(remaining.stream().sorted(Collator.getInstance(Locale.ROOT)).toList(),
+                remaining);
     }
 
     @Test

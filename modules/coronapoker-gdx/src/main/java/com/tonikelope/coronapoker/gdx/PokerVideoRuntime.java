@@ -120,7 +120,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         this.videos = List.copyOf(videos);
         setCurrentIndex(0);
         this.frameBuffer = frameBuffer;
-        playerLanguage = PokerVideoSearch.languageCode(language);
+        playerLanguage = GdxGameText.resolveLanguage(language);
     }
 
     static PokerVideoRuntime initialize(List<PokerVideoSearch.Video> videos,
@@ -130,8 +130,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                 language);
         runtime.orderedPlaylist = orderedPlaylist;
         if (!PokerVideoPlatformSupport.isAvailable()) {
-            runtime.initializationError = "JCEF no está disponible para "
-                    + "esta plataforma o este artefacto";
+            runtime.initializationError = "gdx.video.share.unavailable";
             runtime.state = "REPRODUCTOR NO DISPONIBLE";
             return runtime;
         }
@@ -141,9 +140,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         } catch (Throwable failure) {
             Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
                     "Poker video initialization failed", failure);
-            runtime.initializationError = failure.getClass().getSimpleName()
-                    + ": " + (failure.getMessage() == null
-                            ? "sin detalle" : failure.getMessage());
+            runtime.initializationError = "gdx.video.status.startup_error";
             runtime.state = "REPRODUCTOR NO DISPONIBLE";
         }
         return runtime;
@@ -154,9 +151,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         String osName = System.getProperty("os.name", "");
         if (!PokerVideoPlatformSupport.hasBrowserDisplay(osName,
                 System.getenv("DISPLAY"))) {
-            initializationFailed("en".equals(playerLanguage)
-                    ? "Chromium requires an accessible X11 or XWayland display."
-                    : "Chromium necesita una pantalla X11 o XWayland accesible.");
+            initializationFailed("gdx.video.status.display_required");
             return;
         }
         client = PokerChromium.createClient(cefStateListener);
@@ -169,9 +164,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         LOG.log(Level.INFO, "Poker video CEF state: {0}", appState);
         if (appState == CefAppState.INITIALIZATION_FAILED
                 || appState == CefAppState.TERMINATED) {
-            initializationFailed("en".equals(playerLanguage)
-                    ? "Chromium could not start or stopped unexpectedly."
-                    : "Chromium no pudo arrancar o se cerró inesperadamente.");
+            initializationFailed("gdx.video.status.startup_error");
         }
     }
 
@@ -297,8 +290,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                         browserCreated = false;
                         playerReady = false;
                         browser = null;
-                        if (!closed.get()) documentLoad.failed(
-                                "El navegador del vídeo se cerró. Pulsa Reintentar.");
+                        if (!closed.get()) documentLoad.failed("gdx.video.status.document_error");
                     }
                     if (closed.get()) EventQueue.invokeLater(PokerVideoRuntime.this::disposeClientWhenIdle);
                 }
@@ -341,7 +333,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                 if (loaded == browser && frame != null && frame.isMain()
                         && statusCode >= 400) {
                     state = "ERROR HTTP " + statusCode;
-                    documentLoad.failed(state);
+                    documentLoad.failed("gdx.video.status.document_error");
                 }
             }
 
@@ -351,7 +343,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                 if (failed == browser && frame != null && frame.isMain()
                         && errorCode != ErrorCode.ERR_ABORTED) {
                     state = "ERROR DE CARGA: " + errorCode;
-                    documentLoad.failed(state);
+                    documentLoad.failed("gdx.video.status.document_error");
                     Logger.getLogger(PokerVideoRuntime.class.getName()).log(
                             Level.WARNING, "Poker video main document failed: {0}", errorCode);
                 }
@@ -377,7 +369,7 @@ final class PokerVideoRuntime implements AutoCloseable {
                     CefRequestHandler.TerminationStatus status, int errorCode, String errorString) {
                 if (source != browser || closed.get()) return;
                 playerReady = false;
-                documentLoad.failed("El proceso del vídeo se interrumpió. Pulsa Reintentar.");
+                documentLoad.failed("gdx.video.status.document_error");
                 Logger.getLogger(PokerVideoRuntime.class.getName()).log(Level.WARNING,
                         "Poker video session {0} renderer terminated: {1} ({2}) {3}",
                         new Object[]{sessionNumber, status, errorCode, PokerVideoChromiumLog.clean(errorString)});
@@ -656,7 +648,7 @@ final class PokerVideoRuntime implements AutoCloseable {
         playlistRevision++;
         discoveryRevisionFloor = playlistRevision;
         discoveryRequestRevision = -1L;
-        String nextLanguage = PokerVideoSearch.languageCode(language);
+        String nextLanguage = GdxGameText.resolveLanguage(language);
         if (!playerLanguage.equals(nextLanguage)) {
             playerLanguage = nextLanguage;
             releaseBrowserSession(true);
@@ -821,9 +813,8 @@ final class PokerVideoRuntime implements AutoCloseable {
             state = "RESTAURANDO VÍDEO";
             openBrowserSession(width, height, scaleFactor);
         } catch (Exception failure) {
-            initializationError = failure.getClass().getSimpleName() + ": "
-                    + (failure.getMessage() == null
-                            ? "sin detalle" : failure.getMessage());
+            LOG.log(Level.WARNING, "Could not resume the poker video browser", failure);
+            initializationError = "gdx.video.status.startup_error";
             state = "REPRODUCTOR NO DISPONIBLE";
         }
     }

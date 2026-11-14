@@ -97,31 +97,35 @@ final class PokerStatsBrowser implements AutoCloseable {
     private int width;
     private int height;
 
-    PokerStatsBrowser(StatsRepository repository, String player, boolean english,
+    PokerStatsBrowser(StatsRepository repository, String player, String language,
             boolean animate, int width, int height, GdxChipAmountText.ZeroMode zeroMode) {
         this.repository = repository;
         preferredPlayer = player;
         this.width = width;
         this.height = height;
-        pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es")
-                + "&motion=" + (animate ? "1" : "0") + "&botMarker=" + BotNickname.MARKER
+        pageUrl = ORIGIN + ROOT + "index.html"
+                + "?motion=" + (animate ? "1" : "0") + "&botMarker=" + BotNickname.MARKER
                 + "&amountZeros=" + zeroMode.setting;
         json.setUsePrototypes(false);
         json.setTypeName(null);
         double scale = scale();
-        worker.execute(() -> open(width, height, scale));
+        worker.execute(() -> open(width, height, scale, language));
     }
 
-    private void open(int width, int height, double scale) {
+    private void open(int width, int height, double scale, String language) {
         try {
-            Map<String, Asset> assets = Map.of(
+            Map<String, Asset> assets = new HashMap<>(Map.of(
                     pageUrl, asset(ROOT + "index.html", "text/html"),
                     ORIGIN + ROOT + "dashboard.css", asset(ROOT + "dashboard.css", "text/css"),
                     ORIGIN + ROOT + "dashboard.js", asset(ROOT + "dashboard.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.js", asset("/ui-tooltip.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.css", asset("/ui-tooltip.css", "text/css"),
                     ORIGIN + ROOT + "echarts.min.js", asset(ROOT + "echarts.min.js", "text/javascript"),
-                    ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf"));
+                    ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf")));
+            assets.put(ORIGIN + GdxWebLocalization.COPY_PATH,
+                    new Asset(GdxWebLocalization.script(language, "gdx.stats.web."), "text/javascript"));
+            GdxWebLocalization.fonts(language).forEach((path, bytes) ->
+                    assets.put(ORIGIN + path, new Asset(bytes, GdxWebLocalization.fontMimeType(path))));
             if (closed) return;
             CefClient created = PokerChromium.createClient(null);
             synchronized (this) {

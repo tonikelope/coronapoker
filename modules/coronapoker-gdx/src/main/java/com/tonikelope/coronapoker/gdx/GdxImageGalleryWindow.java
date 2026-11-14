@@ -55,7 +55,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
         Rectangle web = webBounds(panel);
         renderWidth = browserWidth(web);
         renderHeight = browserHeight(web);
-        browser = new PokerImageGalleryBrowser("en".equalsIgnoreCase(text.language()),
+        browser = new PokerImageGalleryBrowser(text.language(),
                 renderWidth, renderHeight,
                 GdxChatImageHistory.read(properties), GdxChatImageHistory.autoReceive(properties),
                 url -> {

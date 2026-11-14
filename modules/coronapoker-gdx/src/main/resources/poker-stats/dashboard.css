@@ -19,7 +19,7 @@
   --radius: .8rem;
   --gap: .8rem;
   --edge: clamp(15px, 1.7vw, 40px);
-  font: 400 clamp(16px, 1.18vw, 24px)/1.32 McLaren, system-ui, sans-serif;
+  font: 400 clamp(16px, 1.18vw, 24px)/1.32 McLaren, "Corona Locale", "Corona Inter", system-ui, sans-serif;
   color: var(--ink);
   background: var(--bg);
 }

@@ -39,7 +39,7 @@ class PokerVideoDocumentLoadTest {
         load.pulse();
         assertFalse(load.poll(true, true, timeout + 1));
         assertTrue(load.poll(true, true, timeout * 2 + 1));
-        assertTrue(load.error().contains("dejó de responder"));
+        assertEquals("gdx.video.status.player_unresponsive", load.error());
     }
 
     @Test void aLiveBridgeCannotHideAStallBeforeTheFirstFrame() {
@@ -48,6 +48,6 @@ class PokerVideoDocumentLoadTest {
         assertFalse(load.poll(true, false, 1));
         load.pulse();
         assertTrue(load.poll(true, false, PokerVideoDocumentLoad.TIMEOUT_NANOS + 1));
-        assertTrue(load.error().contains("primera imagen"));
+        assertEquals("gdx.video.status.first_frame_missing", load.error());
     }
 }

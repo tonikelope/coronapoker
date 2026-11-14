@@ -4,6 +4,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -217,7 +218,7 @@ class PokerVideoSearchTest {
     }
 
     @Test
-    void playerPageOnlyServesItsMainDocumentAndCanBeReloaded() throws Exception {
+    void playerPageRejectsUnknownAssetsAndCanBeReloaded() throws Exception {
         try (var page = PokerVideoPage.create(List.of(new PokerVideoSearch.Video("ABCDEFGHIJK", "First")),
                 0, 0, true, 100, "es", false, 0)) {
             assertTrue(page.owns(page.playerUrl()));
@@ -260,7 +261,10 @@ class PokerVideoSearchTest {
             assertTrue(html.contains(
                     "const INITIAL_VOLUME = 64"));
             assertTrue(html.contains(
-                    "const PLAYER_LANGUAGE = 'en'"));
+                    "<html lang=\"en\">"));
+            assertTrue(html.contains("\"title\":\"Poker videos\""));
+            assertNotNull(page.resource(page.origin() + "/game-fonts.css", "GET", true));
+            assertNull(page.resource(page.origin() + "/game-fonts.css", "GET", false));
             assertTrue(html.contains(
                     "function skipUnavailable(errorCode)"));
             assertTrue(html.contains(

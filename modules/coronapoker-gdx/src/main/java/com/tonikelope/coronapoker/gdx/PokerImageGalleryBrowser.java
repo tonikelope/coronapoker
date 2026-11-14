@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -140,12 +141,12 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
     private int width;
     private int height;
 
-    PokerImageGalleryBrowser(boolean english, int width, int height,
+    PokerImageGalleryBrowser(String language, int width, int height,
             List<String> existingImages, boolean autoReceive, Consumer<String> saveInGallery,
             BiPredicate<String, Boolean> sendToChat, Consumer<Boolean> receiveImages,
             Runnable clearGallery, Consumer<String> removeFromGallery,
             History previousSearch, Consumer<History> saveSearch) {
-        this.english = english;
+        this.english = "en".equals(language);
         this.width = width;
         this.height = height;
         this.saveInGallery = saveInGallery;
@@ -161,9 +162,9 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
             if (search.term().equals(previousSearch.selected())) selectedSearch = id;
         }
         if (selectedSearch == 0 && !searches.isEmpty()) selectedSearch = 1;
-        pageUrl = ORIGIN + ROOT + "index.html?lang=" + (english ? "en" : "es");
+        pageUrl = ORIGIN + ROOT + "index.html";
         double scale = scale();
-        worker.execute(() -> open(width, height, scale));
+        worker.execute(() -> open(width, height, scale, language));
     }
 
     void setGallery(List<String> images, boolean autoReceive) {
@@ -177,15 +178,19 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
         }
     }
 
-    private void open(int width, int height, double scale) {
+    private void open(int width, int height, double scale, String language) {
         try {
-            Map<String, Asset> assets = Map.of(
+            Map<String, Asset> assets = new HashMap<>(Map.of(
                     pageUrl, asset(ROOT + "index.html", "text/html"),
                     ORIGIN + ROOT + "gallery.css", asset(ROOT + "gallery.css", "text/css"),
                     ORIGIN + ROOT + "gallery.js", asset(ROOT + "gallery.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.js", asset("/ui-tooltip.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.css", asset("/ui-tooltip.css", "text/css"),
-                    ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf"));
+                    ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf")));
+            assets.put(ORIGIN + GdxWebLocalization.COPY_PATH,
+                    new Asset(GdxWebLocalization.script(language, "gdx.web.gallery_"), "text/javascript"));
+            GdxWebLocalization.fonts(language).forEach((path, bytes) ->
+                    assets.put(ORIGIN + path, new Asset(bytes, GdxWebLocalization.fontMimeType(path))));
             if (closed) return;
             CefClient created = PokerChromium.createClient(null);
             synchronized (this) {

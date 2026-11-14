@@ -6,6 +6,13 @@ import vm from 'node:vm';
 const html = fs.readFileSync(new URL('../../modules/coronapoker-gdx/src/main/resources/poker-video-player.html', import.meta.url), 'utf8');
 const inline = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const ids = ['ABCDEFGHIJK', 'LMNOPQRSTUV', 'WXYZ0123456'];
+const playerCopy = (locale = 'es') => {
+  const bundle = fs.readFileSync(new URL('../../src/main/resources/i18n/messages_'
+    + locale.replace('-', '_') + '.properties', import.meta.url), 'utf8');
+  const labels = Object.fromEntries([...bundle.matchAll(/^gdx\.web\.video_(\w+)=(.*)$/gm)]
+    .map(([, key, value]) => [key.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase()), value]));
+  return JSON.stringify({locale, labels});
+};
 
 /** Executes the shipped player script, with a deterministic clock and YouTube transport. */
 function playerPage(options = {}) {
@@ -85,7 +92,7 @@ function playerPage(options = {}) {
   vm.createContext(context);
   let script = inline;
   const replacements = { VIDEO_IDS: ids.map(id => `'${id}'`).join(','), ORIGIN: 'http://127.0.0.1:10000',
-    PLAYER_LANGUAGE: 'es', INITIAL_INDEX: '0', START_SECONDS: String(options.startSeconds ?? 17),
+    PLAYER_COPY: playerCopy(options.locale), INITIAL_INDEX: '0', START_SECONDS: String(options.startSeconds ?? 17),
     INITIAL_MUTED: 'true', INITIAL_VOLUME: '100',
     ORDERED_PLAYLIST: String(Boolean(options.ordered)), PLAYLIST_REVISION: '0' };
   for (const [key, value] of Object.entries(replacements)) script = script.replaceAll(`@@${key}@@`, value);

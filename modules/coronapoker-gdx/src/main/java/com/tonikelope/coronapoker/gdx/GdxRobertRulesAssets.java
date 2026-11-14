@@ -25,8 +25,13 @@ final class GdxRobertRulesAssets {
     }
 
     static String initialUrl(String language) {
-        String locale = SPANISH.equals(document(language)) ? "es" : "en-US";
-        return ORIGIN + VIEWER + "?file=" + document(language) + "&gameLocale=" + locale + "#zoom=page-width";
+        String selected = GdxGameText.resolveLanguage(language);
+        String locale = switch (selected) {
+            case "en" -> "en-US";
+            case "es" -> "es-ES";
+            default -> selected;
+        };
+        return ORIGIN + VIEWER + "?file=" + document(selected) + "&gameLocale=" + locale + "#zoom=page-width";
     }
 
     static String localPath(String url) {
@@ -54,7 +59,9 @@ final class GdxRobertRulesAssets {
         String themed = new String(html, StandardCharsets.UTF_8)
                 .replace("connect-src * blob: data:", "connect-src 'self' blob: data:")
                 .replace("</head>", """
+                      <link rel="stylesheet" href="/game-fonts.css">
                       <link rel="stylesheet" href="/game-viewer.css">
+                      <script src="/game-copy.js"></script>
                       <script src="/game-viewer.js"></script>
                     </head>""");
         files.put(VIEWER, themed.getBytes(StandardCharsets.UTF_8));
@@ -90,6 +97,7 @@ final class GdxRobertRulesAssets {
             case "png" -> "image/png";
             case "gif" -> "image/gif";
             case "wasm" -> "application/wasm";
+            case "otf", "ttf" -> GdxWebLocalization.fontMimeType(path);
             case "pdf" -> "application/pdf";
             default -> "application/octet-stream";
         };

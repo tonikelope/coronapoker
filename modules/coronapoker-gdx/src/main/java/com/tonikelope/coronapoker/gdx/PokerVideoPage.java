@@ -35,12 +35,14 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
     private final String origin;
     private final String playerUrl;
     private final byte[] html;
+    private final Map<String, byte[]> fonts;
 
-    private PokerVideoPage(Socket originReservation, String origin, byte[] html) {
+    private PokerVideoPage(Socket originReservation, String origin, byte[] html, Map<String, byte[]> fonts) {
         this.originReservation = originReservation;
         this.origin = origin;
         this.playerUrl = origin + "/player/";
         this.html = html;
+        this.fonts = fonts;
     }
 
     static PokerVideoPage create(List<PokerVideoSearch.Video> videos, int initialIndex,
@@ -50,6 +52,7 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
             throw new IllegalArgumentException("At least one video is required");
         }
         String template = loadTemplate();
+        String locale = GdxGameText.resolveLanguage(language);
         // Reserve the origin for this session without opening a listening socket.
         Socket reservation = new Socket();
         try {
@@ -69,11 +72,11 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
                     .replace("@@START_SECONDS@@", Integer.toString(safeSeconds))
                     .replace("@@INITIAL_MUTED@@", Boolean.toString(initialMuted))
                     .replace("@@INITIAL_VOLUME@@", Integer.toString(safeVolume))
-                    .replace("@@PLAYER_LANGUAGE@@", javascriptString(
-                            PokerVideoSearch.languageCode(language)))
+                    .replace("@@PLAYER_LANGUAGE@@", locale)
+                    .replace("@@PLAYER_COPY@@", GdxWebLocalization.json(locale, "gdx.web.video_"))
                     .replace("@@ORIGIN@@", javascriptString(origin))
                     .getBytes(StandardCharsets.UTF_8);
-            return new PokerVideoPage(reservation, origin, html);
+            return new PokerVideoPage(reservation, origin, html, GdxWebLocalization.fonts(locale));
         } catch (IOException | RuntimeException failure) {
             try { reservation.close(); } catch (IOException closing) { failure.addSuppressed(closing); }
             throw failure;
@@ -102,8 +105,14 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
     }
 
     CefResourceHandler resource(String url, String method, boolean mainFrame) {
-        return mainFrame && playerUrl.equals(url) && "GET".equals(method)
-                ? new DocumentHandler(html) : null;
+        if (!mainFrame || !"GET".equals(method)) return null;
+        if (playerUrl.equals(url)) return new DocumentHandler(html, "text/html", HEADERS);
+        if (!owns(url)) return null;
+        String path = url.substring(origin.length());
+        byte[] asset = fonts.get(path);
+        if (asset == null) return null;
+        return new DocumentHandler(asset, GdxWebLocalization.fontMimeType(path),
+                Map.of("Cache-Control", "no-store", "X-Content-Type-Options", "nosniff"));
     }
 
     @Override
@@ -113,9 +122,15 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
 
     private static final class DocumentHandler extends CefResourceHandlerAdapter {
         private final byte[] body;
+        private final String mimeType;
+        private final Map<String, String> headers;
         private int offset;
 
-        DocumentHandler(byte[] body) { this.body = body; }
+        DocumentHandler(byte[] body, String mimeType, Map<String, String> headers) {
+            this.body = body;
+            this.mimeType = mimeType;
+            this.headers = headers;
+        }
 
         @Override
         public boolean open(CefRequest request, BoolRef handleRequest, CefCallback callback) {
@@ -133,8 +148,8 @@ final class PokerVideoPage extends CefResourceRequestHandlerAdapter implements A
         public void getResponseHeaders(CefResponse response, IntRef length, StringRef redirect) {
             response.setStatus(200);
             response.setStatusText("OK");
-            response.setMimeType("text/html");
-            response.setHeaderMap(HEADERS);
+            response.setMimeType(mimeType);
+            response.setHeaderMap(headers);
             length.set(body.length);
         }
 

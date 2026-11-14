@@ -1,3 +1,7 @@
+:root, button, input, select {
+    font-family: "Corona Locale", "Corona Inter", system-ui, sans-serif;
+}
+
 :root {
     color-scheme: dark;
     --toolbar-height: 42px;
@@ -61,7 +65,7 @@
     overscroll-behavior: contain;
     margin-block-start: 4px;
     padding: 4px;
-    font: 14px system-ui, sans-serif;
+    font: 14px "Corona Locale", "Corona Inter", system-ui, sans-serif;
     color: var(--main-color);
     background: var(--toolbar-bg-color);
     border: 1px solid #486783;
@@ -103,7 +107,7 @@
     width: 100%;
     padding: 7px 12px;
     text-align: start;
-    font: 14px system-ui, sans-serif;
+    font: 14px "Corona Locale", "Corona Inter", system-ui, sans-serif;
     color: #edf4ff;
     background: transparent;
     border: 0;

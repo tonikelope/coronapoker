@@ -9,6 +9,8 @@ import java.text.MessageFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -17,7 +19,7 @@ final class GdxGameText implements GameText {
 
     private static final String FALLBACK_LANGUAGE = "en";
 
-    // Use names that the existing selector font can display for every locale.
+    // Pin Spanish and English, then order the selector labels alphabetically.
     static final List<Language> LANGUAGES = List.of(
             new Language("es", "Español"),
             new Language("en", "English"),
@@ -27,28 +29,28 @@ final class GdxGameText implements GameText {
             new Language("cs-CZ", "Czech"),
             new Language("da-DK", "Dansk"),
             new Language("de-DE", "Deutsch"),
-            new Language("el-GR", "Greek"),
-            new Language("fi-FI", "Suomi"),
             new Language("fr-FR", "Français"),
             new Language("gd-GB", "Gàidhlig"),
             new Language("gl-ES", "Galego"),
-            new Language("hu-HU", "Magyar"),
+            new Language("el-GR", "Greek"),
             new Language("it-IT", "Italiano"),
             new Language("ja-JP", "Japanese"),
             new Language("lt-LT", "Lithuanian"),
-            new Language("nb-NO", "Norsk bokmål"),
+            new Language("hu-HU", "Magyar"),
             new Language("nl-NL", "Nederlands"),
+            new Language("nb-NO", "Norsk bokmål"),
             new Language("pl-PL", "Polski"),
             new Language("pt-BR", "Português (Brasil)"),
             new Language("pt-PT", "Português (Portugal)"),
             new Language("ru-RU", "Russian"),
+            new Language("zh-CN", "Simplified Chinese"),
             new Language("sk-SK", "Slovak"),
+            new Language("fi-FI", "Suomi"),
             new Language("sv-SE", "Svenska"),
             new Language("ta-IN", "Tamil"),
             new Language("tr-TR", "Turkish"),
             new Language("uk-UA", "Ukrainian"),
-            new Language("vi-VN", "Vietnamese"),
-            new Language("zh-CN", "Simplified Chinese"));
+            new Language("vi-VN", "Vietnamese"));
     static final List<String> LANGUAGE_LABELS = LANGUAGES.stream()
             .map(Language::label).toList();
 
@@ -85,6 +87,18 @@ final class GdxGameText implements GameText {
         return new MessageFormat(pattern, current.locale()).format(arguments);
     }
 
+    Map<String, String> messagesWithPrefix(String prefix) {
+        Selection current = selection;
+        Map<String, String> messages = new TreeMap<>();
+        for (String key : defaults.stringPropertyNames()) {
+            if (key.startsWith(prefix)) {
+                messages.put(key.substring(prefix.length()), current.properties()
+                        .getProperty(key, defaults.getProperty(key)));
+            }
+        }
+        return messages;
+    }
+
     static String resolveLanguage(String requestedLanguage) {
         Locale locale = requestedLanguage == null || requestedLanguage.isBlank()
                 ? Locale.getDefault()
@@ -119,6 +133,8 @@ final class GdxGameText implements GameText {
         Selection current = selection;
         var characters = new LinkedHashSet<Integer>();
         for (String key : current.properties().stringPropertyNames()) {
+            // Chromium loads its own fonts and never uses the game atlas.
+            if (key.startsWith("gdx.stats.web.") || key.startsWith("gdx.web.")) continue;
             String value = current.properties().getProperty(key);
             value.codePoints().forEach(characters::add);
             value.toUpperCase(current.locale()).codePoints().forEach(characters::add);

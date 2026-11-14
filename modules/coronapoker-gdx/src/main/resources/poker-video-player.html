@@ -1,13 +1,14 @@
 <!doctype html>
-<html lang="es">
+<html lang="@@PLAYER_LANGUAGE@@">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>CoronaPoker — Vídeos de póker</title>
+  <title>CoronaPoker</title>
+  <link rel="stylesheet" href="/game-fonts.css">
   <style>
     html, body, #player { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05080c; }
-    body { font-family: system-ui, sans-serif; color: #fff; }
+    body { font-family: "Corona Locale", "Corona Inter", system-ui, sans-serif; color: #fff; }
     #status { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
       box-sizing: border-box; text-align: center; align-content: center; gap: 16px; background: #101820; z-index: 2; }
     #status.hidden { display: none; }
@@ -25,7 +26,8 @@
     let orderedPlaylist = @@ORDERED_PLAYLIST@@;
     let playlistRevision = @@PLAYLIST_REVISION@@;
     const ORIGIN = '@@ORIGIN@@';
-    const PLAYER_LANGUAGE = '@@PLAYER_LANGUAGE@@';
+    const {locale: PLAYER_LANGUAGE, labels: copy} = @@PLAYER_COPY@@;
+    document.title = 'CoronaPoker | ' + copy.title;
     const statusBox = document.getElementById('status');
     let player = null;
     let ready = false;
@@ -63,10 +65,6 @@
     let loadStopped = false;
     let loadStartSeconds = START_SECONDS;
 
-    function text(spanish, english) {
-      return PLAYER_LANGUAGE === 'en' ? english : spanish;
-    }
-
     function cancelLoadTimers() {
       if (apiTimer !== null) clearTimeout(apiTimer);
       if (playbackTimer !== null) clearTimeout(playbackTimer);
@@ -74,10 +72,10 @@
     }
 
     const loadingMessages = {
-      connecting: text('Conectando con el reproductor…', 'Connecting to the player…'),
-      reconnecting: text('Reconectando con el reproductor…', 'Reconnecting to the player…'),
-      discovery: text('Buscando más vídeos…', 'Finding more videos…'),
-      video: text('Cargando vídeo…', 'Loading video…')
+      connecting: copy.connecting,
+      reconnecting: copy.reconnecting,
+      discovery: copy.discovery,
+      video: copy.loadingVideo
     };
 
     function loading(phase) {
@@ -116,7 +114,7 @@
       statusBox.textContent = message;
       const retry = document.createElement('button');
       retry.type = 'button';
-      retry.textContent = text('Reintentar', 'Retry');
+      retry.textContent = copy.retry;
       retry.onclick = retryLoad;
       statusBox.appendChild(retry);
       report('ERROR', message);
@@ -140,8 +138,7 @@
     }
 
     function failApiRecovery() {
-      showError(text('No se pudo conectar con YouTube. Comprueba la conexión y reintenta.',
-        'Could not connect to YouTube. Check your connection and retry.'));
+      showError(copy.networkError);
     }
 
     function armApiTimeout() {
@@ -153,8 +150,7 @@
       if (ready) {
         if (!playbackAllowed) apiTimer = setTimeout(() => {
           apiTimer = null;
-          showError(text('El reproductor no respondió. Pulsa Reintentar.',
-            'The player did not respond. Press Retry.'));
+          showError(copy.responseError);
         }, 10000);
         return;
       }
@@ -184,8 +180,7 @@
           'playback timeout ' + playbackRecoveries + ' video ' + VIDEO_IDS[currentIndex]
           + (waitingForFirstPlayback && playedCurrentVideo ? ' (PLAYING without progress)' : ''));
         if (playbackRecoveries >= 3) {
-          showError(text('El vídeo no responde. Comprueba la conexión y pulsa Reintentar.',
-            'The video is not responding. Check your connection and press Retry.'));
+          showError(copy.videoTimeout);
         } else if (playbackRecoveries === 1) {
           const seconds = waitingForFirstPlayback ? loadStartSeconds
             : Math.max(loadStartSeconds, player.getCurrentTime ? player.getCurrentTime() || 0 : 0);
@@ -242,7 +237,7 @@
         playVideo(player);
         armPlaybackTimeout();
       } catch (failure) {
-        showError(text('No se pudo cargar el vídeo. Pulsa Reintentar.', 'Could not load the video. Press Retry.'));
+        showError(copy.videoError);
       }
       reportIndex();
     }
@@ -281,7 +276,7 @@
       cancelDiscoveryWait();
       const position = nextPlayableOrderPosition(1, wrap);
       if (position >= 0) selectOrderPosition(position);
-      else showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
+      else showError(copy.empty);
     }
 
     function selectRelative(delta, recovery = false) {
@@ -289,7 +284,7 @@
       if (nextPosition >= 0) {
         selectOrderPosition(nextPosition, recovery);
       } else if (orderedPlaylist) {
-        showError(text('No se han encontrado vídeos reproducibles.', 'No playable videos found.'));
+        showError(copy.empty);
       } else if (active && delta > 0 && !discoveryPending) {
         const revision = playlistRevision;
         const fallback = () => {
@@ -469,8 +464,7 @@
         playVideo(target);
         armPlaybackTimeout();
         reportIndex();
-      }, () => showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
-        'Could not start the player. Press Retry.')));
+      }, () => showError(copy.playerError));
     }
 
     window.onYouTubeIframeAPIReady = function () {
@@ -515,8 +509,7 @@
             applyDesiredAudio(event.target);
             requestPlayback(event.target);
             } catch (failure) {
-              showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
-                'Could not start the player. Press Retry.'));
+              showError(copy.playerError);
             }
           },
           onStateChange: event => {
@@ -560,21 +553,17 @@
               skipUnavailable(event.data);
               return;
             }
-            const errors = {
-              153: 'El reproductor no recibió una identificación Referer válida (error 153).'
-            };
-            showError(errors[event.data] || ('El reproductor devolvió el error ' + event.data + '.'));
+            showError(Number(event.data) === 153 ? copy.refererError
+              : copy.codeError.replace('{0}', String(event.data)));
           },
           onAutoplayBlocked: () => {
             report('STATE', 'REPRODUCCIÓN AUTOMÁTICA BLOQUEADA');
-            showError(text('La reproducción automática se ha bloqueado. Pulsa Reintentar.',
-              'Automatic playback was blocked. Press Retry.'));
+            showError(copy.autoplayError);
           }
         }
       });
       } catch (failure) {
-        showError(text('No se pudo iniciar el reproductor. Pulsa Reintentar.',
-          'Could not start the player. Press Retry.'));
+        showError(copy.playerError);
       }
     };
 

@@ -502,7 +502,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShaderProgram roundedTextureShader;
     private GdxModalBackdropBlur modalBackdropBlur;
     private GdxModalBackdropBlur nestedModalBackdropBlur;
-    private boolean lobbyLoadingBackdropCached;
+    private boolean loadingBackdropCached;
+    private GdxGameText.Language pendingLanguage;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
     private BitmapFont settingsStepperSignFont;
@@ -1063,7 +1064,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         var debugRegular = Gdx.files.internal("fonts/Montserrat-SemiBold.ttf");
         var debugBold = Gdx.files.internal("fonts/Montserrat-Bold.ttf");
         Color border = new Color(0x02050ccc);
-        var localeFonts = new GdxLocaleFonts(gameText);
+        var localeFonts = new GdxLocaleFonts(pendingLanguage == null
+                ? gameText : new GdxGameText(pendingLanguage.tag()));
         String characters = localeFonts.characters(GdxAdaptiveFontQuality.charactersWith(
                 FRONTEND_EXTRA_FONT_CHARACTERS));
         List<GdxFontRefresh.Font> fonts = List.of(
@@ -1194,7 +1196,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void refreshFontQualityIfDue() {
-        fontRefresh.update(this::displayFonts, this::installFontProfile);
+        fontRefresh.update(this::displayFonts, this::installRefreshedFonts,
+                this::fontRefreshFailed);
+    }
+
+    private void installRefreshedFonts(GdxAdaptiveFontQuality.Profile profile) {
+        installFontProfile(profile);
+        if (pendingLanguage == null) return;
+        String language = pendingLanguage.tag();
+        pendingLanguage = null;
+        initialProperties.setProperty("lenguaje", language);
+        PokerChromium.useLanguage(language);
+        languageChanged.accept(language);
+        if (preferences != null) preferences.saveDeferred();
+    }
+
+    private void fontRefreshFailed() {
+        if (pendingLanguage == null) return;
+        pendingLanguage = null;
+        showFrontendNotice(gameText.translate("gdx.dialog.error"),
+                gameText.translate("error.error_inesperado"), true);
     }
 
     /**
@@ -1337,20 +1358,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         updateLobbyVoiceRecording();
         audioPreview.update(frameDelta);
         syncMusicForSurface();
-        boolean lobbyLoadingOverlay = lobbyLoadingOverlayVisible();
+        boolean loadingOverlay = pendingLanguage != null || lobbyLoadingOverlayVisible();
         updatePokerVideo((surface == Surface.MENU || surface == Surface.LOBBY)
-                && !lobbyLoadingOverlay && !hasBlockingFrontendModal(), frameDelta,
+                && !loadingOverlay && !hasBlockingFrontendModal(), frameDelta,
                 surface == Surface.LOBBY && lobbySession != null
                         ? this::shareLobbyVideo : null);
         updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
-        if (!lobbyLoadingOverlay || !backdropBlurActive) {
-            lobbyLoadingBackdropCached = false;
-        } else if (backdropBlurActive && lobbyLoadingBackdropCached
+        if (!loadingOverlay || !backdropBlurActive) {
+            loadingBackdropCached = false;
+        } else if (loadingBackdropCached
                 && modalBackdropBlur.hasCachedFrame(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
-            renderCachedLobbyLoadingFrame();
+            renderCachedLoadingFrame();
             return;
         }
         boolean settingsRootModal = isSettingsRootModal();
@@ -1492,10 +1513,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         if (blurModalBackdrop) {
             try {
-                if (lobbyLoadingOverlay) {
+                if (loadingOverlay) {
                     modalBackdropBlur.endCaptureAndCache(viewport, batch,
                             viewport.getCamera().combined, BACKGROUND);
-                    lobbyLoadingBackdropCached = true;
+                    loadingBackdropCached = true;
                 } else if (nestedFrontendModal) {
                     // Keep the first modal level as a reusable
                     // native-resolution image. The nested pass adds the
@@ -1566,7 +1587,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                     GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapes.begin(ShapeRenderer.ShapeType.Filled);
-            if (applicationExitConfirmation) {
+            if (pendingLanguage != null) {
+                drawLoadingOverlay();
+            } else if (applicationExitConfirmation) {
                 drawApplicationExitConfirmation();
             } else if (avatarCropSession != null) {
                 drawAvatarCropDialog();
@@ -1651,7 +1674,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (lobbyConfirmation != null) {
                 drawLobbyConfirmation();
             } else {
-                drawLobbyLoadingOverlay();
+                drawLoadingOverlay();
             }
             if (dropdown != Dropdown.NONE
                     && (isSettingsRootModal()
@@ -1762,11 +1785,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     /**
-     * Reuses the waiting room image captured on the first preparation frame.
-     * Only the indeterminate bar and sharp top layers change while resources
-     * are created, avoiding a full lobby draw plus two blur passes every turn.
+     * Reuses the blurred background while a table or language is loading.
+     * Only the indeterminate bar and sharp top layers need to be redrawn.
      */
-    private void renderCachedLobbyLoadingFrame() {
+    private void renderCachedLoadingFrame() {
         viewport.apply();
         viewport.getCamera().update();
         shapes.setProjectionMatrix(viewport.getCamera().combined);
@@ -1807,7 +1829,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawLobbyLoadingOverlay();
+        drawLoadingOverlay();
         shapes.end();
         batch.begin();
         for (TextItem item : texts) drawTextItem(item);
@@ -2121,7 +2143,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasVisibleFrontendModal() {
-        return applicationExitConfirmation
+        return pendingLanguage != null || applicationExitConfirmation
                 || avatarCropSession != null
                 || modAdultWarning
                 || !frontendNoticeMessage.isBlank()
@@ -2154,7 +2176,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasNestedFrontendModal() {
-        return !applicationExitConfirmation
+        return pendingLanguage == null && !applicationExitConfirmation
                 && ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
                         && customBotManagerOpen
                         && customBotDeleteConfirmation
@@ -3430,7 +3452,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         statsBrowserFocused = false;
         statsBrowser = new PokerStatsBrowser(statsRepository,
                 connection.nickname(),
-                "en".equalsIgnoreCase(gameText.language()),
+                gameText.language(),
                 preferenceBoolean("animaciones", true), statsBrowserWidth(), statsBrowserHeight(),
                 amountZeroMode());
     }
@@ -5718,6 +5740,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     void requestApplicationExit() {
         if (applicationExitConfirmation || fileChooserPending()) return;
+        if (pendingLanguage != null) {
+            pendingLanguage = null;
+            fontRefresh.close();
+            fontRefresh.resize(fontQualityProfile,
+                    GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
+        }
         rulesWindow.close();
         if (profileBackupSelection != null) {
             closeProfileBackupSelection();
@@ -8191,17 +8219,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pressedHit = null;
     }
 
-    private void drawLobbyLoadingOverlay() {
+    private void drawLoadingOverlay() {
         hits.clear();
         var layout = GdxUiDialogStyle.preparationLayout(WIDTH, HEIGHT);
         GdxUiDialogStyle.drawPreparationDialog(shapes, layout, elapsed);
-        textFit(headingFont, uppercase(gameText.translate(
-                "gdx.lobby.preparing_table")),
-                layout.centerX(), layout.titleY(), GdxUiDialogStyle.PREPARATION_TITLE,
-                true, layout.labelWidth());
-        textFit(smallFont, gameText.translate("game.inicializando_timba"),
-                layout.centerX(), layout.statusY(), GdxUiDialogStyle.PREPARATION_STATUS,
-                true, layout.labelWidth());
+        String title = pendingLanguage == null
+                ? gameText.translate("gdx.lobby.preparing_table")
+                : gameText.translate("gdx.loading");
+        textFit(headingFont, uppercase(title), layout.centerX(), layout.titleY(),
+                GdxUiDialogStyle.PREPARATION_TITLE, true, layout.labelWidth());
+        String detail = pendingLanguage == null
+                ? gameText.translate("game.inicializando_timba")
+                : pendingLanguage.label();
+        textFit(smallFont, detail, layout.centerX(), layout.statusY(),
+                GdxUiDialogStyle.PREPARATION_STATUS, true, layout.labelWidth());
     }
 
     float preparationAnimationTime() {
@@ -14901,15 +14932,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void selectLanguageOption(int option) {
-        if (option < 0 || option >= GdxGameText.LANGUAGES.size()) return;
-        String next = GdxGameText.LANGUAGES.get(option).tag();
-        if (next.equals(gameText.language())) return;
-        initialProperties.setProperty("lenguaje", next);
-        PokerChromium.useLanguage(next);
-        languageChanged.accept(next);
-        fontRefresh.close();
-        rebuildFonts(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
-        if (preferences != null) preferences.saveDeferred();
+        if (pendingLanguage != null || option < 0
+                || option >= GdxGameText.LANGUAGES.size()) return;
+        var next = GdxGameText.LANGUAGES.get(option);
+        if (next.tag().equals(gameText.language())) return;
+        pendingLanguage = next;
+        dropdown = Dropdown.NONE;
+        loadingBackdropCached = false;
+        volumeKeyRepeat.clear();
+        captureFrontendModalInput();
+        fontRefresh.replace(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
     }
 
     private void selectServerHistoryOption(int option) {
@@ -16342,13 +16374,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         lobbyGallery.resize(viewport);
         rulesWindow.resize();
         if (titleFont == null) return;
-        fontRefresh.resize(fontQualityProfile,
-                GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
+        var profile = GdxAdaptiveFontQuality.current(WIDTH, HEIGHT);
+        if (pendingLanguage == null) {
+            fontRefresh.resize(fontQualityProfile, profile);
+        } else {
+            fontRefresh.replace(profile);
+        }
     }
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointerIndex, int button) {
-        if (fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
@@ -16527,6 +16563,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
+        if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (rulesWindow.isOpen()) {
@@ -16598,6 +16635,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
+        if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (lobbyVoicePointer.release(pointerIndex, button)) {
@@ -17008,7 +17046,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
-        if (fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()) return true;
         boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
@@ -17529,6 +17567,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyTyped(char character) {
+        if (pendingLanguage != null) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_TYPED, 0, character);
             return true;
@@ -17945,6 +17984,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override public boolean keyUp(int keycode) {
         volumeKeyRepeat.release(keycode);
         textKeyRepeat.release(keycode);
+        if (pendingLanguage != null) return true;
         if (keycode == lobbyVoiceKey && lobbyVoiceKey != Input.Keys.UNKNOWN) {
             lobbyVoiceKey = Input.Keys.UNKNOWN;
             finishLobbyVoiceRecording(false);
@@ -17963,6 +18003,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;
         if (statsBrowserPointer.releasePrimary(p, b)) {
@@ -18004,6 +18045,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return hasBlockingFrontendModal();
     }
     @Override public boolean mouseMoved(int x, int y) {
+        if (pendingLanguage != null) return true;
         pointer.set(x, y);
         viewport.unproject(pointer);
         if (rulesWindow.isOpen()) {
@@ -18024,7 +18066,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
-        if (fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         if (rulesWindow.isOpen()) {

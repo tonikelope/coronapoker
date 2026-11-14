@@ -282,9 +282,11 @@ contain your identity keys and game history.
 ## 🌍 Internationalization
 
 Use the language selector on the main menu to change interface language.
-CoronaPoker remembers your choice. On first launch it uses a supported
-system language and falls back to English. Brazilian and European
-Portuguese have separate translations.
+Spanish and English appear first, followed by the other languages in
+alphabetical order by their displayed names. CoronaPoker remembers your choice.
+On first launch it uses a supported system language and falls back to English.
+It shows progress while preparing the fonts for a language change.
+Brazilian and European Portuguese have separate translations.
 
 The 30 bundled interface languages are Afrikaans, Bulgarian, Catalan, Czech,
 Danish, Dutch, English, Finnish, French, Galician, German, Greek, Hungarian,
@@ -292,10 +294,12 @@ Italian, Japanese, Lithuanian, Norwegian Bokmål, Polish, Portuguese (Brazil),
 Portuguese (Portugal), Russian, Scottish Gaelic, Simplified Chinese, Slovak,
 Spanish, Swedish, Tamil, Turkish, Ukrainian and Vietnamese.
 
-Alternate fonts cover the additional characters in the interface and table.
-Poker quotes and Robert's Rules PDFs are available
-in English and Spanish. The game includes Spanish voice clips and a small
-set of general sound effects. The other interface languages use the general effects.
+Alternate fonts cover the additional characters across the interface.
+The statistics dashboard, image and GIF gallery, video player messages and
+PDF viewer controls follow the selected interface language. Poker quotes and
+the Robert's Rules documents are available in English and Spanish. The game
+includes Spanish voice clips and general sound effects. The other interface
+languages use the general effects.
 
 ---
 

@@ -1,148 +1,6 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 'use strict';
 
-const strings = {
-  es: {
-    stats:'Estadísticas', overview:'Resumen', sessions:'Sesiones', analysis:'Análisis',
-    compare:'Comparativas', classics:'Clásicas',
-    player:'Jugador', from:'Desde', through:'Hasta', apply:'Aplicar', allTime:'Todo',
-    excludeBots:'Excluir bots', excludeBotsHelp:'Excluye a los bots y conserva las manos de los jugadores humanos.',
-    noHumans:'No hay jugadores humanos registrados en esta selección.', noVisibleRows:'Sin registros visibles.',
-    game:'Partida', allGames:'Todas las partidas', allHands:'Todas las manos', allPlayers:'Todos los jugadores',
-    humanPlayers:'Jugadores humanos',
-    previousHand:'Mano anterior', nextHand:'Mano siguiente',
-    performance:'RENDIMIENTO', bankroll:'Evolución del bankroll', cumulative:'Acumulado',
-    perSession:'Por sesión', bankrollNote:'Beneficio acumulado de las mesas del periodo.',
-    profile:'PERFIL DE JUEGO', behavior:'Estadísticas clave', sessionResults:'Resultados por sesión',
-    prev:'Anterior', next:'Siguiente', heatmaps:'MAPAS DE CALOR', startingHands:'Manos iniciales',
-    cardsNote:'Solo manos con cartas registradas. Pasa el cursor para ver la muestra.',
-    loss:'Pérdida', profit:'Ganancia', positions:'Rendimiento por posición',
-    positionsNote:'Beneficio medio por mano en cada posición registrada.',
-    compareMark:'COMPARATIVAS', trends:'Evolución de estadísticas', metric:'Métrica',
-    playerCompare:'Jugadores en las mismas sesiones',
-    net:'Beneficio neto', hourly:'Ganancia por hora', hands:'Manos jugadas',
-    sessionCount:'Sesiones', settled:'Manos liquidadas',
-    timed:'de mesa registradas', profitable:'con beneficio', noBalance:'Sin saldo registrado',
-    noDuration:'Sin duración registrada', loading:'Consultando el historial local…',
-    emptyHistory:'Las estadísticas aparecerán cuando haya manos liquidadas en el historial.',
-    emptyFilter:'No hay sesiones para este jugador en el periodo seleccionado.',
-    error:'No se pudieron cargar los datos. Vuelve a pulsar Aplicar.',
-    invalid:'Introduce fechas válidas (AAAA-MM-DD) y comprueba el orden del intervalo.',
-    noSamples:'Sin muestra', noChart:'Sin datos para este periodo', noCard:'Sin cartas registradas',
-    noTrend:'Se necesitan dos sesiones con muestra suficiente para esta métrica.',
-    vpip:'Inversión voluntaria preflop', pfr:'Subidas preflop', threeBet:'Resubidas ante una subida',
-    af:'Apuestas y subidas divididas por calls postflop', afShort:'Agresión postflop', wtsd:'Showdowns tras ver el flop',
-    wsd:'Showdowns ganados', date:'Fecha', duration:'Duración', status:'Estado',
-    closed:'Cerrada', live:'Sin cierre', imported:'Importada', local:'Local',
-    position:'Posición', perHand:'Por mano', sample:'Muestra mínima', page:'Página',
-    comparisonNote:'Los puntos se muestran en sesiones con al menos {n} manos y muestra para la métrica.',
-    zoom:'Zoom del panel', zoomIn:'Ampliar texto y panel', zoomOut:'Reducir texto y panel', zoomReset:'Restablecer zoom',
-    chartResize:'Ajustar el tamaño de la gráfica',
-    chartResizeHint:'Arrastra o usa las flechas para ajustar el ancho y el alto.',
-    chartReset:'Restablecer el tamaño de la gráfica',
-    chartResetAll:'Restaurar gráficas',
-    noPlayers:'Todavía no hay jugadores con la muestra mínima en estas sesiones.',
-    coverage:'Cobertura de los datos', coverageNote:'Los denominadores cuentan las muestras registradas para el jugador y el periodo. El intervalo se aplica a la fecha de inicio de las sesiones.',
-    coveredNet:'Sesiones con saldo', coveredTime:'Sesiones cerradas con duración y saldo',
-    coveredPreflop:'Manos con acciones preflop', coveredFlop:'Flops observados',
-    coveredShowdown:'Showdowns disputados', coveredCards:'Manos con cartas y saldo',
-    coveredPosition:'Manos con posición y saldo',
-    classicDetail:'Resultados detallados',
-    classicBalance:'Ganancias y pérdidas', classicPerformance:'Rendimiento de jugadores', classicResponse:'Tiempo medio de respuesta',
-    classicBest:'Jugadas ganadoras', classicPreflop:'Apuestas y subidas · Preflop', classicFlop:'Apuestas y subidas · Flop',
-    classicTurn:'Apuestas y subidas · Turn', classicRiver:'Apuestas y subidas · River',
-    classicAudience:'Todos los jugadores del periodo. El jugador seleccionado se resalta en la tabla.',
-    classicHumanAudience:'Jugadores humanos del periodo. El jugador seleccionado se resalta en la tabla.',
-    scatterNote:'Cada punto es un jugador. Verde indica ROI positivo y rosa indica ROI negativo.',
-    classicLeaders:'Se grafican hasta ocho jugadores. La tabla incluye todos los resultados.',
-    stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precisión', played:'Participación',
-    wins:'Manos ganadas', effectiveness:'Efectividad', seconds:'s', cards:'Cartas iniciales',
-    handRank:'Jugada', handNumber:'Mano', stackHistory:'Stack por mano',
-    stackNote:'Las líneas muestran hasta seis jugadores. Usa la leyenda para activar o desactivar series.',
-    bestNote:'El gráfico incluye todas las jugadas ganadoras con categoría registrada. La tabla muestra hasta 1.000 resultados.',
-    bestHumanNote:'El gráfico incluye las jugadas ganadoras de humanos con categoría registrada. La tabla muestra hasta 1.000 resultados.',
-    noRank:'Sin categoría registrada', items:'resultados',
-    handRanks:['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color','Escalera real'],
-    handDetail:'Detalle de la mano', board:'Cartas comunitarias', handSeats:'Posiciones',
-    handPlayers:'Jugadores por calle', handActions:'Secuencia de acciones', handBalances:'Saldos registrados',
-    showdown:'Showdown', handNet:'Beneficio de la mano', blinds:'Ciegas', pot:'Bote',
-    button:'Botón', smallBlind:'Ciega pequeña', bigBlind:'Ciega grande', street:'Calle',
-    decision:'Acción', committed:'Aportación en la calle', response:'Respuesta',
-    winner:'Gana', payout:'Cobro', yes:'Sí', no:'No', fold:'Retirada', checkCall:'Paso / Igualo',
-    betRaise:'Apuesta / Subida', allIn:'All-in', noHand:'No hay datos para la mano seleccionada.',
-    noHandData:'Sin registros para esta mano.', handError:'No se pudo cargar la mano. Vuelve a seleccionarla.'
-  },
-  en: {
-    stats:'Statistics', overview:'Overview', sessions:'Sessions', analysis:'Analysis',
-    compare:'Compare', classics:'Classics',
-    player:'Player', from:'From', through:'To', apply:'Apply', allTime:'All time',
-    excludeBots:'Exclude bots', excludeBotsHelp:'Exclude bots and keep hands played by human players.',
-    noHumans:'No human players are recorded in this selection.', noVisibleRows:'No visible records.',
-    game:'Game', allGames:'All games', allHands:'All hands', allPlayers:'All players',
-    humanPlayers:'Human players',
-    previousHand:'Previous hand', nextHand:'Next hand',
-    performance:'PERFORMANCE', bankroll:'Bankroll evolution', cumulative:'Cumulative',
-    perSession:'Per session', bankrollNote:'Cumulative table profit for the selected period.',
-    profile:'PLAYER PROFILE', behavior:'Key statistics', sessionResults:'Session results',
-    prev:'Previous', next:'Next', heatmaps:'HEATMAPS', startingHands:'Starting hands',
-    cardsNote:'Hands with recorded cards only. Hover over a cell to see its sample.',
-    loss:'Loss', profit:'Profit', positions:'Performance by position',
-    positionsNote:'Average profit per hand for each recorded position.',
-    compareMark:'COMPARISONS', trends:'Stats over time', metric:'Metric',
-    playerCompare:'Players in the same sessions',
-    net:'Net profit', hourly:'Profit per hour', hands:'Hands played', sessionCount:'Sessions',
-    settled:'Settled hands', timed:'of recorded table time',
-    profitable:'profitable', noBalance:'No recorded balance', noDuration:'No recorded duration',
-    loading:'Reading local history…', emptyHistory:'Statistics appear once your history contains settled hands.',
-    emptyFilter:'This player has no sessions in the selected period.',
-    error:'Could not load the data. Press Apply to try again.',
-    invalid:'Enter valid dates (YYYY-MM-DD) and check the order of the date range.',
-    noSamples:'No sample', noChart:'No data for this period', noCard:'No recorded cards',
-    noTrend:'This metric needs at least two sessions with a sufficient sample.',
-    vpip:'Voluntary preflop investment', pfr:'Preflop raises', threeBet:'Re-raises facing a raise',
-    af:'Postflop bets and raises divided by calls', afShort:'Postflop aggression', wtsd:'Showdowns after seeing the flop',
-    wsd:'Showdowns won', date:'Date', duration:'Duration', status:'Status',
-    closed:'Closed', live:'Open', imported:'Imported', local:'Local',
-    position:'Position', perHand:'Per hand', sample:'Minimum sample', page:'Page',
-    comparisonNote:'Points require at least {n} hands in the session and a sample for the selected metric.',
-    zoom:'Dashboard zoom', zoomIn:'Enlarge text and dashboard', zoomOut:'Shrink text and dashboard', zoomReset:'Reset zoom',
-    chartResize:'Resize chart',
-    chartResizeHint:'Drag or use the arrow keys to adjust the width and height.',
-    chartReset:'Reset chart size',
-    chartResetAll:'Reset charts',
-    noPlayers:'No players reach the minimum sample in these sessions yet.',
-    coverage:'Data coverage', coverageNote:'Denominators count recorded samples for the player and period. The date range applies to session start dates.',
-    coveredNet:'Sessions with a balance', coveredTime:'Closed sessions with duration and balance',
-    coveredPreflop:'Hands with preflop actions', coveredFlop:'Observed flops',
-    coveredShowdown:'Contested showdowns', coveredCards:'Hands with recorded cards and balance',
-    coveredPosition:'Hands with recorded position and balance',
-    classicDetail:'Detailed results',
-    classicBalance:'Profit and loss', classicPerformance:'Player performance', classicResponse:'Average response time',
-    classicBest:'Winning hands', classicPreflop:'Bets and raises · Preflop', classicFlop:'Bets and raises · Flop',
-    classicTurn:'Bets and raises · Turn', classicRiver:'Bets and raises · River',
-    classicAudience:'All players in the period. The selected player is highlighted in the table.',
-    classicHumanAudience:'Human players in the period. The selected player is highlighted in the table.',
-    scatterNote:'Each dot is a player. Green indicates positive ROI and pink indicates negative ROI.',
-    classicLeaders:'The chart shows up to eight players. The table includes every result.',
-    stack:'Stack', buyin:'Buy-in', roi:'ROI', precision:'Precision', played:'Participation',
-    wins:'Hands won', effectiveness:'Effectiveness', seconds:'s', cards:'Hole cards',
-    handRank:'Hand rank', handNumber:'Hand', stackHistory:'Stack by hand',
-    stackNote:'Lines show up to six players. Use the legend to toggle each series.',
-    bestNote:'The chart includes every winning hand with a recorded rank. The table shows up to 1,000 results.',
-    bestHumanNote:'The chart includes winning hands by human players with a recorded rank. The table shows up to 1,000 results.',
-    noRank:'No recorded rank', items:'results',
-    handRanks:['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush','Royal flush'],
-    handDetail:'Hand details', board:'Community cards', handSeats:'Positions',
-    handPlayers:'Players by street', handActions:'Action sequence', handBalances:'Recorded balances',
-    showdown:'Showdown', handNet:'Hand profit', blinds:'Blinds', pot:'Pot',
-    button:'Button', smallBlind:'Small blind', bigBlind:'Big blind', street:'Street',
-    decision:'Action', committed:'Street contribution', response:'Response',
-    winner:'Won', payout:'Payout', yes:'Yes', no:'No', fold:'Fold', checkCall:'Check / Call',
-    betRaise:'Bet / Raise', allIn:'All-in', noHand:'No data for the selected hand.',
-    noHandData:'No records for this hand.', handError:'Could not load the hand. Select it again to retry.'
-  }
-};
-
 const metrics = [['vpip','VPIP'], ['pfr','PFR'], ['threeBet','3-Bet'], ['af','AF'], ['wtsd','WTSD'], ['wsd','W$SD']];
 const classicModes = new Map([
   ['BALANCE','classicBalance'], ['PERFORMANCE','classicPerformance'],
@@ -174,8 +32,12 @@ const query = new URLSearchParams(location.search);
 const botMarker = query.get('botMarker');
 const amountZeros = query.get('amountZeros');
 const keepTrailingZero = amountZeros === 'if_space' || amountZeros === 'always';
-const locale = query.get('lang') === 'en' ? 'en' : 'es';
-const t = key => strings[locale][key];
+const {locale, labels} = window.coronaCopy;
+const t = key => labels[key];
+const chartFontFamily = '"Corona Locale", "Corona Inter", sans-serif';
+const decimal = new Intl.NumberFormat(locale).formatToParts(1.5)
+  .find(part => part.type === 'decimal').value;
+const trailingZero = new RegExp('[' + decimal + ']([0-9]*?)0\\b', 'g');
 let number, amount, integer, date, shortDate;
 let activeTab = 'overview', view, page = 0, requestNumber = 0, ready = false;
 let hasPlayers = false, scope = 0, zoom = 100;
@@ -201,7 +63,7 @@ function translate() {
     $(id).dataset.tooltip = t(label);
   }
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
-  for (const id of ['from', 'through']) $(id).placeholder = locale === 'en' ? 'YYYY-MM-DD' : 'AAAA-MM-DD';
+  for (const id of ['from', 'through']) $(id).placeholder = locale === 'es' ? 'AAAA-MM-DD' : 'YYYY-MM-DD';
   number = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
   amount = new Intl.NumberFormat(locale, {
     minimumFractionDigits: keepTrailingZero ? 2 : 0,
@@ -246,7 +108,6 @@ function fitMoneyLabel(label) {
   moneyMeasure.letterSpacing = letterSpacing === 'normal' ? '0px' : letterSpacing;
   let text = label.dataset.fullAmount;
   if (amountZeros === 'if_space') {
-    const trailingZero = locale === 'en' ? /\.([0-9]*?)0\b/g : /,([0-9]*?)0\b/g;
     while (moneyMeasure.measureText(text).width > available) {
       const matches = [...text.matchAll(trailingZero)];
       const match = matches.at(-1);
@@ -542,11 +403,12 @@ function draw(id, options, empty) {
     if (format) options.tooltip.formatter = params => create('div', format(params));
   }
   chart.resize();
-  chart.setOption(empty ? {
+  const chartOptions = empty ? {
     aria:{enabled:true, label:{description:empty}},
     title:{text:empty, left:'center', top:'middle', textStyle:{color:paint.muted, fontSize:chartFont(.84), fontWeight:500}},
     animation:false
-  } : options, {notMerge:true});
+  } : options;
+  chart.setOption({...chartOptions, textStyle:{fontFamily:chartFontFamily, ...chartOptions.textStyle}}, {notMerge:true});
 }
 
 function row(cells, selected = false) {
@@ -642,7 +504,7 @@ function showCompare() {
   options.series = [{name, type:'line', data:values, connectNulls:false, symbolSize:7,
     lineStyle:{color:paint.mint, width:2}, itemStyle:{color:paint.mint}}];
   draw('trend-chart', options, values.filter(value => value != null).length < 2 ? t('noTrend') : '');
-  $('trend-note').textContent = t('comparisonNote').replace('{n}', integer.format(min));
+  $('trend-note').textContent = t('comparisonNote').replace('{0}', integer.format(min));
   $('sample-badge').textContent = t('sample') + ' ' + integer.format(min);
   const comparison = view?.comparison ?? [];
   const player = $('player').selectedOptions[0]?.textContent;
@@ -716,7 +578,7 @@ function performanceScatter(entries) {
   };
 }
 
-function handRank(value) { return t('handRanks')[value - 1] ?? t('noRank'); }
+function handRank(value) { return t('rank' + (value - 1)) ?? t('noRank'); }
 
 function winningDonut(entries) {
   const slices = entries.map(entry => ({value:entry.count, name:handRank(entry.handValue)}));
@@ -759,7 +621,7 @@ function showHand() {
   const visible = player => !excludeBots || !botMarker || !player?.includes(botMarker);
   const visibleRows = rows => rows.filter(entry => visible(entry.player));
   const showdown = visibleRows(handView.showdown);
-  const streets = ['Preflop', 'Flop', 'Turn', 'River'];
+  const streets = ['preflop', 'flop', 'turn', 'river'].map(t);
   const elapsed = hand.startedAtMillis > 0 && hand.endedAtMillis >= hand.startedAtMillis
     ? Math.floor((hand.endedAtMillis - hand.startedAtMillis) / 1000) : null;
   const clock = elapsed == null ? '–' : [Math.floor(elapsed / 3600),
@@ -983,12 +845,16 @@ async function applyFilters() {
 async function initialize() {
   translate();
   changeZoom(0);
-  render();
   notice(t('loading'));
   if (!window.echarts) {
     send('broken').catch(() => {});
     return;
   }
+  await Promise.allSettled([
+    document.fonts.load('16px "Corona Locale"'),
+    document.fonts.load('16px "Corona Inter"')
+  ]);
+  render();
   await send('ready');
   await loadCatalogue();
 }

@@ -4,6 +4,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +26,9 @@ final class GdxFontRefresh implements AutoCloseable {
         return thread;
     });
     private static final long RESIZE_DEBOUNCE_NANOS = 300_000_000L;
+    private static final long REPLACEMENT_UPLOAD_BUDGET_NANOS = 2_000_000L;
+    private static final int MAX_REPLACEMENT_PAGES_PER_FRAME = 3;
+    private static final int REPLACEMENT_PREPARATION_DEPTH = 3;
 
     private GdxAdaptiveFontQuality.Profile requested;
     private long dueAt;
@@ -43,15 +47,28 @@ final class GdxFontRefresh implements AutoCloseable {
         }
     }
 
+    void replace(GdxAdaptiveFontQuality.Profile profile) {
+        if (profile.equals(requested) && dueAt == 0) return;
+        close();
+        requested = profile;
+        dueAt = 0;
+    }
+
     void update(Supplier<List<Font>> fonts,
             Consumer<GdxAdaptiveFontQuality.Profile> installed) {
-        if (requested == null || System.nanoTime() < dueAt) return;
+        update(fonts, installed, () -> { });
+    }
+
+    void update(Supplier<List<Font>> fonts,
+            Consumer<GdxAdaptiveFontQuality.Profile> installed, Runnable failed) {
+        if (requested == null || (dueAt != 0 && System.nanoTime() < dueAt)) return;
         try {
-            if (batch == null) batch = new Batch(fonts.get(), requested);
+            if (batch == null) batch = new Batch(fonts.get(), requested, dueAt == 0);
             if (!batch.advance()) return;
         } catch (RuntimeException failure) {
             close();
             LOG.log(Level.WARNING, "Could not refresh display fonts", failure);
+            failed.run();
             return;
         }
         Batch ready = batch;
@@ -115,34 +132,48 @@ final class GdxFontRefresh implements AutoCloseable {
 
         private final List<Font> fonts;
         private final GdxAdaptiveFontQuality.Profile profile;
+        private final boolean replacing;
         private final List<BitmapFont> uploaded = new ArrayList<>();
-        private CompletableFuture<GdxAdaptiveFontQuality.PreparedFont> pending;
+        private final ArrayDeque<CompletableFuture<GdxAdaptiveFontQuality.PreparedFont>>
+                pending = new ArrayDeque<>();
         private GdxAdaptiveFontQuality.PreparedFont current;
+        private int nextFont;
+        private volatile boolean closed;
 
-        Batch(List<Font> fonts, GdxAdaptiveFontQuality.Profile profile) {
+        Batch(List<Font> fonts, GdxAdaptiveFontQuality.Profile profile, boolean replacing) {
             this.fonts = fonts;
             this.profile = profile;
-            prepare(0);
+            this.replacing = replacing;
+            int depth = replacing ? REPLACEMENT_PREPARATION_DEPTH : 1;
+            for (int index = 0; index < depth; index++) prepareNextFont();
         }
 
-        private void prepare(int index) {
-            if (index == fonts.size()) return;
-            Font font = fonts.get(index);
-            pending = CompletableFuture.supplyAsync(() -> font.prepare(profile), WORKER);
+        private void prepareNextFont() {
+            if (nextFont == fonts.size()) return;
+            Font font = fonts.get(nextFont++);
+            pending.addLast(CompletableFuture.supplyAsync(
+                    () -> closed ? null : font.prepare(profile), WORKER));
         }
 
         boolean advance() {
-            if (current == null) {
-                if (!pending.isDone()) return false;
-                current = pending.join();
-                pending = null;
-                prepare(uploaded.size() + 1);
+            long started = System.nanoTime();
+            int pageLimit = replacing ? MAX_REPLACEMENT_PAGES_PER_FRAME : 1;
+            for (int page = 0; page < pageLimit; page++) {
+                if (current == null) {
+                    var prepared = pending.peekFirst();
+                    if (!prepared.isDone()) return false;
+                    current = pending.removeFirst().join();
+                    prepareNextFont();
+                }
+                if (current.uploadNextPage()) {
+                    uploaded.add(current.createFont());
+                    current.close();
+                    current = null;
+                    if (uploaded.size() == fonts.size()) return true;
+                }
+                if (System.nanoTime() - started >= REPLACEMENT_UPLOAD_BUDGET_NANOS) break;
             }
-            if (!current.uploadNextPage()) return false;
-            uploaded.add(current.createFont());
-            current.close();
-            current = null;
-            return uploaded.size() == fonts.size();
+            return false;
         }
 
         void install() {
@@ -153,11 +184,14 @@ final class GdxFontRefresh implements AutoCloseable {
 
         @Override
         public void close() {
+            closed = true;
             if (current != null) current.close();
-            if (pending != null) {
-                // This result has never been uploaded, so it can be freed by
-                // the rasterizer if the resize or scene was superseded.
-                pending.thenAccept(GdxAdaptiveFontQuality.PreparedFont::close);
+            for (var prepared : pending) {
+                // These results are still CPU-only. Release them on whichever
+                // thread finishes preparation after a resize or cancellation.
+                prepared.thenAccept(font -> {
+                    if (font != null) font.close();
+                });
             }
             for (BitmapFont font : uploaded) font.dispose();
         }

@@ -150,7 +150,9 @@ final class GdxAdaptiveFontQuality {
             if (fallback == null) {
                 data = generator.generateData(parameter);
             } else {
-                String missing = missingCharacters(generator, characters);
+                var supported = new StringBuilder(characters.length());
+                String missing = missingCharacters(generator, characters, supported);
+                parameter.characters = supported.toString();
                 data = generator.generateData(parameter, localeFonts.fontData());
                 if (!missing.isEmpty()) {
                     String remaining = addFallbackGlyphs(data, fallback, parameter, missing);
@@ -172,11 +174,13 @@ final class GdxAdaptiveFontQuality {
     }
 
     private static String missingCharacters(FreeTypeFontGenerator generator,
-            String characters) {
+            String characters, StringBuilder supported) {
         var missing = new StringBuilder();
         for (int index = 0; index < characters.length(); index++) {
             char character = characters.charAt(index);
-            if (!Character.isISOControl(character) && !generator.hasGlyph(character)) {
+            if (character == 0 || generator.hasGlyph(character)) {
+                supported.append(character);
+            } else if (!Character.isISOControl(character)) {
                 missing.append(character);
             }
         }
@@ -187,15 +191,16 @@ final class GdxAdaptiveFontQuality {
             FileHandle source, FreeTypeFontParameter parameter, String missing) {
         var generator = new FreeTypeFontGenerator(source);
         try {
-            String unsupported = missingCharacters(generator, missing);
-            if (unsupported.length() == missing.length()) return unsupported;
-            parameter.characters = missing;
+            var supported = new StringBuilder(missing.length());
+            String unsupported = missingCharacters(generator, missing, supported);
+            if (supported.isEmpty()) return unsupported;
+            parameter.characters = supported.toString();
             parameter.kerning = false;
             BitmapFont.BitmapFontData fallback = generator.generateData(parameter);
             int baselineOffset = Math.round(fallback.ascent + fallback.capHeight
                     - primary.ascent - primary.capHeight);
-            for (int index = 0; index < missing.length(); index++) {
-                char character = missing.charAt(index);
+            for (int index = 0; index < supported.length(); index++) {
+                char character = supported.charAt(index);
                 BitmapFont.Glyph glyph = fallback.getGlyph(character);
                 if (glyph != null) {
                     glyph.yoffset += baselineOffset;

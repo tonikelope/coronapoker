@@ -1,66 +1,21 @@
 (() => {
   'use strict';
 
-  const english = new URLSearchParams(location.search).get('lang') === 'en';
-  const copy = english ? {
-    local: 'Favorites', finder: 'Search', clear: 'Clear', cancel: 'Cancel',
-    receive: on => 'Received: ' + (on ? 'Yes' : 'No'),
-    question: 'Clear all favorites?',
-    purgeCache: 'Clear image cache',
-    purgeQuestion: 'Clear cached images from chat and Search? Favorites are kept.',
-    confirmPurge: size => 'Yes, clear the cache (' + size + ')',
-    cacheSizing: 'Calculating size…', cacheSizeFailed: 'Could not read the image cache size',
-    cacheEmpty: 'There are no cached images to clear',
-    cachePurged: size => 'Cache cleared (' + size + ' freed)', cacheFailed: 'Could not clear the image cache',
-    previous: 'Previous', next: 'Next', page: (n, total) => 'Page ' + n + ' / ' + total,
-    searchPage: n => 'Page ' + n, loadingMore: 'Looking for more images…',
-    moreError: 'Could not load more images. Try again.',
-    localEmpty: 'No favorites yet', localHelp: 'Find images or GIFs to add to your favorites.',
-    sendImage: 'Send image to chat', sendFailed: 'Could not send', unavailable: 'Unavailable',
-    removeImage: 'Remove from favorites', removeFailed: 'Could not remove', clearSearch: 'Clear search field',
-    history: 'Saved searches', removeSearch: term => 'Delete search: ' + term,
-    search: 'Search', query: 'Search for images or GIFs',
-    instructions: 'Click an image to send it.',
-    initial: 'Find an image or GIF', loading: 'Searching…',
-    empty: 'No images found', emptyDetail: 'Try a different search.',
-    error: 'Search could not load', errorDetail: 'Try again in a moment.',
-    limited: 'The search provider has limited requests', limitedDetail: 'The request received HTTP 429. Try again later.',
-    retryAfter: seconds => 'Wait ' + seconds + ' s before searching again',
-    unusual: 'The provider detected unusual traffic', unusualDetail: 'Search is temporarily paused.',
-    consent: 'The provider requires confirmation', consentDetail: 'The search stopped at the provider’s consent screen.',
-    add: 'Add to favorites', saving: 'Saving…', saved: 'In favorites', failed: 'Try again',
-    saveError: 'This image could not be downloaded. Try again or choose another result.'
-  } : {
-    local: 'Favoritos', finder: 'Buscador', clear: 'Vaciar', cancel: 'Cancelar',
-    receive: on => 'Recibidas: ' + (on ? 'Sí' : 'No'),
-    question: '¿Vaciar todas las favoritas?',
-    purgeCache: 'Purgar caché de imágenes',
-    purgeQuestion: '¿Purgar las imágenes en caché del chat y del Buscador? Se conservan los favoritos.',
-    confirmPurge: size => 'Sí, purgar la caché (' + size + ')',
-    cacheSizing: 'Calculando tamaño…', cacheSizeFailed: 'No se pudo calcular el tamaño de la caché',
-    cacheEmpty: 'No hay imágenes temporales que purgar',
-    cachePurged: size => 'Caché purgada (' + size + ' liberados)', cacheFailed: 'No se pudo purgar la caché de imágenes',
-    previous: 'Anterior', next: 'Siguiente', page: (n, total) => 'Página ' + n + ' / ' + total,
-    searchPage: n => 'Página ' + n, loadingMore: 'Buscando más imágenes…',
-    moreError: 'No se pudieron cargar más imágenes. Vuelve a intentarlo.',
-    localEmpty: 'Todavía no tienes favoritas', localHelp: 'Busca imágenes o GIF para añadirlos a favoritas.',
-    sendImage: 'Enviar imagen al chat', sendFailed: 'No se pudo enviar', unavailable: 'No disponible',
-    removeImage: 'Quitar de favoritas', removeFailed: 'No se pudo borrar', clearSearch: 'Borrar texto de búsqueda',
-    history: 'Búsquedas guardadas', removeSearch: term => 'Borrar búsqueda: ' + term,
-    search: 'Buscar', query: 'Busca imágenes o GIF',
-    instructions: 'Pulsa una imagen para enviarla al chat.',
-    initial: 'Encuentra una imagen o un GIF', loading: 'Buscando…',
-    empty: 'No se encontraron imágenes', emptyDetail: 'Prueba con otra búsqueda.',
-    error: 'No se pudo cargar la búsqueda', errorDetail: 'Vuelve a intentarlo en un momento.',
-    limited: 'El proveedor ha limitado las búsquedas', limitedDetail: 'La consulta recibió HTTP 429. Vuelve a intentarlo más tarde.',
-    retryAfter: seconds => 'Espera ' + seconds + ' s antes de buscar de nuevo',
-    unusual: 'El proveedor detectó tráfico inusual', unusualDetail: 'La búsqueda se ha pausado temporalmente.',
-    consent: 'El proveedor pide confirmación', consentDetail: 'La consulta se detuvo en la pantalla de consentimiento.',
-    add: 'Añadir a favoritas', saving: 'Guardando…', saved: 'En favoritas', failed: 'Reintentar',
-    saveError: 'No se pudo descargar esta imagen. Reintenta o elige otro resultado.'
+  const {locale, labels} = window.coronaCopy;
+  const number = new Intl.NumberFormat(locale);
+  const format = (pattern, ...values) => pattern.replace(/\{(\d+)\}/g, (_, index) => values[index]);
+  const copy = {
+    ...labels,
+    receive: on => format(labels.receive, on ? labels.yes : labels.no),
+    confirmPurge: size => format(labels.confirmPurge, size),
+    cachePurged: size => format(labels.cachePurged, size),
+    page: (n, total) => format(labels.page, number.format(n), number.format(total)),
+    searchPage: n => format(labels.searchPage, number.format(n)),
+    removeSearch: term => format(labels.removeSearch, term),
+    retryAfter: seconds => format(labels.retryAfter, number.format(seconds))
   };
 
-  document.documentElement.lang = english ? 'en' : 'es';
+  document.documentElement.lang = locale;
   const el = id => document.getElementById(id);
   const input = el('query');
   const submit = el('submit');
@@ -76,7 +31,7 @@
   const purgeConfirm = el('search-cache-confirm');
   const purgeConfirmButton = el('confirm-search-cache');
   const purgeStatus = el('search-cache-status');
-  const sizeFormat = new Intl.NumberFormat(english ? 'en' : 'es', {maximumFractionDigits: 2});
+  const sizeFormat = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
   const pageSize = 12;
   const searchPages = new Map();
   let searchTabs = [];
@@ -467,7 +422,7 @@
       const next = JSON.parse(await query('gallery'));
       if (sequence !== refreshSequence) return;
       gallery = next;
-      localTab.textContent = `${copy.local} (${next.size})`;
+      localTab.textContent = `${copy.local} (${number.format(next.size)})`;
       if (el('local').hidden) return;
       if (drawnRevision !== next.revision) drawLocal();
       else {

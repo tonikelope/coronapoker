@@ -44,6 +44,33 @@ const schema = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script define:vars={{ routes }}>
+      const url = new URL(window.location.href);
+      const requested = url.searchParams.get('lang');
+      const isSupported = language => Object.hasOwn(routes, language);
+      const selection = isSupported(requested) ? requested : null;
+      const key = 'coronapoker-language';
+      let saved = null;
+
+      try {
+        if (selection) localStorage.setItem(key, selection);
+        saved = localStorage.getItem(key);
+      } catch {
+        // The explicit URL and browser preferences still work if storage is blocked.
+      }
+
+      if (url.pathname === routes.en) {
+        const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+        const preferred = languages
+          .map(language => language?.toLowerCase().split('-')[0])
+          .find(isSupported);
+        const language = selection ?? (isSupported(saved) ? saved : preferred) ?? 'en';
+
+        if (language !== 'en') {
+          window.location.replace(routes[language] + url.search + url.hash);
+        }
+      }
+    </script>
     <title>{t.title}</title>
     <meta name="description" content={t.description} />
     <meta name="theme-color" content="#100e11" />
@@ -76,7 +103,7 @@ const schema = {
           {nav.map(([href, label]) => <a {href}>{label}</a>)}
         </nav>
         <div class="header-actions">
-          <a class="language" href={routes[altLang]} hreflang={altLang} lang={altLang} aria-label={altLang === 'es' ? 'Versión en español' : 'English version'}>
+          <a class="language" href={`${routes[altLang]}?lang=${altLang}`} hreflang={altLang} lang={altLang} aria-label={altLang === 'es' ? 'Versión en español' : 'English version'}>
             <span aria-hidden="true">{altLang.toUpperCase()}</span>
           </a>
           <a class="header-get" href="#download">{t.download} <span aria-hidden="true">↓</span></a>

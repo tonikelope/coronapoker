@@ -1,0 +1,15 @@
+---
+import { gallery } from '../content';
+
+interface Props {
+  index: number;
+  alt: string;
+  sizes: string;
+  class?: string;
+}
+
+const { index, alt, sizes, class: className } = Astro.props;
+const { id, width, height } = gallery[index];
+const candidates = [640, 960, 1280, width].map(size => `/media/${id}-${size}.webp ${size}w`).join(', ');
+---
+<img class={className} src={`/media/${id}-1280.webp`} srcset={candidates} {sizes} {width} {height} {alt} loading="lazy" decoding="async" />

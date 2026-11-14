@@ -1,0 +1,245 @@
+---
+import '@fontsource-variable/inter';
+import '../styles/site.css';
+import { author, copy, docs, gallery, release, releases, repo, routes, site, type Locale } from '../content';
+import Capture from './Capture.astro';
+import Features from './Features.astro';
+import MentalPoker from './MentalPoker.astro';
+
+interface Props { lang: Locale }
+const { lang } = Astro.props;
+const t = copy[lang];
+const altLang = lang === 'en' ? 'es' : 'en';
+const canonical = site + routes[lang];
+const nav = [
+  ['#game', t.tableNav],
+  ['#mental-poker', 'Mental Poker'],
+  ['#features', t.features.nav],
+  ['#gallery', t.galleryNav],
+];
+const footerLinks = [
+  [repo, 'GitHub'],
+  [`${docs}/README.md`, t.docs],
+  [`${docs}/LICENSE`, t.license],
+  [`${docs}/CONTRIBUTORS.md`, t.credits],
+];
+const ogLocale = { en: 'en_US', es: 'es_ES' };
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'CoronaPoker',
+  description: t.description,
+  url: canonical,
+  image: `${site}/media/share.jpg`,
+  inLanguage: lang,
+  genre: 'No-Limit Texas Hold’em',
+  gamePlatform: ['Windows', 'macOS', 'Linux'],
+  author: { '@type': 'Person', name: 'tonikelope', url: author },
+  license: `${docs}/LICENSE`,
+  mainEntityOfPage: canonical,
+};
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{t.title}</title>
+    <meta name="description" content={t.description} />
+    <meta name="theme-color" content="#100e11" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="canonical" href={canonical} />
+    {Object.entries(routes).map(([language, path]) => <link rel="alternate" hreflang={language} href={site + path} />)}
+    <link rel="alternate" hreflang="x-default" href={site + routes.en} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CoronaPoker" />
+    <meta property="og:title" content={t.title} />
+    <meta property="og:description" content={t.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={ogLocale[lang]} />
+    <meta property="og:locale:alternate" content={ogLocale[altLang]} />
+    <meta property="og:image" content={`${site}/media/share.jpg`} />
+    <meta property="og:image:alt" content={t.shareAlt} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t.skip}</a>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a href={routes[lang]} class="brand" aria-label={lang === 'en' ? 'CoronaPoker home' : 'Inicio de CoronaPoker'}>
+          <img src="/media/brand-small.webp" alt="" width="192" height="113" />
+        </a>
+        <nav class="desktop-nav" aria-label={t.nav}>
+          {nav.map(([href, label]) => <a {href}>{label}</a>)}
+        </nav>
+        <div class="header-actions">
+          <a class="language" href={routes[altLang]} hreflang={altLang} lang={altLang} aria-label={altLang === 'es' ? 'Versión en español' : 'English version'}>
+            <span aria-hidden="true">{altLang.toUpperCase()}</span>
+          </a>
+          <a class="header-get" href="#download">{t.download} <span aria-hidden="true">↓</span></a>
+          <details class="mobile-nav">
+            <summary aria-label={t.menu}><span></span><span></span><span></span></summary>
+            <nav aria-label={t.nav}>
+              {nav.map(([href, label]) => <a {href}>{label}</a>)}
+              <a href="#download">{t.download}</a>
+            </nav>
+          </details>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <picture class="hero-art">
+          <source media="(max-width: 680px)" srcset="/media/hero-mobile-640.webp 640w, /media/hero-mobile-1000.webp 1000w" sizes="100vw" />
+          <img src="/media/hero-1536.webp" srcset="/media/hero-1024.webp 1024w, /media/hero-1536.webp 1536w" sizes="100vw" width="1536" height="1024" alt="" fetchpriority="high" />
+        </picture>
+        <div class="wrap hero-inner">
+          <div class="hero-copy">
+            <img class="hero-brand" src="/media/brand.webp" srcset="/media/brand-medium.webp 384w, /media/brand.webp 640w, /media/brand-large.webp 1024w" sizes="(max-width: 680px) 183px, (max-width: 1519px) 24vw, 365px" width="640" height="375" alt="CoronaPoker" />
+            <p class="eyebrow"><span></span>{t.heroLabel}</p>
+            <h1 id="hero-title">{t.heroTitle}</h1>
+            <p class="tagline">{t.tagline}</p>
+            <div class="hero-actions">
+              <a class="button primary" href="#download">{t.primary} <span aria-hidden="true">↓</span></a>
+              <a class="button secondary" href={repo} target="_blank" rel="noopener">{t.source} <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+          <div class="hero-foot">
+            <a class="explore" href="#game"><span aria-hidden="true">↓</span> {t.explore}</a>
+            <span class="hero-platforms">Windows <i></i> macOS <i></i> Linux</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="game section-space" id="game" aria-labelledby="game-title">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <div><p class="eyebrow"><span></span>{t.tableNav}</p><h2 id="game-title">{t.tableTitle}</h2></div>
+            <div><p class="body-copy">{t.tableText}</p><p class="note">{t.tableNote}</p></div>
+          </div>
+          <figure class="game-feature reveal">
+            <a href={`/media/${gallery[0].id}-${gallery[0].width}.webp`} data-shot="0">
+              <Capture index={0} alt={t.galleryItems[0][1]} sizes="(max-width: 1250px) 92vw, 1180px" />
+              <span class="expand-icon" aria-hidden="true">↗</span>
+            </a>
+            <figcaption><span><i></i>{t.capture}</span><span>No-Limit Hold’em</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <MentalPoker text={t.mental} />
+
+      <section class="bots section-space" aria-labelledby="bots-title">
+        <div class="wrap bot-layout reveal">
+          <div class="bot-copy">
+            <p class="eyebrow"><span></span>{t.botLabel}</p>
+            <h2 id="bots-title">{t.botTitle}</h2>
+            <p class="body-copy">{t.botText}</p>
+            <dl class="bot-styles">
+              {t.botStyles.map(([name, label]) => <div><dt>{name}</dt><dd>{label}</dd></div>)}
+            </dl>
+            <a href={`${docs}/docs/BOTS.md`} target="_blank" rel="noopener" class="text-link">{t.botLink} <span aria-hidden="true">↗</span></a>
+          </div>
+          <figure class="bot-feature">
+            <a href={`/media/${gallery[3].id}-${gallery[3].width}.webp`} data-shot="3">
+              <Capture index={3} alt={t.galleryItems[3][1]} sizes="(max-width: 800px) 92vw, 720px" />
+              <span class="expand-icon" aria-hidden="true">↗</span>
+            </a>
+            <figcaption><span><i></i>{t.capture}</span><span>{t.galleryItems[3][0]}</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <Features {lang} text={t} />
+
+      <section class="gallery-section section-space" id="gallery" aria-labelledby="gallery-title">
+        <div class="wrap">
+          <div class="section-head gallery-head reveal">
+            <h2 id="gallery-title">{t.galleryTitle}</h2>
+            <p class="body-copy">{t.galleryText}</p>
+          </div>
+          <div class="gallery-grid reveal">
+            {gallery.map((shot, index) => (
+              <figure>
+                <a href={`/media/${shot.id}-${shot.width}.webp`} data-shot={index} data-gallery-entry>
+                  <Capture {index} alt={t.galleryItems[index][1]} sizes="(max-width: 580px) 92vw, (max-width: 850px) 46vw, 390px" />
+                  <span class="expand-icon" aria-hidden="true">↗</span>
+                </a>
+                <figcaption>{t.galleryItems[index][0]}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="download section-space" id="download" aria-labelledby="download-title">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <div><p class="eyebrow"><span></span>{t.getLabel}</p><h2 id="download-title">{t.getTitle}</h2></div>
+            <p class="body-copy">{t.getText}</p>
+          </div>
+          <div class="platforms reveal">
+            {t.platforms.map(([name, arch, description]) => (
+              <a href={release} target="_blank" rel="noopener" class="platform" aria-label={`${t.platformLink} · ${name}`}>
+                <span class="platform-name">{name}</span>
+                <span class="platform-arch">{arch}</span>
+                <span class="platform-description">{description}</span>
+                <span class="platform-action">{t.platformLink} <span aria-hidden="true">↗</span></span>
+              </a>
+            ))}
+          </div>
+          <div class="download-footer">
+            <details class="install">
+              <summary>{t.installTitle}</summary>
+              <p>{t.installText}</p>
+              <code>java -jar CoronaPoker_VERSION.jar</code>
+            </details>
+            <a class="text-link" href={releases} target="_blank" rel="noopener">{t.allReleases} <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="open-source" aria-labelledby="open-title">
+        <div class="wrap open-layout reveal">
+          <div><p class="eyebrow"><span></span> GPL v3</p><h2 id="open-title">{t.openTitle}</h2></div>
+          <div>
+            <p class="body-copy">{t.openText}</p>
+            <a class="text-link" href={repo} target="_blank" rel="noopener">{t.source} <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <a class="brand" href={routes[lang]} aria-label={lang === 'en' ? 'CoronaPoker home' : 'Inicio de CoronaPoker'}>
+          <img src="/media/brand-small.webp" alt="" width="192" height="113" loading="lazy" />
+        </a>
+        <nav aria-label={lang === 'en' ? 'Project links' : 'Enlaces del proyecto'}>
+          {footerLinks.map(([href, label]) => <a {href} target="_blank" rel="noopener">{label}</a>)}
+        </nav>
+        <p>© 2020–{new Date().getUTCFullYear()} <a href={author} target="_blank" rel="noopener">tonikelope</a></p>
+      </div>
+    </footer>
+
+    <dialog class="lightbox" id="lightbox" aria-labelledby="lightbox-title">
+      <div class="lightbox-shell">
+        <div class="lightbox-bar">
+          <h2 id="lightbox-title"></h2>
+          <button type="button" class="icon-button" data-close aria-label={t.close} autofocus>×</button>
+        </div>
+        <img data-full alt="" />
+        <div class="lightbox-bar">
+          <button type="button" class="icon-button" data-previous aria-label={t.previous}>←</button>
+          <a data-original class="text-link" href={`/media/${gallery[0].id}-${gallery[0].width}.webp`} target="_blank" rel="noopener">{t.fullSize} <span aria-hidden="true">↗</span></a>
+          <button type="button" class="icon-button" data-next aria-label={t.next}>→</button>
+        </div>
+      </div>
+    </dialog>
+    <script src="../scripts/site.ts"></script>
+  </body>
+</html>

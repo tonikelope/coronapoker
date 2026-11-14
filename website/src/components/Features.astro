@@ -1,0 +1,88 @@
+---
+import { docs, featureCategories, gallery, gameLanguages, type copy, type Locale } from '../content';
+import Capture from './Capture.astro';
+
+interface Props {
+  lang: Locale;
+  text: (typeof copy)[Locale];
+}
+
+const { lang, text } = Astro.props;
+const { features } = text;
+const links = {
+  rules: { href: `${docs}/${lang === 'es' ? 'robert_rules_es.pdf' : 'robert_rules.pdf'}`, label: text.rules },
+  stats: { href: `${docs}/README.md#-statistics--history`, label: features.statsLink },
+  customization: { href: `${docs}/docs/MODS.md`, label: text.mods },
+  video: { href: `${docs}/docs/JCEF_VIDEO_EXPERIMENT.md`, label: features.videosLink },
+  languages: null,
+  social: null,
+};
+const sampleBalance = [25, 33, 28, 44, 52, 47, 68, 57, 73, 72, 88, 95];
+---
+<section class="features section-space" id="features" aria-labelledby="features-title" data-features>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div>
+        <p class="eyebrow"><span></span>{features.nav}</p>
+        <h2 id="features-title">{features.title}</h2>
+      </div>
+      <p class="body-copy">{features.intro}</p>
+    </div>
+    <div class="feature-tabs" role="tablist" aria-label={features.nav} data-feature-tabs hidden>
+      {featureCategories.map(({ id, suit }, index) => (
+        <button type="button" role="tab" id={`feature-tab-${id}`} aria-controls={`feature-${id}`} aria-selected={index === 0} tabindex={index === 0 ? 0 : -1}>
+          <span aria-hidden="true">{suit}</span>{features.categories[id].name}
+        </button>
+      ))}
+    </div>
+    {featureCategories.map(({ id, shot }) => {
+      const category = features.categories[id];
+      const link = links[id];
+      const image = shot !== null ? gallery[shot] : null;
+      return (
+        <article class="feature-panel" id={`feature-${id}`} aria-labelledby={`feature-title-${id}`} data-feature-panel>
+          <div class="feature-copy">
+            <p class="feature-category">{category.name}</p>
+            <h3 id={`feature-title-${id}`}>{category.title}</h3>
+            <dl class="feature-list">
+              {category.items.map(([name, detail]) => (
+                <div><dt>{name}</dt><dd>{detail}</dd></div>
+              ))}
+            </dl>
+            {link && <a class="text-link" href={link.href} target="_blank" rel="noopener">{link.label} <span aria-hidden="true">↗</span></a>}
+          </div>
+          {image && shot !== null ? (
+            <figure class="feature-media">
+              <a href={`/media/${image.id}-${image.width}.webp`} data-shot={shot}>
+                <Capture index={shot} alt={text.galleryItems[shot][1]} sizes="(max-width: 850px) 92vw, (max-width: 1300px) 50vw, 650px" />
+                <span class="expand-icon" aria-hidden="true">↗</span>
+              </a>
+              <figcaption><span><i></i>{text.capture}</span><span>{text.galleryItems[shot][0]}</span></figcaption>
+            </figure>
+          ) : id === 'stats' ? (
+            <figure class="feature-chart">
+              <div class="balance-chart">
+                <p>{features.chartTitle}</p>
+                <div class="balance-bars" aria-hidden="true">
+                  {sampleBalance.map(height => <span style={`--balance:${height}%`}></span>)}
+                </div>
+                <div class="balance-axis" aria-hidden="true"><span>{features.chartStart}</span><span>{features.chartEnd}</span></div>
+              </div>
+              <figcaption><span><i></i>{features.chartCaption}</span></figcaption>
+            </figure>
+          ) : (
+            <div class="feature-languages" role="group" aria-label={features.languageList}>
+              <div class="language-count">
+                <strong>{gameLanguages.length}</strong>
+                <p>{features.languageList}</p>
+              </div>
+              <ul class="language-list">
+                {gameLanguages.map(([code, name]) => <li lang={code}>{name}</li>)}
+              </ul>
+            </div>
+          )}
+        </article>
+      );
+    })}
+  </div>
+</section>

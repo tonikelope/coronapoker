@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Texture;
 import java.awt.Rectangle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Thread boundary between JCEF paint callbacks and the libGDX OpenGL thread.
@@ -24,7 +25,7 @@ public final class PokerVideoFrameBuffer {
     private static final int GL_UNPACK_SKIP_ROWS = 0x0CF3;
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
 
-    private final Object lock = new Object();
+    private final ReentrantLock lock = new ReentrantLock();
     private final int[] dirtyX = new int[MAX_DIRTY_RECTS];
     private final int[] dirtyY = new int[MAX_DIRTY_RECTS];
     private final int[] dirtyWidth = new int[MAX_DIRTY_RECTS];
@@ -39,7 +40,7 @@ public final class PokerVideoFrameBuffer {
     private boolean closed;
     private boolean popupVisible;
     private Rectangle popupRectangle = new Rectangle();
-    private Texture texture;
+    private volatile Texture texture;
     private int textureWidth;
     private int textureHeight;
     private volatile int cursorType;
@@ -53,7 +54,8 @@ public final class PokerVideoFrameBuffer {
 
     public void onPaint(boolean popup, Rectangle[] dirtyRects, ByteBuffer source, int sourceWidth,
             int sourceHeight) {
-        synchronized (lock) {
+        lock.lock();
+        try {
             if (!acceptingFrames || sourceWidth <= 0 || sourceHeight <= 0) return;
             if (popup) {
                 copyPopup(source, sourceWidth, sourceHeight, dirtyRects);
@@ -62,6 +64,8 @@ public final class PokerVideoFrameBuffer {
                 copyView(source, sourceWidth, sourceHeight, dirtyRects);
             }
             copiedFrames++;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -174,7 +178,10 @@ public final class PokerVideoFrameBuffer {
 
     /** Retains the previous texture until the browser paints the requested viewport. */
     public Texture uploadPendingFrame(int expectedWidth, int expectedHeight) {
-        synchronized (lock) {
+        // CEF may be copying a large repaint on its own thread. Keep the
+        // previous texture for this frame and retry with all dirty data intact.
+        if (!lock.tryLock()) return texture;
+        try {
             if (pixels == null) return texture;
             if (expectedWidth > 0 && (Math.abs(width - expectedWidth) > 1
                     || Math.abs(height - expectedHeight) > 1)) return texture;
@@ -222,6 +229,8 @@ public final class PokerVideoFrameBuffer {
             fullDirty = false;
             dirtyCount = 0;
             return texture;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -237,7 +246,8 @@ public final class PokerVideoFrameBuffer {
     }
 
     public void setAcceptingFrames(boolean accepting) {
-        synchronized (lock) {
+        lock.lock();
+        try {
             acceptingFrames = accepting && !closed;
             if (!acceptingFrames) {
                 dirtyCount = 0;
@@ -245,18 +255,26 @@ public final class PokerVideoFrameBuffer {
             } else if (pixels != null) {
                 fullDirty = true;
             }
+        } finally {
+            lock.unlock();
         }
     }
 
     public void setPopupVisible(boolean visible) {
-        synchronized (lock) {
+        lock.lock();
+        try {
             popupVisible = visible;
+        } finally {
+            lock.unlock();
         }
     }
 
     public void setPopupRectangle(Rectangle rectangle) {
-        synchronized (lock) {
+        lock.lock();
+        try {
             popupRectangle = rectangle == null ? new Rectangle() : new Rectangle(rectangle);
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -269,14 +287,20 @@ public final class PokerVideoFrameBuffer {
     }
 
     public int width() {
-        synchronized (lock) {
+        lock.lock();
+        try {
             return width;
+        } finally {
+            lock.unlock();
         }
     }
 
     public int height() {
-        synchronized (lock) {
+        lock.lock();
+        try {
             return height;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -297,26 +321,34 @@ public final class PokerVideoFrameBuffer {
     }
 
     public Texture texture() {
-        synchronized (lock) {
-            return texture;
-        }
+        return texture;
     }
 
     public void dispose() {
-        synchronized (lock) {
-            if (texture != null) {
-                texture.dispose();
-                texture = null;
-            }
-            pixels = null;
+        lock.lock();
+        try {
+            disposeBuffer();
+        } finally {
+            lock.unlock();
         }
     }
 
     void close() {
-        synchronized (lock) {
+        lock.lock();
+        try {
             closed = true;
             acceptingFrames = false;
-            dispose();
+            disposeBuffer();
+        } finally {
+            lock.unlock();
         }
+    }
+
+    private void disposeBuffer() {
+        if (texture != null) {
+            texture.dispose();
+            texture = null;
+        }
+        pixels = null;
     }
 }

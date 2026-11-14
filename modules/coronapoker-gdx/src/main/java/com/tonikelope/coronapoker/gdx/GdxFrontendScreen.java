@@ -471,6 +471,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShapeRenderer shapes;
     private Texture feltTexture;
     private boolean secretFeltTexture;
+    private String loadedFelt;
+    private boolean loadedSecretFelt;
     private Texture logo;
     private Texture avatarDefault;
     private Texture avatarBot;
@@ -839,6 +841,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean screenshotOperationPending;
     private boolean screenshotDeleteConfirmation;
     private long screenshotGeneration;
+    private CompletableFuture<List<GdxScreenshotStore.Shot>> screenshotScan;
+    private int screenshotScanIndex;
+    private String screenshotMetadata = "";
 
     GdxFrontendScreen(PreferencesService preferences,
             NewGameSessionGateway gateway, RecoverableGameRepository recoverableGames,
@@ -956,6 +961,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         soundDisabledCue = loadModAwareSound("misc/button_off.wav");
         participantJoinedCue = loadModAwareSound("misc/laser.wav");
         participantLeftCue = loadModAwareSound("misc/toilet.wav");
+        // The first startup cue otherwise loads during the intro light-up.
+        if (preferenceBoolean("sonido_arranque", true)) {
+            preloadPreferenceSound("misc/init.wav");
+        }
         backgroundMusic = music("sounds/misc/background_music.mp3", 0.40f);
         waitingRoomMusic = music("sounds/misc/waiting_room.mp3", 0.90f);
         aboutMusic = music("sounds/misc/about_music.mp3", 0.90f);
@@ -1005,7 +1014,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Reloads a felt changed from the live table before revealing this screen. */
     void refreshFeltFromSettings() {
-        if (feltTexture == null) return;
+        if (feltTexture == null || (presentationSettings.felt().equals(loadedFelt)
+                && presentationSettings.secretFelt() == loadedSecretFelt)) return;
         Texture replacement = loadFeltTexture();
         Texture previous = feltTexture;
         feltTexture = replacement;
@@ -1013,10 +1023,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private Texture loadFeltTexture() {
-        if (presentationSettings.secretFelt()) {
+        String felt = presentationSettings.felt();
+        boolean secretRequested = presentationSettings.secretFelt();
+        if (secretRequested) {
             try {
                 Texture secret = GdxSecretFelt.texture();
                 secretFeltTexture = true;
+                loadedFelt = felt;
+                loadedSecretFelt = true;
                 return secret;
             } catch (Exception failure) {
                 LOGGER.log(Level.WARNING,
@@ -1025,9 +1039,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         secretFeltTexture = false;
         Texture normal = new Texture(Gdx.files.internal("images/tapete_"
-                + presentationSettings.felt() + ".jpg"));
+                + felt + ".jpg"));
         normal.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
         normal.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        loadedFelt = felt;
+        loadedSecretFelt = false;
         return normal;
     }
 
@@ -1044,7 +1060,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private List<GdxFontRefresh.Font> displayFonts() {
         var mclaren = Gdx.files.internal("fonts/McLaren-Regular.ttf");
         var mono = GdxMonospaceFonts.source(false);
-        var bold = GdxMonospaceFonts.source(true);
+        var debugRegular = Gdx.files.internal("fonts/Montserrat-SemiBold.ttf");
+        var debugBold = Gdx.files.internal("fonts/Montserrat-Bold.ttf");
         Color border = new Color(0x02050ccc);
         String characters = GdxAdaptiveFontQuality.charactersWith(
                 FRONTEND_EXTRA_FONT_CHARACTERS);
@@ -1103,11 +1120,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         font -> versionFont = replaceFont(versionFont, font)),
                 GdxFrameRateOverlayStyle.fontSpec(mono,
                         font -> fpsFont = replaceFont(fpsFont, font)),
-                new GdxFontRefresh.Font(mono,
+                new GdxFontRefresh.Font(debugRegular,
                         20, 0f,
                         border, characters,
                         font -> debugLogFont = replaceFont(debugLogFont, font)),
-                new GdxFontRefresh.Font(bold,
+                new GdxFontRefresh.Font(debugBold,
                         20, 0f,
                         border, characters,
                         font -> debugLogBoldFont = replaceFont(debugLogBoldFont, font)));
@@ -1122,6 +1139,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void installFontProfile(GdxAdaptiveFontQuality.Profile profile) {
         lobbyChatLayout = null;
+        settingsDebugWrapWidth = -1f;
         actionButtonFontTiers = new GdxCrispButtonText.FontTiers(
                 actionFont, uiFont, buttonMediumFont, buttonCompactFont,
                 smallFont, buttonTinyFont, tinyFont, versionFont);
@@ -1250,7 +1268,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public void render() {
         GdxPixelText.beginFrame();
         refreshFontQualityIfDue();
-        if (surface == Surface.SCREENSHOTS) updateScreenshotPreview();
+        if (surface == Surface.SCREENSHOTS) {
+            updateScreenshotFiles();
+            updateScreenshotPreview();
+        }
         frameDelta = Math.min(Gdx.graphics.getDeltaTime(), 1f / 20f);
         refreshPointerFromDevice();
         prepareFrontendGraphicsState();
@@ -2352,11 +2373,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         lastLobbyNoticeIdentity = "";
-        if (lobby.host()) {
-            List<String> addresses = hostAddressOptions.size() > 1
-                    ? hostAddressOptions : GdxLocalServerAddresses.discover();
-            lobbyLocalAddress = GdxLocalServerAddresses.preferredAddress(addresses);
-        }
+        if (lobby.host()) resolveLobbyLocalAddress(session);
         loadLobbyPublicAddress(lobby.host());
         clearActiveField();
         activateSurface(Surface.LOBBY);
@@ -2390,6 +2407,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 handleLobbyMedia(next);
             }
         }));
+    }
+
+    private void resolveLobbyLocalAddress(LobbySession session) {
+        List<String> cachedAddresses = hostAddressOptions;
+        if (cachedAddresses.size() == 2) {
+            lobbyLocalAddress = cachedAddresses.get(1);
+            return;
+        }
+        CompletableFuture.supplyAsync(() -> GdxLocalServerAddresses.preferredAddress(
+                cachedAddresses.size() > 1 ? cachedAddresses
+                        : GdxLocalServerAddresses.discover()), networkInfoExecutor)
+                .thenAccept(address -> Gdx.app.postRunnable(() -> {
+                    if (!disposed && lobbySession == session) lobbyLocalAddress = address;
+                }));
     }
 
     static boolean shouldPlayLobbyConnectionSound(
@@ -2757,6 +2788,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void closeScreenshotViewer() {
         screenshotGeneration++;
+        screenshotScan = null;
         screenshotPreview.close();
         disposeScreenshotTexture();
         screenshots = List.of();
@@ -2769,16 +2801,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void refreshScreenshotFiles(int preferredIndex) {
+        screenshots = List.of();
+        screenshotIndex = 0;
+        screenshotError = "";
+        screenshotPreview.close();
+        disposeScreenshotTexture();
+        screenshotScanIndex = preferredIndex;
+        screenshotScan = GdxScreenshotStore.scanAsync();
+    }
+
+    private void updateScreenshotFiles() {
+        var completed = screenshotScan;
+        if (completed == null || !completed.isDone()) return;
+        screenshotScan = null;
         try {
-            screenshots = GdxScreenshotStore.scan();
-            screenshotError = "";
-        } catch (IOException failure) {
-            screenshots = List.of();
+            screenshots = completed.join();
+        } catch (RuntimeException failure) {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.folder_failed"));
         }
         screenshotIndex = screenshots.isEmpty() ? 0
-                : MathUtils.clamp(preferredIndex, 0,
+                : MathUtils.clamp(screenshotScanIndex, 0,
                         screenshots.size() - 1);
         loadScreenshotTexture();
     }
@@ -2799,7 +2842,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         screenshotError = "";
         screenshotIndex = MathUtils.clamp(screenshotIndex, 0,
                 screenshots.size() - 1);
-        screenshotPreview.request(screenshots.get(screenshotIndex).file());
+        var shot = screenshots.get(screenshotIndex);
+        screenshotMetadata = GdxScreenshotStore.displayTitle(shot,
+                screenshotIndex, screenshots.size(), gameText.language());
+        screenshotPreview.request(shot.file());
     }
 
     private void updateScreenshotPreview() {
@@ -2901,9 +2947,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("menu.visor_capturas")),
                 WIDTH / 2f, 1040f, GOLD, true, 1080f);
         if (!screenshots.isEmpty()) {
-            textFit(smallFont, GdxScreenshotStore.displayTitle(
-                    screenshots.get(screenshotIndex), screenshotIndex,
-                    screenshots.size(), gameText.language()),
+            textFit(smallFont, screenshotMetadata,
                     WIDTH / 2f, 980f, Color.WHITE, true, 1120f);
         }
 
@@ -2917,7 +2961,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     bounds.width, bounds.height));
         }
         String message = !screenshotError.isBlank() ? screenshotError
-                : screenshotPreview.loading()
+                : screenshotScan != null || screenshotPreview.loading()
                         ? gameText.translate("gdx.loading")
                 : screenshots.isEmpty()
                         ? uppercase(gameText.translate("ui.no_capturas")) : "";
@@ -8748,6 +8792,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Clears every transient whose ownership ends with the lobby screen. */
     private void clearLobbyScreenState() {
+        lobbyLocalAddress = GdxLocalServerAddresses.LOOPBACK_NAME;
         lobbyChatHistory.clear();
         lobbyChatLayout = null;
         lobbyCommandPending = false;
@@ -11035,7 +11080,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         ? debugLogBoldFont : debugLogFont;
                 settingsDebugTexts.add(new TextItem(font, run.text(),
                         runX, lineY, new Color(run.foreground()), false));
-                runX += textWidth(font, run.text());
+                runX += settingsDebugRunWidth(font, run.text());
             }
         }
         settingsDebugViewport.set(viewportBounds);
@@ -11071,10 +11116,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             settingsDebugWrapWidth = width;
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width,
-                    run -> textWidth(run.bold()
+                    run -> settingsDebugRunWidth(run.bold()
                             ? debugLogBoldFont : debugLogFont, run.text()));
         }
         return settingsDebugVisualCache;
+    }
+
+    private float settingsDebugRunWidth(BitmapFont font, String text) {
+        String content = text.stripTrailing();
+        return textWidth(font, content)
+                + (text.length() - content.length()) * font.getData().spaceXadvance;
     }
 
     private void copySettingsDebugLog() {
@@ -11146,16 +11197,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void playPreferenceSound(String resource, String preferenceKey,
             float volume) {
         if (!preferenceBoolean(preferenceKey, true)
-                || failedPreferenceSoundCues.contains(resource)) return;
+                || !audioOutputAvailable() || !audioControl.enabled()
+                || !preferenceBoolean("sonido_efectos", true)) return;
+        Sound sound = preloadPreferenceSound(resource);
+        if (sound != null) playFrontendSound(sound, volume);
+    }
+
+    private Sound preloadPreferenceSound(String resource) {
+        if (failedPreferenceSoundCues.contains(resource)) return null;
         try {
-            Sound sound = preferenceSoundCues.computeIfAbsent(resource,
+            return preferenceSoundCues.computeIfAbsent(resource,
                     this::loadModAwareSound);
-            playFrontendSound(sound, volume);
         } catch (RuntimeException failure) {
             failedPreferenceSoundCues.add(resource);
             LOGGER.log(Level.WARNING,
                     "GDX optional sound could not be loaded: " + resource,
                     failure);
+            return null;
         }
     }
 

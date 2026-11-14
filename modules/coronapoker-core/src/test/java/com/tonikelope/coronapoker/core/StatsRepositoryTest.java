@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,6 +18,29 @@ final class StatsRepositoryTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void exposesEmptyHistoryUntilTheFirstGameCreatesTheSchema() throws Exception {
+        DatabaseService database = new DatabaseService(
+                temporary.resolve("new-profile.db").toString());
+        database.start();
+        try {
+            StatsRepository repository = new StatsRepository(database);
+            assertTrue(repository.games().isEmpty());
+            assertTrue(repository.dashboard().players(0).isEmpty());
+            var empty = new StatsRepository.ClassicView(List.of(), List.of(),
+                    List.of(), List.of(), List.of(), List.of());
+            for (var mode : StatsRepository.ClassicMode.values()) {
+                assertEquals(empty, repository.classic(mode, null, null, null));
+            }
+
+            new CoreGameDatabase(database);
+            seed(database);
+            assertEquals(7, repository.games().get(0).id());
+        } finally {
+            database.close();
+        }
+    }
 
     @Test
     void exposesTheClassicHistoryWithoutAnySwingDependency() throws Exception {

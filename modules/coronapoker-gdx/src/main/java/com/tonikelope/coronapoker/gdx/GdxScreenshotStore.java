@@ -14,12 +14,22 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /** Screenshot storage and catalog for GDX. */
 final class GdxScreenshotStore {
 
     private static final String PREFIX = "coronapoker_screenshot_";
     private static final String SUFFIX = ".png";
+    private static final Executor SCANNER = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "coronapoker-screenshot-catalog");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     record Shot(Path file, long createdAt) {
     }
@@ -38,6 +48,11 @@ final class GdxScreenshotStore {
 
     static void writeOpaquePng(Path file, int width, int height, byte[] rgba)
             throws IOException {
+        writeOpaquePng(file, width, height, rgba, false);
+    }
+
+    static void writeOpaquePng(Path file, int width, int height, byte[] rgba,
+            boolean flipY) throws IOException {
         Files.createDirectories(file.getParent());
         // The RGB channels already contain the rendered frame.
         for (int alpha = 3; alpha < rgba.length; alpha += 4) {
@@ -46,7 +61,7 @@ final class GdxScreenshotStore {
         Pixmap pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
         try {
             BufferUtils.copy(rgba, 0, pixmap.getPixels(), rgba.length);
-            PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap);
+            PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap, -1, flipY);
         } finally {
             pixmap.dispose();
         }
@@ -67,17 +82,38 @@ final class GdxScreenshotStore {
         return root.equals(candidate.getParent());
     }
 
-    static List<Shot> scan() throws IOException {
-        return scan(directory());
+    static CompletableFuture<List<Shot>> scanAsync() {
+        Path root = directory();
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return scan(root);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, SCANNER);
     }
 
     static List<Shot> scan(Path directory) throws IOException {
         if (!Files.isDirectory(directory)) return List.of();
         try (var paths = Files.list(directory)) {
-            return newestFirst(paths.filter(Files::isRegularFile)
-                    .filter(GdxScreenshotStore::isScreenshotFile)
-                    .map(path -> new Shot(path, creationMillis(path)))
+            return newestFirst(paths.filter(GdxScreenshotStore::isScreenshotFile)
+                    .map(GdxScreenshotStore::readShot)
+                    .filter(Objects::nonNull)
                     .toList());
+        }
+    }
+
+    private static Shot readShot(Path file) {
+        try {
+            BasicFileAttributes attributes = Files.readAttributes(file,
+                    BasicFileAttributes.class);
+            if (!attributes.isRegularFile()) return null;
+            long created = attributes.creationTime().toMillis();
+            return new Shot(file, created > 0L ? created
+                    : attributes.lastModifiedTime().toMillis());
+        } catch (IOException failure) {
+            // A file can be removed or replaced after directory enumeration.
+            return null;
         }
     }
 
@@ -89,22 +125,6 @@ final class GdxScreenshotStore {
                                 .toString(), String.CASE_INSENSITIVE_ORDER
                                 .reversed()))
                 .toList();
-    }
-
-    static long creationMillis(Path file) {
-        try {
-            BasicFileAttributes attributes = Files.readAttributes(file,
-                    BasicFileAttributes.class);
-            long created = attributes.creationTime().toMillis();
-            return created > 0L ? created
-                    : attributes.lastModifiedTime().toMillis();
-        } catch (IOException failure) {
-            try {
-                return Files.getLastModifiedTime(file).toMillis();
-            } catch (IOException ignored) {
-                return 0L;
-            }
-        }
     }
 
     static String displayTitle(Shot shot, int index, int total,

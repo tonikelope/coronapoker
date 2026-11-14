@@ -34,6 +34,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.glutils.FileTextureData;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
@@ -76,6 +77,7 @@ import java.util.Collections;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.IdentityHashMap;
@@ -560,6 +562,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** AUTO/action preferences shown before the editable key bindings. */
     private static final float SETTINGS_DEBUG_LINE_HEIGHT =
             GdxSettingsLayout.DEBUG_LINE_HEIGHT;
+    private static final String GAME_LOG_TEXT_FONT = "fonts/Inter-Medium.ttf";
+    private static final String GAME_LOG_EMPHASIS_FONT = "fonts/Montserrat-SemiBold.ttf";
+    private static final int GAME_LOG_FONT_SIZE = 21;
+    private static final String SETTINGS_DEBUG_FONT = "fonts/Montserrat-Bold.ttf";
     private static final float GAME_LOG_LINE_HEIGHT = 31f;
     private static final float LOCAL_HUD_DANGER_THRESHOLD = 0.25f;
     private static final Properties EMPTY_SETTINGS_PROPERTIES =
@@ -1241,6 +1247,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<String> wrappedGameLogLines = List.of();
     private final Map<String, List<GdxGameLogFormatter.Run>> gameLogRunCache
             = new HashMap<>();
+    private List<String> gameLogNicknames = List.of();
     private int gameLogSelectionAnchor = -1;
     private int gameLogSelectionCaret = -1;
     private boolean gameLogSelectionDragging;
@@ -1468,8 +1475,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont fpsFont;
     private final GdxProcessPerformanceSampler performanceSampler =
             new GdxProcessPerformanceSampler();
+    private BitmapFont gameLogTextFont;
+    private BitmapFont gameLogEmphasisFont;
     private BitmapFont gameLogFont;
     private BitmapFont gameLogBoldFont;
+    private BitmapFont settingsDebugBoldFont;
     private BitmapFont gameLogSuitFont;
     private BitmapFont startupPresentationFont;
     private BitmapFont startupPresentationSubtitleFont;
@@ -1577,7 +1587,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Texture cardViewerTexture;
     private boolean cardViewerFaceUp;
-    private List<Path> screenshotFiles = List.of();
+    private List<GdxScreenshotStore.Shot> screenshotFiles = List.of();
+    private CompletableFuture<List<GdxScreenshotStore.Shot>> screenshotScan;
+    private int screenshotScanIndex;
+    private long screenshotGeneration;
     private int screenshotIndex;
     private Texture screenshotTexture;
     private final GdxScreenshotPreview screenshotPreview = new GdxScreenshotPreview();
@@ -1602,6 +1615,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float tableToastUntil;
     private String tableToast = "";
     private float sceneTime;
+    private float introDockX;
+    private float introDockTop;
+    private float introDockWidth;
     private float preparationAnimationTime;
     private float shuffleSoundDurationSeconds;
     private long shuffleSoundId = -1L;
@@ -1712,6 +1728,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Map<String, Texture> liveCardFaces = new HashMap<>();
     private final Map<String, Texture> liveCardBacks = new HashMap<>();
     private String liveDeck = "goliat";
+    private final GdxDeckImageLoader deckImageLoader = new GdxDeckImageLoader(this::deckCardFile);
+    private static final int MAX_WARM_DECK_FACES = 28;
+    private final Set<GdxDeckImageLoader.Card> failedDeckImages = new HashSet<>();
+    private final Set<GdxDeckImageLoader.Card> warmedDeckFaces = new LinkedHashSet<>();
+    private final Set<String> drawnDeckFaces = new LinkedHashSet<>();
+    private final Set<GdxDeckImageLoader.Card> wantedDeckImages = new LinkedHashSet<>();
+    private final Set<String> warmedForFaces = new HashSet<>();
+    private String warmedForDeck;
+    private TableSnapshot warmedForSnapshot;
+    private final Set<String> snapshotDeckFaces = new HashSet<>();
     private double liveBetAmount;
     private float communityPauseX = Float.NaN;
     private float communityPauseY = Float.NaN;
@@ -2734,6 +2760,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .map(TableSnapshot.PlayerSnapshot::nickname)
                     .filter(name -> name != null && !name.isBlank())
                     .forEach(knownTableParticipants::add);
+            refreshGameLogNicknames();
         }
         this.commands = Objects.requireNonNull(commands, "commands");
         this.onReady = Objects.requireNonNull(onReady, "onReady");
@@ -3533,9 +3560,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean createNextCardFace() {
-        if (creationCardIndex >= INTRO_CARD_COUNT) return true;
-        liveCardFace(introCardCode(creationCardIndex++));
-        return creationCardIndex >= INTRO_CARD_COUNT;
+        if (creationCardIndex < INTRO_CARD_COUNT) {
+            liveCardFace(introCardCode(creationCardIndex++));
+            return false;
+        }
+        // Prepare each official back in its own creation step. The first
+        // right-click may come before the live render loop has warmed a back.
+        int index = creationCardIndex++ - INTRO_CARD_COUNT + 1;
+        List<String> decks = GdxGamePresentationSettings.OFFICIAL_DECKS;
+        if (index >= decks.size()) return true;
+        liveCardBacks.computeIfAbsent(decks.get(index),
+                deck -> deckCardTexture(deck, "trasera.jpg"));
+        return index == decks.size() - 1;
     }
 
     private boolean createNextTableAvatar() {
@@ -4007,14 +4043,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
             case 12 -> creationFontGenerator =
                     GdxMonospaceFonts.generator(false);
-            case 13 -> gameLogFont = font(creationFontGenerator, 20, 0f);
+            case 13 -> gameLogFont = font(creationFontGenerator, GAME_LOG_FONT_SIZE, 0f);
             case 14 -> disposeCreationFontGenerator();
             case 15 -> creationFontGenerator =
                     GdxMonospaceFonts.generator(true);
             case 16 -> gameLogBoldFont = font(creationFontGenerator, 20, 0f);
             case 17 -> gameLogSuitFont = font(creationFontGenerator, 28, 0f);
             case 18 -> disposeCreationFontGenerator();
-            case 19 -> {
+            case 19 -> creationFontGenerator = new FreeTypeFontGenerator(
+                    Gdx.files.internal(GAME_LOG_TEXT_FONT));
+            case 20 -> gameLogTextFont = font(creationFontGenerator, GAME_LOG_FONT_SIZE, 0f);
+            case 21 -> disposeCreationFontGenerator();
+            case 22 -> creationFontGenerator = new FreeTypeFontGenerator(
+                    Gdx.files.internal(GAME_LOG_EMPHASIS_FONT));
+            case 23 -> gameLogEmphasisFont = font(creationFontGenerator, GAME_LOG_FONT_SIZE, 0f);
+            case 24 -> disposeCreationFontGenerator();
+            case 25 -> creationFontGenerator = new FreeTypeFontGenerator(
+                    Gdx.files.internal(SETTINGS_DEBUG_FONT));
+            case 26 -> settingsDebugBoldFont = font(creationFontGenerator, GAME_LOG_FONT_SIZE, 0f);
+            case 27 -> disposeCreationFontGenerator();
+            case 28 -> {
                 rebuildNativeTextTiers();
                 return true;
             }
@@ -4283,10 +4331,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // selected mip level and linear magnification.
         // Their distinct LOD biases are applied by the card shader.
         Texture texture = new Texture(file, cardMipMapsEnabled());
+        configureCardTexture(texture);
+        return texture;
+    }
+
+    private static void configureCardTexture(Texture texture) {
         texture.setFilter(cardMinificationFilter(),
                 TextureFilter.Linear);
         texture.setAnisotropicFilter(cardAnisotropyLevel());
-        return texture;
     }
 
     private Sound gameSound(String resource) {
@@ -4684,9 +4736,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         fonts.add(new GdxFontRefresh.Font(mclaren, 18, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> finalCardFont = replaceFont(finalCardFont, font)));
+        fonts.add(new GdxFontRefresh.Font(Gdx.files.internal(GAME_LOG_TEXT_FONT),
+                GAME_LOG_FONT_SIZE, 0f, DEFAULT_FONT_BORDER, characters,
+                font -> gameLogTextFont = replaceFont(gameLogTextFont, font)));
+        fonts.add(new GdxFontRefresh.Font(Gdx.files.internal(GAME_LOG_EMPHASIS_FONT),
+                GAME_LOG_FONT_SIZE, 0f, DEFAULT_FONT_BORDER, characters,
+                font -> gameLogEmphasisFont = replaceFont(gameLogEmphasisFont, font)));
         fonts.add(GdxFrameRateOverlayStyle.fontSpec(mono,
                 font -> fpsFont = replaceFont(fpsFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mono, 20, 0f,
+        fonts.add(new GdxFontRefresh.Font(Gdx.files.internal(SETTINGS_DEBUG_FONT),
+                GAME_LOG_FONT_SIZE, 0f, DEFAULT_FONT_BORDER, characters,
+                font -> settingsDebugBoldFont = replaceFont(settingsDebugBoldFont, font)));
+        fonts.add(new GdxFontRefresh.Font(mono, GAME_LOG_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> gameLogFont = replaceFont(gameLogFont, font)));
         fonts.add(new GdxFontRefresh.Font(bold, 20, 0f,
@@ -4709,6 +4770,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         fontQualityProfile = profile;
         if (startupIntroOnly) return;
         clearFittedFinalHeroFont();
+        settingsDebugWrapWidth = -1f;
         bindLocalOutcomeFontAliases();
         rebuildButtonFontTiers();
         rebuildNativeTextTiers();
@@ -4781,6 +4843,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chipCatalogAmountFamily);
         registerNativeTextFamily(fpsFont);
         registerNativeTextFamily(gameLogFont);
+        registerNativeTextFamily(gameLogEmphasisFont);
+        registerNativeTextFamily(settingsDebugBoldFont);
         registerNativeTextFamily(gameLogBoldFont);
         registerNativeTextFamily(gameLogSuitFont, gameLogBoldFont);
     }
@@ -5119,8 +5183,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private List<String> newlyJoinedPlayers(
             List<TableSnapshot.PlayerSnapshot> players) {
-        return recordNewHumanParticipants(knownTableParticipants,
+        int previousCount = knownTableParticipants.size();
+        List<String> joined = recordNewHumanParticipants(knownTableParticipants,
                 liveState.snapshot().localNickname(), players);
+        if (knownTableParticipants.size() != previousCount) refreshGameLogNicknames();
+        return joined;
+    }
+
+    private void refreshGameLogNicknames() {
+        gameLogNicknames = knownTableParticipants.stream()
+                .sorted(java.util.Comparator.comparingInt(String::length)).toList();
+        gameLogRunCache.clear();
     }
 
     static List<String> recordNewHumanParticipants(Set<String> known,
@@ -6629,7 +6702,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxPixelText.beginFrame();
         deferredTooltip = null;
         refreshFontQualityIfDue();
-        if (uiLayer == UI_SCREENSHOTS) updateScreenshotPreview();
+        if (uiLayer == UI_SCREENSHOTS) {
+            updateScreenshotFiles();
+            updateScreenshotPreview();
+        }
         float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
         if (startupIntroOnly && !introVisibleSignalled) {
             // Window/context creation must never consume the two-second dark
@@ -6662,6 +6738,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         networkBlockCache.update(delta, tableHost && lobby != null);
         networkBlocksAvailable = !networkBlockCache.current().isEmpty();
         updateDeferredShufflePreload();
+        warmDeckImages();
         updateLivePositionRotation();
         updateLiveActionChip();
         updateLiveChipBatch();
@@ -11447,15 +11524,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float logoScale = (0.90f + appear * 0.10f) * (1f + pulse * 0.075f);
         float startWidth = centerLogoWidth * logoScale;
         float startHeight = centerLogoHeight * logoScale;
-        float dockWidth = GdxFrontendScreen.MENU_LOGO_WIDTH;
+        float dockWidth = introDockWidth;
         float dockHeight = dockWidth * logo.getHeight() / logo.getWidth();
         float logoWidth = MathUtils.lerp(startWidth, dockWidth, dock);
         float logoHeight = MathUtils.lerp(startHeight, dockHeight, dock);
         float logoX = MathUtils.lerp(centerLogoX,
-                GdxFrontendScreen.MENU_LOGO_X + dockWidth / 2f, dock);
+                introDockX + dockWidth / 2f, dock);
         float logoY = MathUtils.lerp(centerLogoY,
-                BASE_HEIGHT - GdxFrontendScreen.MENU_LOGO_TOP
-                        - dockHeight / 2f, dock);
+                introDockTop - dockHeight / 2f, dock);
         batch.setColor(1f, 1f, 1f, appear);
         batch.draw(logo, logoX - logoWidth / 2f,
                 logoY - logoHeight / 2f, logoWidth, logoHeight);
@@ -16665,14 +16741,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture activeCardBack() {
         Objects.requireNonNull(liveState,
                 "Card-back selection requires authoritative live state");
-        String deck = presentationSettings == null
-                ? availableDeck(liveDeck)
-                : availableDeck(presentationSettings.cardBackDeck());
+        String deck = activeCardBackDeck();
         if ("goliat".equals(deck)) {
             return defaultCardBack;
         }
         return liveCardBacks.computeIfAbsent(deck,
                 value -> deckCardTexture(value, "trasera.jpg"));
+    }
+
+    private String activeCardBackDeck() {
+        return presentationSettings == null ? availableDeck(liveDeck)
+                : availableDeck(presentationSettings.cardBackDeck());
     }
 
     private static String dealerNickname(TableSnapshot snapshot) {
@@ -18357,24 +18436,117 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return activeCardBack();
         }
         String deck = availableDeck(liveDeck);
-        String key = deck + "/hq/" + code;
-        return liveCardFaces.computeIfAbsent(key,
-                ignored -> deckCardTexture(deck, code + ".jpg"));
+        String filename = code + ".jpg";
+        if (!startupIntroOnly && creationComplete) {
+            drawnDeckFaces.add(filename);
+            if (!warmedDeckFaces.isEmpty()) {
+                warmedDeckFaces.remove(new GdxDeckImageLoader.Card(deck, filename));
+            }
+        }
+        return liveCardFaces.computeIfAbsent(deck + "/hq/" + filename,
+                ignored -> deckCardTexture(deck, filename));
+    }
+
+    /** Warm alternate decks for faces already authorized by the table projection. */
+    private void warmDeckImages() {
+        TableSnapshot snapshot = liveState.snapshot();
+        if (snapshot != warmedForSnapshot) {
+            warmedForSnapshot = snapshot;
+            snapshotDeckFaces.clear();
+            for (TableSnapshot.CardSnapshot card : snapshot.communityCards()) {
+                addKnownDeckFace(card);
+            }
+            for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+                for (TableSnapshot.CardSnapshot card
+                        : liveState.presentedHoleCards(player.nickname())) {
+                    addKnownDeckFace(card);
+                }
+            }
+        }
+        drawnDeckFaces.addAll(snapshotDeckFaces);
+        String current = availableDeck(liveDeck);
+        if (!current.equals(warmedForDeck) || !warmedForFaces.equals(drawnDeckFaces)) {
+            warmedForDeck = current;
+            warmedForFaces.clear();
+            warmedForFaces.addAll(drawnDeckFaces);
+            refreshDeckWarmupTargets(current);
+        }
+        drawnDeckFaces.clear();
+        deckImageLoader.update(wantedDeckImages, this::uploadDeckImage,
+                failedDeckImages::add);
+    }
+
+    private void addKnownDeckFace(TableSnapshot.CardSnapshot card) {
+        if (card.visible() && card.faceUp() && !card.code().isBlank()) {
+            snapshotDeckFaces.add(card.code() + ".jpg");
+        }
+    }
+
+    private void refreshDeckWarmupTargets(String current) {
+        wantedDeckImages.clear();
+        List<String> decks = GdxGamePresentationSettings.OFFICIAL_DECKS;
+        int index = decks.indexOf(current);
+        // Warm the next built-in choice first. Mod artwork can have arbitrary
+        // dimensions and remains on the normal on-demand path.
+        for (int step = 1; step <= decks.size(); step++) {
+            String deck = decks.get((index + step) % decks.size());
+            if (deck.equals(current)) break;
+            for (String filename : drawnDeckFaces) {
+                wantedDeckImages.add(new GdxDeckImageLoader.Card(deck, filename));
+            }
+        }
+        // Never evict artwork already presented. Only trim speculative
+        // textures for cards no longer relevant to the next switch.
+        warmedDeckFaces.removeIf(card -> {
+            if (card.deck().equals(current) || wantedDeckImages.contains(card)) return false;
+            Texture old = liveCardFaces.remove(card.deck() + "/hq/" + card.filename());
+            if (old != null) old.dispose();
+            return true;
+        });
+        wantedDeckImages.removeIf(card -> failedDeckImages.contains(card)
+                || warmedDeckFaces.size() >= MAX_WARM_DECK_FACES
+                || liveCardFaces.containsKey(card.deck() + "/hq/" + card.filename()));
+    }
+
+    private void uploadDeckImage(GdxDeckImageLoader.Image image) {
+        var card = image.card();
+        Pixmap pixels = image.pixels();
+        Texture texture = null;
+        try {
+            String faceKey = card.deck() + "/hq/" + card.filename();
+            if (warmedDeckFaces.size() >= MAX_WARM_DECK_FACES
+                    || liveCardFaces.containsKey(faceKey)) return;
+            texture = new Texture(new FileTextureData(
+                    image.file(), pixels, null, cardMipMapsEnabled()));
+            configureCardTexture(texture);
+            liveCardFaces.put(faceKey, texture);
+            warmedDeckFaces.add(card);
+        } catch (RuntimeException failure) {
+            if (texture != null) texture.dispose();
+            failedDeckImages.add(card);
+            LOGGER.log(Level.FINE, "Could not preload card artwork", failure);
+        } finally {
+            if (!pixels.isDisposed()) pixels.dispose();
+        }
     }
 
     private Texture deckCardTexture(String deck, String filename) {
+        return cardTexture(deckCardFile(deck, filename));
+    }
+
+    private FileHandle deckCardFile(String deck, String filename) {
         java.util.Optional<Path> hq = externalDeckAsset(deck,
                 "hq/" + filename);
         if (hq.isPresent()) {
-            return cardTexture(Gdx.files.absolute(hq.get().toString()));
+            return Gdx.files.absolute(hq.get().toString());
         }
         java.util.Optional<Path> standard = externalDeckAsset(deck, filename);
         if (standard.isPresent()) {
-            return cardTexture(Gdx.files.absolute(standard.get().toString()));
+            return Gdx.files.absolute(standard.get().toString());
         }
         String bundled = GdxGamePresentationSettings.OFFICIAL_DECKS.contains(deck)
                 ? deck : "goliat";
-        return cardTexture("images/decks/" + bundled + "/hq/" + filename);
+        return Gdx.files.internal("images/decks/" + bundled + "/hq/" + filename);
     }
 
     private java.util.Optional<Path> externalDeckAsset(String deck,
@@ -23259,23 +23431,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<String> gameLogLines() {
-        GdxGameLogSink.Snapshot snapshot = gameLog.snapshot();
+        GdxGameLogSink.Snapshot snapshot = gameLog.presentationSnapshot();
         float width = gameLogContentBounds().width;
-        if (snapshot == wrappedGameLogSnapshot && gameLogFont == wrappedGameLogFont
+        if (snapshot == wrappedGameLogSnapshot && gameLogTextFont == wrappedGameLogFont
                 && width == wrappedGameLogWidth) {
             return wrappedGameLogLines;
         }
         ArrayList<String> result = new ArrayList<>();
-        glyph.setText(gameLogFont, "M");
-        float cellWidth = Math.max(1f, glyph.width);
+        float cellWidth = Math.max(1f, gameLogTextFont.getData().spaceXadvance * 2f);
         int maximumCharacters = Math.max(24, (int) Math.floor(
-                (width - 44f) / cellWidth));
+                (width - 60f) / cellWidth));
+        String previous = "";
         for (String line : snapshot.lines()) {
-            GdxGameLogFormatter.wrapLine(result, line == null ? "" : line,
-                    maximumCharacters);
+            if (GdxGameLogFormatter.needsSectionGap(previous, line)) {
+                result.add("");
+            }
+            GdxGameLogFormatter.wrapLine(result, line, maximumCharacters);
+            previous = line;
         }
         wrappedGameLogSnapshot = snapshot;
-        wrappedGameLogFont = gameLogFont;
+        wrappedGameLogFont = gameLogTextFont;
         wrappedGameLogWidth = width;
         wrappedGameLogLines = List.copyOf(result);
         return wrappedGameLogLines;
@@ -23410,9 +23585,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<GdxGameLogFormatter.Run> cachedGameLogRuns(String value) {
-        if (gameLogRunCache.size() >= 4096) gameLogRunCache.clear();
+        if (gameLogRunCache.size() >= 4096 && !gameLogRunCache.containsKey(value)) {
+            gameLogRunCache.clear();
+        }
         return gameLogRunCache.computeIfAbsent(value,
-                GdxGameLogFormatter::runs);
+                line -> GdxGameLogFormatter.runs(line, gameLogNicknames));
     }
 
     private static boolean contains(float px, float py, float x, float y,
@@ -23507,16 +23684,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int width = Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics.getBackBufferHeight();
         if (width <= 0 || height <= 0) return;
-        // GPU readback must happen on the render thread. PNG encoding and disk
-        // I/O do not, so keep them away from frame pacing.
-        byte[] rgba = ScreenUtils.getFrameBufferPixels(
-                0, 0, width, height, true);
         Path file = screenshotDirectory().resolve(
                 screenshotFilename(System.currentTimeMillis()));
+        // OpenGL returns the rows bottom up. The PNG worker flips them so
+        // the render thread can copy the mapped pixels in one operation.
+        byte[] rgba = ScreenUtils.getFrameBufferPixels(0, 0, width, height, false);
+        writeScreenshot(file, width, height, rgba);
+    }
+
+    private void writeScreenshot(Path file, int width, int height, byte[] rgba) {
         Thread writer = new Thread(() -> {
             boolean saved = false;
             try {
-                GdxScreenshotStore.writeOpaquePng(file, width, height, rgba);
+                GdxScreenshotStore.writeOpaquePng(file, width, height, rgba, true);
                 saved = true;
             } catch (RuntimeException | IOException failure) {
                 LOGGER.log(Level.WARNING, "Could not save screenshot", failure);
@@ -23549,23 +23729,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void refreshScreenshotFiles(int preferredIndex) {
+        screenshotFiles = List.of();
+        screenshotIndex = 0;
+        screenshotError = "";
+        screenshotPreview.close();
+        disposeScreenshotTexture();
+        screenshotScanIndex = preferredIndex;
+        screenshotScan = GdxScreenshotStore.scanAsync();
+    }
+
+    private void updateScreenshotFiles() {
+        var completed = screenshotScan;
+        if (completed == null || !completed.isDone()) return;
+        screenshotScan = null;
         try {
-            screenshotFiles = GdxScreenshotStore.scan().stream()
-                    .map(GdxScreenshotStore.Shot::file).toList();
-            screenshotError = "";
-        } catch (IOException failure) {
-            screenshotFiles = List.of();
+            screenshotFiles = completed.join();
+        } catch (RuntimeException failure) {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.folder_failed"));
         }
         screenshotIndex = screenshotFiles.isEmpty() ? 0
-                : MathUtils.clamp(preferredIndex, 0,
+                : MathUtils.clamp(screenshotScanIndex, 0,
                         screenshotFiles.size() - 1);
         loadScreenshotTexture();
     }
 
     private void closeScreenshotViewer() {
         uiLayer = UI_NONE;
+        screenshotGeneration++;
+        screenshotScan = null;
         screenshotPreview.close();
         disposeScreenshotTexture();
         screenshotFiles = List.of();
@@ -23591,12 +23783,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         screenshotError = "";
         screenshotIndex = MathUtils.clamp(screenshotIndex,
                 0, screenshotFiles.size() - 1);
-        Path selected = screenshotFiles.get(screenshotIndex);
+        var selected = screenshotFiles.get(screenshotIndex);
         screenshotMetadata = GdxScreenshotStore.displayTitle(
-                new GdxScreenshotStore.Shot(selected,
-                        GdxScreenshotStore.creationMillis(selected)),
+                selected,
                 screenshotIndex, screenshotFiles.size(), gameText.language());
-        screenshotPreview.request(selected);
+        screenshotPreview.request(selected.file());
     }
 
     private void updateScreenshotPreview() {
@@ -23669,7 +23860,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void copyCurrentScreenshot() {
         if (screenshotFiles.isEmpty()) return;
-        Path selected = screenshotFiles.get(screenshotIndex);
+        Path selected = screenshotFiles.get(screenshotIndex).file();
         screenshotOperationPending = true;
         runScreenshotOperation("coronapoker-gdx-copy-screenshot", () -> {
             if (!GdxImageClipboard.copy(selected)) {
@@ -23680,8 +23871,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void confirmDeleteCurrentScreenshot() {
         if (screenshotFiles.isEmpty()) return;
-        Path selected = screenshotFiles.get(screenshotIndex);
+        Path selected = screenshotFiles.get(screenshotIndex).file();
         int selectedIndex = screenshotIndex;
+        long generation = screenshotGeneration;
         GdxTableDialog confirmation = new GdxTableDialog(
                 GdxTableDialog.Kind.CONFIRM,
                 uppercase(gameText.translate("ui.borrar_captura")),
@@ -23692,7 +23884,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 uppercase(gameText.translate("ui.aceptar")))
                 .dangerousChoice();
         confirmation.result().thenAccept(accepted -> {
-            if (!accepted || screenshotOperationPending) return;
+            if (!accepted || screenshotOperationPending
+                    || generation != screenshotGeneration || uiLayer != UI_SCREENSHOTS) return;
             screenshotOperationPending = true;
             runScreenshotOperation("coronapoker-gdx-delete-screenshot", () -> {
                 if (!isManagedScreenshot(screenshotDirectory(), selected)) {
@@ -23712,6 +23905,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void runScreenshotOperation(String threadName,
             ScreenshotOperation operation, String successKey,
             String failureKey, Runnable afterSuccess) {
+        long generation = screenshotGeneration;
         Thread worker = new Thread(() -> {
             boolean success = false;
             try {
@@ -23725,6 +23919,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean completed = success;
             if (Gdx.app != null) {
                 Gdx.app.postRunnable(() -> {
+                    if (disposed || generation != screenshotGeneration) return;
                     screenshotOperationPending = false;
                     if (completed && afterSuccess != null) afterSuccess.run();
                     String key = completed ? successKey : failureKey;
@@ -23801,7 +23996,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Color.WHITE, alpha);
         }
         String message = !screenshotError.isBlank() ? screenshotError
-                : screenshotPreview.loading()
+                : screenshotScan != null || screenshotPreview.loading()
                         ? gameText.translate("gdx.loading")
                 : screenshotFiles.isEmpty()
                         ? uppercase(gameText.translate("ui.no_capturas")) : "";
@@ -27485,7 +27680,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     - GdxSettingsLayout.DEBUG_TEXT_RIGHT_INSET;
             for (GdxDebugLogFormatter.Run run : formatted.get(i).runs()) {
                 BitmapFont font = run.bold()
-                        ? gameLogBoldFont : gameLogFont;
+                        ? settingsDebugBoldFont : gameLogEmphasisFont;
                 float remaining = right - runX;
                 if (remaining <= 0f) break;
                 String fitted = ellipsizeToWidth(font, run.text(), remaining);
@@ -27495,12 +27690,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxPixelText.draw(font, batch, fitted, runX,
                         lineY + GdxSettingsLayout.DEBUG_TEXT_BASELINE,
                         viewport);
-                glyph.setText(font, fitted);
-                runX += glyph.width;
+                runX += logRunWidth(font, fitted);
                 if (!fitted.equals(run.text())) break;
             }
         }
-        gameLogFont.setColor(Color.WHITE);
+        gameLogEmphasisFont.setColor(Color.WHITE);
+        settingsDebugBoldFont.setColor(Color.WHITE);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
@@ -27544,9 +27739,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsDebugVisualCache = GdxDebugLogFormatter.wrap(
                     GdxDebugLogFormatter.format(source), width, run -> {
                         BitmapFont font = run.bold()
-                                ? gameLogBoldFont : gameLogFont;
-                        glyph.setText(font, run.text());
-                        return glyph.width;
+                                ? settingsDebugBoldFont : gameLogEmphasisFont;
+                        return logRunWidth(font, run.text());
                     });
         }
         return settingsDebugVisualCache;
@@ -28820,8 +29014,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float clippedTop = Math.min(rowY + GAME_LOG_LINE_HEIGHT,
                     content.y + content.height);
             if (clippedTop <= clippedY) continue;
-            if (GdxGameLogFormatter.isCriticalIntegrityLine(
-                    logLines.get(line))) {
+            String value = logLines.get(line);
+            if (GdxGameLogFormatter.isHandTitle(value)) {
+                shapes.setColor(0.22f, 0.49f, 0.62f, 0.22f * alpha);
+                shapes.rect(content.x + 12f, clippedY, content.width - 24f,
+                        clippedTop - clippedY);
+                if (clippedTop == rowY + GAME_LOG_LINE_HEIGHT) {
+                    shapes.setColor(0.35f, 0.70f, 0.82f, 0.45f * alpha);
+                    shapes.rect(content.x + 12f, clippedTop - 1f, content.width - 24f, 1f);
+                }
+            }
+            if (GdxGameLogFormatter.securityTone(value)
+                    == GdxGameLogFormatter.SecurityTone.VERIFIED) {
+                shapes.setColor(0.25f, 0.72f, 0.44f, 0.11f * alpha);
+                shapes.rect(content.x + 12f, clippedY, content.width - 24f,
+                        clippedTop - clippedY);
+            }
+            if (GdxGameLogFormatter.isCriticalIntegrityLine(value)) {
                 shapes.setColor(0.52f, 0.045f, 0.065f, 0.94f * alpha);
                 shapes.rect(content.x, clippedY, content.width,
                         clippedTop - clippedY);
@@ -28876,7 +29085,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float runX = textX;
             boolean fixedPitchTable = GdxGameLogFormatter
                     .isFramedTableRow(value);
-            float runY = rowY + 23f;
+            float runY = rowY + (GdxGameLogFormatter.isHandTitle(value) ? 19f : 23f);
             drawGameLogMarker(marker, logX + 22f, runY - 20f, alpha);
             float contentRight = logX + logW - 34f;
             for (GameLogPlacedRun placed : gameLogPlacedRuns(value,
@@ -28907,26 +29116,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     continue;
                 }
                 Color color = run.color();
-                BitmapFont runFont = run.bold()
-                        ? gameLogBoldFont : gameLogFont;
+                BitmapFont runFont = fixedPitchTable ? gameLogFont
+                        : gameLogMessageFont(run);
                 runFont.setColor(color.r, color.g, color.b, alpha);
-                String fitted = fixedPitchTable
-                        ? run.text()
-                        : ellipsizeToWidth(runFont, run.text(), remainingWidth);
-                if (fitted.isEmpty()) break;
                 if (fixedPitchTable) {
-                    drawGameLogFixedPitchText(runFont, fitted, runX, runY,
-                            tableCellWidth);
+                    drawGameLogFixedPitchText(runFont, run.text(), runX,
+                            runY, tableCellWidth);
                 } else {
-                    GdxPixelText.draw(runFont, batch, fitted, runX, runY,
-                            viewport);
-                    glyph.setText(runFont, fitted);
-                    runX += glyph.width;
+                    String text = run.text();
+                    String withoutIndent = text.stripLeading();
+                    float indent = (text.length() - withoutIndent.length())
+                            * runFont.getData().spaceXadvance;
+                    String contentText = withoutIndent.stripTrailing();
+                    if (contentText.isEmpty()) continue;
+                    String fitted = ellipsizeToWidth(runFont, contentText,
+                            remainingWidth - indent);
+                    if (fitted.isEmpty()) break;
+                    GdxPixelText.draw(runFont, batch, fitted, runX + indent,
+                            runY, viewport);
+                    if (!fitted.equals(contentText)) break;
                 }
-                if (!fitted.equals(run.text())) break;
             }
         }
         gameLogFont.setColor(Color.WHITE);
+        gameLogTextFont.setColor(Color.WHITE);
+        gameLogEmphasisFont.setColor(Color.WHITE);
         gameLogBoldFont.setColor(Color.WHITE);
         gameLogSuitFont.setColor(Color.WHITE);
         batch.end();
@@ -29098,9 +29312,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float gameLogRunWidth(GdxGameLogFormatter.Run run) {
         if (run.card()) return gameLogCardWidth(run.text());
-        glyph.setText(run.bold() ? gameLogBoldFont : gameLogFont,
-                run.text());
-        return glyph.width;
+        return logRunWidth(gameLogMessageFont(run), run.text());
+    }
+
+    private float logRunWidth(BitmapFont font, String text) {
+        String content = text.strip();
+        glyph.setText(font, content);
+        return glyph.width + (text.length() - content.length())
+                * font.getData().spaceXadvance;
+    }
+
+    private BitmapFont gameLogMessageFont(GdxGameLogFormatter.Run run) {
+        return run.bold() ? gameLogEmphasisFont : gameLogTextFont;
     }
 
     private float gameLogCardWidth(String token) {
@@ -30880,6 +31103,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        if (startupIntroOnly) updateIntroDockBounds(width, height);
         tableGallery.resize(viewport);
         rulesWindow.resize();
         if (!creationComplete || (startupPresentationFont == null
@@ -30888,9 +31112,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
     }
 
+    private void updateIntroDockBounds(int width, int height) {
+        if (viewport.getScreenWidth() <= 0 || viewport.getScreenHeight() <= 0) return;
+        float scale = Math.min(width / BASE_WIDTH, height / BASE_HEIGHT);
+        int menuWidth = Math.round(BASE_WIDTH * scale);
+        int menuHeight = Math.round(BASE_HEIGHT * scale);
+        int menuLeft = (width - menuWidth) / 2;
+        int menuBottom = (height - menuHeight) / 2;
+        float horizontalScale = viewport.getWorldWidth() / viewport.getScreenWidth();
+        float verticalScale = viewport.getWorldHeight() / viewport.getScreenHeight();
+        // Express the menu's FitViewport logo in the intro's ExtendViewport.
+        introDockX = (menuLeft - viewport.getScreenX()
+                + GdxFrontendScreen.MENU_LOGO_X * menuWidth / BASE_WIDTH)
+                * horizontalScale;
+        introDockTop = (menuBottom - viewport.getScreenY()
+                + (BASE_HEIGHT - GdxFrontendScreen.MENU_LOGO_TOP) * menuHeight / BASE_HEIGHT)
+                * verticalScale;
+        introDockWidth = GdxFrontendScreen.MENU_LOGO_WIDTH * menuWidth / BASE_WIDTH
+                * horizontalScale;
+    }
+
     /** Releases whichever creation phases completed before the scene opened. */
     void disposeFailedCreation() {
         disposed = true;
+        deckImageLoader.close();
         fontRefresh.close();
         tableGallery.close();
         rulesWindow.close();
@@ -30946,8 +31191,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(finalCardBoldFont);
         disposeSafely(finalCardResultFont);
         disposeSafely(fpsFont);
+        disposeSafely(gameLogTextFont);
+        disposeSafely(gameLogEmphasisFont);
         disposeSafely(gameLogFont);
         disposeSafely(gameLogBoldFont);
+        disposeSafely(settingsDebugBoldFont);
         disposeSafely(gameLogSuitFont);
         disposeSafely(startupPresentationFont);
         disposeSafely(startupPresentationSubtitleFont);
@@ -31009,6 +31257,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         for (Texture texture : liveCardFaces.values()) disposeSafely(texture);
         liveCardFaces.clear();
+        for (Texture texture : liveCardBacks.values()) disposeSafely(texture);
+        liveCardBacks.clear();
         disposeSafely(modalBackdropBlur);
         disposeSafely(nestedModalBackdropBlur);
         if (!sharedAllInFireShader) disposeSafely(allInFireShader);
@@ -31037,6 +31287,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     public void dispose() {
         audioPreview.stop();
         disposed = true;
+        deckImageLoader.close();
         fontRefresh.close();
         screenshotPreview.close();
         tableGallery.close();
@@ -31157,8 +31408,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalCardBoldFont.dispose();
         finalCardResultFont.dispose();
         fpsFont.dispose();
+        gameLogTextFont.dispose();
+        gameLogEmphasisFont.dispose();
         gameLogFont.dispose();
         gameLogBoldFont.dispose();
+        settingsDebugBoldFont.dispose();
         gameLogSuitFont.dispose();
         logo.dispose();
         feltTexture.dispose();

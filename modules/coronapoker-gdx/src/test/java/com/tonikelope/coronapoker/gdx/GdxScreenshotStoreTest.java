@@ -41,6 +41,19 @@ final class GdxScreenshotStoreTest {
     }
 
     @Test
+    void framebufferRowsAreFlippedDuringEncoding() throws Exception {
+        GdxNativesLoader.load();
+        Path file = directory.resolve("framebuffer.png");
+        byte[] bottomUp = {(byte) 0xff, 0, 0, 0, 0, 0, (byte) 0xff, 0};
+
+        GdxScreenshotStore.writeOpaquePng(file, 1, 2, bottomUp, true);
+
+        BufferedImage screenshot = ImageIO.read(file.toFile());
+        assertArrayEquals(new int[]{0xff0000ff, 0xffff0000},
+                screenshot.getRGB(0, 0, 1, 2, null, 0, 1));
+    }
+
+    @Test
     void catalogAcceptsOnlyCoronaPokerPngScreenshots() throws Exception {
         Path first = Files.writeString(directory.resolve(
                 "coronapoker_screenshot_100.png"), "first");

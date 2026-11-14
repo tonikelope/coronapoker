@@ -8,7 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameLogSink.ShowdownEntry;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +38,41 @@ final class GdxGameLogSinkTest {
         assertEquals(List.of("Historial recuperado"), sink.snapshot().lines());
         sink.reset();
         assertTrue(sink.snapshot().lines().isEmpty());
+    }
+
+    @Test
+    void presentationUsesTheLastSnapshotDuringAConcurrentWrite() throws Exception {
+        GdxGameLogSink sink = new GdxGameLogSink();
+        sink.print("first");
+        var previous = sink.presentationSnapshot();
+        Field lockField = GdxGameLogSink.class.getDeclaredField("lock");
+        lockField.setAccessible(true);
+        var writeLock = (ReentrantLock) lockField.get(sink);
+        var writing = new CountDownLatch(1);
+        var finishWrite = new CountDownLatch(1);
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var write = workers.submit(() -> {
+                writeLock.lock();
+                try {
+                    sink.print("second");
+                    writing.countDown();
+                    finishWrite.await();
+                    return null;
+                } finally {
+                    writeLock.unlock();
+                }
+            });
+            assertTrue(writing.await(2, TimeUnit.SECONDS));
+            var render = workers.submit(sink::presentationSnapshot);
+            assertSame(previous, render.get(2, TimeUnit.SECONDS));
+            finishWrite.countDown();
+            write.get(2, TimeUnit.SECONDS);
+            assertEquals(List.of("first", "second"), sink.presentationSnapshot().lines());
+        } finally {
+            finishWrite.countDown();
+            workers.shutdownNow();
+        }
     }
 
     @Test

@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,6 +27,7 @@ final class GdxGameLogSink implements GameLogSink {
             GdxGameLogSink.class.getName());
     private static final DateTimeFormatter FILE_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
+    private final ReentrantLock lock = new ReentrantLock();
     private final ArrayList<String> lines = new ArrayList<>();
     private final ArrayList<String> persistedLines = new ArrayList<>();
     private final Path logDirectory;
@@ -33,6 +35,7 @@ final class GdxGameLogSink implements GameLogSink {
     private boolean persistenceFailureReported;
     private List<ShowdownEntry> showdown = List.of();
     private Snapshot cachedSnapshot;
+    private volatile Snapshot lastSnapshot = new Snapshot(List.of(), List.of());
 
     /** In-memory sink used by tests and renderer-only previews. */
     GdxGameLogSink() {
@@ -50,35 +53,46 @@ final class GdxGameLogSink implements GameLogSink {
     }
 
     @Override
-    public synchronized void print(String message) {
-        String plain = GdxTableDialog.plainText(
-                Objects.requireNonNull(message, "message"));
-        ArrayList<String> added = new ArrayList<>();
-        for (String line : plain.split("\\R", -1)) {
-            lines.add(line);
-            persistedLines.add(line);
-            added.add(line);
+    public void print(String message) {
+        lock.lock();
+        try {
+            String plain = GdxTableDialog.plainText(
+                    Objects.requireNonNull(message, "message"));
+            ArrayList<String> added = new ArrayList<>();
+            for (String line : plain.split("\\R", -1)) {
+                String tagged = GdxGameLogFormatter.tagSecurityLine(line);
+                lines.add(tagged);
+                persistedLines.add(tagged);
+                added.add(tagged);
+            }
+            int overflow = lines.size() - MAX_LINES;
+            if (overflow > 0) {
+                lines.subList(0, overflow).clear();
+            }
+            cachedSnapshot = null;
+            appendPersisted(added);
+        } finally {
+            lock.unlock();
         }
-        int overflow = lines.size() - MAX_LINES;
-        if (overflow > 0) {
-            lines.subList(0, overflow).clear();
-        }
-        cachedSnapshot = null;
-        appendPersisted(added);
     }
 
     @Override
-    public synchronized void updateShowdownCards(List<ShowdownEntry> entries) {
-        showdown = List.copyOf(Objects.requireNonNull(entries, "entries"));
-        for (int index = 0; index < lines.size(); index++) {
-            lines.set(index, rewriteShowdownLine(lines.get(index), showdown));
+    public void updateShowdownCards(List<ShowdownEntry> entries) {
+        lock.lock();
+        try {
+            showdown = List.copyOf(Objects.requireNonNull(entries, "entries"));
+            for (int index = 0; index < lines.size(); index++) {
+                lines.set(index, rewriteShowdownLine(lines.get(index), showdown));
+            }
+            for (int index = 0; index < persistedLines.size(); index++) {
+                persistedLines.set(index, rewriteShowdownLine(
+                        persistedLines.get(index), showdown));
+            }
+            cachedSnapshot = null;
+            rewritePersisted();
+        } finally {
+            lock.unlock();
         }
-        for (int index = 0; index < persistedLines.size(); index++) {
-            persistedLines.set(index, rewriteShowdownLine(
-                    persistedLines.get(index), showdown));
-        }
-        cachedSnapshot = null;
-        rewritePersisted();
     }
 
     /** Mirrors Swing by replacing the placeholder in its original log row. */
@@ -126,29 +140,60 @@ final class GdxGameLogSink implements GameLogSink {
         return result;
     }
 
-    synchronized Snapshot snapshot() {
+    Snapshot snapshot() {
+        lock.lock();
+        try {
+            return snapshotLocked();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** The render thread keeps drawing the last complete snapshot while a write is in progress. */
+    Snapshot presentationSnapshot() {
+        if (!lock.tryLock()) return lastSnapshot;
+        try {
+            return snapshotLocked();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private Snapshot snapshotLocked() {
         if (cachedSnapshot == null) {
-            cachedSnapshot = new Snapshot(List.copyOf(lines), showdown);
+            cachedSnapshot = new Snapshot(lines, showdown);
+            lastSnapshot = cachedSnapshot;
         }
         return cachedSnapshot;
     }
 
-    synchronized void reset() {
-        lines.clear();
-        persistedLines.clear();
-        showdown = List.of();
-        cachedSnapshot = null;
-        beginPersistentSession();
+    void reset() {
+        lock.lock();
+        try {
+            lines.clear();
+            persistedLines.clear();
+            showdown = List.of();
+            cachedSnapshot = new Snapshot(lines, showdown);
+            lastSnapshot = cachedSnapshot;
+            beginPersistentSession();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
-    public synchronized void replaceHistory(List<String> messages) {
-        lines.clear();
-        persistedLines.clear();
-        showdown = List.of();
-        cachedSnapshot = null;
-        truncatePersistentSession();
-        Objects.requireNonNull(messages, "messages").forEach(this::print);
+    public void replaceHistory(List<String> messages) {
+        lock.lock();
+        try {
+            lines.clear();
+            persistedLines.clear();
+            showdown = List.of();
+            cachedSnapshot = null;
+            truncatePersistentSession();
+            Objects.requireNonNull(messages, "messages").forEach(this::print);
+        } finally {
+            lock.unlock();
+        }
     }
 
     Path persistentLogPath() {
@@ -217,19 +262,24 @@ final class GdxGameLogSink implements GameLogSink {
                 + " the persistent GDX game log", failure);
     }
 
-    synchronized void appendFinalSummary(TableSessionSummary summary,
+    void appendFinalSummary(TableSessionSummary summary,
             GdxGameText text) {
-        Objects.requireNonNull(summary, "summary");
-        Objects.requireNonNull(text, "text");
-        if (!summary.hasBalances()
-                || summary.reason()
-                == TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
-            return;
+        lock.lock();
+        try {
+            Objects.requireNonNull(summary, "summary");
+            Objects.requireNonNull(text, "text");
+            if (!summary.hasBalances()
+                    || summary.reason()
+                    == TableSessionSummary.CloseReason.RECOVERABLE_STOP) {
+                return;
+            }
+            print(text.translate("game.la_timba_ha_terminado_2") + " -> "
+                    + finalSummaryDate(summary.endedAtMillis()) + " ("
+                    + finalSummaryDuration(summary.durationSeconds()) + ")");
+            print(finalResultTable(summary, text));
+        } finally {
+            lock.unlock();
         }
-        print(text.translate("game.la_timba_ha_terminado_2") + " -> "
-                + finalSummaryDate(summary.endedAtMillis()) + " ("
-                + finalSummaryDuration(summary.durationSeconds()) + ")");
-        print(finalResultTable(summary, text));
     }
 
     static String finalResultTable(TableSessionSummary summary,

@@ -13,6 +13,8 @@ final class GdxFloatingGameLogLayout {
     static final float RESIZE_EDGE = 14f;
     static final float RESIZE_CORNER = 20f;
     static final float HEADER_HEIGHT = 64f;
+    private static final float CONTENT_TOP_PADDING = 24f;
+    private static final float CONTENT_BOTTOM_PADDING = 14f;
     private static final float DEFAULT_WIDTH = 1160f;
     private static final float DEFAULT_HEIGHT = 720f;
 
@@ -125,14 +127,14 @@ final class GdxFloatingGameLogLayout {
         Rectangle logFrame = new Rectangle(panel.x + 24f, panel.y + 24f,
                 Math.max(1f, panel.width - 48f),
                 Math.max(1f, panel.height - 108f));
+        float contentHeight = Math.max(1f,
+                logFrame.height - CONTENT_TOP_PADDING - CONTENT_BOTTOM_PADDING);
         Rectangle content = new Rectangle(logFrame.x + 14f,
-                logFrame.y + 14f,
-                Math.max(1f, logFrame.width - 44f),
-                Math.max(1f, logFrame.height - 28f));
+                logFrame.y + CONTENT_BOTTOM_PADDING,
+                Math.max(1f, logFrame.width - 44f), contentHeight);
         Rectangle scrollbar = new Rectangle(
                 logFrame.x + logFrame.width - 24f,
-                logFrame.y + 14f, 14f,
-                Math.max(1f, logFrame.height - 28f));
+                content.y, 14f, contentHeight);
         return new Layout(copy, headerBounds(panel), closeBounds(panel), logFrame, content,
                 scrollbar);
     }

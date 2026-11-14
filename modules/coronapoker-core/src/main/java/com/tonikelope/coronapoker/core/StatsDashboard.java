@@ -45,6 +45,9 @@ public final class StatsDashboard {
         ZoneId zone = ZoneId.systemDefault();
         synchronized (database.lock()) {
             Connection connection = database.connection();
+            if (!StatsRepository.gameHistoryExists(connection)) {
+                return new StatsDashboard(List.of(), Set.of());
+            }
             // Walk all four result sets in the same hand order. Only one
             // hand's events are retained, even for a large imported history.
             try (Statement handQuery = statement(connection);

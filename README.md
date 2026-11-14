@@ -222,7 +222,7 @@ platform requirements and troubleshooting.
 - **Offline dashboard.** Review net profit, profit per hour when session duration is recorded, hands played, and bankroll history. Explore VPIP, PFR, 3-bet, AF, WTSD and W$SD, compare players and sessions, or inspect heatmaps for positions and starting hands. The dashboard uses bundled Apache ECharts and runs offline.
 - **Filters and hand history.** Choose a game, player, or session date range. Use the previous and next hand buttons to inspect recorded cards, positions, actions and showdown results in order. The **Exclude bots** checkbox removes bot results while retaining hands and results recorded for human players.
 - **Classic statistics and chart controls.** The original profit, performance, response time, betting and winning hand views are available in the dashboard. Zoom the interface, resize individual charts, and restore their original sizes. The native statistics screen opens automatically if Chromium cannot load the dashboard.
-- **Local SQLite history.** The database records hand timestamps, actions by street, community cards, stacks, winners and pots. The live in-game log shows the current hand as it happens.
+- **Local SQLite history.** The database records hand timestamps, actions by street, community cards, stacks, winners and pots. The live in-game log highlights player names, actions, amounts and hand verification, with aligned balance tables.
 - **Optional peer-to-peer sync.** Players at a table can exchange completed games directly. Receiving and sharing are independent and both start disabled. Mark games private or use **Exclude** to leave out games involving selected nicknames when sharing.
 
 ---

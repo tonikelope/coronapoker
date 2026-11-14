@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.core;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -44,8 +45,12 @@ public final class StatsRepository {
 
     public ClassicView classic(ClassicMode mode, Integer gameId, LocalDate from,
             LocalDate through, boolean excludeBots) throws SQLException {
+        Objects.requireNonNull(mode, "mode");
         GameScope scope = GameScope.dates(gameId, from, through);
         synchronized (database.lock()) {
+            if (!gameHistoryExists(database.connection())) {
+                return ClassicView.metrics(List.of());
+            }
             return switch (mode) {
                 case BALANCE -> {
                     List<BalanceRow> rows = filterBots(scopedBalances(scope, null),
@@ -75,6 +80,15 @@ public final class StatsRepository {
                 : rows;
     }
 
+    // The game schema is created when the first table session is prepared.
+    static boolean gameHistoryExists(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement();
+                ResultSet rows = statement.executeQuery(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='game'")) {
+            return rows.next();
+        }
+    }
+
     public List<GameSummary> games() throws SQLException {
         String sql = "SELECT g.*, (SELECT COUNT(*) FROM hand h "
                 + "WHERE h.id_game=g.id AND h.end IS NOT NULL) AS tot_hands "
@@ -83,7 +97,9 @@ public final class StatsRepository {
                 + "WHERE hd.id_game=g.id) AS zero_trust_incidents "
                 + "FROM game g ORDER BY g.start DESC";
         synchronized (database.lock()) {
-            try (Statement statement = database.connection().createStatement()) {
+            Connection connection = database.connection();
+            if (!gameHistoryExists(connection)) return List.of();
+            try (Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(30);
                 try (ResultSet rows = statement.executeQuery(sql)) {
                     List<GameSummary> result = new ArrayList<>();

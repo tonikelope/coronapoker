@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
@@ -85,6 +86,22 @@ final class GdxAdaptiveFontQuality {
         return result;
     }
 
+    static BitmapFont generateLocalized(FreeTypeFontGenerator generator, int size,
+            float border, Color color, Color borderColor, String characters,
+            Profile profile, GdxLocaleFonts localeFonts) {
+        if (localeFonts == null || localeFonts.fallback() == null) {
+            return generateForCharacters(generator, size, border, color, borderColor,
+                    characters, profile);
+        }
+        try (PreparedFont prepared = prepare(generator, size, border, color, borderColor,
+                characters, profile, localeFonts)) {
+            while (!prepared.uploadNextPage()) {
+                // Synchronous font creation uses the same atlases as display refresh.
+            }
+            return prepared.createFont();
+        }
+    }
+
     private static FreeTypeFontParameter parameters(int size, int rasterSize,
             float border, Color color, Color borderColor, String characters) {
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
@@ -106,6 +123,13 @@ final class GdxAdaptiveFontQuality {
     static PreparedFont prepare(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor, String characters,
             Profile profile) {
+        return prepare(generator, size, border, color, borderColor,
+                characters, profile, null);
+    }
+
+    static PreparedFont prepare(FreeTypeFontGenerator generator, int size,
+            float border, Color color, Color borderColor, String characters,
+            Profile profile, GdxLocaleFonts localeFonts) {
         int rasterSize = rasterSizeFor(size, profile);
         FreeTypeFontParameter parameter = parameters(size, rasterSize, border,
                 color, borderColor, characters);
@@ -121,11 +145,66 @@ final class GdxAdaptiveFontQuality {
         packer.getTransparentColor().a = 0f;
         parameter.packer = packer;
         try {
-            return new PreparedFont(generator.generateData(parameter), packer,
-                    (float) size / rasterSize);
+            FileHandle fallback = localeFonts == null ? null : localeFonts.fallback();
+            BitmapFont.BitmapFontData data;
+            if (fallback == null) {
+                data = generator.generateData(parameter);
+            } else {
+                String missing = missingCharacters(generator, characters);
+                data = generator.generateData(parameter, localeFonts.fontData());
+                if (!missing.isEmpty()) {
+                    String remaining = addFallbackGlyphs(data, fallback, parameter, missing);
+                    if (!remaining.isEmpty()) {
+                        remaining = addFallbackGlyphs(data,
+                                Gdx.files.internal("fonts/Inter-Medium.ttf"), parameter, remaining);
+                    }
+                    if (!remaining.isEmpty()) {
+                        addFallbackGlyphs(data, Gdx.files.internal("fonts/CoronaPokerSymbols.ttf"),
+                                parameter, remaining);
+                    }
+                }
+            }
+            return new PreparedFont(data, packer, (float) size / rasterSize);
         } catch (RuntimeException | Error failure) {
             packer.dispose();
             throw failure;
+        }
+    }
+
+    private static String missingCharacters(FreeTypeFontGenerator generator,
+            String characters) {
+        var missing = new StringBuilder();
+        for (int index = 0; index < characters.length(); index++) {
+            char character = characters.charAt(index);
+            if (!Character.isISOControl(character) && !generator.hasGlyph(character)) {
+                missing.append(character);
+            }
+        }
+        return missing.toString();
+    }
+
+    private static String addFallbackGlyphs(BitmapFont.BitmapFontData primary,
+            FileHandle source, FreeTypeFontParameter parameter, String missing) {
+        var generator = new FreeTypeFontGenerator(source);
+        try {
+            String unsupported = missingCharacters(generator, missing);
+            if (unsupported.length() == missing.length()) return unsupported;
+            parameter.characters = missing;
+            parameter.kerning = false;
+            BitmapFont.BitmapFontData fallback = generator.generateData(parameter);
+            int baselineOffset = Math.round(fallback.ascent + fallback.capHeight
+                    - primary.ascent - primary.capHeight);
+            for (int index = 0; index < missing.length(); index++) {
+                char character = missing.charAt(index);
+                BitmapFont.Glyph glyph = fallback.getGlyph(character);
+                if (glyph != null) {
+                    glyph.yoffset += baselineOffset;
+                    primary.setGlyph(character, glyph);
+                }
+            }
+            return unsupported;
+        } finally {
+            generator.dispose();
         }
     }
 

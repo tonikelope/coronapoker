@@ -151,8 +151,13 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return animationFlags.halo();
     }
 
+    String interfaceLanguage() {
+        return GdxGameText.resolveLanguage(properties.getProperty("lenguaje"));
+    }
+
     @Override public String language() {
-        return properties.getProperty("lenguaje", "es").toLowerCase(Locale.ROOT);
+        // The core selects existing sound banks by language.
+        return "es".equals(interfaceLanguage()) ? "es" : "en";
     }
     @Override public String defaultLanguage() { return "es"; }
     @Override public String deck() {

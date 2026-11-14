@@ -152,8 +152,7 @@ public final class GdxLauncher {
         System.setProperty("coronapoker.gdx.activeWindowMode",
                 windowMode.persistedValue());
 
-        GdxGameText gameText = new GdxGameText(preferences.properties()
-                .getProperty("lenguaje", "es"));
+        GdxGameText gameText = new GdxGameText(presentationSettings.interfaceLanguage());
         DatabaseService database = application.service(DatabaseService.class);
         GdxGameLogSink gameLog = new GdxGameLogSink(
                 Path.of(database.databaseLocation()));
@@ -198,7 +197,7 @@ public final class GdxLauncher {
                     display.refreshRate, application, sessions, gameLog,
                     presentationSettings, gameText, language -> {
                         gameText.setLanguage(language);
-                        configureModSounds(modMedia, language);
+                        configureModSounds(modMedia, presentationSettings.language());
                     }, identityTrust);
             config.setWindowListener(new Lwjgl3WindowAdapter() {
                 @Override

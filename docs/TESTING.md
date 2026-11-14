@@ -6,6 +6,21 @@ CoronaPoker separates code verification from gameplay certification. Use this
 page to choose and run a check. Use [Adding test scenarios](ADDING_TEST_SCENARIOS.md)
 only when extending the scenario catalogue.
 
+## Localization
+
+The product suite checks that every selectable language loads from the
+packaged UTF-8 properties and that all catalogs share the same keys.
+It also checks that the regional catalogs preserve the placeholders and
+compile with Java's `MessageFormat`, including the choices for blind intervals.
+
+When editing a catalog under `src/main/resources/i18n`, keep the placeholder
+indices, markup and escaped line breaks. For Japanese and Simplified Chinese,
+check coverage against the corresponding bundled font subset. The Tamil
+font and its cluster table are generated together so the table can render
+vowel signs in their display order. The Noto-derived font assets and their
+SIL Open Font Licenses are in `modules/coronapoker-gdx/src/main/resources/fonts`.
+Run `qa.cmd test` to validate the catalogs and build the application.
+
 ## Start here
 
 Run commands from the repository root.

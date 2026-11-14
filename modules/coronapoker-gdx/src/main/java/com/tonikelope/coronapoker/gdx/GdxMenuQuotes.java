@@ -38,8 +38,8 @@ final class GdxMenuQuotes {
     }
 
     String update(String requestedLanguage, float deltaSeconds) {
-        String normalized = "en".equalsIgnoreCase(requestedLanguage)
-                ? "en" : "es";
+        String normalized = "es".equalsIgnoreCase(requestedLanguage)
+                ? "es" : "en";
         if (!normalized.equals(language)) {
             language = normalized;
             startCycle();

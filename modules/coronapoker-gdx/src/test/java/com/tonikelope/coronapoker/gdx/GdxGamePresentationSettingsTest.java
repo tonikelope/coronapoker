@@ -293,6 +293,21 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void regionalInterfaceLanguageUsesAnExistingCoreSoundBank(@TempDir Path temporary) {
+        var preferences = new PreferencesService(temporary.resolve("coronapoker.properties"));
+        var settings = new GdxGamePresentationSettings(preferences);
+
+        preferences.properties().setProperty("lenguaje", "ja_JP");
+        assertEquals("ja-JP", settings.interfaceLanguage());
+        assertEquals("en", settings.language());
+        assertFalse(settings.jokeSoundResources("showdown").isEmpty());
+
+        preferences.properties().setProperty("lenguaje", "es");
+        assertEquals("es", settings.interfaceLanguage());
+        assertEquals("es", settings.language());
+    }
+
+    @Test
     void recoveryMusicAndStartSoundAreLiveAndLanguageIndependent(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(

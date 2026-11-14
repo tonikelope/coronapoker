@@ -1063,9 +1063,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         var debugRegular = Gdx.files.internal("fonts/Montserrat-SemiBold.ttf");
         var debugBold = Gdx.files.internal("fonts/Montserrat-Bold.ttf");
         Color border = new Color(0x02050ccc);
-        String characters = GdxAdaptiveFontQuality.charactersWith(
-                FRONTEND_EXTRA_FONT_CHARACTERS);
-        return List.of(
+        var localeFonts = new GdxLocaleFonts(gameText);
+        String characters = localeFonts.characters(GdxAdaptiveFontQuality.charactersWith(
+                FRONTEND_EXTRA_FONT_CHARACTERS));
+        List<GdxFontRefresh.Font> fonts = List.of(
                 new GdxFontRefresh.Font(mclaren,
                         GdxSettingsStyle.TITLE_FONT_SIZE, GdxSettingsStyle.TITLE_FONT_BORDER,
                         border, characters,
@@ -1128,6 +1129,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         20, 0f,
                         border, characters,
                         font -> debugLogBoldFont = replaceFont(debugLogBoldFont, font)));
+        return fonts.stream().map(font -> font.withLocale(localeFonts)).toList();
     }
 
     private void rebuildFonts(GdxAdaptiveFontQuality.Profile profile) {
@@ -5278,15 +5280,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String settingsGameText(String suffix, Object... arguments) {
         return uppercase(gameText.translate("gdx.settings.game." + suffix,
                 arguments));
-    }
-
-    private void toggleLanguage() {
-        String next = "es".equalsIgnoreCase(presentationSettings.language())
-                ? "en" : "es";
-        initialProperties.setProperty("lenguaje", next);
-        PokerChromium.useLanguage(next);
-        languageChanged.accept(next);
-        if (preferences != null) preferences.saveDeferred();
     }
 
     private void openAboutDialog() {
@@ -14597,8 +14590,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     presentationSettings.felt());
             case HOST_ADDRESS -> selectedHostAddressOption();
             case SERVER_HISTORY -> selectedServerHistoryOption();
-            case LANGUAGE -> "en".equalsIgnoreCase(
-                    presentationSettings.language()) ? 1 : 0;
+            case LANGUAGE -> gameText.languageIndex();
             case AUDIO_OUTPUT -> GdxAudioDevices.selectedOutputIndex(
                     initialProperties);
             case AUDIO_CAPTURE -> GdxAudioDevices.selectedCaptureIndex(
@@ -14706,7 +14698,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case FELT -> GdxGamePresentationSettings.FELTS.stream()
                     .map(felt -> GdxAppearanceOptions.feltLabel(felt,
                             gameText)).toList();
-            case LANGUAGE -> List.of("Español", "English");
+            case LANGUAGE -> GdxGameText.LANGUAGE_LABELS;
             case AUDIO_OUTPUT -> GdxAudioDevices.outputChoices().stream()
                     .map(device -> GdxAudioDevices.deviceLabel(device,
                             gameText)).toList();
@@ -14909,11 +14901,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void selectLanguageOption(int option) {
-        if (option < 0 || option > 1) return;
-        String next = option == 0 ? "es" : "en";
-        if (next.equalsIgnoreCase(presentationSettings.language())) return;
+        if (option < 0 || option >= GdxGameText.LANGUAGES.size()) return;
+        String next = GdxGameText.LANGUAGES.get(option).tag();
+        if (next.equals(gameText.language())) return;
         initialProperties.setProperty("lenguaje", next);
+        PokerChromium.useLanguage(next);
         languageChanged.accept(next);
+        fontRefresh.close();
+        rebuildFonts(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));
         if (preferences != null) preferences.saveDeferred();
     }
 

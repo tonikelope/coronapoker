@@ -11,6 +11,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -59,6 +61,59 @@ final class GdxGameTextTest {
         assertEquals("Aleatorio", spanish.getProperty("gdx.custom_bots.personality.random"));
         assertEquals("Style", english.getProperty("gdx.custom_bots.personality"));
         assertEquals("Random", english.getProperty("gdx.custom_bots.personality.random"));
+    }
+
+    @Test
+    void resolvesSystemLocaleAndKeepsSavedLanguageCompatible() {
+        assertEquals("fr-FR", GdxGameText.supportedLanguage(Locale.CANADA_FRENCH));
+        assertEquals("en", GdxGameText.supportedLanguage(Locale.KOREA));
+        assertEquals("en", GdxGameText.supportedLanguage(Locale.TAIWAN));
+        assertEquals("zh-CN", GdxGameText.supportedLanguage(Locale.SIMPLIFIED_CHINESE));
+        assertEquals("nb-NO", GdxGameText.resolveLanguage("no_NO"));
+        assertEquals("pt-PT", GdxGameText.resolveLanguage("pt_PT"));
+        assertEquals("pt-BR", GdxGameText.resolveLanguage("pt-BR"));
+        assertEquals("es", GdxGameText.resolveLanguage(" ES "));
+        assertEquals("en", GdxGameText.resolveLanguage("EN"));
+        assertEquals(GdxGameText.supportedLanguage(Locale.getDefault()),
+                new GdxGameText(null).language());
+    }
+
+    @Test
+    void allSelectableLanguagesLoadPackagedCatalogs() throws Exception {
+        assertEquals(30, GdxGameText.LANGUAGES.size());
+        Properties english = messages("en");
+        for (int index = 0; index < GdxGameText.LANGUAGES.size(); index++) {
+            String language = GdxGameText.LANGUAGES.get(index).tag();
+            Properties expected = messages(language.replace('-', '_'));
+            GdxGameText text = new GdxGameText(language);
+            assertEquals(index, text.languageIndex());
+            assertEquals(english.stringPropertyNames(), expected.stringPropertyNames());
+            assertEquals(expected.getProperty("gdx.language_name"),
+                    text.translate("gdx.language_name"));
+            if (language.length() == 2) continue;
+            Pattern argument = Pattern.compile("\\{(\\d+)(?:,([a-z]+),)?");
+            for (String key : english.stringPropertyNames()) {
+                String value = expected.getProperty(key);
+                assertFalse(value.isBlank(), language + " " + key);
+                var parameters = argument.matcher(english.getProperty(key)).results()
+                        .map(match -> match.group()).sorted().toList();
+                assertEquals(parameters, argument.matcher(value).results()
+                        .map(match -> match.group()).sorted().toList(), language + " " + key);
+                if (!parameters.isEmpty()) {
+                    new MessageFormat(value, Locale.forLanguageTag(language));
+                }
+            }
+            assertTrue(text.translate("gdx.lobby.blind_increase_hands", 2).contains("2"));
+        }
+    }
+
+    @Test
+    void tamilUsesComposedClustersForRendering() {
+        String tamil = new GdxGameText("ta-IN").translate("gdx.language_name");
+        String shaped = GdxLocaleFonts.shapeTamil(tamil);
+        assertNotEquals(tamil, shaped);
+        assertTrue(shaped.length() < tamil.length());
+        assertEquals("CoronaPoker", GdxLocaleFonts.shapeTamil("CoronaPoker"));
     }
 
     @Test
@@ -211,7 +266,9 @@ final class GdxGameTextTest {
         assertEquals("Handmade in Spain and with love by tonikelope (c) 2020",
                 text.translate("about.hecho_a_mano"));
 
-        assertEquals("es", text.setLanguage("not-a-language"));
+        assertEquals("en", text.setLanguage("not-a-language"));
+        assertEquals("CREATE GAME", text.translate("game.crear_timba"));
+        assertEquals("es", text.setLanguage("es"));
         assertEquals("CREAR TIMBA", text.translate("game.crear_timba"));
         assertEquals("Aumentar ciegas",
                 text.translate("gdx.settings.game.row.increase_blinds"));

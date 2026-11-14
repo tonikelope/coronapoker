@@ -1091,6 +1091,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTextToSpeechPlayback textToSpeech;
     private final GdxGamePresentationSettings presentationSettings;
     private final GdxGameText gameText;
+    private final GdxLocaleFonts localeFonts;
+    private final String tableFontCharacters;
+    private final String localOutcomeCharacters;
+    private final String finalHeroCharacters;
     private final LobbySession lobby;
     private final IdentityTrustStore identityTrust;
     private final boolean tableRebuyAllowed;
@@ -2785,7 +2789,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         this.presentationSettings = presentationSettings;
         communityDealByStreet = configuredCommunityDealByStreet();
         gameText = new GdxGameText(presentationSettings == null
-                ? "es" : presentationSettings.language());
+                ? "es" : presentationSettings.interfaceLanguage());
+        localeFonts = new GdxLocaleFonts(gameText);
+        tableFontCharacters = localeFonts.characters(
+                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS));
+        localOutcomeCharacters = localizedOutcomeCharacters();
+        finalHeroCharacters = localeFonts.charactersFor(
+                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS),
+                uppercase(gameText.translate("gdx.final.hero.win"))
+                + uppercase(gameText.translate("gdx.final.hero.loss"))
+                + uppercase(gameText.translate("gdx.final.hero.even"))
+                + uppercase(gameText.translate("gdx.final.hero.recoverable_stop"))
+                + uppercase(gameText.translate("gdx.final.hero.failure")));
         if (tableChat != null) {
             for (LobbyChatMessage message : tableChat.initialHistory()) {
                 rememberChatMessage(message, null, false);
@@ -4015,7 +4030,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 2 -> {
                 if (!createNextLargeFont(FINAL_HERO_FONT_SIZE,
                         FINAL_HERO_FONT_BORDER, Color.WHITE,
-                        FINAL_AMOUNT_FONT_BORDER, font -> finalHeroFont = font)) {
+                        FINAL_AMOUNT_FONT_BORDER, font -> finalHeroFont = font,
+                        finalHeroCharacters)) {
                     return false;
                 }
             }
@@ -4077,6 +4093,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean createNextLargeFont(int size, float border, Color color,
             Color borderColor, Consumer<BitmapFont> install) {
+        return createNextLargeFont(size, border, color, borderColor, install,
+                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS));
+    }
+
+    private boolean createNextLargeFont(int size, float border, Color color,
+            Color borderColor, Consumer<BitmapFont> install, String characters) {
         if (largeFontPreparation == null) {
             var profile = GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT);
             FileHandle source = Gdx.files.internal("fonts/McLaren-Regular.ttf");
@@ -4084,9 +4106,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 FreeTypeFontGenerator generator = new FreeTypeFontGenerator(source);
                 try {
                     return GdxAdaptiveFontQuality.prepare(generator, size,
-                            border, color, borderColor,
-                            GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS),
-                            profile);
+                            border, color, borderColor, characters, profile, localeFonts);
                 } finally {
                     generator.dispose();
                 }
@@ -4581,42 +4601,58 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 <= STACK_CHIP_MARK_HALF_ANGLE;
     }
 
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size, float border) {
+    private BitmapFont font(FreeTypeFontGenerator generator, int size, float border) {
         return font(generator, size, border, Color.WHITE,
                 DEFAULT_FONT_BORDER);
     }
 
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+    private BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor) {
         return font(generator, size, border, color, borderColor,
                 GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
     }
 
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+    private BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border, Color color, Color borderColor,
             GdxAdaptiveFontQuality.Profile profile) {
-        return GdxAdaptiveFontQuality.generate(generator, size, border,
-                color, borderColor, TABLE_FONT_EXTRA_CHARACTERS, profile);
+        return GdxAdaptiveFontQuality.generateLocalized(generator, size, border,
+                color, borderColor, tableFontCharacters, profile, localeFonts);
     }
 
-    private static BitmapFont font(FreeTypeFontGenerator generator, int size,
+    private BitmapFont font(FreeTypeFontGenerator generator, int size,
             float border, GdxAdaptiveFontQuality.Profile profile) {
         return font(generator, size, border, Color.WHITE,
                 DEFAULT_FONT_BORDER, profile);
     }
 
-    private static BitmapFont localOutcomeFont(
+    private BitmapFont localOutcomeFont(
             FreeTypeFontGenerator generator, int size) {
         return localOutcomeFont(generator, size,
                 GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT));
     }
 
-    private static BitmapFont localOutcomeFont(
+    private BitmapFont localOutcomeFont(
             FreeTypeFontGenerator generator, int size,
             GdxAdaptiveFontQuality.Profile profile) {
-        return GdxAdaptiveFontQuality.generateForCharacters(generator, size,
+        return GdxAdaptiveFontQuality.generateLocalized(generator, size,
                 localOutcomeBorder(size), Color.WHITE, Color.WHITE,
-                LOCAL_OUTCOME_CHARACTERS, profile);
+                localOutcomeCharacters, profile, localeFonts);
+    }
+
+    private String localizedOutcomeCharacters() {
+        String localized = String.join("", localHandOutcomeLabel(true, List.of(1), gameText),
+                localHandOutcomeLabel(false, gameText),
+                localShownOutcomeLabel(true, null, List.of(), gameText),
+                localHudIdleMessage(false, false, true, true, gameText),
+                localHudIdleMessage(false, false, true, false, gameText),
+                localHudIdleMessage(false, true, false, false, gameText),
+                gameText.translate("ui.expulsar_jugador"));
+        localized += String.join("", gameText.translate("action.label.fold"),
+                gameText.translate("action.label.check"), gameText.translate("action.label.call"),
+                gameText.translate("action.label.bet"), gameText.translate("action.label.raise"),
+                gameText.translate("action.label.allin"));
+        return localeFonts.charactersFor(LOCAL_OUTCOME_CHARACTERS, localized.toUpperCase(
+                Locale.forLanguageTag(gameText.language())) + localized);
     }
 
     private static BitmapFont replaceFont(BitmapFont previous,
@@ -4627,9 +4663,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private List<GdxFontRefresh.Font> displayFonts() {
         var mclaren = Gdx.files.internal("fonts/McLaren-Regular.ttf");
-        String characters = GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS);
+        String characters = tableFontCharacters;
+        String amountCharacters = GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS);
         if (startupIntroOnly) {
-            return List.of(
+            return java.util.stream.Stream.of(
                     new GdxFontRefresh.Font(mclaren, 58, 0f, Color.WHITE,
                             DEFAULT_FONT_BORDER, characters,
                             font -> startupPresentationFont = replaceFont(
@@ -4637,7 +4674,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     new GdxFontRefresh.Font(mclaren, 40, 0f, Color.WHITE,
                             DEFAULT_FONT_BORDER, characters,
                             font -> startupPresentationSubtitleFont = replaceFont(
-                                    startupPresentationSubtitleFont, font)));
+                                    startupPresentationSubtitleFont, font)))
+                    .map(font -> font.withLocale(localeFonts)).toList();
         }
         var mono = GdxMonospaceFonts.source(false);
         var bold = GdxMonospaceFonts.source(true);
@@ -4664,19 +4702,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 DEFAULT_FONT_BORDER, characters,
                 font -> actionFont = replaceFont(actionFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 100, 0f,
-                DEFAULT_FONT_BORDER, characters,
+                DEFAULT_FONT_BORDER, amountCharacters,
                 font -> dialogAmountFont = replaceFont(dialogAmountFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 32, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> seatActionFont = replaceFont(seatActionFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 160, 6f,
-                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, characters,
+                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, amountCharacters,
                 font -> callCostFont = replaceFont(callCostFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 128, 4.8f,
-                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, characters,
+                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, amountCharacters,
                 font -> callCostMediumFont = replaceFont(callCostMediumFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 96, 3.6f,
-                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, characters,
+                CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, amountCharacters,
                 font -> callCostCompactFont = replaceFont(callCostCompactFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 76, 0f,
                 PAUSE_RED, new Color(0x640000cc), characters,
@@ -4716,13 +4754,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 DEFAULT_FONT_BORDER, characters,
                 font -> finalTitleFont = replaceFont(finalTitleFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, FINAL_HERO_FONT_SIZE, FINAL_HERO_FONT_BORDER,
-                Color.WHITE, FINAL_AMOUNT_FONT_BORDER, characters,
+                Color.WHITE, FINAL_AMOUNT_FONT_BORDER, finalHeroCharacters,
                 font -> finalHeroFont = replaceFont(finalHeroFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 162, 5.5f,
-                Color.WHITE, FINAL_AMOUNT_FONT_BORDER, characters,
+                Color.WHITE, FINAL_AMOUNT_FONT_BORDER, amountCharacters,
                 font -> finalAmountFont = replaceFont(finalAmountFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 162, 0f,
-                DEFAULT_FONT_BORDER, characters,
+                DEFAULT_FONT_BORDER, amountCharacters,
                 font -> chipCatalogAmountFont = replaceFont(chipCatalogAmountFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 20, FINAL_CARD_EMPHASIS_BORDER,
                 DEFAULT_FONT_BORDER, characters,
@@ -4759,11 +4797,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         for (int size = LOCAL_OUTCOME_MIN_SIZE; size <= LOCAL_OUTCOME_MAX_SIZE; size++) {
             int index = size - LOCAL_OUTCOME_MIN_SIZE;
             fonts.add(new GdxFontRefresh.Font(mclaren, size, localOutcomeBorder(size),
-                    Color.WHITE, Color.WHITE, LOCAL_OUTCOME_CHARACTERS,
+                    Color.WHITE, Color.WHITE, localOutcomeCharacters,
                     font -> localOutcomeNativeFonts[index] = replaceFont(
                                     localOutcomeNativeFonts[index], font)));
         }
-        return fonts;
+        return fonts.stream().map(font -> font.withLocale(localeFonts)).toList();
     }
 
     private void installFontProfile(GdxAdaptiveFontQuality.Profile profile) {
@@ -30850,7 +30888,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 maximumWidth, maximumHeight);
         BitmapFont selected = null;
         while (size >= FINAL_HERO_MIN_FONT_SIZE) {
-            BitmapFont candidate = createFittedFinalHeroFont(size);
+            BitmapFont candidate = createFittedFinalHeroFont(size, text);
             glyph.setText(candidate, text);
             if (fontFits(glyph, maximumWidth, maximumHeight)) {
                 selected = candidate;
@@ -30861,14 +30899,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (selected == null) {
             selected = createFittedFinalHeroFont(
-                    FINAL_HERO_MIN_FONT_SIZE);
+                    FINAL_HERO_MIN_FONT_SIZE, text);
             size = FINAL_HERO_MIN_FONT_SIZE;
         } else {
             // FreeType hinting can leave one or two whole native sizes of
             // headroom relative to the proportional estimate. Probe upwards
             // and retain the largest candidate that actually fits.
             while (size + 1 < FINAL_HERO_FONT_SIZE) {
-                BitmapFont candidate = createFittedFinalHeroFont(size + 1);
+                BitmapFont candidate = createFittedFinalHeroFont(size + 1, text);
                 glyph.setText(candidate, text);
                 if (!fontFits(glyph, maximumWidth, maximumHeight)) {
                     candidate.dispose();
@@ -30886,19 +30924,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return selected;
     }
 
-    private BitmapFont createFittedFinalHeroFont(int logicalSize) {
+    private BitmapFont createFittedFinalHeroFont(int logicalSize, String text) {
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
                 Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         try {
             GdxAdaptiveFontQuality.Profile profile = fontQualityProfile == null
                     ? GdxAdaptiveFontQuality.current(BASE_WIDTH, BASE_HEIGHT)
                     : fontQualityProfile;
-            return GdxAdaptiveFontQuality.generateForCharacters(generator,
+            return GdxAdaptiveFontQuality.generateLocalized(generator,
                     logicalSize,
                     FINAL_HERO_FONT_BORDER * logicalSize
                             / FINAL_HERO_FONT_SIZE,
                     Color.WHITE, new Color(0x000000ef),
-                    LOCAL_OUTCOME_CHARACTERS, profile);
+                    localeFonts.charactersFor(LOCAL_OUTCOME_CHARACTERS, text),
+                    profile, localeFonts);
         } finally {
             generator.dispose();
         }

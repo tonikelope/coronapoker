@@ -72,19 +72,28 @@ final class GdxFontRefresh implements AutoCloseable {
     }
 
     record Font(FileHandle source, int size, float border, Color color,
-            Color borderColor, String characters, Consumer<BitmapFont> install) {
+            Color borderColor, String characters, Consumer<BitmapFont> install,
+            GdxLocaleFonts localeFonts) {
 
         Font(FileHandle source, int size, float border, Color borderColor,
                 String characters, Consumer<BitmapFont> install) {
-            this(source, size, border, Color.WHITE, borderColor, characters,
-                    install);
+            this(source, size, border, Color.WHITE, borderColor, characters, install, null);
+        }
+
+        Font(FileHandle source, int size, float border, Color color, Color borderColor,
+                String characters, Consumer<BitmapFont> install) {
+            this(source, size, border, color, borderColor, characters, install, null);
+        }
+
+        Font withLocale(GdxLocaleFonts locale) {
+            return new Font(source, size, border, color, borderColor, characters, install, locale);
         }
 
         BitmapFont generate(GdxAdaptiveFontQuality.Profile profile) {
             var generator = new FreeTypeFontGenerator(source);
             try {
-                return GdxAdaptiveFontQuality.generateForCharacters(generator,
-                        size, border, color, borderColor, characters, profile);
+                return GdxAdaptiveFontQuality.generateLocalized(generator,
+                        size, border, color, borderColor, characters, profile, localeFonts);
             } finally {
                 generator.dispose();
             }
@@ -95,7 +104,7 @@ final class GdxFontRefresh implements AutoCloseable {
             var generator = new FreeTypeFontGenerator(source);
             try {
                 return GdxAdaptiveFontQuality.prepare(generator,
-                        size, border, color, borderColor, characters, profile);
+                        size, border, color, borderColor, characters, profile, localeFonts);
             } finally {
                 generator.dispose();
             }

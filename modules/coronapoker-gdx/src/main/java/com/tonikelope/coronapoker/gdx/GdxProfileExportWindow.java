@@ -120,11 +120,13 @@ final class GdxProfileExportWindow extends ApplicationAdapter {
         cornerFeather = GdxAntialiasedRoundedRect.TARGET_PHYSICAL_FEATHER_PIXELS
                 / profile.physicalPixelsPerWorldUnit();
         var generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/McLaren-Regular.ttf"));
+        var localeFonts = new GdxLocaleFonts(text);
+        String characters = localeFonts.characters(GdxAdaptiveFontQuality.charactersWith(null));
         try {
-            titleFont = GdxAdaptiveFontQuality.generate(generator, 20, 0f,
-                    Color.WHITE, Color.CLEAR, null, profile);
-            statusFont = GdxAdaptiveFontQuality.generate(generator, 17, 0f,
-                    Color.WHITE, Color.CLEAR, null, profile);
+            titleFont = GdxAdaptiveFontQuality.generateLocalized(generator, 20, 0f,
+                    Color.WHITE, Color.CLEAR, characters, profile, localeFonts);
+            statusFont = GdxAdaptiveFontQuality.generateLocalized(generator, 17, 0f,
+                    Color.WHITE, Color.CLEAR, characters, profile, localeFonts);
         } finally {
             generator.dispose();
         }

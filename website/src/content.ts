@@ -66,8 +66,7 @@ export const copy = {
     mental: {
       title: 'Encrypt, shuffle and verify the hand.',
       intro: [
-        'In a traditional host-based peer-to-peer game, the host shuffles and deals the deck, so they could find out which cards each player gets and which community cards will come up. In CoronaPoker, the host coordinates the game, and the human players prepare the deck together using the original idea behind Mental Poker. On their turn, each of those players, including the host, encrypts the deck with their own key and then shuffles it.',
-        'The host alone cannot read the other players’ private cards or learn the board ahead of time. CoronaPoker adds zero-knowledge proofs so everyone can check that the deck kept the original 52 cards without revealing them. At the end, players compare signed receipts to check that they played the same hand.',
+        'When the host prepares the deck alone, they can know every card in advance. CoronaPoker builds on the original idea of Mental Poker. Each human player, including the host, takes a turn encrypting the deck with their own key and then shuffling it. The host alone cannot see anyone else’s private cards or learn the community cards ahead of time. Everyone uses zero-knowledge proofs to check that the deck still contains the original 52 cards without revealing them. At the end, players compare signed receipts to check that they played the same hand.',
       ],
       walkthrough: 'Mental Poker in CoronaPoker',
       example: 'Illustration with three players',
@@ -348,8 +347,7 @@ export const copy = {
     mental: {
       title: 'Cifrar, barajar y verificar la mano.',
       intro: [
-        'En el reparto clásico de una partida P2P centralizada, el anfitrión baraja y reparte el mazo, por lo que podría averiguar qué cartas recibe cada jugador y qué comunitarias saldrán. En CoronaPoker, el anfitrión coordina la partida y los jugadores humanos preparan el mazo entre todos siguiendo la idea original de Mental Poker. En su turno, cada uno, incluido el anfitrión, cifra el mazo con su propia clave y después lo baraja.',
-        'Por sí solo, el anfitrión no puede leer las cartas privadas de los demás ni conocer las comunitarias antes de tiempo. CoronaPoker añade pruebas de conocimiento cero para comprobar que el mazo conserva las 52 cartas originales sin destaparlas. Al final, los jugadores comparan recibos firmados para comprobar que jugaron la misma mano.',
+        'Cuando el anfitrión prepara el mazo por su cuenta, puede conocer todas las cartas de antemano. CoronaPoker parte de la idea original de Mental Poker. En su turno, cada jugador humano, incluido el anfitrión, cifra el mazo con su propia clave y después lo baraja. Así, el anfitrión por sí solo no puede ver las privadas ajenas ni anticipar las comunitarias. Con pruebas de conocimiento cero, todos verifican que el mazo conserva las 52 cartas originales sin destaparlas. Al final, comparan recibos firmados para comprobar que jugaron la misma mano.',
       ],
       walkthrough: 'Mental Poker en CoronaPoker',
       example: 'Ejemplo con tres jugadores',

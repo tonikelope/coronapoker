@@ -7,13 +7,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxPocketOrderTest {
     @Test void waitsForBothLandingsAndKeepsTheDealtIdentityAfterTheCoreSwap() {
-        var order = dealt("2_T", "A_P");
+        var order = dealt("A_P", "2_T");
         order.remember(cards("A_P", "2_T"));
         for (int i=0;i<100;i++) order.update(false,true,.016f);
         assertTrue(order.busy());
-        assertEquals(GdxPocketOrder.Pose.resting(0), order.pose("2_T",1));
-        assertEquals(GdxPocketOrder.Pose.resting(1), order.pose("A_P",0));
-        assertEquals(0, order.dealtSlot("2_T",1));
+        assertEquals(GdxPocketOrder.Pose.resting(0), order.pose("A_P",0));
+        assertEquals(GdxPocketOrder.Pose.resting(1), order.pose("2_T",1));
+        assertEquals(1, order.dealtSlot("2_T",1));
         finish(order);
         assertTrue(order.pose("A_P",0).x() < order.pose("2_T",1).x());
     }
@@ -22,7 +22,7 @@ final class GdxPocketOrderTest {
         for (String[] pair : new String[][]{{"K_C","4_P"},{"4_P","K_C"},{"A_P","K_C"},{"K_C","A_P"},{"9_P","9_C"}}) {
             var order=dealt(pair[0],pair[1]);
             finish(order);
-            String higher=pair[0].startsWith("4") || pair[1].startsWith("A") ? pair[1] : pair[0];
+            String higher=pair[0].startsWith("4") || pair[1].startsWith("A") || pair[0].startsWith("9") ? pair[1] : pair[0];
             assertEquals(-.18f, order.pose(higher,0).x(), .00001f);
             assertFalse(order.busy());
         }
@@ -92,6 +92,19 @@ final class GdxPocketOrderTest {
     @Test void markerThicknessScalesWithItsDiameter() {
         assertEquals(3.8f,GdxPerspectiveTable.positionMarkerThickness(40),.0001f);
         assertEquals(7.6f,GdxPerspectiveTable.positionMarkerThickness(80),.0001f);
+    }
+
+    @Test void alreadyOrderedCardsAndPairsNeverSpreadOrBlockPeeking() {
+        for (String[] pair : new String[][]{{"2_T","A_P"},{"9_C","9_P"}}) {
+            var order = dealt(pair[0],pair[1]);
+            assertFalse(order.busy());
+            for (int i=0;i<80;i++) {
+                order.update(true,true,.016f);
+                assertEquals(GdxPocketOrder.Pose.resting(0),order.pose(pair[0],0));
+                assertEquals(GdxPocketOrder.Pose.resting(1),order.pose(pair[1],1));
+                assertFalse(order.busy());
+            }
+        }
     }
 
     private static GdxPocketOrder dealt(String a,String b) {

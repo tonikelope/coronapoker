@@ -36,6 +36,23 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void localAllInRevealIsPublicBeforePartialHandAndSurvivesRosterRefresh() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        var left = new TableSnapshot.CardSnapshot("A_C", true, false);
+        var right = new TableSnapshot.CardSnapshot("K_D", true, false);
+        state.apply(new TableVisualEvent.RevealHoleCards(2L, "ana", left, right, ""));
+        assertTrue(state.hasPublicHoleCards("ana"));
+        assertTrue(state.hasRevealedHoleCards("ana"));
+        state.apply(new TableVisualEvent.SeatRoster(3L, state.snapshot().players()));
+        assertTrue(state.hasPublicHoleCards("ana"));
+        state.apply(new TableVisualEvent.PartialHand(4L,"ana","HIGH CARD",false,50f));
+        assertTrue(state.hasPublicHoleCards("ana"));
+        var restored = new GdxTableViewState(snapshot());
+        restored.apply(new TableVisualEvent.HotJoinState(5L,state.snapshot()));
+        assertTrue(restored.hasPublicHoleCards("ana"));
+    }
+
+    @Test
     void privateStraddleReleaseAndFoldNeverMarkLocalCardsPublic() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         var left = new TableSnapshot.CardSnapshot("A_C", true, false);
@@ -3073,8 +3090,8 @@ final class GdxTableViewStateTest {
         assertFalse(CoronaPokerGdxTable.shouldAnimateHoleReveal(
                 "ana", local, sortedShowdown));
 
-        // The empty hand name is the deferred blind-straddle reveal, which is
-        // a real uncover and must remain animated.
+        // A private deferred blind-straddle release is a real uncover and
+        // must remain animated, independently of the eventual hand name.
         TableSnapshot.PlayerSnapshot coveredLocal
                 = new TableSnapshot.PlayerSnapshot(
                         "ana", 1_000d, 0d, 0d, true, false, false, false,
@@ -3086,7 +3103,7 @@ final class GdxTableViewStateTest {
                                         "", true, false)));
         TableVisualEvent.RevealHoleCards straddleReveal
                 = new TableVisualEvent.RevealHoleCards(5L, "ana",
-                        left, right, "");
+                        left, right);
         assertTrue(CoronaPokerGdxTable.shouldAnimateHoleReveal(
                 "ana", coveredLocal, straddleReveal));
     }

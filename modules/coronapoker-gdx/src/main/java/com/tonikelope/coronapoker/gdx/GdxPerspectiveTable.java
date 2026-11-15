@@ -25,6 +25,7 @@ import java.nio.IntBuffer;
 final class GdxPerspectiveTable implements Disposable {
 
     private static final float FOV = 36f;
+    private static final float TABLE_ZOOM = 1.10f;
     private static final float ELEVATION = 37f;
     private static final float CARD_REST_HEIGHT = 0.72f;
     private static final float EDGE_MARGIN_SCALE = 1.065f;
@@ -144,7 +145,12 @@ final class GdxPerspectiveTable implements Disposable {
                     gl_FragColor = vec4(0.015, 0.012, 0.010, 0.30 * shade * u_opacity);
                     return;
                 }
-                if (u_material == 6) {
+                if (u_material == 8 && v_light < 0.0) {
+                    float shade = 1.0 - smoothstep(0.34, 0.50, length(v_uv - 0.5));
+                    gl_FragColor = vec4(0.01, 0.01, 0.01, shade * 0.28 * u_opacity);
+                    return;
+                }
+                if (u_material == 6 || u_material == 8) {
                     vec4 ink = sampleProjectedCard(u_texture, v_uv, 1.0, 0.0);
                     ink.rgb = mix(texture2D(u_texture, vec2(.5,.12)).rgb, ink.rgb, ink.a);
                     vec3 n = normalize(v_normal);
@@ -152,7 +158,8 @@ final class GdxPerspectiveTable implements Disposable {
                     float light = 0.58 + 0.42 * max(0.0, dot(n, lightDir));
                     vec3 eye = normalize(u_eye - v_position);
                     float sheen = 0.055 * pow(max(0.0, dot(n, normalize(lightDir + eye))), 36.0);
-                    gl_FragColor = vec4(ink.rgb * light + sheen, u_opacity);
+                    gl_FragColor = vec4(ink.rgb * light + sheen,
+                            u_opacity * (u_material == 8 ? v_light : 1.0));
                     return;
                 }
                 if (u_material == 5) {
@@ -192,6 +199,8 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 view = new Matrix4();
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
+    private final Matrix4 layoutInverseView = new Matrix4();
+    private final FloatArray[] potVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
     private final Vector3 cardSample = new Vector3();
@@ -288,7 +297,10 @@ final class GdxPerspectiveTable implements Disposable {
         camera.up.set(Vector3.Y);
         camera.lookAt(0f, 0f, 0f);
         camera.update();
+        layoutInverseView.setToTranslation(0f, 2f * boardCenterY / height - 1f, 0f)
+                .mul(camera.combined).inv();
         view.setToTranslation(0f, 2f * boardCenterY / height - 1f, 0f)
+                .scale(MathUtils.lerp(1f, TABLE_ZOOM, progress), MathUtils.lerp(1f, TABLE_ZOOM, progress), 1f)
                 .mul(camera.combined);
         inverseView.set(view).inv();
         board.set(view).translate(-width * 0.5f, CARD_REST_HEIGHT, boardCenterY)
@@ -306,16 +318,30 @@ final class GdxPerspectiveTable implements Disposable {
                 (projectedPoint.y + 1f) * height * 0.5f, 0f);
     }
 
+    Vector3 layoutToScreen(float x, float y) {
+        float zoom = MathUtils.lerp(1f, TABLE_ZOOM, cameraProgress);
+        return projectedPoint.set(width * .5f + (x - width * .5f) * zoom,
+                boardCenterY + (y - boardCenterY) * zoom, 0f);
+    }
+
+    Vector3 tablePointToScreen(float x, float y, float elevation) {
+        return projectWorld(near.set(x - width * .5f, CARD_REST_HEIGHT + elevation, boardCenterY - y));
+    }
+
     Vector3 boardAt(float x, float y) {
         Vector3 point = surfaceAt(x, y, CARD_REST_HEIGHT);
         return point.set(point.x + width * 0.5f, boardCenterY - point.z, 0f);
     }
 
     private Vector3 surfaceAt(float x, float y, float level) {
+        return surfaceAt(x, y, level, inverseView);
+    }
+
+    private Vector3 surfaceAt(float x, float y, float level, Matrix4 inverse) {
         float nx = 2f * x / width - 1f;
         float ny = 2f * y / height - 1f;
-        near.set(nx, ny, -1f).prj(inverseView);
-        far.set(nx, ny, 1f).prj(inverseView);
+        near.set(nx, ny, -1f).prj(inverse);
+        far.set(nx, ny, 1f).prj(inverse);
         return near.lerp(far, (level - near.y) / (far.y - near.y));
     }
 
@@ -527,7 +553,7 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private Vector3 pocketAt(float x, float y, float cardWidth, int slot, float spread) {
-        Vector3 point = surfaceAt(x, y, 0f);
+        Vector3 point = surfaceAt(x, y, 0f, layoutInverseView);
         float shown = -(point.x - Math.signum(point.x) * cardWidth * .22f * cameraProgress);
         float covered = (slot == 0 ? .18f : -.18f) * cardWidth;
         point.x = MathUtils.lerp(point.x, MathUtils.lerp(covered, shown, spread), cameraProgress);
@@ -626,6 +652,63 @@ final class GdxPerspectiveTable implements Disposable {
         float angle = MathUtils.lerp((order & 1) == 0 ? -18f : 18f, fan, turn);
         drawFlexibleFlight(back, dealPosition.x, dealPosition.z, w, h, angle,
                 dealPosition.y, GdxCardDealMotion.airborne(progress));
+    }
+
+    void beginPotRack() {
+        for (FloatArray vertices : potVertices) vertices.clear();
+    }
+
+    /** Extruded chips stand on the same plane as the pot label. */
+    void addPotChip(int color, float x, float y, float diameter, float bottom,
+            float thickness, float rotation, float visibility, boolean shadow) {
+        FloatArray vertices = potVertices[color];
+        float cx = x - width * .5f, cz = boardCenterY - y;
+        float radius = diameter * .5f;
+        float base = CARD_REST_HEIGHT + bottom + .04f;
+        float bevel = Math.min(thickness * .20f, diameter * .015f);
+        int segments = 48;
+        for (int i = 0; i < segments; i++) {
+            float a = i * MathUtils.PI2 / segments, b = (i + 1) * MathUtils.PI2 / segments;
+            if (shadow) {
+                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 0f, 0f, rotation, true, 1f, -1f);
+                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 1f, a, rotation, true, 1f, -1f);
+                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 1f, b, rotation, true, 1f, -1f);
+            }
+            potVertex(vertices, cx, cz, radius, base + thickness, 0f, 0f, rotation, true, 1f, visibility);
+            potVertex(vertices, cx, cz, radius, base + thickness, .985f, a, rotation, true, 1f, visibility);
+            potVertex(vertices, cx, cz, radius, base + thickness, .985f, b, rotation, true, 1f, visibility);
+            for (int band = 0; band < 3; band++) {
+                float low = band == 0 ? 0f : band == 1 ? bevel : thickness - bevel;
+                float high = band == 0 ? bevel : band == 1 ? thickness - bevel : thickness;
+                float r0 = band == 0 ? .985f : 1f, r1 = band == 2 ? .985f : 1f;
+                float ny = band == 0 ? -.6f : band == 2 ? .6f : 0f;
+                potVertex(vertices,cx,cz,radius,base+low,r0,a,rotation,false,ny,visibility);
+                potVertex(vertices,cx,cz,radius,base+high,r1,a,rotation,false,ny,visibility);
+                potVertex(vertices,cx,cz,radius,base+high,r1,b,rotation,false,ny,visibility);
+                potVertex(vertices,cx,cz,radius,base+low,r0,a,rotation,false,ny,visibility);
+                potVertex(vertices,cx,cz,radius,base+high,r1,b,rotation,false,ny,visibility);
+                potVertex(vertices,cx,cz,radius,base+low,r0,b,rotation,false,ny,visibility);
+            }
+        }
+    }
+
+    private static void potVertex(FloatArray vertices, float cx, float cz, float radius,
+            float elevation, float radial, float angle, float rotation, boolean top,
+            float normalY, float visibility) {
+        float x = MathUtils.cos(angle), z = MathUtils.sin(angle);
+        float uvRadius = visibility < 0f ? .5f : top ? .453125f : .427f;
+        float uvRadial = top ? radial : 1f;
+        float normalRadial = top ? 0f : (float)Math.sqrt(1f - normalY * normalY);
+        vertices.add(cx + radius * radial * x, elevation, cz + radius * radial * z,
+                .5f + uvRadius * uvRadial * MathUtils.cos(angle + rotation));
+        vertices.add(.5f + uvRadius * uvRadial * MathUtils.sin(angle + rotation), visibility,
+                x * normalRadial, normalY);
+        vertices.add(z * normalRadial);
+    }
+
+    void drawPotRack(Texture[] faces, float opacity) {
+        begin(8, faces[0], faces[0], opacity);
+        shell.renderSolids(shader, potVertices, faces, width, height);
     }
 
     private float markerCenterY, markerTilt, markerArtScale;

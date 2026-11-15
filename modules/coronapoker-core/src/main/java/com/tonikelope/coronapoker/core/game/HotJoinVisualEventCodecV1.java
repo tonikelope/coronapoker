@@ -86,6 +86,9 @@ public final class HotJoinVisualEventCodecV1 {
     /** Returns empty for renderer-local or snapshot-only event types. */
     public static Optional<String> encode(TableVisualEvent event) {
         Objects.requireNonNull(event, "event");
+        // A blind straddler's private release must never enter the public relay.
+        if (event instanceof TableVisualEvent.RevealHoleCards reveal
+                && !reveal.publicReveal()) return Optional.empty();
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(bytes)) {

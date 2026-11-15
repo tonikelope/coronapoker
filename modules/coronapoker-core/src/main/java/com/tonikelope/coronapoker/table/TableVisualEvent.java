@@ -589,12 +589,19 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     record RevealHoleCards(long sequence, String nickname,
             TableSnapshot.CardSnapshot left,
             TableSnapshot.CardSnapshot right,
-            String handName) implements TableVisualEvent {
+            String handName, boolean publicReveal) implements TableVisualEvent {
+
+        /** Public showdown/run-out reveal, even before a hand is evaluated. */
+        public RevealHoleCards(long sequence, String nickname,
+                TableSnapshot.CardSnapshot left,
+                TableSnapshot.CardSnapshot right, String handName) {
+            this(sequence, nickname, left, right, handName, true);
+        }
 
         public RevealHoleCards(long sequence, String nickname,
                 TableSnapshot.CardSnapshot left,
                 TableSnapshot.CardSnapshot right) {
-            this(sequence, nickname, left, right, "");
+            this(sequence, nickname, left, right, "", false);
         }
 
         public RevealHoleCards {

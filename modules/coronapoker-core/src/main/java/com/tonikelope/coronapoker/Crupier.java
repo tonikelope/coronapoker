@@ -27468,7 +27468,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // doesn't flip until the previous one finishes, like a real dealer.
                     for (GamePlayerController jugador : resisten) {
 
-                        if (jugador != localPlayer() && !jugador.isExit()) {
+                        if (!jugador.isExit()
+                                && (jugador != localPlayer() || table_events.isAttached())) {
 
                             revealResistanceCards(jugador);
                         }
@@ -27506,7 +27507,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // (see the host branch).
                     for (GamePlayerController jugador : resisten) {
 
-                        if (jugador != localPlayer() && !jugador.isExit()) {
+                        if (!jugador.isExit()
+                                && (jugador != localPlayer() || table_events.isAttached())) {
 
                             revealResistanceCards(jugador);
                         }

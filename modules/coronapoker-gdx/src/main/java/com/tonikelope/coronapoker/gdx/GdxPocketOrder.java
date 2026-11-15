@@ -41,19 +41,19 @@ final class GdxPocketOrder {
     void update(boolean ready, boolean animate, float delta) {
         if (complete || !known()) return;
         if (!ready) return;
-        if (!animateDeal || !animate) { complete = true; return; }
+        if (!crossing() || !animateDeal || !animate) { complete = true; return; }
         if (elapsed < 0f) { elapsed = 0f; return; }
         elapsed += MathUtils.clamp(delta, 0f, .05f);
         complete = elapsed >= duration();
     }
 
-    boolean busy() { return animateDeal && known() && !complete; }
+    boolean busy() { return animateDeal && known() && crossing() && !complete; }
     private boolean known() { return !dealt[0].isBlank() && !dealt[1].isBlank(); }
     private boolean crossing() {
         return CardCode.parseShortCode(dealt[0]).rank().aceHighValue()
-                >= CardCode.parseShortCode(dealt[1]).rank().aceHighValue();
+                > CardCode.parseShortCode(dealt[1]).rank().aceHighValue();
     }
-    private float duration() { return crossing() ? .74f : .44f; }
+    private float duration() { return .74f; }
 
     int dealtSlot(String code, int fallbackSlot) {
         return dealt[0].equals(code) ? 0 : dealt[1].equals(code) ? 1 : fallbackSlot;
@@ -67,10 +67,7 @@ final class GdxPocketOrder {
         if (elapsed < 0f) return Pose.resting(identity);
         float p = MathUtils.clamp(elapsed / duration(), 0f, 1f);
         float sign = identity == 0 ? 1f : -1f;
-        if (!crossing()) {
-            float spread = (float) Math.sin(Math.PI * Interpolation.smoother.apply(p));
-            return new Pose(target, sign * (.18f + .57f * spread), -3f * sign, identity, 0f);
-        }
+        if (!crossing()) return Pose.resting(identity);
         // Separate before changing the vertical order. Cross with one sheet
         // lifted, change layers while disjoint, then close the compact fan.
         float spread = ease(p / .22f);

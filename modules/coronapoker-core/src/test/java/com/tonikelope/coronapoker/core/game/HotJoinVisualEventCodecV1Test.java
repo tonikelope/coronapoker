@@ -17,6 +17,15 @@ import org.junit.jupiter.api.Test;
 
 class HotJoinVisualEventCodecV1Test {
 
+    @Test
+    void privateStraddleReleaseIsNeverRelayedButUnnamedRunoutRevealIsPublic() {
+        var card = new TableSnapshot.CardSnapshot("A_P", true, false);
+        assertTrue(HotJoinVisualEventCodecV1.encode(
+                new TableVisualEvent.RevealHoleCards(1,"ana",card,card)).isEmpty());
+        assertTrue(HotJoinVisualEventCodecV1.encode(
+                new TableVisualEvent.RevealHoleCards(2,"ana",card,card,"")).isPresent());
+    }
+
     private static final long RECEIVER_SEQUENCE = 900L;
     private static final TableSnapshot.CardSnapshot FACE_UP
             = new TableSnapshot.CardSnapshot("A_P", true, false, true);

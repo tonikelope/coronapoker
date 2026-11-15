@@ -149,6 +149,22 @@ final class GdxCardShell implements Disposable {
         }, worldWidth, worldHeight);
     }
 
+    /** One depth target and one MSAA resolve for the whole pot, not per chip. */
+    void renderSolids(ShaderProgram shader, FloatArray[] geometry, Texture[] textures,
+            float worldWidth, float worldHeight) {
+        renderLayer(() -> {
+            Gdx.gl.glDisable(GL20.GL_CULL_FACE);
+            shader.bind();
+            for (int i = 0; i < geometry.length; i++) {
+                if (geometry[i].isEmpty()) continue;
+                textures[i].bind(0);
+                vertices.clear();
+                vertices.addAll(geometry[i]);
+                draw(shader);
+            }
+        }, worldWidth, worldHeight);
+    }
+
     private void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);

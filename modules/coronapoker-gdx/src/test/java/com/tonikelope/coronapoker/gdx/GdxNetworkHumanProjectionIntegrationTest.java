@@ -4314,6 +4314,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
     }
 
     private static final class AllInProjectionRenderer implements TableRenderer {
+        private final AtomicBoolean sawBothHandsPublicBeforeBoard = new AtomicBoolean();
         private final TableSession table;
         private final AtomicReference<GdxTableViewState> state
                 = new AtomicReference<>();
@@ -4344,6 +4345,13 @@ class GdxNetworkHumanProjectionIntegrationTest {
             assertTrue(projection.snapshot().players().stream().allMatch(player ->
                     player.stack() >= 0d && player.streetBet() >= 0d
                             && player.potContribution() >= 0d));
+            if (event instanceof TableVisualEvent.RevealCommunityCards) {
+                assertTrue(projection.hasPublicHoleCards(projection.snapshot().localNickname()),
+                        "The local all-in hand remains covered during the run-out");
+                assertEquals(2L, projection.snapshot().players().stream()
+                        .filter(player -> projection.hasPublicHoleCards(player.nickname())).count());
+                sawBothHandsPublicBeforeBoard.set(true);
+            }
             if (event instanceof TableVisualEvent.Cinematic cinematic
                     && cinematic.type() == TableVisualEvent.Cinematic.Type.ALL_IN
                     && cinematic.phase() == TableVisualEvent.Cinematic.Phase.START
@@ -4378,6 +4386,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
 
         void assertComplete() {
             assertTrue(cinematicStarted.get());
+            assertTrue(sawBothHandsPublicBeforeBoard.get());
             assertFalse(sawControlsDuringCinematic.get());
             assertEquals(1, endedHands.get());
             assertEquals(TableSnapshot.Street.FINISHED,

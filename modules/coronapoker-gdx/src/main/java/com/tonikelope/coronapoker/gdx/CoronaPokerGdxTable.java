@@ -1431,6 +1431,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private FrameBuffer disabledHoleCardsLayer;
     private FrameBuffer chipRackCompositeLayer;
     private final Matrix4 chipRackCompositeProjection = new Matrix4();
+    private final Matrix4 chipRackParentProjection = new Matrix4();
+    private final Rectangle perspectivePotChipBounds = new Rectangle();
+    private final Texture[] perspectivePotChipFaces = new Texture[4];
     private final Rectangle chipRackCompositeBounds = new Rectangle();
     private boolean chipRackCompositeUnavailable;
 
@@ -5793,7 +5796,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pocketOrder.remember(List.of(reveal.left(), reveal.right()));
             }
             boolean publicPerspectiveReveal = usesPerspectivePocket(player)
-                    && !reveal.handName().isBlank()
+                    && reveal.publicReveal()
                     && !liveState.hasPublicHoleCards(reveal.nickname());
             if (!publicPerspectiveReveal && !shouldAnimateHoleReveal(
                     liveState.snapshot().localNickname(), player, reveal)) {
@@ -5815,7 +5818,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 try {
                     liveState.apply(reveal);
                     syncSeatsFromLiveState();
-                    if (!reveal.handName().isBlank()
+                    if (reveal.publicReveal()
                             && liveFlipSoundEnabled()) {
                         play(uncoverSound, 0.54f, 1f);
                     }
@@ -6459,11 +6462,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // The local hand is already face-up from its initial deal. Its sorted
         // visual order may differ from the authoritative reveal order, so an
         // exact code comparison alone would incorrectly flip it again at
-        // showdown/all-in. An empty hand name is the special blind-straddle
-        // reveal and must retain its real uncover animation.
+        // showdown/all-in. The private blind-straddle release must retain its
+        // real uncover animation when the initial deal had no visible values.
         boolean localShowdownAlreadyVisible
                 = reveal.nickname().equals(localNickname)
-                && !reveal.handName().isBlank();
+                && reveal.publicReveal();
         return !localShowdownAlreadyVisible
                 && !holeCardsAlreadyRevealed(player, reveal);
     }
@@ -8649,6 +8652,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return ChipCatalogTarget.player(local.name);
         }
         if (chipRackVisible(livePot())) {
+            if (perspectiveActive && perspectivePotChipBounds.contains(x, y)) {
+                return ChipCatalogTarget.tablePot();
+            }
             StackChipRackGeometry geometry = animatedPotChipRackGeometry();
             Rectangle bounds = chipRackVisualBounds(potChipRackCenterX(potCenterX),
                     potChipRackBaseY(geometry), geometry);
@@ -12697,6 +12703,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * primitive when the complete rack receives reduced opacity.
      */
     private boolean beginChipRackComposite(float centerX, float centerY) {
+        chipRackParentProjection.set(batch.getProjectionMatrix());
         batch.end();
         float pixelsPerX = activeParentFramebufferWidth()
                 / Math.max(1f, viewport.getWorldWidth());
@@ -12707,7 +12714,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int layerHeight = MathUtils.ceil(CHIP_RACK_COMPOSITE_HEIGHT * pixelsPerY) + 1;
         if (!ensureChipRackComposite(layerWidth, layerHeight)) {
             restoreParentFramebufferAfterNestedPass();
-            batch.setProjectionMatrix(camera.combined);
+            batch.setProjectionMatrix(chipRackParentProjection);
             restoreSpriteBatchBlendAfterNestedLayer();
             batch.begin();
             return false;
@@ -12743,7 +12750,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         chipRackCompositeLayer.end();
         restoreParentFramebufferAfterNestedPass();
         camera.update();
-        batch.setProjectionMatrix(camera.combined);
+        batch.setProjectionMatrix(chipRackParentProjection);
         Texture layer = chipRackCompositeLayer.getColorBufferTexture();
         GdxCardSmaaRenderer.usePremultipliedComposite(batch);
         batch.begin();
@@ -16266,6 +16273,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawPotPanelSurface(float alpha) {
         onTablePlane(() -> drawPotPanelOnTable(alpha));
+        if (perspectiveActive) drawPerspectivePotChips(alpha);
     }
 
     private void drawPotPanelOnTable(float alpha) {
@@ -16314,7 +16322,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         batch.setColor(1f, 1f, 1f, opacity);
         List<VisualChipSpec> potChips = displayedPotVisualChips(currentPot);
-        if (!potChips.isEmpty()) {
+        if (!perspectiveActive && !potChips.isEmpty()) {
             StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
             float iconBaseY = potChipRackBaseY(potGeometry);
             GdxStackChipLayout.Layout potLayout =
@@ -16349,8 +16357,52 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void drawPerspectivePotChips(float alpha) {
+        perspectivePotChipBounds.set(0f, 0f, 0f, 0f);
+        List<VisualChipSpec> chips = displayedPotVisualChips(Math.max(0d, livePot()));
+        if (chips.isEmpty()) return;
+        StackChipRackGeometry geometry = animatedPotChipRackGeometry();
+        GdxStackChipLayout.Layout layout = potVisualChipLayout(chips);
+        float[] counts = displayedPotChipCounts(layout);
+        StackChipRackPlacement physical = stackChipRackPlacement(geometry, counts);
+        for (int column = 0; column < counts.length; column++) {
+            chipRackHeights[column] = stackChipPerceivedLevels(geometry,
+                    physical.baseRises()[column], counts[column]);
+            perspectivePotChipFaces[column] = stackedChipFace(column, 0);
+        }
+        StackChipRackPlacement placement = stackChipRackPlacement(geometry, chipRackHeights);
+        float pitch = stackChipRackVerticalGap(geometry, chipRackHeights, placement);
+        float diameter = geometry.chipSize() * (2f * STACK_CHIP_FACE_OUTER_RADIUS / STACK_CHIP_TEXTURE_SIZE);
+        perspectiveTable.beginPotRack();
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
+        for (int column : STACK_CHIP_COLUMN_DRAW_ORDER) {
+            float levels = chipRackHeights[column];
+            if (levels <= 0f) continue;
+            float x = potChipRackCenterX(potCenterX) + placement.offsets()[column];
+            float y = potChipRackBaseY(geometry) - geometry.chipSize() * .5f
+                    + diameter * .5f + placement.baseRises()[column];
+            int color = Math.floorMod(layout.columns().get(column).color(), 4);
+            for (int level = 0; level < MathUtils.ceil(levels); level++) {
+                float presence = Interpolation.smoother.apply(MathUtils.clamp(levels - level, 0f, 1f));
+                float angle = stackChipRotationPhase(stackChipRotationVariant(0x504f54, column, level));
+                perspectiveTable.addPotChip(color, x, y, diameter, level * pitch,
+                        pitch * presence, angle, presence, level == 0);
+            }
+            for (int corner = 0; corner < 8; corner++) {
+                var p = perspectiveTable.tablePointToScreen(x + ((corner & 1) == 0 ? -.5f : .5f) * diameter,
+                        y + ((corner & 2) == 0 ? -.5f : .5f) * diameter,
+                        (corner & 4) == 0 ? 0f : levels * pitch);
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+            }
+        }
+        if (Float.isFinite(minX)) perspectivePotChipBounds.set(minX, minY, maxX - minX, maxY - minY);
+        perspectiveTable.drawPotRack(perspectivePotChipFaces, alpha);
+    }
+
     private StackChipRackGeometry animatedPotChipRackGeometry() {
-        float pulse = liveAnimationsEnabled()
+        float pulse = liveAnimationsEnabled() && !perspectiveActive
                 ? 1f + MathUtils.sin(totalTime * 3.3f) * 0.035f : 1f;
         return scaledStackChipRackGeometry(potChipRackGeometry(),
                 POT_CHIP_RACK_SCALE * pulse);
@@ -16393,15 +16445,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chipRackHeights, placement);
         float rackCenterX = potChipRackCenterX(potCenterX);
         float baseRise = placement.baseRises()[column];
+        if (perspectiveActive) {
+            float diameter = geometry.chipSize() * (2f * STACK_CHIP_FACE_OUTER_RADIUS / STACK_CHIP_TEXTURE_SIZE);
+            float y = potChipRackBaseY(geometry) - geometry.chipSize() * .5f + diameter * .5f + baseRise;
+            var point = perspectiveTable.tablePointToScreen(rackCenterX + placement.offsets()[column],
+                    y, Math.max(0f, chipRackHeights[column]) * fittedGap + .04f);
+            return new PotChipAnchor(point.x, point.y);
+        }
         float topLevel = Math.max(0f, chipRackHeights[column] - 1f);
         float topCenterY = potChipRackBaseY(geometry) + baseRise
                 - geometry.chipSize() / 2f + topLevel * fittedGap
                 + stackChipProjectedHeight(geometry) / 2f;
         float targetX = rackCenterX + placement.offsets()[column];
-        if (perspectiveActive) {
-            var point = perspectiveTable.boardToScreen(targetX, topCenterY);
-            return new PotChipAnchor(point.x, point.y);
-        }
         return new PotChipAnchor(targetX, topCenterY);
     }
 
@@ -17429,8 +17484,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Vector2 positionMarkerAnchor(Seat seat) {
         if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
-        return new Vector2(MathUtils.lerp(seat.positionX, viewport.getWorldWidth() * 0.63f, perspectiveBlend),
+        var point = perspectiveTable.layoutToScreen(
+                MathUtils.lerp(seat.positionX, viewport.getWorldWidth() * 0.63f, perspectiveBlend),
                 MathUtils.lerp(seat.positionY, viewport.getWorldHeight() * 0.34f, perspectiveBlend));
+        return new Vector2(point.x, point.y);
     }
 
     private void drawTablePositionTexture(Texture texture, float x, float y,

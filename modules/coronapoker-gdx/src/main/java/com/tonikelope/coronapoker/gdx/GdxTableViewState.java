@@ -660,8 +660,8 @@ final class GdxTableViewState {
             iwtsthCandidates.remove(reveal.nickname());
             revealedHoleCards.put(reveal.nickname(),
                     List.of(reveal.left(), reveal.right()));
-            // Blank-name reveals also carry cards privately to the blind straddler.
-            if (!reveal.handName().isBlank()) {
+            // Run-outs have no evaluated hand name yet. Visibility is explicit.
+            if (reveal.publicReveal()) {
                 publicHoleCards.add(reveal.nickname());
             }
             // A mucked loser reaches showdown with an intentionally blank
@@ -680,7 +680,7 @@ final class GdxTableViewState {
                 String publicHandName = reveal.handName().isBlank()
                         ? current.publicHandName() : reveal.handName();
                 TableSnapshot.PlayerPresentation presentation
-                        = new TableSnapshot.PlayerPresentation(true,
+                        = new TableSnapshot.PlayerPresentation(current.showingCards() || reveal.publicReveal(),
                                 current.partialHand(),
                                 current.partialWinPercentage(),
                                 current.resultResolved(), publicHandName,
@@ -1145,9 +1145,7 @@ final class GdxTableViewState {
             publicHoleCards.remove(player.nickname());
             if (presentation.showingCards()
                     && player.holeCards().size() == 2) {
-                if (!presentation.publicHandName().isBlank()) {
-                    publicHoleCards.add(player.nickname());
-                }
+                publicHoleCards.add(player.nickname());
                 revealedHoleCards.put(player.nickname(),
                         player.holeCards());
             } else {

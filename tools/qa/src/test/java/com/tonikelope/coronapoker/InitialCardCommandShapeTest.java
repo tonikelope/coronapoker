@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 public class InitialCardCommandShapeTest {
@@ -46,6 +47,16 @@ public class InitialCardCommandShapeTest {
         assertTrue(receiver >= 0 && receiver < shape && shape < reject);
         assertTrue(reject < finish && finish < close && close < result);
         assertFalse(source.contains("Malformed command dropped (receiveMyCards)"));
+    }
+
+    @Test
+    void recoveryNeedsEveryInitialResidueExceptTheBlindStraddler() {
+        String[] ring = {"alice", "bob", "carol"};
+        Set<String> delivered = Set.of("alice", "carol");
+        assertFalse(Crupier.initialPocketResiduesComplete(ring, -1, delivered));
+        assertTrue(Crupier.initialPocketResiduesComplete(ring, 1, delivered));
+        assertFalse(Crupier.initialPocketResiduesComplete(ring, 2, delivered));
+        assertTrue(Crupier.initialPocketResiduesComplete(ring, -1, Set.of("alice", "bob", "carol")));
     }
 
     private static String[] parts(String type, int count) {

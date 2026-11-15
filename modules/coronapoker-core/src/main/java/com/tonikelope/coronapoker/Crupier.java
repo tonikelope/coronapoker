@@ -3444,9 +3444,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "POCKET_CARDS differs from installed delivery");
                     }
                     // Keep the command in the dealer queue: recibirMisCartas still
-                    // owns the local pocket reveal and its visual sequencing.  The
-                    // synchronous installation above merely guarantees that pockets
-                    // for every seat survive even when our own delivery arrives first.
+                    // owns the local pocket reveal and waits for the full initial
+                    // deal before writing the recovery fossil.
                     return false;
                 } catch (Exception failure) {
                     failClientCriticalHostCommand("POCKET_CARDS", failure);
@@ -4041,26 +4040,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             = new java.util.concurrent.atomic.AtomicReference<>();
     public volatile byte[] local_mega_packet = null;
 
-    // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
-    // cascade_chain_decks = genesis + one deck per step. Per step: host/bots store (perm, k) to
-    // generate the proof later in background; remote steps are matched to their authenticated owner.
-    // Lets everyone verify the cascade was an honest shuffle (a tampered host can't slip in cards) —
-    // generation+verification runs in background after the deal.
+    // Genesis and one output per shuffle step. The host and bots record their
+    // witnesses for the pre-deal proof. Remote proofs are matched to their owners.
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
     public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remote: null
     public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remote: null
     public volatile java.util.List<String> cascade_step_owner = null;         // authenticated contributor per step
-    // Rotation side (dual-lock) of the chain: community state after each rotation step + one
-    // RotationProof (batch-DLEQ) per step. Together with the cascade this closes genesis->MEGAPACKET
-    // (DualLockCascade). host/bot: proof generated inline (batch-DLEQ is cheap, ~ms); remote: the
-    // proof the client sends in DECK_ROTATION_RESP (wire-rotation-2 pending -> null for now).
+    // Keep each community rotation output with its local witness or remote proof.
+    // The host assembles and verifies the complete proof before the pocket deal.
     public volatile java.util.List<byte[]> cascade_rotation_states = null;
-    // Zero crypto on the deal path: the loop only logs state + the combined scalar (s=s1*s2, a cheap
-    // BigInteger multiply) for host/bot; batch-DLEQ proofs are generated in BACKGROUND. Remote steps
-    // store the proof the client already sent (its generation is inline but for a single step, trivial).
     public volatile java.util.List<java.math.BigInteger> cascade_rotation_scalars = null; // host/bot: s; remote: null
     public volatile java.util.List<byte[]> cascade_rotation_remote_proofs = null;          // remote: proof; host/bot: null
-    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // built in background
+    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // verified rotation proofs
     // Proof of the last remote rotation step, parsed in requestRemoteRotation and read by the loop.
     private volatile byte[] last_remote_rotation_proof = null;
     // Fail-closed honest-shuffle gate. Recovery may restore VERIFIED only when the local fossil
@@ -4073,21 +4064,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // separate deck-keyed marker so shutdown cannot race guardarFosilSRA().
     private volatile byte[] dual_lock_persisted_megapacket = null;
     private final Object shuffle_proof_gate_lock = new Object();
-    // The dealer and the asynchronous shuffle verifier both refresh the same
-    // durable recovery fossil.  Serialise the complete snapshot+write so an
-    // older snapshot built before verification cannot overtake and replace a
-    // later SHUFFLE_VERIFIED fossil under load.
+    // Serialize the complete recovery snapshot and write across callers.
     private final Object hand_state_fossil_lock = new Object();
     // Marks "a DUALLOCK_BUNDLE for this deck ARRIVED from the host" (set on receipt, before
     // parsing/verifying). Distinguishes a SLOW peer (bundle received but queue not drained yet ->
     // benign) from a host that never sent the proof (received != live deck -> suspicious). Keyed by megapacket.
     public volatile byte[] dual_lock_bundle_received_for = null;
 
-    // Serial queue for honest-shuffle verification (peer side). Replaces the old per-hand threadRun:
-    // each job carries its own deck+bundle snapshot and a single daemon worker drains them FIFO, so a
-    // slow machine keeps verifying past hands (and can still catch a past smuggle) while the live hand
-    // moves on, without piling up threads fighting for CPU. Created lazily on the first DUALLOCK_BUNDLE
-    // (see getShuffleVerifyQueue). The worker is a daemon thread -> doesn't block JVM shutdown.
+    // Verify each peer's installed deck on a worker independent of the socket reader.
     private volatile ShuffleVerificationQueue shuffle_verify_queue = null;
 
     // --- HOST TOKENS ---
@@ -5872,6 +5856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private ArrayList<String> recibirMisCartas() {
         boolean ok = false;
+        boolean receivedLocalDelivery = false;
         String[] cartas = new String[2];
         long espera_inicio = System.currentTimeMillis();
         long last_progress_tick = espera_inicio;
@@ -5881,7 +5866,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
-                while (!ok && !this.getReceived_commands().isEmpty()) {
+                while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     try {
                         String[] partes = comando.split("#", -1);
@@ -5957,7 +5942,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.local_original_cards[1] = (byte) id2;
                                     cartas[0] = CardCode.fromIndex(id1).shortCode();
                                     cartas[1] = CardCode.fromIndex(id2).shortCode();
-                                    ok = true;
+                                    receivedLocalDelivery = true;
                                 }
                             } catch (Exception e) {
                                 LOGGER.log(Level.SEVERE, "Invalid critical POCKET_CARDS. Closing host channel", e);
@@ -5968,16 +5953,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         } else if (partes[2].equals("POCKET_DEFERRED") && partes.length == 4) {
                             // Blind straddle: I'm the UTG deciding blind. The host withheld my 2
-                            // pocket cards (no POCKET_CARDS yet), so I leave the loop without cards
-                            // (ok=true), mark straddle_cards_pending, and move on to
-                            // resolveVoluntaryStraddle. After I sign my decision the host runs the
+                            // pocket cards. Treat this as my delivery and proceed once the
+                            // other initial residues have arrived. After my decision the host runs the
                             // deferred cascade and sends POCKET_CARDS, which I then resolve. The
                             // point-to-point marker must name this client or the channel is closed.
                             try {
                                 parsePocketDeferredWire(partes, this.active_crypto_ring,
                                         gameSession().localNickname());
                                 this.straddle_cards_pending = true;
-                                ok = true;
+                                receivedLocalDelivery = true;
                             } catch (Exception e) {
                                 LOGGER.log(Level.SEVERE, "Invalid critical POCKET_DEFERRED. Closing host channel", e);
                                 this.received_commands.reject(comando);
@@ -6000,6 +5984,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     restoreRejectedCommands(rejected);
                 }
             }
+            // Recovery needs the other seats' residues to validate later showdown keys.
+            ok = receivedLocalDelivery && initialPocketResiduesComplete(this.active_crypto_ring,
+                    blindStraddlerSlot(), this.single_locked_pocket_cards.keySet());
             if (!ok) {
                 if (isFin_de_la_transmision()) {
                     break;
@@ -6048,6 +6035,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         return new ArrayList<>(java.util.Arrays.asList(cartas));
+    }
+
+    static boolean initialPocketResiduesComplete(String[] ring, int deferredSlot,
+            java.util.Set<String> delivered) {
+        if (ring == null) return false;
+        for (int slot = 0; slot < ring.length; slot++) {
+            if (slot != deferredSlot && !delivered.contains(ring[slot])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static boolean isInitialCardCommand(String type) {

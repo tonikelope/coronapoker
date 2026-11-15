@@ -60,6 +60,7 @@ final class GdxCardShell implements Disposable {
     private final int requestedSamples;
     private int nativeWidth;
     private int nativeHeight;
+    GdxCardPickMesh pickTarget;
 
     GdxCardShell() { this(8); }
 
@@ -86,6 +87,57 @@ final class GdxCardShell implements Disposable {
         captureSurface(source);
         contour = contours.computeIfAbsent(new Grid(cols, strips, aspect),
                 key -> new GdxCardContour(key.columns(), key.rows(), key.aspect()));
+        renderLayer(() -> {
+            GL20 gl = Gdx.gl;
+            bottom.bind(1);
+            top.bind(0);
+            shader.bind();
+            gl.glEnable(GL20.GL_CULL_FACE);
+            gl.glCullFace(GL20.GL_BACK);
+            // A dimmed upper sheet still occludes the lower sheet. Blend the
+            // complete packet with the table only after resolving its depth.
+            if (pickTarget != null) pickTarget.triangles.clear();
+            for (int side = 0; side < 2; side++) {
+                vertices.clear();
+                for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {
+                    int at = vertex;
+                    if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
+                    float u = contour.faces.items[at * 2];
+                    float v = contour.faces.items[at * 2 + 1];
+                    surfaceVertex(u, v, side == 0 ? 1f : -1f, false);
+                }
+                shader.setUniformi("u_cardSide", side);
+                if (pickTarget != null) pickTarget.append(vertices);
+                draw(shader);
+            }
+            gl.glDisable(GL20.GL_CULL_FACE);
+            vertices.clear();
+            for (int edge = 0; edge < contour.rim.size / 2; edge++) {
+                rimVertex(edge, 1f);
+                rimVertex(edge, -1f);
+                rimVertex(edge + 1, 1f);
+                rimVertex(edge + 1, 1f);
+                rimVertex(edge, -1f);
+                rimVertex(edge + 1, -1f);
+            }
+            shader.setUniformi("u_material", 5);
+            draw(shader);
+            shader.setUniformi("u_material", material);
+            shader.setUniformi("u_cardSide", 0);
+        }, worldWidth, worldHeight);
+    }
+
+    void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight) {
+        renderLayer(() -> {
+            Gdx.gl.glDisable(GL20.GL_CULL_FACE);
+            shader.bind();
+            vertices.clear();
+            vertices.addAll(geometry);
+            draw(shader);
+        }, worldWidth, worldHeight);
+    }
+
+    private void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
@@ -115,9 +167,6 @@ final class GdxCardShell implements Disposable {
                 GL30C.glBindFramebuffer(GL30C.GL_FRAMEBUFFER, multisampleTarget);
                 GL11C.glEnable(GL13C.GL_MULTISAMPLE);
             }
-            bottom.bind(1);
-            top.bind(0);
-            shader.bind();
             gl.glDepthMask(true);
             gl.glClearColor(0f, 0f, 0f, 0f);
             if (!grouping || !groupHasCards) {
@@ -125,34 +174,8 @@ final class GdxCardShell implements Disposable {
             }
             gl.glEnable(GL20.GL_DEPTH_TEST);
             gl.glDepthFunc(GL20.GL_LEQUAL);
-            gl.glEnable(GL20.GL_CULL_FACE);
-            gl.glCullFace(GL20.GL_BACK);
-            for (int side = 0; side < 2; side++) {
-                vertices.clear();
-                for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {
-                    int at = vertex;
-                    if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
-                    float u = contour.faces.items[at * 2];
-                    float v = contour.faces.items[at * 2 + 1];
-                    surfaceVertex(u, v, side == 0 ? 1f : -1f, false);
-                }
-                shader.setUniformi("u_cardSide", side);
-                draw(shader);
-            }
-            gl.glDisable(GL20.GL_CULL_FACE);
-            vertices.clear();
-            for (int edge = 0; edge < contour.rim.size / 2; edge++) {
-                rimVertex(edge, 1f);
-                rimVertex(edge, -1f);
-                rimVertex(edge + 1, 1f);
-                rimVertex(edge + 1, 1f);
-                rimVertex(edge, -1f);
-                rimVertex(edge + 1, -1f);
-            }
-            shader.setUniformi("u_material", 5);
-            draw(shader);
-            shader.setUniformi("u_material", material);
-            shader.setUniformi("u_cardSide", 0);
+            gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ZERO, GL20.GL_ONE, GL20.GL_ZERO);
+            drawing.run();
             if (multisampleTarget != 0) {
                 GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, multisampleTarget);
                 GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, layer.getFramebufferHandle());
@@ -162,6 +185,8 @@ final class GdxCardShell implements Disposable {
             if (!previousMultisample) GL11C.glDisable(GL13C.GL_MULTISAMPLE);
             gl.glDisable(GL20.GL_DEPTH_TEST);
             gl.glDisable(GL20.GL_CULL_FACE);
+            gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA,
+                    GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
             gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, parent.get(0));
             gl.glViewport(viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
         }

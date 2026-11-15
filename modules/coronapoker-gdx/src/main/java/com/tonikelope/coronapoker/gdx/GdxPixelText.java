@@ -115,6 +115,18 @@ final class GdxPixelText {
         }
     }
 
+    /** Text painted on a world-space surface must retain its subpixel geometry. */
+    static void drawProjected(BitmapFont font, Batch batch, GlyphLayout glyph,
+            float x, float y) {
+        boolean integerPositions = font.usesIntegerPositions();
+        font.setUseIntegerPositions(false);
+        try {
+            font.draw(batch, glyph, x, y);
+        } finally {
+            font.setUseIntegerPositions(integerPositions);
+        }
+    }
+
     private static float physicalPixelScaleX() {
         return framePhysicalPixelScaleX;
     }

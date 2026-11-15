@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
@@ -25,13 +26,62 @@ final class GdxPerspectiveTable implements Disposable {
 
     private static final float FOV = 36f;
     private static final float ELEVATION = 37f;
-    private static final float CARD_REST_HEIGHT = 0.62f;
+    private static final float CARD_REST_HEIGHT = 0.72f;
     private static final float EDGE_MARGIN_SCALE = 1.065f;
     private static final int RAIL_STEPS = 36;
-    private static final int CARD_STRIPS = 28;
-    private static final int CARD_COLUMNS = 10;
-    private static final float BEND_X = -MathUtils.sinDeg(7f);
-    private static final float BEND_Z = MathUtils.cosDeg(7f);
+    private static final int CARD_STRIPS = 48;
+    private static final int REVEAL_COLUMNS = 28;
+    private static final int REVEAL_ROWS = 16;
+    private static final int POCKET_COLUMNS = 12;
+    private static final int MAX_CARD_VERTICES = Math.max(
+            REVEAL_COLUMNS * REVEAL_ROWS, POCKET_COLUMNS * CARD_STRIPS) * 6;
+    private static final float PEEK_ANGLE = 94f * MathUtils.degreesToRadians;
+    private static final float CARD_FOOT = 0.38f;
+    private static final float CARD_BEND = 0.38f;
+
+    // Match the short dimension of the projected texel footprint. Sampling
+    // the long dimension separately keeps angled ink from smearing sideways.
+    static final String CARD_PROJECTION_SAMPLER = """
+            vec4 sampleProjectedCard(sampler2D image, vec2 uv, float aspect, float smoothArtwork) {
+                vec2 dx = dFdx(uv);
+                vec2 dy = dFdy(uv);
+                vec2 scale = vec2(1.0, aspect);
+                vec2 tx = dx * scale;
+                vec2 ty = dy * scale;
+                float xx = dot(tx, tx);
+                float yy = dot(ty, ty);
+                float area = abs(tx.x * ty.y - tx.y * ty.x);
+                float stretch = clamp(max(xx, yy) / max(area, 0.00000001), 1.0, 4.0);
+                float bias = (smoothArtwork > 0.5 ? -0.25 : -0.42) - log2(stretch);
+                if (smoothArtwork > 0.5) {
+                    vec4 resolved = vec4(0.0);
+                    resolved += texture2D(image, uv + dx * (-0.03125) + dy * (-0.34375), bias);
+                    resolved += texture2D(image, uv + dx * (0.03125) + dy * (0.34375), bias);
+                    resolved += texture2D(image, uv + dx * (-0.09375) + dy * (0.15625), bias);
+                    resolved += texture2D(image, uv + dx * (0.09375) + dy * (-0.15625), bias);
+                    resolved += texture2D(image, uv + dx * (-0.15625) + dy * (-0.46875), bias);
+                    resolved += texture2D(image, uv + dx * (0.15625) + dy * (0.46875), bias);
+                    resolved += texture2D(image, uv + dx * (-0.21875) + dy * (0.03125), bias);
+                    resolved += texture2D(image, uv + dx * (0.21875) + dy * (-0.03125), bias);
+                    resolved += texture2D(image, uv + dx * (-0.28125) + dy * (-0.28125), bias);
+                    resolved += texture2D(image, uv + dx * (0.28125) + dy * (0.28125), bias);
+                    resolved += texture2D(image, uv + dx * (-0.34375) + dy * (0.40625), bias);
+                    resolved += texture2D(image, uv + dx * (0.34375) + dy * (-0.40625), bias);
+                    resolved += texture2D(image, uv + dx * (-0.40625) + dy * (-0.09375), bias);
+                    resolved += texture2D(image, uv + dx * (0.40625) + dy * (0.09375), bias);
+                    resolved += texture2D(image, uv + dx * (-0.46875) + dy * (0.21875), bias);
+                    resolved += texture2D(image, uv + dx * (0.46875) + dy * (-0.21875), bias);
+                    return resolved * 0.0625;
+                }
+                vec2 along = (xx > yy ? dx : dy) * (1.0 - 1.0 / stretch);
+                vec4 ink = texture2D(image, uv, bias) * 0.32;
+                ink += (texture2D(image, uv - along * 0.24, bias)
+                        + texture2D(image, uv + along * 0.24, bias)) * 0.24;
+                ink += (texture2D(image, uv - along * 0.48, bias)
+                        + texture2D(image, uv + along * 0.48, bias)) * 0.10;
+                return ink;
+            }
+            """;
     private static final String VERTEX = """
             attribute vec3 a_position;
             attribute vec2 a_texCoord0;
@@ -47,20 +97,37 @@ final class GdxPerspectiveTable implements Disposable {
             """;
     private static final String FRAGMENT = """
             #ifdef GL_ES
+            #extension GL_OES_standard_derivatives : enable
             precision mediump float;
             #endif
             uniform sampler2D u_texture;
             uniform sampler2D u_reverse;
             uniform int u_material;
+            uniform int u_cardSide;
+            uniform float u_showdownTint;
             uniform vec2 u_repeat;
             uniform float u_opacity;
             uniform float u_aspect;
+            uniform float u_artworkSmooth;
             varying vec2 v_uv;
             varying float v_light;
+            """ + CARD_PROJECTION_SAMPLER + """
             float cardDistance(vec2 uv) {
-                float radius = 0.070;
+                float radius = 0.075;
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
                 return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
+            }
+            float cardCoverage(vec2 uv) {
+                vec2 dx = dFdx(uv);
+                vec2 dy = dFdy(uv);
+                float distance = cardDistance(uv);
+                float aa = max(0.30 * length(vec2(dFdx(distance), dFdy(distance))), 0.0006);
+                vec4 edges = vec4(
+                        cardDistance(uv - dx * 0.375 - dy * 0.125),
+                        cardDistance(uv - dx * 0.125 + dy * 0.375),
+                        cardDistance(uv + dx * 0.125 - dy * 0.375),
+                        cardDistance(uv + dx * 0.375 + dy * 0.125));
+                return dot(vec4(0.25), vec4(1.0) - smoothstep(vec4(-aa), vec4(aa), edges));
             }
             void main() {
                 if (u_material == 1) {
@@ -80,6 +147,10 @@ final class GdxPerspectiveTable implements Disposable {
                     gl_FragColor = vec4(colour, 1.0);
                     return;
                 }
+                if (u_material == 5) {
+                    gl_FragColor = vec4(vec3(0.91, 0.90, 0.88) * v_light, u_opacity);
+                    return;
+                }
                 if (u_material == 3) {
                     float distance = cardDistance((v_uv - 0.5) * 1.105 + 0.5);
                     float weight = 1.0 - smoothstep(-0.025, 0.035, distance);
@@ -88,19 +159,16 @@ final class GdxPerspectiveTable implements Disposable {
                 }
                 if (u_material == 2 || u_material == 4) {
                     vec2 uv = (v_uv - 0.5) * 1.065 + 0.5;
-                    float distance = cardDistance(uv);
-                    float aa = clamp(0.76 * fwidth(distance), 0.0006, 0.020);
-                    float coverage = 1.0 - smoothstep(-aa, aa, distance);
+                    float coverage = cardCoverage(uv);
                     vec2 reverseUv = u_material == 2
                             ? vec2(uv.x, 1.0 - uv.y)
                             : vec2(1.0 - uv.x, uv.y);
-                    vec4 ink = gl_FrontFacing ? texture2D(u_texture, uv)
-                            : texture2D(u_reverse, reverseUv);
-                    float underside = u_material == 2
-                            ? mix(0.74, 1.0, smoothstep(0.67, 0.86, v_light))
-                            : 0.96;
-                    float light = gl_FrontFacing ? v_light : underside;
-                    gl_FragColor = vec4(ink.rgb * light, ink.a * coverage * u_opacity);
+                    if (coverage < 0.003) discard;
+                    vec4 ink = u_cardSide == 0 ? sampleProjectedCard(u_texture, uv, u_aspect, u_artworkSmooth)
+                            : sampleProjectedCard(u_reverse, reverseUv, u_aspect, u_artworkSmooth);
+                    float light = v_light;
+                    vec3 printed = mix(ink.rgb * light, vec3(1.0, 0.925, 0.0), u_showdownTint);
+                    gl_FragColor = vec4(printed, ink.a * coverage * u_opacity);
                     return;
                 }
                 vec4 surface = texture2D(u_texture, v_uv * u_repeat);
@@ -113,15 +181,22 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 view = new Matrix4();
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
+    private final Matrix4 callText = new Matrix4();
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
-    private final FloatArray cardVertices = new FloatArray(CARD_COLUMNS * CARD_STRIPS * 36);
+    private final Vector3 cardSample = new Vector3();
+    private final Vector3 projectedPoint = new Vector3();
+    private final FloatArray cardVertices = new FloatArray(MAX_CARD_VERTICES * 6);
     private final IntBuffer framebufferBinding = BufferUtils.newIntBuffer(1);
     private final IntBuffer viewportBinding = BufferUtils.newIntBuffer(4);
     private ShaderProgram shader;
     private Mesh surface;
     private Mesh rail;
     private Mesh card;
+    private final GdxCardShell shell = new GdxCardShell();
+    private int meshColumns;
+    private int meshRows;
+    private float cardWorldWidth;
     private FrameBuffer backdrop;
     private Texture backdropFelt;
     private boolean backdropStretch;
@@ -133,6 +208,7 @@ final class GdxPerspectiveTable implements Disposable {
     private float feltWidth;
     private float feltDepth;
     private float peek;
+    private boolean smoothArtwork;
     private float cameraProgress = Float.NaN;
 
     Matrix4 boardProjection() {
@@ -180,6 +256,20 @@ final class GdxPerspectiveTable implements Disposable {
         backdropFelt = null;
     }
 
+    Matrix4 callTextProjection(float x, float y) {
+        projectedPoint.set(x, y, 0f).prj(board);
+        float originalX = projectedPoint.x;
+        float originalY = projectedPoint.y;
+        projectedPoint.set(x + 1f, y, 0f).prj(board);
+        float scaleX = Math.abs(projectedPoint.x - originalX) * width;
+        projectedPoint.set(x, y + 1f, 0f).prj(board);
+        float scaleY = Math.abs(projectedPoint.y - originalY) * height;
+        float compensation = MathUtils.clamp(0.88f * scaleX / Math.max(0.0001f, scaleY),
+                1f, 1.85f);
+        return callText.set(board).translate(x, y, 0f).scale(1f, compensation, 1f)
+                .translate(-x, -y, 0f);
+    }
+
     Vector3 boardAt(float x, float y) {
         Vector3 point = surfaceAt(x, y, CARD_REST_HEIGHT);
         return point.set(point.x + width * 0.5f, boardCenterY - point.z, 0f);
@@ -191,6 +281,10 @@ final class GdxPerspectiveTable implements Disposable {
         near.set(nx, ny, -1f).prj(inverseView);
         far.set(nx, ny, 1f).prj(inverseView);
         return near.lerp(far, (level - near.y) / (far.y - near.y));
+    }
+
+    void setSmoothArtwork(boolean smooth) {
+        smoothArtwork = smooth;
     }
 
     void updatePeek(boolean held, float delta) {
@@ -342,14 +436,36 @@ final class GdxPerspectiveTable implements Disposable {
 
     void drawPocket(Texture back, Texture face, float x, float y,
             float cardWidth, float cardHeight, float angle, boolean publicFace,
-            float opacity) {
+            float peekCeiling, float opacity) {
         Vector3 center = surfaceAt(x, y, 0f);
         float cx = center.x;
         float cz = center.z;
-        float curl = publicFace || face == back ? 0f : peek * peek * (3f - 2f * peek);
-        drawContact(back, cx, cz, cardWidth, cardHeight, angle, curl, opacity);
-        fillPocket(cx, cz, cardWidth * EDGE_MARGIN_SCALE,
-                cardHeight * EDGE_MARGIN_SCALE, angle, curl, false);
+        float lift = publicFace || face == back ? 0f : Interpolation.smooth.apply(peek);
+        float meshWidth = cardWidth * EDGE_MARGIN_SCALE;
+        float meshHeight = cardHeight * EDGE_MARGIN_SCALE;
+        if (lift > 0f) {
+            // Slide the pair toward the viewer as it opens. Solve for the
+            // highest corner under the timer rather than covering the HUD.
+            float artTop = (1f + 1f / EDGE_MARGIN_SCALE) * 0.5f;
+            sampleCardProfile(cardSample, meshHeight, 0f, artTop, PEEK_ANGLE);
+            float nearTip = cardSample.z * MathUtils.cosDeg(angle)
+                    - 0.5f * cardWidth * Math.abs(MathUtils.sinDeg(angle));
+            float openCenterZ = surfaceAt(x, peekCeiling, cardSample.y).z - nearTip;
+            cz += Math.max(0f, openCenterZ - cz) * lift;
+        }
+        // Bring the two corners together into a fan without moving the
+        // resting hand. The outer index of the rear card remains uncovered.
+        cx -= Math.signum(cx) * cardWidth * 0.13f * lift;
+        if (lift > 0f) {
+            drawContact(back, cx, cz, cardWidth * 0.98f, cardHeight * 0.76f,
+                    angle, 0.55f * lift * opacity);
+        }
+        float contactLength = MathUtils.lerp(cardHeight, cardHeight * 0.43f, lift);
+        float contactOffset = -0.5f * (cardHeight - contactLength);
+        drawContact(back, cx - MathUtils.sinDeg(angle) * contactOffset,
+                cz + MathUtils.cosDeg(angle) * contactOffset, cardWidth,
+                contactLength, angle, opacity);
+        fillPocket(cx, cz, meshWidth, meshHeight, angle, lift * PEEK_ANGLE, false);
         renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth);
     }
 
@@ -358,119 +474,188 @@ final class GdxPerspectiveTable implements Disposable {
         Vector3 center = surfaceAt(x, y, 0f);
         float cx = center.x;
         float cz = center.z;
-        drawContact(back, cx, cz, w, h, fan, 0f,
-                opacity * (1f - 0.75f * Math.abs(MathUtils.sin(angle))));
-        drawFlip(back, face, cx, cz, w, h, fan, angle, opacity, 0f);
+        drawPlasticReveal(back, face, cx, cz, w, h, fan,
+                Math.abs(angle) / MathUtils.PI, Math.signum(angle), opacity);
     }
 
     void drawPocketFlight(Texture back, float x, float y, float w, float h,
-            float fan, float height) {
+            float fan, float lift, float progress) {
         Vector3 center = surfaceAt(x, y, 0f);
-        drawFlip(back, back, center.x, center.z, w, h, fan, 0f, 1f, height);
+        drawFlexibleFlight(back, center.x, center.z, w, h, fan, lift, progress);
+    }
+
+    void drawBoardFlight(Texture back, float x, float y, float w, float h,
+            float fan, float progress) {
+        float lift = MathUtils.sin(MathUtils.PI * progress) * 22f;
+        drawFlexibleFlight(back, x - width * 0.5f, boardCenterY - y,
+                w, h, fan, lift, progress);
+    }
+
+    private void drawFlexibleFlight(Texture back, float cx, float cz,
+            float w, float h, float fan, float lift, float progress) {
+        drawContact(back, cx, cz, w, h, fan, 0.35f);
+        meshColumns = 1;
+        meshRows = CARD_STRIPS;
+        cardWorldWidth = w;
+        cardVertices.clear();
+        for (int row = 0; row < meshRows; row++) {
+            float v0 = row / (float) meshRows;
+            float v1 = (row + 1f) / meshRows;
+            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v0);
+            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v1);
+            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v0);
+            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v0);
+            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v1);
+            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v1);
+        }
+        renderPocket(4, back, back, 1f, h / w);
+    }
+
+    private void putFlight(float cx, float cz, float w, float h, float fan,
+            float lift, float progress, float u, float v) {
+        GdxPlasticCard.flight(cardSample, w * EDGE_MARGIN_SCALE,
+                h * EDGE_MARGIN_SCALE, u, v, progress);
+        float cosine = MathUtils.cosDeg(fan);
+        float sine = MathUtils.sinDeg(fan);
+        put(cardVertices, cx + cardSample.x * cosine - cardSample.z * sine,
+                CARD_REST_HEIGHT + lift + cardSample.y,
+                cz + cardSample.x * sine + cardSample.z * cosine, u, v, 1f);
+    }
+
+    void drawBoardCard(Texture back, Texture face, float x, float y, float w,
+            float h, float fan, float opacity, boolean highlight) {
+        fillPocket(x - width * 0.5f, boardCenterY - y, w * EDGE_MARGIN_SCALE,
+                h * EDGE_MARGIN_SCALE, fan, 0f, false);
+        renderPocket(2, face, back, opacity, h / w, highlight ? 0.31f : 0f);
     }
 
     void drawBoardContact(Texture back, float x, float y, float w, float h, float opacity) {
-        drawContact(back, x - width * 0.5f, boardCenterY - y, w, h, 0f, 0f, opacity);
+        drawContact(back, x - width * 0.5f, boardCenterY - y, w, h, 0f, opacity);
     }
 
     private void drawContact(Texture back, float x, float z, float w,
-            float h, float fan, float curl, float opacity) {
-        fillPocket(x + 0.45f, z + 1.2f, w * 1.10f, h * 1.10f, fan, curl, true);
+            float h, float fan, float opacity) {
+        fillPocket(x + 0.45f, z + 1.2f, w * 1.10f, h * 1.10f, fan, 0f, true);
         renderPocket(3, back, back, 0.16f * opacity, h / w);
     }
 
-    void drawBoardFlip(Texture back, Texture face, float x, float y,
-            float w, float h, float angle) {
-        drawFlip(back, face, x - width * 0.5f, boardCenterY - y,
-                w, h, 0f, angle, 1f, 0f);
+    void drawBoardReveal(Texture back, Texture face, float x, float y,
+            float w, float h, float progress, float direction) {
+        drawPlasticReveal(back, face, x - width * 0.5f, boardCenterY - y,
+                w, h, 0f, progress, direction, 1f);
     }
 
-    private void drawFlip(Texture back, Texture face, float cx, float cz,
-            float w, float h, float fan, float angle, float opacity, float lift) {
-        float sine = MathUtils.sin(angle);
-        float cosine = MathUtils.cos(angle);
-        float fanCosine = MathUtils.cosDeg(fan);
-        float fanSine = MathUtils.sinDeg(fan);
-        float middle = CARD_REST_HEIGHT + Math.abs(sine) * w * 0.5f + lift;
+    private void drawPlasticReveal(Texture back, Texture face, float cx, float cz,
+            float w, float h, float fan, float progress, float direction, float opacity) {
+        float p = MathUtils.clamp(progress, 0f, 1f);
+        float pulse = MathUtils.sin(MathUtils.PI * p);
+        float projectedWidth = MathUtils.lerp(w, w * 0.20f, pulse);
+        drawContact(back, cx, cz, projectedWidth, h, fan, (1f - pulse * 0.42f) * opacity);
+        meshColumns = REVEAL_COLUMNS;
+        meshRows = REVEAL_ROWS;
+        cardWorldWidth = w;
         cardVertices.clear();
-        float expandedWidth = w * EDGE_MARGIN_SCALE;
-        float expandedHeight = h * EDGE_MARGIN_SCALE;
-        for (int i = 0; i < 6; i++) {
-            int corner = switch (i) {
-                case 0 -> 0;
-                case 1, 4 -> 2;
-                case 2, 3 -> 1;
-                default -> 3;
-            };
-            float u = corner % 2;
-            float v = corner / 2;
-            float dx = (u - 0.5f) * expandedWidth;
-            float dz = (v - 0.5f) * expandedHeight;
-            put(cardVertices, cx + dx * cosine * fanCosine - dz * fanSine,
-                    middle - dx * sine, cz + dx * cosine * fanSine + dz * fanCosine,
-                    u, v, 1f - 0.13f * Math.abs(sine));
+        for (int row = 0; row < REVEAL_ROWS; row++) {
+            float v0 = row / (float) REVEAL_ROWS;
+            float v1 = (row + 1f) / REVEAL_ROWS;
+            for (int column = 0; column < REVEAL_COLUMNS; column++) {
+                float u0 = column / (float) REVEAL_COLUMNS;
+                float u1 = (column + 1f) / REVEAL_COLUMNS;
+                putReveal(cx, cz, w, h, u0, v0, p, direction, fan);
+                putReveal(cx, cz, w, h, u0, v1, p, direction, fan);
+                putReveal(cx, cz, w, h, u1, v0, p, direction, fan);
+                putReveal(cx, cz, w, h, u1, v0, p, direction, fan);
+                putReveal(cx, cz, w, h, u0, v1, p, direction, fan);
+                putReveal(cx, cz, w, h, u1, v1, p, direction, fan);
+            }
         }
         renderPocket(4, back, face, opacity, h / w);
     }
 
-    private void fillPocket(float x, float z, float w, float h, float angle,
-            float curl, boolean shadow) {
+    private void putReveal(float cx, float cz, float w, float h,
+            float u, float v, float progress, float direction, float fan) {
+        float artU = (u - 0.5f) * EDGE_MARGIN_SCALE + 0.5f;
+        float artV = (v - 0.5f) * EDGE_MARGIN_SCALE + 0.5f;
+        GdxPlasticCard.reveal(cardSample, w, h, artU, artV, progress, direction);
+        float flex = MathUtils.sin(MathUtils.PI * progress);
+        float light = 1f - flex * (0.055f + 0.055f * MathUtils.sin(MathUtils.PI * u));
+        float cosine = MathUtils.cosDeg(fan);
+        float sine = MathUtils.sinDeg(fan);
+        put(cardVertices, cx + cardSample.x * cosine - cardSample.z * sine,
+                CARD_REST_HEIGHT + cardSample.y,
+                cz + cardSample.x * sine + cardSample.z * cosine, u, v, light);
+    }
+
+    private void fillPocket(float x, float z, float w, float h, float fan,
+            float liftAngle, boolean shadow) {
         cardVertices.clear();
-        float hinge = -0.052f * h * BEND_Z;
-        float length = (h * BEND_Z - w * BEND_X) * 0.5f - hinge;
-        float radius = curl > 0.001f ? length / (curl * 2.36f) : 0f;
-        PocketSurface pocket = new PocketSurface(x, z, w, h,
-                MathUtils.cosDeg(angle), MathUtils.sinDeg(angle), hinge, radius, shadow);
-        int rows = radius > 0f ? CARD_STRIPS : 1;
-        int columns = radius > 0f ? CARD_COLUMNS : 1;
+        float cosine = MathUtils.cosDeg(fan);
+        float sine = MathUtils.sinDeg(fan);
+        int rows = liftAngle > 0.001f ? CARD_STRIPS : 1;
+        int columns = liftAngle > 0.001f ? POCKET_COLUMNS : 1;
+        meshColumns = columns;
+        meshRows = rows;
+        cardWorldWidth = w / EDGE_MARGIN_SCALE;
         for (int row = 0; row < rows; row++) {
-            float from = row / (float) rows;
-            float to = (row + 1f) / rows;
+            float v0 = row / (float) rows;
+            float v1 = (row + 1f) / rows;
             for (int column = 0; column < columns; column++) {
-                float left = column / (float) columns;
-                float right = (column + 1f) / columns;
-                pocketVertex(pocket, left, from);
-                pocketVertex(pocket, left, to);
-                pocketVertex(pocket, right, from);
-                pocketVertex(pocket, right, from);
-                pocketVertex(pocket, left, to);
-                pocketVertex(pocket, right, to);
+                float u0 = column / (float) columns;
+                float u1 = (column + 1f) / columns;
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v0);
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v1);
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v0);
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v0);
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v1);
+                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v1);
             }
         }
     }
 
-    private record PocketSurface(float x, float z, float width, float height,
-            float cosine, float sine, float hinge, float radius, boolean shadow) {
+    private static void sampleCardProfile(Vector3 out, float length, float u, float t, float angle) {
+        float z = (t - 0.5f) * length;
+        float foot = CARD_FOOT + (u - 0.5f) * 0.10f;
+        angle *= MathUtils.lerp(1.025f, 0.965f, u);
+        if (angle <= 0.001f || t <= foot) {
+            out.set(1f, CARD_REST_HEIGHT, z);
+            return;
+        }
+        float distance = (t - foot) * length;
+        float radius = length * CARD_BEND / angle;
+        float turn = Math.min(angle, distance / radius);
+        float straight = Math.max(0f, distance - length * CARD_BEND);
+        float lift = radius * (1f - MathUtils.cos(turn)) + straight * MathUtils.sin(turn);
+        float depth = z - distance + radius * MathUtils.sin(turn) + straight * MathUtils.cos(turn);
+        float light = MathUtils.lerp(0.94f, 1f,
+                MathUtils.clamp((t - foot) / (1f - foot), 0f, 1f));
+        out.set(light, CARD_REST_HEIGHT + lift, depth);
     }
 
-    private void pocketVertex(PocketSurface pocket, float u, float v) {
-        float dx = (u - 0.5f) * pocket.width;
-        float dz = (v - 0.5f) * pocket.height;
-        float y = pocket.shadow ? 0.32f : CARD_REST_HEIGHT;
-        float theta = 0f;
-        if (pocket.radius > 0f) {
-            // A diagonal cylindrical bend keeps the opposite corner down,
-            // with the far portion of the same sheet still on the table.
-            float arc = Math.max(0f, BEND_X * dx + BEND_Z * dz - pocket.hinge);
-            theta = arc / pocket.radius;
-            float lift = pocket.radius * (1f - MathUtils.cos(theta));
-            if (pocket.shadow) {
-                dz += lift * 0.08f;
-            } else {
-                float offset = pocket.radius * MathUtils.sin(theta) - arc;
-                dx += offset * BEND_X;
-                dz += offset * BEND_Z;
-                y += lift;
-            }
-        }
-        float light = pocket.shadow ? 1f - 0.36f * theta : 1f - 0.14f * theta;
-        put(cardVertices, pocket.x + pocket.cosine * dx - pocket.sine * dz, y,
-                pocket.z + pocket.sine * dx + pocket.cosine * dz, u, v, light);
+    private void putPocket(float x, float z, float w, float h, float sine, float cosine,
+            boolean shadow, float liftAngle, float u, float v) {
+        sampleCardProfile(cardSample, h, u, v, liftAngle);
+        float dx = (u - 0.5f) * w;
+        put(cardVertices, x + cosine * dx - sine * cardSample.z,
+                shadow ? 0.32f : cardSample.y, z + sine * dx + cosine * cardSample.z,
+                u, v, cardSample.x);
     }
 
     private void renderPocket(int material, Texture top, Texture bottom, float opacity, float aspect) {
+        renderPocket(material, top, bottom, opacity, aspect, 0f);
+    }
+
+    private void renderPocket(int material, Texture top, Texture bottom, float opacity,
+            float aspect, float highlight) {
+        begin(material, top, bottom, opacity);
+        shader.setUniformf("u_aspect", aspect);
+        shader.setUniformf("u_showdownTint", highlight);
+        if (material == 2 || material == 4) {
+            shell.render(shader, cardVertices, meshColumns, meshRows, material, top, bottom,
+                    cardWorldWidth, aspect, width, height);
+            return;
+        }
         if (card == null) {
-            card = new Mesh(false, CARD_COLUMNS * CARD_STRIPS * 6, 0,
+            card = new Mesh(false, MAX_CARD_VERTICES, 0,
                     new VertexAttribute(Usage.Position, 3, "a_position"),
                     new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
                     new VertexAttribute(Usage.Generic, 1, "a_light"));
@@ -493,7 +678,10 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformi("u_texture", 0);
         shader.setUniformi("u_reverse", 1);
         shader.setUniformi("u_material", material);
+        shader.setUniformi("u_cardSide", 0);
+        shader.setUniformf("u_showdownTint", 0f);
         shader.setUniformf("u_opacity", opacity);
+        shader.setUniformf("u_artworkSmooth", smoothArtwork ? 1f : 0f);
     }
 
     private static Mesh mesh(boolean fixed, FloatArray vertices) {
@@ -522,5 +710,6 @@ final class GdxPerspectiveTable implements Disposable {
         if (card != null) card.dispose();
         if (shader != null) shader.dispose();
         if (backdrop != null) backdrop.dispose();
+        shell.dispose();
     }
 }

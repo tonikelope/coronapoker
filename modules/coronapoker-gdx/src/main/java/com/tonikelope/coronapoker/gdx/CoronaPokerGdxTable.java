@@ -633,7 +633,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final String CARD_ARTWORK_SAMPLING_GLSL =
             "uniform float u_artworkSmooth;\n"
             + "uniform float u_artworkLodBias;\n"
+            + "uniform float u_projectedArtwork;\n"
+            + GdxPerspectiveTable.CARD_PROJECTION_SAMPLER
             + "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
+            + "    if (u_projectedArtwork > 0.0) {\n"
+            + "        return sampleProjectedCard(artwork, uv, u_projectedArtwork, u_artworkSmooth);\n"
+            + "    }\n"
             + "    if (u_artworkSmooth < 0.5) {\n"
             + "        return texture2D(artwork, uv, u_artworkLodBias);\n"
             + "    }\n"
@@ -1504,6 +1509,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture feltTexture;
     private GdxPerspectiveTable perspectiveTable;
     private boolean perspectiveActive;
+    private boolean perspectiveBoardArtwork;
     private boolean perspectiveTarget;
     private float perspectiveTravel;
     private float perspectiveBlend;
@@ -11552,6 +11558,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float cardHeight = cardWidth * back.getHeight() / back.getWidth();
             perspectiveTable.layout(width, height, height * 0.52f + cardHeight * 0.14f);
             perspectiveTable.moveCamera(perspectiveBlend);
+            perspectiveTable.setSmoothArtwork(requestedCardRenderingMode()
+                    == GdxCardSmaaRenderer.RENDERING_SMOOTH);
             perspectiveTable.drawBackdrop(batch, feltTexture, secretFeltTexture,
                     Math.max(1, Gdx.graphics.getBackBufferWidth()),
                     Math.max(1, Gdx.graphics.getBackBufferHeight()), perspectiveBlend);
@@ -14894,7 +14902,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 reveal.flipDirection), opacity);
             } else {
                 perspectiveTable.drawPocket(back, face, placement.x, y,
-                        w, h, -placement.rotation, showFace, opacity);
+                        w, h, -placement.rotation, showFace,
+                        tableCenterY - cardHeight * 0.36f - COMMUNITY_HUD_Y_OFFSET - 14f,
+                        opacity);
             }
         }
     }
@@ -15659,6 +15669,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!card.visible()) {
             return;
         }
+        if (perspectiveBoardArtwork) {
+            Texture face = card.faceUp() && !card.code().isBlank() ? liveCardFace(card.code()) : cardBack;
+            batch.end();
+            perspectiveTable.drawBoardCard(cardBack, face, placement.x, placement.y,
+                    placement.width, placement.height, -placement.rotation, alpha, showdownTint);
+            batch.setShader(null);
+            batch.setColor(Color.WHITE);
+            batch.begin();
+            return;
+        }
         batch.setColor(tint, tint, tint, alpha);
         if (card.faceUp() && !card.code().isBlank()) {
             Texture face = liveCardFace(card.code());
@@ -15702,7 +15722,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float h = w * target.height / target.width;
         batch.end();
         perspectiveTable.drawPocketFlight(back, x, y, w, h,
-                -target.rotation * t, MathUtils.sin(progress * MathUtils.PI) * 25f);
+                -target.rotation * t, MathUtils.sin(progress * MathUtils.PI) * 25f, progress);
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.begin();
@@ -15871,6 +15891,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawCommunityCardFlight(int slot, LiveCardPlacement target,
             float flightProgress, Texture cardBack) {
+        if (perspectiveActive) {
+            float p = Interpolation.pow2Out.apply(flightProgress);
+            float x = bezier(dealerSourceX, (dealerSourceX + target.x) * 0.5f + 128f, target.x, p);
+            float y = bezier(dealerSourceY, (dealerSourceY + target.y) * 0.5f + 62f, target.y, p);
+            float rotation = -MathUtils.lerp((slot & 1) == 0 ? -26f : 26f, target.rotation, p);
+            float scale = 0.82f + p * 0.18f;
+            batch.end();
+            perspectiveTable.drawBoardFlight(cardBack, x, y, target.width * scale,
+                    target.height * scale, rotation, flightProgress);
+            batch.setShader(null);
+            batch.setColor(Color.WHITE);
+            batch.begin();
+            return;
+        }
         useRoundedCardShader();
         drawDealtCardFlight(target, flightProgress, 1f, 0f, slot, 1f, cardBack);
     }
@@ -15961,12 +15995,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Texture face = liveCardFace(card.code());
         if (perspectiveActive) {
-            float turn = cardFlipAngle(progress, liveCommunityReveal.flipDirection);
-            drawBoardContactShadow(cardBack, placement, 1f - 0.70f * Math.abs(MathUtils.sin(turn)));
             batch.end();
-            perspectiveTable.drawBoardFlip(cardBack, face, placement.x, placement.y,
-                    placement.width, placement.height,
-                    turn);
+            perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
+                    placement.width, placement.height, progress,
+                    liveCommunityReveal.flipDirection);
             batch.setShader(null);
             batch.setColor(Color.WHITE);
             batch.begin();
@@ -16009,6 +16041,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean antialiased = beginCardSmaaLayer();
             if (perspectiveActive) {
                 batch.setProjectionMatrix(perspectiveTable.boardProjection());
+                perspectiveBoardArtwork = true;
             }
             batch.begin();
             drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX,
@@ -16016,7 +16049,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.setShader(null);
             batch.setColor(Color.WHITE);
             batch.end();
-            if (perspectiveActive) batch.setProjectionMatrix(camera.combined);
+            if (perspectiveActive) {
+                perspectiveBoardArtwork = false;
+                batch.setProjectionMatrix(camera.combined);
+            }
             if (antialiased) finishCardSmaaLayer();
         }
 
@@ -16295,7 +16331,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (perspectiveActive) {
             float width = cardW * 2.2f;
-            drawCallCostOnTable(cx - width / 2f, cardY + cardH + 14f, width, 48f);
+            drawCallCostOnTable(cx - width / 2f, cardY + cardH + 40f, width, 32f);
             return;
         }
 
@@ -16330,9 +16366,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawCallCostText(x, y, width, height, 0f, false);
             return;
         }
-        batch.setProjectionMatrix(perspectiveTable.boardProjection());
+        float insetHeight = Math.min(height, 118f);
+        float centerY = y + height * 0.5f;
+        batch.setProjectionMatrix(perspectiveTable.callTextProjection(x + width * 0.5f, centerY));
         try {
-            drawCallCostText(x, y, width, height, 0f, false);
+            drawCallCostText(x, centerY - insetHeight * 0.5f, width, insetHeight, 0f, false);
         } finally {
             batch.setProjectionMatrix(camera.combined);
         }
@@ -16365,14 +16403,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont selected = crispButtonText.font();
         selected.setColor(tint);
         glyph.setText(selected, crispButtonText.text());
-        // Keep the river label's visible bottom aligned with the rival's pod.
-        float baseline = y + (alignVisualBottom ? glyph.height
-                : (height + glyph.height) / 2f);
-        batch.begin();
-        float textX = x + inset + (contentWidth - glyph.width) / 2f;
+        // The smallest native font tier can still exceed the short strip
+        // above a complete board. Fit its geometry before projecting it.
+        float scale = perspectiveActive ? Math.min(1f,
+                Math.min(contentWidth / Math.max(1f, glyph.width),
+                        height / Math.max(1f, glyph.height))) : 1f;
+        float baseline = y + (alignVisualBottom ? glyph.height * scale
+                : (height + glyph.height * scale) / 2f);
+        float textX = x + inset + (contentWidth - glyph.width * scale) / 2f;
         if (perspectiveActive) {
-            selected.draw(batch, glyph, textX, baseline);
+            batch.getProjectionMatrix().translate(textX, baseline, 0f).scale(scale, scale, 1f);
+            batch.begin();
+            GdxPixelText.drawProjected(selected, batch, glyph, 0f, 0f);
         } else {
+            batch.begin();
             GdxPixelText.draw(selected, batch, glyph, textX, baseline, viewport);
         }
         batch.end();
@@ -16888,6 +16932,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 CARD_SHADER_CANVAS_SCALE);
         rabbitPeelShader.setUniformf("u_artworkSmooth",
                 cardArtworkSmoothValue());
+        rabbitPeelShader.setUniformf("u_projectedArtwork", perspectiveBoardArtwork
+                ? (float) front.getHeight() / front.getWidth() : 0f);
         rabbitPeelShader.setUniformf("u_artworkLodBias",
                 cardArtworkLodBiasValue());
         rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
@@ -16931,6 +16977,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
         roundedCardShader.setUniformf("u_artworkSmooth", artworkSmooth);
+        roundedCardShader.setUniformf("u_projectedArtwork",
+                perspectiveBoardArtwork ? aspect : 0f);
         roundedCardShader.setUniformf("u_artworkLodBias",
                 cardArtworkLodBiasValue());
         roundedCardShader.setUniformf("u_overlay", 1f, 0.925f, 0f, 0f);

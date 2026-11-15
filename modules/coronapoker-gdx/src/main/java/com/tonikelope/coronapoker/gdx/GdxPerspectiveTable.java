@@ -122,18 +122,6 @@ final class GdxPerspectiveTable implements Disposable {
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
                 return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
             }
-            float cardCoverage(vec2 uv) {
-                vec2 dx = dFdx(uv);
-                vec2 dy = dFdy(uv);
-                float distance = cardDistance(uv);
-                float aa = max(0.30 * length(vec2(dFdx(distance), dFdy(distance))), 0.0006);
-                vec4 edges = vec4(
-                        cardDistance(uv - dx * 0.375 - dy * 0.125),
-                        cardDistance(uv - dx * 0.125 + dy * 0.375),
-                        cardDistance(uv + dx * 0.125 - dy * 0.375),
-                        cardDistance(uv + dx * 0.375 + dy * 0.125));
-                return dot(vec4(0.25), vec4(1.0) - smoothstep(vec4(-aa), vec4(aa), edges));
-            }
             void main() {
                 if (u_material == 1) {
                     vec2 uv = v_uv * vec2(1830.0, 220.0);
@@ -164,11 +152,9 @@ final class GdxPerspectiveTable implements Disposable {
                 }
                 if (u_material == 2 || u_material == 4) {
                     vec2 uv = (v_uv - 0.5) * 1.065 + 0.5;
-                    float coverage = cardCoverage(uv);
                     vec2 reverseUv = u_material == 2
                             ? vec2(uv.x, 1.0 - uv.y)
                             : vec2(1.0 - uv.x, uv.y);
-                    if (coverage < 0.003) discard;
                     vec4 ink = u_cardSide == 0 ? sampleProjectedCard(u_texture, uv, u_aspect, u_artworkSmooth)
                             : sampleProjectedCard(u_reverse, reverseUv, u_aspect, u_artworkSmooth);
                     vec3 normal = normalize(v_normal);
@@ -178,7 +164,7 @@ final class GdxPerspectiveTable implements Disposable {
                     float light = min(1.015, 0.76 + 0.24 * diffuse / key.y);
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
                     vec3 printed = mix(ink.rgb * light + vec3(coat), vec3(1.0, 0.925, 0.0), u_showdownTint);
-                    gl_FragColor = vec4(printed, ink.a * coverage * u_opacity);
+                    gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
                 }
                 vec4 surface = texture2D(u_texture, v_uv * u_repeat);
@@ -304,7 +290,7 @@ final class GdxPerspectiveTable implements Disposable {
         // frame-rate-independent settling, without a rubber-like bounce.
         float dt = MathUtils.clamp(delta, 0f, 0.05f);
         float target = held ? 1f : 0f;
-        float omega = held ? 23f : 28f;
+        float omega = held ? 19f : 25f;
         float offset = peek - target;
         float c = peekVelocity + omega * offset;
         float decay = (float) Math.exp(-omega * dt);

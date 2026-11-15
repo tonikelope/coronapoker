@@ -17,6 +17,8 @@ import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
 import java.nio.IntBuffer;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL13C;
@@ -24,7 +26,13 @@ import org.lwjgl.opengl.GL30C;
 
 /** Thin two-sided plastic shell, resolved at physical resolution with depth. */
 final class GdxCardShell implements Disposable {
-    private static final int CORNER_STEPS = 12;
+    private record Grid(int columns, int rows, float aspect) { }
+    private final Map<Grid, GdxCardContour> contours = new LinkedHashMap<>(8, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<Grid, GdxCardContour> eldest) {
+            return size() > 12;
+        }
+    };
+    private GdxCardContour contour;
     private final IntBuffer parent = BufferUtils.newIntBuffer(1);
     private final IntBuffer viewport = BufferUtils.newIntBuffer(4);
     private final Matrix4 projection = new Matrix4();
@@ -49,6 +57,15 @@ final class GdxCardShell implements Disposable {
     private boolean groupHasCards;
     private float groupWidth;
     private float groupHeight;
+    private final int requestedSamples;
+    private int nativeWidth;
+    private int nativeHeight;
+
+    GdxCardShell() { this(8); }
+
+    GdxCardShell(int requestedSamples) {
+        this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
+    }
 
     void beginPair() {
         grouping = true;
@@ -67,18 +84,30 @@ final class GdxCardShell implements Disposable {
         rows = strips;
         halfThickness = GdxPlasticCard.thickness(cardWidth) * 0.5f;
         captureSurface(source);
+        contour = contours.computeIfAbsent(new Grid(cols, strips, aspect),
+                key -> new GdxCardContour(key.columns(), key.rows(), key.aspect()));
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
         try {
             int w = Gdx.graphics.getBackBufferWidth();
             int h = Gdx.graphics.getBackBufferHeight();
-            if (layer == null || layer.getWidth() != w || layer.getHeight() != h) {
+            if (layer == null || nativeWidth != w || nativeHeight != h) {
                 if (layer != null) layer.dispose();
                 createMultisample(w, h);
-                layer = new FrameBuffer(Pixmap.Format.RGBA8888, w, h, multisampleTarget == 0);
-                layer.getColorBufferTexture().setFilter(Texture.TextureFilter.Nearest,
-                        Texture.TextureFilter.Nearest);
+                // A supersampled depth layer also resolves real geometry on
+                // drivers without multisample renderbuffers. Alpha-cut quads
+                // cannot replace this: they occlude the sheet behind them.
+                int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
+                int scale = multisampleTarget == 0 && w <= maximum / 2
+                        && h <= maximum / 2 ? 2 : 1;
+                layer = new FrameBuffer(Pixmap.Format.RGBA8888, w * scale, h * scale,
+                        multisampleTarget == 0);
+                Texture.TextureFilter filter = scale > 1
+                        ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
+                layer.getColorBufferTexture().setFilter(filter, filter);
+                nativeWidth = w;
+                nativeHeight = h;
             }
             layer.begin();
             previousMultisample = GL11C.glIsEnabled(GL13C.GL_MULTISAMPLE);
@@ -100,32 +129,25 @@ final class GdxCardShell implements Disposable {
             gl.glCullFace(GL20.GL_BACK);
             for (int side = 0; side < 2; side++) {
                 vertices.clear();
-                for (int vertex = 0; vertex < source.size / 6; vertex++) {
+                for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {
                     int at = vertex;
                     if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
-                    int offset = at * 6;
-                    float u = source.items[offset + 3];
-                    float v = source.items[offset + 4];
-                    int cell = (Math.round(v * rows) * (columns + 1) + Math.round(u * columns)) * 3;
-                    float sign = side == 0 ? 1f : -1f;
-                    vertices.add(source.items[offset] + normals[cell] * halfThickness * sign,
-                            source.items[offset + 1] - halfThickness + normals[cell + 1] * halfThickness * sign,
-                            source.items[offset + 2] + normals[cell + 2] * halfThickness * sign, u);
-                    vertices.add(v, source.items[offset + 5]);
-                    vertices.add(normals[cell] * sign, normals[cell + 1] * sign, normals[cell + 2] * sign);
+                    float u = contour.faces.items[at * 2];
+                    float v = contour.faces.items[at * 2 + 1];
+                    surfaceVertex(u, v, side == 0 ? 1f : -1f, false);
                 }
                 shader.setUniformi("u_cardSide", side);
                 draw(shader);
             }
             gl.glDisable(GL20.GL_CULL_FACE);
             vertices.clear();
-            for (int edge = 0; edge < 4 * CORNER_STEPS; edge++) {
-                rimVertex(edge, 1f, aspect);
-                rimVertex(edge, -1f, aspect);
-                rimVertex(edge + 1, 1f, aspect);
-                rimVertex(edge + 1, 1f, aspect);
-                rimVertex(edge, -1f, aspect);
-                rimVertex(edge + 1, -1f, aspect);
+            for (int edge = 0; edge < contour.rim.size / 2; edge++) {
+                rimVertex(edge, 1f);
+                rimVertex(edge, -1f);
+                rimVertex(edge + 1, 1f);
+                rimVertex(edge + 1, 1f);
+                rimVertex(edge, -1f);
+                rimVertex(edge + 1, -1f);
             }
             shader.setUniformi("u_material", 5);
             draw(shader);
@@ -167,8 +189,8 @@ final class GdxCardShell implements Disposable {
 
     private void createMultisample(int width, int height) {
         disposeMultisample();
-        if (!GL.getCapabilities().OpenGL30) return;
-        int samples = Math.min(4, GL11C.glGetInteger(GL30C.GL_MAX_SAMPLES));
+        if (requestedSamples < 2 || !GL.getCapabilities().OpenGL30) return;
+        int samples = Math.min(requestedSamples, GL11C.glGetInteger(GL30C.GL_MAX_SAMPLES));
         if (samples < 2) return;
         multisampleTarget = GL30C.glGenFramebuffers();
         GL30C.glBindFramebuffer(GL30C.GL_FRAMEBUFFER, multisampleTarget);
@@ -186,7 +208,7 @@ final class GdxCardShell implements Disposable {
                 GL30C.GL_RENDERBUFFER, multisampleDepth);
         if (GL30C.glCheckFramebufferStatus(GL30C.GL_FRAMEBUFFER) != GL30C.GL_FRAMEBUFFER_COMPLETE) {
             disposeMultisample();
-            Gdx.app.log("3D cards", "MSAA unavailable, retaining analytical edge antialiasing");
+            Gdx.app.log("3D cards", "MSAA unavailable, using supersampled geometry");
         }
         GL30C.glBindRenderbuffer(GL30C.GL_RENDERBUFFER, 0);
     }
@@ -227,24 +249,21 @@ final class GdxCardShell implements Disposable {
         }
     }
 
-    private void rimVertex(int edge, float side, float aspect) {
-        int corner = edge / CORNER_STEPS % 4;
-        double angle = -Math.PI * 0.5 + (corner + edge % CORNER_STEPS / (double) CORNER_STEPS) * Math.PI * 0.5;
-        float radius = 0.075f;
-        float radiusV = radius / aspect;
-        float u = (corner < 2 ? 1f - radius : radius) + radius * (float) Math.cos(angle);
-        float v = (corner == 0 || corner == 3 ? radiusV : 1f - radiusV) + radiusV * (float) Math.sin(angle);
-        // The surface includes a small transparent border for analytical AA.
-        u = (u - 0.5f) / 1.065f + 0.5f;
-        v = (v - 0.5f) / 1.065f + 0.5f;
+    private void rimVertex(int edge, float side) {
+        int index = edge * 2 % contour.rim.size;
+        surfaceVertex(contour.rim.items[index], contour.rim.items[index + 1], side, true);
+    }
+
+    private void surfaceVertex(float u, float v, float side, boolean rim) {
         interpolate(point, grid, u, v);
         interpolate(normal, normals, u, v);
-        normal.nor();
+        // Do not renormalize the offset: the face triangles interpolate the
+        // vertex offsets linearly. The rim must meet that very same surface.
         vertices.add(point.x + side * halfThickness * normal.x,
                 point.y - halfThickness + side * halfThickness * normal.y,
                 point.z + side * halfThickness * normal.z, u);
-        vertices.add(v, 0.88f + 0.12f * Math.abs(normal.y));
-        vertices.add(normal.x, normal.y, normal.z);
+        vertices.add(v, rim ? 0.94f : 1f);
+        vertices.add(normal.x * side, normal.y * side, normal.z * side);
     }
 
     private void interpolate(Vector3 out, float[] values, float u, float v) {
@@ -257,10 +276,17 @@ final class GdxCardShell implements Disposable {
         int a = (row * (columns + 1) + column) * 3;
         int b = a + (columns + 1) * 3;
         out.set(0f, 0f, 0f);
-        out.mulAdd(pointAt(tangent, values, a), (1f - fx) * (1f - fy));
-        out.mulAdd(pointAt(tangent, values, a + 3), fx * (1f - fy));
-        out.mulAdd(pointAt(tangent, values, b), (1f - fx) * fy);
-        out.mulAdd(pointAt(tangent, values, b + 3), fx * fy);
+        // This is the actual diagonal used by the grid triangles. Bilinear
+        // interpolation would place the rim off the bent face between cells.
+        if (fx + fy <= 1f) {
+            out.mulAdd(pointAt(tangent, values, a), 1f - fx - fy);
+            out.mulAdd(pointAt(tangent, values, a + 3), fx);
+            out.mulAdd(pointAt(tangent, values, b), fy);
+        } else {
+            out.mulAdd(pointAt(tangent, values, a + 3), 1f - fy);
+            out.mulAdd(pointAt(tangent, values, b), 1f - fx);
+            out.mulAdd(pointAt(tangent, values, b + 3), fx + fy - 1f);
+        }
     }
 
     private static Vector3 pointAt(Vector3 out, float[] values, int at) {

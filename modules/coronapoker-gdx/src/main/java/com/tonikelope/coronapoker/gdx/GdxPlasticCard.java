@@ -37,7 +37,7 @@ final class GdxPlasticCard {
             if (lift == amount) return;
             amount = lift;
             if (lift < 0.00001f) return;
-            double tip = Math.toRadians(124.0) * lift;
+            double tip = Math.toRadians(132.0) * lift;
             double force = Math.toRadians(170.0);
             double limit = 2.0 * Math.sqrt(tip / Math.sin(force - tip));
             double prevWeight = 2.0 * tip / Math.sqrt(Math.cos(force - tip) - Math.cos(force));
@@ -71,7 +71,7 @@ final class GdxPlasticCard {
         float sample(Vector3 out, Vector3 normal, float width, float height, float u, float v) {
             double x = (u - 0.5) * width;
             double z = (v - 0.5) * height;
-            double distance = (x * DX + z * DZ) / height + 0.025;
+            double distance = (x * DX + z * DZ) / height + 0.065;
             if (amount < 0.00001f || distance <= 0.0) {
                 out.set((float) x, 0f, (float) z);
                 if (normal != null) normal.set(0f, 1f, 0f);

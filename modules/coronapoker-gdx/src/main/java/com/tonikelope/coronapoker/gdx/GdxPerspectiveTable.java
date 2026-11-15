@@ -330,7 +330,7 @@ final class GdxPerspectiveTable implements Disposable {
         // frame-rate-independent settling, without a rubber-like bounce.
         float dt = MathUtils.clamp(delta, 0f, 0.05f);
         float target = held ? 1f : 0f;
-        float omega = held ? 19f : 25f;
+        float omega = held ? 12f : 17f;
         float offset = peek - target;
         float c = peekVelocity + omega * offset;
         float decay = (float) Math.exp(-omega * dt);
@@ -514,6 +514,10 @@ final class GdxPerspectiveTable implements Disposable {
                 (projectedPoint.y + 1f) * height * 0.5f, projectedPoint.z);
     }
 
+    static float showdownTintAmount(boolean highlighted) {
+        return highlighted ? .31f : 0f;
+    }
+
     static float pocketLayerHeight(int slot, float width) {
         return Math.max(0, slot) * (GdxPlasticCard.thickness(width) + 0.10f);
     }
@@ -562,7 +566,7 @@ final class GdxPerspectiveTable implements Disposable {
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, true);
         renderPocket(3, back, back, 0.20f * opacity, cardHeight / cardWidth);
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, false);
-        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth, highlight ? 1f : 0f);
+        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth, showdownTintAmount(highlight));
         packetBend = false;
     }
 
@@ -575,10 +579,8 @@ final class GdxPerspectiveTable implements Disposable {
             float w, float h, float fan, float progress, float direction, float opacity, int logicalSlot, int slot) {
         activePocketSlot = logicalSlot;
         float p = MathUtils.clamp(progress, 0f, 1f);
-        float liftPhase = .32f * (1f - uncoverStartPeek);
-        float turn = Interpolation.smoother.apply(MathUtils.clamp((p - liftPhase) / (1f - liftPhase), 0f, 1f));
-        float lift = MathUtils.lerp(uncoverStartPeek, 1f,
-                liftPhase == 0f ? 1f : Interpolation.smoother.apply(Math.min(1f, p / liftPhase)));
+        float turn = GdxPlasticCard.uncoverTurn(uncoverStartPeek, p);
+        float lift = GdxPlasticCard.uncoverLift(uncoverStartPeek, p);
         Vector3 center = pocketAt(x, y, w, slot, turn);
         float cx = center.x, cz = center.z + h * .06f * lift * (1f - turn);
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
@@ -739,7 +741,7 @@ final class GdxPerspectiveTable implements Disposable {
             float h, float fan, float opacity, boolean highlight) {
         fillPocket(x - width * 0.5f, boardCenterY - y, w * EDGE_MARGIN_SCALE,
                 h * EDGE_MARGIN_SCALE, fan, 0f, false);
-        renderPocket(2, face, back, opacity, h / w, highlight ? 0.31f : 0f);
+        renderPocket(2, face, back, opacity, h / w, showdownTintAmount(highlight));
     }
 
     void drawBoardContact(Texture back, float x, float y, float w, float h, float opacity) {

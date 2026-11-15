@@ -5825,7 +5825,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             } else {
                 LiveHoleReveal animation = new LiveHoleReveal(reveal,
-                        barrier, player.holeCards(), cardFlipSeconds(),
+                        barrier, player.holeCards(), usesPerspectivePocket(player)
+                                ? GdxPlasticCard.uncoverSeconds(cardFlipSeconds()) : cardFlipSeconds(),
                         nextCardFlipDirection());
                 if (usesPerspectivePocket(player) && perspectiveTable != null) {
                     perspectiveTable.beginPocketUncover();
@@ -16464,7 +16465,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    /** Mirrors Swing's call-cost label: unrevealed board suffix, then river aggressor. */
+    /** Overlays the board in 3D and keeps the legacy label placement in 2D. */
     private void drawCallCostOverlay(float cx, float cy, float tableWidth) {
         if (liveState == null || liveState.callCostText().isBlank()
                 || !tablePreference("mostrar_coste_igualar", true)
@@ -16478,6 +16479,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float gap = cardW + 18f;
         float firstX = cx - gap * 2f - cardW / 2f;
         float cardY = cy - cardH * 0.36f;
+        if (perspectiveActive) {
+            // The amount overlays the same five-card row on every street.
+            drawCallCostOnTable(firstX, cardY, cardW + 4f * gap, cardH);
+            return;
+        }
         List<TableSnapshot.CardSnapshot> board = liveState.snapshot().communityCards();
         int firstHidden = -1;
         for (int slot = 0; slot < Math.min(5, board.size()); slot++) {
@@ -16496,12 +16502,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // so made short values such as +0.6 fall to the next native font
             // tier even though the two cards had enough room.
             drawCallCostOnTable(x, cardY, overlayWidth, cardH);
-            return;
-        }
-        if (perspectiveActive) {
-            float width = cardW * 2.2f;
-            drawCallCostOnTable(cx + POT_PANEL_WIDTH / 2f + 28f,
-                    potCenterY - 32f, width, 64f);
             return;
         }
 
@@ -16573,8 +16573,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont selected = crispButtonText.font();
         selected.setColor(tint);
         glyph.setText(selected, crispButtonText.text());
-        // The smallest native font tier can still exceed the short strip
-        // above a complete board. Fit its geometry before projecting it.
+        // Fit the native glyph geometry inside the board-plane overlay
+        // before projecting it, including the smallest available font tier.
         float scale = perspectiveActive ? Math.min(1f,
                 Math.min(contentWidth / Math.max(1f, glyph.width),
                         height / Math.max(1f, glyph.height))) : 1f;

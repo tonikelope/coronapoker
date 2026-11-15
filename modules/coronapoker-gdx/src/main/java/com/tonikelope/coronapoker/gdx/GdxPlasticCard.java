@@ -92,6 +92,7 @@ final class GdxPlasticCard {
     static final class UncoverShape {
         private static final int STEPS = 256;
         private final PeekShape peek = new PeekShape();
+        private final PeekShape rollingProfile = new PeekShape();
         private final Vector3 point = new Vector3(), normal = new Vector3();
         private final double[] z = new double[STEPS + 1], y = new double[STEPS + 1];
         private final double[] angle = new double[STEPS + 1];
@@ -109,13 +110,19 @@ final class GdxPlasticCard {
             lastLift = lift;
             lastTurn = turn;
             peek.set(lift);
+            rollingProfile.set(1f);
+            float advance = (1f - minimumV) * turn;
+            float tip = MathUtils.lerp(155f * lift, 180f,
+                    turn);
             floor = 0.0;
             z[0] = -extent * (1.0 - 2.0 * turn);
             y[0] = 0.0;
             for (int i = 0; i <= STEPS; i++) {
-                peek.sample(point, normal, 1f, 1f, .5f, minimumV + range * i / STEPS);
-                double a = Math.atan2(-normal.z, normal.y);
-                angle[i] = a + (Math.PI - a) * turn;
+                // Roll the broad bend along the material instead of lifting
+                // the whole sheet into a nearly vertical panel at mid-turn.
+                rollingProfile.sample(point, normal, 1f, 1f, .5f,
+                        minimumV + range * i / STEPS + advance);
+                angle[i] = Math.atan2(-normal.z, normal.y) * tip / 155.0;
                 if (i > 0) {
                     z[i] = z[i - 1] + (Math.cos(angle[i - 1]) + Math.cos(angle[i])) * range / (2.0 * STEPS);
                     y[i] = y[i - 1] + (Math.sin(angle[i - 1]) + Math.sin(angle[i])) * range / (2.0 * STEPS);
@@ -137,6 +144,21 @@ final class GdxPlasticCard {
             outNormal.set(0f, (float) Math.cos(a), (float) -Math.sin(a));
             return (float) (1.0 - .20 * Math.pow(Math.sin(a), 2.0));
         }
+    }
+
+    static float uncoverLift(float initial, float progress) {
+        return MathUtils.lerp(initial, 1f, Interpolation.smoother.apply(
+                MathUtils.clamp(progress / .65f, 0f, 1f)));
+    }
+
+    static float uncoverTurn(float initial, float progress) {
+        float lead = .35f * (1f - initial);
+        return Interpolation.smoother.apply(MathUtils.clamp(
+                (progress - lead) / (1f - lead), 0f, 1f));
+    }
+
+    static float uncoverSeconds(float configuredFlipSeconds) {
+        return configuredFlipSeconds * 1.70f;
     }
 
     record Motion(float tempo, float bend, float corner) { }

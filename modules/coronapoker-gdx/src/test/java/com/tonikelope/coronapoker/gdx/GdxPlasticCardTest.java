@@ -296,4 +296,38 @@ final class GdxPlasticCardTest {
         }
     }
 
+    @Test void pocketUncoverHasBoundedFrameTravelWithoutTheMidGestureStop() {
+        var shape=new GdxPlasticCard.UncoverShape();
+        var point=new Vector3(); var normal=new Vector3();
+        float duration=GdxPlasticCard.uncoverSeconds(.620f);
+        int frames=(int)Math.ceil(duration*60);
+        for(float initial:new float[]{0f,.5f,1f}) {
+            Vector3[] previous=new Vector3[101];
+            float maxStep=0f;
+            for(int frame=0;frame<=frames;frame++) {
+                float p=frame/(float)frames;
+                float lift=GdxPlasticCard.uncoverLift(initial,p);
+                float turn=GdxPlasticCard.uncoverTurn(initial,p);
+                shape.set(lift,turn,.55f);
+                for(int row=0;row<=100;row++) {
+                    shape.sample(point,normal,100f,140f,.5f,row/100f);
+                    assertTrue(point.y>=-.001f && point.y<140f*.67f,
+                            "The packet jumps up as a nearly vertical panel");
+                    point.z+=140f*.06f*lift*(1-turn);
+                    if(previous[row]!=null) maxStep=Math.max(maxStep,point.dst(previous[row]));
+                    else previous[row]=new Vector3();
+                    previous[row].set(point);
+                }
+            }
+            assertTrue(maxStep<140f*.065f,"Too much displacement between 60 Hz frames: "+maxStep);
+        }
+        assertTrue(GdxPlasticCard.uncoverTurn(0f,.60f)>0f);
+        assertTrue(GdxPlasticCard.uncoverLift(0f,.60f)<1f,
+                "Lifting and rolling must overlap instead of stopping between phases");
+    }
+
+    @Test void showdownTintPreservesPrintedArtwork() {
+        assertEquals(0f,GdxPerspectiveTable.showdownTintAmount(false));
+        assertEquals(.31f,GdxPerspectiveTable.showdownTintAmount(true));
+    }
 }

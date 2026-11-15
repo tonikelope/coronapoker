@@ -518,7 +518,7 @@ final class GdxPerspectiveTable implements Disposable {
     private Vector3 pocketAt(float x, float y, float cardWidth, int slot, float spread) {
         Vector3 point = surfaceAt(x, y, 0f);
         float shown = -(point.x - Math.signum(point.x) * cardWidth * .22f * cameraProgress);
-        float covered = (slot == 0 ? .13f : -.13f) * cardWidth;
+        float covered = (slot == 0 ? .18f : -.18f) * cardWidth;
         point.x = MathUtils.lerp(point.x, MathUtils.lerp(covered, shown, spread), cameraProgress);
         return point;
     }

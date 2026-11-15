@@ -23,10 +23,10 @@ final class GdxPlasticCard {
     static final class PeekShape {
         private static final int STEPS = 192;
         // Both sheets follow one developable surface. Their short edges lift
-        // together while the far 30 percent remains supported.
-        static final double DX = 0.0;
-        static final double DZ = Math.sqrt(1.0 - DX * DX);
-        private static final double LENGTH = 0.70;
+        // together while the far 20 percent remains supported.
+        private static final double DX = 0.0;
+        private static final double DZ = 1.0;
+        private static final double LENGTH = 0.80;
         private final double[] arc = new double[STEPS + 1];
         private final double[] forward = new double[STEPS + 1];
         private final double[] up = new double[STEPS + 1];
@@ -38,7 +38,7 @@ final class GdxPlasticCard {
             if (lift == amount) return;
             amount = lift;
             if (lift < 0.00001f) return;
-            double tip = Math.toRadians(110.0) * lift;
+            double tip = Math.toRadians(155.0) * lift;
             double ramp = .12;
             double ds = LENGTH / STEPS;
             arc[0] = forward[0] = up[0] = turn[0] = 0.0;
@@ -63,7 +63,7 @@ final class GdxPlasticCard {
         float sample(Vector3 out, Vector3 normal, float width, float height, float u, float v) {
             double x = (u - 0.5) * width;
             double z = (v - 0.5) * height;
-            double distance = (x * DX + z * DZ) / height + 0.20;
+            double distance = (x * DX + z * DZ) / height + 0.30;
             if (amount < 0.00001f || distance <= 0.0) {
                 out.set((float) x, 0f, (float) z);
                 if (normal != null) normal.set(0f, 1f, 0f);

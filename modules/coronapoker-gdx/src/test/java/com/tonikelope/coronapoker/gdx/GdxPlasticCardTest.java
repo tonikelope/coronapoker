@@ -139,7 +139,7 @@ final class GdxPlasticCardTest {
             }
             previous.set(point); previousNormal.set(normal);
         }
-        assertTrue(minRadius > 42f, "A tight crease has returned to the lifted sheet");
+        assertTrue(minRadius > 36f, "A tight crease has returned to the lifted sheet");
     }
 
     @Test void privateIndexesFaceTheViewerWithoutExposingTheWholeCard() {
@@ -153,7 +153,7 @@ final class GdxPlasticCardTest {
             shape.sample(dv, 100f, 140f, 0.10f, v + 0.001f);
             du.sub(at);
             dv.sub(at).crs(du).nor();
-            assertTrue(dv.dot(eye) < -0.25f, "The rank or suit is edge-on to the viewer");
+            assertTrue(dv.dot(eye) < -0.60f, "The rank or suit is edge-on to the viewer");
         }
         shape.sample(at, 100f, 140f, 0.5f, 0.1f);
         assertEquals(0f, at.y, 0.001f);
@@ -257,7 +257,7 @@ final class GdxPlasticCardTest {
         for (int frame=0; frame<=80; frame++) {
             shape.set(frame/80f);
             for (float u : new float[]{0f,.25f,.5f,.75f,1f}) {
-                for (float v : new float[]{0f,.1f,.2f,.299f}) {
+                for (float v : new float[]{0f,.05f,.1f,.199f}) {
                     shape.sample(point,normal,100f,140f,u,v);
                     assertEquals((u-.5f)*100f,point.x,.001f);
                     assertEquals((v-.5f)*140f,point.z,.001f);
@@ -276,7 +276,7 @@ final class GdxPlasticCardTest {
             shape.set(frame/40f);
             for (float degrees : new float[]{-3f,3f}) {
                 double angle=Math.toRadians(degrees), c=Math.cos(angle), s=Math.sin(angle);
-                float offset=degrees<0 ? 13f : -13f;
+                float offset=degrees<0 ? 18f : -18f;
                 for (boolean across : new boolean[]{true,false}) {
                     for (float fixed : new float[]{0f,.25f,.5f,.75f,1f}) {
                         float length=0f;

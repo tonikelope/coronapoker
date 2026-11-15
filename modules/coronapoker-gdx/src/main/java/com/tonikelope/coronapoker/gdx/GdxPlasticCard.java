@@ -15,17 +15,18 @@ final class GdxPlasticCard {
     }
 
     /**
-     * Quasi-static Euler elastica for the lifted corner. The supported sheet
-     * is clamped flat, the lifted end carries a force and no bending moment.
-     * The first integral of B theta'' + F sin(beta - theta) = 0 is integrated
-     * in angle space, then resampled by arc length. Extruding along the
-     * diagonal contact line is developable: the plastic cannot stretch.
+     * Inextensible sheet with a broad cylindrical bend and gently ramped
+     * curvature at the contact line and grip. The profile is integrated in
+     * material arc length, so lifting never scales or crops the supported
+     * part of the card. The maximum curvature has a finite, broad radius.
      */
     static final class PeekShape {
         private static final int STEPS = 192;
-        private static final double DX = 0.0;
-        private static final double DZ = 1.0;
-        private static final double LENGTH = 0.85;
+        // Both sheets follow one developable surface. Their short edges lift
+        // together while the far 30 percent remains supported.
+        static final double DX = 0.0;
+        static final double DZ = Math.sqrt(1.0 - DX * DX);
+        private static final double LENGTH = 0.70;
         private final double[] arc = new double[STEPS + 1];
         private final double[] forward = new double[STEPS + 1];
         private final double[] up = new double[STEPS + 1];
@@ -37,30 +38,21 @@ final class GdxPlasticCard {
             if (lift == amount) return;
             amount = lift;
             if (lift < 0.00001f) return;
-            double tip = Math.toRadians(108.0) * lift;
-            double force = Math.toRadians(170.0);
-            double limit = 2.0 * Math.sqrt(tip / Math.sin(force - tip));
-            double prevWeight = 2.0 * tip / Math.sqrt(Math.cos(force - tip) - Math.cos(force));
-            double prevAngle = 0.0;
+            double tip = Math.toRadians(110.0) * lift;
+            double ramp = .12;
+            double ds = LENGTH / STEPS;
             arc[0] = forward[0] = up[0] = turn[0] = 0.0;
             for (int i = 1; i <= STEPS; i++) {
                 double q = i / (double) STEPS;
-                double angle = tip * (2.0 * q - q * q);
-                double weight = i == STEPS ? limit : 2.0 * tip * (1.0 - q)
-                        / Math.sqrt(Math.cos(force - tip) - Math.cos(force - angle));
-                double step = 0.5 / STEPS;
-                arc[i] = arc[i - 1] + step * (prevWeight + weight);
-                forward[i] = forward[i - 1] + step * (prevWeight * Math.cos(prevAngle) + weight * Math.cos(angle));
-                up[i] = up[i - 1] + step * (prevWeight * Math.sin(prevAngle) + weight * Math.sin(angle));
+                double integrated = q < ramp ? q * q / (2.0 * ramp)
+                        : q > 1.0 - ramp ? 1.0 - ramp - (1.0 - q) * (1.0 - q) / (2.0 * ramp)
+                        : q - ramp * .5;
+                double angle = tip * integrated / (1.0 - ramp);
+                double previous = turn[i - 1];
+                arc[i] = i * ds;
+                forward[i] = forward[i - 1] + ds * .5 * (Math.cos(previous) + Math.cos(angle));
+                up[i] = up[i - 1] + ds * .5 * (Math.sin(previous) + Math.sin(angle));
                 turn[i] = angle;
-                prevWeight = weight;
-                prevAngle = angle;
-            }
-            double scale = LENGTH / arc[STEPS];
-            for (int i = 1; i <= STEPS; i++) {
-                arc[i] *= scale;
-                forward[i] *= scale;
-                up[i] *= scale;
             }
         }
 

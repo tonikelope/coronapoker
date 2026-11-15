@@ -511,10 +511,14 @@ final class GdxPerspectiveTable implements Disposable {
         return Math.max(0, slot) * (GdxPlasticCard.thickness(width) + 0.10f);
     }
 
+    private static float coveredFan(int slot) {
+        return slot == 0 ? -3f : 3f;
+    }
+
     private Vector3 pocketAt(float x, float y, float cardWidth, int slot, float spread) {
         Vector3 point = surfaceAt(x, y, 0f);
         float shown = -(point.x - Math.signum(point.x) * cardWidth * .22f * cameraProgress);
-        float covered = (slot == 0 ? .16f : -.16f) * cardWidth;
+        float covered = (slot == 0 ? .13f : -.13f) * cardWidth;
         point.x = MathUtils.lerp(point.x, MathUtils.lerp(covered, shown, spread), cameraProgress);
         return point;
     }
@@ -527,10 +531,10 @@ final class GdxPerspectiveTable implements Disposable {
         float cx = center.x;
         float cz = center.z;
         float lift = publicFace || face == back ? 0f : peek;
-        // Keep both indexes beside each other in one centred packet.
-        // The near short edges lift together, without separating the sheets.
-        cz += cardHeight * 0.16f * lift;
-        angle = MathUtils.lerp(angle, publicFace ? -angle : 0f, cameraProgress);
+        // A compact fan remains a fan while being lifted. Both sheets follow
+        // the same broad bend, retaining their full material size.
+        cz += cardHeight * 0.06f * lift;
+        angle = MathUtils.lerp(angle, publicFace ? -angle : coveredFan(slot), cameraProgress);
         float meshWidth = cardWidth * EDGE_MARGIN_SCALE;
         float meshHeight = cardHeight * EDGE_MARGIN_SCALE;
         // Both sheets share a bend in world space, as a fan lifted together.
@@ -553,12 +557,12 @@ final class GdxPerspectiveTable implements Disposable {
         float lift = MathUtils.lerp(uncoverStartPeek, 1f,
                 Interpolation.smoother.apply(Math.min(1f, p / .32f)));
         Vector3 center = pocketAt(x, y, w, slot, turn);
-        float cx = center.x, cz = center.z + h * .16f * lift * (1f - turn);
+        float cx = center.x, cz = center.z + h * .06f * lift * (1f - turn);
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
         packetLayerHeight = pocketLayerHeight(slot, w);
         packetBend = true;
         uncoveringPacket = true;
-        float bendingFan = MathUtils.lerp(fan, fan * turn, cameraProgress);
+        float bendingFan = MathUtils.lerp(fan, MathUtils.lerp(coveredFan(slot), fan, turn), cameraProgress);
         float extent = .5f * (MathUtils.cosDeg(bendingFan)
                 + w / h * Math.abs(MathUtils.sinDeg(bendingFan)));
         uncoverShape.set(lift, turn, extent);
@@ -578,7 +582,7 @@ final class GdxPerspectiveTable implements Disposable {
             float w, float h, float fan, float progress, int slot, int order) {
         Vector3 target = pocketAt(x, y, w, slot, 0f);
         dealTarget.set(target.x, pocketLayerHeight(slot, w), target.z);
-        drawDeal(back, sourceX, sourceY, w, h, MathUtils.lerp(fan, 0f, cameraProgress), progress, order);
+        drawDeal(back, sourceX, sourceY, w, h, MathUtils.lerp(fan, coveredFan(slot), cameraProgress), progress, order);
     }
 
     void drawBoardFlight(Texture back, float sourceX, float sourceY, float x, float y,

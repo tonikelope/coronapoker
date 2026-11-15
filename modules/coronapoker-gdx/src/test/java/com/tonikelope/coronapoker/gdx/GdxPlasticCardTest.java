@@ -134,12 +134,12 @@ final class GdxPlasticCardTest {
         for (int step=0; step<=1000; step++) {
             shape.sample(point, normal, 100f, 140f, .1f, step/1000f);
             if (step>0) {
-                double angle = Math.acos(Math.max(-1.0, Math.min(1.0, normal.dot(previousNormal))));
+                double angle = Math.atan2(new Vector3(normal).crs(previousNormal).len(), normal.dot(previousNormal));
                 if (angle > .0005) minRadius = Math.min(minRadius, (float)(point.dst(previous)/angle));
             }
             previous.set(point); previousNormal.set(normal);
         }
-        assertTrue(minRadius > 30f, "A tight crease has returned to the lifted sheet");
+        assertTrue(minRadius > 42f, "A tight crease has returned to the lifted sheet");
     }
 
     @Test void privateIndexesFaceTheViewerWithoutExposingTheWholeCard() {
@@ -246,6 +246,51 @@ final class GdxPlasticCardTest {
                 for(int other=Math.max(0,row-4);other<=Math.min(80,row+4);other++) {
                     shape.sample(tangentPoint,new Vector3(),100f,140f,.5f,other/80f);
                     assertTrue(tangentPoint.dst(upper) >= thickness*.98f);
+                }
+            }
+        }
+    }
+
+    @Test void liftingKeepsTheSupportedPartAtItsActualMaterialCoordinates() {
+        var shape = new GdxPlasticCard.PeekShape();
+        var point = new Vector3(); var normal = new Vector3();
+        for (int frame=0; frame<=80; frame++) {
+            shape.set(frame/80f);
+            for (float u : new float[]{0f,.25f,.5f,.75f,1f}) {
+                for (float v : new float[]{0f,.1f,.2f,.299f}) {
+                    shape.sample(point,normal,100f,140f,u,v);
+                    assertEquals((u-.5f)*100f,point.x,.001f);
+                    assertEquals((v-.5f)*140f,point.z,.001f);
+                    assertEquals(0f,point.y,.001f);
+                    assertEquals(1f,normal.y,.001f);
+                }
+            }
+        }
+    }
+
+    @Test void aCompactFanKeepsBothCardsUnstretchedAcrossTheContactLine() {
+        var shape = new GdxPlasticCard.PeekShape();
+        var point = new Vector3(); var previous = new Vector3();
+        float w=100f,h=140f;
+        for (int frame=0;frame<=40;frame++) {
+            shape.set(frame/40f);
+            for (float degrees : new float[]{-3f,3f}) {
+                double angle=Math.toRadians(degrees), c=Math.cos(angle), s=Math.sin(angle);
+                float offset=degrees<0 ? 13f : -13f;
+                for (boolean across : new boolean[]{true,false}) {
+                    for (float fixed : new float[]{0f,.25f,.5f,.75f,1f}) {
+                        float length=0f;
+                        for(int i=0;i<=400;i++) {
+                            float u=across?i/400f:fixed, v=across?fixed:i/400f;
+                            double x=(u-.5)*w,z=(v-.5)*h;
+                            shape.sample(point,w,h,(float)((offset+c*x-s*z)/w+.5),
+                                    (float)((s*x+c*z)/h+.5));
+                            assertTrue(point.y>=-.001f);
+                            if(i>0)length+=point.dst(previous);
+                            previous.set(point);
+                        }
+                        assertEquals(across?w:h,length,.02f,"The fan must not resize the plastic");
+                    }
                 }
             }
         }

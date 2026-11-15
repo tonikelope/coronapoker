@@ -15,6 +15,24 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsContractTest {
 
     @Test
+    void tableViewDefaultsToTwoDimensionsAndResetsWithMesa() {
+        Properties properties = new Properties();
+        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
+        var choice = GdxSettingsContract.appearanceTableChoice(
+                GdxSettingsContract.APPEARANCE_TABLE_VIEW_ROW);
+        properties.setProperty(choice.key(), "unknown");
+        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
+
+        GdxAppearanceOptions.select(choice, properties, 1);
+        assertTrue(GdxAppearanceOptions.perspectiveTable(properties));
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, 0, true));
+
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 0, true);
+        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, 0, true));
+    }
+
+    @Test
     void msaaRestartNoticeRequiresARealPendingBackBufferChange() {
         assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4));
         assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4));

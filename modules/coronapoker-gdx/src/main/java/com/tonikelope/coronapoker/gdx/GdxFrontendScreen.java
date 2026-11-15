@@ -9765,7 +9765,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
                     groups, 1f);
             String[] keys = {"baraja", "trasera", "color_tapete",
-                "nivel_luz", GdxChipAmountText.ZEROS_KEY};
+                "nivel_luz", GdxChipAmountText.ZEROS_KEY,
+                    GdxAppearanceOptions.TABLE_VIEW.key()};
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
                 float currentY = rows.rowY(row);
                 Rectangle bounds = GdxSettingsLayout.groupedRow(baseX,
@@ -9828,15 +9829,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                                     .DEFAULT_LIGHT_LEVEL)))),
                             () -> adjustLightLevel(-1),
                             () -> adjustLightLevel(1));
-                } else if (row == GdxSettingsContract.APPEARANCE_AMOUNT_ZEROS_ROW) {
-                    var choice = GdxAppearanceOptions.AMOUNT_ZEROS;
+                } else if (GdxSettingsContract.appearanceTableChoice(row) != null) {
+                    var choice = GdxSettingsContract.appearanceTableChoice(row);
                     Rectangle anchor = settingsDropdownAnchor(
                             bounds.x, bounds.y, bounds.width, bounds.height);
                     settingsDropdownChoice(bounds.x, bounds.y, bounds.width, bounds.height,
                             choice.label(gameText),
                             GdxSettingsContract.markDefault(
                                     GdxAppearanceOptions.selectedLabel(choice, initialProperties, gameText),
-                                    amountZeroMode() == GdxChipAmountText.ZeroMode.DEFAULT),
+                                    GdxAppearanceOptions.selectedIndex(choice, initialProperties)
+                                            == choice.values().indexOf(choice.fallback())),
                             () -> openAppearanceChoiceDropdown(choice, anchor), true);
                 } else {
                     var option = page.options().get(row

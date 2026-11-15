@@ -47,7 +47,16 @@ final class GdxSettingsContract {
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
     static final int APPEARANCE_AMOUNT_ZEROS_ROW = 4;
-    static final int APPEARANCE_PRIMARY_ROW_COUNT = 5;
+    static final int APPEARANCE_TABLE_VIEW_ROW = 5;
+    static final int APPEARANCE_PRIMARY_ROW_COUNT = 6;
+
+    static GdxAppearanceOptions.Choice appearanceTableChoice(int row) {
+        return switch (row) {
+            case APPEARANCE_AMOUNT_ZEROS_ROW -> GdxAppearanceOptions.AMOUNT_ZEROS;
+            case APPEARANCE_TABLE_VIEW_ROW -> GdxAppearanceOptions.TABLE_VIEW;
+            default -> null;
+        };
+    }
     static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
@@ -1418,6 +1427,8 @@ final class GdxSettingsContract {
             properties.setProperty("color_tapete", "verde");
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW,
+                    properties, 0);
             properties.setProperty(GdxChipAmountText.ZEROS_KEY,
                     GdxChipAmountText.ZeroMode.DEFAULT.setting);
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
@@ -1466,7 +1477,8 @@ final class GdxSettingsContract {
                     && stringAtDefault(properties, "nivel_luz",
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
-            if (!visualDefaults || GdxChipAmountText.ZeroMode.configured(properties)
+            if (!visualDefaults || GdxAppearanceOptions.perspectiveTable(properties)
+                    || GdxChipAmountText.ZeroMode.configured(properties)
                     != GdxChipAmountText.ZeroMode.DEFAULT) return false;
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
                 if (!booleanAtDefault(properties, option.key(),

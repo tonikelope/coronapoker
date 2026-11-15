@@ -1,14 +1,15 @@
 ---
 import { docs, mentalPokerPaper, type copy, type Locale } from '../content';
+import ReceiptDemo from './ReceiptDemo.astro';
 
 interface Props {
   text: (typeof copy)[Locale]['mental'];
 }
 
 const { text } = Astro.props;
-const numbers = ['01', '02', '03'];
+const numbers = text.steps.map((_, index) => String(index + 1).padStart(2, '0'));
 const marks = ['♠', '♥', '♦'];
-const { deal, shuffle } = text;
+const { deal, shuffle, receipts } = text;
 const hand = [['A', '♠'], ['Q', '♠']];
 const streets = [
   [['J', '♦'], ['9', '♣'], ['7', '♦']],
@@ -50,6 +51,14 @@ const streets = [
                 <p>{shuffle.answer}</p>
               </div>
             }
+            {index === 3 && (
+              <>
+                <p>{receipts.rule}</p>
+                <a class="text-link receipt-spec" href={`${docs}/docs/SECURITY.md#6-receipts--consensus`} target="_blank" rel="noopener">
+                  {receipts.spec} <span aria-hidden="true">↗</span>
+                </a>
+              </>
+            )}
             {index < text.steps.length - 1 &&
               <button type="button" class="text-link protocol-next" data-mental-next={index + 1} hidden>{text.next} <span aria-hidden="true">→</span></button>
             }
@@ -81,7 +90,7 @@ const streets = [
               </div>
               <ol class="deal-fallback shuffle-frames" data-shuffle-frames data-shuffle-replay={shuffle.replay}>
                 {shuffle.states.map((state, index) => (
-                  <li data-play={shuffle.actions[index]} data-mixing={shuffle.mixing[index]}>{state}</li>
+                  <li data-play={shuffle.actions[index]} data-locking={shuffle.locking[index]} data-mixing={shuffle.mixing[index]}>{state}</li>
                 ))}
               </ol>
             </div>
@@ -187,6 +196,7 @@ const streets = [
               </ol>
             </div>
           }
+          {index === 3 && <ReceiptDemo text={receipts} players={text.names} />}
         </div>
       ))}
     </div>

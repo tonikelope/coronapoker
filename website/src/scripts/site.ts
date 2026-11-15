@@ -52,6 +52,7 @@ if (shuffle) {
 
   function showShuffleState() {
     deck.dataset.locks = String(completed);
+    deck.dataset.phase = 'ready';
     status.textContent = frames[completed].textContent;
     play.textContent = frames[completed].dataset.play ?? timeline.dataset.shuffleReplay!;
     players.forEach((player, index) => {
@@ -70,16 +71,31 @@ if (shuffle) {
     }
     // This is an illustration. The shuffled elements have no card faces or attached values.
     const cards = [...deck.children] as HTMLElement[];
+    const animated = !motion.matches && typeof deck.animate === 'function';
+    play.setAttribute('aria-disabled', 'true');
+    status.textContent = frames[completed].dataset.locking!;
+    deck.dataset.phase = 'locking';
+    deck.dataset.locks = String(completed + 1);
+    if (animated) {
+      const seals = cards.map((card, index) => card.children[completed].animate([
+        { opacity: 0, transform: 'translateY(-4px) scale(.75)' },
+        { opacity: 1, transform: 'none' },
+      ], { duration: 420, delay: (index % 9) * 12, easing: 'ease-out', fill: 'backwards' }));
+      await Promise.allSettled(seals.map(animation => animation.finished));
+    } else {
+      await new Promise(resolve => window.setTimeout(resolve, 500));
+    }
+
+    status.textContent = frames[completed].dataset.mixing!;
+    deck.dataset.phase = 'shuffling';
     const order = [...cards];
     for (let index = order.length - 1; index > 0; index--) {
       const other = Math.floor(Math.random() * (index + 1));
       [order[index], order[other]] = [order[other], order[index]];
     }
-    if (motion.matches || typeof deck.animate !== 'function') {
+    if (!animated) {
       deck.append(...order);
     } else {
-      play.setAttribute('aria-disabled', 'true');
-      status.textContent = frames[completed].dataset.mixing!;
       const start = cards.map(card => card.getBoundingClientRect());
       deck.append(...order);
       const end = cards.map(card => card.getBoundingClientRect());
@@ -94,10 +110,10 @@ if (shuffle) {
         ], { duration: 650, delay: (index % 9) * 19, easing: 'ease-in-out', fill: 'backwards' });
       });
       await Promise.allSettled(animations.map(animation => animation.finished));
-      play.removeAttribute('aria-disabled');
     }
     completed++;
     showShuffleState();
+    play.removeAttribute('aria-disabled');
   });
   showShuffleState();
   timeline.hidden = true;

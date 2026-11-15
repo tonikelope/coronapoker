@@ -1,0 +1,45 @@
+---
+import type { copy, Locale } from '../content';
+
+type MentalCopy = (typeof copy)[Locale]['mental'];
+interface Props { text: MentalCopy['receipts']; players: MentalCopy['names'] }
+const { text, players } = Astro.props;
+---
+<div class="diagram receipt-demo">
+  <fieldset class="receipt-switch">
+    <legend>{text.compare}</legend>
+    <div class="receipt-choices">
+      {text.scenarios.map((scenario, index) => (
+        <label>
+          <input type="radio" name="receipt-example" value={index} checked={index === 0} />
+          <span>{scenario.label}</span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+
+  {text.scenarios.map((scenario, index) => (
+    <figure class="receipt-scenario" data-receipt-scenario={index}>
+      <figcaption><span>{text.fingerprint}</span><span>{text.example}</span></figcaption>
+      <ul class="receipt-list" role="list">
+        {players.map((player, seat) => {
+          const differs = index === 1 && seat === 1;
+          return (
+            <li class:list={{ 'receipt-mismatch': differs }}>
+              <strong>{player}</strong>
+              <code>{differs ? 'D3E1…74B2' : '8B7A…29C4'}</code>
+              <small><span aria-hidden="true">✓</span> {text.signature}</small>
+            </li>
+          );
+        })}
+      </ul>
+      <div class:list={['receipt-result', { 'receipt-conflict': index === 1 }]}>
+        <span class="receipt-result-mark" aria-hidden="true">{index === 0 ? '✓' : '!'}</span>
+        <div>
+          <strong>{scenario.verdict}</strong>
+          <p>{scenario.detail}</p>
+        </div>
+      </div>
+    </figure>
+  ))}
+</div>

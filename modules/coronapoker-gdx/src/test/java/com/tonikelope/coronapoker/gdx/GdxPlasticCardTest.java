@@ -94,4 +94,86 @@ final class GdxPlasticCardTest {
             }
         }
     }
+    @Test void cornerLiftPreservesBothDimensionsAndKeepsASupportedRegion() {
+        var shape = new GdxPlasticCard.PeekShape();
+        Vector3 point = new Vector3();
+        Vector3 previous = new Vector3();
+        for (float amount : new float[]{0f, 0.001f, 0.1f, 0.3f, 0.6f, 1f}) {
+            shape.set(amount);
+            int supported = 0;
+            for (int row = 0; row <= 10; row++) {
+                float length = 0f;
+                for (int column = 0; column <= 200; column++) {
+                    shape.sample(point, 100f, 140f, column / 200f, row / 10f);
+                    assertTrue(point.y >= -0.001f, "The sheet penetrates the table");
+                    if (point.y < 0.001f) supported++;
+                    if (column > 0) length += point.dst(previous);
+                    previous.set(point);
+                }
+                assertEquals(100f, length, 0.05f, "The corner stretches across its width");
+            }
+            assertTrue(supported > 400, "The resting region has lifted off the table");
+            for (int column = 0; column <= 10; column++) {
+                float length = 0f;
+                for (int row = 0; row <= 200; row++) {
+                    shape.sample(point, 100f, 140f, column / 10f, row / 200f);
+                    if (row > 0) length += point.dst(previous);
+                    previous.set(point);
+                }
+                assertEquals(140f, length, 0.06f, "The corner stretches along its length");
+            }
+        }
+    }
+
+    @Test void privateIndexesFaceTheViewerWithoutExposingTheWholeCard() {
+        var shape = new GdxPlasticCard.PeekShape();
+        shape.set(1f);
+        Vector3 at = new Vector3(), du = new Vector3(), dv = new Vector3();
+        Vector3 eye = new Vector3(0f, 0.602f, 0.799f);
+        for (float v : new float[]{0.72f, 0.90f}) {
+            shape.sample(at, 100f, 140f, 0.10f, v);
+            shape.sample(du, 100f, 140f, 0.101f, v);
+            shape.sample(dv, 100f, 140f, 0.10f, v + 0.001f);
+            du.sub(at);
+            dv.sub(at).crs(du).nor();
+            assertTrue(dv.dot(eye) < -0.25f, "The rank or suit is edge-on to the viewer");
+        }
+        shape.sample(at, 100f, 140f, 0.5f, 0.1f);
+        assertEquals(0f, at.y, 0.001f);
+        shape.set(0f);
+        shape.sample(at, 100f, 140f, 0.1f, 0.9f);
+        assertEquals(new Vector3(-40f, 0f, 56f).x, at.x, 0.001f);
+        assertEquals(0f, at.y, 0.001f);
+        assertEquals(56f, at.z, 0.001f);
+    }
+
+    @Test void variedRevealsAreRepeatableAndStaySupportedUntilTheSameEndpoint() {
+        Vector3 point = new Vector3(), repeat = new Vector3(), previous = new Vector3();
+        assertNotEquals(GdxPlasticCard.motion(11), GdxPlasticCard.motion(12));
+        for (long seed = 0; seed < 32; seed++) {
+            var motion = GdxPlasticCard.motion(seed);
+            assertEquals(motion, GdxPlasticCard.motion(seed));
+            for (int frame = 0; frame <= 20; frame++) {
+                float progress = frame / 20f;
+                float minHeight = Float.POSITIVE_INFINITY;
+                float length = 0f;
+                for (int column = 0; column <= 100; column++) {
+                    float u = column / 100f;
+                    GdxPlasticCard.reveal(point, 100f, 140f, u, 0.5f, progress, 1f, motion);
+                    GdxPlasticCard.reveal(repeat, 100f, 140f, u, 0.5f, progress, 1f, motion);
+                    assertEquals(point, repeat);
+                    assertTrue(point.y >= -0.001f);
+                    minHeight = Math.min(minHeight, point.y);
+                    if (column > 0) length += point.dst(previous);
+                    previous.set(point);
+                    if (frame == 0 || frame == 20) {
+                        assertEquals(0f, point.y, 0.001f);
+                        assertEquals((u - 0.5f) * 100f * (frame == 0 ? 1f : -1f), point.x, 0.001f);
+                    }
+                }
+                assertEquals(0f, minHeight, 0.01f);
+                assertEquals(100f, length, 0.005f);
+            }
+        }
+    }
 }

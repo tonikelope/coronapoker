@@ -45,6 +45,21 @@ final class GdxCardShell implements Disposable {
     private int multisampleColour;
     private int multisampleDepth;
     private boolean previousMultisample;
+    private boolean grouping;
+    private boolean groupHasCards;
+    private float groupWidth;
+    private float groupHeight;
+
+    void beginPair() {
+        grouping = true;
+        groupHasCards = false;
+    }
+
+    void endPair() {
+        grouping = false;
+        if (groupHasCards) composite(groupWidth, groupHeight);
+        groupHasCards = false;
+    }
 
     void render(ShaderProgram shader, FloatArray source, int cols, int strips,
             int material, Texture top, Texture bottom, float cardWidth, float aspect, float worldWidth, float worldHeight) {
@@ -76,7 +91,9 @@ final class GdxCardShell implements Disposable {
             shader.bind();
             gl.glDepthMask(true);
             gl.glClearColor(0f, 0f, 0f, 0f);
-            gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+            if (!grouping || !groupHasCards) {
+                gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+            }
             gl.glEnable(GL20.GL_DEPTH_TEST);
             gl.glDepthFunc(GL20.GL_LEQUAL);
             gl.glEnable(GL20.GL_CULL_FACE);
@@ -95,6 +112,7 @@ final class GdxCardShell implements Disposable {
                             source.items[offset + 1] - halfThickness + normals[cell + 1] * halfThickness * sign,
                             source.items[offset + 2] + normals[cell + 2] * halfThickness * sign, u);
                     vertices.add(v, source.items[offset + 5]);
+                    vertices.add(normals[cell] * sign, normals[cell + 1] * sign, normals[cell + 2] * sign);
                 }
                 shader.setUniformi("u_cardSide", side);
                 draw(shader);
@@ -125,6 +143,16 @@ final class GdxCardShell implements Disposable {
             gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, parent.get(0));
             gl.glViewport(viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
         }
+        if (grouping) {
+            groupWidth = worldWidth;
+            groupHeight = worldHeight;
+            groupHasCards = true;
+        } else {
+            composite(worldWidth, worldHeight);
+        }
+    }
+
+    private void composite(float worldWidth, float worldHeight) {
         if (composite == null) {
             composite = new SpriteBatch();
             composite.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA,
@@ -216,6 +244,7 @@ final class GdxCardShell implements Disposable {
                 point.y - halfThickness + side * halfThickness * normal.y,
                 point.z + side * halfThickness * normal.z, u);
         vertices.add(v, 0.88f + 0.12f * Math.abs(normal.y));
+        vertices.add(normal.x, normal.y, normal.z);
     }
 
     private void interpolate(Vector3 out, float[] values, float u, float v) {
@@ -239,14 +268,15 @@ final class GdxCardShell implements Disposable {
     }
 
     private void draw(ShaderProgram shader) {
-        int count = vertices.size / 6;
+        int count = vertices.size / 9;
         if (mesh == null || capacity < count) {
             if (mesh != null) mesh.dispose();
             capacity = Math.max(count, 4096);
             mesh = new Mesh(false, capacity, 0,
                     new VertexAttribute(Usage.Position, 3, "a_position"),
                     new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
-                    new VertexAttribute(Usage.Generic, 1, "a_light"));
+                    new VertexAttribute(Usage.Generic, 1, "a_light"),
+                    new VertexAttribute(Usage.Normal, 3, "a_normal"));
         }
         mesh.setVertices(vertices.items, 0, vertices.size);
         mesh.render(shader, GL20.GL_TRIANGLES);

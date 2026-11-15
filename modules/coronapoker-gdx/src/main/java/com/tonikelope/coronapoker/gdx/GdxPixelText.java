@@ -10,6 +10,11 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 /** Physical-pixel placement for native-size rasterized text. */
 final class GdxPixelText {
 
+    private static int projectedDepth;
+
+    static void beginProjection() { projectedDepth++; }
+    static void endProjection() { projectedDepth--; }
+
     private static float framePhysicalPixelScaleX = 1f;
     private static float framePhysicalPixelScaleY = 1f;
 
@@ -29,12 +34,14 @@ final class GdxPixelText {
     }
 
     static float snapX(float worldX, Viewport viewport) {
+        if (projectedDepth > 0) return worldX;
         return snapWorldCoordinate(worldX, viewport.getScreenX(),
                 viewport.getScreenWidth(), viewport.getWorldWidth(),
                 physicalPixelScaleX());
     }
 
     static float snapY(float worldY, Viewport viewport) {
+        if (projectedDepth > 0) return worldY;
         return snapWorldCoordinate(worldY, viewport.getScreenY(),
                 viewport.getScreenHeight(), viewport.getWorldHeight(),
                 physicalPixelScaleY());

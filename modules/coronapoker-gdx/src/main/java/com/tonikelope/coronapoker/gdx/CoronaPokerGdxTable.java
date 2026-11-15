@@ -7816,11 +7816,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return true;
         }
         if (!Float.isNaN(communityHudX)
-                && contains(x, y, communityHudX - 2f, communityHudY - 4f,
+                && tablePlaneContains(x, y, communityHudX - 2f, communityHudY - 4f,
                         communityHudWidth + 5f, communityHudHeight + 6f)) {
             return true;
         }
-        if (contains(x, y, potCenterX - POT_PANEL_WIDTH / 2f - 2f,
+        if (tablePlaneContains(x, y, potCenterX - POT_PANEL_WIDTH / 2f - 2f,
                 potCenterY - POT_PANEL_HEIGHT / 2f - 2f,
                 POT_PANEL_WIDTH + 4f, POT_PANEL_HEIGHT + 4f)) {
             return true;
@@ -8617,8 +8617,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (chipRackVisible(livePot())) {
             StackChipRackGeometry geometry = animatedPotChipRackGeometry();
-            if (chipRackVisualBounds(potChipRackCenterX(potCenterX),
-                    potChipRackBaseY(geometry), geometry).contains(x, y)) {
+            Rectangle bounds = chipRackVisualBounds(potChipRackCenterX(potCenterX),
+                    potChipRackBaseY(geometry), geometry);
+            if (tablePlaneContains(x, y, bounds.x, bounds.y, bounds.width, bounds.height)) {
                 return ChipCatalogTarget.tablePot();
             }
         }
@@ -9541,7 +9542,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     leftButtonReleasedThisFrame, pointer.x, pointer.y,
                     viewport.getWorldWidth(), pauseBannerY(),
                     pauseBannerHeight(), communityPauseX, communityPauseY,
-                    communityPauseWidth, communityPauseHeight)) {
+                    perspectiveActive ? 0f : communityPauseWidth,
+                    perspectiveActive ? 0f : communityPauseHeight)
+                    || tablePlaneContains(pointer.x, pointer.y, communityPauseX,
+                            communityPauseY, communityPauseWidth, communityPauseHeight)) {
                 togglePauseAction();
             }
             return;
@@ -9575,20 +9579,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Resolve controls in reverse paint order.  The card viewer is the
         // final fallback, never the first hit-test for a rectangle that may
         // extend behind HUD or seat chrome.
-        if (contains(pointer.x, pointer.y, communityPauseX,
+        if (tablePlaneContains(pointer.x, pointer.y, communityPauseX,
                 communityPauseY, communityPauseWidth,
                 communityPauseHeight)) {
             togglePauseAction();
             return;
         }
         if (!liveState.snapshot().paused()
-                && contains(pointer.x, pointer.y, communityLightsX,
+                && tablePlaneContains(pointer.x, pointer.y, communityLightsX,
                         communityLightsY, communityLightsWidth,
                         communityLightsHeight)) {
             toggleUserLights();
             return;
         }
-        if (tableHost && contains(pointer.x, pointer.y, communityHandX,
+        if (tableHost && tablePlaneContains(pointer.x, pointer.y, communityHandX,
                 communityHandY, communityHandWidth,
                 communityHandHeight)) {
             requestLastHandChange();
@@ -14880,34 +14884,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         LiveCardPlacement first = liveHolePlacement(seat, 0);
         LiveCardPlacement second = liveHolePlacement(seat, 1);
         int limit = Math.min(2, cards.size());
-        for (int layer = 0; layer < limit; layer++) {
-            int slot = limit == 1 ? 0 : holeCardSlotForLayer(first.x, second.x, layer);
-            TableSnapshot.CardSnapshot pocket = cards.get(slot);
-            if (!isRestingHoleCardVisible(pocket)
-                    || perspectivePocketStillDealing(nickname, slot)) continue;
-            LiveCardPlacement placement = slot == 0 ? first : second;
-            boolean exposed = pocket.faceUp() && !pocket.code().isBlank();
-            boolean showFace = exposed && publicHand;
-            Texture face = exposed && (publicHand || perspectiveTable.peeking())
-                    ? liveCardFace(pocket.code()) : back;
-            float opacity = fold != null ? foldCardAlpha(fold.progress, true)
-                    : folded && !showFace ? DISABLED_CARD_ALPHA
-                    : liveRestingCardAlpha(pocket, nickname, slot, false, placement);
-            float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
-            float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
-            float y = perspectivePocketY(placement);
-            if (showFace && reveal != null) {
-                perspectiveTable.drawPocketFlip(back, face, placement.x, y,
-                        w, h, -placement.rotation, cardFlipAngle(reveal.progress(slot),
-                                reveal.flipDirection), opacity);
-            } else {
-                perspectiveTable.drawPocket(back, face, placement.x, y,
-                        w, h, -placement.rotation, showFace,
-                        tableCenterY - cardHeight * 0.36f - COMMUNITY_HUD_Y_OFFSET - 14f,
-                        opacity);
+        perspectiveTable.beginPocketPair();
+        try {
+            for (int layer = 0; layer < limit; layer++) {
+                int slot = limit == 1 ? 0 : holeCardSlotForLayer(first.x, second.x, layer);
+                TableSnapshot.CardSnapshot pocket = cards.get(slot);
+                if (!isRestingHoleCardVisible(pocket)
+                        || perspectivePocketStillDealing(nickname, slot)) continue;
+                LiveCardPlacement placement = slot == 0 ? first : second;
+                boolean exposed = pocket.faceUp() && !pocket.code().isBlank();
+                boolean showFace = exposed && publicHand;
+                Texture face = exposed && (publicHand || perspectiveTable.peeking())
+                        ? liveCardFace(pocket.code()) : back;
+                float opacity = fold != null ? foldCardAlpha(fold.progress, true)
+                        : folded && !showFace ? DISABLED_CARD_ALPHA
+                        : liveRestingCardAlpha(pocket, nickname, slot, false, placement);
+                float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
+                float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
+                float y = perspectivePocketY(placement);
+                if (showFace && reveal != null) {
+                    perspectiveTable.drawPocketFlip(back, face, placement.x, y,
+                            w, h, -placement.rotation, cardFlipAngle(reveal.progress(slot),
+                                    reveal.flipDirection), opacity);
+                } else {
+                    perspectiveTable.drawPocket(back, face, placement.x, y,
+                            w, h, -placement.rotation, showFace,
+                            opacity);
+                }
             }
+        } finally {
+            perspectiveTable.endPocketPair();
         }
     }
+
 
     private void drawLiveHoleCards(boolean foregroundFlights) {
         Texture cardBack = activeCardBack();
@@ -15998,7 +16007,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.end();
             perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
                     placement.width, placement.height, progress,
-                    liveCommunityReveal.flipDirection);
+                    liveCommunityReveal.flipDirection, liveCommunityReveal.motion);
             batch.setShader(null);
             batch.setColor(Color.WHITE);
             batch.begin();
@@ -16056,18 +16065,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (antialiased) finishCardSmaaLayer();
         }
 
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         float boardWidth = cardW + 4f * gap;
-        if (liveState.turnTimerVisible()) {
-            drawSharedTurnBar(firstX, cardY - COMMUNITY_TIMER_Y_OFFSET,
-                    boardWidth, 0f);
-        } else if (liveState.sharedProgressVisible()) {
-            drawSharedProgressBar(firstX,
-                    cardY - COMMUNITY_TIMER_Y_OFFSET, boardWidth);
-        }
-        shapes.end();
+        onTablePlane(() -> {
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+            if (liveState.turnTimerVisible()) {
+                drawSharedTurnBar(firstX, cardY - COMMUNITY_TIMER_Y_OFFSET,
+                        boardWidth, 0f);
+            } else if (liveState.sharedProgressVisible()) {
+                drawSharedProgressBar(firstX,
+                        cardY - COMMUNITY_TIMER_Y_OFFSET, boardWidth);
+            }
+            shapes.end();
+        });
 
         drawPotPanelSurface();
         drawCommunityHud(firstX, cardY - COMMUNITY_HUD_Y_OFFSET,
@@ -16098,11 +16109,42 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 activeFlight);
     }
 
+    private void onTablePlane(Runnable draw) {
+        if (!perspectiveActive) {
+            draw.run();
+            return;
+        }
+        batch.setProjectionMatrix(perspectiveTable.boardProjection());
+        shapes.setProjectionMatrix(perspectiveTable.boardProjection());
+        GdxPixelText.beginProjection();
+        try {
+            draw.run();
+        } finally {
+            GdxPixelText.endProjection();
+            batch.setProjectionMatrix(camera.combined);
+            shapes.setProjectionMatrix(camera.combined);
+        }
+    }
+
+    private boolean tablePlaneContains(float x, float y, float left, float bottom,
+            float width, float height) {
+        if (perspectiveActive) {
+            var point = perspectiveTable.boardAt(x, y);
+            x = point.x;
+            y = point.y;
+        }
+        return contains(x, y, left, bottom, width, height);
+    }
+
     private void drawPotPanelSurface() {
         drawPotPanelSurface(1f);
     }
 
     private void drawPotPanelSurface(float alpha) {
+        onTablePlane(() -> drawPotPanelOnTable(alpha));
+    }
+
+    private void drawPotPanelOnTable(float alpha) {
         float opacity = MathUtils.clamp(alpha, 0f, 1f);
         double currentPot = Math.max(0d, livePot());
         String currentPotTitle = communityPotTitle(gameText,
@@ -16231,8 +16273,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float topCenterY = potChipRackBaseY(geometry) + baseRise
                 - geometry.chipSize() / 2f + topLevel * fittedGap
                 + stackChipProjectedHeight(geometry) / 2f;
-        return new PotChipAnchor(
-                rackCenterX + placement.offsets()[column], topCenterY);
+        float targetX = rackCenterX + placement.offsets()[column];
+        if (perspectiveActive) {
+            var point = perspectiveTable.boardToScreen(targetX, topCenterY);
+            return new PotChipAnchor(point.x, point.y);
+        }
+        return new PotChipAnchor(targetX, topCenterY);
     }
 
     static float potChipRackCenterX(float panelCenterX) {
@@ -16331,7 +16377,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (perspectiveActive) {
             float width = cardW * 2.2f;
-            drawCallCostOnTable(cx - width / 2f, cardY + cardH + 40f, width, 32f);
+            drawCallCostOnTable(cx + POT_PANEL_WIDTH / 2f + 28f,
+                    potCenterY - 32f, width, 64f);
             return;
         }
 
@@ -16652,6 +16699,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     /** Compact equivalent of Swing's CommunityCardsPanel, fed by the dealer. */
     private void drawCommunityHud(float x, float y, float width) {
+        onTablePlane(() -> drawCommunityHudOnTable(x, y, width));
+    }
+
+    private void drawCommunityHudOnTable(float x, float y, float width) {
         // The canonical local cards occupy the lower centre. This compact bar
         // fits in the measured safe gap below the turn timer without touching
         // either those cards or the community row at any supported viewport.
@@ -16691,11 +16742,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communityLightsY = y;
         communityLightsWidth = lightsWidth;
         communityLightsHeight = height;
-        boolean pauseHover = contains(pointer.x, pointer.y,
+        boolean pauseHover = tablePlaneContains(pointer.x, pointer.y,
                 communityPauseX, communityPauseY,
                 communityPauseWidth, communityPauseHeight);
         boolean paused = liveState.snapshot().paused();
-        boolean lightsHover = !paused && contains(pointer.x, pointer.y,
+        boolean lightsHover = !paused && tablePlaneContains(pointer.x, pointer.y,
                 communityLightsX, communityLightsY,
                 communityLightsWidth, communityLightsHeight);
         Color pauseColor = paused ? ORANGE : SEAT_RIM;
@@ -16709,7 +16760,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedRect(x, y, width, height, 9f);
 
         float handX = communityHandX;
-        boolean handHover = tableHost && contains(pointer.x, pointer.y,
+        boolean handHover = tableHost && tablePlaneContains(pointer.x, pointer.y,
                 communityHandX, communityHandY,
                 communityHandWidth, communityHandHeight);
         if (handHover) {
@@ -32175,6 +32226,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float leadInSeconds;
         final int flipDirection;
         final GdxCommunityStreetDeal streetDeal;
+        final GdxPlasticCard.Motion motion;
         boolean dealSoundPlayed;
         float elapsedSeconds;
 
@@ -32189,6 +32241,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.leadInSeconds = event.leadInMillis() / 1000f;
             this.flipDirection = flipDirection;
             this.streetDeal = streetDeal;
+            this.motion = GdxPlasticCard.motion(event.sequence() * 31L + event.firstSlot());
         }
 
         boolean containsSlot(int slot) {

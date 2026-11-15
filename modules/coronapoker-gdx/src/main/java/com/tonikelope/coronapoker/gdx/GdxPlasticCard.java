@@ -158,7 +158,7 @@ final class GdxPlasticCard {
     }
 
     static float uncoverSeconds(float configuredFlipSeconds) {
-        return configuredFlipSeconds * 1.70f;
+        return configuredFlipSeconds * 1.50f;
     }
 
     record Motion(float tempo, float bend, float corner) { }

@@ -232,7 +232,7 @@ platform requirements and troubleshooting.
 CoronaPoker discovers an external `mod` directory beside the installation and
 can safely overlay the supported presentation assets:
 
-- **Card decks**: 4 themes bundled (`coronapoker`, `interstate60`, `goliat`, `goliat4`), each in both animated GIF and static HQ variants.
+- **Card decks**: 6 themes bundled (`coronapoker`, `coronapoker4`, `interstate60`, `interstate60-goliat`, `goliat`, `goliat4`), each in both animated GIF and static HQ variants.
 - **All-in cinematics**: 9 bundled GIF sequences. A MOD can replace or combine the set and supply companion audio.
 - **Sound packs**: action sounds, table music and per-language comedy categories for English and Spanish.
 - **Safe fallback**: missing optional assets retain the official presentation, while unsafe paths and malformed descriptors are rejected.

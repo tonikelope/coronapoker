@@ -23,7 +23,8 @@ import java.util.Optional;
 final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     static final List<String> OFFICIAL_DECKS = List.of(
-            "goliat", "coronapoker", "goliat4", "interstate60");
+            "goliat", "coronapoker", "goliat4", "coronapoker4",
+            "interstate60-goliat", "interstate60");
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);

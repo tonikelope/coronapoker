@@ -522,6 +522,16 @@ final class GdxGamePresentationSettingsTest {
             // implicit bundled option in the portable GDX distribution.
             assertEquals("goliat4", settings.selectDeck("pepsiman"));
             assertEquals("goliat4", settings.deck());
+
+            assertEquals("coronapoker4", settings.selectNextDeck());
+            assertEquals("coronapoker4", settings.deck());
+            assertEquals("CoronaPoker 4 colores",
+                    GdxAppearanceOptions.deckLabel(settings.deck()));
+
+            assertEquals("interstate60-goliat", settings.selectNextDeck());
+            assertEquals("interstate60-goliat", settings.deck());
+            assertEquals("Interstate60-Goliat",
+                    GdxAppearanceOptions.deckLabel(settings.deck()));
         } finally {
             preferences.close();
         }

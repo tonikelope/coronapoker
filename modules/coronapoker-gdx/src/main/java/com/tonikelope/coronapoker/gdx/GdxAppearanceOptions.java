@@ -132,6 +132,8 @@ final class GdxAppearanceOptions {
             case "goliat" -> "Goliat";
             case "coronapoker" -> "CoronaPoker";
             case "goliat4" -> "Goliat 4 colores";
+            case "coronapoker4" -> "CoronaPoker 4 colores";
+            case "interstate60-goliat" -> "Interstate60-Goliat";
             case "interstate60" -> "Interstate 60";
             default -> deck;
         };

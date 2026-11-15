@@ -55,7 +55,7 @@ final class CardRenderLabModelTest {
                 model.cardResource());
         assertEquals("images/decks/coronapoker/hq/trasera.jpg",
                 model.backResource());
-        assertEquals(4, CardRenderLabModel.decks().size());
+        assertEquals(6, CardRenderLabModel.decks().size());
         assertEquals(54, CardRenderLabModel.cards().size());
     }
 

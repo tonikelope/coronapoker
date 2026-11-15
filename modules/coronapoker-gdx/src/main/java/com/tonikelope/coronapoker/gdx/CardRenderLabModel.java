@@ -44,8 +44,8 @@ final class CardRenderLabModel {
 
     record FilterOption(String label, TextureFilter minification) { }
 
-    private static final List<String> DECKS = List.of(
-            "goliat", "coronapoker", "goliat4", "interstate60");
+    private static final List<String> DECKS =
+            GdxGamePresentationSettings.OFFICIAL_DECKS;
     private static final List<String> CARDS = List.of(
             "A_P", "K_P", "Q_P", "J_P", "10_P", "9_P", "8_P",
             "7_P", "6_P", "5_P", "4_P", "3_P", "2_P",

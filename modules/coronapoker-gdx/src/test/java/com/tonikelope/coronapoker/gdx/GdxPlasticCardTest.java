@@ -125,6 +125,23 @@ final class GdxPlasticCardTest {
         }
     }
 
+    @Test void thePeekUsesABroadBendRatherThanAPermanentCrease() {
+        var shape = new GdxPlasticCard.PeekShape();
+        shape.set(1f);
+        var point = new Vector3(); var normal = new Vector3();
+        var previous = new Vector3(); var previousNormal = new Vector3();
+        float minRadius = Float.POSITIVE_INFINITY;
+        for (int step=0; step<=1000; step++) {
+            shape.sample(point, normal, 100f, 140f, .1f, step/1000f);
+            if (step>0) {
+                double angle = Math.acos(Math.max(-1.0, Math.min(1.0, normal.dot(previousNormal))));
+                if (angle > .0005) minRadius = Math.min(minRadius, (float)(point.dst(previous)/angle));
+            }
+            previous.set(point); previousNormal.set(normal);
+        }
+        assertTrue(minRadius > 30f, "A tight crease has returned to the lifted sheet");
+    }
+
     @Test void privateIndexesFaceTheViewerWithoutExposingTheWholeCard() {
         var shape = new GdxPlasticCard.PeekShape();
         shape.set(1f);

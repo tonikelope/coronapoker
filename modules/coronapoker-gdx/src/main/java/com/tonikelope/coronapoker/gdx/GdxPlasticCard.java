@@ -25,7 +25,7 @@ final class GdxPlasticCard {
         private static final int STEPS = 192;
         private static final double DX = -Math.sin(Math.toRadians(14.0));
         private static final double DZ = Math.cos(Math.toRadians(14.0));
-        private static final double LENGTH = 0.56;
+        private static final double LENGTH = 0.85;
         private final double[] arc = new double[STEPS + 1];
         private final double[] forward = new double[STEPS + 1];
         private final double[] up = new double[STEPS + 1];
@@ -37,7 +37,7 @@ final class GdxPlasticCard {
             if (lift == amount) return;
             amount = lift;
             if (lift < 0.00001f) return;
-            double tip = Math.toRadians(132.0) * lift;
+            double tip = Math.toRadians(108.0) * lift;
             double force = Math.toRadians(170.0);
             double limit = 2.0 * Math.sqrt(tip / Math.sin(force - tip));
             double prevWeight = 2.0 * tip / Math.sqrt(Math.cos(force - tip) - Math.cos(force));
@@ -71,7 +71,7 @@ final class GdxPlasticCard {
         float sample(Vector3 out, Vector3 normal, float width, float height, float u, float v) {
             double x = (u - 0.5) * width;
             double z = (v - 0.5) * height;
-            double distance = (x * DX + z * DZ) / height + 0.065;
+            double distance = (x * DX + z * DZ) / height + 0.20;
             if (amount < 0.00001f || distance <= 0.0) {
                 out.set((float) x, 0f, (float) z);
                 if (normal != null) normal.set(0f, 1f, 0f);
@@ -113,7 +113,8 @@ final class GdxPlasticCard {
     }
 
     static void flight(Vector3 out, float width, float height, float u, float v, float progress) {
-        double bend = 0.17 * Math.sin(2.0 * Math.PI * progress);
+        double pulse = Math.sin(Math.PI * progress);
+        double bend = 0.10 * pulse * pulse;
         if (Math.abs(bend) < 0.0001f) {
             out.set((u - 0.5f) * width, 0f, (v - 0.5f) * height);
             return;

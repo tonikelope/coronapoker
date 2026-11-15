@@ -42,7 +42,7 @@ final class GdxPerspectiveCardInteractionTest {
         var target = new Vector3(60, 0.82f, 400);
         var point = new Vector3();
         float lastDistance = Float.POSITIVE_INFINITY;
-        for (int i = 78; i <= 100; i++) {
+        for (int i = 68; i <= 100; i++) {
             GdxCardDealMotion.sample(point, source, target, i / 100f, 150);
             assertEquals(target.y, point.y, 0.0001f);
             assertTrue(point.dst(target) <= lastDistance);
@@ -53,6 +53,20 @@ final class GdxPerspectiveCardInteractionTest {
         var before = new Vector3();
         GdxCardDealMotion.sample(before, source, target, GdxCardDealMotion.TOUCHDOWN - 0.0001f, 150);
         assertTrue(before.dst(point) < 0.1f);
+    }
+
+    @Test void theLowThrowNeverPushesThePlasticThroughTheFelt() {
+        var from = new Vector3(-300f,8f,-600f); var to = new Vector3(0f,0f,300f);
+        var center = new Vector3(); var vertex = new Vector3();
+        for (int frame=0;frame<=200;frame++) {
+            float p=frame/200f;
+            GdxCardDealMotion.sample(center,from,to,p,150f);
+            assertTrue(center.y < 22f, "The card flies too high for a slide onto the table");
+            for (int row=0;row<=20;row++) {
+                GdxPlasticCard.flight(vertex,150f,210f,.5f,row/20f,GdxCardDealMotion.airborne(p));
+                assertTrue(center.y + vertex.y >= -.0001f, "The flexible sheet crosses the contact plane");
+            }
+        }
     }
 
     @Test void pickingFindsTheFrontTriangleFromEitherSideAndRejectsEmptySpace() {

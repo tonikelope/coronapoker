@@ -6,7 +6,7 @@ import com.badlogic.gdx.math.Vector3;
 
 /** A low throw, a soft touchdown and a final slide with continuous deceleration. */
 final class GdxCardDealMotion {
-    static final float TOUCHDOWN = 0.78f;
+    static final float TOUCHDOWN = 0.68f;
 
     private GdxCardDealMotion() { }
 
@@ -38,7 +38,7 @@ final class GdxCardDealMotion {
         float t = travel(p);
         float q = airborne(p);
         float distance = Vector3.dst(from.x, 0f, from.z, to.x, 0f, to.z);
-        float arch = Math.min(width * 0.55f, distance * 0.065f);
+        float arch = Math.min(width * 0.12f, distance * 0.018f);
         float pulse = (float) Math.sin(Math.PI * q);
         out.set(MathUtils.lerp(from.x, to.x, t),
                 to.y + (from.y - to.y) * (1f - q) * (1f - q) + arch * pulse * pulse,

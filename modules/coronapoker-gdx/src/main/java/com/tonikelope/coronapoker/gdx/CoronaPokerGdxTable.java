@@ -1512,6 +1512,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Rectangle pocketPeekButton = new Rectangle();
     private boolean mousePeekHeld;
     private boolean pocketPeekEnabled;
+    private boolean pocketPeekNeedsRelease;
     private boolean perspectiveBoardArtwork;
     private boolean perspectiveTarget;
     private float perspectiveTravel;
@@ -14926,7 +14927,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         LiveHoleReveal reveal = liveHoleReveal != null
                 && liveHoleReveal.event.nickname().equals(nickname) ? liveHoleReveal : null;
         boolean publicHand = liveState.hasPublicHoleCards(nickname);
-        boolean canPeek = !folded && !publicHand && reveal == null
+        if (liveHoleFold != null && liveHoleFold.event.nickname().equals(nickname)) pocketPeekNeedsRelease = true;
+        if (!Gdx.input.isKeyPressed(Input.Keys.V) && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
+        boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
         pocketPeekEnabled = canPeek && liveState.presentedHoleCards(nickname).stream()
                 .anyMatch(card -> card.visible() && !card.code().isBlank());
@@ -14961,7 +14964,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Texture face = exposed && (publicHand || perspectiveTable.peeking())
                         ? liveCardFace(pocket.code()) : back;
                 float opacity = fold != null ? foldCardAlpha(fold.progress, true)
-                        : folded && !showFace ? DISABLED_CARD_ALPHA
+                        : folded && !showFace ? MathUtils.lerp(DISABLED_CARD_ALPHA, 1f, perspectiveTable.peekAmount())
                         : liveRestingCardAlpha(pocket, nickname, slot, false, placement);
                 float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
                 float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
@@ -16031,6 +16034,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!liveCommunityReveal.started() || !streetDeal.visible(elapsed)) {
                 return;
             }
+            if (perspectiveActive && streetDeal.flop()) {
+                float spread = streetDeal.revealProgress(elapsed);
+                float x = placement.x + streetDeal.flopOffsetX(offset, gap, elapsed);
+                float layer = offset * GdxPlasticCard.thickness(placement.width) * (1f - spread);
+                float turn = MathUtils.clamp((streetDeal.flipProgress(elapsed) - 0.10f) / 0.90f, 0f, 1f);
+                batch.end();
+                perspectiveTable.drawBoardPacketCard(cardBack, liveCardFace(card.code()),
+                        dealerSourceX, dealerSourceY, x, placement.y, placement.width,
+                        placement.height, streetDeal.inFlight(elapsed), streetDeal.flightProgress(elapsed),
+                        turn, liveCommunityReveal.flipDirection, liveCommunityReveal.motion, layer, offset);
+                batch.setShader(null);
+                batch.setColor(Color.WHITE);
+                batch.begin();
+                return;
+            }
             if (streetDeal.flop()) {
                 // Slots are painted from left to right. Slot 2 starts on top
                 // of the stack and travels furthest, exposing slots 0 and 1.
@@ -16063,8 +16081,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Texture face = liveCardFace(card.code());
         if (perspectiveActive) {
             batch.end();
+            float settledProgress = MathUtils.clamp((progress - 0.10f) / 0.90f, 0f, 1f);
             perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
-                    placement.width, placement.height, progress,
+                    placement.width, placement.height, settledProgress,
                     liveCommunityReveal.flipDirection, liveCommunityReveal.motion);
             batch.setShader(null);
             batch.setColor(Color.WHITE);
@@ -17316,7 +17335,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         : seatPresenceAlpha(seat.index);
                 if (texture != null && seat != null && presence > 0f) {
                     drawTablePositionTexture(texture, positionMarkerAnchor(seat).x, positionMarkerAnchor(seat).y,
-                            POSITION_CHIP_SIZE, 0f, presence);
+                            POSITION_CHIP_SIZE, 0f, presence, seat.index == 0, 1f, 0f);
                 }
             }
             alphaEdgeRenderer.end(batch);
@@ -17332,7 +17351,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Texture texture = positionTexture(transfer.position());
             Seat target = seatByNickname(transfer.toNickname());
             if (texture == null || target == null
-                    || !hasActivePokerRole(livePlayer(target))) {
+                    || !hasVisiblePositionChip(livePlayer(target))) {
                 continue;
             }
             Seat previous = seatByNickname(transfer.fromNickname());
@@ -17354,38 +17373,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     * (transfer.fromCenter() ? 0.62f + progress * 0.38f : 1f);
             drawTablePositionTexture(texture, x, y, size,
                     (1f - progress) * (role - 1) * 320f,
-                    seatPresenceAlpha(target.index));
+                    seatPresenceAlpha(target.index), target.index == 0 || previous != null && previous.index == 0,
+                    target.index == 0 ? progress : 1f - progress,
+                    perspectiveBoardCardWidth() * .09f * MathUtils.sin(MathUtils.PI * raw) * MathUtils.sin(MathUtils.PI * raw));
         }
         alphaEdgeRenderer.end(batch);
         batch.end();
     }
 
     private Vector2 positionMarkerAnchor(Seat seat) {
-        if (!perspectiveActive) return new Vector2(seat.positionX, seat.positionY);
-        float w = perspectiveBoardCardWidth();
-        float x, y;
-        if (seat.index == 0) {
-            x = viewport.getWorldWidth() * 0.66f;
-            y = viewport.getWorldHeight() * 0.36f;
-        } else {
-            x = seat.podX + PLAYER_POD_WIDTH * 0.5f;
-            y = seat.podY + PLAYER_POD_HEIGHT * 0.5f;
-            float dx = tableCenterX - x, dy = tableCenterY - y;
-            float length = Math.max(1f, Vector2.len(dx, dy));
-            dx /= length;
-            dy /= length;
-            float boundary = Math.min(PLAYER_POD_WIDTH * 0.5f / Math.max(0.001f, Math.abs(dx)),
-                    PLAYER_POD_HEIGHT * 0.5f / Math.max(0.001f, Math.abs(dy)));
-            x += dx * (boundary + w * 0.46f);
-            y += dy * (boundary + w * 0.34f);
-        }
-        return new Vector2(MathUtils.lerp(seat.positionX, x, perspectiveBlend),
-                MathUtils.lerp(seat.positionY, y, perspectiveBlend));
+        if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
+        return new Vector2(MathUtils.lerp(seat.positionX, viewport.getWorldWidth() * 0.63f, perspectiveBlend),
+                MathUtils.lerp(seat.positionY, viewport.getWorldHeight() * 0.34f, perspectiveBlend));
     }
 
     private void drawTablePositionTexture(Texture texture, float x, float y,
-            float size, float rotation, float alpha) {
-        if (!perspectiveActive) {
+            float size, float rotation, float alpha, boolean local, float onTable, float lift) {
+        if (!perspectiveActive || !local) {
             drawPositionTexture(texture, x, y, size, rotation, alpha);
             return;
         }
@@ -17393,7 +17397,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
         float diameter = MathUtils.lerp(size, perspectiveBoardCardWidth() * 0.62f
                 * size / POSITION_CHIP_SIZE, perspectiveBlend);
-        perspectiveTable.drawPositionMarker(texture, x, y, diameter, -rotation, alpha);
+        perspectiveTable.drawPositionMarker(texture, x, y, diameter, size, -rotation, alpha, onTable, lift);
         batch.begin();
         alphaEdgeRenderer.begin(batch);
     }

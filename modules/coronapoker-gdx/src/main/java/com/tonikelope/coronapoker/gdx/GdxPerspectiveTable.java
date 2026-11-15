@@ -139,11 +139,20 @@ final class GdxPerspectiveTable implements Disposable {
                     gl_FragColor = vec4(colour, 1.0);
                     return;
                 }
+                if (u_material == 7) {
+                    float shade = 1.0 - smoothstep(0.36, 0.50, length(v_uv - 0.5));
+                    gl_FragColor = vec4(0.015, 0.012, 0.010, 0.30 * shade * u_opacity);
+                    return;
+                }
                 if (u_material == 6) {
-                    vec4 ink = texture2D(u_texture, v_uv);
+                    vec4 ink = sampleProjectedCard(u_texture, v_uv, 1.0, 0.0);
+                    ink.rgb = mix(texture2D(u_texture, vec2(.5,.12)).rgb, ink.rgb, ink.a);
                     vec3 n = normalize(v_normal);
-                    float light = 0.72 + 0.28 * max(0.0, dot(n, normalize(vec3(-0.25,0.90,0.30))));
-                    gl_FragColor = vec4(ink.rgb * light, ink.a * u_opacity);
+                    vec3 lightDir = normalize(vec3(-0.35,0.88,0.32));
+                    float light = 0.58 + 0.42 * max(0.0, dot(n, lightDir));
+                    vec3 eye = normalize(u_eye - v_position);
+                    float sheen = 0.055 * pow(max(0.0, dot(n, normalize(lightDir + eye))), 36.0);
+                    gl_FragColor = vec4(ink.rgb * light + sheen, u_opacity);
                     return;
                 }
                 if (u_material == 5) {
@@ -296,6 +305,8 @@ final class GdxPerspectiveTable implements Disposable {
     void setSmoothArtwork(boolean smooth) {
         smoothArtwork = smooth;
     }
+
+    float peekAmount() { return peek; }
 
     void updatePeek(boolean held, float delta) {
         // Exact critically damped response. Smooth velocity on reversal and
@@ -507,9 +518,9 @@ final class GdxPerspectiveTable implements Disposable {
         // Draw the packet towards the player while fanning it a little. This
         // is a physical translation, shared by the artwork, shadow and pick mesh.
         cz += cardHeight * 0.16f * lift;
-        cz += slot == 1 ? cardHeight * 0.12f * lift : 0f;
-        cx += (slot == 0 ? -0.16f : 0.36f) * cardWidth * lift;
-        angle -= slot == 1 ? 14f * lift : 0f;
+        cz += slot == 1 ? cardHeight * 0.32f * lift : 0f;
+        cx = MathUtils.lerp(cx, (slot == 0 ? -0.08f : 0.08f) * cardWidth, lift);
+        angle = MathUtils.lerp(angle, -10f, lift);
         float meshWidth = cardWidth * EDGE_MARGIN_SCALE;
         float meshHeight = cardHeight * EDGE_MARGIN_SCALE;
         // Both sheets share a bend in world space, as a fan lifted together.
@@ -552,7 +563,7 @@ final class GdxPerspectiveTable implements Disposable {
 
     private void drawDeal(Texture back, float sourceX, float sourceY, float w, float h,
             float fan, float progress, int order) {
-        float launchHeight = w * 0.10f;
+        float launchHeight = w * 0.055f;
         Vector3 origin = surfaceAt(sourceX, sourceY, CARD_REST_HEIGHT + launchHeight);
         dealSource.set(origin.x, launchHeight, origin.z);
         GdxCardDealMotion.sample(dealPosition, dealSource, dealTarget, progress, w);
@@ -562,41 +573,79 @@ final class GdxPerspectiveTable implements Disposable {
                 dealPosition.y, GdxCardDealMotion.airborne(progress));
     }
 
+    private float markerCenterY, markerTilt, markerArtScale;
+
     void drawPositionMarker(Texture texture, float screenX, float screenY,
-            float diameter, float rotation, float opacity) {
-        Vector3 center = surfaceAt(screenX, screenY, 0f);
+            float diameter, float hudSize, float rotation, float opacity, float onTable, float lift) {
+        float level = 0f;
+        for (int i=0; i<3 && onTable < 1f; i++) {
+            float right = surfaceAt(screenX + hudSize * .5f, screenY, level).x;
+            float left = surfaceAt(screenX - hudSize * .5f, screenY, level).x;
+            float physical = MathUtils.lerp(right - left, diameter, onTable);
+            level = lift + physical * (.5f * MathUtils.sinDeg((90f - ELEVATION) * (1f-onTable)) + .0225f);
+            if (i == 2) diameter = physical;
+        }
+        markerArtScale = MathUtils.lerp(.5f, .48f, onTable);
+        float radius = diameter * 0.5f;
+        float thickness = diameter * 0.045f;
+        markerTilt = (90f - ELEVATION) * (1f - onTable) * MathUtils.degreesToRadians;
+        float elevation = lift + radius * Math.abs(MathUtils.sin(markerTilt));
+        markerCenterY = elevation + thickness * 0.5f;
+        Vector3 center = surfaceAt(screenX, screenY, markerCenterY);
         float cx = center.x, cz = center.z;
-        float radius = diameter * 0.49f;
-        float thickness = diameter * 0.085f;
+        // The shadow belongs to the support plane, never to a screen-space ellipse.
         markerVertices.clear();
-        float[] ys = {0.15f, thickness * 0.12f, thickness * 0.88f, thickness};
-        float[] rs = {0.985f, 1f, 1f, 0.985f};
         for (int i = 0; i < 96; i++) {
             float a = i * MathUtils.PI2 / 96f, b = (i + 1f) * MathUtils.PI2 / 96f;
-            markerVertex(cx, cz, radius, thickness, 0f, rotation, 0f, true, 1f);
-            markerVertex(cx, cz, radius, thickness, a, rotation, 0.985f, true, 1f);
-            markerVertex(cx, cz, radius, thickness, b, rotation, 0.985f, true, 1f);
+            markerShadowVertex(cx, cz, radius * 1.10f, 0f, 0f);
+            markerShadowVertex(cx, cz, radius * 1.10f, a, 1f);
+            markerShadowVertex(cx, cz, radius * 1.10f, b, 1f);
+        }
+        begin(7, texture, texture, opacity * onTable * (float)Math.exp(-elevation / (radius * 0.65f)));
+        shell.renderSolid(shader, markerVertices, width, height);
+        markerVertices.clear();
+        float bevel = thickness * 0.24f;
+        float[] ys = {-thickness * .5f, -thickness * .5f + bevel, thickness * .5f - bevel, thickness * .5f};
+        float[] rs = {.985f, 1f, 1f, .985f};
+        for (int i = 0; i < 128; i++) {
+            float a = i * MathUtils.PI2 / 128f, b = (i + 1f) * MathUtils.PI2 / 128f;
+            markerVertex(cx, cz, radius, thickness * .5f, 0f, rotation, 0f, true, 1f);
+            markerVertex(cx, cz, radius, thickness * .5f, a, rotation, .985f, true, 1f);
+            markerVertex(cx, cz, radius, thickness * .5f, b, rotation, .985f, true, 1f);
             for (int j = 0; j < 3; j++) {
-                markerVertex(cx, cz, radius, ys[j], a, rotation, rs[j], false, 0f);
-                markerVertex(cx, cz, radius, ys[j + 1], a, rotation, rs[j + 1], false, 0f);
-                markerVertex(cx, cz, radius, ys[j + 1], b, rotation, rs[j + 1], false, 0f);
-                markerVertex(cx, cz, radius, ys[j], a, rotation, rs[j], false, 0f);
-                markerVertex(cx, cz, radius, ys[j + 1], b, rotation, rs[j + 1], false, 0f);
-                markerVertex(cx, cz, radius, ys[j], b, rotation, rs[j], false, 0f);
+                float ny = j == 0 ? -.7f : j == 2 ? .7f : 0f;
+                markerVertex(cx, cz, radius, ys[j], a, rotation, rs[j], false, ny);
+                markerVertex(cx, cz, radius, ys[j+1], a, rotation, rs[j+1], false, ny);
+                markerVertex(cx, cz, radius, ys[j+1], b, rotation, rs[j+1], false, ny);
+                markerVertex(cx, cz, radius, ys[j], a, rotation, rs[j], false, ny);
+                markerVertex(cx, cz, radius, ys[j+1], b, rotation, rs[j+1], false, ny);
+                markerVertex(cx, cz, radius, ys[j], b, rotation, rs[j], false, ny);
             }
         }
         begin(6, texture, texture, opacity);
         shell.renderSolid(shader, markerVertices, width, height);
     }
 
+    private void markerShadowVertex(float cx, float cz, float radius, float angle, float radial) {
+        float x = MathUtils.cos(angle) * radial, z = MathUtils.sin(angle) * radial;
+        markerVertices.add(cx + radius * x, .06f, cz + radius * z, .5f + .5f * x);
+        markerVertices.add(.5f + .5f * z, 1f, 0f, 1f);
+        markerVertices.add(0f);
+    }
+
     private void markerVertex(float cx, float cz, float radius, float y, float angle,
             float rotation, float radial, boolean top, float normalY) {
         float turn = angle + rotation * MathUtils.degreesToRadians;
         float x = MathUtils.cos(turn), z = MathUtils.sin(turn);
-        markerVertices.add(cx + radius * radial * x, y, cz + radius * radial * z,
-                top ? 0.5f + 0.49f * radial * MathUtils.cos(angle) : 0.5f);
-        markerVertices.add(top ? 0.5f + 0.49f * radial * MathUtils.sin(angle) : 0.065f, 1f);
-        markerVertices.add(top ? 0f : x, normalY, top ? 0f : z);
+        float cosine = MathUtils.cos(markerTilt), sine = MathUtils.sin(markerTilt);
+        float radialZ = radius * radial * z;
+        float normalRadial = top ? 0f : (float)Math.sqrt(1f - normalY * normalY);
+        float nz = z * normalRadial;
+        markerVertices.add(cx + radius * radial * x, markerCenterY + y * cosine - radialZ * sine,
+                cz + y * sine + radialZ * cosine,
+                top ? .5f + markerArtScale * radial * MathUtils.cos(angle) : .5f);
+        markerVertices.add(top ? .5f + markerArtScale * radial * MathUtils.sin(angle) : .065f, 1f);
+        markerVertices.add(x * normalRadial, normalY * cosine - nz * sine, normalY * sine + nz * cosine);
     }
 
     private void drawFlexibleFlight(Texture back, float cx, float cz,
@@ -645,6 +694,21 @@ final class GdxPerspectiveTable implements Disposable {
             float h, float fan, float opacity) {
         fillPocket(x + 0.45f, z + 1.2f, w * 1.10f, h * 1.10f, fan, 0f, true);
         renderPocket(3, back, back, 0.16f * opacity, h / w);
+    }
+
+    void drawBoardPacketCard(Texture back, Texture face, float sourceX, float sourceY,
+            float x, float y, float w, float h, boolean flying, float flightProgress,
+            float turn, float direction, GdxPlasticCard.Motion motion, float layer, int slot) {
+        if (flying) {
+            dealTarget.set(x - width * 0.5f, layer, boardCenterY - y);
+            drawDeal(back, sourceX, sourceY, w, h, 0f, flightProgress, 0);
+        } else {
+            revealBaseHeight = layer;
+            try {
+                drawPlasticReveal(back, face, x - width * 0.5f, boardCenterY - y,
+                        w, h, 0f, turn, direction, 1f, motion);
+            } finally { revealBaseHeight = 0f; }
+        }
     }
 
     void drawBoardReveal(Texture back, Texture face, float x, float y,

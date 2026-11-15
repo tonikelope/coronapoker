@@ -2699,7 +2699,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         ShuffleProofGateDecision proof = awaitShuffleProofGate(
                 UNLOCK_PHASE_POCKET, SHUFFLE_PROOF_GATE_TIMEOUT_MS);
-        if (tableShutdownRequested()) return false;
+        if (tableShutdownRequested() || cancelPendingDealerMisdeal() || this.mano_anulada) return false;
         if (shuffleProofStartDecision(proof)
                 == ShuffleProofStartDecision.START_BETTING) {
             if (takeZeroTrustQaFault("misdeal")) {
@@ -2774,7 +2774,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean allowDuringShutdown, byte[] megapacket) {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0L, timeoutMs));
         synchronized (shuffle_proof_gate_lock) {
-            while (megapacket == local_mega_packet && !SECURITY_LOCKDOWN
+            while (megapacket == local_mega_packet && !SECURITY_LOCKDOWN && !shuffleHandCancelled()
                     && (allowDuringShutdown || !tableShutdownRequested())) {
                 ShuffleProofGateDecision decision = shuffleProofGateDecision(phase, megapacket,
                         dual_lock_expect_bundle_for, dual_lock_verified_megapacket,
@@ -2798,11 +2798,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private boolean shuffleHandCancelled() {
+        return this.mano_anulada || hasPendingDealerMisdeal();
+    }
+
     private void expectFreshShuffleProof(byte[] megapacket) {
         synchronized (shuffle_proof_gate_lock) {
             this.dual_lock_verified_megapacket = null;
             this.dual_lock_failed_megapacket = null;
             this.dual_lock_persisted_megapacket = null;
+            this.dual_lock_bundle_received_for = null;
             this.dual_lock_expect_bundle_for = megapacket;
             this.local_mega_packet = megapacket;
             shuffle_proof_gate_lock.notifyAll();
@@ -2844,7 +2849,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             synchronized (shuffle_proof_gate_lock) {
                                 // The job retains the installed deck reference for this envelope.
                                 // Identical bytes in a later hand need their own contextual proof.
-                                if (megapacket == local_mega_packet
+                                if (megapacket == local_mega_packet && !shuffleHandCancelled()
                                         && megapacket != dual_lock_failed_megapacket) {
                                     dual_lock_verified_megapacket = megapacket;
                                     shuffle_proof_gate_lock.notifyAll();
@@ -3396,8 +3401,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * essential for renderer-neutral clients: the SRA secrets belong to this
      * dealer/hand, not to a window.</p>
      *
-     * @return {@code true} when the command was claimed for asynchronous
-     * processing; {@code false} when it is an ordinary queued GAME command
+     * @return {@code true} when the command was consumed or dispatched here,
+     * or {@code false} when the command still belongs in the dealer mailbox
      */
     public boolean handleClientCriticalHostCommand(String command) {
         if (command == null || gameSession().isHost()) {
@@ -3775,7 +3780,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // table state left to serve, but that ordinary wire race must
                 // not be escalated into a hostile-host failure or keep the old
                 // table executor alive for UNLOCK_WAIT_TIMEOUT_MS.
-                if (isFin_de_la_transmision() || this.termination_pending) {
+                if (isFin_de_la_transmision() || this.termination_pending || shuffleHandCancelled()) {
                     return;
                 }
                 if (waitResult == UnlockWaitResult.TIMEOUT) {
@@ -3798,7 +3803,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             ShuffleProofGateDecision proof = awaitShuffleProofGate(phase,
                     SHUFFLE_PROOF_GATE_TIMEOUT_MS, false, megapacket);
-            if (tableShutdownRequested() || megapacket != this.local_mega_packet || handId != getMano()) {
+            if (tableShutdownRequested() || shuffleHandCancelled()
+                    || megapacket != this.local_mega_packet || handId != getMano()) {
                 return;
             }
             if (proof != ShuffleProofGateDecision.ALLOW) {
@@ -5525,7 +5531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Clients need the bundle before they can answer any pocket unlock request.
         if (!verifyAndBroadcastShuffleBeforeDeal(numPlayersFinal * 2)) {
-            if (!tableWaitCancelled()) {
+            if (!tableWaitCancelled() && !cancelPendingDealerMisdeal()) {
                 markShuffleProofFailed(workingDeck);
                 cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
             }
@@ -5830,13 +5836,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     genesis, cascadeOutputs, proofs, pocketCount, megapacket, rotationStates, rotationProofs);
             LOGGER.log(verified ? Level.INFO : Level.SEVERE,
                     "SHUFFLE-VERIFY: pre-deal dual-lock full-chain self-check = {0}", verified);
-            if (!verified || tableWaitCancelled()) return false;
+            if (!verified || tableWaitCancelled() || shuffleHandCancelled()) return false;
 
             String bundle = "DUALLOCK_BUNDLE#" + joinB64(cascadeOutputs) + "#"
                     + joinB64(proofs) + "#" + joinB64(rotationStates) + "#" + joinB64(rotationProofs);
             // These ACKs confirm delivery. Each client gates its own unlock on the cryptographic verdict.
             broadcastGAMECommandFromServer(bundle, null);
-            if (tableWaitCancelled()) return false;
+            if (tableWaitCancelled() || shuffleHandCancelled()) return false;
             this.cascade_rotation_proofs = rotationProofs;
             synchronized (shuffle_proof_gate_lock) {
                 this.dual_lock_verified_megapacket = megapacket;
@@ -10036,9 +10042,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean cancelPendingDealerMisdeal() {
-        String reason = pending_dealer_abort_reason.getAndSet(null);
-        if (reason == null) {
-            return false;
+        String reason;
+        synchronized (shuffle_proof_gate_lock) {
+            reason = pending_dealer_abort_reason.getAndSet(null);
+            if (reason == null) {
+                return false;
+            }
+            // Keep unlocks fenced as the pending abort becomes a cancelled hand.
+            this.mano_anulada = true;
+            shuffle_proof_gate_lock.notifyAll();
         }
         LOGGER.log(Level.WARNING,
                 "Pending MISDEAL ({0}). Aborting the hand on the dealer thread",
@@ -10051,7 +10063,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (reason == null || reason.isBlank() || isFin_de_la_transmision()) {
             return;
         }
-        pending_dealer_abort_reason.compareAndSet(null, reason);
+        synchronized (shuffle_proof_gate_lock) {
+            pending_dealer_abort_reason.compareAndSet(null, reason);
+            shuffle_proof_gate_lock.notifyAll();
+        }
+        synchronized (protocol_state_lock) {
+            protocol_state_lock.notifyAll();
+        }
         synchronized (this.getReceived_commands()) {
             this.getReceived_commands().notifyAll();
         }
@@ -10613,7 +10631,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     return UnlockWaitResult.STALE_HAND;
                 }
-                if (termination_pending) {
+                if (termination_pending || shuffleHandCancelled()) {
                     return UnlockWaitResult.STALE_HAND;
                 }
                 if (hand_id < this.conta_mano) {
@@ -12169,7 +12187,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // face-A settle of a run-it-twice) read this flag when unwinding from the aborted deal
         // to revert their part. volatile + same thread (host) or the queue breakout (client)
         // make it visible.
-        this.mano_anulada = true;
+        synchronized (shuffle_proof_gate_lock) {
+            this.mano_anulada = true;
+            shuffle_proof_gate_lock.notifyAll();
+        }
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         // Defense in depth: if a recovery dragon was left open (e.g. a
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it

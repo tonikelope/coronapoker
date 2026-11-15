@@ -61,7 +61,7 @@ export const copy = {
     primary: 'Download CoronaPoker', source: 'View on GitHub', explore: 'See the game',
     tableTitle: 'Poker night. Your rules.',
     tableText: 'Set up a private table for 2 to 10 players, with any mix of people and bots. One player hosts the game and the other players connect to that host. Set the blinds, buy-ins and rebuys, then save the setup for next time.',
-    tableNote: 'PURE P2P, no accounts or third-party servers',
+    tableNote: 'Host-based P2P, no accounts or external game servers',
     capture: 'In-game screenshot',
     mental: {
       title: 'Encrypt, shuffle and verify the hand.',
@@ -343,7 +343,7 @@ export const copy = {
     primary: 'Descargar CoronaPoker', source: 'Ver en GitHub', explore: 'Ver el juego',
     tableTitle: 'Tu noche de póker. Tus reglas.',
     tableText: 'Crea una mesa privada de 2 a 10 jugadores, con la combinación de personas y bots que prefieras. Un jugador aloja la partida y los demás se conectan a él. Ajusta ciegas, entradas y recompras, y guarda la configuración para la próxima.',
-    tableNote: 'P2P PURO, sin cuentas ni servidores de terceros',
+    tableNote: 'P2P con anfitrión, sin cuentas ni servidores de juego externos',
     capture: 'Captura del juego',
     mental: {
       title: 'Cifrar, barajar y verificar la mano.',

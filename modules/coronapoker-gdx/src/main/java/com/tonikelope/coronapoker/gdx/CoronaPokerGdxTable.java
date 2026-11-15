@@ -1508,6 +1508,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture startupPresentationSpadeTexture;
     private Texture feltTexture;
     private GdxPerspectiveTable perspectiveTable;
+    private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
     private boolean perspectiveActive;
     private final Rectangle pocketPeekButton = new Rectangle();
     private boolean mousePeekHeld;
@@ -5673,6 +5674,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (event instanceof TableVisualEvent.Shuffle shuffle) {
             acceptLiveShuffle(shuffle, barrier);
         } else if (event instanceof TableVisualEvent.DealHoleCard deal) {
+            if (deal.nickname().equals(liveState.snapshot().localNickname())) {
+                pocketOrder.deal(deal.slot(), deal.card().code(),
+                        GdxAppearanceOptions.perspectiveTable(tableSettingsProperties()));
+            }
             int dealOrder = liveHoleDealCount++;
             int activePlayers = activeDealtPlayerCount();
             boolean animated = liveDealAnimationEnabled();
@@ -5784,6 +5789,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .orElseThrow(() -> new IllegalStateException(
                             "Cannot reveal cards for missing player "
                             + reveal.nickname()));
+            if (reveal.nickname().equals(liveState.snapshot().localNickname())) {
+                pocketOrder.remember(List.of(reveal.left(), reveal.right()));
+            }
             boolean publicPerspectiveReveal = usesPerspectivePocket(player)
                     && !reveal.handName().isBlank()
                     && !liveState.hasPublicHoleCards(reveal.nickname());
@@ -5817,7 +5825,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             } else {
                 LiveHoleReveal animation = new LiveHoleReveal(reveal,
-                        System.nanoTime(),
                         barrier, player.holeCards(), cardFlipSeconds(),
                         nextCardFlipDirection());
                 if (usesPerspectivePocket(player) && perspectiveTable != null) {
@@ -5861,7 +5868,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // into place; it only prevents the newer swap sequence from
             // invalidating the still-pending DealHoleCard state.
             applyPendingCardFlightStatesBefore(swap.sequence());
-            if (!liveSwapAnimationEnabled()) {
+            TableSnapshot.PlayerSnapshot sortingPlayer = livePlayer(swap.nickname());
+            if (sortingPlayer != null && sortingPlayer.nickname().equals(liveState.snapshot().localNickname())) {
+                pocketOrder.remember(sortingPlayer.holeCards());
+            }
+            if (!liveSwapAnimationEnabled() || usesPerspectivePocket(sortingPlayer)) {
                 try {
                     liveState.apply(event);
                     syncSeatsFromLiveState();
@@ -5906,6 +5917,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveShowdownInvestments.clear();
                 liveWinnerStarts.clear();
                 liveHoleDealCount = 0;
+                pocketOrder.reset();
                 liveShowdownHoverNickname = null;
                 allInActionSoundsPlayed.clear();
                 liveHandProbabilities.clear();
@@ -11586,6 +11598,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
                     Math.min(1510f, width * 0.78f) / 10f);
             float cardHeight = cardWidth * back.getHeight() / back.getWidth();
+            perspectiveTable.preparePocket(cardHeight / cardWidth);
             perspectiveTable.layout(width, height, height * 0.52f + cardHeight * 0.14f);
             perspectiveTable.moveCamera(perspectiveBlend);
             perspectiveTable.setSmoothArtwork(requestedCardRenderingMode()
@@ -14936,9 +14949,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         LiveHoleReveal reveal = liveHoleReveal != null
                 && liveHoleReveal.event.nickname().equals(nickname) ? liveHoleReveal : null;
         boolean publicHand = liveState.hasPublicHoleCards(nickname);
+        List<TableSnapshot.CardSnapshot> cards = liveState.presentedHoleCards(nickname);
+        pocketOrder.remember(cards);
+        boolean dealing = perspectivePocketStillDealing(nickname, 0)
+                || perspectivePocketStillDealing(nickname, 1);
+        pocketOrder.update(!dealing, liveSwapAnimationEnabled(), Gdx.graphics.getDeltaTime());
         if (liveHoleFold != null && liveHoleFold.event.nickname().equals(nickname)) pocketPeekNeedsRelease = true;
         if (!Gdx.input.isKeyPressed(Input.Keys.V) && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
         boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
+                && !dealing && !pocketOrder.busy()
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
         pocketPeekEnabled = canPeek && liveState.presentedHoleCards(nickname).stream()
                 .anyMatch(card -> card.visible() && !card.code().isBlank());
@@ -14953,7 +14972,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             mousePeekHeld = false;
             perspectiveTable.coverCards();
         }
-        List<TableSnapshot.CardSnapshot> cards = liveState.presentedHoleCards(nickname);
         Texture back = activeCardBack();
         LiveHoleFold fold = liveHoleFold != null
                 && liveHoleFold.event.nickname().equals(nickname) ? liveHoleFold : null;
@@ -14963,32 +14981,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Both sheets must use one frame time. A separate clock sample per
         // sheet moves their surfaces farther than the plastic thickness.
         float uncoverProgress = reveal == null ? 0f : reveal.progress(0);
+        int hoveredSlot = perspectiveTable.pocketSlotAt(pointer.x, pointer.y);
+        GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
+                ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
         perspectiveTable.beginPocketPair();
         try {
             for (int layer = 0; layer < limit; layer++) {
                 int slot = limit == 1 ? 0 : holeCardSlotForLayer(first.x, second.x, layer);
                 TableSnapshot.CardSnapshot pocket = cards.get(slot);
                 if (!isRestingHoleCardVisible(pocket)
-                        || perspectivePocketStillDealing(nickname, slot)) continue;
-                LiveCardPlacement placement = slot == 0 ? first : second;
+                        || perspectivePocketStillDealing(nickname, pocketOrder.dealtSlot(pocket.code(), slot))) continue;
+                GdxPocketOrder.Pose pose = pocketOrder.pose(pocket.code(), slot);
+                LiveCardPlacement placement = pose.slot() == 0 ? first : second;
                 boolean exposed = pocket.faceUp() && !pocket.code().isBlank();
-                boolean showFace = exposed && publicHand;
-                Texture face = exposed && (publicHand || perspectiveTable.peeking())
-                        ? liveCardFace(pocket.code()) : back;
+                boolean showFace = exposed && publicHand && !pocketOrder.busy();
+                // Upload the authorized local artwork before the first peek.
+                Texture face = exposed ? liveCardFace(pocket.code()) : back;
                 float opacity = fold != null ? foldCardAlpha(fold.progress, true)
                         : folded && !showFace ? MathUtils.lerp(DISABLED_CARD_ALPHA, 1f, perspectiveTable.peekAmount())
-                        : liveRestingCardAlpha(pocket, nickname, slot, false, placement);
+                        : liveRestingCardAlpha(pocket, nickname, slot, false, hoveredSlot == slot);
                 float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
                 float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
                 float y = perspectivePocketY(placement);
                 if (showFace && reveal != null) {
                     perspectiveTable.drawPocketFlip(back, face, placement.x, y,
                             w, h, -placement.rotation, uncoverProgress,
-                            reveal.flipDirection, opacity, slot);
+                            reveal.flipDirection, opacity, slot, pose.slot());
                 } else {
                     perspectiveTable.drawPocket(back, face, placement.x, y,
                             w, h, -placement.rotation, showFace,
-                            opacity, slot);
+                            opacity, slot, pose, highlight != null && highlight.nickname().equals(nickname)
+                                    && highlight.holeCardSlots().contains(slot));
                 }
             }
         } finally {
@@ -15512,6 +15535,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float liveRestingCardAlpha(TableSnapshot.CardSnapshot card,
             String nickname, int slot, boolean communityCard,
             LiveCardPlacement placement) {
+        return liveRestingCardAlpha(card, nickname, slot, communityCard,
+                placementContains(placement, pointer.x, pointer.y));
+    }
+
+    private float liveRestingCardAlpha(TableSnapshot.CardSnapshot card,
+            String nickname, int slot, boolean communityCard, boolean pointerInside) {
         if (!card.faceUp()) {
             return card.disabled() ? DISABLED_CARD_ALPHA : 1f;
         }
@@ -15532,7 +15561,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 !blocksTableUtilities(activeDialog),
                 tableChromeOccludesCards(pointer.x, pointer.y,
                         viewport.getWorldWidth()),
-                placementContains(placement, pointer.x, pointer.y));
+                pointerInside);
         return restingCardAlpha(card.disabled(), selected, hovered);
     }
 
@@ -15832,7 +15861,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         boolean antialiased = beginCardSmaaLayer();
-        if (!foregroundRevealFlights && perspectiveActive) {
+        boolean pocketInFlight = liveHoleReveal != null
+                && usesPerspectivePocket(livePlayer(liveHoleReveal.event.nickname()));
+        if (perspectiveActive && foregroundRevealFlights == pocketInFlight) {
             Texture back = activeCardBack();
             float cardWidth = perspectiveBoardCardWidth();
             drawPerspectivePocket(cardWidth, cardWidth * back.getHeight() / back.getWidth());
@@ -18843,6 +18874,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (active == null) {
             return;
         }
+        if (usesPerspectivePocket(livePlayer(active.event.nickname())) && pocketOrder.busy()) return;
+        active.clock.advance(System.nanoTime());
         if (!active.soundPlayed && active.progress(0) > 0f) {
             active.soundPlayed = true;
             if (liveFlipSoundEnabled()) {
@@ -32445,7 +32478,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 = new TableSnapshot.CardSnapshot("", false, false);
 
         final TableVisualEvent.RevealHoleCards event;
-        final long startedAtNanos;
+        final GdxCardDealMotion.FrameClock clock = new GdxCardDealMotion.FrameClock();
         final CompletableFuture<Void> barrier;
         final List<TableSnapshot.CardSnapshot> originalCards;
         boolean soundPlayed;
@@ -32453,11 +32486,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final int flipDirection;
 
         LiveHoleReveal(TableVisualEvent.RevealHoleCards event,
-                long startedAtNanos, CompletableFuture<Void> barrier,
+                CompletableFuture<Void> barrier,
                 List<TableSnapshot.CardSnapshot> originalCards,
                 float flipSeconds, int flipDirection) {
             this.event = event;
-            this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
             this.originalCards = List.copyOf(originalCards);
             this.flipSeconds = flipSeconds;
@@ -32465,8 +32497,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         float elapsedSeconds() {
-            return Math.max(0L, System.nanoTime() - startedAtNanos)
-                    / 1_000_000_000f;
+            return clock.elapsedSeconds();
         }
 
         float progress(int slot) {

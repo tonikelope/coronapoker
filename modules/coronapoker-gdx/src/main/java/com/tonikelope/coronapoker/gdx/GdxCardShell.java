@@ -66,6 +66,20 @@ final class GdxCardShell implements Disposable {
         this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
     }
 
+    void prepare(int cols, int strips, float aspect) {
+        Grid key = new Grid(cols, strips, aspect);
+        if (contours.containsKey(key)) return;
+        GdxCardContour prepared = new GdxCardContour(cols, strips, aspect);
+        contours.put(key, prepared);
+        int length = (cols + 1) * (strips + 1) * 3;
+        if (grid.length < length) {
+            grid = new float[length]; normals = new float[length];
+        }
+        int count = Math.max(prepared.faces.size / 2, prepared.rim.size * 3);
+        vertices.ensureCapacity(count * 9);
+        ensureMesh(count);
+    }
+
     void beginPair() {
         grouping = true;
         groupHasCards = false;
@@ -321,8 +335,7 @@ final class GdxCardShell implements Disposable {
         return out.set(values[at], values[at + 1], values[at + 2]);
     }
 
-    private void draw(ShaderProgram shader) {
-        int count = vertices.size / 9;
+    private void ensureMesh(int count) {
         if (mesh == null || capacity < count) {
             if (mesh != null) mesh.dispose();
             capacity = Math.max(count, 4096);
@@ -332,6 +345,10 @@ final class GdxCardShell implements Disposable {
                     new VertexAttribute(Usage.Generic, 1, "a_light"),
                     new VertexAttribute(Usage.Normal, 3, "a_normal"));
         }
+    }
+
+    private void draw(ShaderProgram shader) {
+        ensureMesh(vertices.size / 9);
         mesh.setVertices(vertices.items, 0, vertices.size);
         mesh.render(shader, GL20.GL_TRIANGLES);
     }

@@ -244,6 +244,13 @@ final class GdxPerspectiveTable implements Disposable {
 
     void beginPocketUncover() { uncoverStartPeek = peek; }
 
+    void preparePocket(float aspect) {
+        shell.prepare(POCKET_COLUMNS, CARD_STRIPS, aspect);
+        for (GdxCardPickMesh pick : pocketPicks) {
+            pick.triangles.ensureCapacity(Math.max(0, MAX_CARD_VERTICES * 9 - pick.triangles.size));
+        }
+    }
+
     Matrix4 boardProjection() {
         return board;
     }
@@ -526,36 +533,52 @@ final class GdxPerspectiveTable implements Disposable {
     void drawPocket(Texture back, Texture face, float x, float y,
             float cardWidth, float cardHeight, float angle, boolean publicFace,
             float opacity, int slot) {
-        activePocketSlot = slot;
+        drawPocket(back, face, x, y, cardWidth, cardHeight, angle, publicFace,
+                opacity, slot, GdxPocketOrder.Pose.resting(slot), false);
+    }
+
+    void drawPocket(Texture back, Texture face, float x, float y,
+            float cardWidth, float cardHeight, float angle, boolean publicFace,
+            float opacity, int logicalSlot, GdxPocketOrder.Pose pose, boolean highlight) {
+        activePocketSlot = logicalSlot;
+        int slot = pose.slot();
         Vector3 center = pocketAt(x, y, cardWidth, slot, publicFace ? 1f : 0f);
         float cx = center.x;
         float cz = center.z;
         float lift = publicFace || face == back ? 0f : peek;
+        if (!publicFace) cx += (pose.x() - GdxPocketOrder.Pose.resting(slot).x()) * cardWidth * cameraProgress;
         // A compact fan remains a fan while being lifted. Both sheets follow
         // the same broad bend, retaining their full material size.
         cz += cardHeight * 0.06f * lift;
-        angle = MathUtils.lerp(angle, publicFace ? -angle : coveredFan(slot), cameraProgress);
+        angle = MathUtils.lerp(angle, publicFace ? -angle : pose.fan(), cameraProgress);
         float meshWidth = cardWidth * EDGE_MARGIN_SCALE;
         float meshHeight = cardHeight * EDGE_MARGIN_SCALE;
         // Both sheets share a bend in world space, as a fan lifted together.
         // Separate them along the surface normal by their actual thickness.
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
-        packetLayerHeight = pocketLayerHeight(publicFace ? 1 - slot : slot, cardWidth);
+        packetLayerHeight = publicFace ? pocketLayerHeight(1 - slot, cardWidth)
+                : pose.layers() * pocketLayerHeight(1, cardWidth) + pose.lift() * cardWidth;
         packetBend = true;
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, true);
         renderPocket(3, back, back, 0.20f * opacity, cardHeight / cardWidth);
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, false);
-        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth);
+        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth, highlight ? 1f : 0f);
         packetBend = false;
     }
 
     void drawPocketFlip(Texture back, Texture face, float x, float y,
             float w, float h, float fan, float progress, float direction, float opacity, int slot) {
-        activePocketSlot = slot;
+        drawPocketFlip(back, face, x, y, w, h, fan, progress, direction, opacity, slot, slot);
+    }
+
+    void drawPocketFlip(Texture back, Texture face, float x, float y,
+            float w, float h, float fan, float progress, float direction, float opacity, int logicalSlot, int slot) {
+        activePocketSlot = logicalSlot;
         float p = MathUtils.clamp(progress, 0f, 1f);
-        float turn = Interpolation.smoother.apply(MathUtils.clamp((p - .32f) / .68f, 0f, 1f));
+        float liftPhase = .32f * (1f - uncoverStartPeek);
+        float turn = Interpolation.smoother.apply(MathUtils.clamp((p - liftPhase) / (1f - liftPhase), 0f, 1f));
         float lift = MathUtils.lerp(uncoverStartPeek, 1f,
-                Interpolation.smoother.apply(Math.min(1f, p / .32f)));
+                liftPhase == 0f ? 1f : Interpolation.smoother.apply(Math.min(1f, p / liftPhase)));
         Vector3 center = pocketAt(x, y, w, slot, turn);
         float cx = center.x, cz = center.z + h * .06f * lift * (1f - turn);
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
@@ -605,6 +628,8 @@ final class GdxPerspectiveTable implements Disposable {
 
     private float markerCenterY, markerTilt, markerArtScale;
 
+    static float positionMarkerThickness(float diameter) { return diameter * .095f; }
+
     void drawPositionMarker(Texture texture, float screenX, float screenY,
             float diameter, float hudSize, float rotation, float opacity, float onTable, float lift) {
         float level = 0f;
@@ -612,15 +637,16 @@ final class GdxPerspectiveTable implements Disposable {
             float right = surfaceAt(screenX + hudSize * .5f, screenY, level).x;
             float left = surfaceAt(screenX - hudSize * .5f, screenY, level).x;
             float physical = MathUtils.lerp(right - left, diameter, onTable);
-            level = lift + physical * (.5f * MathUtils.sinDeg((90f - ELEVATION) * (1f-onTable)) + .0225f);
+            level = lift + physical * .5f * MathUtils.sinDeg((90f - ELEVATION) * (1f-onTable))
+                    + positionMarkerThickness(physical) * .5f * MathUtils.cosDeg((90f - ELEVATION) * (1f-onTable));
             if (i == 2) diameter = physical;
         }
         markerArtScale = MathUtils.lerp(.5f, .48f, onTable);
         float radius = diameter * 0.5f;
-        float thickness = diameter * 0.045f;
+        float thickness = positionMarkerThickness(diameter);
         markerTilt = (90f - ELEVATION) * (1f - onTable) * MathUtils.degreesToRadians;
         float elevation = lift + radius * Math.abs(MathUtils.sin(markerTilt));
-        markerCenterY = elevation + thickness * 0.5f;
+        markerCenterY = elevation + thickness * 0.5f * Math.abs(MathUtils.cos(markerTilt));
         Vector3 center = surfaceAt(screenX, screenY, markerCenterY);
         float cx = center.x, cz = center.z;
         // The shadow belongs to the support plane, never to a screen-space ellipse.

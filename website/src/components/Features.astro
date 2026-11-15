@@ -11,6 +11,7 @@ const { lang, text } = Astro.props;
 const { features } = text;
 const links = {
   rules: { href: `${docs}/${lang === 'es' ? 'robert_rules_es.pdf' : 'robert_rules.pdf'}`, label: text.rules },
+  bots: { href: `${docs}/docs/BOTS.md`, label: features.botsLink },
   stats: { href: `${docs}/README.md#-statistics--history`, label: features.statsLink },
   customization: { href: `${docs}/docs/MODS.md`, label: text.mods },
   video: { href: `${docs}/docs/JCEF_VIDEO_EXPERIMENT.md`, label: features.videosLink },
@@ -28,7 +29,7 @@ const sampleBalance = [25, 33, 28, 44, 52, 47, 68, 57, 73, 72, 88, 95];
       </div>
       <p class="body-copy">{features.intro}</p>
     </div>
-    <div class="feature-tabs" role="tablist" aria-label={features.nav} data-feature-tabs hidden>
+    <div class="feature-tabs" style={`--feature-count:${featureCategories.length}`} role="tablist" aria-label={features.nav} data-feature-tabs hidden>
       {featureCategories.map(({ id, suit }, index) => (
         <button type="button" role="tab" id={`feature-tab-${id}`} aria-controls={`feature-${id}`} aria-selected={index === 0} tabindex={index === 0 ? 0 : -1}>
           <span aria-hidden="true">{suit}</span>{features.categories[id].name}

@@ -13,9 +13,9 @@ const altLang = lang === 'en' ? 'es' : 'en';
 const canonical = site + routes[lang];
 const nav = [
   ['#game', t.tableNav],
-  ['#mental-poker', 'Mental Poker'],
   ['#features', t.features.nav],
   ['#gallery', t.galleryNav],
+  ['#mental-poker', 'Mental Poker'],
 ];
 const footerLinks = [
   [repo, 'GitHub'],
@@ -132,11 +132,10 @@ const schema = {
             <p class="tagline">{t.tagline}</p>
             <div class="hero-actions">
               <a class="button primary" href="#download">{t.primary} <span aria-hidden="true">↓</span></a>
-              <a class="button secondary" href={repo} target="_blank" rel="noopener">{t.source} <span aria-hidden="true">↗</span></a>
+              <a class="button secondary" href="#game">{t.explore} <span aria-hidden="true">→</span></a>
             </div>
           </div>
           <div class="hero-foot">
-            <a class="explore" href="#game"><span aria-hidden="true">↓</span> {t.explore}</a>
             <span class="hero-platforms">Windows <i></i> macOS <i></i> Linux</span>
           </div>
         </div>
@@ -146,7 +145,10 @@ const schema = {
         <div class="wrap">
           <div class="section-head reveal">
             <div><p class="eyebrow"><span></span>{t.tableNav}</p><h2 id="game-title">{t.tableTitle}</h2></div>
-            <div><p class="body-copy">{t.tableText}</p><p class="note">{t.tableNote}</p></div>
+            <div>
+              <p class="body-copy">{t.tableText}</p>
+              <p class="note">{t.tableNote}</p>
+            </div>
           </div>
           <figure class="game-feature reveal">
             <a href={`/media/${gallery[0].id}-${gallery[0].width}.webp`} data-shot="0">
@@ -154,29 +156,6 @@ const schema = {
               <span class="expand-icon" aria-hidden="true">↗</span>
             </a>
             <figcaption><span><i></i>{t.capture}</span><span>No-Limit Hold’em</span></figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <MentalPoker text={t.mental} />
-
-      <section class="bots section-space" aria-labelledby="bots-title">
-        <div class="wrap bot-layout reveal">
-          <div class="bot-copy">
-            <p class="eyebrow"><span></span>{t.botLabel}</p>
-            <h2 id="bots-title">{t.botTitle}</h2>
-            <p class="body-copy">{t.botText}</p>
-            <dl class="bot-styles">
-              {t.botStyles.map(([name, label]) => <div><dt>{name}</dt><dd>{label}</dd></div>)}
-            </dl>
-            <a href={`${docs}/docs/BOTS.md`} target="_blank" rel="noopener" class="text-link">{t.botLink} <span aria-hidden="true">↗</span></a>
-          </div>
-          <figure class="bot-feature">
-            <a href={`/media/${gallery[3].id}-${gallery[3].width}.webp`} data-shot="3">
-              <Capture index={3} alt={t.galleryItems[3][1]} sizes="(max-width: 800px) 92vw, 720px" />
-              <span class="expand-icon" aria-hidden="true">↗</span>
-            </a>
-            <figcaption><span><i></i>{t.capture}</span><span>{t.galleryItems[3][0]}</span></figcaption>
           </figure>
         </div>
       </section>
@@ -203,6 +182,8 @@ const schema = {
         </div>
       </section>
 
+      <MentalPoker text={t.mental} />
+
       <section class="download section-space" id="download" aria-labelledby="download-title">
         <div class="wrap">
           <div class="section-head reveal">
@@ -227,15 +208,12 @@ const schema = {
             </details>
             <a class="text-link" href={releases} target="_blank" rel="noopener">{t.allReleases} <span aria-hidden="true">↗</span></a>
           </div>
-        </div>
-      </section>
-
-      <section class="open-source" aria-labelledby="open-title">
-        <div class="wrap open-layout reveal">
-          <div><p class="eyebrow"><span></span> GPL v3</p><h2 id="open-title">{t.openTitle}</h2></div>
-          <div>
-            <p class="body-copy">{t.openText}</p>
-            <a class="text-link" href={repo} target="_blank" rel="noopener">{t.source} <span aria-hidden="true">↗</span></a>
+          <div class="download-source open-layout reveal">
+            <h3>{t.openTitle}</h3>
+            <div>
+              <p class="body-copy">{t.openText}</p>
+              <a class="text-link" href={repo} target="_blank" rel="noopener">{t.source} <span aria-hidden="true">↗</span></a>
+            </div>
           </div>
         </div>
       </section>

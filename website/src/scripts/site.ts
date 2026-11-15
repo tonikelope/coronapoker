@@ -23,7 +23,10 @@ if (protocol) {
 
   function showStep(index: number) {
     buttons.forEach((button, position) => button.setAttribute('aria-pressed', String(index === position)));
-    stages.forEach((stage, position) => { stage.hidden = index !== position; });
+    stages.forEach((stage, position) => {
+      if (index !== position && !stage.hidden) stage.dispatchEvent(new Event('mental-stage-leave'));
+      stage.hidden = index !== position;
+    });
   }
 
   buttons.forEach((button, index) => button.addEventListener('click', () => showStep(index)));
@@ -45,34 +48,48 @@ if (shuffle) {
   const timeline = shuffle.querySelector<HTMLElement>('[data-shuffle-frames]')!;
   const frames = [...timeline.querySelectorAll('li')];
   const players = [...shuffle.querySelectorAll('[data-shuffle-players] li')];
+  const legend = shuffle.querySelector<HTMLElement>('[data-shuffle-legend]')!;
   const play = shuffle.querySelector<HTMLButtonElement>('[data-shuffle-play]')!;
   const status = shuffle.querySelector('[data-shuffle-status]')!;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const privateSlots = players.length * 2;
+  const boardSlots = ['burn', 'flop', 'flop', 'flop', 'burn', 'turn', 'burn', 'river'];
   let completed = 0;
+  let interrupted = false;
+
+  shuffle.closest('[data-mental-stage]')?.addEventListener('mental-stage-leave', () => {
+    interrupted = true;
+    deck.getAnimations?.({ subtree: true }).forEach(animation => animation.cancel());
+  });
 
   function showShuffleState() {
-    deck.dataset.locks = String(completed);
+    const isChangingLocks = completed >= players.length;
+    const changed = isChangingLocks ? completed - players.length : 0;
+    const turn = isChangingLocks ? changed : completed;
+    deck.dataset.locks = String(Math.min(completed, players.length));
     deck.dataset.phase = 'ready';
+    shuffle.toggleAttribute('data-community-phase', isChangingLocks);
+    legend.hidden = !isChangingLocks;
+    [...deck.children].forEach((card, position) => {
+      const community = isChangingLocks && position >= privateSlots;
+      card.classList.toggle('community-slot', community);
+      const boardSlot = community ? boardSlots[position - privateSlots] : undefined;
+      if (boardSlot) card.setAttribute('data-board-slot', boardSlot);
+      else card.removeAttribute('data-board-slot');
+      [...card.children].forEach((lock, owner) => {
+        lock.classList.toggle('community-lock', community && owner < changed);
+      });
+    });
     status.textContent = frames[completed].textContent;
     play.textContent = frames[completed].dataset.play ?? timeline.dataset.shuffleReplay!;
     players.forEach((player, index) => {
-      player.classList.toggle('is-complete', index < completed);
-      if (index === completed) player.setAttribute('aria-current', 'step');
+      player.classList.toggle('is-complete', index < turn);
+      if (index === turn) player.setAttribute('aria-current', 'step');
       else player.removeAttribute('aria-current');
     });
   }
 
-  play.addEventListener('click', async () => {
-    if (play.hasAttribute('aria-disabled')) return;
-    if (completed === players.length) {
-      completed = 0;
-      showShuffleState();
-      return;
-    }
-    // This is an illustration. The shuffled elements have no card faces or attached values.
-    const cards = [...deck.children] as HTMLElement[];
-    const animated = !motion.matches && typeof deck.animate === 'function';
-    play.setAttribute('aria-disabled', 'true');
+  async function mixDeck(cards: HTMLElement[], animated: boolean) {
     status.textContent = frames[completed].dataset.locking!;
     deck.dataset.phase = 'locking';
     deck.dataset.locks = String(completed + 1);
@@ -93,7 +110,7 @@ if (shuffle) {
       const other = Math.floor(Math.random() * (index + 1));
       [order[index], order[other]] = [order[other], order[index]];
     }
-    if (!animated) {
+    if (!animated || interrupted) {
       deck.append(...order);
     } else {
       const start = cards.map(card => card.getBoundingClientRect());
@@ -111,6 +128,45 @@ if (shuffle) {
       });
       await Promise.allSettled(animations.map(animation => animation.finished));
     }
+  }
+
+  async function replaceCommunityLocks(cards: HTMLElement[], animated: boolean) {
+    const frame = frames[completed];
+    status.textContent = frame.dataset.removeLock!;
+    deck.dataset.phase = 'removing-locks';
+    if (!animated) return;
+
+    const owner = completed - players.length;
+    const locks = cards.slice(privateSlots).map(card => card.children[owner]);
+    const originals = locks.map((lock, index) => lock.animate([
+      { opacity: 1 }, { opacity: 0, transform: 'translateY(-3px)' },
+    ], { duration: 230, delay: index < boardSlots.length ? index * 26 : 0, fill: 'forwards' }));
+    await Promise.allSettled(originals.map(animation => animation.finished));
+    originals.forEach(animation => animation.cancel());
+    if (interrupted) return;
+    status.textContent = frame.dataset.replaceLock!;
+    deck.dataset.phase = 'replacing-locks';
+    locks.forEach(lock => lock.classList.add('community-lock'));
+    const replacements = locks.map((lock, index) => lock.animate([
+      { opacity: 0, transform: 'translateY(-3px)' }, { opacity: 1, transform: 'none' },
+    ], { duration: 360, delay: index < boardSlots.length ? index * 26 : 0, easing: 'ease-out', fill: 'backwards' }));
+    await Promise.allSettled(replacements.map(animation => animation.finished));
+  }
+
+  play.addEventListener('click', async () => {
+    if (play.hasAttribute('aria-disabled')) return;
+    if (completed === frames.length - 1) {
+      completed = 0;
+      showShuffleState();
+      return;
+    }
+    // The cards in the illustration have no faces or attached values.
+    const cards = [...deck.children] as HTMLElement[];
+    const animated = !motion.matches && typeof deck.animate === 'function';
+    interrupted = false;
+    play.setAttribute('aria-disabled', 'true');
+    if (completed < players.length) await mixDeck(cards, animated);
+    else await replaceCommunityLocks(cards, animated);
     completed++;
     showShuffleState();
     play.removeAttribute('aria-disabled');
@@ -126,6 +182,7 @@ if (deal) {
   const frames = [...timeline.querySelectorAll('li')];
   const locks = [...deal.querySelectorAll<HTMLElement>('[data-deal-lock]')];
   const groups = [...deal.querySelectorAll<HTMLElement>('[data-deal-group]')];
+  const deliveries = [...deal.querySelectorAll<HTMLElement>('[data-deal-delivery]')];
   const back = deal.querySelector<HTMLButtonElement>('[data-deal-back]')!;
   const forward = deal.querySelector<HTMLButtonElement>('[data-deal-forward]')!;
   const action = forward.querySelector('[data-deal-action]')!;
@@ -142,6 +199,12 @@ if (deal) {
     back.disabled = frame === 0;
     status.textContent = frames[frame].textContent;
 
+    deliveries.forEach((delivery, position) => {
+      const start = Number(delivery.dataset.dealDelivery);
+      const next = Number(deliveries[position + 1]?.dataset.dealDelivery ?? frames.length);
+      delivery.hidden = frame < start || frame >= next;
+      delivery.classList.toggle('just-delivered', advancing && frame === start);
+    });
     locks.forEach(lock => {
       const step = Number(lock.dataset.dealLock);
       lock.classList.toggle('just-unlocked', advancing && frame === step);
@@ -165,6 +228,7 @@ if (deal) {
     if (back.disabled) forward.focus();
   });
   forward.addEventListener('click', () => showFrame((frame + 1) % frames.length));
+  deal.closest('[data-mental-stage]')?.addEventListener('mental-stage-leave', () => showFrame(frame));
   showFrame(0);
   timeline.hidden = true;
   deal.querySelectorAll<HTMLElement>('[data-deal-locks], [data-deal-controls], [data-deal-interactive]').forEach(node => {

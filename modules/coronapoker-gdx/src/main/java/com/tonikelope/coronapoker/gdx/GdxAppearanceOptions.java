@@ -33,12 +33,16 @@ final class GdxAppearanceOptions {
             new String[]{"streets", "covered"},
             new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
-    static final Choice TABLE_VIEW = exact("gdx_table_view",
+    static final Choice TABLE_VIEW = exact(GdxSettingsContract.TABLE_VIEW_KEY,
             "TIPO DE VISTA", "2d", new String[]{"2d", "3d"},
             new String[]{"2D", "3D"});
 
     static boolean perspectiveTable(Properties properties) {
         return selectedIndex(TABLE_VIEW, properties) == 1;
+    }
+
+    static String perspectiveViewSetting(Properties properties) {
+        return TABLE_VIEW.values().get(selectedIndex(TABLE_VIEW, properties));
     }
 
     static final Choice AMOUNT_ZEROS = exact(GdxChipAmountText.ZEROS_KEY,

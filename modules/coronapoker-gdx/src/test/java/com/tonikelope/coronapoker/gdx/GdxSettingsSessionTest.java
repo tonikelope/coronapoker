@@ -10,6 +10,22 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsSessionTest {
 
     @Test
+    void viewSelectionAloneActivatesSaveAndCancelRestoresThePreviousView() {
+        Properties preferences = new Properties();
+        GdxSettingsSession session = new GdxSettingsSession();
+        for (var context : GdxSettingsSession.Context.values()) {
+            session.begin(context, preferences);
+            assertFalse(session.propertiesChanged(preferences));
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, preferences, 1);
+            assertTrue(session.propertiesChanged(preferences));
+            session.restore(preferences);
+            assertFalse(GdxAppearanceOptions.perspectiveTable(preferences));
+            assertFalse(session.propertiesChanged(preferences));
+            session.close();
+        }
+    }
+
+    @Test
     void menuAndLiveTableUseTheSameSessionWithContextualSections() {
         GdxSettingsSession session = new GdxSettingsSession();
         session.begin(GdxSettingsSession.Context.MENU, new Properties());

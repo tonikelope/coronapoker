@@ -87,6 +87,7 @@ final class GdxSettingsContract {
             AUTO_REBUY_KEY);
     static final String POT_PLAYER_COUNT_KEY = "mostrar_jugadores_bote";
     static final String DIM_FOLDED_OPPONENTS_KEY = "atenuar_jugadores_foldeados";
+    static final String TABLE_VIEW_KEY = "gdx_table_view";
     static final String TABLE_CHAT_FEED_KEY = "gdx_table_chat_feed";
     static final String TABLE_SPEAKING_EMOJI_KEY = "gdx_table_speaking_emoji";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -675,7 +676,7 @@ final class GdxSettingsContract {
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "gdx_show_cpu_memory",
             "mostrar_coste_igualar", POT_PLAYER_COUNT_KEY, DIM_FOLDED_OPPONENTS_KEY,
-            GdxChipAmountText.ZEROS_KEY,
+            GdxChipAmountText.ZEROS_KEY, TABLE_VIEW_KEY,
             "chat_images_ingame",
             TABLE_CHAT_FEED_KEY, TABLE_SPEAKING_EMOJI_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
@@ -1655,7 +1656,10 @@ final class GdxSettingsContract {
     static Map<String, String> snapshot(Properties properties) {
         Map<String, String> snapshot = new LinkedHashMap<>();
         for (String key : PREFERENCE_KEYS) {
-            snapshot.put(key, properties.getProperty(key));
+            String value = TABLE_VIEW_KEY.equals(key)
+                    ? GdxAppearanceOptions.perspectiveViewSetting(properties)
+                    : properties.getProperty(key);
+            snapshot.put(key, value);
         }
         for (String key : properties.stringPropertyNames()) {
             if (isTransactionalDynamicKey(key)) {

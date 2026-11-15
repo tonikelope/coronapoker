@@ -5776,7 +5776,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .orElseThrow(() -> new IllegalStateException(
                             "Cannot reveal cards for missing player "
                             + reveal.nickname()));
-            if (!shouldAnimateHoleReveal(
+            boolean publicPerspectiveReveal = usesPerspectivePocket(player)
+                    && !reveal.handName().isBlank()
+                    && !liveState.hasPublicHoleCards(reveal.nickname());
+            if (!publicPerspectiveReveal && !shouldAnimateHoleReveal(
                     liveState.snapshot().localNickname(), player, reveal)) {
                 // The local player's cards are normally face-up from the deal.
                 // Showdown still carries the authoritative hand/result update,
@@ -11818,7 +11821,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Active-turn and winner backlights belong to the table plane, beneath
         // cards and seat surfaces. Both states therefore share one glow shape.
         drawSeatBackEffects();
-        if (perspectiveActive) drawPerspectivePocket(boardCardW, boardCardH);
         drawChipTrails();
         // Hidden cards and completed showdown hands live behind their PlayerPod.
         // A revealing card temporarily moves to the foreground while airborne,
@@ -14829,8 +14831,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean usesPerspectivePocket(TableSnapshot.PlayerSnapshot player) {
         return perspectiveActive && player != null && !player.spectator()
-                && player.nickname().equals(liveState.snapshot().localNickname())
-                && !hasActiveHolePresentation(player.nickname());
+                && player.nickname().equals(liveState.snapshot().localNickname());
     }
 
     private boolean canPeekPerspectivePocket() {
@@ -14848,7 +14849,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             perspectiveTable.coverCards();
             return;
         }
-        if (canPeekPerspectivePocket()) {
+        String nickname = player.nickname();
+        boolean folded = liveState.foldedThisHand(nickname);
+        LiveHoleReveal reveal = liveHoleReveal != null
+                && liveHoleReveal.event.nickname().equals(nickname) ? liveHoleReveal : null;
+        boolean publicHand = liveState.hasPublicHoleCards(nickname);
+        boolean canPeek = !folded && !publicHand && reveal == null
+                && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
+        if (canPeek) {
             boolean plain = !modifierPressed(Input.Keys.CONTROL_LEFT, Input.Keys.CONTROL_RIGHT)
                     && !modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT)
                     && !modifierPressed(Input.Keys.SHIFT_LEFT, Input.Keys.SHIFT_RIGHT);
@@ -14857,10 +14865,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else {
             perspectiveTable.coverCards();
         }
-        List<TableSnapshot.CardSnapshot> cards = liveState.presentedHoleCards(player.nickname());
+        List<TableSnapshot.CardSnapshot> cards = liveState.presentedHoleCards(nickname);
         Texture back = activeCardBack();
-        boolean publicHand = liveState.hasHandResult(player.nickname())
-                || liveState.hasLateShownHand(player.nickname());
+        LiveHoleFold fold = liveHoleFold != null
+                && liveHoleFold.event.nickname().equals(nickname) ? liveHoleFold : null;
         LiveCardPlacement first = liveHolePlacement(seat, 0);
         LiveCardPlacement second = liveHolePlacement(seat, 1);
         int limit = Math.min(2, cards.size());
@@ -14868,15 +14876,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             int slot = limit == 1 ? 0 : holeCardSlotForLayer(first.x, second.x, layer);
             TableSnapshot.CardSnapshot pocket = cards.get(slot);
             if (!isRestingHoleCardVisible(pocket)
-                    || hasActiveHoleFlight(player.nickname(), slot)) continue;
+                    || perspectivePocketStillDealing(nickname, slot)) continue;
             LiveCardPlacement placement = slot == 0 ? first : second;
-            boolean known = pocket.faceUp() && !pocket.code().isBlank();
-            Texture face = known ? liveCardFace(pocket.code()) : back;
-            perspectiveTable.drawPocket(back, face, placement.x, placement.y,
-                    MathUtils.lerp(placement.width, cardWidth, perspectiveBlend),
-                    MathUtils.lerp(placement.height, cardHeight, perspectiveBlend),
-                    -placement.rotation, known && publicHand, perspectiveBlend,
-                    liveRestingCardAlpha(pocket, player.nickname(), slot, false, placement));
+            boolean exposed = pocket.faceUp() && !pocket.code().isBlank();
+            boolean showFace = exposed && publicHand;
+            Texture face = exposed && (publicHand || perspectiveTable.peeking())
+                    ? liveCardFace(pocket.code()) : back;
+            float opacity = fold != null ? foldCardAlpha(fold.progress, true)
+                    : folded && !showFace ? DISABLED_CARD_ALPHA
+                    : liveRestingCardAlpha(pocket, nickname, slot, false, placement);
+            float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
+            float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
+            float y = perspectivePocketY(placement);
+            if (showFace && reveal != null) {
+                perspectiveTable.drawPocketFlip(back, face, placement.x, y,
+                        w, h, -placement.rotation, cardFlipAngle(reveal.progress(slot),
+                                reveal.flipDirection), opacity);
+            } else {
+                perspectiveTable.drawPocket(back, face, placement.x, y,
+                        w, h, -placement.rotation, showFace, opacity);
+            }
         }
     }
 
@@ -14888,7 +14907,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawDisabledHoleCardsLayer(cardBack,
                     DISABLED_HOLE_CARD_BASE_PASS);
         }
-        boolean compositeFold = !foregroundFlights && liveHoleFold != null;
+        boolean compositeFold = !foregroundFlights && liveHoleFold != null
+                && !usesPerspectivePocket(livePlayer(liveHoleFold.event.nickname()));
         if (compositeFold) {
             drawLiveHoleFoldLayer(cardBack);
         }
@@ -14976,6 +14996,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         fanX = -towardY / length;
                         fanY = towardX / length;
                     }
+                    if (usesPerspectivePocket(player)) {
+                        if (flightProgress < 1f) {
+                            drawPerspectivePocketFlight(cardBack, target, flightProgress);
+                        }
+                        continue;
+                    }
                     float reveal = flight.revealProgress();
                     if (reveal > 0f) {
                         usePerspectiveCardShader(liveCardFace(deal.card().code()),
@@ -14992,7 +15018,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 TableSnapshot.PlayerSnapshot player = livePlayer(
                         liveHoleReveal.event.nickname());
                 Seat seat = seatByNickname(liveHoleReveal.event.nickname());
-                if (seat != null && usesTransientHolePresentation(player)) {
+                if (seat != null && !usesPerspectivePocket(player)
+                        && usesTransientHolePresentation(player)) {
                     drawLiveHoleRevealFlights(seat, cardBack);
                 }
             }
@@ -15433,7 +15460,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean hasDisabledCards = false;
         for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
             Seat seat = seatByNickname(player.nickname());
-            if (seat == null || hasActiveHolePresentation(player.nickname())) {
+            if (seat == null || usesPerspectivePocket(player)
+                    || hasActiveHolePresentation(player.nickname())) {
                 continue;
             }
             List<TableSnapshot.CardSnapshot> holeCards
@@ -15469,7 +15497,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         beginHoleCardsLayer();
         for (TableSnapshot.PlayerSnapshot player : liveState.snapshot().players()) {
             Seat seat = seatByNickname(player.nickname());
-            if (seat == null || hasActiveHolePresentation(player.nickname())) {
+            if (seat == null || usesPerspectivePocket(player)
+                    || hasActiveHolePresentation(player.nickname())) {
                 continue;
             }
             List<TableSnapshot.CardSnapshot> holeCards
@@ -15655,6 +15684,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private boolean perspectivePocketStillDealing(String nickname, int slot) {
+        for (LiveCardFlight flight : liveCardFlights) {
+            if (flight.event instanceof TableVisualEvent.DealHoleCard deal
+                    && deal.slot() == slot && deal.nickname().equals(nickname)
+                    && flight.flightProgress() < 1f) return true;
+        }
+        return false;
+    }
+
+    private void drawPerspectivePocketFlight(Texture back,
+            LiveCardPlacement target, float progress) {
+        float t = Interpolation.pow2Out.apply(progress);
+        float x = MathUtils.lerp(tableCenterX, target.x, t);
+        float y = MathUtils.lerp(tableCenterY + 180f, perspectivePocketY(target), t);
+        float w = MathUtils.lerp(target.width, perspectiveBoardCardWidth(), perspectiveBlend);
+        float h = w * target.height / target.width;
+        batch.end();
+        perspectiveTable.drawPocketFlight(back, x, y, w, h,
+                -target.rotation * t, MathUtils.sin(progress * MathUtils.PI) * 25f);
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.begin();
+    }
+
+    private float perspectivePocketY(LiveCardPlacement placement) {
+        return placement.y + 26f * perspectiveBlend;
+    }
+
+    private float perspectiveBoardCardWidth() {
+        float tableWidth = Math.min(1510f, viewport.getWorldWidth() * 0.78f);
+        return Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
+    }
+
     private void drawHoleCards(boolean foregroundRevealFlights) {
         Objects.requireNonNull(liveState,
                 "Hole-card rendering requires authoritative live state");
@@ -15664,6 +15726,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         boolean antialiased = beginCardSmaaLayer();
+        if (!foregroundRevealFlights && perspectiveActive) {
+            Texture back = activeCardBack();
+            float cardWidth = perspectiveBoardCardWidth();
+            drawPerspectivePocket(cardWidth, cardWidth * back.getHeight() / back.getWidth());
+        }
         drawLiveHoleCards(foregroundRevealFlights);
         if (antialiased) finishCardSmaaLayer();
     }
@@ -15695,8 +15762,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     = liveState.presentedHoleCards(player.nickname());
             int visibleSlots = Math.min(2, cards.size());
             for (int slot = 0; slot < visibleSlots; slot++) {
-                if (!hasActiveHoleFlight(player.nickname(), slot)
-                        && isRestingHoleCardVisible(cards.get(slot))) {
+                boolean dealing = usesPerspectivePocket(player)
+                        ? perspectivePocketStillDealing(player.nickname(), slot)
+                        : hasActiveHoleFlight(player.nickname(), slot);
+                if (!dealing && isRestingHoleCardVisible(cards.get(slot))) {
                     return true;
                 }
             }
@@ -15775,7 +15844,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else if (slot < board.size()
                     && presentsRestingCommunityCard(slot, board.get(slot))
                     && !hasActiveCommunityFlight(slot)) {
-                if (perspectiveActive) drawBoardContactShadow(placement);
+                if (perspectiveActive) drawBoardContactShadow(cardBack, placement, 1f);
                 drawLiveRestingCard(board.get(slot), placement, cardBack,
                         "", slot, true);
             }
@@ -15791,13 +15860,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawBoardContactShadow(LiveCardPlacement card) {
-        useRoundedCardShader();
-        batch.setColor(0.02f, 0.012f, 0.01f, 0.32f * perspectiveBlend);
-        float width = (card.width + 4f) * CARD_SHADER_CANVAS_SCALE;
-        float height = (card.height + 5f) * CARD_SHADER_CANVAS_SCALE;
-        batch.draw(solidWhiteTexture, card.x - width / 2f + 1f,
-                card.y - height / 2f - 2f, width, height);
+    private void drawBoardContactShadow(Texture back, LiveCardPlacement card, float weight) {
+        batch.end();
+        perspectiveTable.drawBoardContact(back, card.x, card.y, card.width,
+                card.height, weight * perspectiveBlend);
+        batch.setShader(null);
+        batch.setColor(Color.WHITE);
+        batch.begin();
     }
 
     private void drawCommunityCardFlight(int slot, LiveCardPlacement target,
@@ -15892,11 +15961,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Texture face = liveCardFace(card.code());
         if (perspectiveActive) {
-            drawBoardContactShadow(placement);
+            float turn = cardFlipAngle(progress, liveCommunityReveal.flipDirection);
+            drawBoardContactShadow(cardBack, placement, 1f - 0.70f * Math.abs(MathUtils.sin(turn)));
             batch.end();
             perspectiveTable.drawBoardFlip(cardBack, face, placement.x, placement.y,
                     placement.width, placement.height,
-                    cardFlipAngle(progress, liveCommunityReveal.flipDirection));
+                    turn);
             batch.setShader(null);
             batch.setColor(Color.WHITE);
             batch.begin();
@@ -16192,7 +16262,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** Mirrors Swing's call-cost label: unrevealed board suffix, then river aggressor. */
     private void drawCallCostOverlay(float cx, float cy, float tableWidth) {
         if (liveState == null || liveState.callCostText().isBlank()
-                || !tablePreference("mostrar_coste_igualar", true)) {
+                || !tablePreference("mostrar_coste_igualar", true)
+                || (perspectiveActive && liveState.foldedThisHand(
+                        liveState.snapshot().localNickname()))) {
             return;
         }
         Texture cardBack = activeCardBack();
@@ -16218,7 +16290,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // slots. Do not spend part of that width on an extra inset: doing
             // so made short values such as +0.6 fall to the next native font
             // tier even though the two cards had enough room.
-            drawCallCostText(x, cardY, overlayWidth, cardH, 0f, false);
+            drawCallCostOnTable(x, cardY, overlayWidth, cardH);
+            return;
+        }
+        if (perspectiveActive) {
+            float width = cardW * 2.2f;
+            drawCallCostOnTable(cx - width / 2f, cardY + cardH + 14f, width, 48f);
             return;
         }
 
@@ -16246,6 +16323,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 aggressor.podY + PLAYER_POD_HEIGHT);
         drawCallCostText(minX, callY, maxX - minX, maxY - callY,
                 REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO, true);
+    }
+
+    private void drawCallCostOnTable(float x, float y, float width, float height) {
+        if (!perspectiveActive) {
+            drawCallCostText(x, y, width, height, 0f, false);
+            return;
+        }
+        batch.setProjectionMatrix(perspectiveTable.boardProjection());
+        try {
+            drawCallCostText(x, y, width, height, 0f, false);
+        } finally {
+            batch.setProjectionMatrix(camera.combined);
+        }
     }
 
     static float remoteCallCostBottomY(float podTopY) {
@@ -16279,8 +16369,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float baseline = y + (alignVisualBottom ? glyph.height
                 : (height + glyph.height) / 2f);
         batch.begin();
-        GdxPixelText.draw(selected, batch, glyph,
-                x + inset + (contentWidth - glyph.width) / 2f, baseline, viewport);
+        float textX = x + inset + (contentWidth - glyph.width) / 2f;
+        if (perspectiveActive) {
+            selected.draw(batch, glyph, textX, baseline);
+        } else {
+            GdxPixelText.draw(selected, batch, glyph, textX, baseline, viewport);
+        }
         batch.end();
         selected.setColor(Color.WHITE);
     }

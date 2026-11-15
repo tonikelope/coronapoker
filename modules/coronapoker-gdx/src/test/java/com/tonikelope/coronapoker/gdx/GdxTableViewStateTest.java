@@ -36,6 +36,23 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void privateStraddleReleaseAndFoldNeverMarkLocalCardsPublic() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        var left = new TableSnapshot.CardSnapshot("A_C", true, false);
+        var right = new TableSnapshot.CardSnapshot("K_D", true, false);
+        state.apply(new TableVisualEvent.RevealHoleCards(2L, "ana", left, right));
+        assertTrue(state.hasRevealedHoleCards("ana"));
+        assertFalse(state.hasPublicHoleCards("ana"));
+        state.apply(new TableVisualEvent.HandResult(3L, "ana", "PAIR",
+                false, TableSnapshot.Street.SHOWDOWN));
+        assertFalse(state.hasPublicHoleCards("ana"));
+        state.apply(new TableVisualEvent.RevealHoleCards(4L, "ana", left, right, "PAIR"));
+        assertTrue(state.hasPublicHoleCards("ana"));
+        state.apply(new TableVisualEvent.FoldHoleCards(5L, "ana"));
+        assertFalse(state.hasPublicHoleCards("ana"));
+    }
+
+    @Test
     void timedOutKickOverlayIsRestrictedToHostAndRemoteHumans() {
         assertTrue(CoronaPokerGdxTable.timedOutKickEligible(
                 true, false, false, true, false));

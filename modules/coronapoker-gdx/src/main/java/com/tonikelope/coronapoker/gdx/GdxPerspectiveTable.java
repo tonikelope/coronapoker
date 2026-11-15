@@ -23,14 +23,15 @@ import java.nio.IntBuffer;
 /** Table geometry in world space. The existing HUD keeps its own camera. */
 final class GdxPerspectiveTable implements Disposable {
 
-    private static final float FOV = 40f;
-    private static final float ELEVATION = 39f;
-    private static final float CARD_REST_HEIGHT = 0.85f;
+    private static final float FOV = 36f;
+    private static final float ELEVATION = 37f;
+    private static final float CARD_REST_HEIGHT = 0.62f;
+    private static final float EDGE_MARGIN_SCALE = 1.065f;
     private static final int RAIL_STEPS = 36;
     private static final int CARD_STRIPS = 28;
     private static final int CARD_COLUMNS = 10;
-    private static final float BEND_X = -MathUtils.sinDeg(9f);
-    private static final float BEND_Z = MathUtils.cosDeg(9f);
+    private static final float BEND_X = -MathUtils.sinDeg(7f);
+    private static final float BEND_Z = MathUtils.cosDeg(7f);
     private static final String VERTEX = """
             attribute vec3 a_position;
             attribute vec2 a_texCoord0;
@@ -53,36 +54,52 @@ final class GdxPerspectiveTable implements Disposable {
             uniform int u_material;
             uniform vec2 u_repeat;
             uniform float u_opacity;
+            uniform float u_aspect;
             varying vec2 v_uv;
             varying float v_light;
+            float cardDistance(vec2 uv) {
+                float radius = 0.070;
+                vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
+                return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
+            }
             void main() {
                 if (u_material == 1) {
                     vec2 uv = v_uv * vec2(1830.0, 220.0);
                     float grain = sin(uv.x + sin(uv.y * 1.6)) * cos(uv.y);
                     float seam = 1.0 - smoothstep(0.004, 0.015, abs(v_uv.y - 0.52));
                     float stitches = smoothstep(0.15, 0.65, sin(v_uv.x * 2680.0));
-                    vec3 leather = vec3(0.105, 0.083, 0.073);
-                    vec3 colour = leather * (v_light + 0.07 * grain);
-                    colour += vec3(0.21, 0.15, 0.11) * seam * stitches * v_light;
+                    vec3 leather = vec3(0.100, 0.082, 0.071);
+                    float crown = v_uv.y - 0.45;
+                    float glint = exp(-18.0 * crown * crown);
+                    float key = 0.58 + 0.42 * cos(6.2832 * (v_uv.x - 0.73));
+                    float texel = max(fwidth(uv.x), fwidth(uv.y));
+                    float grainWeight = 1.0 - smoothstep(0.50, 1.85, texel);
+                    vec3 colour = leather * (v_light + 0.11 * grain * grainWeight);
+                    colour += vec3(0.054, 0.043, 0.034) * glint * key;
+                    colour += vec3(0.13, 0.095, 0.072) * seam * stitches * v_light;
                     gl_FragColor = vec4(colour, 1.0);
                     return;
                 }
                 if (u_material == 3) {
-                    vec2 edge = min(v_uv, 1.0 - v_uv);
-                    float alpha = smoothstep(0.0, 0.10, min(edge.x, edge.y));
-                    gl_FragColor = vec4(0.018, 0.012, 0.010, alpha * u_opacity * v_light);
+                    float distance = cardDistance((v_uv - 0.5) * 1.105 + 0.5);
+                    float weight = 1.0 - smoothstep(-0.025, 0.035, distance);
+                    gl_FragColor = vec4(0.014, 0.012, 0.010, weight * u_opacity * v_light);
                     return;
                 }
                 if (u_material == 2 || u_material == 4) {
-                    vec2 corner = max(abs(v_uv - 0.5) - vec2(0.457, 0.469), 0.0);
-                    float radius = length(corner * vec2(1.0, 1.36));
-                    float coverage = 1.0 - smoothstep(0.038, 0.044, radius);
+                    vec2 uv = (v_uv - 0.5) * 1.065 + 0.5;
+                    float distance = cardDistance(uv);
+                    float aa = clamp(0.76 * fwidth(distance), 0.0006, 0.020);
+                    float coverage = 1.0 - smoothstep(-aa, aa, distance);
                     vec2 reverseUv = u_material == 2
-                            ? vec2(v_uv.x, 1.0 - v_uv.y)
-                            : vec2(1.0 - v_uv.x, v_uv.y);
-                    vec4 ink = gl_FrontFacing ? texture2D(u_texture, v_uv)
+                            ? vec2(uv.x, 1.0 - uv.y)
+                            : vec2(1.0 - uv.x, uv.y);
+                    vec4 ink = gl_FrontFacing ? texture2D(u_texture, uv)
                             : texture2D(u_reverse, reverseUv);
-                    float light = gl_FrontFacing ? v_light : 0.94;
+                    float underside = u_material == 2
+                            ? mix(0.74, 1.0, smoothstep(0.67, 0.86, v_light))
+                            : 0.96;
+                    float light = gl_FrontFacing ? v_light : underside;
                     gl_FragColor = vec4(ink.rgb * light, ink.a * coverage * u_opacity);
                     return;
                 }
@@ -183,6 +200,10 @@ final class GdxPerspectiveTable implements Disposable {
 
     void coverCards() {
         peek = 0f;
+    }
+
+    boolean peeking() {
+        return peek > 0f;
     }
 
     void drawBackdrop(SpriteBatch batch, Texture felt, boolean stretch,
@@ -321,40 +342,60 @@ final class GdxPerspectiveTable implements Disposable {
 
     void drawPocket(Texture back, Texture face, float x, float y,
             float cardWidth, float cardHeight, float angle, boolean publicFace,
-            float viewProgress, float opacity) {
+            float opacity) {
         Vector3 center = surfaceAt(x, y, 0f);
         float cx = center.x;
         float cz = center.z;
-        // Physical dimensions are the same as the board. The near card
-        // gains apparent size from the camera, without a second projection.
         float curl = publicFace || face == back ? 0f : peek * peek * (3f - 2f * peek);
-        fillPocket(cx, cz, cardWidth + 6f, cardHeight + 7f, angle, curl, true);
-        renderPocket(3, back, face, 0.28f * opacity);
-        if (!publicFace && face != back && viewProgress < 1f) {
-            drawFlip(back, face, cx, cz, cardWidth, cardHeight, angle,
-                    (1f - viewProgress) * MathUtils.PI, opacity);
-            return;
-        }
-        fillPocket(cx, cz, cardWidth, cardHeight, angle, curl, false);
-        renderPocket(2, publicFace ? face : back, face, opacity);
+        drawContact(back, cx, cz, cardWidth, cardHeight, angle, curl, opacity);
+        fillPocket(cx, cz, cardWidth * EDGE_MARGIN_SCALE,
+                cardHeight * EDGE_MARGIN_SCALE, angle, curl, false);
+        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth);
+    }
+
+    void drawPocketFlip(Texture back, Texture face, float x, float y,
+            float w, float h, float fan, float angle, float opacity) {
+        Vector3 center = surfaceAt(x, y, 0f);
+        float cx = center.x;
+        float cz = center.z;
+        drawContact(back, cx, cz, w, h, fan, 0f,
+                opacity * (1f - 0.75f * Math.abs(MathUtils.sin(angle))));
+        drawFlip(back, face, cx, cz, w, h, fan, angle, opacity, 0f);
+    }
+
+    void drawPocketFlight(Texture back, float x, float y, float w, float h,
+            float fan, float height) {
+        Vector3 center = surfaceAt(x, y, 0f);
+        drawFlip(back, back, center.x, center.z, w, h, fan, 0f, 1f, height);
+    }
+
+    void drawBoardContact(Texture back, float x, float y, float w, float h, float opacity) {
+        drawContact(back, x - width * 0.5f, boardCenterY - y, w, h, 0f, 0f, opacity);
+    }
+
+    private void drawContact(Texture back, float x, float z, float w,
+            float h, float fan, float curl, float opacity) {
+        fillPocket(x + 0.45f, z + 1.2f, w * 1.10f, h * 1.10f, fan, curl, true);
+        renderPocket(3, back, back, 0.16f * opacity, h / w);
     }
 
     void drawBoardFlip(Texture back, Texture face, float x, float y,
             float w, float h, float angle) {
         drawFlip(back, face, x - width * 0.5f, boardCenterY - y,
-                w, h, 0f, angle, 1f);
+                w, h, 0f, angle, 1f, 0f);
     }
 
     private void drawFlip(Texture back, Texture face, float cx, float cz,
-            float w, float h, float fan, float angle, float opacity) {
+            float w, float h, float fan, float angle, float opacity, float lift) {
         float sine = MathUtils.sin(angle);
         float cosine = MathUtils.cos(angle);
         float fanCosine = MathUtils.cosDeg(fan);
         float fanSine = MathUtils.sinDeg(fan);
-        float middle = CARD_REST_HEIGHT + Math.abs(sine) * w * 0.5f;
+        float middle = CARD_REST_HEIGHT + Math.abs(sine) * w * 0.5f + lift;
         cardVertices.clear();
-        int corners = 6;
-        for (int i = 0; i < corners; i++) {
+        float expandedWidth = w * EDGE_MARGIN_SCALE;
+        float expandedHeight = h * EDGE_MARGIN_SCALE;
+        for (int i = 0; i < 6; i++) {
             int corner = switch (i) {
                 case 0 -> 0;
                 case 1, 4 -> 2;
@@ -363,29 +404,31 @@ final class GdxPerspectiveTable implements Disposable {
             };
             float u = corner % 2;
             float v = corner / 2;
-            float dx = (u - 0.5f) * w;
-            float dz = (v - 0.5f) * h;
+            float dx = (u - 0.5f) * expandedWidth;
+            float dz = (v - 0.5f) * expandedHeight;
             put(cardVertices, cx + dx * cosine * fanCosine - dz * fanSine,
                     middle - dx * sine, cz + dx * cosine * fanSine + dz * fanCosine,
                     u, v, 1f - 0.13f * Math.abs(sine));
         }
-        renderPocket(4, back, face, opacity);
+        renderPocket(4, back, face, opacity, h / w);
     }
 
     private void fillPocket(float x, float z, float w, float h, float angle,
             float curl, boolean shadow) {
         cardVertices.clear();
-        float hinge = -0.15f * h * BEND_Z;
+        float hinge = -0.052f * h * BEND_Z;
         float length = (h * BEND_Z - w * BEND_X) * 0.5f - hinge;
-        float radius = curl > 0.001f ? length / (curl * 2.26f) : 0f;
+        float radius = curl > 0.001f ? length / (curl * 2.36f) : 0f;
         PocketSurface pocket = new PocketSurface(x, z, w, h,
                 MathUtils.cosDeg(angle), MathUtils.sinDeg(angle), hinge, radius, shadow);
-        for (int row = 0; row < CARD_STRIPS; row++) {
-            float from = row / (float) CARD_STRIPS;
-            float to = (row + 1f) / CARD_STRIPS;
-            for (int column = 0; column < CARD_COLUMNS; column++) {
-                float left = column / (float) CARD_COLUMNS;
-                float right = (column + 1f) / CARD_COLUMNS;
+        int rows = radius > 0f ? CARD_STRIPS : 1;
+        int columns = radius > 0f ? CARD_COLUMNS : 1;
+        for (int row = 0; row < rows; row++) {
+            float from = row / (float) rows;
+            float to = (row + 1f) / rows;
+            for (int column = 0; column < columns; column++) {
+                float left = column / (float) columns;
+                float right = (column + 1f) / columns;
                 pocketVertex(pocket, left, from);
                 pocketVertex(pocket, left, to);
                 pocketVertex(pocket, right, from);
@@ -425,7 +468,7 @@ final class GdxPerspectiveTable implements Disposable {
                 pocket.z + pocket.sine * dx + pocket.cosine * dz, u, v, light);
     }
 
-    private void renderPocket(int material, Texture top, Texture bottom, float opacity) {
+    private void renderPocket(int material, Texture top, Texture bottom, float opacity, float aspect) {
         if (card == null) {
             card = new Mesh(false, CARD_COLUMNS * CARD_STRIPS * 6, 0,
                     new VertexAttribute(Usage.Position, 3, "a_position"),
@@ -434,13 +477,15 @@ final class GdxPerspectiveTable implements Disposable {
         }
         card.setVertices(cardVertices.items, 0, cardVertices.size);
         begin(material, top, bottom, opacity);
+        shader.setUniformf("u_aspect", aspect);
         card.render(shader, GL20.GL_TRIANGLES);
     }
 
     private void begin(int material, Texture top, Texture bottom, float opacity) {
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA,
+                GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
         bottom.bind(1);
         top.bind(0);
         shader.bind();

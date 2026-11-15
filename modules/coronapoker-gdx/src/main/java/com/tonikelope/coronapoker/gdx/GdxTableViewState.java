@@ -10,6 +10,7 @@ import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,6 +108,7 @@ final class GdxTableViewState {
      */
     private final Map<String, List<TableSnapshot.CardSnapshot>>
             revealedHoleCards = new HashMap<>();
+    private final Set<String> publicHoleCards = new HashSet<>();
 
     GdxTableViewState(TableSnapshot initialState) {
         this(initialState, System::nanoTime);
@@ -364,6 +366,10 @@ final class GdxTableViewState {
                 card.code(), card.faceUp(), false, card.visible()) : card;
     }
 
+    boolean hasPublicHoleCards(String nickname) {
+        return publicHoleCards.contains(nickname);
+    }
+
     boolean hasRevealedHoleCards(String nickname) {
         return revealedHoleCards.containsKey(nickname);
     }
@@ -575,6 +581,7 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.FoldHoleCards fold) {
             foldedThisHand.add(fold.nickname());
             revealedHoleCards.remove(fold.nickname());
+            publicHoleCards.remove(fold.nickname());
             replacePlayer(fold.nickname(), player -> copyPlayerAction(player,
                     player.stack(), player.streetBet(), player.potContribution(),
                     false, player.winner(), player.position(), player.lastAction(),
@@ -653,6 +660,10 @@ final class GdxTableViewState {
             iwtsthCandidates.remove(reveal.nickname());
             revealedHoleCards.put(reveal.nickname(),
                     List.of(reveal.left(), reveal.right()));
+            // Blank-name reveals also carry cards privately to the blind straddler.
+            if (!reveal.handName().isBlank()) {
+                publicHoleCards.add(reveal.nickname());
+            }
             // A mucked loser reaches showdown with an intentionally blank
             // HandResult so its hand is not leaked.  IWTSTH (or a later
             // voluntary SHOW) subsequently publishes the authorized cards and
@@ -1044,6 +1055,7 @@ final class GdxTableViewState {
         resolvedHandWinners.clear();
         resolvedWonPotIndexes.clear();
         returnedSidePotPlayers.clear();
+        publicHoleCards.clear();
         revealedHoleCards.clear();
         foldedThisHand.clear();
         reconcileCanonicalPlayerPresentation(snapshot.players());
@@ -1099,6 +1111,7 @@ final class GdxTableViewState {
         returnedSidePotPlayers.retainAll(currentNicknames);
         showdownHighlights.keySet().retainAll(currentNicknames);
         revealedHoleCards.keySet().retainAll(currentNicknames);
+        publicHoleCards.retainAll(currentNicknames);
         lateShownHands.retainAll(currentNicknames);
         rebuyDecisions.keySet().retainAll(currentNicknames);
         immediateRebuys.keySet().retainAll(currentNicknames);
@@ -1129,8 +1142,12 @@ final class GdxTableViewState {
             }
             TableSnapshot.PlayerPresentation presentation
                     = player.presentation();
+            publicHoleCards.remove(player.nickname());
             if (presentation.showingCards()
                     && player.holeCards().size() == 2) {
+                if (!presentation.publicHandName().isBlank()) {
+                    publicHoleCards.add(player.nickname());
+                }
                 revealedHoleCards.put(player.nickname(),
                         player.holeCards());
             } else {
@@ -1412,6 +1429,7 @@ final class GdxTableViewState {
             resolvedHandWinners.clear();
             resolvedWonPotIndexes.clear();
             returnedSidePotPlayers.clear();
+            publicHoleCards.clear();
             revealedHoleCards.clear();
             foldedThisHand.clear();
             iwtsthCandidates.clear();

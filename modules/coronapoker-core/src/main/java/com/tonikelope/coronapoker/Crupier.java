@@ -33,6 +33,9 @@ import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import com.tonikelope.coronapoker.crypto.DealChain;
+import com.tonikelope.coronapoker.crypto.DualLockWire;
+import com.tonikelope.coronapoker.crypto.ShuffleCascade;
+import com.tonikelope.coronapoker.crypto.ShuffleProofContext;
 import com.tonikelope.coronapoker.crypto.VerifiableUnlock;
 import com.tonikelope.coronapoker.table.TableEventBridge;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -3245,11 +3248,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return aggregate == 0;
     }
 
+    record LocalShuffleContribution(ShuffleProofContext.Step shuffleStep,
+            byte[] pocketKey, byte[] communityKey) {
+    }
+
+    private volatile LocalShuffleContribution local_shuffle_contribution;
+
     private synchronized void installMegaPacket(ParsedMegaPacket parsed) {
         if (parsed == null) throw new IllegalArgumentException("parsed MEGAPACKET required");
         String localNick = gameSession().localNickname();
         if (!java.util.Arrays.asList(parsed.ring).contains(localNick)) {
             throw new IllegalArgumentException("local player missing from MEGAPACKET ring");
+        }
+        LocalShuffleContribution own = this.local_shuffle_contribution;
+        if (own == null || !Arrays.equals(own.shuffleStep().handId(), parsed.handId)
+                || !Arrays.equals(own.pocketKey(), parsed.pocketCommitments.get(localNick))
+                || !Arrays.equals(own.communityKey(), parsed.communityCommitments.get(localNick))) {
+            throw new IllegalArgumentException("MEGAPACKET differs from this client's announced hand or keys");
         }
         this.active_crypto_ring = parsed.ring.clone();
         this.current_hand_id = parsed.handId.clone();
@@ -3634,6 +3649,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private ShuffleProofContext.Step parseContributionStep(String[] parts) {
+        int position = Integer.parseInt(parts[3]);
+        if (!Integer.toString(position).equals(parts[3])) {
+            throw new IllegalArgumentException("noncanonical contribution position");
+        }
+        return new ShuffleProofContext.Step(configuration().sessionId(), Base64.getDecoder().decode(parts[2]),
+                gameSession().localNickname(), position);
+    }
+
     private void processClientCascadeRequest(String[] parts) {
         try {
             if (SECURITY_LOCKDOWN) {
@@ -3645,10 +3669,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 throw new IllegalArgumentException(
                         "DECK_CASCADE_REQ received mid-hand");
             }
-            if (parts.length != 2) {
-                throw new IllegalArgumentException(
-                        "malformed DECK_CASCADE_REQ");
+            if (parts.length != 4) {
+                throw new IllegalArgumentException("malformed DECK_CASCADE_REQ");
             }
+            ShuffleProofContext.Step step = parseContributionStep(parts);
             acceptCascadeRequestOnce();
             byte[] incomingDeck = Base64.getDecoder().decode(parts[1]);
             com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints
@@ -3678,19 +3702,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     gameSession().localNickname()
                             .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             String deck = Base64.getEncoder().encodeToString(shuffled);
-            String pocketCommitment = Base64.getEncoder().encodeToString(
-                    RistrettoSRA.commitment(pocketLock));
-            String communityCommitment = Base64.getEncoder().encodeToString(
-                    RistrettoSRA.commitment(this.local_sra_lock_community));
+            byte[] pocketKey = RistrettoSRA.commitment(pocketLock);
+            byte[] communityKey = RistrettoSRA.commitment(this.local_sra_lock_community);
+            this.local_shuffle_contribution = new LocalShuffleContribution(step, pocketKey, communityKey);
+            String pocketCommitment = Base64.getEncoder().encodeToString(pocketKey);
+            String communityCommitment = Base64.getEncoder().encodeToString(communityKey);
             sendGAMECommandToServer("DECK_CASCADE_RESP#" + nick + "#"
                     + deck + "#" + pocketCommitment + "#"
                     + communityCommitment, false);
 
             int[] permutation = DeterministicShuffle.shufflePermutation(
                     incomingDeck.length / 32, seed);
-            byte[] proof = com.tonikelope.coronapoker.crypto.ShuffleCascade
-                    .proveStepWire(incomingDeck, shuffled, permutation,
-                            pocketLock);
+            byte[] proof = ShuffleCascade.proveBoundStepWire(incomingDeck, shuffled, permutation,
+                    pocketLock, step, pocketKey);
             if (proof == null) {
                 throw new IllegalStateException(
                         "cascade proof generation returned null");
@@ -3716,9 +3740,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 throw new IllegalStateException(
                         "DECK_ROTATION_REQ without local SRA keys");
             }
-            if (parts.length != 2) {
-                throw new IllegalArgumentException(
-                        "malformed DECK_ROTATION_REQ");
+            if (parts.length != 4) {
+                throw new IllegalArgumentException("malformed DECK_ROTATION_REQ");
+            }
+            ShuffleProofContext.Step step = parseContributionStep(parts);
+            LocalShuffleContribution own = this.local_shuffle_contribution;
+            if (own == null || !Arrays.equals(step.handId(), own.shuffleStep().handId())) {
+                throw new IllegalArgumentException("rotation is for a different hand");
             }
             acceptRotationRequestOnce();
             byte[] incoming = Base64.getDecoder().decode(parts[1]);
@@ -3741,11 +3769,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             RistrettoSRA.scalarToBytes(rotationScalar));
             byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade
                     .encodeDeck(outputPoints);
-            byte[] proof = com.tonikelope.coronapoker.crypto.DualLockWire
-                    .encodeRotationProof(
-                            com.tonikelope.coronapoker.crypto.RotationProof
-                                    .prove(rotationScalar, inputPoints,
-                                            outputPoints));
+            byte[] proof = DualLockWire.proveBoundRotationStepWire(incoming, rotated, rotationScalar,
+                    step, own.pocketKey(), own.communityKey());
             if (proof == null) {
                 throw new IllegalStateException(
                         "rotation proof generation returned null");
@@ -3963,16 +3988,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         "zero_trust.host_shuffle_proof_failed",
                         "malformed DUALLOCK_BUNDLE");
             }
-            byte[] genesis = contextBoundShuffleGenesis(
-                    configuration().sessionId(), this.current_hand_id,
-                    this.active_crypto_ring);
-            ShuffleVerificationQueue.Job job
-                    = new ShuffleVerificationQueue.Job(genesis,
-                            decodeBase64Csv(parts[1]),
-                            decodeBase64Csv(parts[2]),
-                            this.active_crypto_ring.length * 2,
-                            megapacket, decodeBase64Csv(parts[3]),
-                            decodeBase64Csv(parts[4]), getMano());
+            ParsedMegaPacket installed = this.accepted_mega_packet.get();
+            if (installed == null) throw new IllegalStateException("Missing installed shuffle envelope");
+            String sessionId = configuration().sessionId();
+            ShuffleProofContext context = new ShuffleProofContext(sessionId, installed.handId,
+                    game_transport.hostNickname(), installed.ring, installed.pocketCommitments,
+                    installed.communityCommitments);
+            byte[] genesis = contextBoundShuffleGenesis(sessionId, installed.handId, installed.ring);
+            ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(context, genesis,
+                    decodeBase64Csv(parts[1]), decodeBase64Csv(parts[2]), megapacket,
+                    decodeBase64Csv(parts[3]), decodeBase64Csv(parts[4]), getMano());
             if (!getShuffleVerifyQueue().enqueue(job)) {
                 markShuffleProofFailed(megapacket);
                 throw securityViolation(
@@ -4557,14 +4582,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     //    closed; an invalid proof from the expected contributor closes it and aborts collection.
     private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
             java.util.List<byte[]> decks, java.util.List<int[]> perms,
-            java.util.List<String> owners) {
+            java.util.List<String> owners, ShuffleProofContext context) {
         java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
         java.util.Map<String, Integer> hashToStep = new java.util.HashMap<>();
         java.util.Map<String, String> hashToOwner = new java.util.HashMap<>();
-        if (owners == null || owners.size() != perms.size()) {
+        if (owners == null || owners.size() != perms.size() || context.size() != perms.size()) {
             throw new IllegalArgumentException("cascade proof owners must match steps");
         }
         for (int s = 0; s < perms.size(); s++) {
+            if (!context.shuffleStep(s).participant().equals(owners.get(s))) {
+                throw new IllegalArgumentException("unexpected shuffle step owner");
+            }
             // Remote step (perm null): its shuffle proof arrives async.
             if (perms.get(s) == null) {
                 String h = cascadeDeckHash(decks.get(s + 1));
@@ -4625,8 +4653,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     byte[] proof = Base64.getDecoder().decode(c[2]);
                     int step = hashToStep.get(hash);
-                    if (com.tonikelope.coronapoker.crypto.ShuffleCascade.verifyStepWire(
-                            decks.get(step), decks.get(step + 1), proof)) {
+                    ShuffleProofContext.Step contribution = context.shuffleStep(step);
+                    if (ShuffleCascade.verifyBoundStepWire(decks.get(step), decks.get(step + 1),
+                            proof, contribution, context.pocketKey(contribution))) {
                         collected.put(hash, proof);
                     } else {
                         this.received_commands.reject(c[3]);
@@ -4661,13 +4690,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return collected;
     }
 
-    private byte[] requestRemoteCascade(String nick, byte[] currentDeck, GamePeerController p) {
+    private byte[] requestRemoteCascade(String nick, byte[] currentDeck, GamePeerController p, int position) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
         CryptoRandom.fill(iv);
         String deckB64 = Base64.getEncoder().encodeToString(currentDeck);
         try {
-            p.writeGameCommandFromServer("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, iv);
+            p.writeGameCommandFromServer("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64
+                    + "#" + Base64.getEncoder().encodeToString(this.current_hand_id) + "#" + position, iv);
         } catch (Exception e) {
             return null;
         }
@@ -4850,13 +4880,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sb.toString();
     }
 
-    private byte[] requestRemoteRotation(String nick, byte[] communityPieces, GamePeerController p) {
+    private byte[] requestRemoteRotation(String nick, byte[] communityPieces, GamePeerController p, int position) {
         int id = GameCommandId.next();
         byte[] iv = new byte[16];
         CryptoRandom.fill(iv);
         String piecesB64 = Base64.getEncoder().encodeToString(communityPieces);
         try {
-            p.writeGameCommandFromServer("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, iv);
+            p.writeGameCommandFromServer("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64
+                    + "#" + Base64.getEncoder().encodeToString(this.current_hand_id) + "#" + position, iv);
         } catch (Exception e) {
             return null;
         }
@@ -5316,7 +5347,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // this, because by then it's usually reconnected and looks like it never left.
                         // The counter only goes up, and only on a successful reconnect.
                         int reconexiones_antes = p.getReconnectionCount();
-                        byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
+                        byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p, chainStepOwners.size());
                         if (cascaded == null && tableShutdownRequested()) return false;
                         if (cascaded != null) {
                             workingDeck = cascaded;
@@ -5447,7 +5478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, RistrettoSRA.scalarToBytes(stepScalar));
                 } else if (p != null && !p.isExit()) {
-                    byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
+                    byte[] rotated = requestRemoteRotation(currNick, communityPieces, p, i);
                     if (rotated == null && tableShutdownRequested()) return false;
                     if (rotated != null) {
                         communityPieces = rotated;
@@ -5784,18 +5815,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         try {
+            String sessionId = configuration().sessionId();
+            ShuffleProofContext context = new ShuffleProofContext(sessionId, this.current_hand_id,
+                    gameSession().localNickname(), this.active_crypto_ring, this.peer_k_pocket, this.peer_k_community);
             java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(
-                    decks, permutations, this.cascade_step_owner);
+                    decks, permutations, this.cascade_step_owner, context);
             java.util.List<byte[]> proofs = new java.util.ArrayList<>();
             for (int step = 0; step < permutations.size(); step++) {
                 if (tableWaitCancelled()) return false;
                 byte[] before = decks.get(step);
                 byte[] after = decks.get(step + 1);
                 int[] permutation = permutations.get(step);
+                ShuffleProofContext.Step contribution = context.shuffleStep(step);
                 byte[] proof = permutation == null
                         ? asyncProofs.get(cascadeDeckHash(after))
-                        : com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
-                                before, after, permutation, this.cascade_step_k.get(step));
+                        : ShuffleCascade.proveBoundStepWire(before, after, permutation,
+                                this.cascade_step_k.get(step), contribution, context.pocketKey(contribution));
                 if (proof == null) {
                     LOGGER.severe("SHUFFLE-VERIFY: missing cascade proof before dealing");
                     return false;
@@ -5812,13 +5847,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 byte[] after = rotationStates.get(step);
                 byte[] proof = remoteRotationProofs.get(step);
                 if (proof == null && rotationScalars.get(step) != null) {
-                    var input = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
-                    var output = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);
-                    if (input != null && output != null) {
-                        proof = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
-                                com.tonikelope.coronapoker.crypto.RotationProof.prove(
-                                        rotationScalars.get(step), input, output));
-                    }
+                    ShuffleProofContext.Step contribution = context.rotationStep(step);
+                    proof = DualLockWire.proveBoundRotationStepWire(before, after, rotationScalars.get(step),
+                            contribution, context.pocketKey(contribution), context.communityKey(contribution));
                 }
                 if (proof == null) {
                     LOGGER.severe("SHUFFLE-VERIFY: missing rotation proof before dealing");
@@ -5828,12 +5859,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 before = after;
             }
 
-            byte[] genesis = contextBoundShuffleGenesis(configuration().sessionId(),
-                    this.current_hand_id, this.active_crypto_ring);
+            byte[] genesis = contextBoundShuffleGenesis(sessionId, this.current_hand_id, this.active_crypto_ring);
             java.util.List<byte[]> cascadeOutputs = decks.subList(1, decks.size());
             if (tableWaitCancelled()) return false;
-            boolean verified = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
-                    genesis, cascadeOutputs, proofs, pocketCount, megapacket, rotationStates, rotationProofs);
+            boolean verified = DualLockWire.verifyFullChainWire(context,
+                    genesis, cascadeOutputs, proofs, megapacket, rotationStates, rotationProofs);
             LOGGER.log(verified ? Level.INFO : Level.SEVERE,
                     "SHUFFLE-VERIFY: pre-deal dual-lock full-chain self-check = {0}", verified);
             if (!verified || tableWaitCancelled() || shuffleHandCancelled()) return false;
@@ -11200,7 +11230,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String[] sraFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
                         boolean shuffleVerifiedInFossil = false;
-                        boolean shuffleContextV1InFossil = false;
+                        boolean boundShuffleContextInFossil = false;
 
                         for (String part : sraFossilParts) {
                             if (part.startsWith("ORDER@")) {
@@ -11209,8 +11239,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                             } else if (part.equals("SHUFFLE_VERIFIED@1")) {
                                 shuffleVerifiedInFossil = true;
-                            } else if (part.equals("SHUFFLE_CONTEXT@1")) {
-                                shuffleContextV1InFossil = true;
+                            } else if (part.equals("SHUFFLE_CONTEXT@2")) {
+                                boundShuffleContextInFossil = true;
                             } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                                 // Dual-lock: the community half was saved under SRAKEYS_COMMUNITY@ by
                                 // guardarFosilSRA. Restoring it is what lets cascadeAndDealCommunityPieces
@@ -11351,7 +11381,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
                             this.dual_lock_expect_bundle_for = megaPacket;
-                            if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
+                            if (shuffleVerifiedInFossil && boundShuffleContextInFossil) {
                                 this.dual_lock_verified_megapacket = megaPacket;
                                 this.dual_lock_persisted_megapacket = megaPacket;
                             } else {
@@ -11600,7 +11630,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String[] sraFossilParts = fosil.split("#");
                     byte[] megaPacket = null;
                     boolean shuffleVerifiedInFossil = false;
-                    boolean shuffleContextV1InFossil = false;
+                    boolean boundShuffleContextInFossil = false;
 
                     for (String part : sraFossilParts) {
                         if (part.startsWith("ORDER@")) {
@@ -11609,8 +11639,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                         } else if (part.equals("SHUFFLE_VERIFIED@1")) {
                             shuffleVerifiedInFossil = true;
-                        } else if (part.equals("SHUFFLE_CONTEXT@1")) {
-                            shuffleContextV1InFossil = true;
+                        } else if (part.equals("SHUFFLE_CONTEXT@2")) {
+                            boundShuffleContextInFossil = true;
                         } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                             // Dual-lock: the community half persisted by guardarFosilSRA.
                             this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
@@ -11745,7 +11775,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
                         this.dual_lock_expect_bundle_for = megaPacket;
-                        if (shuffleVerifiedInFossil && shuffleContextV1InFossil) {
+                        if (shuffleVerifiedInFossil && boundShuffleContextInFossil) {
                             this.dual_lock_verified_megapacket = megaPacket;
                             this.dual_lock_persisted_megapacket = megaPacket;
                         } else {
@@ -13121,6 +13151,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         exited_consensus_participants.clear();
         pocket_deferred_received.set(false);
         accepted_mega_packet.set(null);
+        this.local_shuffle_contribution = null;
         cascade_request_received.set(false);
         rotation_request_received.set(false);
         dual_lock_bundle_received.set(false);
@@ -22648,7 +22679,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             fosil.append("#HAND_ID@").append(java.util.Base64.getEncoder().encodeToString(this.current_hand_id));
             if (java.util.Arrays.equals(this.local_mega_packet, this.dual_lock_verified_megapacket)) {
                 fosil.append("#SHUFFLE_VERIFIED@1");
-                fosil.append("#SHUFFLE_CONTEXT@1");
+                fosil.append("#SHUFFLE_CONTEXT@2");
             }
 
             byte[] unlockToSave = this.local_sra_unlock;

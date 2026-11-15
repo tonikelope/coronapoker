@@ -11,8 +11,8 @@ import com.tonikelope.coronapoker.crypto.DeckTransform;
 import com.tonikelope.coronapoker.crypto.DualLockWire;
 import com.tonikelope.coronapoker.crypto.EdwardsPoint;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
-import com.tonikelope.coronapoker.crypto.RotationProof;
 import com.tonikelope.coronapoker.crypto.ShuffleCascade;
+import com.tonikelope.coronapoker.crypto.ShuffleProofContext;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 import java.lang.reflect.Field;
 import java.math.BigInteger;
@@ -76,10 +76,10 @@ class PrivateUnlockShuffleGateIntegrationTest {
             var items = UnlockChainWire.parseResp(fields[4]);
             assertNotNull(items);
             assertEquals(1, items.size());
-            assertEquals(0, items.get(0).peerIdx);
+            assertEquals(1, items.get(0).peerIdx);
             for (int slot = 0; slot < 2; slot++) {
                 var chain = DealChain.parse(items.get(0).chains.get(slot));
-                byte[] anchor = Arrays.copyOfRange(deal.finalDeck, slot * 32, (slot + 1) * 32);
+                byte[] anchor = Arrays.copyOfRange(deal.finalDeck, (slot + 2) * 32, (slot + 3) * 32);
                 assertNotNull(chain);
                 assertEquals(1, chain.size());
                 assertTrue(DealChain.verify(anchor, chain, fixture.dealer.peer_k_pocket));
@@ -94,6 +94,24 @@ class PrivateUnlockShuffleGateIntegrationTest {
     @Test
     void rejectedVerificationClosesHostChannelWithoutUnlocking() throws Exception {
         try (Fixture fixture = new Fixture(job -> false)) {
+            fixture.deliverBundle();
+            fixture.requestPocketUnlock();
+            fixture.releaseVerification.countDown();
+            assertTrue(fixture.transport.closed.await(5, TimeUnit.SECONDS));
+            fixture.unlockTask.get(5, TimeUnit.SECONDS);
+            assertTrue(fixture.transport.sent.isEmpty());
+        }
+    }
+
+    @Test
+    void productionBundleCheckRejectsAHandWithADifferentExpectedContributorKey() throws Exception {
+        String[] envelope = deal.megapacket.split("#", -1);
+        String[] entries = envelope[4].split(";", -1);
+        String[] host = entries[1].split(":", -1);
+        host[1] = b64(RistrettoSRA.commitment(RistrettoSRA.generateLockScalar()));
+        entries[1] = String.join(":", host);
+        envelope[4] = String.join(";", entries);
+        try (Fixture fixture = new Fixture(ShuffleVerificationQueue.DUALLOCK_VERIFIER, String.join("#", envelope))) {
             fixture.deliverBundle();
             fixture.requestPocketUnlock();
             fixture.releaseVerification.countDown();
@@ -151,10 +169,15 @@ class PrivateUnlockShuffleGateIntegrationTest {
         Future<?> unlockTask;
 
         Fixture(ShuffleVerificationQueue.Verifier verifier) throws Exception {
+            this(verifier, deal.megapacket);
+        }
+
+        Fixture(ShuffleVerificationQueue.Verifier verifier, String megapacket) throws Exception {
             set(dealer, "game_session", new GameSession(CLIENT, false, CONFIG));
             set(dealer, "game_transport", transport);
             set(dealer, "conta_mano", HAND);
             dealer.local_sra_unlock = deal.clientPocketUnlock;
+            set(dealer, "local_shuffle_contribution", deal.localContribution);
             // Keep production dispatch and keep a handle on the asynchronously scheduled request.
             set(dealer, "game_async", new GameAsync() {
                 @Override public Future<?> execute(Runnable task) {
@@ -169,7 +192,7 @@ class PrivateUnlockShuffleGateIntegrationTest {
                 @Override public void pause(long millis) { GameAsync.standalone().pause(millis); }
                 @Override public void park(long millis) { GameAsync.standalone().park(millis); }
             });
-            assertFalse(dealer.handleClientCriticalHostCommand(deal.megapacket));
+            assertFalse(dealer.handleClientCriticalHostCommand(megapacket));
             assertNotNull(dealer.local_mega_packet);
 
             ShuffleVerificationQueue production = dealer.getShuffleVerifyQueue();
@@ -234,9 +257,10 @@ class PrivateUnlockShuffleGateIntegrationTest {
     }
 
     private record Deal(String megapacket, String bundle, String unlock,
-            byte[] finalDeck, byte[] clientPocketUnlock) {
+            byte[] finalDeck, byte[] clientPocketUnlock, Crupier.LocalShuffleContribution localContribution) {
         static Deal create() {
-            String[] ring = {HOST, CLIENT};
+            String[] ring = {CLIENT, HOST};
+            String[] shuffleOrder = {HOST, CLIENT};
             byte[] handId = new byte[CanonicalActionRecord.HAND_ID_BYTES];
             handId[0] = HAND;
             byte[] deck = Crupier.contextBoundShuffleGenesis(CONFIG.sessionId(), handId, ring);
@@ -244,18 +268,25 @@ class PrivateUnlockShuffleGateIntegrationTest {
             List<byte[]> shuffleProofs = new ArrayList<>();
             List<String> commitments = new ArrayList<>();
             List<byte[]> pocketUnlocks = new ArrayList<>();
+            List<byte[]> pocketKeys = new ArrayList<>();
+            List<byte[]> communityKeys = new ArrayList<>();
             List<BigInteger> rotations = new ArrayList<>();
-            for (String peer : ring) {
+            for (int position = 0; position < shuffleOrder.length; position++) {
+                String peer = shuffleOrder[position];
+                ShuffleProofContext.Step step = new ShuffleProofContext.Step(CONFIG.sessionId(), handId, peer, position);
                 byte[] pocket = RistrettoSRA.generateLockScalar();
                 byte[] community = RistrettoSRA.generateLockScalar();
                 byte[] unlock = RistrettoSRA.getUnlockScalar(pocket);
                 int[] permutation = DeckTransform.randomPermutation(52);
                 byte[] output = DualLockWire.encodeDeck(DeckTransform.apply(
                         ShuffleCascade.decodeDeck(deck), permutation, RistrettoSRA.bytesToScalar(pocket)));
-                shuffleProofs.add(ShuffleCascade.proveStepWire(deck, output, permutation, pocket));
+                byte[] pocketKey = RistrettoSRA.commitment(pocket);
+                byte[] communityKey = RistrettoSRA.commitment(community);
+                shuffleProofs.add(ShuffleCascade.proveBoundStepWire(deck, output, permutation, pocket, step, pocketKey));
                 outputs.add(output);
-                commitments.add(b64(peer) + ":" + b64(RistrettoSRA.commitment(pocket)) + ":"
-                        + b64(RistrettoSRA.commitment(community)));
+                commitments.add(b64(peer) + ":" + b64(pocketKey) + ":" + b64(communityKey));
+                pocketKeys.add(pocketKey);
+                communityKeys.add(communityKey);
                 pocketUnlocks.add(unlock);
                 rotations.add(RistrettoSRA.bytesToScalar(unlock)
                         .multiply(RistrettoSRA.bytesToScalar(community)).mod(EdwardsPoint.L));
@@ -265,24 +296,31 @@ class PrivateUnlockShuffleGateIntegrationTest {
             List<byte[]> rotationStates = new ArrayList<>();
             List<byte[]> rotationProofs = new ArrayList<>();
             byte[] communityDeck = Arrays.copyOfRange(deck, POCKET_POINTS * 32, deck.length);
-            for (BigInteger scalar : rotations) {
+            for (int position = 0; position < rotations.size(); position++) {
+                int shufflePosition = Arrays.asList(shuffleOrder).indexOf(ring[position]);
+                BigInteger scalar = rotations.get(shufflePosition);
+                ShuffleProofContext.Step step = new ShuffleProofContext.Step(CONFIG.sessionId(), handId, ring[position], position);
                 EdwardsPoint[] before = ShuffleCascade.decodeDeck(communityDeck);
                 EdwardsPoint[] after = Arrays.stream(before).map(point -> point.scalarMul(scalar))
                         .toArray(EdwardsPoint[]::new);
-                rotationProofs.add(DualLockWire.encodeRotationProof(RotationProof.prove(scalar, before, after)));
-                communityDeck = DualLockWire.encodeDeck(after);
+                byte[] rotated = DualLockWire.encodeDeck(after);
+                rotationProofs.add(DualLockWire.proveBoundRotationStepWire(communityDeck, rotated, scalar,
+                        step, pocketKeys.get(shufflePosition), communityKeys.get(shufflePosition)));
+                communityDeck = rotated;
                 rotationStates.add(communityDeck);
             }
             byte[] finalDeck = deck.clone();
             System.arraycopy(communityDeck, 0, finalDeck, POCKET_POINTS * 32, communityDeck.length);
 
-            String megapacket = "MEGAPACKET#" + b64(b64(HOST) + "," + b64(CLIENT) + ",")
-                    + "#" + b64(finalDeck) + "#" + b64(handId) + "#" + String.join(";", commitments);
+            String megapacket = "MEGAPACKET#" + b64(b64(CLIENT) + "," + b64(HOST) + ",")
+                    + "#" + b64(finalDeck) + "#" + b64(handId) + "#" + commitments.get(1) + ";" + commitments.get(0);
             String bundle = "DUALLOCK_BUNDLE#" + join(outputs) + "#" + join(shuffleProofs)
                     + "#" + join(rotationStates) + "#" + join(rotationProofs);
             String unlock = "REQ_SRA_UNLOCK_CHAIN#" + POCKET + "#" + HAND + "#"
-                    + UnlockChainWire.serializeReq(List.of(new UnlockChainWire.ReqItem(0, 0, List.of("", ""))));
-            return new Deal(megapacket, bundle, unlock, finalDeck, pocketUnlocks.get(1));
+                    + UnlockChainWire.serializeReq(List.of(new UnlockChainWire.ReqItem(1, 2, List.of("", ""))));
+            ShuffleProofContext.Step client = new ShuffleProofContext.Step(CONFIG.sessionId(), handId, CLIENT, 1);
+            return new Deal(megapacket, bundle, unlock, finalDeck, pocketUnlocks.get(1),
+                    new Crupier.LocalShuffleContribution(client, pocketKeys.get(1), communityKeys.get(1)));
         }
     }
 

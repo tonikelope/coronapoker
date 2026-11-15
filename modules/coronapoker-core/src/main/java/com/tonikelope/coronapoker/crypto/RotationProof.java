@@ -44,6 +44,7 @@ public final class RotationProof {
 
     private static final String FS_WEIGHTS_DOMAIN = "SRA/RotationProof/weights/v1";
     private static final String FS_SCHNORR_DOMAIN = "SRA/RotationProof/schnorr/v1";
+    private static final String FS_KEY_DOMAIN = "SRA/Rotation/key-binding/v2";
     private static final BigInteger L = EdwardsPoint.L;
 
     private RotationProof() {
@@ -80,8 +81,12 @@ public final class RotationProof {
         for (int i = 0; i < out.length; i++) {
             tr.absorbPoint("out" + i, out[i]);
         }
-        BigInteger[] w = new BigInteger[in.length];
-        for (int i = 0; i < in.length; i++) {
+        return weightVector(tr, in.length);
+    }
+
+    private static BigInteger[] weightVector(Transcript tr, int count) {
+        BigInteger[] w = new BigInteger[count];
+        for (int i = 0; i < count; i++) {
             w[i] = tr.challengeScalar("w" + i);
         }
         return w;
@@ -120,14 +125,8 @@ public final class RotationProof {
      * {@code in}.
      */
     public static boolean verify(EdwardsPoint[] in, EdwardsPoint[] out, Proof proof) {
-        if (proof == null || in == null || out == null || in.length == 0 || out.length != in.length
-                || proof.t == null || !inRange(proof.z)) {
+        if (proof == null || proof.t == null || !inRange(proof.z) || !validArrays(in, out)) {
             return false;
-        }
-        for (int i = 0; i < in.length; i++) {
-            if (isIdentity(in[i]) || isIdentity(out[i])) {
-                return false; // degenerate deck position
-            }
         }
         EdwardsPoint t = Ristretto255.decode(proof.t);
         if (t == null) {
@@ -145,5 +144,44 @@ public final class RotationProof {
         EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
                 new BigInteger[]{proof.z, e}, new EdwardsPoint[]{g, h.negate()});
         return Ristretto255.equalPoints(lhs, t);
+    }
+
+    static byte[] proveBound(BigInteger scalar, EdwardsPoint[] in, EdwardsPoint[] out,
+            ShuffleProofContext.Step context, byte[] pocketKey, byte[] communityKey) {
+        EdwardsPoint kp = ShuffleProofContext.decodeKey(pocketKey);
+        EdwardsPoint kc = ShuffleProofContext.decodeKey(communityKey);
+        if (context == null || kp == null || kc == null || scalar == null || scalar.signum() <= 0
+                || scalar.compareTo(L) >= 0 || !Ristretto255.equalPoints(kp.scalarMul(scalar), kc)
+                || !validArrays(in, out)) return null;
+        BigInteger[] coefficients = weightVector(
+                context.transcript("SRA/Rotation/weights/v2", in, out, pocketKey, communityKey), in.length);
+        EdwardsPoint input = msm(coefficients, in);
+        EdwardsPoint output = msm(coefficients, out);
+        if (isIdentity(input) || isIdentity(output)) return null;
+        return Dleq.prove(scalar, input, output, kp, kc,
+                context.transcript(FS_KEY_DOMAIN, in, out, pocketKey, communityKey));
+    }
+
+    static boolean verifyBound(EdwardsPoint[] in, EdwardsPoint[] out, byte[] proof,
+            ShuffleProofContext.Step context, byte[] pocketKey, byte[] communityKey) {
+        EdwardsPoint kp = ShuffleProofContext.decodeKey(pocketKey);
+        EdwardsPoint kc = ShuffleProofContext.decodeKey(communityKey);
+        if (context == null || kp == null || kc == null || proof == null || !validArrays(in, out)) {
+            return false;
+        }
+        BigInteger[] coefficients = weightVector(
+                context.transcript("SRA/Rotation/weights/v2", in, out, pocketKey, communityKey), in.length);
+        EdwardsPoint input = msm(coefficients, in);
+        EdwardsPoint output = msm(coefficients, out);
+        return !isIdentity(input) && !isIdentity(output) && Dleq.verify(input, output, kp, kc, proof,
+                context.transcript(FS_KEY_DOMAIN, in, out, pocketKey, communityKey));
+    }
+
+    private static boolean validArrays(EdwardsPoint[] in, EdwardsPoint[] out) {
+        if (in == null || out == null || in.length == 0 || in.length != out.length) return false;
+        for (int i = 0; i < in.length; i++) {
+            if (isIdentity(in[i]) || isIdentity(out[i])) return false;
+        }
+        return true;
     }
 }

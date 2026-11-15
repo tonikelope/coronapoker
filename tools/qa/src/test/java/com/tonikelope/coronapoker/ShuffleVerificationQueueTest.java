@@ -55,7 +55,7 @@ public class ShuffleVerificationQueueTest {
     }
 
     private static ShuffleVerificationQueue.Job job(int handId) {
-        return new ShuffleVerificationQueue.Job(null, null, null, 0,
+        return new ShuffleVerificationQueue.Job(null, null, null, null,
                 new byte[]{(byte) handId}, null, null, handId);
     }
 

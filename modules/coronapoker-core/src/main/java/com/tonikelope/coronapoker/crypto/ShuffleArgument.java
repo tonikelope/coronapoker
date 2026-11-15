@@ -79,6 +79,7 @@ import java.math.BigInteger;
 public final class ShuffleArgument {
 
     private static final String FS_CHALLENGE_DOMAIN = "SRA/Shuffle/challenge/v1";
+    private static final String FS_KEY_DOMAIN = "SRA/Shuffle/key-binding/v2";
     private static final String FS_SCALAR_DOMAIN = "SRA/Shuffle/scalar/v1";
     private static final BigInteger L = EdwardsPoint.L;
 
@@ -93,15 +94,22 @@ public final class ShuffleArgument {
         final WeightedSumArgument.Proof wsum;
         final byte[] scT;                        // Schnorr: T = r·P_A
         final BigInteger scZ;                    // z = r + e·k
+        final byte[] keyProof;                   // DLEQ for Q = k·P_A and Kp = k·G
 
         Proof(byte[][] cf, PermutationArgument.Proof perm, byte[] q,
                 WeightedSumArgument.Proof wsum, byte[] scT, BigInteger scZ) {
+            this(cf, perm, q, wsum, scT, scZ, null);
+        }
+
+        Proof(byte[][] cf, PermutationArgument.Proof perm, byte[] q,
+                WeightedSumArgument.Proof wsum, byte[] scT, BigInteger scZ, byte[] keyProof) {
             this.cf = cf;
             this.perm = perm;
             this.q = q;
             this.wsum = wsum;
             this.scT = scT;
             this.scZ = scZ;
+            this.keyProof = keyProof;
         }
     }
 
@@ -127,15 +135,15 @@ public final class ShuffleArgument {
     /**
      * Challenge vector {@code e_0..e_{n-1} = H(A, B)} (Fiat–Shamir).
      */
-    private static BigInteger[] challengeVector(EdwardsPoint[] a, EdwardsPoint[] b) {
-        Transcript tr = new Transcript(FS_CHALLENGE_DOMAIN);
+    private static BigInteger[] challengeVector(EdwardsPoint[] a, EdwardsPoint[] b,
+            ShuffleProofContext.Step context, byte[] pocketKey) {
+        Transcript tr = context == null ? new Transcript(FS_CHALLENGE_DOMAIN)
+                : context.transcript("SRA/Shuffle/challenge/v2", a, b, pocketKey, null);
         int n = a.length;
         tr.absorb("n", new byte[]{(byte) (n >>> 8), (byte) n});
-        for (int i = 0; i < n; i++) {
-            tr.absorbPoint("A" + i, a[i]);
-        }
-        for (int i = 0; i < n; i++) {
-            tr.absorbPoint("B" + i, b[i]);
+        if (context == null) {
+            for (int i = 0; i < n; i++) tr.absorbPoint("A" + i, a[i]);
+            for (int i = 0; i < n; i++) tr.absorbPoint("B" + i, b[i]);
         }
         BigInteger[] e = new BigInteger[n];
         for (int i = 0; i < n; i++) {
@@ -170,8 +178,18 @@ public final class ShuffleArgument {
      * @param k the common relock scalar
      */
     public static Proof prove(EdwardsPoint[] a, EdwardsPoint[] b, int[] pi, BigInteger k) {
+        return prove(a, b, pi, k, null, null);
+    }
+
+    static Proof prove(EdwardsPoint[] a, EdwardsPoint[] b, int[] pi, BigInteger k,
+            ShuffleProofContext.Step context, byte[] pocketKey) {
+        EdwardsPoint key = ShuffleProofContext.decodeKey(pocketKey);
+        if (context != null && (key == null || !inRange(k) || k.signum() == 0
+                || !Ristretto255.equalPoints(EdwardsPoint.BASE.scalarMul(k), key))) {
+            throw new IllegalArgumentException("Shuffle witness must match the pocket key");
+        }
         int n = a.length;
-        BigInteger[] e = challengeVector(a, b);
+        BigInteger[] e = challengeVector(a, b, context, pocketKey);
 
         BigInteger[] f = new BigInteger[n];
         BigInteger[] s = new BigInteger[n];
@@ -188,7 +206,16 @@ public final class ShuffleArgument {
         EdwardsPoint q = WeightedSumArgument.msm(f, b);
         WeightedSumArgument.Proof wsum = WeightedSumArgument.prove(f, s, cf, b, q);
 
-        // Schnorr: Q = k·P_A.
+        if (context != null) {
+            if (isIdentity(pa) || isIdentity(q)) {
+                throw new IllegalArgumentException("Degenerate shuffle aggregate");
+            }
+            byte[] binding = Dleq.prove(k, pa, q, EdwardsPoint.BASE, key,
+                    context.transcript(FS_KEY_DOMAIN, a, b, pocketKey, null));
+            return new Proof(cf, perm, Ristretto255.encode(q), wsum, null, null, binding);
+        }
+
+        // The isolated argument uses Schnorr for Q = k·P_A.
         BigInteger r = scalar();
         EdwardsPoint t = pa.scalarMul(r.mod(L));
         BigInteger ce = scalarChallenge(pa, q, t);
@@ -202,9 +229,15 @@ public final class ShuffleArgument {
      * (some {@code π}, single {@code k}).
      */
     public static boolean verify(EdwardsPoint[] a, EdwardsPoint[] b, Proof proof) {
+        return verify(a, b, proof, null, null);
+    }
+
+    static boolean verify(EdwardsPoint[] a, EdwardsPoint[] b, Proof proof,
+            ShuffleProofContext.Step context, byte[] pocketKey) {
         if (proof == null || a == null || b == null || a.length == 0 || b.length != a.length
                 || proof.cf == null || proof.cf.length != a.length || proof.q == null
-                || proof.scT == null || !inRange(proof.scZ)) {
+                || (context == null && (proof.scT == null || !inRange(proof.scZ)))
+                || (context != null && proof.keyProof == null)) {
             return false;
         }
         // Degeneracy hygiene: no identity deck points (an identity card / k=0 deck is not a valid shuffle).
@@ -213,7 +246,7 @@ public final class ShuffleArgument {
                 return false;
             }
         }
-        BigInteger[] e = challengeVector(a, b);
+        BigInteger[] e = challengeVector(a, b, context, pocketKey);
 
         // (1) f is a permutation of e.
         if (!PermutationArgument.verify(proof.cf, e, proof.perm)) {
@@ -228,6 +261,11 @@ public final class ShuffleArgument {
         EdwardsPoint pa = multiExpPublic(e, a);
         if (isIdentity(pa)) {
             return false;
+        }
+        if (context != null) {
+            EdwardsPoint key = ShuffleProofContext.decodeKey(pocketKey);
+            return key != null && Dleq.verify(pa, q, EdwardsPoint.BASE, key, proof.keyProof,
+                    context.transcript(FS_KEY_DOMAIN, a, b, pocketKey, null));
         }
         EdwardsPoint t = Ristretto255.decode(proof.scT);
         if (t == null) {

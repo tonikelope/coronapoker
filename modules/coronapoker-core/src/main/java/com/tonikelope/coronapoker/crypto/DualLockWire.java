@@ -165,4 +165,55 @@ public final class DualLockWire {
             return false;
         }
     }
+
+    public static byte[] proveBoundRotationStepWire(byte[] before, byte[] after, BigInteger scalar,
+            ShuffleProofContext.Step context, byte[] pocketKey, byte[] communityKey) {
+        byte[] proof = RotationProof.proveBound(scalar, ShuffleCascade.decodeDeck(before), ShuffleCascade.decodeDeck(after),
+                context, pocketKey, communityKey);
+        if (proof == null) return null;
+        byte[] wire = new byte[1 + Dleq.PROOF_BYTES];
+        wire[0] = ProofCodec.BOUND_VERSION;
+        System.arraycopy(proof, 0, wire, 1, proof.length);
+        return wire;
+    }
+
+    public static boolean verifyBoundRotationStepWire(byte[] before, byte[] after, byte[] proof,
+            ShuffleProofContext.Step context, byte[] pocketKey, byte[] communityKey) {
+        return proof != null && proof.length == 1 + Dleq.PROOF_BYTES && proof[0] == ProofCodec.BOUND_VERSION
+                && RotationProof.verifyBound(ShuffleCascade.decodeDeck(before), ShuffleCascade.decodeDeck(after),
+                        java.util.Arrays.copyOfRange(proof, 1, proof.length), context, pocketKey, communityKey);
+    }
+
+    /** Live bundle verifier. Every expected contributor must supply both bound transformations. */
+    public static boolean verifyFullChainWire(ShuffleProofContext context, byte[] genesis,
+            List<byte[]> cascadeDecks, List<byte[]> cascadeProofs, byte[] megapacket,
+            List<byte[]> rotationStates, List<byte[]> rotationProofs) {
+        if (context == null || genesis == null || genesis.length != 52 * 32 || megapacket == null
+                || genesis.length != megapacket.length || cascadeDecks == null || cascadeProofs == null
+                || rotationStates == null || rotationProofs == null) return false;
+        int count = context.size();
+        if (cascadeDecks.size() != count || cascadeProofs.size() != count
+                || rotationStates.size() != count || rotationProofs.size() != count) return false;
+
+        byte[] before = genesis;
+        for (int i = 0; i < count; i++) {
+            byte[] after = cascadeDecks.get(i);
+            ShuffleProofContext.Step step = context.shuffleStep(i);
+            if (!ShuffleCascade.verifyBoundStepWire(before, after, cascadeProofs.get(i),
+                    step, context.pocketKey(step))) return false;
+            before = after;
+        }
+
+        int pocketBytes = count * 2 * 32;
+        if (!java.util.Arrays.equals(before, 0, pocketBytes, megapacket, 0, pocketBytes)) return false;
+        before = java.util.Arrays.copyOfRange(before, pocketBytes, before.length);
+        for (int i = 0; i < count; i++) {
+            byte[] after = rotationStates.get(i);
+            ShuffleProofContext.Step step = context.rotationStep(i);
+            if (!verifyBoundRotationStepWire(before, after, rotationProofs.get(i), step,
+                    context.pocketKey(step), context.communityKey(step))) return false;
+            before = after;
+        }
+        return java.util.Arrays.equals(before, 0, before.length, megapacket, pocketBytes, megapacket.length);
+    }
 }

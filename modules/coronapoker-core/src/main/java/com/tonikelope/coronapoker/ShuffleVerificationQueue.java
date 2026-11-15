@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.DualLockWire;
+import com.tonikelope.coronapoker.crypto.ShuffleProofContext;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Level;
@@ -88,18 +89,19 @@ public final class ShuffleVerificationQueue {
         public final byte[] genesis;
         public final List<byte[]> cascadeDecks;
         public final List<byte[]> cascadeProofs;
-        public final int pocketCount;
+        public final ShuffleProofContext context;
         public final byte[] megapacket;
         public final List<byte[]> rotationStates;
         public final List<byte[]> rotationProofs;
         public final int handId;
 
-        public Job(byte[] genesis, List<byte[]> cascadeDecks, List<byte[]> cascadeProofs, int pocketCount,
-                byte[] megapacket, List<byte[]> rotationStates, List<byte[]> rotationProofs, int handId) {
+        public Job(ShuffleProofContext context, byte[] genesis, List<byte[]> cascadeDecks,
+                List<byte[]> cascadeProofs, byte[] megapacket, List<byte[]> rotationStates,
+                List<byte[]> rotationProofs, int handId) {
             this.genesis = genesis;
             this.cascadeDecks = cascadeDecks;
             this.cascadeProofs = cascadeProofs;
-            this.pocketCount = pocketCount;
+            this.context = context;
             this.megapacket = megapacket;
             this.rotationStates = rotationStates;
             this.rotationProofs = rotationProofs;
@@ -112,7 +114,7 @@ public final class ShuffleVerificationQueue {
      * recomputed by the caller).
      */
     public static final Verifier DUALLOCK_VERIFIER = job -> DualLockWire.verifyFullChainWire(
-            job.genesis, job.cascadeDecks, job.cascadeProofs, job.pocketCount,
+            job.context, job.genesis, job.cascadeDecks, job.cascadeProofs,
             job.megapacket, job.rotationStates, job.rotationProofs);
 
     private final ArrayBlockingQueue<Job> queue;

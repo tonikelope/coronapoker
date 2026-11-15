@@ -660,7 +660,10 @@ final class GdxPerspectiveTable implements Disposable {
 
     /** Extruded chips stand on the same plane as the pot label. */
     void addPotChip(int color, float x, float y, float diameter, float bottom,
-            float thickness, float rotation, float visibility, boolean shadow) {
+            float thickness, float rotation, boolean shadow) {
+        // A rising chip remains an opaque solid. A translucent top would write
+        // depth and erase the chips beneath it in the shared depth layer.
+        float visibility = 1f;
         FloatArray vertices = potVertices[color];
         float cx = x - width * .5f, cz = boardCenterY - y;
         float radius = diameter * .5f;

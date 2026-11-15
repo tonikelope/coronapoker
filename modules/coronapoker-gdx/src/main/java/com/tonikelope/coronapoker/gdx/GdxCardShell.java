@@ -243,6 +243,11 @@ final class GdxCardShell implements Disposable {
         composite.draw(layer.getColorBufferTexture(), 0f, 0f, worldWidth, worldHeight,
                 0f, 0f, 1f, 1f);
         composite.end();
+        // The resolved layer uses premultiplied alpha. ShapeRenderer does not
+        // set its own blend function, so return to the table's straight-alpha
+        // contract before drawing translucent glass and button highlights.
+        Gdx.gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA,
+                GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     private void createMultisample(int width, int height) {

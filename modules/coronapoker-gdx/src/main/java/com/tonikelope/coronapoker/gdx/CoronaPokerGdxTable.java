@@ -14926,7 +14926,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             mousePeekHeld = false;
             return;
         }
-        pocketPeekButton.set(width * 0.600f, height * 0.255f, 72f, 42f);
+        pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
         Rectangle r = pocketPeekButton;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(mousePeekHeld ? ORANGE : CYAN);
@@ -15852,7 +15852,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float perspectivePocketY(LiveCardPlacement placement) {
-        return placement.y + 26f * perspectiveBlend;
+        return placement.y + 60f * perspectiveBlend;
     }
 
     private float perspectiveBoardCardWidth() {
@@ -16366,7 +16366,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float[] counts = displayedPotChipCounts(layout);
         StackChipRackPlacement physical = stackChipRackPlacement(geometry, counts);
         for (int column = 0; column < counts.length; column++) {
-            chipRackHeights[column] = stackChipPerceivedLevels(geometry,
+            chipRackHeights[column] = perspectivePotLevels(geometry,
                     physical.baseRises()[column], counts[column]);
             perspectivePotChipFaces[column] = stackedChipFace(column, 0);
         }
@@ -16384,10 +16384,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     + diameter * .5f + placement.baseRises()[column];
             int color = Math.floorMod(layout.columns().get(column).color(), 4);
             for (int level = 0; level < MathUtils.ceil(levels); level++) {
-                float presence = Interpolation.smoother.apply(MathUtils.clamp(levels - level, 0f, 1f));
+                float presence = MathUtils.clamp(levels - level, 0f, 1f);
                 float angle = stackChipRotationPhase(stackChipRotationVariant(0x504f54, column, level));
                 perspectiveTable.addPotChip(color, x, y, diameter, level * pitch,
-                        pitch * presence, angle, presence, level == 0);
+                        pitch * presence, angle, level == 0);
             }
             for (int corner = 0; corner < 8; corner++) {
                 var p = perspectiveTable.tablePointToScreen(x + ((corner & 1) == 0 ? -.5f : .5f) * diameter,
@@ -16399,6 +16399,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (Float.isFinite(minX)) perspectivePotChipBounds.set(minX, minY, maxX - minX, maxY - minY);
         perspectiveTable.drawPotRack(perspectivePotChipFaces, alpha);
+    }
+
+    /** Compress tall stacks into whole opaque chips, interpolating only in transit. */
+    static float perspectivePotLevels(StackChipRackGeometry geometry, float baseRise, float count) {
+        float physical = Math.max(0f, count);
+        float lower = MathUtils.floor(physical);
+        float bottom = MathUtils.ceil(stackChipPerceivedLevels(geometry, baseRise, lower));
+        float top = MathUtils.ceil(stackChipPerceivedLevels(geometry, baseRise, lower + 1f));
+        return MathUtils.lerp(bottom, top, physical - lower);
     }
 
     private StackChipRackGeometry animatedPotChipRackGeometry() {
@@ -16436,8 +16445,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 geometry, physicalCounts);
         float[] physicalBaseRises = physicalPlacement.baseRises();
         for (int index = 0; index < physicalCounts.length; index++) {
-            chipRackHeights[index] = stackChipPerceivedLevels(geometry,
-                    physicalBaseRises[index], physicalCounts[index]);
+            chipRackHeights[index] = perspectiveActive
+                    ? perspectivePotLevels(geometry, physicalBaseRises[index], physicalCounts[index])
+                    : stackChipPerceivedLevels(geometry, physicalBaseRises[index], physicalCounts[index]);
         }
         StackChipRackPlacement placement = stackChipRackPlacement(geometry,
                 chipRackHeights);

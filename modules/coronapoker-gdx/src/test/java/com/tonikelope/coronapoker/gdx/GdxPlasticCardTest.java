@@ -193,4 +193,62 @@ final class GdxPlasticCardTest {
             }
         }
     }
+    @Test void aPublicUncoverContinuesThePrivateBendAndFinishesFlat() {
+        var shape = new GdxPlasticCard.UncoverShape();
+        var peek = new GdxPlasticCard.PeekShape();
+        var point = new Vector3(); var normal = new Vector3();
+        var reference = new Vector3(); var previous = new Vector3();
+        for (float initial : new float[]{0f, .35f, 1f}) {
+            peek.set(initial); shape.set(initial, 0f);
+            for (int row=0; row<=40; row++) {
+                float v=row/40f;
+                shape.sample(point,normal,100f,140f,.2f,v);
+                peek.sample(reference,100f,140f,.2f,v);
+                assertTrue(point.dst(reference) < .001f, "The public gesture must start from the same sheet");
+            }
+        }
+        for(int frame=0; frame<=100; frame++) {
+            float turn=frame/100f;
+            float extent=.5f*(com.badlogic.gdx.math.MathUtils.cosDeg(7f*turn)
+                    + 100f/140f*Math.abs(com.badlogic.gdx.math.MathUtils.sinDeg(7f*turn)));
+            shape.set(1f,turn,extent);
+            float length=0f;
+            for(int row=0; row<=400; row++) {
+                shape.sample(point,normal,100f,140f,.2f,row/400f);
+                assertTrue(point.y >= -.001f, "The sheet must not penetrate its support");
+                if(row>0) length+=point.dst(previous);
+                previous.set(point);
+            }
+            assertEquals(140f,length,.06f,"Uncovering must preserve the card's length");
+        }
+        shape.set(1f,1f);
+        shape.sample(point,normal,100f,140f,.2f,.9f);
+        assertEquals(-30f,point.x,.001f);
+        assertEquals(-56f,point.z,.001f);
+        assertEquals(0f,point.y,.001f);
+        assertEquals(-1f,normal.y,.001f);
+    }
+
+    @Test void bothSheetsRemainSeparatedByTheirMaterialThicknessDuringUncovering() {
+        var shape=new GdxPlasticCard.UncoverShape();
+        var point=new Vector3(); var normal=new Vector3();
+        var upper=new Vector3(); var tangentPoint=new Vector3();
+        float thickness=GdxPlasticCard.thickness(100f)+.10f;
+        for(int frame=0;frame<=80;frame++) {
+            shape.set(1f,frame/80f,.55f);
+            for(int row=0;row<=80;row++) {
+                float v=row/80f;
+                shape.sample(point,normal,100f,140f,.5f,v);
+                upper.set(point).mulAdd(normal,thickness);
+                assertEquals(thickness,point.dst(upper),.001f);
+                // A neighbouring part of the opposite sheet may never cross
+                // the thickness gap, even where the surface curves backwards.
+                for(int other=Math.max(0,row-4);other<=Math.min(80,row+4);other++) {
+                    shape.sample(tangentPoint,new Vector3(),100f,140f,.5f,other/80f);
+                    assertTrue(tangentPoint.dst(upper) >= thickness*.98f);
+                }
+            }
+        }
+    }
+
 }

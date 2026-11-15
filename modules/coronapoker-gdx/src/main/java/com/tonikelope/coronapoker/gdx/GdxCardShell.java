@@ -62,8 +62,6 @@ final class GdxCardShell implements Disposable {
     private int nativeHeight;
     GdxCardPickMesh pickTarget;
 
-    GdxCardShell() { this(8); }
-
     GdxCardShell(int requestedSamples) {
         this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
     }
@@ -151,10 +149,15 @@ final class GdxCardShell implements Disposable {
                 // drivers without multisample renderbuffers. Alpha-cut quads
                 // cannot replace this: they occlude the sheet behind them.
                 int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
-                int scale = multisampleTarget == 0 && w <= maximum / 2
+                int scale = requestedSamples > 0 && multisampleTarget == 0 && w <= maximum / 2
                         && h <= maximum / 2 ? 2 : 1;
-                layer = new FrameBuffer(Pixmap.Format.RGBA8888, w * scale, h * scale,
-                        multisampleTarget == 0);
+                // The convenience FrameBuffer constructor allocates 16-bit
+                // depth. Thin overlapping plastic needs 24 bits even with
+                // MSAA disabled, otherwise quantization produces false crossings.
+                var builder = new com.badlogic.gdx.graphics.glutils.GLFrameBuffer.FrameBufferBuilder(w * scale, h * scale);
+                builder.addBasicColorTextureAttachment(Pixmap.Format.RGBA8888);
+                if (multisampleTarget == 0) builder.addDepthRenderBuffer(GL30C.GL_DEPTH_COMPONENT24);
+                layer = builder.build();
                 Texture.TextureFilter filter = scale > 1
                         ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
                 layer.getColorBufferTexture().setFilter(filter, filter);

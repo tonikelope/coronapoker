@@ -23,8 +23,8 @@ final class GdxPlasticCard {
      */
     static final class PeekShape {
         private static final int STEPS = 192;
-        private static final double DX = -Math.sin(Math.toRadians(14.0));
-        private static final double DZ = Math.cos(Math.toRadians(14.0));
+        private static final double DX = 0.0;
+        private static final double DZ = 1.0;
         private static final double LENGTH = 0.85;
         private final double[] arc = new double[STEPS + 1];
         private final double[] forward = new double[STEPS + 1];
@@ -93,6 +93,57 @@ final class GdxPlasticCard {
             if (normal != null) normal.set((float) (-DX * Math.sin(angle)),
                     (float) Math.cos(angle), (float) (-DZ * Math.sin(angle)));
             return (float) (1.0 - 0.20 * Math.pow(Math.sin(angle), 2.0));
+        }
+    }
+
+    /** Continues the same short-edge lift into an inextensible face-up sheet. */
+    static final class UncoverShape {
+        private static final int STEPS = 256;
+        private final PeekShape peek = new PeekShape();
+        private final Vector3 point = new Vector3(), normal = new Vector3();
+        private final double[] z = new double[STEPS + 1], y = new double[STEPS + 1];
+        private final double[] angle = new double[STEPS + 1];
+        private float lastLift = Float.NaN, lastTurn = Float.NaN;
+        private double floor;
+        private float minimumV, range, lastExtent = Float.NaN;
+
+        void set(float lift, float turn) { set(lift, turn, .5f); }
+
+        void set(float lift, float turn, float extent) {
+            if (lift == lastLift && turn == lastTurn && extent == lastExtent) return;
+            lastExtent = extent;
+            minimumV = .5f - extent;
+            range = 2f * extent;
+            lastLift = lift;
+            lastTurn = turn;
+            peek.set(lift);
+            floor = 0.0;
+            z[0] = -extent * (1.0 - 2.0 * turn);
+            y[0] = 0.0;
+            for (int i = 0; i <= STEPS; i++) {
+                peek.sample(point, normal, 1f, 1f, .5f, minimumV + range * i / STEPS);
+                double a = Math.atan2(-normal.z, normal.y);
+                angle[i] = a + (Math.PI - a) * turn;
+                if (i > 0) {
+                    z[i] = z[i - 1] + (Math.cos(angle[i - 1]) + Math.cos(angle[i])) * range / (2.0 * STEPS);
+                    y[i] = y[i - 1] + (Math.sin(angle[i - 1]) + Math.sin(angle[i])) * range / (2.0 * STEPS);
+                    floor = Math.min(floor, y[i]);
+                }
+            }
+        }
+
+        float sample(Vector3 out, Vector3 outNormal, float width, float height, float u, float v) {
+            if (lastTurn == 0f) return peek.sample(out, outNormal, width, height, u, v);
+            float cell = MathUtils.clamp((v - minimumV) / range, 0f, 1f) * STEPS;
+            int i = Math.min(STEPS - 1, (int) cell);
+            double t = cell - i;
+            double a = angle[i] + (angle[i + 1] - angle[i]) * t;
+            double extra = v < minimumV ? v - minimumV : Math.max(0f, v - minimumV - range);
+            double forward = z[i] + (z[i + 1] - z[i]) * t + extra * Math.cos(a);
+            double up = y[i] + (y[i + 1] - y[i]) * t + extra * Math.sin(a) - floor;
+            out.set((u - .5f) * width, (float) up * height, (float) forward * height);
+            outNormal.set(0f, (float) Math.cos(a), (float) -Math.sin(a));
+            return (float) (1.0 - .20 * Math.pow(Math.sin(a), 2.0));
         }
     }
 

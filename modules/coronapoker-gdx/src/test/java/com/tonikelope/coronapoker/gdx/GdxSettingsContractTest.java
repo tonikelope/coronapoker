@@ -15,20 +15,20 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsContractTest {
 
     @Test
-    void tableViewDefaultsToTwoDimensionsAndResetsWithMesa() {
+    void tableViewDefaultsToThreeDimensionsAndResetsWithMesa() {
         Properties properties = new Properties();
-        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
+        assertTrue(GdxAppearanceOptions.perspectiveTable(properties));
         var choice = GdxSettingsContract.appearanceTableChoice(
                 GdxSettingsContract.APPEARANCE_TABLE_VIEW_ROW);
         properties.setProperty(choice.key(), "unknown");
-        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
-
-        GdxAppearanceOptions.select(choice, properties, 1);
         assertTrue(GdxAppearanceOptions.perspectiveTable(properties));
+
+        GdxAppearanceOptions.select(choice, properties, 0);
+        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, 0, true));
 
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 0, true);
-        assertFalse(GdxAppearanceOptions.perspectiveTable(properties));
+        assertTrue(GdxAppearanceOptions.perspectiveTable(properties));
         assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, 0, true));
     }
 

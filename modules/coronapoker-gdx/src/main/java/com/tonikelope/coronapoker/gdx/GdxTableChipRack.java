@@ -9,6 +9,7 @@ final class GdxTableChipRack {
     private static final float CHIP_THICKNESS_MM = 3.3f;
     private static final float CARD_WIDTH_MM = 63f;
     private static final float CENTRE_PITCH = 1.15f;
+    private static final float COMPACT_DEPTH_PITCH = 1.01f;
     static final int CHIPS_PER_PILE = 10;
 
     private GdxTableChipRack() {}
@@ -29,12 +30,30 @@ final class GdxTableChipRack {
         return (CENTRE_PITCH + 1f) * diameter * .5f;
     }
 
-    static float localOffsetX(int slot, float diameter) {
-        return (slot == 1 || slot == 3 ? -.5f : .5f) * CENTRE_PITCH * diameter;
+    static boolean localLeft(int slot) {
+        return slot < GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
     }
 
-    static float localOffsetY(int slot, float diameter) {
-        return (slot >= 2 ? .5f : -.5f) * CENTRE_PITCH * diameter;
+    static float localX(int slot, float diameter, float bank) {
+        boolean left = localLeft(slot);
+        int index = slot % GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
+        float offset = (((index & 1) == 0 ? -.5f : .5f) * CENTRE_PITCH + .06f) * diameter;
+        return (left ? -1f : 1f) * (bank + offset);
+    }
+
+    static float localOffsetY(int slot, float diameter, float viewportHeight) {
+        int index = slot % GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
+        float pitch = MathUtils.lerp(COMPACT_DEPTH_PITCH, CENTRE_PITCH, extraRackDepth(viewportHeight));
+        return ((index / 2 - 1) * pitch + .18f) * diameter;
+    }
+
+    private static float extraRackDepth(float viewportHeight) {
+        return MathUtils.clamp((viewportHeight - 1080f) / 110f, 0f, 1f);
+    }
+
+    static float localDepthSway(float viewportHeight) {
+        // Two adjacent towers must still clear each other at peak impact.
+        return MathUtils.lerp(.10f, 1f, extraRackDepth(viewportHeight));
     }
 
     static float initialLanding(int count, int column, int index, long seed) {

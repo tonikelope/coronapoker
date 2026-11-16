@@ -676,20 +676,22 @@ final class GdxProductionStateAuthorityTest {
         CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
                 true);
 
-        table.acceptEvent(new TableVisualEvent.SeatRoster(1L,
+        table.acceptEvent(new TableVisualEvent.TableInfo(1L, .1d, .2d,
+                1, 0, 1, 0), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.SeatRoster(2L,
                 List.of(human, remote)), new CompletableFuture<>());
         TableSnapshot.PlayerSnapshot busted = playerState("human", 0d,
                 false, true, 10, 0);
-        table.acceptEvent(new TableVisualEvent.SeatRoster(2L,
+        table.acceptEvent(new TableVisualEvent.SeatRoster(3L,
                 List.of(busted, remote)), new CompletableFuture<>());
-        table.acceptEvent(new TableVisualEvent.Rebuy(3L, List.of(
+        table.acceptEvent(new TableVisualEvent.Rebuy(4L, List.of(
                 new TableVisualEvent.ChipTransfer("human", 10d, 10d,
                         0d, 0d)), 240L), new CompletableFuture<>());
         TableSnapshot.PlayerSnapshot returned = playerState("human", 10d,
                 true, false, 20, 1);
-        table.acceptEvent(new TableVisualEvent.SeatRoster(4L,
+        table.acceptEvent(new TableVisualEvent.SeatRoster(5L,
                 List.of(returned, remote)), new CompletableFuture<>());
-        table.acceptEvent(new TableVisualEvent.PlayerAction(5L, "human",
+        table.acceptEvent(new TableVisualEvent.PlayerAction(6L, "human",
                 TableVisualEvent.PlayerAction.ActionKind.ALL_IN, "ALL IN",
                 10d, 10d, 0d, 10d, 10d), new CompletableFuture<>());
 

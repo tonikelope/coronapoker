@@ -21,6 +21,7 @@ import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 
 /** Table geometry in world space. The existing HUD keeps its own camera. */
 final class GdxPerspectiveTable implements Disposable {
@@ -216,9 +217,10 @@ final class GdxPerspectiveTable implements Disposable {
     private int activePocketSlot = -1;
     private float revealBaseHeight;
     private final GdxCardPickMesh[] pocketPicks = {new GdxCardPickMesh(), new GdxCardPickMesh()};
-    private final Vector3 dealSource = new Vector3();
     private final Vector3 dealTarget = new Vector3();
     private final Vector3 dealPosition = new Vector3();
+    private final Vector3 dealPlanningTarget = new Vector3();
+    private final ArrayList<GdxCardDealMotion.Pile> dealPiles = new ArrayList<>();
     private final Vector3 projectedPoint = new Vector3();
     private final FloatArray cardVertices = new FloatArray(MAX_CARD_VERTICES * 6);
     private final IntBuffer framebufferBinding = BufferUtils.newIntBuffer(1);
@@ -745,29 +747,68 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
+    static final class DealRoute {
+        private final Vector3 source = new Vector3();
+        private float dealerU, dealerV;
+        private GdxCardDealMotion.Route route;
+        private float width, height, camera;
+    }
+
+    void clearDealPiles() {
+        dealPiles.clear();
+    }
+
+    void addDealPile(float x, float y, float radius, float top) {
+        dealPiles.add(new GdxCardDealMotion.Pile(x - width * .5f, boardCenterY - y, radius, top));
+    }
+
     void drawPocketFlight(Texture back, float sourceX, float sourceY, float x, float y,
-            float w, float h, float fan, float progress, int slot, int order) {
+            float w, float h, float fan, float progress, int slot, int order, DealRoute route) {
         Vector3 target = pocketAt(x, y, w, slot, 0f);
         dealTarget.set(target.x, pocketLayerHeight(slot, w), target.z);
-        drawDeal(back, sourceX, sourceY, w, h, MathUtils.lerp(fan, coveredFan(slot), cameraProgress), progress, order);
+        drawDeal(back, sourceX, sourceY, w, h, MathUtils.lerp(fan, coveredFan(slot), cameraProgress),
+                progress, order, dealTarget.y, route);
     }
 
     void drawBoardFlight(Texture back, float sourceX, float sourceY, float x, float y,
-            float w, float h, float fan, float progress, int order) {
+            float w, float h, float fan, float progress, int order, DealRoute route) {
         dealTarget.set(x - width * 0.5f, 0f, boardCenterY - y);
-        drawDeal(back, sourceX, sourceY, w, h, fan, progress, order);
+        drawDeal(back, sourceX, sourceY, w, h, fan, progress, order, 0f, route);
     }
 
     private void drawDeal(Texture back, float sourceX, float sourceY, float w, float h,
-            float fan, float progress, int order) {
-        float launchHeight = w * 0.055f;
-        Vector3 origin = surfaceAt(sourceX, sourceY, CARD_REST_HEIGHT + launchHeight);
-        dealSource.set(origin.x, launchHeight, origin.z);
-        GdxCardDealMotion.sample(dealPosition, dealSource, dealTarget, progress, w);
-        float turn = Interpolation.smoother.apply(progress);
-        float angle = MathUtils.lerp((order & 1) == 0 ? -18f : 18f, fan, turn);
+            float fan, float progress, int order, float lowestLayer, DealRoute plan) {
+        float startAngle = (order & 1) == 0 ? -18f : 18f;
+        if (plan.route == null) {
+            // Lock the release point even if the dealer's seat moves after the throw.
+            plan.dealerU = sourceX / width;
+            plan.dealerV = sourceY / height;
+        }
+        if (plan.route == null || plan.width != width || plan.height != height || plan.camera != cameraProgress) {
+            dealOrigin(plan.source, plan.dealerU * width, plan.dealerV * height, w);
+            dealPlanningTarget.set(dealTarget.x, lowestLayer, dealTarget.z);
+            float side = width * .5f - w * .5f;
+            var bounds = new GdxCardDealMotion.Bounds(
+                    Math.min(-side, Math.min(plan.source.x, dealTarget.x)),
+                    Math.max(side, Math.max(plan.source.x, dealTarget.x)),
+                    Math.min(rearEdge + h * .5f, Math.min(plan.source.z, dealTarget.z)),
+                    Math.max(frontEdge - h * .5f, Math.max(plan.source.z, dealTarget.z)));
+            plan.route = GdxCardDealMotion.plan(plan.source, dealPlanningTarget, w, h,
+                    startAngle, fan, CARD_REST_HEIGHT, dealPiles, bounds);
+            plan.width = width;
+            plan.height = height;
+            plan.camera = cameraProgress;
+        }
+        GdxCardDealMotion.sample(dealPosition, plan.source, dealTarget, progress, w, plan.route);
+        float angle = GdxCardDealMotion.angle(startAngle, fan, progress);
         drawFlexibleFlight(back, dealPosition.x, dealPosition.z, w, h, angle,
-                dealPosition.y, GdxCardDealMotion.airborne(progress));
+                dealPosition.y, plan.route.airborne(progress));
+    }
+
+    void dealOrigin(Vector3 out, float screenX, float screenY, float cardWidth) {
+        float launchHeight = cardWidth * .055f;
+        Vector3 origin = surfaceAt(screenX, screenY, CARD_REST_HEIGHT + launchHeight);
+        out.set(origin.x, launchHeight, origin.z);
     }
 
     void beginChipRack() {
@@ -1083,10 +1124,10 @@ final class GdxPerspectiveTable implements Disposable {
 
     void drawBoardPacketCard(Texture back, Texture face, float sourceX, float sourceY,
             float x, float y, float w, float h, boolean flying, float flightProgress,
-            float turn, float direction, GdxPlasticCard.Motion motion, float layer, int slot) {
+            float turn, float direction, GdxPlasticCard.Motion motion, float layer, int slot, DealRoute route) {
         if (flying) {
             dealTarget.set(x - width * 0.5f, layer, boardCenterY - y);
-            drawDeal(back, sourceX, sourceY, w, h, 0f, flightProgress, 0);
+            drawDeal(back, sourceX, sourceY, w, h, 0f, flightProgress, 0, 0f, route);
         } else {
             revealBaseHeight = layer;
             try {

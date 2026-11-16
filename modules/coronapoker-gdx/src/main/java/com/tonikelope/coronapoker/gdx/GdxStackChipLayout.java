@@ -129,6 +129,101 @@ final class GdxStackChipLayout {
                 relaxedCapacities) ? exact : current;
     }
 
+    static int pilesNeeded(Layout layout) {
+        return layout.columns().stream().mapToInt(
+                column -> GdxTableChipSlots.pilesNeeded(column.chips().size())).sum();
+    }
+
+    /** Prefer an exact colour-up before overflowing the available ten-chip piles. */
+    static Layout colourUpForPiles(Layout current, double smallBlind, int pileLimit) {
+        if (pilesNeeded(current) <= pileLimit) return current;
+
+        long baseMinor = GdxChipDenominations.baseMinor(smallBlind);
+        int[] original = new int[COLUMN_COUNT];
+        int[] fixed = new int[COLUMN_COUNT];
+        long units = 0L;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            int value = GdxChipDenominations.units(column);
+            for (Chip chip : current.columns().get(column).chips()) {
+                if (chip.amountMinor() == baseMinor * value) {
+                    original[column]++;
+                    units += value;
+                } else {
+                    // A split-pot remainder is not a denomination to trade.
+                    fixed[column]++;
+                }
+            }
+        }
+        int[] fitted = fitTenChipPiles(units, original, fixed, pileLimit);
+        if (fitted == null) {
+            // A very large pot may require taller piles even in the largest denomination.
+            fitted = new int[COLUMN_COUNT];
+            for (int column = COLUMN_COUNT - 1; column >= 0; column--) {
+                int value = GdxChipDenominations.units(column);
+                fitted[column] = (int) (units / value);
+                units %= value;
+            }
+        }
+        if (java.util.Arrays.equals(original, fitted)) return current;
+        ArrayList<Column> exchanged = new ArrayList<>(COLUMN_COUNT);
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            Column source = current.columns().get(column);
+            long denomination = baseMinor * GdxChipDenominations.units(column);
+            ArrayList<Chip> chips = new ArrayList<>(fitted[column] + fixed[column]);
+            int remaining = fitted[column];
+            for (Chip chip : source.chips()) {
+                if (chip.amountMinor() != denomination) chips.add(chip);
+                else if (remaining > 0) {
+                    chips.add(chip);
+                    remaining--;
+                }
+            }
+            for (int index = 0; index < remaining; index++) {
+                chips.add(new Chip(denomination, source.color()));
+            }
+            exchanged.add(new Column(source.color(), chips));
+        }
+        return new Layout(exchanged);
+    }
+
+    private static int[] fitTenChipPiles(long units, int[] original, int[] fixed, int pileLimit) {
+        int height = GdxTableChipRack.CHIPS_PER_PILE;
+        if (units > (long) pileLimit * height * 10) return null;
+        int[] best = null;
+        int bestChanges = Integer.MAX_VALUE;
+        int originalCount = original[0] + original[1] + original[2] + original[3];
+        int bestCount = Integer.MAX_VALUE;
+        // There are only four denominations. Once x1, x2 and x5 are chosen,
+        // the exact amount determines the x10 count.
+        for (int ones = 0; ones <= Math.min(units, pileLimit * height - fixed[0]); ones++) {
+            int afterOnes = pileLimit - GdxTableChipSlots.pilesNeeded(ones + fixed[0]);
+            long afterOneValue = units - ones;
+            for (int twos = 0; twos <= Math.min(afterOneValue / 2, afterOnes * height - fixed[1]); twos++) {
+                int afterTwos = afterOnes - GdxTableChipSlots.pilesNeeded(twos + fixed[1]);
+                long afterTwoValue = afterOneValue - 2L * twos;
+                for (int fives = 0; fives <= Math.min(afterTwoValue / 5, afterTwos * height - fixed[2]); fives++) {
+                    long remainder = afterTwoValue - 5L * fives;
+                    if (remainder % 10 != 0) continue;
+                    int tens = (int) (remainder / 10);
+                    int afterFives = afterTwos - GdxTableChipSlots.pilesNeeded(fives + fixed[2]);
+                    if (tens + fixed[3] > afterFives * height) continue;
+                    int count = ones + twos + fives + tens;
+                    int changes = Math.abs(ones - original[0]) + Math.abs(twos - original[1])
+                            + Math.abs(fives - original[2]) + Math.abs(tens - original[3]);
+                    boolean reduces = count < originalCount;
+                    boolean bestReduces = bestCount < originalCount;
+                    if (best == null || (reduces != bestReduces ? reduces
+                            : changes < bestChanges || changes == bestChanges && count < bestCount)) {
+                        bestChanges = changes;
+                        bestCount = count;
+                        best = new int[]{ones, twos, fives, tens};
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
     /**
      * Prefers lowering the tallest compressed tower before minimizing the
      * aggregate overflow. A colour-up can legitimately create more physical

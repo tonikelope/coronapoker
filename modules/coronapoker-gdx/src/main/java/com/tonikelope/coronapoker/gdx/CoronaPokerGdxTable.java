@@ -260,7 +260,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float COMMUNITY_CARD_GAP = 18f;
     private static final float CHIP_CATALOG_HEADER_HEIGHT = 78f;
     private static final float CHIP_CATALOG_BODY_GAP = 24f;
-    private static final int CHIP_CATALOG_MAX_PILE_LEVELS = 10;
+    private static final int CHIP_CATALOG_MAX_PILE_LEVELS = GdxTableChipRack.CHIPS_PER_PILE;
     private static final float CHIP_CATALOG_MAX_DISPLAY_DIAMETER = 140f;
     /** HUD-like horizontal pitch applied to the four denomination slots. */
     private static final float CHIP_CATALOG_COLUMN_GAP_RATIO = 0.64f;
@@ -1449,6 +1449,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTableChipSlots perspectivePotRack = new GdxTableChipSlots(GdxTableChipSlots.POT_SLOT_COUNT);
     private final GdxTableChipSlots perspectiveLocalRack = new GdxTableChipSlots(GdxTableChipSlots.LOCAL_SLOT_COUNT);
     private final Rectangle perspectiveLocalRightChipBounds = new Rectangle();
+    private GdxStackChipLayout.Layout localTableCapacityChecked;
+    private GdxStackChipLayout.Layout lastCatalogPlacementStack;
+    private final Rectangle lastCatalogPlacementArea = new Rectangle();
+    private long lastCatalogPlacementDenomination;
+    private List<DetailedStackPlacement> lastCatalogPlacements = List.of();
     private final int[] plannedPotChips = new int[GdxChipDenominations.COLUMN_COUNT];
     private final int[] plannedLocalChips = new int[GdxChipDenominations.COLUMN_COUNT];
     private final int[] nextPotFlightChip = new int[GdxChipDenominations.COLUMN_COUNT];
@@ -5684,7 +5689,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             liveState.apply(event);
             String rainRecipient = GdxAppearanceOptions.perspectiveTable(tableSettingsProperties())
-                    ? seats[0].name : "";
+                    ? liveState.snapshot().localNickname() : "";
             liveRebuy = new LiveRebuy(rebuy, System.nanoTime(), barrier,
                     cashSoundResource, liveCounterDenomination(), rainRecipient);
             syncSeatsFromLiveState();
@@ -6278,20 +6283,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void replacePotChipInventory(double exactAmount, long seed) {
         livePotChips.replace(exactAmount, balancedVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x1f83d9abfb41bd6bL));
-        livePotChips.relieveCompressedColumns(liveCounterDenomination(),
-                relaxedRackCapacities(potChipRackGeometry()));
+        relievePotCapacity();
         potChipRebalanceStartedAt = Float.NaN;
     }
 
     private void reconcilePotChipInventory(double exactAmount, long seed) {
         livePotChips.reconcile(exactAmount, balancedVisualChips(exactAmount,
                 liveCounterDenomination(), seed ^ 0x5be0cd19137e2179L));
-        livePotChips.relieveCompressedColumns(liveCounterDenomination(),
-                relaxedRackCapacities(potChipRackGeometry()));
+        relievePotCapacity();
         potChipRebalanceStartedAt = Float.NaN;
     }
 
     private void rebalancePotChipInventory() {
+        if (usesPerspectiveChipCapacity()) {
+            livePotChips.relieveTableCapacity(liveCounterDenomination());
+            potChipRebalanceStartedAt = Float.NaN;
+            return;
+        }
         GdxStackChipLayout.Layout before = potVisualChipLayout(
                 livePotChips.snapshot());
         float[] displayedBefore = displayedPotChipCounts(before);
@@ -6309,6 +6317,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     - potChipRebalanceTargetCounts[column]) > 0.000_001f;
         }
         potChipRebalanceStartedAt = changed ? totalTime : Float.NaN;
+    }
+
+    private boolean usesPerspectiveChipCapacity() {
+        return perspectiveActive || GdxAppearanceOptions.perspectiveTable(tableSettingsProperties());
+    }
+
+    private void relievePotCapacity() {
+        if (usesPerspectiveChipCapacity()) {
+            livePotChips.relieveTableCapacity(liveCounterDenomination());
+        } else {
+            livePotChips.relieveCompressedColumns(liveCounterDenomination(),
+                    relaxedRackCapacities(potChipRackGeometry()));
+        }
     }
 
     private float[] currentPotChipRebalanceCounts(
@@ -6354,6 +6375,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<VisualChipSpec> withdrawPotVisualChips(double exactAmount,
             long seed) {
         double requested = Math.max(0d, MoneyMath.clean(exactAmount));
+        if (usesPerspectiveChipCapacity() && livePayout == null) {
+            livePotChips.relieveTableCapacity(liveCounterDenomination());
+        }
         return livePotChips.withdraw(requested,
                 liveCounterDenomination(), seed);
     }
@@ -8709,6 +8733,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private ChipCatalogTarget chipCatalogTargetAt(float x, float y,
             float worldWidth) {
+        StackChipRackGeometry remoteGeometry = stackChipRackGeometry(false);
+        if (perspectiveActive) {
+            // The remote panel is in front of the 3D racks visually and must
+            // also block interaction with any pile behind its action label.
+            for (Seat seat : seats) {
+                if (seat.index == 0 || seatPresenceAlpha(seat.index) <= 0f
+                        || !contains(x, y, seat.podX, seat.podY, PLAYER_POD_WIDTH, PLAYER_POD_HEIGHT)) continue;
+                return chipRackVisualBounds(seat.stackX, seat.stackY, remoteGeometry).contains(x, y)
+                        ? ChipCatalogTarget.player(seat.name) : null;
+            }
+        }
         LocalHudLayout localHud = cachedLocalHudLayout(worldWidth);
         Seat local = seats[0];
         if (playerStackViewerAvailable(seatPresenceAlpha(0),
@@ -8729,7 +8764,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        StackChipRackGeometry remoteGeometry = stackChipRackGeometry(false);
         for (Seat seat : seats) {
             if (seat.index == 0 || !playerStackViewerAvailable(
                     seatPresenceAlpha(seat.index),
@@ -8909,6 +8943,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return singleBand;
         }
         return detailedStackAdaptivePlacements(best, area);
+    }
+
+    static List<DetailedStackPlacement> detailedStackColourUpPlacements(
+            GdxStackChipLayout.Layout stack, Rectangle area, double denomination) {
+        List<DetailedStackPlacement> normal = detailedStackPlacements(stack, area);
+        if (normal.isEmpty()) return normal;
+        float size = detailedStackMaxChipSize();
+        float originalDiameter = normal.get(0).chipDiameter();
+        if (originalDiameter >= size - .001f) return normal;
+
+        float horizontalRoom = (area.width - 28f) / size;
+        float verticalRoom = (area.height - 28f) / size;
+        float pileHeight = GdxPerspectiveTable.catalogFaceHeight(1f)
+                + CHIP_CATALOG_MAX_PILE_LEVELS * GdxPerspectiveTable.catalogChipStep(1f);
+        int columns = 1 + MathUtils.floor((horizontalRoom - 1f) / CHIP_CATALOG_EXTRA_PILE_PITCH_RATIO);
+        int rows = MathUtils.floor((verticalRoom + CHIP_CATALOG_DEPTH_ROW_GAP_RATIO)
+                / (pileHeight + CHIP_CATALOG_DEPTH_ROW_GAP_RATIO));
+        if (columns < 1 || rows < 1) return normal;
+        int capacity = Math.min(columns * rows, normal.size() - 1);
+        if (capacity < 1) return normal;
+        var fitted = GdxStackChipLayout.colourUpForPiles(stack, denomination, capacity);
+        if (fitted == stack) return normal;
+        var placements = detailedStackPlacements(fitted, area);
+        return placements.get(0).chipDiameter() > originalDiameter + .001f ? placements : normal;
     }
 
     private static List<DetailedStackPlacement>
@@ -9132,8 +9190,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean showRebuy = chipCatalogShowsRebuyButton();
         boolean rebuyHovered = showRebuy
                 && layout.rebuyButton().contains(pointer);
-        List<DetailedStackPlacement> placements = detailedStackPlacements(
-                stack, layout.stackArea());
+        List<DetailedStackPlacement> placements = chipCatalogPlacements(stack, layout.stackArea());
         Seat catalogSeat = chipCatalogTarget.pot() ? null
                 : seatByNickname(chipCatalogTarget.nickname());
         TableSnapshot.PlayerSnapshot catalogPlayer = catalogSeat == null
@@ -9273,6 +9330,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 ? seat.displayedStackAmount : player.buyIn();
         return detailedStackLiveLayout(current, seat.displayedStackAmount,
                 liveCounterDenomination(), referenceAmount);
+    }
+
+    private List<DetailedStackPlacement> chipCatalogPlacements(GdxStackChipLayout.Layout stack,
+            Rectangle area) {
+        double denomination = liveCounterDenomination();
+        long minor = GdxChipDenominations.baseMinor(denomination);
+        if (stack != lastCatalogPlacementStack || !area.equals(lastCatalogPlacementArea)
+                || minor != lastCatalogPlacementDenomination) {
+            lastCatalogPlacements = detailedStackColourUpPlacements(stack, area, denomination);
+            lastCatalogPlacementStack = stack;
+            lastCatalogPlacementArea.set(area);
+            lastCatalogPlacementDenomination = minor;
+        }
+        return lastCatalogPlacements;
     }
 
     /**
@@ -11907,10 +11978,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // A revealing card temporarily moves to the foreground while airborne,
         // then lands at the exact same coordinates behind its owner's HUD.
         drawHoleCards(false);
+        if (perspectiveActive) {
+            drawPerspectiveChipRack(true, 1f);
+            drawPerspectiveChipRack(false, seatPresenceAlpha(0));
+        }
+        // The screen-space player pods own their labels even when a tall
+        // physical pile projects into the same space as a remote seat.
         drawSeats();
         drawCardsAndPot(tableCx, tableCy, tableW);
         drawHoleCards(true);
-        if (perspectiveActive) drawPerspectiveChipRack(false, seatPresenceAlpha(0));
         drawRemoteRebuyOverlays();
         drawSidePotWinnerOverlays();
         drawTimedOutKickOverlays();
@@ -11929,6 +12005,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // are painted immediately afterwards so they cross the cinematic
             // and visibly land on this foreground pot surface.
             drawPotPanelSurface(ALL_IN_CINEMATIC_POT_ALPHA);
+            if (perspectiveActive) drawPerspectiveChipRack(true, ALL_IN_CINEMATIC_POT_ALPHA);
             drawTableChipFlights(false);
         }
         // The physical chip flies above every money surface, including the
@@ -13132,10 +13209,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         TableSnapshot.PlayerSnapshot player = livePlayer(seat);
         double reference = player != null && player.buyIn() > 0d
                 ? player.buyIn() : exactAmount;
+        if (seat != null && seat.index == 0 && usesPerspectiveChipCapacity()) {
+            GdxStackChipLayout.Layout exact = GdxStackChipLayout.reconcile(
+                    current, exactAmount, liveCounterDenomination(), reference);
+            return localTableChipsMoving() ? exact : fitLocalTableCapacity(exact);
+        }
         return GdxStackChipLayout.relieveCompression(current, exactAmount,
                 liveCounterDenomination(), reference,
                 relaxedRackCapacities(stackChipRackGeometry(
                         seat != null && seat.index == 0)));
+    }
+
+    private GdxStackChipLayout.Layout fitLocalTableCapacity(GdxStackChipLayout.Layout rack) {
+        if (rack != localTableCapacityChecked) {
+            localTableCapacityChecked = GdxStackChipLayout.colourUpForPiles(
+                    rack, liveCounterDenomination(), GdxTableChipSlots.LOCAL_SLOT_COUNT);
+        }
+        return localTableCapacityChecked;
+    }
+
+    private boolean localTableChipsMoving() {
+        return liveRebuy != null || livePayout != null || liveChipBatch != null || !liveActionChips.isEmpty();
     }
 
     private void updatePendingStackRackRebalances() {
@@ -15157,7 +15251,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                     if (usesPerspectivePocket(player)) {
                         if (flightProgress < 1f) {
-                            drawPerspectivePocketFlight(cardBack, target, flightProgress, deal.slot(), flight.dealOrder);
+                            drawPerspectivePocketFlight(cardBack, target, flightProgress,
+                                    deal.slot(), flight.dealOrder, flight.route);
                         }
                         continue;
                     }
@@ -15868,13 +15963,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawPerspectivePocketFlight(Texture back,
-            LiveCardPlacement target, float progress, int slot, int order) {
+            LiveCardPlacement target, float progress, int slot, int order, GdxPerspectiveTable.DealRoute route) {
         float w = MathUtils.lerp(target.width, perspectiveBoardCardWidth(), perspectiveBlend);
         float h = w * target.height / target.width;
         batch.end();
         perspectiveTable.drawPocketFlight(back, dealerSourceX, dealerSourceY,
                 target.x, perspectivePocketY(target), w, h,
-                -target.rotation, progress, slot, order);
+                -target.rotation, progress, slot, order, route);
         batch.setShader(null);
         batch.setColor(Color.WHITE);
         batch.begin();
@@ -16030,7 +16125,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             drawCommunityCardFlight(deal.slot(), communityCardPlacement(
                     deal.slot(), firstX, cardY, cardW, cardH, gap),
-                    flight.flightProgress(), cardBack);
+                    flight.flightProgress(), cardBack, flight.route);
         }
     }
 
@@ -16044,12 +16139,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawCommunityCardFlight(int slot, LiveCardPlacement target,
-            float flightProgress, Texture cardBack) {
+            float flightProgress, Texture cardBack, GdxPerspectiveTable.DealRoute route) {
         if (perspectiveActive) {
             batch.end();
             perspectiveTable.drawBoardFlight(cardBack, dealerSourceX, dealerSourceY,
                     target.x, target.y, target.width, target.height,
-                    -target.rotation, flightProgress, slot);
+                    -target.rotation, flightProgress, slot, route);
             batch.setShader(null);
             batch.setColor(Color.WHITE);
             batch.begin();
@@ -16126,7 +16221,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 perspectiveTable.drawBoardPacketCard(cardBack, liveCardFace(card.code()),
                         dealerSourceX, dealerSourceY, x, placement.y, placement.width,
                         placement.height, streetDeal.inFlight(elapsed), streetDeal.flightProgress(elapsed),
-                        turn, liveCommunityReveal.flipDirection, motion, layer, offset);
+                        turn, liveCommunityReveal.flipDirection, motion, layer, offset, liveCommunityReveal.route);
                 batch.setShader(null);
                 batch.setColor(Color.WHITE);
                 batch.begin();
@@ -16150,7 +16245,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (streetDeal.inFlight(elapsed)) {
                 drawCommunityCardFlight(slot, placement,
-                        streetDeal.flightProgress(elapsed), cardBack);
+                        streetDeal.flightProgress(elapsed), cardBack, liveCommunityReveal.route);
                 return;
             }
         }
@@ -16326,7 +16421,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawPotPanelSurface(float alpha) {
         onTablePlane(() -> drawPotPanelOnTable(alpha));
-        if (perspectiveActive) drawPerspectiveChipRack(true, alpha);
     }
 
     private void drawPotPanelOnTable(float alpha) {
@@ -16427,15 +16521,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.setColor(1f, 1f, 1f, .78f * perspectiveBlend);
 
-        float halfFootprint = GdxTableChipRack.halfFootprint(tableChipDiameter);
         float margin = 16f;
         float halfWidth = communityBoardWidth(cardWidth) * .5f;
         float left = tableCenterX - halfWidth;
         float right = tableCenterX + halfWidth;
-        float localBottom = localRackCenterY - halfFootprint - margin;
+        float viewportHeight = viewport.getWorldHeight();
+        float localHalfWidth = Math.max(halfWidth,
+                Math.abs(GdxTableChipRack.localX(3, tableChipDiameter, localRackOffsetX))
+                        + tableChipDiameter * .55f + 8f);
+        float localBottom = localRackCenterY + GdxTableChipRack.localOffsetY(0, tableChipDiameter, viewportHeight)
+                - tableChipDiameter * .50f - 4f;
         float cardCenter = localRackCenterY + cardWidth * .46f;
-        float localTop = Math.max(localRackCenterY + halfFootprint, cardCenter + cardHeight * .53f) + margin;
-        GdxFeltMarking.rounded(shapes, left, localBottom, right, localTop, 35f);
+        float localRear = GdxTableChipRack.localOffsetY(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT - 1,
+                tableChipDiameter, viewportHeight) + tableChipDiameter * .55f;
+        float markerTop = localPositionMarkerY() + localPositionMarkerDiameter(cardWidth) * .5f;
+        float localTop = Math.max(markerTop + 6f,
+                Math.max(localRackCenterY + localRear, cardCenter + cardHeight * .53f) + margin);
+        GdxFeltMarking.rounded(shapes, tableCenterX - localHalfWidth, localBottom,
+                tableCenterX + localHalfWidth, localTop, 35f);
 
         float potTop = potCenterY + GdxTableChipSlots.offsetY(1, tableChipDiameter,
                 POT_PANEL_HEIGHT * .5f, TABLE_POT_CHIP_GAP) + tableChipDiameter * .5f + margin;
@@ -16458,8 +16561,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             advanceChipPileImpacts(flatPotChipImpacts);
             return;
         }
-        updateTableChipImpacts();
-
         tableChipDiameter = GdxTableChipRack.diameter(cardWidth);
         localRackOffsetX = localChipBankOffset(cardWidth);
         Seat local = seats[0];
@@ -16469,10 +16570,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 (perspectivePocketY(first) + perspectivePocketY(second)) * .5f);
         localRackCenterY = handOnTable.y - cardWidth * .46f;
 
-        GdxStackChipLayout.Layout pot = potVisualChipLayout(
-                displayedPotVisualChips(Math.max(0d, livePot())));
+        if (livePayout == null) livePotChips.relieveTableCapacity(liveCounterDenomination());
+        List<VisualChipSpec> visiblePot = displayedPotVisualChips(Math.max(0d, livePot()));
+        GdxStackChipLayout.Layout pot = potVisualChipLayout(visiblePot);
+        if (livePayout == null && visiblePot != livePotChips.snapshot()) {
+            pot = GdxStackChipLayout.colourUpForPiles(pot, liveCounterDenomination(),
+                    GdxTableChipSlots.POT_SLOT_COUNT);
+        }
         GdxStackChipLayout.Layout fillingStack = initialTableStack(liveInitialStackFill);
         GdxStackChipLayout.Layout stack = fillingStack == null ? stackChipLayout(local) : fillingStack;
+        // Keep reserved denominations and landing slots stable until transfers finish.
+        if (fillingStack == null && !localTableChipsMoving()) {
+            stack = local.stackChipLayout = fitLocalTableCapacity(stack);
+        }
         float progress = fillingStack == null ? 1f : liveInitialStackFill.progress(tableChipFrameNanos);
         for (int column = 0; column < GdxChipDenominations.COLUMN_COUNT; column++) {
             perspectivePotLevels[column] = pot.columnHeight(column);
@@ -16508,6 +16618,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         perspectivePotRack.arrange(plannedPotChips);
         perspectiveLocalRack.arrange(plannedLocalChips);
+        if (!localTableChipsMoving()) perspectiveLocalRack.compactLocalLeft();
+        perspectiveTable.clearDealPiles();
+        if (!liveCardFlights.isEmpty() || liveCommunityReveal != null) {
+            addCardDealObstacles(true, perspectivePotRack, plannedPotChips);
+            addCardDealObstacles(false, perspectiveLocalRack, plannedLocalChips);
+        }
+        updateTableChipImpacts();
         int tallest = 0;
         for (int column = 0; column < plannedPotChips.length; column++) {
             if (perspectivePotRack.piles(column) > 0) {
@@ -16518,6 +16635,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         tableChipClearance = tallest * GdxTableChipRack.thickness(tableChipDiameter);
+    }
+
+    private void addCardDealObstacles(boolean pot, GdxTableChipSlots rack, int[] planned) {
+        // Include both the lateral chip offset and maximum sway after a landing.
+        float radius = tableChipDiameter * .59f;
+        float thickness = GdxTableChipRack.thickness(tableChipDiameter);
+        for (int column = 0; column < planned.length; column++) {
+            for (int pile = 0; pile < rack.piles(column); pile++) {
+                int count = rack.height(column, pile, planned[column]);
+                if (count > 0) {
+                    perspectiveTable.addDealPile(tableChipPileX(pot, column, pile),
+                            tableChipPileY(pot, column, pile), radius, count * thickness + .1f);
+                }
+            }
+        }
     }
 
     private void planPotArrivals(List<LiveChip> chips, float elapsed) {
@@ -16543,13 +16675,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxTableChipSlots rack = pot ? perspectivePotRack : perspectiveLocalRack;
         int seed = pot ? POT_CHIP_SEED : seats[0].name.hashCode();
         float thickness = GdxTableChipRack.thickness(tableChipDiameter);
+        float depthSway = pot ? 1f : GdxTableChipRack.localDepthSway(viewport.getWorldHeight());
         perspectiveTable.beginChipRack();
         for (int column = 0; column < levels.length; column++) {
             for (int pileIndex = 0; pileIndex < rack.piles(column); pileIndex++) {
                 int count = rack.height(column, pileIndex, levels[column]);
                 if (count == 0) continue;
                 int slot = rack.slot(column, pileIndex);
-                Rectangle bounds = slot < 4 ? perspectiveLocalChipBounds : perspectiveLocalRightChipBounds;
+                Rectangle bounds = GdxTableChipRack.localLeft(slot)
+                        ? perspectiveLocalChipBounds : perspectiveLocalRightChipBounds;
                 if (pot) {
                     bounds = switch (GdxTableChipSlots.side(slot)) {
                         case -1 -> perspectivePotChipBounds;
@@ -16565,7 +16699,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float offset = detailedStackChipLateralOffset(seed, column, level, tableChipDiameter);
                     float rotation = tableChipRotation(seed, column, pileIndex, level);
                     float dx = impact == null ? 0f : impact.offsetX(level, tableChipDiameter);
-                    float dy = impact == null ? 0f : impact.offsetY(level, tableChipDiameter);
+                    float dy = impact == null ? 0f : impact.offsetY(level, tableChipDiameter) * depthSway;
                     perspectiveTable.addTableChip(GdxChipDenominations.color(column), x + offset + dx, y + dy,
                             tableChipDiameter, level * thickness, thickness, rotation, level == 0);
                 }
@@ -16593,9 +16727,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     tableChipDiameter, POT_PANEL_WIDTH * .5f, TABLE_POT_CHIP_GAP);
         }
         int slot = perspectiveLocalRack.slot(column, pileIndex);
-        float offset = GdxTableChipRack.localOffsetX(slot % 4, tableChipDiameter);
-        float distance = localRackOffsetX - offset;
-        return tableCenterX + (slot < 4 ? -distance : distance);
+        return tableCenterX + GdxTableChipRack.localX(slot, tableChipDiameter, localRackOffsetX);
     }
 
     private float tableChipPileY(boolean pot, int column, int pileIndex) {
@@ -16604,7 +16736,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     tableChipDiameter, POT_PANEL_HEIGHT * .5f, TABLE_POT_CHIP_GAP);
         }
         int slot = perspectiveLocalRack.slot(column, pileIndex);
-        return localRackCenterY + GdxTableChipRack.localOffsetY(slot % 4, tableChipDiameter);
+        return localRackCenterY + GdxTableChipRack.localOffsetY(slot, tableChipDiameter, viewport.getWorldHeight());
     }
 
     private void refreshPrintedTableChipFaces() {
@@ -16685,7 +16817,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         var impact = (pot ? potChipImpacts : localChipImpacts)[rack.slot(column, pileIndex)];
         if (impact != null) {
             x += impact.offsetX(level, tableChipDiameter) * sway;
-            y += impact.offsetY(level, tableChipDiameter) * sway;
+            float depthSway = pot ? 1f : GdxTableChipRack.localDepthSway(viewport.getWorldHeight());
+            y += impact.offsetY(level, tableChipDiameter) * sway * depthSway;
         }
         float height = level * GdxTableChipRack.thickness(tableChipDiameter);
         return new GdxTableChipFlight.Contact(x, y, height, tableChipRotation(seed, column, pileIndex, level));
@@ -17792,10 +17925,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Vector2 positionMarkerAnchor(Seat seat) {
         if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
-        var point = perspectiveTable.layoutToScreen(
-                MathUtils.lerp(seat.positionX, viewport.getWorldWidth() * 0.63f, perspectiveBlend),
-                MathUtils.lerp(seat.positionY, viewport.getWorldHeight() * 0.34f, perspectiveBlend));
-        return new Vector2(point.x, point.y);
+        float cardWidth = perspectiveBoardCardWidth();
+        float x = tableCenterX + cardWidth * 1.12f;
+        float markerHeight = GdxPerspectiveTable.positionMarkerThickness(localPositionMarkerDiameter(cardWidth)) * .5f;
+        var point = perspectiveTable.chipPointToScreen(x, localPositionMarkerY(), markerHeight);
+        return new Vector2(MathUtils.lerp(seat.positionX, point.x, perspectiveBlend),
+                MathUtils.lerp(seat.positionY, point.y, perspectiveBlend));
+    }
+
+    private float localPositionMarkerY() {
+        float height = viewport.getWorldHeight();
+        float middleRow = GdxTableChipRack.localOffsetY(2, tableChipDiameter, height);
+        float rearRow = GdxTableChipRack.localOffsetY(4, tableChipDiameter, height);
+        return localRackCenterY + (middleRow + rearRow) * .5f;
+    }
+
+    private static float localPositionMarkerDiameter(float cardWidth) {
+        return cardWidth * .54f;
     }
 
     private void drawTablePositionTexture(Texture texture, float x, float y,
@@ -17806,7 +17952,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         alphaEdgeRenderer.end(batch);
         batch.end();
-        float diameter = MathUtils.lerp(size, perspectiveBoardCardWidth() * 0.62f
+        float diameter = MathUtils.lerp(size, localPositionMarkerDiameter(perspectiveBoardCardWidth())
                 * size / POSITION_CHIP_SIZE, perspectiveBlend);
         perspectiveTable.drawPositionMarker(texture, x, y, diameter, size, -rotation, alpha, onTable, lift);
         batch.begin();
@@ -20562,7 +20708,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat local = seats[0];
             for (TableVisualEvent.ChipTransfer transfer : fill.event.transfers()) {
                 if (transfer.nickname().equals(local.name)) {
-                    fill.tableStack = GdxStackChipLayout.compose(transfer.stackAfter(), liveCounterDenomination());
+                    double denomination = liveCounterDenomination();
+                    fill.tableStack = GdxStackChipLayout.colourUpForPiles(
+                            GdxStackChipLayout.compose(transfer.stackAfter(), denomination),
+                            denomination, GdxTableChipSlots.LOCAL_SLOT_COUNT);
                     break;
                 }
             }
@@ -20822,6 +20971,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             double smallBlind, long variationSeed) {
         GdxStackChipLayout.Layout rack = GdxStackChipLayout.compose(
                 exactAmount, smallBlind, exactAmount);
+        ArrayList<VisualChipSpec> result = visualChips(rack);
+        GdxPotChipInventory.shuffle(result,
+                variationSeed ^ 0x510e527fade682d1L);
+        return List.copyOf(result);
+    }
+
+    private static ArrayList<VisualChipSpec> visualChips(GdxStackChipLayout.Layout rack) {
         ArrayList<VisualChipSpec> result = new ArrayList<>(rack.chipCount());
         for (GdxStackChipLayout.Column column : rack.columns()) {
             for (GdxStackChipLayout.Chip chip : column.chips()) {
@@ -20829,9 +20985,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         chip.color()));
             }
         }
-        GdxPotChipInventory.shuffle(result,
-                variationSeed ^ 0x510e527fade682d1L);
-        return List.copyOf(result);
+        return result;
     }
 
     private List<VisualChipSpec> paymentVisualChips(String nickname,
@@ -21278,6 +21432,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             var move = tableChipMoves.get(i);
             if (move.destinationSlot < 0 || move.firstContact <= previousTableChipFrameNanos
                     || move.firstContact > tableChipFrameNanos) continue;
+            var rack = move.toPot ? perspectivePotRack : perspectiveLocalRack;
+            if (!rack.ownsSlot(GdxChipDenominations.columnForColor(move.color), move.destinationSlot)) continue;
             kickChipPile(move.toPot ? potChipImpacts : localChipImpacts, move.destinationSlot, move.tossSeed);
         }
         previousTableChipFrameNanos = tableChipFrameNanos;
@@ -32937,6 +33093,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         final TableVisualEvent event;
         final GdxCardDealMotion.FrameClock clock = new GdxCardDealMotion.FrameClock();
+        final GdxPerspectiveTable.DealRoute route = new GdxPerspectiveTable.DealRoute();
         final CompletableFuture<Void> barrier;
         final float barrierDelaySeconds;
         final int dealOrder;
@@ -33047,6 +33204,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final float leadInSeconds;
         final int flipDirection;
         final GdxCommunityStreetDeal streetDeal;
+        final GdxPerspectiveTable.DealRoute route = new GdxPerspectiveTable.DealRoute();
         final GdxPlasticCard.Motion motion;
         boolean dealSoundPlayed;
         float elapsedSeconds;
@@ -33614,6 +33772,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 List<VisualChipSpec> visualChips = rebuyVisualChips(
                         transfer.amount(), smallBlind, visualSeed);
                 boolean rain = transfer.nickname().equals(rainRecipient);
+                if (rain) {
+                    GdxStackChipLayout.Layout original = visualChipLayout(visualChips);
+                    GdxStackChipLayout.Layout fitted = GdxStackChipLayout.colourUpForPiles(
+                            original, smallBlind, GdxTableChipSlots.LOCAL_SLOT_COUNT);
+                    if (fitted != original) {
+                        visualChips = visualChips(fitted);
+                    }
+                }
                 int[] columnCounts = rain ? new int[GdxChipDenominations.COLUMN_COUNT] : null;
                 int[] columnIndexes = rain ? new int[GdxChipDenominations.COLUMN_COUNT] : null;
                 if (rain) {

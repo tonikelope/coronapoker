@@ -18,6 +18,8 @@ final class GdxPotChipInventory {
             = new ArrayList<>();
     private List<CoronaPokerGdxTable.VisualChipSpec> snapshot = List.of();
     private boolean snapshotDirty;
+    private List<CoronaPokerGdxTable.VisualChipSpec> tableCapacityChecked;
+    private long tableCapacityDenomination;
 
     void clear() {
         if (chips.isEmpty()) return;
@@ -43,7 +45,21 @@ final class GdxPotChipInventory {
         GdxStackChipLayout.Layout layout = GdxStackChipLayout
                 .relieveCompression(current, exactAmount, smallBlind,
                         exactAmount, relaxedCapacities);
-        if (layout == current) return;
+        if (layout != current) replaceLayout(layout);
+    }
+
+    void relieveTableCapacity(double smallBlind) {
+        long denomination = GdxChipDenominations.baseMinor(smallBlind);
+        if (snapshot() == tableCapacityChecked && denomination == tableCapacityDenomination) return;
+        GdxStackChipLayout.Layout current = CoronaPokerGdxTable.visualChipLayout(chips);
+        GdxStackChipLayout.Layout fitted = GdxStackChipLayout.colourUpForPiles(current,
+                smallBlind, GdxTableChipSlots.POT_SLOT_COUNT);
+        if (fitted != current) replaceLayout(fitted);
+        tableCapacityChecked = snapshot();
+        tableCapacityDenomination = denomination;
+    }
+
+    private void replaceLayout(GdxStackChipLayout.Layout layout) {
         chips.clear();
         for (GdxStackChipLayout.Column column : layout.columns()) {
             for (GdxStackChipLayout.Chip chip : column.chips()) {

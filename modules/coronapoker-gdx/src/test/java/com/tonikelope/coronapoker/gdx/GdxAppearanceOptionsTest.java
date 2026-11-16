@@ -49,6 +49,8 @@ final class GdxAppearanceOptionsTest {
         var style = GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE;
         assertEquals("animacion_destape", GdxAppearanceOptions.parentKey(style));
         assertEquals("TIPO DE DESTAPE COMUNITARIAS", style.label(new GdxGameText("es")));
+        assertEquals("FLEXIBLE", GdxAppearanceOptions.selectedLabel(style, properties));
+        GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 0);
         assertEquals("RÍGIDO", GdxAppearanceOptions.selectedLabel(style, properties));
         assertTrue(GdxAppearanceOptions.isDefault(style, properties));
 
@@ -107,6 +109,7 @@ final class GdxAppearanceOptionsTest {
     @Test
     void animationChoicesFollowTheMasterAndTheirParentSwitches() {
         Properties properties = new Properties();
+        GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 0);
         GdxAppearanceOptions.Choice deal = choice("reparto_velocidad");
         GdxAppearanceOptions.Choice flip = choice("card_flip_duration");
         GdxAppearanceOptions.Choice swap = choice("swap_velocidad");

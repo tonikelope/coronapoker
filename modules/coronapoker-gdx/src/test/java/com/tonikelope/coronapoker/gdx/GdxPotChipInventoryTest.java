@@ -15,6 +15,69 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxPotChipInventoryTest {
 
     @Test
+    void tablePotColoursUpOnlyAfterAllNinePlacesAreNeeded() {
+        GdxPotChipInventory inventory = new GdxPotChipInventory();
+        inventory.deposit(piles(21, 20, 20, 20));
+        var before = inventory.snapshot();
+        inventory.relieveTableCapacity(.1d);
+        assertSame(before, inventory.snapshot());
+
+        inventory.deposit(List.of(chip(.2d, GdxChipDenominations.color(1))));
+        long exact = Math.round(inventory.amount() * 100d);
+        inventory.relieveTableCapacity(.1d);
+        var fitted = CoronaPokerGdxTable.visualChipLayout(inventory.snapshot());
+        assertTrue(GdxStackChipLayout.pilesNeeded(fitted) <= GdxTableChipSlots.POT_SLOT_COUNT);
+        assertTrue(fitted.chipCount() < before.size() + 1);
+        assertEquals(exact, fitted.representedMinor());
+        var payout = inventory.withdraw(.3d, .1d, 52L);
+        assertEquals(.3d, amount(payout), .000_001d);
+        assertEquals(exact - 30, Math.round(inventory.amount() * 100d));
+    }
+
+    @Test
+    void physicalColourUpCanFitEvenWhenTheMinimumChipCountWouldNeedMorePlaces() {
+        var layout = CoronaPokerGdxTable.visualChipLayout(piles(1, 1, 1, 79));
+        var fitted = GdxStackChipLayout.colourUpForPiles(layout, .1d, GdxTableChipSlots.POT_SLOT_COUNT);
+        assertEquals(layout.representedMinor(), fitted.representedMinor());
+        assertEquals(GdxTableChipSlots.POT_SLOT_COUNT, GdxStackChipLayout.pilesNeeded(fitted));
+        assertEquals(0, fitted.columnHeight(2));
+    }
+
+    @Test
+    void localColourUpKeepsOddChipsAndUsesTallerStacksOnlyForUnavoidableOverflow() {
+        var withRemainder = new ArrayList<>(piles(31, 30, 30, 30));
+        withRemainder.add(chip(.05d, GdxChipDenominations.color(0)));
+        var local = CoronaPokerGdxTable.visualChipLayout(withRemainder);
+        var fitted = GdxStackChipLayout.colourUpForPiles(local, .1d, GdxTableChipSlots.LOCAL_SLOT_COUNT);
+        assertEquals(local.representedMinor(), fitted.representedMinor());
+        assertTrue(GdxStackChipLayout.pilesNeeded(fitted) <= GdxTableChipSlots.LOCAL_SLOT_COUNT);
+        assertTrue(fitted.columns().get(0).chips().contains(new GdxStackChipLayout.Chip(5, GdxChipDenominations.color(0))));
+
+        var fullBank = CoronaPokerGdxTable.visualChipLayout(piles(30, 30, 30, 30));
+        assertSame(fullBank, GdxStackChipLayout.colourUpForPiles(fullBank, .1d, GdxTableChipSlots.LOCAL_SLOT_COUNT));
+
+        var bothSides = CoronaPokerGdxTable.visualChipLayout(piles(0, 0, 0, 61));
+        assertSame(bothSides, GdxStackChipLayout.colourUpForPiles(bothSides, .1d, GdxTableChipSlots.LOCAL_SLOT_COUNT));
+        assertEquals(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT + 1, GdxStackChipLayout.pilesNeeded(bothSides));
+
+        var oversized = CoronaPokerGdxTable.visualChipLayout(piles(31, 0, 0, 90));
+        var overflow = GdxStackChipLayout.colourUpForPiles(oversized, .1d, GdxTableChipSlots.POT_SLOT_COUNT);
+        assertEquals(oversized.representedMinor(), overflow.representedMinor());
+        assertTrue(overflow.chipCount() < oversized.chipCount());
+        assertTrue(GdxStackChipLayout.pilesNeeded(overflow) > GdxTableChipSlots.POT_SLOT_COUNT);
+    }
+
+    private static List<CoronaPokerGdxTable.VisualChipSpec> piles(int... counts) {
+        var chips = new ArrayList<CoronaPokerGdxTable.VisualChipSpec>();
+        for (int column = 0; column < counts.length; column++) {
+            for (int i = 0; i < counts[column]; i++) {
+                chips.add(chip(GdxChipDenominations.units(column) / 10d, GdxChipDenominations.color(column)));
+            }
+        }
+        return chips;
+    }
+
+    @Test
     void immutableSnapshotIsReusedUntilTheInventoryChanges() {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
         inventory.deposit(List.of(chip(0.1d,

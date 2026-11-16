@@ -58,7 +58,7 @@ final class GdxAppearanceOptions {
     }
 
     static final Choice TABLE_VIEW = exact(GdxSettingsContract.TABLE_VIEW_KEY,
-            "TIPO DE VISTA", "2d", new String[]{"2d", "3d"},
+            "TIPO DE VISTA", "3d", new String[]{"2d", "3d"},
             new String[]{"2D", "3D"});
 
     static boolean perspectiveTable(Properties properties) {

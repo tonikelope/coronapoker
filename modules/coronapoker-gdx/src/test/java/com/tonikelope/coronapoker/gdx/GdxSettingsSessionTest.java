@@ -16,10 +16,10 @@ final class GdxSettingsSessionTest {
         for (var context : GdxSettingsSession.Context.values()) {
             session.begin(context, preferences);
             assertFalse(session.propertiesChanged(preferences));
-            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, preferences, 1);
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, preferences, 0);
             assertTrue(session.propertiesChanged(preferences));
             session.restore(preferences);
-            assertFalse(GdxAppearanceOptions.perspectiveTable(preferences));
+            assertTrue(GdxAppearanceOptions.perspectiveTable(preferences));
             assertFalse(session.propertiesChanged(preferences));
             session.close();
         }

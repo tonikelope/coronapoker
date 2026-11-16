@@ -42,13 +42,18 @@ final class GdxPocketOrderTest {
             float hb=nextB.layers()*GdxPerspectiveTable.pocketLayerHeight(1,1)+nextB.lift();
             // A conservative rotated-card footprint. Layers can only change
             // while the sheets are fully separated on the table.
-            if(Math.abs(nextA.x()-nextB.x()) < 1.08f) {
+            if(Math.abs(nextA.x()-nextB.x()) < halfWidth(nextA) + halfWidth(nextB)) {
                 assertTrue(Math.abs(ha-hb) >= GdxPlasticCard.thickness(1), "Intersecting sheets");
             }
             a=nextA; b=nextB;
         }
         assertEquals(GdxPocketOrder.Pose.resting(1),a);
         assertEquals(GdxPocketOrder.Pose.resting(0),b);
+    }
+
+    private static float halfWidth(GdxPocketOrder.Pose pose) {
+        double angle = Math.toRadians(pose.fan());
+        return (float) (Math.cos(angle) + 1.40 * Math.abs(Math.sin(angle))) * .5f;
     }
 
     @Test void reconnectAndDisabledAnimationHaveStableSortedPresentation() {

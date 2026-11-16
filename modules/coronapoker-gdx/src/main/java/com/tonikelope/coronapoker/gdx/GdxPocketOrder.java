@@ -74,10 +74,13 @@ final class GdxPocketOrder {
         float cross = ease((p - .34f) / .32f);
         float settle = ease((p - .66f) / .12f);
         float join = ease((p - .78f) / .22f);
-        float x = sign * MathUtils.lerp(.18f, .75f, spread) * (1f - 2f * cross);
+        float x = sign * MathUtils.lerp(.18f, .508f, spread) * (1f - 2f * cross);
         x = MathUtils.lerp(x, -sign * .18f, join);
         float lift = identity == 1 ? .07f * ease((p - .22f) / .12f) * (1f - settle) : 0f;
-        return new Pose(target, x, -3f * sign * (1f - 2f * cross),
+        // Align the long sides when the cards exchange height, so the
+        // necessary gap stays inside the corridor between the stacks.
+        float fan = -3f * sign * (1f - 2f * cross) * (1f - spread * (1f - join));
+        return new Pose(target, x, fan,
                 MathUtils.lerp(identity, target, settle), lift);
     }
 

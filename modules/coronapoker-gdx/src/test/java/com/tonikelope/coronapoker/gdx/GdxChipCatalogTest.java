@@ -12,6 +12,24 @@ import org.junit.jupiter.api.Test;
 final class GdxChipCatalogTest {
 
     @Test
+    void viewerColoursUpInsteadOfShrinkingCrowdedPiles() {
+        var stack = stackWithCounts(100, 0, 0, 0);
+        var area = new Rectangle(0, 0, 950, 360);
+        var original = CoronaPokerGdxTable.detailedStackPlacements(stack, area);
+        var fitted = CoronaPokerGdxTable.detailedStackColourUpPlacements(stack, area, .1d);
+        assertTrue(fitted.size() < original.size());
+        assertTrue(fitted.get(0).chipDiameter() > original.get(0).chipDiameter());
+        assertTrue(fitted.stream().allMatch(placement -> placement.pile().chipCount() <= 10));
+        assertEquals(stack.representedMinor(), fitted.stream().mapToLong(placement ->
+                10L * placement.pile().chipCount() * GdxChipDenominations.units(
+                        placement.pile().denominationColumn())).sum());
+
+        var small = stackWithCounts(5, 8, 4, 6);
+        assertEquals(CoronaPokerGdxTable.detailedStackPlacements(small, area),
+                CoronaPokerGdxTable.detailedStackColourUpPlacements(small, area, .1d));
+    }
+
+    @Test
     void fullHdViewerSeparatesRackStackBuyInAndCloseControl() {
         CoronaPokerGdxTable.ChipCatalogLayout layout =
                 CoronaPokerGdxTable.chipCatalogLayout(1_920f, 1_080f);

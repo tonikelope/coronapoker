@@ -1434,8 +1434,8 @@ final class GdxSettingsContract {
             properties.setProperty("color_tapete", "verde");
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
-            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW,
-                    properties, 0);
+            var view = GdxAppearanceOptions.TABLE_VIEW;
+            properties.setProperty(view.key(), view.fallback());
             properties.setProperty(GdxChipAmountText.ZEROS_KEY,
                     GdxChipAmountText.ZeroMode.DEFAULT.setting);
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {
@@ -1488,7 +1488,7 @@ final class GdxSettingsContract {
                     && stringAtDefault(properties, "nivel_luz",
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
-            if (!visualDefaults || GdxAppearanceOptions.perspectiveTable(properties)
+            if (!visualDefaults || !GdxAppearanceOptions.isDefault(GdxAppearanceOptions.TABLE_VIEW, properties)
                     || GdxChipAmountText.ZeroMode.configured(properties)
                     != GdxChipAmountText.ZeroMode.DEFAULT) return false;
             for (ToggleOption option : APPEARANCE_TABLE_PAGE.options()) {

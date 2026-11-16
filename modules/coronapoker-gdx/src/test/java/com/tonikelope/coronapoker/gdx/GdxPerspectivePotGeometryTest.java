@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker.gdx;
 
+import com.badlogic.gdx.utils.GdxNativesLoader;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,11 +52,41 @@ class GdxPerspectivePotGeometryTest {
 
     @Test void playerOnlyOpensTheRightSideWhenTheLeftIsFull() {
         var rack = new GdxTableChipSlots(GdxTableChipSlots.LOCAL_SLOT_COUNT);
-        rack.arrange(new int[]{10, 10, 10, 10});
+        rack.arrange(new int[]{20, 20, 10, 10});
         for (int column = 0; column < 4; column++) assertEquals(column, rack.slot(column, 0));
-        rack.arrange(new int[]{11, 10, 10, 10});
-        assertEquals(4, rack.slot(0, 1));
-        assertEquals(1, rack.height(0, 1, 11));
+        rack.arrange(new int[]{21, 20, 10, 10});
+        assertEquals(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT, rack.slot(0, 2));
+        assertEquals(1, rack.height(0, 2, 21));
+        rack.arrange(new int[]{21, 20, 10, 0});
+        rack.compactLocalLeft();
+        assertEquals(3, rack.slot(0, 2));
+    }
+
+    @Test void fullLeftBankKeepsTheCommunityCardsVisibleFromTheGameCamera() {
+        GdxNativesLoader.load();
+        for (float height : new float[]{1080f, 1120f, 1200f, 1440f}) {
+            float width = 1920f;
+            float centerY = height * .52f;
+            var camera = new GdxPerspectiveTable(4);
+            float boardHeight = 140f * 1242f / 923f;
+            camera.layout(width, height, centerY + boardHeight * .14f);
+            float pocketY = height * CoronaPokerGdxTable.createSeatAnchors(9)[0][1] + 162f;
+            float rackY = camera.layoutBoardAt(width / 2f, pocketY).y - 140f * .46f;
+            float boardFront = camera.boardToScreen(width / 2f, centerY - boardHeight * .36f - 52f).y;
+            float bank = CoronaPokerGdxTable.localChipBankOffset(140f);
+            for (int slot = 0; slot < GdxTableChipSlots.LOCAL_SLOT_COUNT; slot++) {
+                int chips = GdxTableChipRack.CHIPS_PER_PILE;
+                float x = width / 2f + GdxTableChipRack.localX(slot, DIAMETER, bank);
+                float y = rackY + GdxTableChipRack.localOffsetY(slot, DIAMETER, height);
+                float reach = DIAMETER * (.50f + .048f * GdxTableChipRack.localDepthSway(height));
+                float chipTop = camera.chipPointToScreen(x, y + reach,
+                        chips * GdxTableChipRack.thickness(DIAMETER)).y;
+                assertTrue(chipTop < boardFront - 3f, "height " + height + ", slot " + slot
+                        + ", clearance " + (boardFront - chipTop));
+                float bottom = camera.chipPointToScreen(x, y - DIAMETER * .52f, 0f).y;
+                assertTrue(bottom > 141f, "The chip base must clear the HUD, height " + height + ", slot " + slot);
+            }
+        }
     }
 
     @Test void everyColourOnlyGrowsDuringTheStartingFillAndReachesFullInventory() {
@@ -229,8 +260,8 @@ class GdxPerspectivePotGeometryTest {
                 "Markings", true, GdxSettingsContract.Gate.NONE, false);
         var preferences = new Properties();
         assertTrue(option.fallback());
-        assertFalse(GdxSettingsContract.enabled(option, preferences, true));
-        preferences.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, "3d");
         assertTrue(GdxSettingsContract.enabled(option, preferences, true));
+        preferences.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, "2d");
+        assertFalse(GdxSettingsContract.enabled(option, preferences, true));
     }
 }

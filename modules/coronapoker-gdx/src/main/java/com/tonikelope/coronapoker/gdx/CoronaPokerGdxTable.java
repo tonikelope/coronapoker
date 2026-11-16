@@ -14909,7 +14909,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
         Rectangle r = pocketPeekButton;
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(mousePeekHeld ? ORANGE : CYAN);
+        shapes.setColor(pocketPeekRequested() ? ORANGE : CYAN);
         roundedRect(r.x, r.y, r.width, r.height, 12f);
         shapes.setColor(0.08f, 0.11f, 0.15f, 1f);
         roundedRect(r.x + 2f, r.y + 2f, r.width - 4f, r.height - 4f, 10f);
@@ -14922,6 +14922,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedMoneyInBox(settingsBodyFont, "V", r.x + 43f, r.y + 9f,
                 19f, 24f, Color.WHITE, 1f);
         batch.end();
+    }
+
+    private boolean pocketPeekRequested() {
+        return mousePeekHeld || Gdx.input.isKeyPressed(Input.Keys.V)
+                && !modifierPressed(Input.Keys.CONTROL_LEFT, Input.Keys.CONTROL_RIGHT)
+                && !modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT)
+                && !modifierPressed(Input.Keys.SHIFT_LEFT, Input.Keys.SHIFT_RIGHT);
     }
 
     private void drawPerspectivePocket(float cardWidth, float cardHeight) {
@@ -14951,11 +14958,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 .anyMatch(card -> card.visible() && !card.code().isBlank());
         if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) mousePeekHeld = false;
         if (canPeek) {
-            boolean plain = !modifierPressed(Input.Keys.CONTROL_LEFT, Input.Keys.CONTROL_RIGHT)
-                    && !modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT)
-                    && !modifierPressed(Input.Keys.SHIFT_LEFT, Input.Keys.SHIFT_RIGHT);
-            perspectiveTable.updatePeek(mousePeekHeld || plain && Gdx.input.isKeyPressed(Input.Keys.V),
-                    Gdx.graphics.getDeltaTime());
+            perspectiveTable.updatePeek(pocketPeekRequested(), Gdx.graphics.getDeltaTime());
         } else {
             mousePeekHeld = false;
             perspectiveTable.coverCards();

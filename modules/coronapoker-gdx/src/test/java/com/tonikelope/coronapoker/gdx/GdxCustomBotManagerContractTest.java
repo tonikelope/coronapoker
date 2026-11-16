@@ -43,7 +43,7 @@ final class GdxCustomBotManagerContractTest {
         assertFalse(source.contains(
                 "musicMasterEnabled() && customBotDialogMusic\n"
                 + "                && preferenceBoolean(\"sonido_ascensor\", true)"));
-        assertTrue(source.contains("customBotManagerMusic.dispose();"));
+        assertTrue(source.contains("disposeMusic(customBotManagerMusic);"));
         assertTrue(source.contains("drawCustomBotManagerListLayer();\n"
                 + "                drawCustomBotDeleteConfirmationTopLayer();"));
         assertTrue(source.contains(".displayName()));"));

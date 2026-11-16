@@ -142,6 +142,9 @@ Changing `call.wav` to another filename does not create a new call slot.
 
 ### Music slots
 
+Only table music ships with the game. To enable music on another screen, supply
+a track for that slot in your local MOD. Settings lists the slots the MOD provides.
+
 | Relative path under `mod/sounds` | Use |
 | --- | --- |
 | `misc/background_music.mp3` | Table music |

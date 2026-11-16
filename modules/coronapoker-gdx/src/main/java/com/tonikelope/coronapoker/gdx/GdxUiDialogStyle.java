@@ -64,24 +64,39 @@ final class GdxUiDialogStyle {
     static BitmapFont fitMessage(GlyphLayout layout, String message,
             Color color, float width, float height, int shortTextAlignment,
             GdxCrispButtonText.FontTiers tiers, GdxCrispButtonText.Result fit) {
+        return fitMessage(layout, message, color, width, height, shortTextAlignment,
+                tiers, fit, true);
+    }
+
+    static BitmapFont fitMessage(GlyphLayout layout, String message,
+            Color color, float width, float height, int shortTextAlignment,
+            GdxCrispButtonText.FontTiers tiers, GdxCrispButtonText.Result fit,
+            boolean justifyWrapped) {
         String text = formatNoticeMessage(message);
         GdxCrispButtonText.resolveWrapped(layout, text, color, width, height,
                 shortTextAlignment, tiers, fit);
         BitmapFont font = fit.font();
-        layoutMessage(layout, font, text, color, width, height, shortTextAlignment);
+        layoutMessage(layout, font, text, color, width, height, shortTextAlignment,
+                justifyWrapped);
         return font;
     }
 
     static void layoutMessage(GlyphLayout layout, BitmapFont font,
             String message, Color color, float width, float height,
             int shortTextAlignment) {
+        layoutMessage(layout, font, message, color, width, height, shortTextAlignment, true);
+    }
+
+    static void layoutMessage(GlyphLayout layout, BitmapFont font,
+            String message, Color color, float width, float height,
+            int shortTextAlignment, boolean justifyWrapped) {
         layout.setText(font, message, color, width, shortTextAlignment, true);
         if (layout.height > height || layout.width > width) {
             String excerpt = fittingExcerpt(layout, font, message, color,
                     width, height);
             layout.setText(font, excerpt, color, width, shortTextAlignment, true);
         }
-        if (layout.runs.size < 2) return;
+        if (!justifyWrapped || layout.runs.size < 2) return;
         for (GlyphRun line : layout.runs) {
             line.x = 0f;
             if (line.wrapState == WrapState.wrapped) {

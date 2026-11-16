@@ -4,6 +4,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.PreferencesService;
@@ -19,11 +20,11 @@ import org.junit.jupiter.api.io.TempDir;
 final class GdxGameAudioResourcesTest {
 
     @Test
-    void bundledBotManagerMusicIsAvailable() throws Exception {
-        try (InputStream input = getClass().getResourceAsStream(
-                "/sounds/misc/bots_manager.mp3")) {
-            assertNotNull(input, "bot manager music resource");
-            assertEquals(4, input.readNBytes(4).length);
+    void onlyGameBackgroundMusicIsBundled() {
+        assertNotNull(getClass().getResource("/sounds/misc/background_music.mp3"));
+        for (String slot : new String[]{"waiting_room.mp3", "about_music.mp3",
+                "stats_music.mp3", "bots_manager.mp3", "recovering.mp3"}) {
+            assertNull(getClass().getResource("/sounds/misc/" + slot), slot);
         }
     }
 
@@ -47,7 +48,7 @@ final class GdxGameAudioResourcesTest {
                 "<mod><name>Audio test</name><version>1</version></mod>");
         String[] musicSlots = {
             "background_music.mp3", "waiting_room.mp3", "about_music.mp3",
-            "stats_music.mp3", "bots_manager.mp3"
+            "stats_music.mp3", "bots_manager.mp3", "recovering.mp3"
         };
         for (String slot : musicSlots) {
             Files.writeString(mod.resolve(slot), "external music");

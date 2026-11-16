@@ -574,10 +574,16 @@ final class GdxSettingsContract {
             GdxGamePresentationSettings settings, String language) {
         int index = Math.max(0, Math.min(pageIndex, AUDIO_PAGES.size() - 1));
         TogglePage page = AUDIO_PAGES.get(index);
-        return page == AUDIO_FUNNY_SOUNDS_PAGE
-                ? GdxGameAudioResources.jokeSoundsPage(settings, language,
-                        page)
-                : page;
+        if (page == AUDIO_FUNNY_SOUNDS_PAGE) {
+            return GdxGameAudioResources.jokeSoundsPage(settings, language, page);
+        }
+        if (page != AUDIO_SOURCE_PAGES.get(1)) return page;
+        return new TogglePage(page.title(), page.options().stream()
+                .filter(option -> option.gate() != Gate.MUSIC
+                        || "sonido_ascensor".equals(option.key())
+                        || GdxGameAudioResources.modOverride(settings,
+                                audioPreview(option, language).resource()).isPresent())
+                .toList());
     }
 
     /** Appearance switches shared with Swing; choice controls are separate. */

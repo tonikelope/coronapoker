@@ -68,6 +68,16 @@ final class GdxUiDialogStyleTest {
         assertEquals('…', lastLine.glyphs.peek().id);
     }
 
+    @Test
+    void explicitlyCenteredCreditsKeepEachLineCentered() {
+        var layout = new GlyphLayout();
+        GdxUiDialogStyle.layoutMessage(layout, messageFont(), "ab\np:q",
+                Color.WHITE, 50f, 80f, Align.center, false);
+        assertEquals(2, layout.runs.size);
+        assertEquals(15f, layout.runs.get(0).x);
+        assertEquals(10f, layout.runs.get(1).x);
+    }
+
     private static BitmapFont messageFont() {
         var data = new BitmapFontData();
         data.capHeight = 10f;

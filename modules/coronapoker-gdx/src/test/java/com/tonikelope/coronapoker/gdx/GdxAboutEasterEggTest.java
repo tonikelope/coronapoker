@@ -28,28 +28,12 @@ final class GdxAboutEasterEggTest {
     }
 
     @Test
-    void aboutCopyKeepsClearRhythmOnTheSingleDialogBackground() {
-        float mourningIconBottom = GdxFrontendScreen.ABOUT_MEMORIAL_CENTER_Y
-                - GdxFrontendScreen.ABOUT_MOURNING_ICON_SIZE / 2f;
-
-        assertTrue(mourningIconBottom
-                > GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y + 20f,
-                "the memorial must remain visually separate from music copy");
-        float lastMusicLine = GdxFrontendScreen.ABOUT_MUSIC_FIRST_LINE_Y
-                - (GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT - 1)
-                * GdxFrontendScreen.ABOUT_MUSIC_LINE_GAP;
-        assertTrue(lastMusicLine
-                - GdxFrontendScreen.ABOUT_COPYRIGHT_Y >= 24f,
-                "the copyright note must not overlap the last music credit");
-        assertTrue(GdxFrontendScreen.ABOUT_COPYRIGHT_MAX_LINES >= 2,
-                "the full email address needs a second line when required");
-        float copyrightBottom = GdxFrontendScreen.ABOUT_COPYRIGHT_Y
-                - (GdxFrontendScreen.ABOUT_COPYRIGHT_MAX_LINES - 1)
-                * GdxFrontendScreen.ABOUT_COPYRIGHT_LINE_HEIGHT;
-        assertTrue(copyrightBottom - 226f >= 58f,
-                "copyright and handmade credits need breathing room");
-        assertEquals(6, GdxFrontendScreen.ABOUT_MUSIC_CREDIT_COUNT,
-                "all six music surfaces need an explicit credit");
+    void bundledGameMusicIsCreditedInBothLanguages() {
+        for (String language : new String[]{"es", "en"}) {
+            GdxGameText text = new GdxGameText(language);
+            assertTrue(text.translate("about.musica_juego").contains("David Luong"));
+            assertTrue(text.translate("about.software_license").contains("GPLv3"));
+        }
     }
 
     @Test
@@ -101,30 +85,6 @@ final class GdxAboutEasterEggTest {
                 GdxFrontendScreen.ABOUT_PROJECT_URI.toString());
         assertEquals("%PDF-", new String(resource(GdxRobertRulesAssets.ORIGINAL),
                 0, 5, java.nio.charset.StandardCharsets.US_ASCII));
-    }
-
-    @Test
-    void creditsTheBotManagerTerminatorSoundtrackInBothLanguages() {
-        String spanish = new GdxGameText("es").translate(
-                "about.musica_gestor_bots");
-        String english = new GdxGameText("en").translate(
-                "about.musica_gestor_bots");
-
-        assertTrue(spanish.contains("The Terminator"));
-        assertTrue(spanish.contains("Brad Fiedel"));
-        assertTrue(english.contains("The Terminator"));
-        assertTrue(english.contains("Brad Fiedel"));
-    }
-
-    @Test
-    void creditsTheRecoveryDragonBallSoundtrackInBothLanguages() {
-        String spanish = new GdxGameText("es").translate(
-                "about.musica_recuperacion");
-        String english = new GdxGameText("en").translate(
-                "about.musica_recuperacion");
-
-        assertTrue(spanish.contains("Dragon Ball Z"));
-        assertTrue(english.contains("Dragon Ball Z"));
     }
 
     private static void assertImage(String path, int width, int height)

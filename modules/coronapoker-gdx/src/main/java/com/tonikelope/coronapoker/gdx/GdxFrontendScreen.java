@@ -341,19 +341,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
     private static final float TEXT_SEND_COOLDOWN_SECONDS = 0.5f;
     private static final float ABOUT_LOGO_WIDTH = 180f;
-    private static final float ABOUT_LOGO_Y = 748f;
+    private static final float ABOUT_LOGO_Y = 640f;
     // About is a dedicated reading surface, not translucent glass over the
     // main menu. Its opaque, lighter slate keeps both copy and the original
     // black mourning ribbon legible without changing every other dialog.
     static final int ABOUT_PANEL_RGBA = 0x2b415cff;
-    static final float ABOUT_MEMORIAL_CENTER_Y = 542f;
+    static final float ABOUT_MEMORIAL_CENTER_Y = 434f;
     static final float ABOUT_MOURNING_ICON_SIZE = 68f;
-    static final float ABOUT_MUSIC_FIRST_LINE_Y = 448f;
-    static final float ABOUT_MUSIC_LINE_GAP = 22f;
-    static final int ABOUT_MUSIC_CREDIT_COUNT = 6;
-    static final float ABOUT_COPYRIGHT_Y = 306f;
-    static final float ABOUT_COPYRIGHT_LINE_HEIGHT = 22f;
-    static final int ABOUT_COPYRIGHT_MAX_LINES = 2;
+    private static final float ABOUT_RULES_Y = 352f;
+    private static final float ABOUT_HANDMADE_BASELINE = 334f;
+    private static final String COPYRIGHT_SYMBOL = "©";
+    private static final URI GPL_V3_URI = URI.create(
+            "https://www.gnu.org/licenses/gpl-3.0.html");
     static final float ABOUT_CONTENT_WIDTH = 1060f;
     static final float HAND_GENERATOR_PANEL_X = 410f;
     static final float HAND_GENERATOR_PANEL_Y = 178f;
@@ -738,6 +737,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxVoiceNoteLibrary.Entry voiceNoteDeleteConfirmation;
     private boolean voiceNotesPurgeConfirmation;
     private boolean aboutOpen;
+    private boolean aboutCopyrightOpen;
     private boolean handGeneratorOpen;
     private int aboutEasterEggClicks;
     private Texture aboutEasterEggTexture;
@@ -1700,31 +1700,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (aboutOpen && handGeneratorOpen) {
                 drawHandGeneratorCards();
             } else if (aboutOpen && aboutEasterEggTexture == null) {
-                float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
-                        / logo.getWidth();
-                float logoX = aboutModIcon == null
-                        ? WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f
-                        : WIDTH / 2f - ABOUT_LOGO_WIDTH - 16f;
-                batch.setColor(Color.WHITE);
-                batch.draw(logo, logoX,
-                        ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
-                if (aboutModIcon != null) {
-                    Rectangle modBounds = aboutModIconBounds(logoHeight);
-                    batch.draw(aboutModIcon, modBounds.x, modBounds.y,
-                            modBounds.width, modBounds.height);
-                }
-                // Keep the mourning ribbon visually attached to the memorial
-                // line, as in the original Swing composition. The previous
-                // far-left placement looked like an unrelated control.
-                batch.draw(aboutMourningIcon, WIDTH / 2f - 438f,
-                        ABOUT_MEMORIAL_CENTER_Y
-                                - ABOUT_MOURNING_ICON_SIZE / 2f,
-                        ABOUT_MOURNING_ICON_SIZE,
-                        ABOUT_MOURNING_ICON_SIZE);
-                batch.draw(robertRulesIcon, WIDTH / 2f - 21f, 244f,
-                        42f, 42f);
-                batch.draw(aboutCrossIcon, WIDTH / 2f - 338f, 214f,
-                        23f, 15f);
+                drawAboutImages();
             } else if (aboutEasterEggTexture != null) {
                 int backBufferWidth = Gdx.graphics.getBackBufferWidth();
                 int backBufferHeight = Gdx.graphics.getBackBufferHeight();
@@ -1865,6 +1841,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.end();
                 batch.begin();
                 if (customBotManagerOpen) drawCustomBotManagerImages();
+                if (aboutOpen && aboutCopyrightOpen) drawAboutImages();
                 for (TextItem item : texts) drawTextItem(item);
                 batch.end();
                 if (customBotManagerOpen) drawCustomBotManagerListLayer();
@@ -1896,6 +1873,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
             batch.begin();
             if (customBotManagerOpen) drawCustomBotManagerImages();
+            if (aboutOpen && aboutCopyrightOpen) drawAboutImages();
             for (TextItem item : texts) drawTextItem(item);
             batch.end();
             if (customBotManagerOpen) drawCustomBotManagerListLayer();
@@ -1914,6 +1892,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNestedModalParent() {
+        if (aboutOpen && aboutCopyrightOpen) {
+            drawAboutDialog();
+            return;
+        }
         if (customBotManagerOpen && customBotDeleteConfirmation) {
             drawCustomBotManagerDialog();
             return;
@@ -1957,7 +1939,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        if (networkBlocksOpen && networkBlockUnblockConfirmation != null) {
+        if (aboutOpen && aboutCopyrightOpen) {
+            drawAboutCopyrightDialog();
+        } else if (networkBlocksOpen && networkBlockUnblockConfirmation != null) {
             drawNetworkBlockUnblockConfirmation();
         } else if (voiceNotesOpen && (voiceNoteDeleteConfirmation != null
                 || voiceNotesPurgeConfirmation)) {
@@ -2179,8 +2163,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private boolean hasNestedFrontendModal() {
-        return pendingLanguage == null && !applicationExitConfirmation
-                && ((surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
+        return pendingLanguage == null && !frontendNoticeOwnsPointer()
+                && (aboutOpen && aboutCopyrightOpen
+                || (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
                         && customBotManagerOpen
                         && customBotDeleteConfirmation
                 || surface == Surface.LOBBY && networkBlocksOpen
@@ -5285,6 +5270,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openAboutDialog() {
+        aboutCopyrightOpen = false;
         aboutOpen = true;
         handGeneratorOpen = false;
         aboutEasterEggClicks = 0;
@@ -5295,12 +5281,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeAboutDialog() {
+        aboutCopyrightOpen = false;
         rulesWindow.close();
         disposeAboutEasterEgg();
         handGeneratorOpen = false;
         aboutEasterEggClicks = 0;
         aboutOpen = false;
         syncMusicForSurface();
+    }
+
+    private void openAboutCopyright() {
+        aboutCopyrightOpen = true;
+        captureFrontendModalInput();
+    }
+
+    private void closeAboutCopyright() {
+        aboutCopyrightOpen = false;
+        captureFrontendModalInput();
     }
 
     private void openRobertRules() {
@@ -5775,7 +5772,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.app.exit();
     }
 
-    /** Native GDX counterpart of Swing's AboutDialog, including its music. */
+    /** Native GDX counterpart of Swing's AboutDialog. */
     private void drawAboutDialog() {
         hits.clear();
         secondaryHits.clear();
@@ -5794,10 +5791,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
 
-        float x = 310f;
-        float y = 58f;
         float w = 1300f;
-        float h = 964f;
+        float h = 748f;
+        float x = (WIDTH - w) / 2f;
+        float y = (HEIGHT - h) / 2f;
         Color aboutPanel = new Color(ABOUT_PANEL_RGBA);
         GdxUiDialogStyle.drawPanel(shapes, x, y, w, h,
                 aboutPanel, CYAN, 1f);
@@ -5809,9 +5806,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         float aboutLogoHeight = ABOUT_LOGO_WIDTH * logo.getHeight()
                 / logo.getWidth();
-        float aboutLogoX = aboutModIcon == null
-                ? WIDTH / 2f - ABOUT_LOGO_WIDTH / 2f
-                : WIDTH / 2f - ABOUT_LOGO_WIDTH - 16f;
+        float aboutLogoX = aboutLogoX(aboutLogoHeight);
         hit(aboutLogoX, ABOUT_LOGO_Y,
                 ABOUT_LOGO_WIDTH, aboutLogoHeight,
                 () -> openExternalUri(ABOUT_PROJECT_URI,
@@ -5836,58 +5831,36 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         String thanks = gameText.translate("about.gracias_1") + " "
                 + gameText.translate("about.gracias_2");
-        dialogMessage(smallFont, thanks,
-                new Rectangle(x + 65f, 634f, w - 130f, 50f), MUTED);
-        dialogMessage(smallFont, gameText.translate("about.centimos"),
-                new Rectangle(x + 65f, 584f, w - 130f, 46f), MUTED);
+        centeredDialogMessage(smallFont, thanks,
+                new Rectangle(x + 65f, 526f, w - 130f, 50f), MUTED);
+        centeredDialogMessage(smallFont, gameText.translate("about.centimos"),
+                new Rectangle(x + 65f, 476f, w - 130f, 46f), MUTED);
+        drawAboutMemorial();
 
-        textFit(headingFont, gameText.translate("about.dedicado"),
-                WIDTH / 2f, ABOUT_MEMORIAL_CENTER_Y,
-                Color.WHITE, true, 830f);
-
-        String[] musicKeys = {
-            "about.musica_juego", "about.musica_espera",
-            "about.musica_stats", "about.musica_gestor_bots",
-            "about.musica_recuperacion", "about.musica_about"
-        };
-        String musicCredits = Arrays.stream(musicKeys)
-                .map(gameText::translate)
-                .collect(java.util.stream.Collectors.joining("\n"));
-        float musicHeight = ABOUT_MUSIC_LINE_GAP * ABOUT_MUSIC_CREDIT_COUNT;
-        dialogMessage(smallFont, musicCredits,
-                new Rectangle(x + 75f, ABOUT_MUSIC_FIRST_LINE_Y - musicHeight,
-                        w - 150f, musicHeight), MUTED);
-
-        float copyrightHeight = ABOUT_COPYRIGHT_LINE_HEIGHT * ABOUT_COPYRIGHT_MAX_LINES;
-        dialogMessage(smallFont, gameText.translate("about.copyright"),
-                new Rectangle(x + 75f, ABOUT_COPYRIGHT_Y - copyrightHeight / 2f,
-                        w - 150f, copyrightHeight), MUTED);
-        hit(WIDTH / 2f - 30f, 235f, 60f, 60f, this::openRobertRules);
-        tooltip(WIDTH / 2f - 30f, 235f, 60f, 60f, "tooltip.robert_rules");
-        textFit(smallFont, gameText.translate("about.hecho_a_mano"),
-                WIDTH / 2f, 226f, Color.WHITE, true,
-                ABOUT_CONTENT_WIDTH - 90f);
+        hit(WIDTH / 2f - 30f, ABOUT_RULES_Y - 9f, 60f, 60f, this::openRobertRules);
+        tooltip(WIDTH / 2f - 30f, ABOUT_RULES_Y - 9f, 60f, 60f, "tooltip.robert_rules");
+        drawAboutHandmadeCredit();
         float footerStart = contentX + 26f;
         float footerWidth = ABOUT_CONTENT_WIDTH - 52f;
         float buildWidth = footerWidth * 0.18f;
         float runtimeWidth = footerWidth * 0.24f;
         float systemWidth = footerWidth - buildWidth - runtimeWidth;
         textFit(smallFont, "Jn 8:32",
-                footerStart + buildWidth / 2f, 174f,
+                footerStart + buildWidth / 2f, 282f,
                 MUTED, true, buildWidth - 30f);
         String runtime = aboutRuntimeText() + " "
                 + gameText.translate("ui.hilos");
         textFit(smallFont, runtime,
-                footerStart + buildWidth + runtimeWidth / 2f, 174f,
+                footerStart + buildWidth + runtimeWidth / 2f, 282f,
                 MUTED, true, runtimeWidth - 30f);
         String system = aboutSystemText();
         textFit(smallFont, system,
                 footerStart + buildWidth + runtimeWidth + systemWidth / 2f,
-                174f, MUTED, true, systemWidth - 30f);
-        hit(footerStart + buildWidth + runtimeWidth, 152f,
+                282f, MUTED, true, systemWidth - 30f);
+        hit(footerStart + buildWidth + runtimeWidth, 260f,
                 systemWidth, 32f,
                 () -> activateAboutEasterEgg(false));
-        secondaryHit(footerStart + buildWidth + runtimeWidth, 152f,
+        secondaryHit(footerStart + buildWidth + runtimeWidth, 260f,
                 systemWidth, 32f,
                 () -> activateAboutEasterEgg(true));
         themedButton(WIDTH / 2f - 325f, y + 18f, 310f, 58f,
@@ -5896,6 +5869,97 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(WIDTH / 2f + 15f, y + 18f, 310f, 58f,
                 uppercase(gameText.translate("ui.cerrar")),
                 ButtonTone.NEUTRAL, this::closeAboutDialog, true);
+    }
+
+    private void drawAboutMemorial() {
+        TextItem memorial = aboutMemorialText();
+        float start = (WIDTH - ABOUT_MOURNING_ICON_SIZE
+                - textWidth(memorial.font(), memorial.text())) / 2f;
+        text(memorial.font(), memorial.text(), start + ABOUT_MOURNING_ICON_SIZE,
+                ABOUT_MEMORIAL_CENTER_Y, Color.WHITE, false);
+    }
+
+    private TextItem aboutMemorialText() {
+        return fittedTextItem(headingFont, gameText.translate("about.dedicado"),
+                0f, ABOUT_MEMORIAL_CENTER_Y, Color.WHITE, false, 830f);
+    }
+
+    private void drawAboutHandmadeCredit() {
+        TextItem credit = aboutHandmadeText();
+        BitmapFont font = credit.font();
+        float start = aboutHandmadeX(credit);
+        String value = credit.text();
+        int symbol = value.indexOf(COPYRIGHT_SYMBOL);
+        if (symbol < 0) {
+            text(font, value, start, ABOUT_HANDMADE_BASELINE, Color.WHITE, false);
+            return;
+        }
+        String before = value.substring(0, symbol).stripTrailing();
+        String after = value.substring(symbol + 1).stripLeading();
+        float symbolX = start + textWidth(font, before)
+                + (symbol > before.length() ? font.getSpaceXadvance() : 0f);
+        float symbolWidth = textWidth(font, COPYRIGHT_SYMBOL);
+        float symbolY = ABOUT_HANDMADE_BASELINE - font.getCapHeight() - 5f;
+        float hitWidth = symbolWidth + 10f;
+        float hitHeight = font.getCapHeight() + 10f;
+        boolean hover = hovered(symbolX - 5f, symbolY, hitWidth, hitHeight);
+        text(font, before, start, ABOUT_HANDMADE_BASELINE, Color.WHITE, false);
+        text(font, COPYRIGHT_SYMBOL, symbolX, ABOUT_HANDMADE_BASELINE,
+                hover ? CYAN : GOLD, false);
+        text(font, after, symbolX + symbolWidth
+                + (after.length() < value.length() - symbol - 1
+                        ? font.getSpaceXadvance() : 0f),
+                ABOUT_HANDMADE_BASELINE, Color.WHITE, false);
+        hit(symbolX - 5f, symbolY, hitWidth, hitHeight, this::openAboutCopyright);
+    }
+
+    private TextItem aboutHandmadeText() {
+        return fittedTextItem(smallFont, gameText.translate("about.hecho_a_mano"),
+                0f, ABOUT_HANDMADE_BASELINE, Color.WHITE, false,
+                ABOUT_CONTENT_WIDTH - 90f);
+    }
+
+    private float aboutHandmadeX(TextItem credit) {
+        return (WIDTH - textWidth(credit.font(), credit.text()) + 35f) / 2f;
+    }
+
+    private void drawAboutImages() {
+        float logoHeight = ABOUT_LOGO_WIDTH * logo.getHeight() / logo.getWidth();
+        batch.setColor(Color.WHITE);
+        batch.draw(logo, aboutLogoX(logoHeight), ABOUT_LOGO_Y, ABOUT_LOGO_WIDTH, logoHeight);
+        if (aboutModIcon != null) {
+            Rectangle modBounds = aboutModIconBounds(logoHeight);
+            batch.draw(aboutModIcon, modBounds.x, modBounds.y, modBounds.width, modBounds.height);
+        }
+        TextItem memorial = aboutMemorialText();
+        float memorialX = (WIDTH - ABOUT_MOURNING_ICON_SIZE
+                - textWidth(memorial.font(), memorial.text())) / 2f;
+        batch.draw(aboutMourningIcon, memorialX,
+                ABOUT_MEMORIAL_CENTER_Y - ABOUT_MOURNING_ICON_SIZE / 2f,
+                ABOUT_MOURNING_ICON_SIZE, ABOUT_MOURNING_ICON_SIZE);
+        batch.draw(robertRulesIcon, WIDTH / 2f - 21f, ABOUT_RULES_Y, 42f, 42f);
+        batch.draw(aboutCrossIcon, aboutHandmadeX(aboutHandmadeText()) - 35f,
+                ABOUT_HANDMADE_BASELINE - 15f, 23f, 15f);
+    }
+
+    private void drawAboutCopyrightDialog() {
+        float w = 960f;
+        float h = 354f;
+        float x = (WIDTH - w) / 2f;
+        float y = (HEIGHT - h) / 2f;
+        GdxUiDialogStyle.drawPanel(shapes, x, y, w, h, CYAN, 1f);
+        textFit(headingFont, "COPYRIGHT", WIDTH / 2f, y + h - 41f,
+                GOLD, true, w - 100f);
+        centeredDialogMessage(uiFont, gameText.translate("about.software_license"),
+                new Rectangle(x + 50f, y + 198f, w - 100f, 73f), Color.WHITE);
+        centeredDialogMessage(smallFont, gameText.translate("about.musica_juego"),
+                new Rectangle(x + 50f, y + 104f, w - 100f, 80f), MUTED);
+        themedButton(WIDTH / 2f - 225f, y + 30f, 210f, 52f,
+                "GPLv3", ButtonTone.NEUTRAL,
+                () -> openExternalUri(GPL_V3_URI, "gdx.about.open_failed"), true);
+        themedButton(WIDTH / 2f + 15f, y + 30f, 210f, 52f,
+                uppercase(gameText.translate("ui.cerrar")), ButtonTone.FEATURED,
+                this::closeAboutCopyright, true);
     }
 
     private void drawHandGeneratorDialog() {
@@ -6039,13 +6103,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 menuRevealProgress(), aboutOpen || updatePromptOpen || updateCheckingModalVisible());
     }
 
+    private float aboutLogoX(float coronaLogoHeight) {
+        Rectangle mod = aboutModIconBounds(coronaLogoHeight);
+        float rowWidth = ABOUT_LOGO_WIDTH + (mod.width > 0f ? 32f + mod.width : 0f);
+        return (WIDTH - rowWidth) / 2f;
+    }
+
     private Rectangle aboutModIconBounds(float coronaLogoHeight) {
         if (aboutModIcon == null) return new Rectangle();
         float scale = Math.min(180f / aboutModIcon.getWidth(),
                 72f / aboutModIcon.getHeight());
         float width = aboutModIcon.getWidth() * scale;
         float height = aboutModIcon.getHeight() * scale;
-        return new Rectangle(WIDTH / 2f + 16f,
+        return new Rectangle((WIDTH + ABOUT_LOGO_WIDTH + 32f - width) / 2f,
                 ABOUT_LOGO_Y + (coronaLogoHeight - height) / 2f,
                 width, height);
     }
@@ -11378,10 +11448,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music music(String path, float volume) {
         FileHandle resource = GdxGameAudioResources.resolve(
                 presentationSettings, path);
-        if (resource == null) {
-            throw new IllegalStateException("Missing CoronaPoker music "
-                    + path);
-        }
+        if (resource == null) return null;
         Music music = Gdx.audio.newMusic(resource);
         music.setLooping(true);
         music.setVolume(volume);
@@ -11408,12 +11475,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void syncMusicForSurface() {
-        if (backgroundMusic == null || waitingRoomMusic == null
-                || aboutMusic == null || statsMusic == null
-                || customBotManagerMusic == null) return;
         float volume = masterVolume();
         GdxVoicePlayback.refreshVolume(volume);
-        setMusicVolume(backgroundMusic, 0.40f * volume);
         setMusicVolume(waitingRoomMusic, 0.90f * volume);
         setMusicVolume(aboutMusic, 0.90f * volume);
         setMusicVolume(statsMusic, 0.30f * volume);
@@ -11428,11 +11491,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
         boolean statsDialogMusic = surface == Surface.STATS;
         boolean customBotDialogMusic = customBotManagerOpen;
-        boolean playBackground = frontendTrackAllowed(tableAudioSuspended,
-                !startupAudioHeld
-                && musicMasterEnabled() && !lobbyMusic && !aboutDialogMusic
-                && !statsDialogMusic && !customBotDialogMusic
-                && preferenceBoolean("sonido_ascensor", true));
         boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && lobbyMusic && !lobbyVoiceCapture.busy()
                 && preferenceBoolean("musica_sala_espera", true));
@@ -11446,7 +11504,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 tableAudioSuspended,
                 musicMasterEnabled() && customBotDialogMusic
                 && preferenceBoolean("musica_gestor_bots", true));
-        syncTrack(backgroundMusic, playBackground);
         syncTrack(waitingRoomMusic, playWaitingRoom);
         syncTrack(aboutMusic, playAbout);
         syncTrack(statsMusic, playStats);
@@ -11454,6 +11511,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private static void setMusicVolume(Music music, float volume) {
+        if (music == null) return;
         try {
             music.setVolume(volume);
         } catch (RuntimeException unavailable) {
@@ -11462,6 +11520,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private static void syncTrack(Music music, boolean play) {
+        if (music == null) return;
         try {
             if (play) {
                 if (!music.isPlaying()) music.play();
@@ -11472,6 +11531,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // The physical endpoint can disappear between the topology poll
             // and this render turn. The next hotplug poll restores playback.
         }
+    }
+
+    private static void disposeMusic(Music music) {
+        if (music == null) return;
+        music.stop();
+        music.dispose();
     }
 
     static boolean frontendTrackAllowed(boolean tableAudioSuspended,
@@ -11510,6 +11575,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     void resumeMusic() {
         tableAudioSuspended = false;
+        syncTrack(backgroundMusic, false);
         syncMusicForSurface();
     }
 
@@ -16221,12 +16287,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Color(color), centered, bounds.width, bounds.height));
     }
 
+    private void centeredDialogMessage(BitmapFont font, String message,
+            Rectangle bounds, Color color) {
+        activeTextItems().add(new TextItem(font, message, bounds.x, bounds.y,
+                new Color(color), true, bounds.width, bounds.height, false));
+    }
+
     private void drawTextItem(TextItem item) {
         if (item.wrapWidth > 0f) {
             BitmapFont font = GdxUiDialogStyle.fitMessage(glyph, item.text,
                     item.color, item.wrapWidth, item.wrapHeight,
                     item.centered ? Align.center : Align.left,
-                    nativeTextTiers(item.font), crispButtonText);
+                    nativeTextTiers(item.font), crispButtonText, item.justifyWrapped);
             GdxPixelText.draw(font, batch, glyph, item.x,
                     item.y + (item.wrapHeight + glyph.height) / 2f, viewport);
             return;
@@ -17220,7 +17292,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 }
                 return true;
             } else if (aboutOpen) {
-                if (aboutEasterEggTexture != null) {
+                if (aboutCopyrightOpen) {
+                    closeAboutCopyright();
+                } else if (aboutEasterEggTexture != null) {
                     closeAboutEasterEgg();
                 } else if (handGeneratorOpen) {
                     closeHandGenerator();
@@ -17421,6 +17495,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * confirmation from also activating the table or screen below it.
      */
     private boolean acceptActiveFrontendDialog() {
+        if (aboutOpen && aboutCopyrightOpen && !frontendNoticeOwnsPointer()) {
+            closeAboutCopyright();
+            return true;
+        }
         if (modAdultWarning) {
             acceptModAdultContent();
             return true;
@@ -17949,16 +18027,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (Sound cue : preferenceSoundCues.values()) cue.dispose();
         preferenceSoundCues.clear();
         failedPreferenceSoundCues.clear();
-        backgroundMusic.stop();
-        backgroundMusic.dispose();
-        waitingRoomMusic.stop();
-        waitingRoomMusic.dispose();
-        aboutMusic.stop();
-        aboutMusic.dispose();
-        statsMusic.stop();
-        statsMusic.dispose();
-        customBotManagerMusic.stop();
-        customBotManagerMusic.dispose();
+        disposeMusic(backgroundMusic);
+        disposeMusic(waitingRoomMusic);
+        disposeMusic(aboutMusic);
+        disposeMusic(statsMusic);
+        disposeMusic(customBotManagerMusic);
         for (Texture texture : lobbyAvatarTextures.values()) {
             texture.dispose();
         }
@@ -18309,7 +18382,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private record TextItem(BitmapFont font, String text, float x, float y,
-            Color color, boolean centered, float wrapWidth, float wrapHeight) {
+            Color color, boolean centered, float wrapWidth, float wrapHeight,
+            boolean justifyWrapped) {
+
+        TextItem(BitmapFont font, String text, float x, float y, Color color,
+                boolean centered, float wrapWidth, float wrapHeight) {
+            this(font, text, x, y, color, centered, wrapWidth, wrapHeight, true);
+        }
 
         TextItem(BitmapFont font, String text, float x, float y, Color color,
                 boolean centered) {

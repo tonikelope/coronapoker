@@ -525,6 +525,10 @@ final class GdxPerspectiveTable implements Disposable {
         activePocketSlot = -1;
     }
 
+    void flushPocketPair() {
+        shell.flushPair();
+    }
+
     int pocketSlotAt(float x, float y) {
         near.set(2f * x / width - 1f, 2f * y / height - 1f, -1f).prj(inverseView);
         far.set(2f * x / width - 1f, 2f * y / height - 1f, 1f).prj(inverseView).sub(near).nor();

@@ -87,6 +87,10 @@ final class GdxCardShell implements Disposable {
 
     void endPair() {
         grouping = false;
+        flushPair();
+    }
+
+    void flushPair() {
         if (groupHasCards) composite(groupWidth, groupHeight);
         groupHasCards = false;
     }
@@ -106,8 +110,8 @@ final class GdxCardShell implements Disposable {
             shader.bind();
             gl.glEnable(GL20.GL_CULL_FACE);
             gl.glCullFace(GL20.GL_BACK);
-            // A dimmed upper sheet still occludes the lower sheet. Blend the
-            // complete packet with the table only after resolving its depth.
+            // Resolve the geometry of each opacity group before blending it
+            // with the table and any cards already drawn beneath it.
             if (pickTarget != null) pickTarget.triangles.clear();
             for (int side = 0; side < 2; side++) {
                 vertices.clear();

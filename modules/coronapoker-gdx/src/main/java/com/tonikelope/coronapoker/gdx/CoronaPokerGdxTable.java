@@ -14972,10 +14972,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int hoveredSlot = perspectiveTable.pocketSlotAt(pointer.x, pointer.y);
         GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
+        boolean faceUpPair = limit == 2 && publicHand && reveal == null && !pocketOrder.busy();
+        // The public fan puts physical slot zero in front. Draw the rear
+        // sheet first so a dimmed front sheet can blend over it as in 2D.
+        int rearSlot = faceUpPair && pocketOrder.pose(cards.get(0).code(), 0).slot() == 1 ? 0 : 1;
+        float previousOpacity = -1f;
         perspectiveTable.beginPocketPair();
         try {
             for (int layer = 0; layer < limit; layer++) {
-                int slot = limit == 1 ? 0 : holeCardSlotForLayer(first.x, second.x, layer);
+                int slot = limit == 1 ? 0 : faceUpPair ? (layer == 0 ? rearSlot : 1 - rearSlot)
+                        : holeCardSlotForLayer(first.x, second.x, layer);
                 TableSnapshot.CardSnapshot pocket = cards.get(slot);
                 if (!isRestingHoleCardVisible(pocket)
                         || perspectivePocketStillDealing(nickname, pocketOrder.dealtSlot(pocket.code(), slot))) continue;
@@ -14988,6 +14994,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float opacity = fold != null ? foldCardAlpha(fold.progress, true)
                         : folded && !showFace ? MathUtils.lerp(DISABLED_CARD_ALPHA, 1f, perspectiveTable.peekAmount())
                         : liveRestingCardAlpha(pocket, nickname, slot, false, hoveredSlot == slot);
+                if (faceUpPair && previousOpacity >= 0f && previousOpacity != opacity) {
+                    perspectiveTable.flushPocketPair();
+                }
+                previousOpacity = opacity;
                 float w = MathUtils.lerp(placement.width, cardWidth, perspectiveBlend);
                 float h = MathUtils.lerp(placement.height, cardHeight, perspectiveBlend);
                 float y = perspectivePocketY(placement);

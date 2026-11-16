@@ -156,7 +156,7 @@ final class GdxChipCatalogTest {
                 && placement.centerX() + placement.chipDiameter() / 2f
                         <= area.x + area.width + 0.001f));
         assertTrue(placements.stream().allMatch(placement
-                -> Math.abs(placement.chipDiameter() - 140f) < 0.001f),
+                -> Math.abs(placement.chipDiameter() - CoronaPokerGdxTable.detailedStackMaxChipSize()) < 0.001f),
                 "full-size chips must remain native while the rack fits");
         List<CoronaPokerGdxTable.DetailedStackPlacement> leftToRight =
                 placements.stream().sorted(
@@ -175,11 +175,13 @@ final class GdxChipCatalogTest {
                 CoronaPokerGdxTable.detailedStackPlacements(stack,
                         new Rectangle(0f, 0f, 300f, 180f));
         assertTrue(constrained.stream().allMatch(placement
-                -> placement.chipDiameter() < 140f),
+                -> placement.chipDiameter() < CoronaPokerGdxTable.detailedStackMaxChipSize()),
                 "only an overflowing rack may reduce its chip diameter");
-        assertEquals(CoronaPokerGdxTable.STACK_CHIP_PHYSICAL_THICKNESS_RATIO,
-                CoronaPokerGdxTable.stackChipPhysicalThickness(140f) / 140f,
-                0.000_001f);
+        float maxDiameter = CoronaPokerGdxTable.detailedStackMaxChipSize();
+        assertEquals(140f, maxDiameter);
+        assertEquals(GdxTableChipRack.thickness(maxDiameter)
+                        * com.badlogic.gdx.math.MathUtils.cosDeg(37f),
+                GdxPerspectiveTable.catalogChipStep(maxDiameter), .000_001f);
     }
 
     @Test
@@ -285,10 +287,9 @@ final class GdxChipCatalogTest {
             float bottom = CoronaPokerGdxTable.detailedStackPhysicalBottom(
                     placement);
             float top = placement.baseCenterY()
-                    + diameter * 0.62f / 2f
+                    + GdxPerspectiveTable.catalogFaceHeight(diameter) / 2f
                     + (placement.pile().chipCount() - 1)
-                            * CoronaPokerGdxTable
-                                    .stackChipPhysicalThickness(diameter);
+                            * GdxPerspectiveTable.catalogChipStep(diameter);
             return placement.centerX() - diameter / 2f >= area.x - 0.001f
                     && placement.centerX() + diameter / 2f
                             <= area.x + area.width + 0.001f

@@ -244,6 +244,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.show_call_cost";
             case GdxSettingsContract.POT_PLAYER_COUNT_KEY ->
                 "gdx.settings.tooltip.pot_player_count";
+            case GdxSettingsContract.TABLE_CHIP_MARKINGS_KEY ->
+                "gdx.settings.tooltip.table_chip_markings";
             case GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY ->
                 "gdx.settings.tooltip.dim_folded_opponents";
             case "resaltar_jugada_showdown" ->

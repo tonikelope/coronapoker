@@ -16,6 +16,7 @@ import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
@@ -148,7 +149,7 @@ final class GdxPerspectiveTable implements Disposable {
                 }
                 if (u_material == 8 && v_light < 0.0) {
                     float shade = 1.0 - smoothstep(0.34, 0.50, length(v_uv - 0.5));
-                    gl_FragColor = vec4(0.01, 0.01, 0.01, shade * 0.28 * u_opacity);
+                    gl_FragColor = vec4(0.01, 0.01, 0.01, shade * 0.28 * (-v_light) * u_opacity);
                     return;
                 }
                 if (u_material == 6 || u_material == 8) {
@@ -204,7 +205,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
     private final Matrix4 layoutInverseView = new Matrix4();
-    private final FloatArray[] potVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
+    private final FloatArray[] chipVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
     private final Vector3 cardSample = new Vector3();
@@ -257,10 +258,13 @@ final class GdxPerspectiveTable implements Disposable {
     private boolean smoothArtwork;
     private float cameraProgress = Float.NaN;
 
+    private final GdxCardShell chipShell;
+
     GdxPerspectiveTable(int msaaSamples) {
         shell = new GdxCardShell(msaaSamples);
         pocketShell = new GdxCardShell(msaaSamples);
         boardShell = new GdxCardShell(msaaSamples);
+        chipShell = new GdxCardShell(msaaSamples);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
@@ -278,6 +282,12 @@ final class GdxPerspectiveTable implements Disposable {
 
     Matrix4 boardProjection() {
         return board;
+    }
+
+    private final Matrix4 feltProjection = new Matrix4();
+
+    Matrix4 feltProjection() {
+        return feltProjection;
     }
 
     void layout(float newWidth, float newHeight, float newBoardCenterY) {
@@ -321,6 +331,8 @@ final class GdxPerspectiveTable implements Disposable {
         inverseView.set(view).inv();
         board.set(view).translate(-width * 0.5f, CARD_REST_HEIGHT, boardCenterY)
                 .rotate(Vector3.X, -90f);
+        feltProjection.set(view).translate(-width * .5f, .02f, boardCenterY)
+                .rotate(Vector3.X, -90f);
         backdropFelt = null;
     }
 
@@ -342,6 +354,15 @@ final class GdxPerspectiveTable implements Disposable {
 
     Vector3 tablePointToScreen(float x, float y, float elevation) {
         return projectWorld(near.set(x - width * .5f, CARD_REST_HEIGHT + elevation, boardCenterY - y));
+    }
+
+    Vector3 layoutBoardAt(float x, float y) {
+        Vector3 point = surfaceAt(x, y, 0f, layoutInverseView);
+        return point.set(point.x + width * 0.5f, boardCenterY - point.z, 0f);
+    }
+
+    Vector3 chipPointToScreen(float x, float y, float elevation) {
+        return projectWorld(near.set(x - width * .5f, elevation, boardCenterY - y));
     }
 
     Vector3 boardAt(float x, float y) {
@@ -583,16 +604,22 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private void beginCroppedCardLayer(GdxCardShell target) {
+        beginCroppedLayer(target, view, width, height);
+    }
+
+    private void beginCroppedLayer(GdxCardShell target, Matrix4 projection, float width, float height) {
         float left = width, right = 0f, bottom = height, top = 0f;
         for (int corner = 0; corner < 8; corner++) {
             cardBoundsCorner.set((corner & 1) == 0 ? cardBoundsMin.x : cardBoundsMax.x,
                     (corner & 2) == 0 ? cardBoundsMin.y : cardBoundsMax.y,
                     (corner & 4) == 0 ? cardBoundsMin.z : cardBoundsMax.z);
-            Vector3 pixel = projectWorld(cardBoundsCorner);
-            left = Math.min(left, pixel.x);
-            right = Math.max(right, pixel.x);
-            bottom = Math.min(bottom, pixel.y);
-            top = Math.max(top, pixel.y);
+            cardBoundsCorner.prj(projection);
+            float x = (cardBoundsCorner.x + 1f) * width * .5f;
+            float y = (cardBoundsCorner.y + 1f) * height * .5f;
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            bottom = Math.min(bottom, y);
+            top = Math.max(top, y);
         }
         int w = Gdx.graphics.getBackBufferWidth(), h = Gdx.graphics.getBackBufferHeight();
         // Pad for the shell thickness and the downsample footprint.
@@ -743,28 +770,48 @@ final class GdxPerspectiveTable implements Disposable {
                 dealPosition.y, GdxCardDealMotion.airborne(progress));
     }
 
-    void beginPotRack() {
-        for (FloatArray vertices : potVertices) vertices.clear();
+    void beginChipRack() {
+        for (FloatArray vertices : chipVertices) vertices.clear();
+        resetCardBounds();
     }
 
-    /** Extruded chips stand on the same plane as the pot label. */
-    void addPotChip(int color, float x, float y, float diameter, float bottom,
-            float thickness, float rotation, boolean shadow) {
+    private final Quaternion chipAttitude = new Quaternion();
+    private final Vector3 rotatedChipVertex = new Vector3();
+
+    /** Extruded chip, with the base height measured from the felt. */
+    void addTableChip(int color, float x, float y, float diameter, float bottom,
+            float thickness, float rotation, boolean contactShadow) {
+        addTableChip(color, x, y, diameter, bottom, thickness, rotation, contactShadow, false);
+    }
+
+    private void addTableChip(int color, float x, float y, float diameter, float bottom,
+            float thickness, float rotation, boolean contactShadow, boolean underside) {
         // A rising chip remains an opaque solid. A translucent top would write
         // depth and erase the chips beneath it in the shared depth layer.
         float visibility = 1f;
-        FloatArray vertices = potVertices[color];
+        FloatArray vertices = chipVertices[color];
         float cx = x - width * .5f, cz = boardCenterY - y;
         float radius = diameter * .5f;
-        float base = CARD_REST_HEIGHT + bottom + .04f;
+        float base = bottom + .04f;
+        float extent = contactShadow ? radius * 1.08f : radius;
+        cardBoundsMin.set(Math.min(cardBoundsMin.x, cx - extent),
+                Math.min(cardBoundsMin.y, bottom), Math.min(cardBoundsMin.z, cz - extent));
+        cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + extent),
+                Math.max(cardBoundsMax.y, base + thickness), Math.max(cardBoundsMax.z, cz + extent));
         float bevel = Math.min(thickness * .20f, diameter * .015f);
         int segments = 48;
         for (int i = 0; i < segments; i++) {
             float a = i * MathUtils.PI2 / segments, b = (i + 1) * MathUtils.PI2 / segments;
-            if (shadow) {
-                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 0f, 0f, rotation, true, 1f, -1f);
-                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 1f, a, rotation, true, 1f, -1f);
-                potVertex(vertices, cx, cz, radius * 1.08f, CARD_REST_HEIGHT + .02f, 1f, b, rotation, true, 1f, -1f);
+            if (contactShadow) {
+                float contact = bottom + .02f;
+                potVertex(vertices, cx, cz, extent, contact, 0f, 0f, rotation, true, 1f, -1f);
+                potVertex(vertices, cx, cz, extent, contact, 1f, a, rotation, true, 1f, -1f);
+                potVertex(vertices, cx, cz, extent, contact, 1f, b, rotation, true, 1f, -1f);
+            }
+            if (underside) {
+                potVertex(vertices, cx, cz, radius, base, 0f, 0f, rotation, true, -1f, visibility);
+                potVertex(vertices, cx, cz, radius, base, .985f, b, rotation, true, -1f, visibility);
+                potVertex(vertices, cx, cz, radius, base, .985f, a, rotation, true, -1f, visibility);
             }
             potVertex(vertices, cx, cz, radius, base + thickness, 0f, 0f, rotation, true, 1f, visibility);
             potVertex(vertices, cx, cz, radius, base + thickness, .985f, a, rotation, true, 1f, visibility);
@@ -784,6 +831,55 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
+    void addFlyingTableChip(int color, GdxTableChipFlight.Pose pose, float diameter, float thickness) {
+        FloatArray vertices = chipVertices[color];
+        int first = vertices.size;
+        float half = thickness * .5f;
+        float centerY = pose.height + half + .04f;
+        if (pose.tumbling) {
+            chipAttitude.setFromAxisRad(pose.axisX, 0f, pose.axisZ, pose.tumbleAngle);
+        } else {
+            chipAttitude.setEulerAnglesRad(0f, pose.pitch, pose.roll);
+            chipAttitude.transform(rotatedChipVertex.set(0f, 1f, 0f));
+            float normalY = Math.abs(rotatedChipVertex.y);
+            float rim = diameter * .5f * (float) Math.sqrt(Math.max(0f, 1f - normalY * normalY));
+            centerY += rim + half * (normalY - 1f);
+        }
+        addTableChip(color, pose.x, pose.y, diameter, centerY - half - .04f,
+                thickness, pose.rotation, false, true);
+        float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
+        float[] data = vertices.items;
+        for (int i = first; i < vertices.size; i += 9) {
+            chipAttitude.transform(rotatedChipVertex.set(
+                    data[i] - cx, data[i+1] - centerY, data[i+2] - cz));
+            data[i] = cx + rotatedChipVertex.x;
+            data[i+1] = centerY + rotatedChipVertex.y;
+            data[i+2] = cz + rotatedChipVertex.z;
+            chipAttitude.transform(rotatedChipVertex.set(data[i+6], data[i+7], data[i+8]));
+            data[i+6] = rotatedChipVertex.x;
+            data[i+7] = rotatedChipVertex.y;
+            data[i+8] = rotatedChipVertex.z;
+        }
+    }
+
+    void addFlyingChipShadow(GdxTableChipFlight.Pose pose, float diameter) {
+        FloatArray vertices = chipVertices[0];
+        float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
+        float altitude = pose.height / diameter;
+        float radius = diameter * (.54f + altitude * .18f);
+        float shade = -.66f / (1f + altitude * .85f);
+        cardBoundsMin.set(Math.min(cardBoundsMin.x, cx - radius), .02f,
+                Math.min(cardBoundsMin.z, cz - radius));
+        cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + radius), .02f,
+                Math.max(cardBoundsMax.z, cz + radius));
+        for (int i = 0; i < 24; i++) {
+            float a = MathUtils.PI2 * i / 24f, b = MathUtils.PI2 * (i + 1) / 24f;
+            potVertex(vertices, cx, cz, radius, .02f, 0f, 0f, 0f, true, 1f, shade);
+            potVertex(vertices, cx, cz, radius, .02f, 1f, a, 0f, true, 1f, shade);
+            potVertex(vertices, cx, cz, radius, .02f, 1f, b, 0f, true, 1f, shade);
+        }
+    }
+
     private static void potVertex(FloatArray vertices, float cx, float cz, float radius,
             float elevation, float radial, float angle, float rotation, boolean top,
             float normalY, float visibility) {
@@ -798,9 +894,57 @@ final class GdxPerspectiveTable implements Disposable {
         vertices.add(z * normalRadial);
     }
 
-    void drawPotRack(Texture[] faces, float opacity) {
+    void drawChipRack(Texture[] faces, float opacity, boolean airborne) {
+        if (!Float.isFinite(cardBoundsMin.x)) return;
         begin(8, faces[0], faces[0], opacity);
-        shell.renderSolids(shader, potVertices, faces, width, height);
+        if (airborne) {
+            shell.renderSolids(shader, chipVertices, faces, width, height);
+            return;
+        }
+        renderChipGeometry(faces, view, width, height);
+    }
+
+    private final Matrix4 chipCatalogView = new Matrix4();
+
+    static float catalogFaceHeight(float diameter) {
+        return diameter * MathUtils.sinDeg(ELEVATION);
+    }
+
+    static float catalogChipStep(float diameter) {
+        return GdxTableChipRack.thickness(diameter) * MathUtils.cosDeg(ELEVATION);
+    }
+
+    /** The viewer has its own framing; emit the same physical chip mesh. */
+    void addCatalogChip(int color, float centerX, float baseCenterY,
+            float diameter, int level, float rotation) {
+        float floorY = baseCenterY - catalogChipStep(diameter);
+        float tableY = boardCenterY + floorY / MathUtils.sinDeg(ELEVATION);
+        float thickness = GdxTableChipRack.thickness(diameter);
+        addTableChip(color, centerX + width * .5f, tableY,
+                diameter, level * thickness, thickness, rotation, level == 0);
+    }
+
+    void drawCatalogChips(Texture[] faces, float width, float height) {
+        if (!Float.isFinite(cardBoundsMin.x)) return;
+        prepareShader();
+        begin(8, faces[0], faces[0], 1f);
+        float depth = (width + height) * 2f;
+        chipCatalogView.setToOrtho(0f, width, 0f, height, -depth, depth)
+                .rotate(Vector3.X, ELEVATION);
+        shader.setUniformMatrix("u_projection", chipCatalogView);
+        shader.setUniformi("u_flatBoardReveal", 0);
+        shader.setUniformf("u_eye", width * .5f,
+                MathUtils.sinDeg(ELEVATION) * depth, MathUtils.cosDeg(ELEVATION) * depth);
+        renderChipGeometry(faces, chipCatalogView, width, height);
+    }
+
+    private void renderChipGeometry(Texture[] faces, Matrix4 projection, float width, float height) {
+        beginCroppedLayer(chipShell, projection, width, height);
+        try {
+            chipShell.renderSolids(shader, chipVertices, faces, width, height);
+        } finally {
+            chipShell.endPair();
+        }
     }
 
     private float markerCenterY, markerTilt, markerArtScale;
@@ -1215,5 +1359,6 @@ final class GdxPerspectiveTable implements Disposable {
         shell.dispose();
         pocketShell.dispose();
         boardShell.dispose();
+        chipShell.dispose();
     }
 }

@@ -19,7 +19,7 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
-<img width="2560" height="1440" alt="coronapoker_screenshot_1794135757102" src="https://github.com/user-attachments/assets/c5a2849c-fe70-4520-96be-17221cdc8a97" />
+<img width="2560" height="1440" alt="CoronaPoker 3D table with physical chip stacks around the pot and beside the local player's cards" src="website/public/media/table-3d-2560.webp" />
 
 
 ## Table of contents
@@ -48,7 +48,7 @@ Select a snapshot to open it at full resolution.
 
 | | | |
 | :---: | :---: | :---: |
-| [![No-Limit Hold’em hand on green felt in the 2D table view](website/public/media/table-640.webp)](website/public/media/table-2560.webp)<br>**2D table** | [![The same hand on green felt in the 3D perspective view](website/public/media/table-3d-640.webp)](website/public/media/table-3d-2560.webp)<br>**3D table** | [![Showdown on red felt with the winning flush highlighted](website/public/media/showdown-640.webp)](website/public/media/showdown-2560.webp)<br>**Showdown in 3D** |
+| [![No-Limit Hold’em hand on green felt in the 2D table view](website/public/media/table-640.webp)](website/public/media/table-2560.webp)<br>**2D table** | [![Physical chip stacks beside the local cards and around the pot on green felt](website/public/media/table-3d-640.webp)](website/public/media/table-3d-2560.webp)<br>**3D table** | [![Winning flush and physical chip stacks on red felt](website/public/media/showdown-640.webp)](website/public/media/showdown-2560.webp)<br>**Showdown in 3D** |
 | [![The flop and betting controls on the blue felt in the 2D view](website/public/media/table-blue-640.webp)](website/public/media/table-blue-2560.webp)<br>**Blue felt in 2D** | [![Settings for the felt, deck, lighting and 2D or 3D view](website/public/media/appearance-640.webp)](website/public/media/appearance-1920.webp)<br>**Table appearance** | [![Zero-Trust alert for a failed cryptographic check](website/public/media/verification-640.webp)](website/public/media/verification-1920.webp)<br>**Hand verification** |
 | [![Waiting room with chat, game settings and the player list](website/public/media/lobby-640.webp)](website/public/media/lobby-1920.webp)<br>**Waiting room** | [![Bot catalogue with difficulty, playing style and rebuy settings](website/public/media/bots-640.webp)](website/public/media/bots-1588.webp)<br>**Bot manager** | [![The waiting room with the poker video player open in the lower-right corner](website/public/media/poker-video-640.webp)](website/public/media/poker-video-1920.webp)<br>**Poker video player** |
 
@@ -56,6 +56,8 @@ Select a snapshot to open it at full resolution.
 
 - Finer card artwork sampling for player hands and community cards in the 2D view, and for opponent cards in the 3D view.
 - 3D community cards render at twice the resolution per axis in cropped regions when GPU limits allow.
+- The 3D view puts the local stack and pot on the felt, with physical chip stacks, animated transfers and optional chip-area outlines. The stack viewer uses the same 3D chip meshes and printed denominations.
+- Chips follow ballistic paths into the pot and move the stack they land on. The local stack fills and reloads with free-falling chips in the 3D view.
 - Rigid and flexible community-card reveals in both views, with independent settings under Appearance → Animations → Card reveal.
 
 ## 🔐 Security & cryptography

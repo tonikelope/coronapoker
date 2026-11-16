@@ -1267,14 +1267,6 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.stackChipEdgeInset(140f),
                 0.000_001f,
                 "compact wall tangents compensate minification symmetrically");
-        assertEquals(0f,
-                CoronaPokerGdxTable.detailedStackChipEdgeInset(140f),
-                0.000_001f,
-                "the detailed face and wall must share one exact silhouette");
-        assertTrue(CoronaPokerGdxTable
-                .detailedStackChipEdgeRimThickness(140f)
-                < 140f * 0.02f,
-                "the detailed lower edge must be a fine bevel, not a band");
         assertEquals(0.703125f,
                 -CoronaPokerGdxTable.stackChipEdgeInset(30f),
                 0.000_001f,

@@ -311,8 +311,8 @@ export const copy = {
     galleryText: 'Open a screenshot to see the game at full size.',
     galleryItems: [
       ['2D table', 'No-Limit Hold’em hand on green felt in the 2D table view'],
-      ['3D table', 'The same hand on green felt in the 3D perspective view'],
-      ['Showdown in 3D', 'Showdown on red felt with the winning flush highlighted'],
+      ['3D table', 'Physical chip stacks beside the local cards and around the pot on green felt'],
+      ['Showdown in 3D', 'Winning flush and physical chip stacks on red felt'],
       ['Blue felt in 2D', 'The flop and betting controls on the blue felt in the 2D view'],
       ['Table appearance', 'Settings for the felt, deck, lighting and 2D or 3D view'],
       ['Hand verification', 'Zero-Trust alert for a failed cryptographic check'],
@@ -595,8 +595,8 @@ export const copy = {
     galleryText: 'Abre una captura para ver el juego a tamaño completo.',
     galleryItems: [
       ['Mesa en 2D', 'Mano de Hold’em sin límite sobre tapete verde en la vista 2D'],
-      ['Mesa en 3D', 'La misma mano sobre tapete verde en la vista 3D en perspectiva'],
-      ['Showdown en 3D', 'Showdown sobre tapete rojo con el color ganador resaltado'],
+      ['Mesa en 3D', 'Montones de fichas junto a las cartas del jugador y alrededor del bote sobre tapete verde'],
+      ['Showdown en 3D', 'Color ganador y montones de fichas sobre tapete rojo'],
       ['Tapete azul en 2D', 'Flop y controles de apuesta sobre tapete azul en la vista 2D'],
       ['Aspecto de la mesa', 'Ajustes de tapete, baraja, iluminación y vista 2D o 3D'],
       ['Verificación de la mano', 'Aviso de Zero Trust cuando falla una comprobación criptográfica'],

@@ -584,7 +584,9 @@ final class GdxSettingsContractTest {
                     "/sounds/" + preview.resource()) != null
                     || getClass().getResource(
                             "/cinematics/" + preview.resource()) != null;
-            assertTrue(bundled,
+            boolean modOnly = option.gate() == GdxSettingsContract.Gate.MUSIC
+                    && !"sonido_ascensor".equals(option.key());
+            assertEquals(!modOnly, bundled,
                     option.key() + " -> " + preview.resource());
         }
     }

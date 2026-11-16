@@ -4,7 +4,6 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.PreferencesService;
@@ -20,12 +19,8 @@ import org.junit.jupiter.api.io.TempDir;
 final class GdxGameAudioResourcesTest {
 
     @Test
-    void onlyGameBackgroundMusicIsBundled() {
-        assertNotNull(getClass().getResource("/sounds/misc/background_music.mp3"));
-        for (String slot : new String[]{"waiting_room.mp3", "about_music.mp3",
-                "stats_music.mp3", "bots_manager.mp3", "recovering.mp3"}) {
-            assertNull(getClass().getResource("/sounds/misc/" + slot), slot);
-        }
+    void gameBackgroundMusicIsAvailableWithoutAMod() {
+        assertTrue(GdxGameAudioResources.available(null, "misc/background_music.mp3"));
     }
 
     @Test
@@ -67,6 +62,8 @@ final class GdxGameAudioResourcesTest {
                         GdxGameAudioResources.modOverride(settings,
                                 "sounds/misc/" + slot).orElseThrow());
             }
+            assertEquals(7, GdxSettingsContract.audioPage(1, settings, "es")
+                    .options().size(), "all fixed music slots are available");
             Path background = mod.resolve("background_music.mp3")
                     .toAbsolutePath().normalize();
             assertEquals(background,

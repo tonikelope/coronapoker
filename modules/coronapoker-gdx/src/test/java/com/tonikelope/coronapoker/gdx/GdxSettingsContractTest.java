@@ -584,10 +584,15 @@ final class GdxSettingsContractTest {
                     "/sounds/" + preview.resource()) != null
                     || getClass().getResource(
                             "/cinematics/" + preview.resource()) != null;
-            boolean modOnly = option.gate() == GdxSettingsContract.Gate.MUSIC
+            boolean optionalMusic = option.gate() == GdxSettingsContract.Gate.MUSIC
                     && !"sonido_ascensor".equals(option.key());
-            assertEquals(!modOnly, bundled,
-                    option.key() + " -> " + preview.resource());
+            if (optionalMusic) {
+                assertEquals(bundled,
+                        GdxSettingsContract.audioPage(1, null, "es")
+                                .options().contains(option), option.key());
+            } else {
+                assertTrue(bundled, option.key() + " -> " + preview.resource());
+            }
         }
     }
 

@@ -45,6 +45,14 @@ final class GdxGameAudioResources {
         return bundledCinematic.exists() ? bundledCinematic : null;
     }
 
+    static boolean available(GdxGamePresentationSettings settings,
+            String resource) {
+        String normalized = normalize(resource);
+        return normalized != null && (modOverride(settings, normalized).isPresent()
+                || GdxGameAudioResources.class.getResource("/sounds/" + normalized) != null
+                || GdxGameAudioResources.class.getResource("/cinematics/" + normalized) != null);
+    }
+
     static Optional<Path> modOverride(GdxGamePresentationSettings settings,
             String resource) {
         String normalized = normalize(resource);

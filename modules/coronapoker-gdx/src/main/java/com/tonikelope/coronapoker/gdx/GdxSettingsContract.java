@@ -580,9 +580,8 @@ final class GdxSettingsContract {
         if (page != AUDIO_SOURCE_PAGES.get(1)) return page;
         return new TogglePage(page.title(), page.options().stream()
                 .filter(option -> option.gate() != Gate.MUSIC
-                        || "sonido_ascensor".equals(option.key())
-                        || GdxGameAudioResources.modOverride(settings,
-                                audioPreview(option, language).resource()).isPresent())
+                        || GdxGameAudioResources.available(settings,
+                                audioPreview(option, language).resource()))
                 .toList());
     }
 

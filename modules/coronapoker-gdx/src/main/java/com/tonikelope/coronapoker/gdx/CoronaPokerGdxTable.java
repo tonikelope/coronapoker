@@ -3034,6 +3034,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float cardFlipScale(float progress) {
+        if (perspectiveActive) return 1f;
         int percent;
         try {
             percent = MathUtils.clamp(Integer.parseInt(

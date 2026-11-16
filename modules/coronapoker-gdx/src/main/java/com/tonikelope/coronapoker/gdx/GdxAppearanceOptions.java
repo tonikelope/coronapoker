@@ -106,8 +106,13 @@ final class GdxAppearanceOptions {
         properties.setProperty(choice.key(), choice.values().get(index));
     }
 
-    /** A selector is editable only while the master and its owner are on. */
+    /** A selector follows the view in the settings and its animation switches. */
     static boolean enabled(Choice choice, Properties properties) {
+        boolean only2d = switch (choice.key()) {
+            case "card_flip_zoom", "swap_velocidad", "swap_arco" -> true;
+            default -> false;
+        };
+        if (only2d && perspectiveTable(properties)) return false;
         String parent = parentKey(choice);
         boolean animations = Boolean.parseBoolean(properties.getProperty(
                 "animaciones", "true"));

@@ -61,6 +61,7 @@ import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.ArrayList;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -451,8 +452,12 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AtomicReference<TableSessionSummary.CloseReason> requestedCloseReason
                 = new AtomicReference<>(
                         TableSessionSummary.CloseReason.COMPLETED);
+        AtomicInteger inboundIds = new AtomicInteger();
         AutoCloseable inbound = context.channel().subscribe(command -> {
-            String envelope = transport.inboundEnvelope(command);
+            if (dispatchParticipantResponse(command, dealer, inboundIds)) {
+                return;
+            }
+            String envelope = inboundEnvelope(command, inboundIds);
             if (command.command().startsWith("HOTJOIN#")) {
                 try {
                     String expectedSource = lobby.host()
@@ -1405,6 +1410,54 @@ public final class CoreGameTableFactory implements GameTableFactory {
                 });
         tableReference.set(table);
         return table;
+    }
+
+    /**
+     * Handles peer replies whose first field names the responding participant.
+     * The mailbox only gets replies that match this occurrence's transport
+     * identity and carries its source-specific close action for later rejection.
+     */
+    static boolean dispatchParticipantResponse(GameChannel.Inbound inbound,
+            Crupier dealer, AtomicInteger inboundIds) {
+        String command = inbound.command();
+        int separator = command.indexOf('#');
+        String type = separator < 0 ? command : command.substring(0, separator);
+        switch (type) {
+            case "DECK_CASCADE_RESP", "DECK_CASCADE_PROOF", "DECK_ROTATION_RESP",
+                    "RESP_SRA_UNLOCK_CHAIN", "RESP_SHOWDOWN_KEY" -> { }
+            default -> {
+                return false;
+            }
+        }
+
+        int end = command.indexOf('#', separator + 1);
+        boolean matches = false;
+        if (separator >= 0 && end > separator + 1) {
+            try {
+                byte[] declared = Base64.getDecoder().decode(
+                        command.substring(separator + 1, end));
+                matches = Arrays.equals(declared,
+                        inbound.peerNickname().getBytes(StandardCharsets.UTF_8));
+            } catch (IllegalArgumentException invalidBase64) {
+                // Reject an invalid claim through the same source-specific path.
+            }
+        }
+        if (matches) {
+            dealer.enqueueReceivedCommand(inboundEnvelope(inbound, inboundIds),
+                    inbound.closeSource());
+        } else {
+            java.util.logging.Logger.getLogger(CoreGameTableFactory.class.getName())
+                    .log(java.util.logging.Level.WARNING,
+                            "Rejected {0} with invalid sender claim from authenticated peer {1}",
+                            new Object[]{type, inbound.peerNickname()});
+            inbound.closeSource().run();
+        }
+        return true;
+    }
+
+    private static String inboundEnvelope(GameChannel.Inbound inbound,
+            AtomicInteger inboundIds) {
+        return "GAME#" + inboundIds.incrementAndGet() + "#" + inbound.command();
     }
 
     private static ExecutorService ownedSingleThreadExecutor(String name,
@@ -2544,7 +2597,6 @@ public final class CoreGameTableFactory implements GameTableFactory {
     private static final class ChannelGameTransport implements GameTransport {
         private final GameLaunchContext context;
         private final ConfirmationTracker confirmations = new ConfirmationTracker();
-        private final AtomicInteger inboundIds = new AtomicInteger();
         private final CompletableFuture<Void> warmingExitAccepted
                 = new CompletableFuture<>();
         private final CompletableFuture<Void> playerExitAccepted
@@ -2552,10 +2604,6 @@ public final class CoreGameTableFactory implements GameTableFactory {
 
         ChannelGameTransport(GameLaunchContext context) {
             this.context = context;
-        }
-
-        String inboundEnvelope(com.tonikelope.coronapoker.core.game.GameChannel.Inbound inbound) {
-            return "GAME#" + inboundIds.incrementAndGet() + "#" + inbound.command();
         }
 
         @Override public String hostNickname() {

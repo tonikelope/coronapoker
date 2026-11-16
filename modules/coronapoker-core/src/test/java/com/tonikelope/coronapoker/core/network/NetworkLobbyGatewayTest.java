@@ -633,12 +633,14 @@ class NetworkLobbyGatewayTest {
                 assertEquals(55,
                         clientContext.get().initialConfiguration().thinkTime());
 
-                AtomicReference<String> hostInbound = new AtomicReference<>();
-                hostContext.get().channel().subscribe(inbound ->
-                        hostInbound.set(inbound.peerNickname() + ":" + inbound.command()));
+                AtomicReference<GameChannel.Inbound> hostInbound = new AtomicReference<>();
+                GameChannel hostChannel = hostContext.get().channel();
+                hostChannel.subscribe(hostInbound::set);
                 clientContext.get().channel().sendToHost("ACTION#payload")
                         .toCompletableFuture().get(2, TimeUnit.SECONDS);
-                await(() -> "Invitado:ACTION#payload".equals(hostInbound.get()));
+                await(() -> hostInbound.get() != null);
+                assertEquals("Invitado", hostInbound.get().peerNickname());
+                assertEquals("ACTION#payload", hostInbound.get().command());
 
                 hostContext.get().channel().sendFromHost("Invitado", "PAUSE#0#host")
                         .toCompletableFuture().get(2, TimeUnit.SECONDS);
@@ -646,10 +648,13 @@ class NetworkLobbyGatewayTest {
                 assertEquals(-1, hostContext.get().recoveryGameId());
                 assertEquals(-1, clientContext.get().recoveryGameId());
 
-                // Once the local table channel has crossed its terminal
-                // barrier, the host socket EOF is a normal close rather than
-                // a transient disconnect that should start reconnection.
+                CompletableFuture<String> lostPeer = new CompletableFuture<>();
+                hostChannel.subscribePeerLoss(lostPeer::complete);
                 clientContext.get().channel().close();
+                hostInbound.get().closeSource().run();
+                assertEquals("Invitado", lostPeer.get(2, TimeUnit.SECONDS));
+                assertTrue(hostChannel.isPeerDefinitivelyClosed("Invitado"));
+                assertTrue(hostChannel.retirePeerAfterDefinitiveLoss("Invitado"));
                 host.close();
                 await(() -> client.snapshot().phase()
                         == com.tonikelope.coronapoker.core.LobbySnapshot.Phase.CLOSED);

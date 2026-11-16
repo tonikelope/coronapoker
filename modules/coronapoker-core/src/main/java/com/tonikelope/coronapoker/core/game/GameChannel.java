@@ -18,10 +18,16 @@ public interface GameChannel extends AutoCloseable {
         HOST_BINARY_FLOOD_DETECTED
     }
 
-    record Inbound(String peerNickname, String command) {
+    /** A command and a rejection action scoped to its authenticated source. */
+    record Inbound(String peerNickname, String command, Runnable closeSource) {
+        public Inbound(String peerNickname, String command) {
+            this(peerNickname, command, () -> { });
+        }
+
         public Inbound {
             peerNickname = Objects.requireNonNull(peerNickname, "peerNickname");
             command = Objects.requireNonNull(command, "command");
+            closeSource = Objects.requireNonNull(closeSource, "closeSource");
         }
     }
 

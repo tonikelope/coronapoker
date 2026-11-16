@@ -1600,10 +1600,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                                 publishTableSession();
                             }
                             if (!"HOTJOINPOLICY".equals(subcommand)) {
-                                heldForConfirmation = gameChannel.receiveHeld(
-                                        source.remoteNickname,
-                                        command.substring(command.indexOf('#',
-                                                command.indexOf('#') + 1) + 1));
+                                String body = command.substring(command.indexOf('#',
+                                        command.indexOf('#') + 1) + 1);
+                                GameChannel.Inbound inbound = fromClient
+                                        ? new GameChannel.Inbound(source.remoteNickname,
+                                                body, () -> rejectGamePeer(source))
+                                        : new GameChannel.Inbound(source.remoteNickname, body);
+                                heldForConfirmation = gameChannel.receiveHeld(inbound);
                             }
                         }
                     }
@@ -2077,6 +2080,17 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             return true;
         }
 
+        private synchronized void rejectGamePeer(Connection source) {
+            Peer peer = peers.get(source.remoteNickname);
+            // A deferred rejection still belongs to the original logical
+            // connection, including any socket replacement during reconnect.
+            if (peer == null || peer.connection != source || !source.closeOnce()) {
+                return;
+            }
+            gameChannel.discardPendingFromPeer(peer.nickname);
+            gameChannel.publishPeerLoss(source);
+        }
+
         private synchronized void activatePeer(String nickname) {
             warmingPeers.remove(Objects.requireNonNull(nickname, "nickname"));
         }
@@ -2366,7 +2380,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         synchronized void receive(String peerNickname, String command) throws IOException {
-            if (!enqueue(peerNickname, command)) return;
+            if (!enqueue(new Inbound(peerNickname, command))) return;
             scheduleDrain();
         }
 
@@ -2377,9 +2391,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
          * from the game listener; without this hold that close can overtake
          * CONF and strand the sender in its retry/reconnect deadline.
          */
-        synchronized boolean receiveHeld(String peerNickname, String command)
-                throws IOException {
-            if (!enqueue(peerNickname, command)) return false;
+        synchronized boolean receiveHeld(Inbound inbound) throws IOException {
+            if (!enqueue(inbound)) return false;
             confirmationHolds++;
             return true;
         }
@@ -2396,8 +2409,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             scheduleDrain();
         }
 
-        private boolean enqueue(String peerNickname, String command)
-                throws IOException {
+        private boolean enqueue(Inbound inbound) throws IOException {
             if (closed) {
                 // The dealer closes its table channel independently on each
                 // peer. A final authenticated GAME frame may already be in the
@@ -2407,6 +2419,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 // the final screen and avoids evicting a healthy peer.
                 return false;
             }
+            String command = inbound.command();
             int bytes = command.getBytes(StandardCharsets.UTF_8).length;
             if (pending.size() >= MAX_PENDING_COMMANDS
                     || bytes > MAX_PENDING_BYTES - pendingBytes) {
@@ -2416,7 +2429,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             if (isTerminationCommand(command)) {
                 terminating = true;
             }
-            pending.addLast(new Inbound(peerNickname, command));
+            pending.addLast(inbound);
             pendingBytes += bytes;
             return true;
         }
@@ -3350,8 +3363,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         }
 
         @Override public void close() {
-            if (!closed.compareAndSet(false, true)) return;
+            closeOnce();
+        }
+
+        private boolean closeOnce() {
+            if (!closed.compareAndSet(false, true)) return false;
             finishClose();
+            return true;
         }
 
         private void finishClose() {

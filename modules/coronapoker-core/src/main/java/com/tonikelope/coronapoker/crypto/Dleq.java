@@ -63,10 +63,15 @@ public final class Dleq {
      */
     public static byte[] prove(BigInteger k, EdwardsPoint g1, EdwardsPoint h1,
             EdwardsPoint g2, EdwardsPoint h2) {
+        return prove(k, g1, h1, g2, h2, null);
+    }
+
+    static byte[] prove(BigInteger k, EdwardsPoint g1, EdwardsPoint h1,
+            EdwardsPoint g2, EdwardsPoint h2, Transcript transcript) {
         BigInteger r = randomScalar();
         EdwardsPoint t1 = g1.scalarMul(r);
         EdwardsPoint t2 = g2.scalarMul(r);
-        BigInteger c = challenge(g1, h1, g2, h2, t1, t2);
+        BigInteger c = challenge(g1, h1, g2, h2, t1, t2, transcript);
         BigInteger s = r.add(c.multiply(k)).mod(L);
 
         byte[] proof = new byte[PROOF_BYTES];
@@ -82,6 +87,11 @@ public final class Dleq {
      */
     public static boolean verify(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
             EdwardsPoint h2, byte[] proof) {
+        return verify(g1, h1, g2, h2, proof, null);
+    }
+
+    static boolean verify(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
+            EdwardsPoint h2, byte[] proof, Transcript transcript) {
         if (proof == null || proof.length != PROOF_BYTES) {
             return false;
         }
@@ -101,12 +111,21 @@ public final class Dleq {
                 new BigInteger[]{s, c}, new EdwardsPoint[]{g1, h1.negate()});
         EdwardsPoint r2 = EdwardsPoint.multiscalarMul(
                 new BigInteger[]{s, c}, new EdwardsPoint[]{g2, h2.negate()});
-        BigInteger cPrime = challenge(g1, h1, g2, h2, r1, r2);
+        BigInteger cPrime = challenge(g1, h1, g2, h2, r1, r2, transcript);
         return cPrime.equals(c);
     }
 
     private static BigInteger challenge(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
-            EdwardsPoint h2, EdwardsPoint t1, EdwardsPoint t2) {
+            EdwardsPoint h2, EdwardsPoint t1, EdwardsPoint t2, Transcript transcript) {
+        if (transcript != null) {
+            transcript.absorbPoint("base 1", g1);
+            transcript.absorbPoint("target 1", h1);
+            transcript.absorbPoint("base 2", g2);
+            transcript.absorbPoint("target 2", h2);
+            transcript.absorbPoint("nonce 1", t1);
+            transcript.absorbPoint("nonce 2", t2);
+            return transcript.challengeScalar("DLEQ challenge");
+        }
         MessageDigest sha512 = SHA512.get();
         sha512.reset();
         sha512.update(DOMAIN);

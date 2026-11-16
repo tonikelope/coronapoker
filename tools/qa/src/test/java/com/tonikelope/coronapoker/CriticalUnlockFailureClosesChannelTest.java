@@ -2,7 +2,7 @@ package com.tonikelope.coronapoker;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +18,13 @@ public class CriticalUnlockFailureClosesChannelTest {
         assertTrue(start >= 0 && end > start, "REQ_SRA_UNLOCK_CHAIN handler not found");
         String handler = source.substring(start, end);
         assertTrue(handler.contains("catch (Exception failure)"));
+        int proofGate = handler.indexOf("awaitShuffleProofGate(");
+        int phaseSelection = handler.indexOf("boolean pocketPhase");
+        int useKey = handler.indexOf("RistrettoSRA.getUnlockScalar(");
+        assertTrue(proofGate >= 0 && phaseSelection > proofGate && useKey > phaseSelection,
+                "every phase must verify the shuffle before selecting or using its unlock key");
+        assertFalse(handler.substring(0, phaseSelection).contains("phase != UNLOCK_PHASE_POCKET"),
+                "ordinary pocket unlock must not skip proof verification");
         assertTrue(handler.contains(
                 "failClientCriticalHostCommand(\"REQ_SRA_UNLOCK_CHAIN\", failure)"),
                 "unexpected unlock failure must close the host channel");

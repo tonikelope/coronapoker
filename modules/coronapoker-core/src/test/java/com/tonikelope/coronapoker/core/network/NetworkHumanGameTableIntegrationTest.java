@@ -100,6 +100,7 @@ class NetworkHumanGameTableIntegrationTest {
                 // canonical dealer is waiting for a human, not between hands.
                 await(() -> hostRenderer.heldAction.get()
                         || clientRenderer.heldAction.get(), Duration.ofSeconds(5));
+                await(() -> clientRenderer.events.contains("DealHoleCard"), Duration.ofSeconds(5));
                 byte[] voice = NetworkLobbyGatewayTest.validVoiceWav();
                 client.submit(new LobbyCommand.SendVoice(voice)).toCompletableFuture()
                         .get(2, TimeUnit.SECONDS);
@@ -121,6 +122,19 @@ class NetworkHumanGameTableIntegrationTest {
                         && clientRenderer.sawPaused.get(), Duration.ofSeconds(5),
                         () -> "host=" + hostRenderer.diagnostic() + "; client="
                                 + clientRenderer.diagnostic());
+                synchronized (clientDb.lock()) {
+                    try (var query = clientDb.connection().prepareStatement("SELECT payload FROM hand_state");
+                            var result = query.executeQuery()) {
+                        assertTrue(result.next(), "paused preflop must have a client recovery fossil");
+                        String fossil = result.getString(1);
+                        assertTrue(fossil.contains("#SHUFFLE_VERIFIED@1#"));
+                        String pockets = java.util.Arrays.stream(fossil.split("#"))
+                                .filter(part -> part.startsWith("POCKETS@"))
+                                .findFirst().orElseThrow();
+                        assertEquals(2, pockets.substring("POCKETS@".length()).split(",").length,
+                                "both seats' residues must survive recovery");
+                    }
+                }
                 pausingTable.commands().submit(new TableCommand.TogglePause());
                 await(() -> hostRenderer.sawResumed.get()
                         && clientRenderer.sawResumed.get(), Duration.ofSeconds(5),

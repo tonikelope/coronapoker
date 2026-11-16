@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.DualLockWire;
+import com.tonikelope.coronapoker.crypto.ShuffleProofContext;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.logging.Level;
@@ -27,35 +28,14 @@ import java.util.logging.Logger;
  * shuffle bundles ({@code DUALLOCK_BUNDLE}, see {@code SECURITY.md §2.6}).
  *
  * <p>
- * <b>Why a queue and not one background thread per hand.</b> The honest-shuffle
- * proof is verified off the live state during betting. The previous
- * {@code Helpers.threadRun}-per-hand approach read the live
- * {@code local_mega_packet} at completion time, so on slow hardware a
- * verification could be
- * <b>clobbered</b>: if hand N+1 dealt before hand N's verify finished, the
- * thread ended up checking hand N's bundle against hand N+1's deck — the bytes
- * no longer matched, so a real smuggle in hand N was never actually proven
- * dishonest (it degraded to {@code flags.bit1} "unverified", the weakest
- * signal). Worse, multiple per-hand threads piled up competing for CPU exactly
- * on the machines that could least afford it.
+ * A bounded queue and a single daemon worker let the network reader enqueue
+ * the proof without waiting for expensive verification. Each job represents
+ * one hand's deck and bundle. The live unlock handler waits for the verdict
+ * for that exact installed deck before using a local unlock key.
  *
  * <p>
- * This queue fixes both: every {@link Job} carries an <b>immutable snapshot</b>
- * of its own hand's deck and bundle, and a <b>single</b> daemon worker drains
- * them in FIFO order. A pathologically slow player still finishes verifying
- * past hands — and a smuggle in a past hand is still caught — even after the
- * live hand has moved on. Bounded capacity: a full queue rejects the new job
- * explicitly; the production caller closes the critical host channel, so no
- * hand continues with a discarded verification.
- *
- * <p>
- * Scope: this verifies and dispatches a verdict to a {@link Sink}; it does not
- * touch UI or game state itself. The {@code Sink} (wired by {@code Crupier})
- * decides what a verdict means — update the live "deck verified" gate only if
- * the snapshot is still the current deck, or close the session on a dishonest
- * or malformed verdict. The real-time anti-peek of a <i>live</i> player's pocket is unchanged
- * and independent of this (the synchronous DLEQ de-lock chain); this only makes
- * the deck-honesty audit reliable on slow hardware.
+ * The {@link Sink} publishes the verdict. A late success cannot authorize a
+ * replacement deck. Failed and malformed proofs close the critical channel.
  */
 public final class ShuffleVerificationQueue {
 
@@ -109,18 +89,19 @@ public final class ShuffleVerificationQueue {
         public final byte[] genesis;
         public final List<byte[]> cascadeDecks;
         public final List<byte[]> cascadeProofs;
-        public final int pocketCount;
+        public final ShuffleProofContext context;
         public final byte[] megapacket;
         public final List<byte[]> rotationStates;
         public final List<byte[]> rotationProofs;
         public final int handId;
 
-        public Job(byte[] genesis, List<byte[]> cascadeDecks, List<byte[]> cascadeProofs, int pocketCount,
-                byte[] megapacket, List<byte[]> rotationStates, List<byte[]> rotationProofs, int handId) {
+        public Job(ShuffleProofContext context, byte[] genesis, List<byte[]> cascadeDecks,
+                List<byte[]> cascadeProofs, byte[] megapacket, List<byte[]> rotationStates,
+                List<byte[]> rotationProofs, int handId) {
             this.genesis = genesis;
             this.cascadeDecks = cascadeDecks;
             this.cascadeProofs = cascadeProofs;
-            this.pocketCount = pocketCount;
+            this.context = context;
             this.megapacket = megapacket;
             this.rotationStates = rotationStates;
             this.rotationProofs = rotationProofs;
@@ -133,7 +114,7 @@ public final class ShuffleVerificationQueue {
      * recomputed by the caller).
      */
     public static final Verifier DUALLOCK_VERIFIER = job -> DualLockWire.verifyFullChainWire(
-            job.genesis, job.cascadeDecks, job.cascadeProofs, job.pocketCount,
+            job.context, job.genesis, job.cascadeDecks, job.cascadeProofs,
             job.megapacket, job.rotationStates, job.rotationProofs);
 
     private final ArrayBlockingQueue<Job> queue;
@@ -165,9 +146,6 @@ public final class ShuffleVerificationQueue {
         running = true;
         worker = new Thread(this::runLoop, "shuffle-verify-queue");
         worker.setDaemon(true);
-        // Lowered priority: deck-honesty checking is off the critical path (background backlog
-        // drain), so it must not steal CPU from the live game on slow machines.
-        worker.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
         worker.start();
     }
 

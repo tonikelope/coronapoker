@@ -151,6 +151,27 @@ public final class ShuffleCascade {
      * Verify a serialized cascade-step proof against flat byte decks. False on
      * any malformed input.
      */
+    public static byte[] proveBoundStepWire(byte[] before, byte[] after, int[] permutation,
+            byte[] scalar, ShuffleProofContext.Step context, byte[] pocketKey) {
+        if (context == null) return null;
+        try {
+            EdwardsPoint[] input = decodeDeck(before);
+            EdwardsPoint[] output = decodeDeck(after);
+            if (input == null || output == null || input.length != output.length) return null;
+            return ProofCodec.encodeBoundShuffle(ShuffleArgument.prove(input, output, permutation,
+                    RistrettoSRA.bytesToScalar(scalar), context, pocketKey));
+        } catch (RuntimeException invalid) {
+            return null;
+        }
+    }
+
+    public static boolean verifyBoundStepWire(byte[] before, byte[] after, byte[] proofBytes,
+            ShuffleProofContext.Step context, byte[] pocketKey) {
+        if (context == null) return false;
+        return ShuffleArgument.verify(decodeDeck(before), decodeDeck(after),
+                ProofCodec.decodeBoundShuffle(proofBytes), context, pocketKey);
+    }
+
     public static boolean verifyStepWire(byte[] deckInBytes, byte[] deckOutBytes, byte[] proofBytes) {
         EdwardsPoint[] in = decodeDeck(deckInBytes);
         EdwardsPoint[] out = decodeDeck(deckOutBytes);

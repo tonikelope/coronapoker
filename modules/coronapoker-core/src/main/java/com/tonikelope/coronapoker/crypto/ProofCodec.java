@@ -58,28 +58,58 @@ public final class ProofCodec {
         }
         try {
             Reader r = new Reader(bytes);
-            ShuffleArgument.Proof p = readShuffle(r);
+            ShuffleArgument.Proof p = readShuffle(r, false);
             return r.atEnd() ? p : null; // reject trailing garbage
         } catch (RuntimeException e) {
             return null;
         }
     }
 
+    static final byte BOUND_VERSION = 2;
+
+    static byte[] encodeBoundShuffle(ShuffleArgument.Proof proof) {
+        if (proof == null || proof.keyProof == null || proof.keyProof.length != Dleq.PROOF_BYTES) return null;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(BOUND_VERSION);
+        writeShuffleArguments(out, proof);
+        out.writeBytes(proof.keyProof);
+        return out.toByteArray();
+    }
+
+    static ShuffleArgument.Proof decodeBoundShuffle(byte[] bytes) {
+        if (bytes == null || bytes.length == 0 || bytes[0] != BOUND_VERSION) return null;
+        try {
+            Reader reader = new Reader(bytes);
+            reader.take(1);
+            ShuffleArgument.Proof proof = readShuffle(reader, true);
+            return reader.atEnd() ? proof : null;
+        } catch (RuntimeException malformed) {
+            return null;
+        }
+    }
+
     // ---------- ShuffleArgument ----------
     private static void writeShuffle(ByteArrayOutputStream out, ShuffleArgument.Proof p) {
-        writePointArray(out, p.cf);
-        writePermutation(out, p.perm);
-        writePoint(out, p.q);
-        writeWeightedSum(out, p.wsum);
+        writeShuffleArguments(out, p);
         writePoint(out, p.scT);
         writeScalar(out, p.scZ);
     }
 
-    private static ShuffleArgument.Proof readShuffle(Reader r) {
+    private static void writeShuffleArguments(ByteArrayOutputStream out, ShuffleArgument.Proof p) {
+        writePointArray(out, p.cf);
+        writePermutation(out, p.perm);
+        writePoint(out, p.q);
+        writeWeightedSum(out, p.wsum);
+    }
+
+    private static ShuffleArgument.Proof readShuffle(Reader r, boolean bound) {
         byte[][] cf = readPointArray(r);
         PermutationArgument.Proof perm = readPermutation(r);
         byte[] q = readPoint(r);
         WeightedSumArgument.Proof wsum = readWeightedSum(r);
+        if (bound) {
+            return new ShuffleArgument.Proof(cf, perm, q, wsum, null, null, r.take(Dleq.PROOF_BYTES));
+        }
         byte[] scT = readPoint(r);
         BigInteger scZ = readScalar(r);
         return new ShuffleArgument.Proof(cf, perm, q, wsum, scT, scZ);

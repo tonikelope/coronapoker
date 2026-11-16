@@ -9,7 +9,7 @@
  *   4) liga la prueba al owner autenticado del paso y cierra a quien intente sustituirlo;
  *   5) sin prueba -> mapa incompleto para que el llamador rechace el mazo, sin colgarse.
  *
- * Llama al metodo privado por reflexion. Construye pasos remotos reales con ShuffleCascade.proveStepWire
+ * Llama al metodo privado por reflexion. Construye pasos remotos reales con ShuffleCascade.proveBoundStepWire
  * (mismo patron que ShuffleCascadeWireTest). new Crupier() solo inicializa campos (received_commands es
  * final inline), no necesita GameFrame.
  */
@@ -75,6 +75,7 @@ public class AsyncCascadeProofCollectorTest {
         List<int[]> perms;
         String hash;
         byte[] validProof;
+        ShuffleProofContext context;
     }
 
     private static Step buildRemoteStep(int n) throws Exception {
@@ -84,14 +85,23 @@ public class AsyncCascadeProofCollectorTest {
         EdwardsPoint[] out = DeckTransform.apply(in, perm, RistrettoSRA.bytesToScalar(k));
         byte[] inB = encodeDeck(in);
         byte[] outB = encodeDeck(out);
-        byte[] proof = ShuffleCascade.proveStepWire(inB, outB, perm, k);
-        assertNotNull(proof, "proveStepWire de partida no nulo");
-        assertTrue(ShuffleCascade.verifyStepWire(inB, outB, proof), "prueba valida de partida");
+        byte[] key = RistrettoSRA.commitment(k);
+        Map<String, byte[]> keys = Map.of("host", RistrettoSRA.commitment(RistrettoSRA.generateLockScalar()),
+                "peer", key);
+        ShuffleProofContext context = new ShuffleProofContext("session", new byte[16], "host",
+                new String[]{"peer", "host"}, keys, keys);
+        ShuffleProofContext.Step contribution = context.shuffleStep(1);
+        byte[] proof = ShuffleCascade.proveBoundStepWire(inB, outB, perm, k, contribution, key);
+        assertNotNull(proof);
+        assertTrue(ShuffleCascade.verifyBoundStepWire(inB, outB, proof, contribution, key));
         Step s = new Step();
+        s.context = context;
         s.decks = new ArrayList<>();
+        s.decks.add(inB); // the collector skips the local step at index zero
         s.decks.add(inB);
         s.decks.add(outB);
         s.perms = new ArrayList<>();
+        s.perms.add(perm);
         s.perms.add(null); // paso remoto: su prueba llega async
         s.hash = cascadeDeckHash(outB);
         s.validProof = proof;
@@ -99,10 +109,11 @@ public class AsyncCascadeProofCollectorTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, byte[]> collect(Crupier c, List<byte[]> decks, List<int[]> perms) throws Exception {
-        Method m = Crupier.class.getDeclaredMethod("collectAsyncCascadeProofs", List.class, List.class, List.class);
+    private static Map<String, byte[]> collect(Crupier c, Step step) throws Exception {
+        Method m = Crupier.class.getDeclaredMethod("collectAsyncCascadeProofs", List.class, List.class,
+                List.class, ShuffleProofContext.class);
         m.setAccessible(true);
-        return (Map<String, byte[]>) m.invoke(c, decks, perms, java.util.Collections.singletonList("peer"));
+        return (Map<String, byte[]>) m.invoke(c, step.decks, step.perms, List.of("host", "peer"), step.context);
     }
 
     private static String proofCmd(String hash, byte[] proof) {
@@ -118,7 +129,7 @@ public class AsyncCascadeProofCollectorTest {
         Step s = buildRemoteStep(9);
         Crupier c = new Crupier();
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
+        Map<String, byte[]> got = collect(c, s);
         assertEquals(1, got.size(), "una prueba recogida");
         assertArrayEquals(s.validProof, got.get(s.hash), "casada con su paso por hash(deckOut)");
     }
@@ -133,7 +144,7 @@ public class AsyncCascadeProofCollectorTest {
         String foreign = "GAME#7#DECK_CASCADE_PROOF#cGVlcg==#hashDeOtroBuilder#" + Base64.getEncoder().encodeToString(new byte[]{9, 9, 9});
         c.getReceived_commands().add(foreign);
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
+        Map<String, byte[]> got = collect(c, s);
         assertArrayEquals(s.validProof, got.get(s.hash), "la nuestra se acepta");
         assertTrue(c.getReceived_commands().contains(foreign), "el comando ajeno se RE-ENCOLA, no se come");
     }
@@ -150,7 +161,7 @@ public class AsyncCascadeProofCollectorTest {
         java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
         c.enqueueReceivedCommand(proofCmd(s.hash, garbage), () -> closed.set(true));
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
+        Map<String, byte[]> got = collect(c, s);
         assertTrue(got.isEmpty(), "una prueba invalida del contribuyente aborta la recogida");
         assertTrue(closed.get(), "se cierra el origen autenticado de la prueba invalida");
     }
@@ -164,7 +175,7 @@ public class AsyncCascadeProofCollectorTest {
                 () -> attackerClosed.set(true));
         c.getReceived_commands().add(proofCmd(s.hash, s.validProof));
 
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
+        Map<String, byte[]> got = collect(c, s);
 
         assertTrue(attackerClosed.get(), "se cierra la conexion que suplanta al contribuyente");
         assertArrayEquals(s.validProof, got.get(s.hash), "solo se acepta la prueba del owner esperado");
@@ -177,7 +188,7 @@ public class AsyncCascadeProofCollectorTest {
         c.setFin_de_la_transmision(true); // corta la espera al instante (simula fin de reparto)
         // Sin prueba en la cola, el paso queda sin recoger. El llamador convierte este mapa incompleto
         // en fallo terminal del mazo antes de apostar. Aqui fijamos que el recolector termina acotado.
-        Map<String, byte[]> got = collect(c, s.decks, s.perms);
+        Map<String, byte[]> got = collect(c, s);
         assertTrue(got.isEmpty(), "sin prueba -> mapa vacio para rechazo fail-closed");
         assertFalse(got.containsKey(s.hash), "el paso remoto queda sin prueba");
     }

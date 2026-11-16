@@ -1,10 +1,6 @@
-/*
- * Gate "exigir prueba de barajado" (rotacion-3): decision PURA shouldWarnMissingShuffleProof.
- * Avisar al revelar community SII: fase community + reparto fresco + no verificado + no avisado.
- * Cubre los casos que importan para CERO falsos positivos (recover, pocket, fold, doble aviso).
- */
 package com.tonikelope.coronapoker;
 
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -40,6 +36,24 @@ public class ShuffleProofGateTest {
         byte[] m = deck(1);
         assertEquals(Crupier.ShuffleProofGateDecision.WAIT,
                 Crupier.shuffleProofGateDecision(POCKET, m, m, null, null));
+    }
+
+    @Test
+    public void identicalDeckBytesNeedFreshVerificationInTheNextHand() throws Exception {
+        Crupier dealer = new Crupier();
+        byte[] previousDeck = deck(1);
+        dealer.local_mega_packet = previousDeck;
+        dealer.dual_lock_expect_bundle_for = previousDeck;
+        dealer.dual_lock_verified_megapacket = previousDeck;
+        assertEquals(Crupier.ShuffleProofGateDecision.ALLOW,
+                dealer.awaitShuffleProofGate(POCKET, 0L));
+
+        Method install = Crupier.class.getDeclaredMethod("expectFreshShuffleProof", byte[].class);
+        install.setAccessible(true);
+        install.invoke(dealer, (Object) previousDeck.clone());
+        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
+                dealer.awaitShuffleProofGate(POCKET, 0L),
+                "an earlier verdict must not authorize an unlock for the new hand");
     }
 
     @Test

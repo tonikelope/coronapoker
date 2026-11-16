@@ -80,12 +80,12 @@ const phases = [
             m('H', 'C1', 'DECK_CASCADE_REQ', 'deck after HOST'),
             note('C1', 'validates 52 points · generates k_pocket / k_community · lock + shuffle\n· commitments K_pocket=k·B, K_community=k·B'),
             r('C1', 'H', 'DECK_CASCADE_RESP', 'nick ‖ deck′ ‖ K_pocket(C1) ‖ K_community(C1)   — fast, NO proof'),
-            r('C1', 'H', 'DECK_CASCADE_PROOF', 'hash(deck′) ‖ Bayer-Groth step proof — ASYNC, sent after the RESP · does NOT block the deal'),
+            r('C1', 'H', 'DECK_CASCADE_PROOF', 'hash(deck′) ‖ Bayer-Groth step proof — ASYNC, sent after the RESP'),
             m('H', 'C2', 'DECK_CASCADE_REQ', 'deck after C1'),
             note('C2', 'validates · generates k_pocket / k_community · lock + shuffle\n· K commitments'),
             r('C2', 'H', 'DECK_CASCADE_RESP', 'nick ‖ deck″ ‖ K_pocket(C2) ‖ K_community(C2)   — fast, NO proof'),
-            r('C2', 'H', 'DECK_CASCADE_PROOF', 'hash(deck″) ‖ Bayer-Groth step proof — ASYNC · does NOT block the deal'),
-            note('all', 'opt. B1 — the step proof is DECOUPLED from the RESP: each peer answers the cascade FAST (deck + commitments) and sends its Bayer-Groth proof separately (DECK_CASCADE_PROOF). The host collects them OFF the deal path (collectAsyncCascadeProofs — matched by hash(deckOut), 45 s window), so the ~0.1–9 s prove never stalls dealing. They feed the DUALLOCK_BUNDLE, assembled + broadcast during betting.'),
+            r('C2', 'H', 'DECK_CASCADE_PROOF', 'hash(deck″) ‖ Bayer-Groth step proof — ASYNC'),
+            note('all', 'Each peer sends its deck and commitments first, then the Bayer-Groth step proof separately. The host collects the step proofs by hash(deckOut) within 45 seconds before dealing hole cards.'),
             note('H', 'HOST rotates its own community slots locally: strip k_pocket, re-lock under k_community + RotationProof.'),
             m('H', 'C1', 'DECK_ROTATION_REQ', 'community slots only'),
             note('C1', 'strip k_pocket + re-lock under k_community (combined scalar s = u·k_comm)\n+ RotationProof (batch-DLEQ of an in-place re-key, no reordering)'),
@@ -97,7 +97,9 @@ const phases = [
             note('all', 'H_0 = SHA-256( «HAND\\0» ‖ HAND_ID ‖ N ‖ Σ sorted[id‖K_pocket‖K_community] ‖ SHA-256(deck) )  — seeds the state chain'),
         ]},
 
-    {title: 'PHASE 2 · Dealing hole cards  (chained DLEQ, verifiable)', c: P.p2, items: [
+    {title: 'PHASE 2 · Proof and pocket deal', c: P.p2, items: [
+            bc('DUALLOCK_BUNDLE', 'full genesis-to-MEGAPACKET proof (Bayer-Groth + batch-DLEQ), broadcast before pocket unlock requests'),
+            note('all', 'The host assembles and verifies DUALLOCK_BUNDLE from the async step proofs. Each peer verifies it against its own genesis, pocket boundary and MEGAPACKET before serving any card unlock. A missing, invalid or timed-out proof blocks the unlock.'),
             note('H', 'HOST extends one DealChain per slot (anchor = MEGAPACKET point) and strips its own lock locally, each with a per-card DLEQ proof.'),
             m('H', 'C1', 'REQ_SRA_UNLOCK_CHAIN', 'phase = POCKET · strip C1 k_pocket from the OTHER slots'),
             note('C1', 'verifies each chain anchors to its MEGAPACKET · applies k_pocket⁻¹\n+ attaches a DLEQ proof (Chaum-Pedersen, dom. «SRA_DLEQ\\0»).\nGuard: REFUSES its own slot (anti self-strip) → otherwise LOCKDOWN.'),
@@ -110,9 +112,7 @@ const phases = [
             note('H', 'guardarFosilSRA: persists the state for crash recovery.'),
         ]},
 
-    {title: 'PHASE 3a · Preflop betting  (Ed25519-signed actions, ratcheted into H_t)', c: P.bet, items: [
-            bc('DUALLOCK_BUNDLE', 'full genesis→MEGAPACKET proof (Bayer-Groth + batch-DLEQ) — assembled from the async step proofs, broadcast DURING betting, off the deal path'),
-            note('all', 'Once the host has collected the async DECK_CASCADE_PROOF from every peer it assembles the honest-shuffle bundle and broadcasts it here. C1 and C2 enqueue it in ShuffleVerificationQueue and verify it in the BACKGROUND against their own recomputed genesis + pocket/community boundary — zero impact on play. A missing/failed proof only sets receipt flags (bit1 deck-pending / bit1+bit2 no-proof), never blocks the hand.'),
+    {title: 'PHASE 3a · Preflop betting', c: P.bet, items: [
             ...bettingOrbit(),
             note('all', 'Each ACTION is a 92 B canonical record (cents, NFC); the actor signs it «ACTION\\0», every peer verifies the sig and binds type/amount/player/hand to the played action (bad sig or mismatch ⇒ synthetic FOLD + flag), then absorbs H_{t+1} = SHA-256( record ‖ sig ). Acting order follows the button &amp; blinds.'),
         ]},

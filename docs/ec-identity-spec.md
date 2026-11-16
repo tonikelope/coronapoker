@@ -275,7 +275,7 @@ H_0 = SHA-256(
       )
 ```
 
-Each peer's block, its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket * B` and `K_community = k_community * B` (Ristretto255 encodings), is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5). The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
+Each peer's block, its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket * B` and `K_community = k_community * B` (Ristretto255 encodings), is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5). The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb. Computing this commitment and acknowledging receipt of the proof bundle are separate from locally accepting the shuffle proof. The local verdict also checks that each shuffle and rotation witness matches the expected key commitments for its contributor and position. A peer waits for that local verdict for the current hand and deck before serving any private or community unlock. See [verifiable shuffle](SECURITY.md#26-verifiable-shuffle-and-key-binding).
 
 ### 5.2 Per-action ratchet
 
@@ -358,7 +358,7 @@ The outcomes, in descending priority (only the strongest is surfaced):
 | `DECK_UNVERIFIED` | otherwise clean, but some peer's proof is still verifying (bit1 alone, slow peer) | WARNING (silent: JUL + row, no popup) | `reason='DECK_UNVERIFIED'` |
 | `OK` | all present, unanimous, no flag bit set | INFO | No |
 
-Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout. The open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
+Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout. The open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked every private and community unlock without a verified deck.
 
 A voluntary exit can interrupt the receipt exchange and leave the hand open
 for recovery. When the final verdict has already been confirmed, the dealer
@@ -423,7 +423,7 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
 
-Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` equality check at join (§3).
+Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` equality check at join (§3). The production dual-lock proof format v2 uses context-bound DLEQ proofs for the expected public keys. Active-hand recovery requires the matching local `SHUFFLE_CONTEXT@2` verdict alongside `SHUFFLE_VERIFIED@1`.
 
 ---
 

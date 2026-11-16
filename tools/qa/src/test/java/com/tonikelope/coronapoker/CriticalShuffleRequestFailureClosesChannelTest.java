@@ -28,14 +28,20 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
         assertTrue(count(crupier, "closeHostAfterShuffleVerificationFailure();") >= 2,
                 "dishonest and malformed asynchronous verdicts must close the live channel");
 
-        int builder = crupier.indexOf("background dual-lock full-chain self-check");
+        int hostDeal = crupier.indexOf("private boolean enviarCartasJugadoresRemotos(");
+        int megapacket = crupier.indexOf("broadcastGAMECommandFromServer(\"MEGAPACKET#", hostDeal);
+        int proofBarrier = crupier.indexOf("if (!verifyAndBroadcastShuffleBeforeDeal(", hostDeal);
+        int firstUnlock = crupier.indexOf("extendPocketChainsForSigner(", hostDeal);
+        assertTrue(hostDeal >= 0 && megapacket > hostDeal && proofBarrier > megapacket
+                && firstUnlock > proofBarrier,
+                "the host must publish the deck and its proof before starting the private deal");
+
+        int builder = crupier.indexOf("private boolean verifyAndBroadcastShuffleBeforeDeal(");
+        int fullCheck = crupier.indexOf("verifyFullChainWire(", builder);
         int broadcast = crupier.indexOf("broadcastGAMECommandFromServer(bundle, null);", builder);
-        int verified = crupier.indexOf("this.dual_lock_verified_megapacket = bgMega;", builder);
-        int builderEnd = crupier.indexOf("return true;", builder);
-        assertTrue(builder >= 0 && broadcast > builder && verified > broadcast,
-                "the host must not release betting before the proof bundle is broadcast and ACKed");
-        assertTrue(count(crupier.substring(builder, builderEnd), "markShuffleProofFailed(bgMega);") >= 4,
-                "broadcast, self-check, incomplete proof and background exception must all reject the deck");
+        int verified = crupier.indexOf("this.dual_lock_verified_megapacket = megapacket;", builder);
+        assertTrue(builder >= 0 && fullCheck > builder && broadcast > fullCheck && verified > broadcast,
+                "the host must verify and deliver the bundle before publishing its verdict");
     }
 
     @Test

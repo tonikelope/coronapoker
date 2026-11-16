@@ -115,7 +115,6 @@ final class ArchitectureBoundaryTest {
                 "demoHandIndex(",
                 "thinkingAction(",
                 "potAt(",
-                "COMMUNITY_REVEAL",
                 "SHOWDOWN_START",
                 "SHOWCASE_",
                 "LOCAL_CARD_RANKS",
@@ -148,8 +147,10 @@ final class ArchitectureBoundaryTest {
                         try {
                             String source = Files.readString(path,
                                     StandardCharsets.UTF_8);
-                            return forbiddenRuntimeSymbols.stream()
-                                    .anyMatch(source::contains);
+                            // Match the former demo token as a whole symbol so
+                            // legitimate community reveal preference keys are allowed.
+                            return Pattern.compile("\\bCOMMUNITY_REVEAL\\b").matcher(source).find()
+                                    || forbiddenRuntimeSymbols.stream().anyMatch(source::contains);
                         } catch (IOException ex) {
                             throw new IllegalStateException(
                                     "Cannot inspect " + path, ex);

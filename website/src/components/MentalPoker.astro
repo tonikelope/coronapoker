@@ -1,6 +1,7 @@
 ---
-import { docs, mentalPokerPaper, type copy, type Locale } from '../content';
+import { docs, mentalPokerPaper, shufflePapers, type copy, type Locale } from '../content';
 import ReceiptDemo from './ReceiptDemo.astro';
+import ShuffleProofDemo from './ShuffleProofDemo.astro';
 
 interface Props {
   text: (typeof copy)[Locale]['mental'];
@@ -8,13 +9,18 @@ interface Props {
 
 const { text } = Astro.props;
 const numbers = text.steps.map((_, index) => String(index + 1).padStart(2, '0'));
-const marks = ['♠', '♥', '♦'];
-const { deal, shuffle, receipts } = text;
+const { deal, shuffle, verification, receipts } = text;
 const hand = [['A', '♠'], ['Q', '♠']];
 const streets = [
   [['J', '♦'], ['9', '♣'], ['7', '♦']],
   [['4', '♥']],
   [['K', '♣']],
+];
+const boardRoute = [
+  { player: 0, locks: [1, 2] },
+  { player: 1, locks: [2] },
+  { player: 0, locks: [2] },
+  { player: 2, locks: [2] },
 ];
 ---
 <section class="mental" id="mental-poker" aria-labelledby="mental-title">
@@ -23,7 +29,9 @@ const streets = [
       <p class="eyebrow"><span></span> Mental Poker</p>
       <h2 id="mental-title">{text.title}</h2>
     </div>
-    <p class="body-copy">{text.intro}</p>
+    <div class="body-copy">
+      {text.intro.map(paragraph => <p>{paragraph}</p>)}
+    </div>
   </div>
 
   <div class="wrap reveal" data-mental>
@@ -46,10 +54,31 @@ const streets = [
             <h3>{step.label}</h3>
             <p>{step.body}</p>
             {index === 0 &&
-              <div class="shuffle-question">
-                <h4>{shuffle.whatIf}</h4>
-                <p>{shuffle.answer}</p>
-              </div>
+              <>
+                <p>{shuffle.lockRule}</p>
+                <p>{shuffle.rotationRule}</p>
+                <p>{shuffle.rotationWhy}</p>
+                <div class="shuffle-question">
+                  <h4>{shuffle.whatIf}</h4>
+                  <p>{shuffle.answer}</p>
+                </div>
+              </>
+            }
+            {index === 1 &&
+              <>
+                {verification.history.map(paragraph => <p>{paragraph}</p>)}
+                <p class="proof-boundary"><strong>{verification.ruleTitle}</strong> {verification.rule}</p>
+              </>
+            }
+            {index === 2 &&
+              <>
+                {deal.boardCheck.map(paragraph => <p>{paragraph}</p>)}
+                <p>{deal.showdown}</p>
+                <div class="shuffle-question">
+                  <h4>{deal.timingQuestion}</h4>
+                  <p>{deal.timingAnswer}</p>
+                </div>
+              </>
             }
             {index === 3 && (
               <>
@@ -69,17 +98,27 @@ const streets = [
               <ol class="shuffle-players" data-shuffle-players>
                 {text.names.map((name, player) => (
                   <li aria-current={player === 0 ? 'step' : undefined}>
-                    <span class={`mini-lock shade-${player}`} aria-hidden="true">{marks[player]}</span>
+                    <span class={`mini-lock shade-${player}`} aria-hidden="true"></span>
                     <span>{name}{player === 0 && <small>{shuffle.host}</small>}</span>
                   </li>
                 ))}
               </ol>
               <div class="shuffle-felt">
                 <span class="shuffle-deck-label">{shuffle.deck}</span>
+                <div class="shuffle-legend" data-shuffle-legend hidden>
+                  <div class="shuffle-regions">
+                    <span>{shuffle.privateSlots}</span>
+                    <span>{shuffle.communitySlots}</span>
+                  </div>
+                  <div class="shuffle-slot-key">
+                    {deal.streets.map(street => <span><b aria-hidden="true">{street[0]}</b>{street}</span>)}
+                    <span><b aria-hidden="true">🔥</b>{shuffle.burnLabel}</span>
+                  </div>
+                </div>
                 <div class="shuffle-cards" data-shuffle-cards aria-hidden="true">
                   {Array.from({ length: 52 }, () => (
                     <div class="shuffle-card">
-                      {marks.map((mark, index) => <span class={`mini-lock shade-${index}`}>{mark}</span>)}
+                      {text.names.map((_, player) => <span class={`mini-lock shade-${player}`}></span>)}
                     </div>
                   ))}
                 </div>
@@ -90,30 +129,37 @@ const streets = [
               </div>
               <ol class="deal-fallback shuffle-frames" data-shuffle-frames data-shuffle-replay={shuffle.replay}>
                 {shuffle.states.map((state, index) => (
-                  <li data-play={shuffle.actions[index]} data-locking={shuffle.locking[index]} data-mixing={shuffle.mixing[index]}>{state}</li>
+                  <li
+                    data-play={shuffle.actions[index]}
+                    data-locking={shuffle.locking[index]}
+                    data-mixing={shuffle.mixing[index]}
+                    data-remove-lock={shuffle.rotation[index - text.names.length]?.[0]}
+                    data-replace-lock={shuffle.rotation[index - text.names.length]?.[1]}
+                  >{state}</li>
                 ))}
               </ol>
             </div>
           }
 
           {index === 1 &&
-            <div class="diagram diagram-verify">
-              <div class="proof">
-                <div class="proof-cards" aria-hidden="true">
-                  <div class="playing-card card-back"></div>
-                  <div class="playing-card card-back"><span>✓</span></div>
-                </div>
-                <ul>
-                  <li>{text.deckCheck}</li>
-                  <li>{text.copiesCheck}</li>
-                  <li>{text.secretOrder}</li>
-                </ul>
-              </div>
-              <div class="proof-people">
-                <span>{text.verified}</span>
-                <div>{text.names.map(name => <span><b aria-hidden="true">✓</b> {name}</span>)}</div>
-              </div>
-            </div>
+            <>
+              <ShuffleProofDemo text={verification} />
+              <ul class="proof-checks" role="list">
+                {verification.techniques.map(({ title, body, method, variant, paper, attack, defense }) => (
+                  <li>
+                    <h4>{title}</h4>
+                    <p class="proof-method">
+                      <a class="proof-reference" href={shufflePapers[paper].url} title={shufflePapers[paper].title} target="_blank" rel="noopener">{method}</a>{' '}{variant}
+                    </p>
+                    <p>{body}</p>
+                    <div class="proof-attack">
+                      <p><strong>{verification.attack}</strong>{attack}</p>
+                      <p><strong>{verification.defense}</strong>{defense}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           }
 
           {index === 2 &&
@@ -138,7 +184,7 @@ const streets = [
                     <div class="deal-lock-list" aria-hidden="true">
                       {text.names.map((name, lock) => (
                         <div data-deal-lock={lock + 1}>
-                          <span class={`mini-lock shade-${lock}`}>{marks[lock]}</span>
+                          <span class={`mini-lock shade-${lock}`} aria-hidden="true"></span>
                           <span class="deal-unlocked" hidden>✓</span>
                           <span class="deal-lock-name">{name}</span>
                         </div>
@@ -146,17 +192,58 @@ const streets = [
                     </div>
                   </div>
                 </div>
+                {deal.delivery.titles.map((title, index) => (
+                  <div class="deal-delivery" data-deal-delivery={2 + index * 2} hidden>
+                    <div class="deal-delivery-head">
+                      <strong>{title}</strong>
+                      {index > 0 && <span class="deal-betting-closed">{deal.delivery.closed[index - 1]}</span>}
+                    </div>
+                    {index > 0 && (
+                      <div class="deal-route">
+                        <span class="deal-route-title">{deal.delivery.routeTitle}</span>
+                        <ol class="deal-route-steps" role="list" aria-label={deal.delivery.routeTitle}>
+                          {boardRoute.map(({ player, locks }, position) => (
+                            <li style={`--route-index:${position}`}>
+                              <strong>{text.names[player]}{player === 0 && <>{' '}<span class="deal-route-host">{deal.delivery.hostRole}</span></>}</strong>
+                              <small>{deal.delivery.route[position]}</small>
+                              <span class="deal-route-locks" aria-hidden="true">
+                                {locks.map(owner => <i class={`mini-lock community-lock shade-${owner}`}></i>)}
+                              </span>
+                              {position < boardRoute.length - 1 && <span class="deal-route-arrow" aria-hidden="true">→</span>}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    <ul class="deal-packets" role="list" aria-label={deal.delivery.recipients}>
+                      {text.names.map((name, player) => (
+                        <li>
+                          <span class="deal-packet-name"><span aria-hidden="true">{player === 0 ? '↺' : '↓'}</span> {name}</span>
+                          <div class="deal-packet-cards" aria-hidden="true">
+                            {Array.from({ length: index === 0 ? hand.length : streets[index - 1].length }, () => (
+                              <span class="deal-packet-card">
+                                <i class:list={['mini-lock', `shade-${player}`, { 'community-lock': index > 0 }]}></i>
+                              </span>
+                            ))}
+                          </div>
+                          {player === 0 && <span class="deal-packet-local">{deal.delivery.local}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                    <p class="deal-delivery-note">{index === 0 ? deal.delivery.privateNote : deal.delivery.boardNote}</p>
+                  </div>
+                ))}
                 <div class="deal-board" role="group" aria-label={deal.board}>
                   <span class="deal-label">{deal.board}</span>
                   <div class="deal-board-key" data-deal-interactive hidden>
                     <span>{deal.boardLocks}</span>
-                    <span title={deal.boardKey}>
-                      {text.names.map((name, index) => <span><b aria-hidden="true">{marks[index]}</b> {name}</span>)}
+                    <span>
+                      {text.names.map((name, player) => <span><i class={`mini-lock community-lock shade-${player}`} aria-hidden="true"></i>{name}</span>)}
                     </span>
                   </div>
                   <div class="deal-streets">
                     {streets.map((cards, street) => (
-                      <div class="deal-group" data-deal-group={street + 4}>
+                      <div class="deal-group" data-deal-group={5 + street * 2}>
                         <div class="deal-cards" aria-hidden="true">
                           {cards.map(([rank, suit]) => (
                             <div class="deal-card">
@@ -167,9 +254,9 @@ const streets = [
                         </div>
                         <span class="street-label">{deal.streets[street]}</span>
                         <div class="board-locks" data-deal-interactive hidden aria-hidden="true">
-                          {marks.map(mark => (
+                          {text.names.map((_, player) => (
                             <div class="board-lock-slot">
-                              <span class="mini-lock board-lock" data-cards-sealed>{mark}</span>
+                              <span class={`mini-lock board-lock community-lock shade-${player}`} data-cards-sealed></span>
                               <span class="deal-unlocked" data-cards-open hidden>✓</span>
                             </div>
                           ))}
@@ -203,6 +290,7 @@ const streets = [
     <details class="protocol-more">
       <summary>{text.detailsTitle}</summary>
       <p>{text.details}</p>
+      <p>{text.signers}</p>
       <a class="text-link" href={`${docs}/docs/SECURITY.md#2-mental-poker-sra-cascade`} target="_blank" rel="noopener">{text.link} <span aria-hidden="true">↗</span></a>
     </details>
     <aside class="mental-credit" aria-label={text.credits}>

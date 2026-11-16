@@ -1,0 +1,87 @@
+---
+import type { copy, Locale } from '../content';
+
+interface Props { text: (typeof copy)[Locale]['mental']['verification'] }
+const { text } = Astro.props;
+const input = [['A', 2], ['B', 5], ['C', 7], ['D', 11]] as const;
+const output = [input[2], input[0], input[3], input[1]];
+const [trackedLetter, trackedWeight] = input[3];
+const replacement = input[2][0];
+---
+<div class="diagram diagram-verify">
+  <h4 class="proof-demo-title">{text.title}</h4>
+  <div class="proof-derivation">
+    <h5>{text.originTitle}</h5>
+    <div class="proof-origin-flow" aria-hidden="true">
+      {text.originFlow.map((label, index) => (
+        <>{index > 0 && <span class="proof-origin-arrow">→</span>}<span>{label}</span></>
+      ))}
+    </div>
+    <p>{text.origin}</p>
+  </div>
+  <fieldset class="proof-switch">
+    <legend>{text.chooser}</legend>
+    <div class="proof-choices">
+      {text.modes.map((mode, index) => (
+        <label>
+          <input type="radio" name="shuffle-example" value={index} checked={index === 0} />
+          <span>{mode.label}</span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+
+  <figure class="proof-decks">
+    <figcaption>{text.example}</figcaption>
+    <p class="proof-guide">{text.guide}</p>
+    <div class="proof-deck">
+      <strong>{text.input}</strong>
+      <ol class="proof-card-row">
+        {input.map(([letter, weight]) => (
+          <li class:list={['proof-card', { 'proof-card-tracked': weight === trackedWeight }]}>
+            <span class="mini-lock shade-0" aria-hidden="true"></span>
+            <b>{letter}</b>
+            <small>{text.weight} {weight}</small>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <span class="proof-transfer" aria-hidden="true">↓</span>
+
+    {text.modes.map((mode, scenario) => (
+      <div class="proof-output" data-proof-scenario={scenario}>
+        <div class="proof-deck">
+          <strong>{text.output}</strong>
+          <ol class="proof-card-row">
+            {output.map(([letter, weight]) => {
+              const substituted = scenario === 1 && weight === trackedWeight;
+              return (
+                <li class:list={['proof-card', { 'proof-card-tracked': weight === trackedWeight, 'proof-card-invalid': substituted }]}>
+                  <div class="proof-card-locks" aria-hidden="true">
+                    <span class="mini-lock shade-0"></span>
+                    <span class="mini-lock shade-1"></span>
+                  </div>
+                  <b>{substituted ? replacement : letter}′</b>
+                  <small>{text.weight} {weight}</small>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+        <div class="proof-contribution">
+          <span>{text.contribution}</span>
+          <strong>{trackedWeight} × {trackedLetter} → {trackedWeight} × {scenario === 1 ? replacement : trackedLetter}′</strong>
+        </div>
+        <div class:list={['proof-result', { 'proof-conflict': scenario === 1 }]}>
+          <span class="proof-result-mark" aria-hidden="true">{scenario === 0 ? '✓' : '!'}</span>
+          <div>
+            <strong>{mode.verdict}</strong>
+            <p>{mode.detail}</p>
+          </div>
+        </div>
+      </div>
+    ))}
+    <p class="proof-legend">{text.sampleNote}</p>
+  </figure>
+</div>

@@ -577,12 +577,7 @@ final class GdxSettingsContract {
         if (page == AUDIO_FUNNY_SOUNDS_PAGE) {
             return GdxGameAudioResources.jokeSoundsPage(settings, language, page);
         }
-        if (page != AUDIO_SOURCE_PAGES.get(1)) return page;
-        return new TogglePage(page.title(), page.options().stream()
-                .filter(option -> option.gate() != Gate.MUSIC
-                        || GdxGameAudioResources.available(settings,
-                                audioPreview(option, language).resource()))
-                .toList());
+        return page;
     }
 
     /** Appearance switches shared with Swing; choice controls are separate. */

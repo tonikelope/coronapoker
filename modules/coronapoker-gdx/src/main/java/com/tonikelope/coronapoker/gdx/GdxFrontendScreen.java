@@ -351,8 +351,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private static final float ABOUT_RULES_Y = 352f;
     private static final float ABOUT_HANDMADE_BASELINE = 334f;
     private static final String COPYRIGHT_SYMBOL = "©";
-    private static final URI GPL_V3_URI = URI.create(
-            "https://www.gnu.org/licenses/gpl-3.0.html");
     static final float ABOUT_CONTENT_WIDTH = 1060f;
     static final float HAND_GENERATOR_PANEL_X = 410f;
     static final float HAND_GENERATOR_PANEL_Y = 178f;
@@ -5954,10 +5952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 new Rectangle(x + 50f, y + 198f, w - 100f, 73f), Color.WHITE);
         centeredDialogMessage(smallFont, gameText.translate("about.musica_juego"),
                 new Rectangle(x + 50f, y + 104f, w - 100f, 80f), MUTED);
-        themedButton(WIDTH / 2f - 225f, y + 30f, 210f, 52f,
-                "GPLv3", ButtonTone.NEUTRAL,
-                () -> openExternalUri(GPL_V3_URI, "gdx.about.open_failed"), true);
-        themedButton(WIDTH / 2f + 15f, y + 30f, 210f, 52f,
+        themedButton(WIDTH / 2f - 105f, y + 30f, 210f, 52f,
                 uppercase(gameText.translate("ui.cerrar")), ButtonTone.FEATURED,
                 this::closeAboutCopyright, true);
     }
@@ -9623,6 +9618,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     presentationSettings, option, gameText.language());
             String optionLabel = GdxModSettingsIndicator.label(
                     option.label(gameText), modOverride);
+            String missingAudio = GdxGameAudioResources.missingMusicFilename(
+                    presentationSettings, option, gameText.language());
+            if (missingAudio != null) {
+                drawMissingMusicRow(row, option, missingAudio);
+                continue;
+            }
             settingsBooleanToggle(row.x, row.y, row.width,
                     optionLabel, value,
                     GdxSettingsContract.displayedFallback(option),
@@ -9749,6 +9750,26 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 settingsToggleTransitions.begin(key, oldTarget,
                         newTarget, changedAt);
             }
+        }
+    }
+
+    private void drawMissingMusicRow(Rectangle row,
+            GdxSettingsContract.ToggleOption option, String filename) {
+        GdxSettingsStyle.drawUnavailableAudioRow(shapes, row, 1f);
+        GdxSettingsLayout.ToggleRow layout = GdxSettingsLayout.toggleRow(
+                row.x, row.y, row.width, GdxSettingsLayout.ROW_HEIGHT, 0f);
+        Color color = GdxSettingsStyle.lockedText();
+        float baseline = GdxSettingsLayout.rowTextBaseline(row.y);
+        textFit(smallFont, uppercase(option.label(gameText)), layout.label().x,
+                baseline, color, false, layout.label().width);
+        textFit(uiFont, GdxSettingsContract.booleanStatusLabel(false,
+                        GdxSettingsContract.displayedFallback(option), gameText),
+                layout.value().x + layout.value().width / 2f, baseline,
+                color, true, layout.value().width - 12f);
+        Rectangle visible = clippedSettingsHit(row.x, row.y, row.width, row.height);
+        if (visible != null) {
+            tooltip(visible.x, visible.y, visible.width, visible.height,
+                    GdxSettingsTooltips.MISSING_AUDIO, filename);
         }
     }
 
@@ -11488,11 +11509,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && statsConfirmation != StatsConfirmation.NONE)
                 || (surface == Surface.SETTINGS
                 && settingsReturnSurface == Surface.LOBBY);
-        boolean aboutDialogMusic = surface == Surface.MENU && aboutOpen;
-        boolean statsDialogMusic = surface == Surface.STATS;
         boolean customBotDialogMusic = customBotManagerOpen;
+        boolean aboutDialogMusic = !customBotDialogMusic
+                && surface == Surface.MENU && aboutOpen;
+        boolean statsDialogMusic = !customBotDialogMusic && surface == Surface.STATS;
+        boolean waitingRoomMusicSelected = lobbyMusic
+                && !statsDialogMusic && !customBotDialogMusic;
+        if (!tableAudioSuspended) {
+            boolean hasDedicatedTrack = customBotDialogMusic && customBotManagerMusic != null
+                    || aboutDialogMusic && aboutMusic != null
+                    || statsDialogMusic && statsMusic != null
+                    || waitingRoomMusicSelected && waitingRoomMusic != null;
+            setMusicVolume(backgroundMusic, 0.40f * volume);
+            syncTrack(backgroundMusic, !hasDedicatedTrack && !startupAudioHeld
+                    && !lobbyVoiceCapture.busy() && musicMasterEnabled()
+                    && preferenceBoolean("sonido_ascensor", true));
+        }
         boolean playWaitingRoom = frontendTrackAllowed(tableAudioSuspended,
-                musicMasterEnabled() && lobbyMusic && !lobbyVoiceCapture.busy()
+                musicMasterEnabled() && waitingRoomMusicSelected && !lobbyVoiceCapture.busy()
                 && preferenceBoolean("musica_sala_espera", true));
         boolean playAbout = frontendTrackAllowed(tableAudioSuspended,
                 musicMasterEnabled() && aboutDialogMusic
@@ -11575,7 +11609,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     void resumeMusic() {
         tableAudioSuspended = false;
-        syncTrack(backgroundMusic, false);
         syncMusicForSurface();
     }
 

@@ -401,7 +401,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean ambientMusic() { return bool("sonido_ascensor", true); }
     @Override public boolean recoveryMusic() {
-        return bool("musica_recuperacion", true);
+        return bool("musica_recuperacion", true)
+                && GdxGameAudioResources.available(this, "misc/recovering.mp3");
     }
     @Override public boolean showCallCost() { return bool("mostrar_coste_igualar", true); }
     @Override public boolean autoActionButtons() {

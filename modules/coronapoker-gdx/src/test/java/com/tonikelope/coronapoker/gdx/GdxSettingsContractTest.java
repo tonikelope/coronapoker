@@ -587,9 +587,11 @@ final class GdxSettingsContractTest {
             boolean optionalMusic = option.gate() == GdxSettingsContract.Gate.MUSIC
                     && !"sonido_ascensor".equals(option.key());
             if (optionalMusic) {
-                assertEquals(bundled,
-                        GdxSettingsContract.audioPage(1, null, "es")
-                                .options().contains(option), option.key());
+                assertTrue(GdxSettingsContract.audioPage(1, null, "es")
+                        .options().contains(option), option.key());
+                String missing = GdxGameAudioResources.missingMusicFilename(null, option, "es");
+                assertEquals(bundled ? null : GdxGameAudioResources.jokeFilename(preview.resource()),
+                        missing, option.key());
             } else {
                 assertTrue(bundled, option.key() + " -> " + preview.resource());
             }

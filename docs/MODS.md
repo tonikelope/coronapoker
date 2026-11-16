@@ -142,13 +142,15 @@ Changing `call.wav` to another filename does not create a new call slot.
 
 ### Music slots
 
-Only table music is currently bundled. Each music slot has a fixed filename.
-The game uses the track from the local MOD when provided, then falls back to
-the bundled track for the same slot. Settings lists every available slot.
+Only the ambient track is currently bundled. Each music slot has a fixed
+filename. The game uses the track from the local MOD when provided, then falls
+back to the bundled track for the same slot. Settings marks missing tracks in
+red and shows the required filename. When a screen or recovery has no
+dedicated music file, the ambient track continues if enabled.
 
 | Relative path under `mod/sounds` | Use |
 | --- | --- |
-| `misc/background_music.mp3` | Table music |
+| `misc/background_music.mp3` | Main menu, table, final summary, and fallback for missing music |
 | `misc/waiting_room.mp3` | Waiting-room music |
 | `misc/about_music.mp3` | About screen music |
 | `misc/stats_music.mp3` | Statistics music |

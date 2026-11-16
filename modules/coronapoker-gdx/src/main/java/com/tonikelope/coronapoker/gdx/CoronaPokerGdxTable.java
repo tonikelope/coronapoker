@@ -2972,9 +2972,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean settingsOptionEnabled(
             GdxSettingsContract.ToggleOption option) {
-        return GdxSettingsContract.enabledWithCommunicationRules(option,
-                tableSettingsProperties(), tableHost, settingsVoiceMessagesDraft,
-                settingsTextToSpeechDraft);
+        return GdxGameAudioResources.missingMusicFilename(
+                presentationSettings, option, gameText.language()) == null
+                && GdxSettingsContract.enabledWithCommunicationRules(option,
+                        tableSettingsProperties(), tableHost, settingsVoiceMessagesDraft,
+                        settingsTextToSpeechDraft);
     }
 
     private boolean settingsOptionDisplayedValue(
@@ -4296,6 +4298,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void activateBackgroundMusic() {
         if (backgroundMusic == null) return;
+        refreshDealerLoopVolumes();
         if (musicEnabled()) backgroundMusic.play();
         else backgroundMusic.pause();
     }
@@ -5417,6 +5420,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             stopTableVoiceNotePreview();
             GdxVoicePlayback.stop();
             finalSummary = close.summary();
+            stopAudioLoop("misc/recovering.mp3");
+            liveAudioLoopsMuted = false;
+            activateBackgroundMusic();
             gameLog.appendFinalSummary(finalSummary, gameText);
             finalSummaryBarrier = barrier;
             finalSummaryOpenedAt = totalTime;
@@ -26117,6 +26123,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         page.options().get(optionIndex);
                 Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                         rows.rowY(row), width, row, groups, totalRows);
+                if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) continue;
+                String missingAudio = GdxGameAudioResources.missingMusicFilename(
+                        presentationSettings, option, gameText.language());
+                if (missingAudio != null) {
+                    return new SettingsTooltipHover(option.key(),
+                            new GdxSettingsTooltips.Content(gameText.translate(
+                                    GdxSettingsTooltips.MISSING_AUDIO, missingAudio),
+                                    GdxSettingsContract.PerformanceImpact.NONE));
+                }
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
                         option.key(), viewportBounds, properties,
                         GdxGameAudioResources.modOverridesSetting(
@@ -26718,6 +26733,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boolean value = settingsOptionDisplayedValue(option);
                 Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                         rows.rowY(row), width, row, groups, totalRows);
+                if (GdxGameAudioResources.missingMusicFilename(
+                        presentationSettings, option, gameText.language()) != null) {
+                    GdxSettingsStyle.drawUnavailableAudioRow(shapes, bounds, alpha);
+                    continue;
+                }
                 drawSettingsOptionToggleShape(bounds.x, bounds.y,
                         bounds.width, value, enabled, option.key(), alpha);
                 GdxSettingsContract.AudioPreview preview =
@@ -27539,6 +27559,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                         rows.rowY(row), width, row, groups, totalRows);
                 boolean value = settingsOptionDisplayedValue(option);
+                if (GdxGameAudioResources.missingMusicFilename(
+                        presentationSettings, option, gameText.language()) != null) {
+                    drawLiveSettingsToggleText(bounds.x, bounds.y, bounds.width,
+                            option.label(gameText), GdxSettingsContract.booleanStatusLabel(
+                                    false, GdxSettingsContract.displayedFallback(option), gameText),
+                            SettingsRowAccess.LIVE_LOCKED, alpha);
+                    continue;
+                }
                 drawSettingsToggleText(bounds.x, bounds.y, bounds.width,
                         GdxModSettingsIndicator.label(
                                 option.label(gameText), modOverride),
@@ -31235,7 +31263,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     void resumeRetainedFinalSummary() {
         finalExitPending = false;
         finalStatsRequested = false;
-        if (backgroundMusic != null && musicEnabled()) backgroundMusic.play();
+        activateBackgroundMusic();
     }
 
     void suspendRetainedFinalSummary() {

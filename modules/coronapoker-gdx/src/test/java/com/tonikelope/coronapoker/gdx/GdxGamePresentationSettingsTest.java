@@ -316,7 +316,8 @@ final class GdxGamePresentationSettingsTest {
                 new GdxGamePresentationSettings(preferences);
 
         preferences.properties().setProperty("lenguaje", "en");
-        assertTrue(settings.recoveryMusic());
+        assertEquals(GdxGameAudioResources.available(null, "misc/recovering.mp3"),
+                settings.recoveryMusic());
         assertTrue(settings.startSound());
         preferences.properties().setProperty("musica_recuperacion", "false");
         preferences.properties().setProperty("sonido_inicio", "false");

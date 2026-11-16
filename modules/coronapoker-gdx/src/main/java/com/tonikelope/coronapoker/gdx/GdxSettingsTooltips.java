@@ -29,6 +29,8 @@ final class GdxSettingsTooltips {
                     "showdown_time", "allow_hot_join", "iwtsth",
                     "run_it_twice", "rabbit_hunting"));
 
+    static final String MISSING_AUDIO = "gdx.settings.tooltip.audio_missing";
+
     record Content(String text,
             GdxSettingsContract.PerformanceImpact performanceImpact) {
     }

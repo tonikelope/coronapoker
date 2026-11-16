@@ -251,6 +251,12 @@ final class GdxSettingsStyle {
                 Math.min(13f, height / 2f - 1f), 2f);
     }
 
+    static void drawUnavailableAudioRow(ShapeRenderer shapes, Rectangle row,
+            float alpha) {
+        drawLockedRow(shapes, row.x, row.y, row.width, row.height, alpha);
+        drawToggle(shapes, row.x, row.y, row.width, 0f, alpha);
+    }
+
     static void drawToggle(ShapeRenderer shapes, float x, float y,
             float width, float animation, float alpha) {
         float trackX = x + width - TOGGLE_WIDTH - TOGGLE_RIGHT_INSET;

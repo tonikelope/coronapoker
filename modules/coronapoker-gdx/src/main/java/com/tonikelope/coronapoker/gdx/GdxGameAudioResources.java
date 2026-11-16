@@ -53,6 +53,14 @@ final class GdxGameAudioResources {
                 || GdxGameAudioResources.class.getResource("/cinematics/" + normalized) != null);
     }
 
+    static String missingMusicFilename(GdxGamePresentationSettings settings,
+            GdxSettingsContract.ToggleOption option, String language) {
+        if (option.gate() != GdxSettingsContract.Gate.MUSIC) return null;
+        String resource = GdxSettingsContract.audioPreview(option, language).resource();
+        return available(settings, resource) ? null
+                : resource.substring(resource.lastIndexOf('/') + 1);
+    }
+
     static Optional<Path> modOverride(GdxGamePresentationSettings settings,
             String resource) {
         String normalized = normalize(resource);

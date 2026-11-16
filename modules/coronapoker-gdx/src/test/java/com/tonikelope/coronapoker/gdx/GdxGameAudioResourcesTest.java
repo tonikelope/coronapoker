@@ -4,6 +4,7 @@ package com.tonikelope.coronapoker.gdx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.PreferencesService;
@@ -62,8 +63,14 @@ final class GdxGameAudioResourcesTest {
                         GdxGameAudioResources.modOverride(settings,
                                 "sounds/misc/" + slot).orElseThrow());
             }
-            assertEquals(7, GdxSettingsContract.audioPage(1, settings, "es")
-                    .options().size(), "all fixed music slots are available");
+            var musicOptions = GdxSettingsContract.audioPage(1, settings, "es").options();
+            assertEquals(7, musicOptions.size(), "all fixed music slots are listed");
+            for (var option : musicOptions) {
+                assertNull(GdxGameAudioResources.missingMusicFilename(settings, option, "es"));
+            }
+            assertTrue(settings.recoveryMusic());
+            preferences.properties().setProperty("musica_recuperacion", "false");
+            assertFalse(settings.recoveryMusic());
             Path background = mod.resolve("background_music.mp3")
                     .toAbsolutePath().normalize();
             assertEquals(background,

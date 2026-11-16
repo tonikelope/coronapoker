@@ -4266,21 +4266,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return GdxTextureQuality.loadAlphaEdgeUi(Gdx.files.internal(path));
     }
 
-    private static Texture feltTexture(String path) {
-        // Swing displays these exact bundled pixels. Keep GDX colour-neutral:
-        // no gamma curves, darkening overlays or per-felt substitutions.
-        // The fine weave needs prefiltered mip levels when the table recedes.
-        // Point sampling turns individual fibres into square, shimmering texels.
-        Texture texture = new Texture(Gdx.files.internal(path), true);
-        texture.setFilter(feltMinificationFilter(), TextureFilter.Linear);
-        texture.setAnisotropicFilter(8f);
-        return texture;
-    }
-
-    static TextureFilter feltMinificationFilter() {
-        return TextureFilter.MipMapLinearLinear;
-    }
-
     private static Texture silhouetteTexture(String path, Color tint) {
         Pixmap source = new Pixmap(Gdx.files.internal(path));
         Pixmap tinted = new Pixmap(source.getWidth(), source.getHeight(),
@@ -7924,13 +7909,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         secretFeltTexture = false;
-        Texture normal = feltTexture("images/tapete_"
-                + GdxGamePresentationSettings.normalizedFelt(felt) + ".jpg");
-        // Source resolution is independent of the physical weave scale.
-        // Both camera modes use the same tile footprint on the table.
-        feltTileSpan = "madera".equals(GdxGamePresentationSettings.normalizedFelt(felt))
-                ? normal.getWidth() : 512f;
-        normal.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        Texture normal = GdxFeltMaterial.load(felt);
+        feltTileSpan = GdxFeltMaterial.tileSpan(normal);
         return normal;
     }
 

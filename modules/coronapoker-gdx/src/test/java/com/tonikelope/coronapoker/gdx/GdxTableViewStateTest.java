@@ -177,7 +177,7 @@ final class GdxTableViewStateTest {
     @Test
     void fineWeaveIsPrefilteredAtObliqueTableAngles() {
         assertEquals(TextureFilter.MipMapLinearLinear,
-                CoronaPokerGdxTable.feltMinificationFilter());
+                GdxFeltMaterial.minificationFilter());
     }
 
     @Test

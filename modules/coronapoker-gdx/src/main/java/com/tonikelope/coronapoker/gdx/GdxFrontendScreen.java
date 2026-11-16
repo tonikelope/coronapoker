@@ -472,6 +472,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private SpriteBatch batch;
     private ShapeRenderer shapes;
     private Texture feltTexture;
+    private float feltTileSpan;
     private boolean secretFeltTexture;
     private String loadedFelt;
     private boolean loadedSecretFelt;
@@ -1043,10 +1044,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         secretFeltTexture = false;
-        Texture normal = new Texture(Gdx.files.internal("images/tapete_"
-                + felt + ".jpg"));
-        normal.setFilter(TextureFilter.Linear, TextureFilter.Nearest);
-        normal.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
+        Texture normal = GdxFeltMaterial.load(felt);
+        feltTileSpan = GdxFeltMaterial.tileSpan(normal);
         loadedFelt = felt;
         loadedSecretFelt = false;
         return normal;
@@ -1057,8 +1056,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             batch.draw(feltTexture, 0f, 0f, width, height);
         } else {
             batch.draw(feltTexture, 0f, 0f, width, height,
-                    0f, 0f, width / feltTexture.getWidth(),
-                    height / feltTexture.getHeight());
+                    0f, 0f, width / feltTileSpan, height / feltTileSpan);
         }
     }
 

@@ -2527,9 +2527,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             pointer.set(screenX, screenY);
             viewport.unproject(pointer);
-            return (uiLayerAllowsTablePointer()
-                    && pocketPeekSurfaceContains(pointer.x, pointer.y))
-                    || blockingTablePointerSurface();
+            if (uiLayerAllowsTablePointer()
+                    && pocketPeekSurfaceContains(pointer.x, pointer.y)) {
+                return true;
+            }
+            return blockingTablePointerSurface();
         }
     };
 

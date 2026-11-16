@@ -87,15 +87,16 @@ class NetworkLobbyGatewayTest {
                 Object transport = field(host, "resource");
                 GameChannel channel = (GameChannel) field(transport, "gameChannel");
                 var receive = channel.getClass().getDeclaredMethod("receiveHeld",
-                        String.class, String.class);
+                        GameChannel.Inbound.class);
                 var release = channel.getClass().getDeclaredMethod("releaseConfirmed");
                 receive.setAccessible(true);
                 release.setAccessible(true);
 
-                assertEquals(Boolean.TRUE, receive.invoke(channel, "Guest", "TEST"));
+                var inbound = new GameChannel.Inbound("Guest", "TEST");
+                assertEquals(Boolean.TRUE, receive.invoke(channel, inbound));
                 channel.close();
                 release.invoke(channel);
-                assertEquals(Boolean.FALSE, receive.invoke(channel, "Guest", "TEST"));
+                assertEquals(Boolean.FALSE, receive.invoke(channel, inbound));
             } finally {
                 host.close();
             }

@@ -12637,6 +12637,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (overlays == null) return;
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Overlay overlay : overlays) {
             shapes.setColor(0f, 0f, 0f, DERIVED_POT_OVERLAY_ALPHA);
@@ -13728,6 +13730,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (overlays == null) return;
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Overlay overlay : overlays) {
             Color color = overlay.hover()
@@ -14922,6 +14926,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
         Rectangle r = pocketPeekButton;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(pocketPeekRequested() ? ORANGE : CYAN);
         roundedRect(r.x, r.y, r.width, r.height, 12f);

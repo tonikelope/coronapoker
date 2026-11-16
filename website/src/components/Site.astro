@@ -9,6 +9,9 @@ import MentalPoker from './MentalPoker.astro';
 interface Props { lang: Locale }
 const { lang } = Astro.props;
 const t = copy[lang];
+const gameShotIndex = 1;
+const gameShot = gallery[gameShotIndex];
+const gameShotOriginal = `/media/${gameShot.id}-${gameShot.width}.webp`;
 const altLang = lang === 'en' ? 'es' : 'en';
 const canonical = site + routes[lang];
 const nav = [
@@ -151,11 +154,11 @@ const schema = {
             </div>
           </div>
           <figure class="game-feature reveal">
-            <a href={`/media/${gallery[0].id}-${gallery[0].width}.webp`} data-shot="0">
-              <Capture index={0} alt={t.galleryItems[0][1]} sizes="(max-width: 1250px) 92vw, 1180px" />
+            <a href={gameShotOriginal} data-shot={gameShotIndex}>
+              <Capture index={gameShotIndex} alt={t.galleryItems[gameShotIndex][1]} sizes="(max-width: 1250px) 92vw, 1180px" />
               <span class="expand-icon" aria-hidden="true">↗</span>
             </a>
-            <figcaption><span><i></i>{t.capture}</span><span>No-Limit Hold’em</span></figcaption>
+            <figcaption><span><i></i>{t.capture}</span><span>{t.galleryItems[gameShotIndex][0]}</span></figcaption>
           </figure>
         </div>
       </section>
@@ -240,7 +243,7 @@ const schema = {
         <img data-full alt="" />
         <div class="lightbox-bar">
           <button type="button" class="icon-button" data-previous aria-label={t.previous}>←</button>
-          <a data-original class="text-link" href={`/media/${gallery[0].id}-${gallery[0].width}.webp`} target="_blank" rel="noopener">{t.fullSize} <span aria-hidden="true">↗</span></a>
+          <a data-original class="text-link" href={gameShotOriginal} target="_blank" rel="noopener">{t.fullSize} <span aria-hidden="true">↗</span></a>
           <button type="button" class="icon-button" data-next aria-label={t.next}>→</button>
         </div>
       </div>

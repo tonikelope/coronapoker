@@ -18,22 +18,24 @@ export const shufflePapers = {
 export const routes = { en: '/', es: '/es/' };
 
 export const gallery = [
-  { id: 'table', source: 'table-en.png', width: 1920, height: 1080 },
-  { id: 'showdown', source: 'coronapoker-table-gdx.png', width: 2560, height: 1440 },
-  { id: 'lobby', source: 'waiting-room-en.png', width: 1920, height: 1080 },
-  { id: 'bots', source: 'bot-manager-en.png', width: 1588, height: 1010 },
-  { id: 'appearance', source: 'appearance-table-en.png', width: 1920, height: 1080 },
-  { id: 'verification', source: 'zero-trust-en.png', width: 1920, height: 1080 },
-  { id: 'poker-video', source: 'poker-video-en.png', width: 1920, height: 1080 },
+  { id: 'table', width: 2560, height: 1440 },
+  { id: 'table-3d', width: 2560, height: 1440 },
+  { id: 'showdown', width: 2560, height: 1440 },
+  { id: 'table-blue', width: 2560, height: 1440 },
+  { id: 'appearance', width: 1920, height: 1080 },
+  { id: 'verification', width: 1920, height: 1080 },
+  { id: 'lobby', width: 1920, height: 1080 },
+  { id: 'bots', width: 1588, height: 1010 },
+  { id: 'poker-video', width: 1920, height: 1080 },
 ];
 
 export const featureCategories = [
-  { id: 'rules', suit: '♠', shot: 1 },
-  { id: 'social', suit: '♥', shot: 2 },
-  { id: 'bots', suit: '◈', shot: 3 },
+  { id: 'rules', suit: '♠', shot: 2 },
+  { id: 'social', suit: '♥', shot: 6 },
+  { id: 'bots', suit: '◈', shot: 7 },
   { id: 'stats', suit: '♦', shot: null },
   { id: 'customization', suit: '♣', shot: 4 },
-  { id: 'video', suit: '▶', shot: 6 },
+  { id: 'video', suit: '▶', shot: 8 },
   { id: 'languages', suit: '◎', shot: null },
 ] as const;
 
@@ -278,7 +280,7 @@ export const copy = {
         customization: {
           name: 'Look and controls', title: 'Make the table feel right.',
           items: [
-            ['Cards and felt', 'Choose the deck, card backs, felt and table lighting.'],
+            ['Table view, cards and felt', 'Switch between the 2D and 3D views. Choose the deck, card backs, felt and table lighting.'],
             ['Sound and controls', 'Adjust game sounds, mute voices or remap the controls you use at the table.'],
             ['MOD packs', 'Use a custom pack to replace decks, sounds or all-in animations.'],
             ['Display and effects', 'Play in a window or fullscreen. Dim the table for late sessions and choose which animations and effects to show.'],
@@ -306,12 +308,14 @@ export const copy = {
     galleryTitle: 'Around the table',
     galleryText: 'Open a screenshot to see the game at full size.',
     galleryItems: [
-      ['At the table', 'No-Limit Hold’em table with the board, chip stacks and betting controls'],
-      ['Showdown', 'A completed hand at a large table with pot and showdown results'],
+      ['2D table', 'No-Limit Hold’em hand on green felt in the 2D table view'],
+      ['3D table', 'The same hand on green felt in the 3D perspective view'],
+      ['Showdown in 3D', 'Showdown on red felt with the winning flush highlighted'],
+      ['Blue felt in 2D', 'The flop and betting controls on the blue felt in the 2D view'],
+      ['Table appearance', 'Settings for the felt, deck, lighting and 2D or 3D view'],
+      ['Hand verification', 'Zero-Trust alert for a failed cryptographic check'],
       ['Waiting room', 'Waiting room with chat, game settings and the player list'],
       ['Bot manager', 'Bot catalogue with difficulty, playing style and rebuy settings'],
-      ['Table appearance', 'Appearance options for felt, card backs and table lighting'],
-      ['Hand verification', 'Zero-Trust dialog reporting conflicting hand verification'],
       ['Poker video player', 'The waiting room with the poker video player open in the lower-right corner'],
     ],
     close: 'Close screenshot', previous: 'Previous screenshot', next: 'Next screenshot', fullSize: 'Open full-size image',
@@ -559,7 +563,7 @@ export const copy = {
         customization: {
           name: 'Aspecto y controles', title: 'Dale otro aire a la mesa.',
           items: [
-            ['Barajas y tapetes', 'Elige la baraja, el reverso de las cartas, el tapete y la iluminación de la mesa.'],
+            ['Vista, barajas y tapetes', 'Alterna entre la vista 2D y la 3D. Elige la baraja, el reverso de las cartas, el tapete y la iluminación.'],
             ['Sonidos y controles', 'Ajusta los sonidos, silencia las voces o personaliza los atajos que usas durante la partida.'],
             ['Paquetes MOD', 'Usa un paquete personalizado para cambiar barajas, sonidos o las animaciones del all-in.'],
             ['Pantalla y efectos', 'Juega en ventana o a pantalla completa. Baja el brillo para jugar de noche y elige qué animaciones y efectos quieres ver.'],
@@ -587,12 +591,14 @@ export const copy = {
     galleryTitle: 'Alrededor de la mesa',
     galleryText: 'Abre una captura para ver el juego a tamaño completo.',
     galleryItems: [
-      ['En la mesa', 'Mesa de Hold’em sin límite con cartas comunes, fichas y controles de apuesta'],
-      ['Showdown', 'Mano finalizada en una mesa con varios jugadores, botes y resultados'],
+      ['Mesa en 2D', 'Mano de Hold’em sin límite sobre tapete verde en la vista 2D'],
+      ['Mesa en 3D', 'La misma mano sobre tapete verde en la vista 3D en perspectiva'],
+      ['Showdown en 3D', 'Showdown sobre tapete rojo con el color ganador resaltado'],
+      ['Tapete azul en 2D', 'Flop y controles de apuesta sobre tapete azul en la vista 2D'],
+      ['Aspecto de la mesa', 'Ajustes de tapete, baraja, iluminación y vista 2D o 3D'],
+      ['Verificación de la mano', 'Aviso de Zero Trust cuando falla una comprobación criptográfica'],
       ['Sala de espera', 'Sala de espera con chat, configuración y lista de jugadores'],
       ['Gestor de bots', 'Catálogo de bots con ajustes de dificultad, estilo de juego y recompra'],
-      ['Aspecto de la mesa', 'Opciones de tapete, reverso de cartas e iluminación'],
-      ['Verificación de la mano', 'Aviso de Zero Trust tras detectar discrepancias en la verificación de una mano'],
       ['Reproductor de póker', 'Sala de espera con el reproductor de vídeos de póker abierto en la esquina inferior derecha'],
     ],
     close: 'Cerrar captura', previous: 'Captura anterior', next: 'Captura siguiente', fullSize: 'Abrir imagen a tamaño completo',

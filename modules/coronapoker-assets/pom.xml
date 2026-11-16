@@ -25,6 +25,7 @@
             <resource>
                 <directory>${project.basedir}/../..</directory>
                 <includes>
+                    <include>LICENSE</include>
                     <include>robert_rules.pdf</include>
                     <include>robert_rules_es.pdf</include>
                 </includes>

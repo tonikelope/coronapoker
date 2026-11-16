@@ -16272,16 +16272,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (perspectiveActive) {
                 batch.setProjectionMatrix(perspectiveTable.boardProjection());
                 perspectiveBoardArtwork = true;
+                perspectiveTable.beginBoardCardPass();
             }
-            batch.begin();
-            drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX,
-                    cardBack);
-            batch.setShader(null);
-            batch.setColor(Color.WHITE);
-            batch.end();
-            if (perspectiveActive) {
-                perspectiveBoardArtwork = false;
-                batch.setProjectionMatrix(camera.combined);
+            try {
+                batch.begin();
+                drawLiveCommunityCards(cx, cardY, cardW, cardH, gap, firstX,
+                        cardBack);
+                batch.setShader(null);
+                batch.setColor(Color.WHITE);
+                batch.end();
+            } finally {
+                if (perspectiveActive) {
+                    perspectiveTable.endBoardCardPass();
+                    perspectiveBoardArtwork = false;
+                    if (!batch.isDrawing()) batch.setProjectionMatrix(camera.combined);
+                }
             }
             if (antialiased) finishCardSmaaLayer();
         }

@@ -228,10 +228,12 @@ final class GdxPerspectiveTable implements Disposable {
     private Mesh card;
     private final GdxCardShell shell;
     private final GdxCardShell pocketShell;
+    private final GdxCardShell boardShell;
+    private boolean boardCardPass;
     private final PocketDraw[] pocketDraws = {new PocketDraw(), new PocketDraw()};
-    private final Vector3 pocketMin = new Vector3();
-    private final Vector3 pocketMax = new Vector3();
-    private final Vector3 pocketBound = new Vector3();
+    private final Vector3 cardBoundsMin = new Vector3();
+    private final Vector3 cardBoundsMax = new Vector3();
+    private final Vector3 cardBoundsCorner = new Vector3();
     private boolean pocketPair;
     private int pocketDrawCount;
     private final FloatArray markerVertices = new FloatArray();
@@ -258,6 +260,7 @@ final class GdxPerspectiveTable implements Disposable {
     GdxPerspectiveTable(int msaaSamples) {
         shell = new GdxCardShell(msaaSamples);
         pocketShell = new GdxCardShell(msaaSamples);
+        boardShell = new GdxCardShell(msaaSamples);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
@@ -547,35 +550,11 @@ final class GdxPerspectiveTable implements Disposable {
         if (pocketDrawCount == 0) return;
         // Compute one crop for both cards so their shared depth and the
         // overlap during the bend use the same subpixel grid.
-        pocketMin.set(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
-        pocketMax.set(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
+        resetCardBounds();
         for (int i = 0; i < pocketDrawCount; i++) {
-            PocketDraw draw = pocketDraws[i];
-            for (int at = 0; at < draw.vertices.size; at += 6) {
-                float[] vertices = draw.vertices.items;
-                float x = vertices[at], y = vertices[at + 1], z = vertices[at + 2];
-                pocketMin.set(Math.min(pocketMin.x, x), Math.min(pocketMin.y, y), Math.min(pocketMin.z, z));
-                pocketMax.set(Math.max(pocketMax.x, x), Math.max(pocketMax.y, y), Math.max(pocketMax.z, z));
-            }
+            includeCardBounds(pocketDraws[i].vertices);
         }
-        float left = width, right = 0f, bottom = height, top = 0f;
-        for (int corner = 0; corner < 8; corner++) {
-            pocketBound.set((corner & 1) == 0 ? pocketMin.x : pocketMax.x,
-                    (corner & 2) == 0 ? pocketMin.y : pocketMax.y,
-                    (corner & 4) == 0 ? pocketMin.z : pocketMax.z);
-            Vector3 pixel = projectWorld(pocketBound);
-            left = Math.min(left, pixel.x);
-            right = Math.max(right, pixel.x);
-            bottom = Math.min(bottom, pixel.y);
-            top = Math.max(top, pixel.y);
-        }
-        int w = Gdx.graphics.getBackBufferWidth(), h = Gdx.graphics.getBackBufferHeight();
-        // Pad for the shell thickness and the downsample footprint.
-        int x0 = MathUtils.clamp(MathUtils.floor(left * w / width) - 8, 0, w - 1);
-        int x1 = MathUtils.clamp(MathUtils.ceil(right * w / width) + 8, x0 + 1, w);
-        int y0 = MathUtils.clamp(MathUtils.floor(bottom * h / height) - 8, 0, h - 1);
-        int y1 = MathUtils.clamp(MathUtils.ceil(top * h / height) + 8, y0 + 1, h);
-        pocketShell.beginPair(x0, y0, x1 - x0, y1 - y0);
+        beginCroppedCardLayer(pocketShell);
         try {
             for (int i = 0; i < pocketDrawCount; i++) {
                 PocketDraw draw = pocketDraws[i];
@@ -587,6 +566,41 @@ final class GdxPerspectiveTable implements Disposable {
             pocketShell.endPair();
             pocketDrawCount = 0;
         }
+    }
+
+    private void resetCardBounds() {
+        cardBoundsMin.set(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+        cardBoundsMax.set(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
+    }
+
+    private void includeCardBounds(FloatArray geometry) {
+        float[] vertices = geometry.items;
+        for (int at = 0; at < geometry.size; at += 6) {
+            float x = vertices[at], y = vertices[at + 1], z = vertices[at + 2];
+            cardBoundsMin.set(Math.min(cardBoundsMin.x, x), Math.min(cardBoundsMin.y, y), Math.min(cardBoundsMin.z, z));
+            cardBoundsMax.set(Math.max(cardBoundsMax.x, x), Math.max(cardBoundsMax.y, y), Math.max(cardBoundsMax.z, z));
+        }
+    }
+
+    private void beginCroppedCardLayer(GdxCardShell target) {
+        float left = width, right = 0f, bottom = height, top = 0f;
+        for (int corner = 0; corner < 8; corner++) {
+            cardBoundsCorner.set((corner & 1) == 0 ? cardBoundsMin.x : cardBoundsMax.x,
+                    (corner & 2) == 0 ? cardBoundsMin.y : cardBoundsMax.y,
+                    (corner & 4) == 0 ? cardBoundsMin.z : cardBoundsMax.z);
+            Vector3 pixel = projectWorld(cardBoundsCorner);
+            left = Math.min(left, pixel.x);
+            right = Math.max(right, pixel.x);
+            bottom = Math.min(bottom, pixel.y);
+            top = Math.max(top, pixel.y);
+        }
+        int w = Gdx.graphics.getBackBufferWidth(), h = Gdx.graphics.getBackBufferHeight();
+        // Pad for the shell thickness and the downsample footprint.
+        int x0 = MathUtils.clamp(MathUtils.floor(left * w / width) - 8, 0, w - 1);
+        int x1 = MathUtils.clamp(MathUtils.ceil(right * w / width) + 8, x0 + 1, w);
+        int y0 = MathUtils.clamp(MathUtils.floor(bottom * h / height) - 8, 0, h - 1);
+        int y1 = MathUtils.clamp(MathUtils.ceil(top * h / height) + 8, y0 + 1, h);
+        target.beginPair(x0, y0, x1 - x0, y1 - y0);
     }
 
     private static final class PocketDraw {
@@ -898,6 +912,14 @@ final class GdxPerspectiveTable implements Disposable {
                 cz + cardSample.x * sine + cardSample.z * cosine, u, v, 1f);
     }
 
+    void beginBoardCardPass() {
+        boardCardPass = true;
+    }
+
+    void endBoardCardPass() {
+        boardCardPass = false;
+    }
+
     void drawBoardCard(Texture back, Texture face, float x, float y, float w,
             float h, float fan, float opacity, boolean highlight) {
         fillPocket(x - width * 0.5f, boardCenterY - y, w * EDGE_MARGIN_SCALE,
@@ -1097,6 +1119,19 @@ final class GdxPerspectiveTable implements Disposable {
                 draw.opacity = opacity;
                 draw.highlight = highlight;
                 draw.pickTarget = pick;
+            } else if (boardCardPass) {
+                // Resolve each card in paint order so a translucent or
+                // airborne card still composites over the cards below it.
+                resetCardBounds();
+                includeCardBounds(cardVertices);
+                beginCroppedCardLayer(boardShell);
+                try {
+                    drawShell(boardShell, cardVertices, meshColumns, meshRows,
+                            material, top, bottom, cardWorldWidth, aspect, opacity,
+                            highlight, null);
+                } finally {
+                    boardShell.endPair();
+                }
             } else {
                 drawShell(flatBoardReveal ? pocketShell : shell, cardVertices,
                         meshColumns, meshRows, material, top, bottom,
@@ -1179,5 +1214,6 @@ final class GdxPerspectiveTable implements Disposable {
         if (backdrop != null) backdrop.dispose();
         shell.dispose();
         pocketShell.dispose();
+        boardShell.dispose();
     }
 }

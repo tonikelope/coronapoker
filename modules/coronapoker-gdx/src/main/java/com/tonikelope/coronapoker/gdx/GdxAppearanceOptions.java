@@ -33,6 +33,30 @@ final class GdxAppearanceOptions {
             new String[]{"streets", "covered"},
             new String[]{"POR CALLES", "TAPADAS AL REPARTIR LA MANO"});
 
+    static final String COMMUNITY_REVEAL_2D_KEY = "community_reveal_style_2d";
+    static final String COMMUNITY_REVEAL_3D_KEY = "community_reveal_style_3d";
+
+    static final Choice COMMUNITY_REVEAL_STYLE = exact(
+            "community_reveal_style", "TIPO DE DESTAPE COMUNITARIAS", "rigid",
+            new String[]{"rigid", "flexible"}, new String[]{"RÍGIDO", "FLEXIBLE"});
+
+    static boolean flexibleCommunityReveal(Properties properties, boolean perspective) {
+        String value = properties.getProperty(communityRevealKey(perspective));
+        if ("rigid".equals(value)) return false;
+        if ("flexible".equals(value)) return true;
+        return perspective;
+    }
+
+    private static String communityRevealKey(boolean perspective) {
+        return perspective ? COMMUNITY_REVEAL_3D_KEY : COMMUNITY_REVEAL_2D_KEY;
+    }
+
+    static boolean isDefault(Choice choice, Properties properties) {
+        int fallback = choice == COMMUNITY_REVEAL_STYLE && perspectiveTable(properties)
+                ? 1 : choice.values().indexOf(choice.fallback());
+        return selectedIndex(choice, properties) == fallback;
+    }
+
     static final Choice TABLE_VIEW = exact(GdxSettingsContract.TABLE_VIEW_KEY,
             "TIPO DE VISTA", "2d", new String[]{"2d", "3d"},
             new String[]{"2D", "3D"});
@@ -60,6 +84,7 @@ final class GdxAppearanceOptions {
                     new String[]{"1100", "850", "620", "480", "350"},
                     new String[]{"MUY LENTA", "LENTA", "NORMAL", "RÁPIDA",
                         "MUY RÁPIDA"}),
+            COMMUNITY_REVEAL_STYLE,
             exact("card_flip_direction", "SENTIDO DE DESTAPE", "right",
                     new String[]{"right", "left", "mixed"},
                     new String[]{"HACIA LA DERECHA", "HACIA LA IZQUIERDA",
@@ -103,7 +128,9 @@ final class GdxAppearanceOptions {
 
     static void select(Choice choice, Properties properties, int index) {
         if (index < 0 || index >= choice.values().size()) return;
-        properties.setProperty(choice.key(), choice.values().get(index));
+        String key = choice == COMMUNITY_REVEAL_STYLE
+                ? communityRevealKey(perspectiveTable(properties)) : choice.key();
+        properties.setProperty(key, choice.values().get(index));
     }
 
     /** A selector follows the view in the settings and its animation switches. */
@@ -132,7 +159,7 @@ final class GdxAppearanceOptions {
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";
             case "card_flip_duration", "card_flip_direction",
-                    "card_flip_zoom" ->
+                    "card_flip_zoom", "community_reveal_style" ->
                 "animacion_destape";
             case "swap_velocidad", "swap_arco" -> "animacion_swap";
             default -> null;
@@ -217,6 +244,9 @@ final class GdxAppearanceOptions {
     }
 
     static int selectedIndex(Choice choice, Properties properties) {
+        if (choice == COMMUNITY_REVEAL_STYLE) {
+            return flexibleCommunityReveal(properties, perspectiveTable(properties)) ? 1 : 0;
+        }
         String configured = properties.getProperty(choice.key(),
                 choice.fallback());
         int exact = choice.values().indexOf(configured);

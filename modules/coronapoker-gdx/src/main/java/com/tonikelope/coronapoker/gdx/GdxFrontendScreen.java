@@ -10032,10 +10032,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.selectedLabel(option,
                                         initialProperties, gameText),
-                                option.fallback().equals(option.values().get(
-                                        GdxAppearanceOptions.selectedIndex(
-                                                option,
-                                                initialProperties)))),
+                                GdxAppearanceOptions.isDefault(option,
+                                        initialProperties)),
                         () -> openAppearanceChoiceDropdown(option,
                                 dropdownBounds), enabled);
                 settingsTooltip(rowBounds, option.key());

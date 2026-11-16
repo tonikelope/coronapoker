@@ -162,6 +162,7 @@ final class GdxPlasticCard {
     }
 
     record Motion(float tempo, float bend, float corner) { }
+    static final Motion RIGID = new Motion(0f, 0f, 0f);
     static final Motion STANDARD = new Motion(0f, 1f, 0.19f);
 
     /** One bounded gesture per event, independent of render frame rate. */
@@ -204,8 +205,18 @@ final class GdxPlasticCard {
                     0f, (v - 0.5f) * height);
             return;
         }
-        float pulse = (float) Math.sin(Math.PI * p);
         float turn = MathUtils.PI * Interpolation.smoother.apply(p);
+        if (motion == RIGID) {
+            double angle = Math.copySign(turn, direction);
+            float edge = (u - 0.5f) * width;
+            double lift = Math.sin(angle);
+            float floor = width * 0.5f;
+            out.set((float) (edge * Math.cos(angle)),
+                    (float) (floor * Math.abs(lift) - edge * lift),
+                    (v - 0.5f) * height);
+            return;
+        }
+        float pulse = (float) Math.sin(Math.PI * p);
         // The near corner starts first. The far edge follows through the
         // same continuous surface, rather than turning a rigid rectangle.
         float cornerLead = motion.corner() * pulse * (2f * v - 1f);

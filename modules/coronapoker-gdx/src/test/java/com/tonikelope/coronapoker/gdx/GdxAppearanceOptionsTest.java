@@ -44,6 +44,30 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
+    void communityRevealStyleUsesAndResetsIndependentViewDefaults() {
+        Properties properties = new Properties();
+        var style = GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE;
+        assertEquals("animacion_destape", GdxAppearanceOptions.parentKey(style));
+        assertEquals("TIPO DE DESTAPE COMUNITARIAS", style.label(new GdxGameText("es")));
+        assertEquals("RÍGIDO", GdxAppearanceOptions.selectedLabel(style, properties));
+        assertTrue(GdxAppearanceOptions.isDefault(style, properties));
+
+        GdxAppearanceOptions.select(style, properties, 1);
+        GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 1);
+        assertEquals("FLEXIBLE", GdxAppearanceOptions.selectedLabel(style, properties));
+        assertTrue(GdxAppearanceOptions.isDefault(style, properties));
+        GdxAppearanceOptions.select(style, properties, 0);
+        assertFalse(GdxAppearanceOptions.flexibleCommunityReveal(properties, true));
+        assertTrue(GdxAppearanceOptions.flexibleCommunityReveal(properties, false));
+        properties.setProperty("animacion_destape", "false");
+        assertFalse(GdxAppearanceOptions.enabled(style, properties));
+
+        GdxSettingsContract.restoreAppearanceDefaults(properties, false);
+        assertFalse(GdxAppearanceOptions.flexibleCommunityReveal(properties, false));
+        assertTrue(GdxAppearanceOptions.flexibleCommunityReveal(properties, true));
+    }
+
+    @Test
     void nonCanonicalNumericValuesSelectTheNearestSwingPreset() {
         Properties properties = new Properties();
         GdxAppearanceOptions.Choice flip = choice("card_flip_duration");

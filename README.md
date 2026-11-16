@@ -24,6 +24,7 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 ## Table of contents
 
+- [Snapshots](#snapshots)
 - [Features](#features)
   - [Security & cryptography](#-security--cryptography)
   - [Networking & resilience](#-networking--resilience)
@@ -41,9 +42,20 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 - [Testing & certification](#-testing--certification)
 - [Contributors](#-contributors)
 
+## Snapshots
+
+Select a snapshot to open it at full resolution.
+
+| | | |
+| :---: | :---: | :---: |
+| [![No-Limit Hold’em hand on green felt in the 2D table view](website/public/media/table-640.webp)](website/public/media/table-2560.webp)<br>**2D table** | [![The same hand on green felt in the 3D perspective view](website/public/media/table-3d-640.webp)](website/public/media/table-3d-2560.webp)<br>**3D table** | [![Showdown on red felt with the winning flush highlighted](website/public/media/showdown-640.webp)](website/public/media/showdown-2560.webp)<br>**Showdown in 3D** |
+| [![The flop and betting controls on the blue felt in the 2D view](website/public/media/table-blue-640.webp)](website/public/media/table-blue-2560.webp)<br>**Blue felt in 2D** | [![Settings for the felt, deck, lighting and 2D or 3D view](website/public/media/appearance-640.webp)](website/public/media/appearance-1920.webp)<br>**Table appearance** | [![Zero-Trust alert for a failed cryptographic check](website/public/media/verification-640.webp)](website/public/media/verification-1920.webp)<br>**Hand verification** |
+| [![Waiting room with chat, game settings and the player list](website/public/media/lobby-640.webp)](website/public/media/lobby-1920.webp)<br>**Waiting room** | [![Bot catalogue with difficulty, playing style and rebuy settings](website/public/media/bots-640.webp)](website/public/media/bots-1588.webp)<br>**Bot manager** | [![The waiting room with the poker video player open in the lower-right corner](website/public/media/poker-video-640.webp)](website/public/media/poker-video-1920.webp)<br>**Poker video player** |
+
 # Features
 
 - Finer card artwork sampling for player hands and community cards in the 2D view, and for opponent cards in the 3D view.
+- Rigid and flexible community-card reveals in both views, with independent settings under Appearance → Animations → Card reveal.
 
 ## 🔐 Security & cryptography
 

@@ -621,6 +621,7 @@ final class GdxSettingsContract {
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
                     animationToggle("animacion_destape"),
                     animationChoice("card_flip_duration"),
+                    animationChoice("community_reveal_style"),
                     animationChoice("card_flip_direction"),
                     animationChoice("card_flip_zoom"),
                     animationToggle("animacion_ciegas_dealer"),
@@ -699,6 +700,8 @@ final class GdxSettingsContract {
             "animacion_downgrade", "card_flip_duration",
             "card_flip_direction", "card_flip_zoom", "reparto_velocidad",
             COMMUNITY_DEAL_STYLE_KEY,
+            GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY,
+            GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY,
             "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
@@ -1461,8 +1464,12 @@ final class GdxSettingsContract {
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                properties.setProperty(choice.key(), choice.fallback());
+                if (choice != GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE) {
+                    properties.setProperty(choice.key(), choice.fallback());
+                }
             }
+            properties.setProperty(GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY, "rigid");
+            properties.setProperty(GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY, "flexible");
         }
     }
 
@@ -1509,9 +1516,12 @@ final class GdxSettingsContract {
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                if (!stringAtDefault(properties, choice.key(),
-                        choice.fallback())) return false;
+                if (choice != GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE
+                        && !stringAtDefault(properties, choice.key(),
+                                choice.fallback())) return false;
             }
+            return stringAtDefault(properties, GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY, "rigid")
+                    && stringAtDefault(properties, GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY, "flexible");
         }
         return true;
     }

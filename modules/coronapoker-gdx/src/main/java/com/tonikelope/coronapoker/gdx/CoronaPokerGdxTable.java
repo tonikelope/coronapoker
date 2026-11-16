@@ -1527,6 +1527,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
     private boolean perspectiveActive;
     private final Rectangle pocketPeekButton = new Rectangle();
+    private final GdxPointerHold pocketPeekPointer = new GdxPointerHold();
+    private boolean pocketPeekInputThisFrame;
     private boolean mousePeekHeld;
     private boolean pocketPeekEnabled;
     private boolean pocketPeekNeedsRelease;
@@ -2075,6 +2077,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return true;
                 }
             }
+            if (uiLayerAllowsTablePointer() && pocketPeekEnabled) {
+                pointer.set(Gdx.input.getX(), Gdx.input.getY());
+                viewport.unproject(pointer);
+                if (pocketPeekSurfaceContains(pointer.x, pointer.y)
+                        && !gameLogPanelContains(pointer.x, pointer.y)) return true;
+            }
             if (uiLayer != UI_GAME_LOG || amountY == 0f) {
                 return blockingTablePointerSurface();
             }
@@ -2142,6 +2150,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (quickChatOwnsPointer(pointer.x, pointer.y)) return true;
+            }
+            if (pocketPeekPointer.active()) return true;
+            if (uiLayerAllowsTablePointer() && pocketPeekEnabled && finalSummary == null) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                if (pocketPeekSurfaceContains(pointer.x, pointer.y)
+                        && !gameLogPanelContains(pointer.x, pointer.y)) {
+                    pocketPeekPointer.capture(pointerIndex, button);
+                    pocketPeekInputThisFrame = true;
+                    feltClickCandidate = false;
+                    previousFeltClickNanos = 0L;
+                    mousePeekHeld = button == Input.Buttons.LEFT && canPeekPerspectivePocket();
+                    return true;
+                }
             }
             if (button == Input.Buttons.LEFT
                     && uiLayerAllowsTablePointer()
@@ -2262,6 +2284,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
+            if (pocketPeekPointer.active()) return true;
             if (tableRulesVisible() || tableGalleryInteractive()) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
@@ -2333,6 +2356,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(false);
                 fastBarExpanded = false;
@@ -2435,6 +2459,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 feltClickCandidate = false;
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
+                if (pocketPeekSurfaceContains(pointer.x, pointer.y)) {
+                    previousFeltClickNanos = 0L;
+                    primaryPointer.capturePressedGesture();
+                    pocketPeekInputThisFrame = true;
+                    return true;
+                }
                 if (!quickChatOwnsPointer(pointer.x, pointer.y)) {
                     registerEmptyFeltClick(pointer.x, pointer.y,
                             System.nanoTime());
@@ -2450,6 +2480,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
+            if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (rulesWindow.cancel(pointerIndex, button) || tableGallery.cancel(pointerIndex, button)) {
                 floatingWindowInputThisFrame = true;
                 return true;
@@ -2494,7 +2525,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (mediaFrontend.pokerVideoOverlay().mouseMoved(
                         position.x, position.y)) return true;
             }
-            return blockingTablePointerSurface();
+            pointer.set(screenX, screenY);
+            viewport.unproject(pointer);
+            return (uiLayerAllowsTablePointer()
+                    && pocketPeekSurfaceContains(pointer.x, pointer.y))
+                    || blockingTablePointerSurface();
         }
     };
 
@@ -6844,6 +6879,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
+        pocketPeekInputThisFrame = false;
         mediaPressedThisFrame = false;
         floatingWindowInputThisFrame = false;
         boolean showMedia = tableMediaVisible();
@@ -6903,6 +6939,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean windowOwnsHover = rulesOwnsHover || galleryOwnsHover;
         boolean shieldBackgroundPointer = preparationModal
                 || pauseForeground || mediaOwnsHover || windowOwnsHover
+                || pocketPeekSurfaceContains(pointer.x, pointer.y)
                 || !uiLayerAllowsTablePointer()
                 || gameLogPanelContains(pointer.x, pointer.y)
                 || quickChatOwnsPointer(pointer.x, pointer.y)
@@ -7445,7 +7482,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (handleQuickChatPointer()) return;
         }
-        if (!intro && capturePocketPeekPointer()) return;
+        if (!intro && (pocketPeekInputThisFrame || pocketPeekPointer.active())) return;
         if (!intro && uiLayerAllowsTablePointer()
                 && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -7795,6 +7832,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || !uiLayerAllowsTablePointer()
                 || gameLogPanelContains(x, y)
                 || quickChatOwnsPointer(x, y)
+                || pocketPeekSurfaceContains(x, y)
                 || blocksTableUtilities(activeDialog)
                 || liveCardContains(x, y)) {
             return false;
@@ -7832,7 +7870,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      */
     private boolean tableChromeOccludesCards(float x, float y,
             float worldWidth) {
-        if (fastAccessSurfaceContains(x, y)) {
+        if (pocketPeekSurfaceContains(x, y) || fastAccessSurfaceContains(x, y)) {
             return true;
         }
         if (avatarZoomNickname != null && avatarZoomBounds.contains(x, y)) {
@@ -10799,7 +10837,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void updatePointerButtonTransitions() {
         boolean down = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
         leftButtonReleasedThisFrame = primaryPointer.update(down);
-        if (mediaPressedThisFrame || mediaPointer.active()) {
+        if (mediaPressedThisFrame || mediaPointer.active()
+                || pocketPeekPointer.owns(0, Input.Buttons.LEFT)) {
             primaryPointer.capturePressedGesture();
         }
     }
@@ -11569,6 +11608,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private GdxPerspectiveTable perspectiveRenderer() {
+        if (perspectiveTable == null) {
+            // Use the active window's granted setting, including OFF.
+            // A pending MSAA change is applied on restart, like the HUD.
+            int samples = presentationSettings == null
+                    ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
+            perspectiveTable = new GdxPerspectiveTable(samples);
+        }
+        return perspectiveTable;
+    }
+
     private void drawBackground() {
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
@@ -11588,13 +11638,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.end();
         }
         if (perspectiveActive) {
-            if (perspectiveTable == null) {
-                // Use the active window's granted setting, including OFF.
-                // A pending MSAA change is applied on restart, like the HUD.
-                int samples = presentationSettings == null
-                        ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
-                perspectiveTable = new GdxPerspectiveTable(samples);
-            }
+            perspectiveRenderer();
             Texture back = activeCardBack();
             float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
                     Math.min(1510f, width * 0.78f) / 10f);
@@ -12637,6 +12681,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (overlays == null) return;
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Overlay overlay : overlays) {
             shapes.setColor(0f, 0f, 0f, DERIVED_POT_OVERLAY_ALPHA);
@@ -13728,6 +13774,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (overlays == null) return;
 
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         for (Overlay overlay : overlays) {
             Color color = overlay.hover()
@@ -14896,22 +14944,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !tableRulesVisible() && !tableGalleryInteractive();
     }
 
-    private boolean capturePocketPeekPointer() {
-        if (!perspectiveActive || !pocketPeekEnabled || !canPeekPerspectivePocket()) {
-            mousePeekHeld = false;
-            return false;
-        }
-        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) mousePeekHeld = false;
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            pointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(pointer);
-            if (pocketPeekButton.contains(pointer) && !gameLogPanelContains(pointer.x, pointer.y)) {
-                mousePeekHeld = true;
-                primaryPointer.capturePressedGesture();
-            }
-        }
-        if (mousePeekHeld) primaryPointer.capturePressedGesture();
-        return mousePeekHeld;
+    private boolean pocketPeekSurfaceContains(float x, float y) {
+        return perspectiveActive && pocketPeekEnabled
+                && pocketPeekButton.width > 0f && pocketPeekButton.contains(x, y);
+    }
+
+    private boolean releasePocketPeekPointer(int pointerIndex, int button) {
+        if (!pocketPeekPointer.release(pointerIndex, button)) return false;
+        mousePeekHeld = false;
+        pocketPeekInputThisFrame = true;
+        if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+        return true;
     }
 
     private void drawPocketPeekButton(float width, float height) {
@@ -14922,6 +14965,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
         Rectangle r = pocketPeekButton;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(pocketPeekRequested() ? ORANGE : CYAN);
         roundedRect(r.x, r.y, r.width, r.height, 12f);
@@ -16085,6 +16130,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int offset = slot - liveCommunityReveal.event.firstSlot();
         TableSnapshot.CardSnapshot card =
                 liveCommunityReveal.event.cards().get(offset);
+        boolean flexible = GdxAppearanceOptions.flexibleCommunityReveal(
+                tableSettingsProperties(), perspectiveActive);
+        GdxPlasticCard.Motion motion = flexible ? liveCommunityReveal.motion : GdxPlasticCard.RIGID;
         GdxCommunityStreetDeal streetDeal = liveCommunityReveal.streetDeal;
         if (streetDeal != null) {
             float elapsed = liveCommunityReveal.elapsedSeconds;
@@ -16100,7 +16148,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 perspectiveTable.drawBoardPacketCard(cardBack, liveCardFace(card.code()),
                         dealerSourceX, dealerSourceY, x, placement.y, placement.width,
                         placement.height, streetDeal.inFlight(elapsed), streetDeal.flightProgress(elapsed),
-                        turn, liveCommunityReveal.flipDirection, liveCommunityReveal.motion, layer, offset);
+                        turn, liveCommunityReveal.flipDirection, motion, layer, offset);
                 batch.setShader(null);
                 batch.setColor(Color.WHITE);
                 batch.begin();
@@ -16130,35 +16178,51 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float progress = streetDeal == null ? liveCommunityReveal.progress(offset)
                 : streetDeal.flipProgress(liveCommunityReveal.elapsedSeconds);
-        if (progress <= 0f) {
+        float settledProgress = MathUtils.clamp((progress - 0.10f) / 0.90f, 0f, 1f);
+        if (progress <= 0f || (!perspectiveActive && flexible && settledProgress <= 0f)) {
             drawLiveRestingCard(new TableSnapshot.CardSnapshot("", false, false),
                     placement, cardBack);
             return;
         }
-        Texture face = liveCardFace(card.code());
-        if (perspectiveActive) {
-            batch.end();
-            float settledProgress = MathUtils.clamp((progress - 0.10f) / 0.90f, 0f, 1f);
-            perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
-                    placement.width, placement.height, settledProgress,
-                    liveCommunityReveal.flipDirection, liveCommunityReveal.motion);
-            batch.setShader(null);
-            batch.setColor(Color.WHITE);
-            batch.begin();
+        if (!perspectiveActive && flexible && settledProgress >= 1f) {
+            drawLiveRestingCard(card, placement, cardBack);
             return;
         }
-        float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
-        float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
-        float revealScale = cardFlipScale(progress);
-        configureCardShader(face, cardBack, cardFlipAngle(progress,
-                liveCommunityReveal.flipDirection), true,
-                placement.height / placement.width, true);
+
+        Texture face = liveCardFace(card.code());
+        if (!perspectiveActive && !flexible) {
+            float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
+            float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
+            float revealScale = cardFlipScale(progress);
+            configureCardShader(face, cardBack, cardFlipAngle(progress,
+                    liveCommunityReveal.flipDirection), true,
+                    placement.height / placement.width, true);
+            batch.setColor(Color.WHITE);
+            batch.draw(cardBack, placement.x - canvasWidth / 2f,
+                    placement.y - canvasHeight / 2f, canvasWidth / 2f,
+                    canvasHeight / 2f, canvasWidth, canvasHeight,
+                    revealScale, revealScale, placement.rotation, 0, 0,
+                    cardBack.getWidth(), cardBack.getHeight(), false, false);
+            return;
+        }
+
+        batch.end();
+        if (perspectiveActive) {
+            perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
+                    placement.width, placement.height, settledProgress,
+                    liveCommunityReveal.flipDirection, motion);
+        } else {
+            GdxPerspectiveTable renderer = perspectiveRenderer();
+            renderer.layout(viewport.getWorldWidth(), viewport.getWorldHeight(), placement.y);
+            renderer.setSmoothArtwork(requestedCardRenderingMode()
+                    == GdxCardSmaaRenderer.RENDERING_SMOOTH);
+            renderer.drawFlatBoardReveal(cardBack, face, placement.x, placement.y,
+                    placement.width, placement.height, settledProgress,
+                    liveCommunityReveal.flipDirection, motion);
+        }
+        batch.setShader(null);
         batch.setColor(Color.WHITE);
-        batch.draw(cardBack, placement.x - canvasWidth / 2f,
-                placement.y - canvasHeight / 2f, canvasWidth / 2f,
-                canvasHeight / 2f, canvasWidth, canvasHeight,
-                revealScale, revealScale, placement.rotation, 0, 0,
-                cardBack.getWidth(), cardBack.getHeight(), false, false);
+        batch.begin();
     }
 
     private void drawLiveRabbitRevealCard(int slot,
@@ -27773,12 +27837,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                 option,
                                                 tableSettingsProperties(),
                                                 gameText),
-                                        option.fallback().equals(
-                                                option.values().get(
-                                                        GdxAppearanceOptions
-                                                                .selectedIndex(
-                                                                        option,
-                                                                        tableSettingsProperties())))),
+                                        GdxAppearanceOptions.isDefault(option,
+                                                tableSettingsProperties())),
                                 enabled, alpha);
                     } else {
                         GdxSettingsContract.ToggleOption option =

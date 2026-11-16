@@ -43,6 +43,8 @@ I hope you enjoy playing it as much as I have enjoyed building it.
 
 # Features
 
+- Finer card artwork sampling for player hands and community cards in the 2D view, and for opponent cards in the 3D view.
+
 ## 🔐 Security & cryptography
 
 CoronaPoker is built around one security goal: **detect or prevent cheating, spying and tampering even when the host is not trusted**.

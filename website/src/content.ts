@@ -5,6 +5,7 @@ export const releases = `${repo}/releases`;
 export const docs = `${repo}/blob/master`;
 export const author = 'https://github.com/tonikelope';
 export const mentalPokerPaper = 'https://people.csail.mit.edu/rivest/pubs/SRA81.pdf';
+export const coronaPokerPaper = 'https://doi.org/10.5281/zenodo.24279299';
 export const shufflePapers = {
   bayerGroth: {
     url: 'https://link.springer.com/chapter/10.1007/978-3-642-29011-4_17',
@@ -222,6 +223,7 @@ export const copy = {
       paperSource: 'MIT technical report, 1979. Published in The Mathematical Gardner, 1981, pp. 37–43.',
       details: 'CoronaPoker implements its Mental Poker protocol from scratch using published techniques. SRA encryption over Ristretto255 lets each player add and remove their own lock. An adaptation of Bayer–Groth verifies the shuffle. DLEQ proofs check changes to the community-card locks and each lock removal during the deal. A SHA-256 hash chain links the hand history and pot settlement to the fingerprint in each receipt. Receipts are signed with Ed25519.',
       signers: 'At hand close, the game signs a receipt on each human participant’s own computer, including the host’s, as long as they are still in the game. If you folded and stayed at the table, your game still signs your receipt. Bots and spectators sit out the receipt exchange.',
+      implementationPaperLink: 'Read the paper on CoronaPoker',
       link: 'Read the security specification',
     },
     features: {
@@ -505,6 +507,7 @@ export const copy = {
       paperSource: 'Informe técnico del MIT de 1979. Publicado en The Mathematical Gardner en 1981, pp. 37–43.',
       details: 'CoronaPoker implementa desde cero su protocolo de Mental Poker con técnicas publicadas. El cifrado SRA sobre Ristretto255 permite a cada jugador poner y quitar su propio candado. Una adaptación de Bayer–Groth verifica el barajado. Las pruebas DLEQ comprueban los cambios de candado de las comunes y cada retirada al repartir. Una cadena de hashes SHA-256 vincula el historial de la mano y el reparto del bote a la huella de cada recibo. Los recibos se firman con Ed25519.',
       signers: 'Al cerrar la mano, cada participante humano que sigue en la partida firma su recibo desde su propio juego. El anfitrión también firma. Si tiraste tus cartas y seguiste en la mesa, tu juego firma igualmente. Los bots y los espectadores quedan fuera del intercambio de recibos.',
+      implementationPaperLink: 'Leer artículo sobre CoronaPoker',
       link: 'Leer la especificación de seguridad',
     },
     features: {

@@ -527,6 +527,7 @@ a:hover > .expand-icon { background: #872839; }
 :is(.receipt-result, .proof-result) p { margin-top: 3px; color: inherit; font-size: .78rem; line-height: 1.55; text-align: justify; hyphens: auto; }
 :is(.receipt-conflict, .proof-conflict) { border-color: #bc7483; background: #45232e; color: #fbdadb; }
 .protocol-more { margin-top: 21px; }
+.protocol-more-links { display: flex; flex-wrap: wrap; gap: 10px 24px; }
 summary { width: fit-content; color: var(--gold); font-size: .83rem; font-weight: 700; min-height: 40px; align-content: center; }
 .protocol-more p, .install p { margin: 6px 0 10px; color: var(--muted); font-size: .9rem; }
 .install p { max-width: 68ch; }

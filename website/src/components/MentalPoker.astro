@@ -1,5 +1,5 @@
 ---
-import { docs, mentalPokerPaper, shufflePapers, type copy, type Locale } from '../content';
+import { coronaPokerPaper, docs, mentalPokerPaper, shufflePapers, type copy, type Locale } from '../content';
 import ReceiptDemo from './ReceiptDemo.astro';
 import ShuffleProofDemo from './ShuffleProofDemo.astro';
 
@@ -291,7 +291,10 @@ const boardRoute = [
       <summary>{text.detailsTitle}</summary>
       <p>{text.details}</p>
       <p>{text.signers}</p>
-      <a class="text-link" href={`${docs}/docs/SECURITY.md#2-mental-poker-sra-cascade`} target="_blank" rel="noopener">{text.link} <span aria-hidden="true">↗</span></a>
+      <div class="protocol-more-links">
+        <a class="text-link" href={coronaPokerPaper} target="_blank" rel="noopener">{text.implementationPaperLink} <span aria-hidden="true">↗</span></a>
+        <a class="text-link" href={`${docs}/docs/SECURITY.md#2-mental-poker-sra-cascade`} target="_blank" rel="noopener">{text.link} <span aria-hidden="true">↗</span></a>
+      </div>
     </details>
     <aside class="mental-credit" aria-label={text.credits}>
       <div>

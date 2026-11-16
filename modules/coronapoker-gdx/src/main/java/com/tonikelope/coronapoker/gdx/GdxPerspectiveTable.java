@@ -113,6 +113,7 @@ final class GdxPerspectiveTable implements Disposable {
             uniform float u_aspect;
             uniform vec3 u_eye;
             uniform float u_artworkSmooth;
+            uniform bool u_flatBoardReveal;
             varying vec2 v_uv;
             varying float v_light;
             varying vec3 v_normal;
@@ -185,7 +186,8 @@ final class GdxPerspectiveTable implements Disposable {
                     float diffuse = max(0.0, dot(normal, key));
                     float light = min(1.015, 0.76 + 0.24 * diffuse / key.y);
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
-                    vec3 printed = mix(ink.rgb * light + vec3(coat), vec3(1.0, 0.925, 0.0), u_showdownTint);
+                    vec3 litInk = u_flatBoardReveal ? ink.rgb * v_light : ink.rgb * light + vec3(coat);
+                    vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), u_showdownTint);
                     gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
                 }
@@ -197,6 +199,8 @@ final class GdxPerspectiveTable implements Disposable {
 
     private final PerspectiveCamera camera = new PerspectiveCamera();
     private final Matrix4 view = new Matrix4();
+    private final Matrix4 flatBoardView = new Matrix4();
+    private boolean flatBoardReveal;
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
     private final Matrix4 layoutInverseView = new Matrix4();
@@ -432,7 +436,7 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
-    private void drawGeometry(Texture felt, boolean stretch, float tileSpan) {
+    private void prepareShader() {
         if (shader == null) {
             shader = new ShaderProgram(VERTEX, FRAGMENT);
             if (!shader.isCompiled()) {
@@ -442,6 +446,10 @@ final class GdxPerspectiveTable implements Disposable {
                 throw new IllegalStateException(log);
             }
         }
+    }
+
+    private void drawGeometry(Texture felt, boolean stretch, float tileSpan) {
+        prepareShader();
         if (surface == null) buildTable();
         begin(0, felt, felt, 1f);
         shader.setUniformf("u_repeat", stretch ? 1f : feltWidth / tileSpan,
@@ -928,6 +936,33 @@ final class GdxPerspectiveTable implements Disposable {
                 w, h, 0f, progress, direction, 1f, motion);
     }
 
+    void drawFlatBoardReveal(Texture back, Texture face, float x, float y,
+            float w, float h, float progress, float direction, GdxPlasticCard.Motion motion) {
+        prepareShader();
+        // The 2D board keeps its exact pixel positions. The sheet's lift is
+        // depth, while its deformation across the board remains visible.
+        flatBoardView.setToOrtho(0f, width, 0f, height, -height, height)
+                .rotate(Vector3.X, 90f);
+        int screenW = Gdx.graphics.getBackBufferWidth();
+        int screenH = Gdx.graphics.getBackBufferHeight();
+        float pixelsX = screenW / width;
+        float pixelsY = screenH / height;
+        float halfW = w * EDGE_MARGIN_SCALE * 0.5f;
+        float halfH = h * EDGE_MARGIN_SCALE * 0.5f;
+        int left = MathUtils.clamp(MathUtils.floor((x - halfW) * pixelsX) - 8, 0, screenW - 1);
+        int right = MathUtils.clamp(MathUtils.ceil((x + halfW) * pixelsX) + 8, left + 1, screenW);
+        int bottom = MathUtils.clamp(MathUtils.floor((y - halfH) * pixelsY) - 8, 0, screenH - 1);
+        int top = MathUtils.clamp(MathUtils.ceil((y + halfH) * pixelsY) + 8, bottom + 1, screenH);
+        flatBoardReveal = true;
+        pocketShell.beginPair(left, bottom, right - left, top - bottom);
+        try {
+            drawPlasticReveal(back, face, x, -y, w, h, 0f, progress, direction, 1f, motion);
+        } finally {
+            flatBoardReveal = false;
+            pocketShell.endPair();
+        }
+    }
+
     private void drawPlasticReveal(Texture back, Texture face, float cx, float cz,
             float w, float h, float fan, float progress, float direction, float opacity) {
         drawPlasticReveal(back, face, cx, cz, w, h, fan, progress, direction, opacity,
@@ -938,9 +973,11 @@ final class GdxPerspectiveTable implements Disposable {
             float w, float h, float fan, float progress, float direction, float opacity,
             GdxPlasticCard.Motion motion) {
         float p = MathUtils.clamp(progress, 0f, 1f);
-        float pulse = MathUtils.sin(MathUtils.PI * p);
-        float projectedWidth = MathUtils.lerp(w, w * 0.20f, pulse);
-        drawContact(back, cx, cz, projectedWidth, h, fan, (1f - pulse * 0.42f) * opacity);
+        if (!flatBoardReveal) {
+            float pulse = MathUtils.sin(MathUtils.PI * p);
+            float projectedWidth = MathUtils.lerp(w, w * 0.20f, pulse);
+            drawContact(back, cx, cz, projectedWidth, h, fan, (1f - pulse * 0.42f) * opacity);
+        }
         meshColumns = REVEAL_COLUMNS;
         meshRows = REVEAL_ROWS;
         cardWorldWidth = w;
@@ -1061,7 +1098,8 @@ final class GdxPerspectiveTable implements Disposable {
                 draw.highlight = highlight;
                 draw.pickTarget = pick;
             } else {
-                drawShell(shell, cardVertices, meshColumns, meshRows, material, top, bottom,
+                drawShell(flatBoardReveal ? pocketShell : shell, cardVertices,
+                        meshColumns, meshRows, material, top, bottom,
                         cardWorldWidth, aspect, opacity, highlight, pick);
             }
             return;
@@ -1101,7 +1139,8 @@ final class GdxPerspectiveTable implements Disposable {
         bottom.bind(1);
         top.bind(0);
         shader.bind();
-        shader.setUniformMatrix("u_projection", view);
+        shader.setUniformMatrix("u_projection", flatBoardReveal ? flatBoardView : view);
+        shader.setUniformi("u_flatBoardReveal", flatBoardReveal ? 1 : 0);
         shader.setUniformf("u_eye", camera.position);
         shader.setUniformi("u_texture", 0);
         shader.setUniformi("u_reverse", 1);

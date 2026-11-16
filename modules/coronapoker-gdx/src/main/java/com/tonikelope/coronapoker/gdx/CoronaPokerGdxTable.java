@@ -11569,6 +11569,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private GdxPerspectiveTable perspectiveRenderer() {
+        if (perspectiveTable == null) {
+            // Use the active window's granted setting, including OFF.
+            // A pending MSAA change is applied on restart, like the HUD.
+            int samples = presentationSettings == null
+                    ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
+            perspectiveTable = new GdxPerspectiveTable(samples);
+        }
+        return perspectiveTable;
+    }
+
     private void drawBackground() {
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
@@ -11588,13 +11599,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.end();
         }
         if (perspectiveActive) {
-            if (perspectiveTable == null) {
-                // Use the active window's granted setting, including OFF.
-                // A pending MSAA change is applied on restart, like the HUD.
-                int samples = presentationSettings == null
-                        ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
-                perspectiveTable = new GdxPerspectiveTable(samples);
-            }
+            perspectiveRenderer();
             Texture back = activeCardBack();
             float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
                     Math.min(1510f, width * 0.78f) / 10f);
@@ -16136,35 +16141,35 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float progress = streetDeal == null ? liveCommunityReveal.progress(offset)
                 : streetDeal.flipProgress(liveCommunityReveal.elapsedSeconds);
-        if (progress <= 0f) {
+        float settledProgress = MathUtils.clamp((progress - 0.10f) / 0.90f, 0f, 1f);
+        if (progress <= 0f || (!perspectiveActive && settledProgress <= 0f)) {
             drawLiveRestingCard(new TableSnapshot.CardSnapshot("", false, false),
                     placement, cardBack);
             return;
         }
+        if (!perspectiveActive && settledProgress >= 1f) {
+            drawLiveRestingCard(card, placement, cardBack);
+            return;
+        }
+
         Texture face = liveCardFace(card.code());
+        batch.end();
         if (perspectiveActive) {
-            batch.end();
-            float settledProgress = MathUtils.clamp((progress - 0.10f) / 0.90f, 0f, 1f);
             perspectiveTable.drawBoardReveal(cardBack, face, placement.x, placement.y,
                     placement.width, placement.height, settledProgress,
                     liveCommunityReveal.flipDirection, liveCommunityReveal.motion);
-            batch.setShader(null);
-            batch.setColor(Color.WHITE);
-            batch.begin();
-            return;
+        } else {
+            GdxPerspectiveTable renderer = perspectiveRenderer();
+            renderer.layout(viewport.getWorldWidth(), viewport.getWorldHeight(), placement.y);
+            renderer.setSmoothArtwork(requestedCardRenderingMode()
+                    == GdxCardSmaaRenderer.RENDERING_SMOOTH);
+            renderer.drawFlatBoardReveal(cardBack, face, placement.x, placement.y,
+                    placement.width, placement.height, settledProgress,
+                    liveCommunityReveal.flipDirection, liveCommunityReveal.motion);
         }
-        float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
-        float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
-        float revealScale = cardFlipScale(progress);
-        configureCardShader(face, cardBack, cardFlipAngle(progress,
-                liveCommunityReveal.flipDirection), true,
-                placement.height / placement.width, true);
+        batch.setShader(null);
         batch.setColor(Color.WHITE);
-        batch.draw(cardBack, placement.x - canvasWidth / 2f,
-                placement.y - canvasHeight / 2f, canvasWidth / 2f,
-                canvasHeight / 2f, canvasWidth, canvasHeight,
-                revealScale, revealScale, placement.rotation, 0, 0,
-                cardBack.getWidth(), cardBack.getHeight(), false, false);
+        batch.begin();
     }
 
     private void drawLiveRabbitRevealCard(int slot,

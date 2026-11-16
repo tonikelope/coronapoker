@@ -230,6 +230,7 @@ final class GdxPerspectiveTable implements Disposable {
     private FrameBuffer backdrop;
     private Texture backdropFelt;
     private boolean backdropStretch;
+    private float backdropTileSpan;
     private float width;
     private float height;
     private float boardCenterY;
@@ -377,12 +378,12 @@ final class GdxPerspectiveTable implements Disposable {
         return peek > 0f;
     }
 
-    void drawBackdrop(SpriteBatch batch, Texture felt, boolean stretch,
+    void drawBackdrop(SpriteBatch batch, Texture felt, boolean stretch, float tileSpan,
             int pixelWidth, int pixelHeight, float opacity) {
         if (backdrop == null || backdrop.getWidth() != pixelWidth
                 || backdrop.getHeight() != pixelHeight || backdropFelt != felt
-                || backdropStretch != stretch) {
-            renderBackdrop(felt, stretch, pixelWidth, pixelHeight);
+                || backdropStretch != stretch || backdropTileSpan != tileSpan) {
+            renderBackdrop(felt, stretch, tileSpan, pixelWidth, pixelHeight);
         }
         batch.begin();
         batch.setColor(1f, 1f, 1f, opacity);
@@ -392,7 +393,8 @@ final class GdxPerspectiveTable implements Disposable {
         batch.end();
     }
 
-    private void renderBackdrop(Texture felt, boolean stretch, int pixelWidth, int pixelHeight) {
+    private void renderBackdrop(Texture felt, boolean stretch, float tileSpan,
+            int pixelWidth, int pixelHeight) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, framebufferBinding);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewportBinding);
@@ -410,9 +412,10 @@ final class GdxPerspectiveTable implements Disposable {
             gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
             gl.glEnable(GL20.GL_DEPTH_TEST);
             gl.glDepthFunc(GL20.GL_LEQUAL);
-            drawGeometry(felt, stretch);
+            drawGeometry(felt, stretch, tileSpan);
             backdropFelt = felt;
             backdropStretch = stretch;
+            backdropTileSpan = tileSpan;
         } finally {
             gl.glDisable(GL20.GL_DEPTH_TEST);
             gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, framebufferBinding.get(0));
@@ -421,7 +424,7 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
-    private void drawGeometry(Texture felt, boolean stretch) {
+    private void drawGeometry(Texture felt, boolean stretch, float tileSpan) {
         if (shader == null) {
             shader = new ShaderProgram(VERTEX, FRAGMENT);
             if (!shader.isCompiled()) {
@@ -433,8 +436,8 @@ final class GdxPerspectiveTable implements Disposable {
         }
         if (surface == null) buildTable();
         begin(0, felt, felt, 1f);
-        shader.setUniformf("u_repeat", stretch ? 1f : feltWidth / felt.getWidth(),
-                stretch ? 1f : feltDepth / felt.getHeight());
+        shader.setUniformf("u_repeat", stretch ? 1f : feltWidth / tileSpan,
+                stretch ? 1f : feltDepth / tileSpan);
         surface.render(shader, GL20.GL_TRIANGLES);
         begin(1, felt, felt, 1f);
         rail.render(shader, GL20.GL_TRIANGLES);

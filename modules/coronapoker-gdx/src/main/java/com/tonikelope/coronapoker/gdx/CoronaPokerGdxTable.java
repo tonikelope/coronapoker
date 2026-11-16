@@ -1522,6 +1522,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float perspectiveTravel;
     private float perspectiveBlend;
     private boolean secretFeltTexture;
+    private float feltTileSpan;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture solidWhiteTexture;
@@ -4268,20 +4269,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static Texture feltTexture(String path) {
         // Swing displays these exact bundled pixels. Keep GDX colour-neutral:
         // no gamma curves, darkening overlays or per-felt substitutions.
-        // Nearest magnification preserves the black felt's fine grain instead
-        // of averaging its near-black texels into an apparently flat fill.
-        Texture texture = new Texture(Gdx.files.internal(path));
-        texture.setFilter(feltMinificationFilter(),
-                TextureFilter.Nearest);
+        // The fine weave needs prefiltered mip levels when the table recedes.
+        // Point sampling turns individual fibres into square, shimmering texels.
+        Texture texture = new Texture(Gdx.files.internal(path), true);
+        texture.setFilter(feltMinificationFilter(), TextureFilter.Linear);
+        texture.setAnisotropicFilter(8f);
         return texture;
     }
 
     static TextureFilter feltMinificationFilter() {
-        // The bundled 450 px tiles are drawn almost pixel-for-pixel. Linear
-        // minification averages the black tile's one-pixel fibres whenever the
-        // viewport is slightly narrower than the logical canvas, making the
-        // original fabric look like a flat black fill.
-        return TextureFilter.Nearest;
+        return TextureFilter.MipMapLinearLinear;
     }
 
     private static Texture silhouetteTexture(String path, Color tint) {
@@ -7929,6 +7926,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         secretFeltTexture = false;
         Texture normal = feltTexture("images/tapete_"
                 + GdxGamePresentationSettings.normalizedFelt(felt) + ".jpg");
+        // Source resolution is independent of the physical weave scale.
+        // Both camera modes use the same tile footprint on the table.
+        feltTileSpan = "madera".equals(GdxGamePresentationSettings.normalizedFelt(felt))
+                ? normal.getWidth() : 512f;
         normal.setWrap(TextureWrap.Repeat, TextureWrap.Repeat);
         return normal;
     }
@@ -7938,8 +7939,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             batch.draw(feltTexture, 0f, 0f, width, height);
         } else {
             batch.draw(feltTexture, 0f, 0f, width, height,
-                    0f, 0f, width / feltTexture.getWidth(),
-                    height / feltTexture.getHeight());
+                    0f, 0f, width / feltTileSpan, height / feltTileSpan);
         }
     }
 
@@ -11610,7 +11610,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             perspectiveTable.moveCamera(perspectiveBlend);
             perspectiveTable.setSmoothArtwork(requestedCardRenderingMode()
                     == GdxCardSmaaRenderer.RENDERING_SMOOTH);
-            perspectiveTable.drawBackdrop(batch, feltTexture, secretFeltTexture,
+            perspectiveTable.drawBackdrop(batch, feltTexture, secretFeltTexture, feltTileSpan,
                     Math.max(1, Gdx.graphics.getBackBufferWidth()),
                     Math.max(1, Gdx.graphics.getBackBufferHeight()), perspectiveBlend);
         } else if (perspectiveTable != null) {

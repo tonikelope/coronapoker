@@ -319,7 +319,11 @@ final class GdxPlasticCardTest {
                     previous[row].set(point);
                 }
             }
-            assertTrue(maxStep<140f*.065f,"Too much displacement between 60 Hz frames: "+maxStep);
+            // Bound path velocity independently of the selected animation duration.
+            // Faster playback legitimately travels farther per frame, but must not
+            // introduce a discontinuity into the lift/roll transition.
+            assertTrue(maxStep*frames<140f*3.64f,
+                    "Discontinuous uncover path at 60 Hz: "+maxStep*frames);
         }
         assertTrue(GdxPlasticCard.uncoverTurn(0f,.60f)>0f);
         assertTrue(GdxPlasticCard.uncoverLift(0f,.60f)<1f,

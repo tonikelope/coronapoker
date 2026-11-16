@@ -175,8 +175,8 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void feltKeepsTheOriginalOnePixelFabricGrain() {
-        assertEquals(TextureFilter.Nearest,
+    void fineWeaveIsPrefilteredAtObliqueTableAngles() {
+        assertEquals(TextureFilter.MipMapLinearLinear,
                 CoronaPokerGdxTable.feltMinificationFilter());
     }
 

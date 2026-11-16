@@ -1,0 +1,23 @@
+{
+  "benchmark_revision": "11cafd9eb758afcf1850baf3f167888247415729",
+  "validation_revision": "3a29ce661fe1e07571960c09916ba02b9e3eabf8",
+  "code_identity": [
+    {
+      "path": "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/crypto",
+      "objects": {
+        "11cafd9eb758afcf1850baf3f167888247415729": "76d6ba41574c4a71adf50e9d3eaec7402099024d",
+        "3a29ce661fe1e07571960c09916ba02b9e3eabf8": "76d6ba41574c4a71adf50e9d3eaec7402099024d"
+      },
+      "identical": true
+    },
+    {
+      "path": "modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java",
+      "objects": {
+        "11cafd9eb758afcf1850baf3f167888247415729": "7d837ebe5d0e60af4f51a8d24b34cd1093bbca02",
+        "3a29ce661fe1e07571960c09916ba02b9e3eabf8": "7d837ebe5d0e60af4f51a8d24b34cd1093bbca02"
+      },
+      "identical": true
+    }
+  ],
+  "benchmark_rerun": false
+}

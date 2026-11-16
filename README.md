@@ -65,6 +65,8 @@ Structural SRA failures, forged community reveals and unsafe early-cascade reque
 Peer-hosted, with no external central game server, accounts or third-party hand log. Clients connect to the table host, which relays table traffic between the machines in the game.
 
 > Full cryptographic spec (cascade flow, key schedule, HandStateChain seed, receipt format, recovery fossil layout) lives in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
+>
+> Read the [paper on CoronaPoker](https://doi.org/10.5281/zenodo.24279299).
 
 ---
 

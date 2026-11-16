@@ -1,0 +1,34 @@
+{
+  "crypto": {
+    "tests": "141",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "8.813",
+    "timestamp": "2026-11-16T10:36:12"
+  },
+  "state": {
+    "tests": "48",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "61.873",
+    "timestamp": "2026-11-16T10:37:15"
+  },
+  "normal-game": {
+    "tests": "1",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "6.913",
+    "timestamp": "2026-11-16T10:37:22"
+  },
+  "gateway": {
+    "tests": "3",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "0.948",
+    "timestamp": "2026-11-16T10:37:24"
+  }
+}

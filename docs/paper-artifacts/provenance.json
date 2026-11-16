@@ -1,0 +1,22 @@
+{
+  "paper_title": "CoronaPoker: A Verifiable Protocol for Peer-to-Peer Poker",
+  "repository": "https://github.com/tonikelope/coronapoker",
+  "benchmark_revision": "11cafd9eb758afcf1850baf3f167888247415729",
+  "regression_revision": "3a29ce661fe1e07571960c09916ba02b9e3eabf8",
+  "benchmark_source_sha256": "66e1699fc7f6f39ed36d98ea2c1e3c7947e04cb1dfd54505d9fe16416422337f",
+  "recorded_csv_sha256": "65398297e12cee7c79ad132f8756ba393f1752215bad9f806b7ff738952d4e1d",
+  "benchmark_recorded_samples": 44,
+  "benchmark_warmup_bundles": 20,
+  "benchmark_verified_bundles": 64,
+  "regression_selected_tests": 193,
+  "regression_text_inspection_tests": 7,
+  "regression_executable_tests": 186,
+  "regression_failures": 0,
+  "regression_errors": 0,
+  "regression_skipped": 0,
+  "regression_run_date_utc": "2026-11-16",
+  "benchmark_rerun_at_regression_revision": false,
+  "source_equivalence_evidence": "recorded/source-equivalence.json",
+  "scope": "Selected existing regressions and local valid-input cost measurements. No full cryptographic security theorem or distributed-latency measurement is claimed.",
+  "package_status": "Prepared for publication. This package does not claim that docs/paper-artifacts is already published in the upstream repository."
+}

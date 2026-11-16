@@ -1,0 +1,59 @@
+{
+  "crypto_classes": [
+    "AsyncCascadeProofCollectorTest",
+    "BoundContributionProofTest",
+    "CommunityChainDealingTest",
+    "DealChainTest",
+    "DleqTest",
+    "DualLockBundleFormatTest",
+    "DualLockCascadeTest",
+    "DualLockWireTest",
+    "MultiplicationProofTest",
+    "PermutationArgumentTest",
+    "ProductArgumentTest",
+    "ProofCodecTest",
+    "RistrettoSRACascadeTest",
+    "RistrettoSRADualLockTest",
+    "RistrettoSRARotationSingleLockTest",
+    "RotationProofTest",
+    "RotationProofWiringTest",
+    "RotationReplayAttackTest",
+    "RotationSmuggleEndToEndTest",
+    "ShuffleArgumentAuditTest",
+    "ShuffleArgumentTest",
+    "ShuffleCascadeTest",
+    "ShuffleCascadeWireTest",
+    "TranscriptTest",
+    "UnlockChainWireTest",
+    "VerifiableDealingTest",
+    "WeightedSumArgumentTest"
+  ],
+  "state_classes": [
+    "PrivateUnlockShuffleGateIntegrationTest",
+    "ShuffleProofGateTest",
+    "ShuffleVerificationQueueTest",
+    "CriticalShuffleRequestFailureClosesChannelTest",
+    "CriticalUnlockFailureClosesChannelTest",
+    "InitialCardCommandShapeTest",
+    "UnlockHandBoundaryGateTest",
+    "EarlyCascadeGateTest",
+    "ProofBoundToHandTest",
+    "InvalidPocketShuffleNeverStartsBettingTest",
+    "PreflopFoldCannotSettleWithoutRequiredShuffleProofTest",
+    "CurrentRecoveryFossilFormatTest",
+    "SraResponseAttributionTest"
+  ],
+  "normal_game_method": "com.tonikelope.coronapoker.core.network.NetworkHumanGameTableIntegrationTest#twoHumanCoreTablesCompleteAuthenticatedMultiHandGame",
+  "gateway_class": "com.tonikelope.coronapoker.core.network.NetworkLobbyGatewayTest",
+  "gateway_methods": [
+    "gameChannelCloseCancelsPendingConfirmationWithoutFailingTransport",
+    "startTransfersTheAuthenticatedChannelToBothTableSessions",
+    "activeNativeGameReconnectsWithoutLosingOrDuplicatingCommands"
+  ],
+  "expected_tests": {
+    "crypto": 141,
+    "state": 48,
+    "normal-game": 1,
+    "gateway": 3
+  }
+}

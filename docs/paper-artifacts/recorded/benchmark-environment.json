@@ -1,0 +1,19 @@
+{
+  "source_revision": "11cafd9eb758afcf1850baf3f167888247415729",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "affinity_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "benchmark_sha256": "66e1699fc7f6f39ed36d98ea2c1e3c7947e04cb1dfd54505d9fe16416422337f",
+  "dedicated_cpu_allocation": "not established",
+  "concurrent_validation": "completed before benchmark process starts"
+}

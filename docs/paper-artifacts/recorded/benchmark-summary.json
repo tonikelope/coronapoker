@@ -1,0 +1,106 @@
+{
+  "2": {
+    "samples": 11,
+    "proof_wall_ms": {
+      "median": 114.419203,
+      "minimum": 102.893113,
+      "maximum": 142.787911
+    },
+    "proof_cpu_ms": {
+      "median": 120.0,
+      "minimum": 110.0,
+      "maximum": 190.0
+    },
+    "verify_wall_ms": {
+      "median": 144.686041,
+      "minimum": 139.097729,
+      "maximum": 151.359217
+    },
+    "verify_cpu_ms": {
+      "median": 160.0,
+      "minimum": 140.0,
+      "maximum": 240.0
+    },
+    "binary_bytes": 49652,
+    "bundle_command_bytes": 66231,
+    "bundle_KiB": 64.6787109375
+  },
+  "4": {
+    "samples": 11,
+    "proof_wall_ms": {
+      "median": 204.761868,
+      "minimum": 198.642045,
+      "maximum": 233.930738
+    },
+    "proof_cpu_ms": {
+      "median": 210.0,
+      "minimum": 200.0,
+      "maximum": 230.0
+    },
+    "verify_wall_ms": {
+      "median": 279.161639,
+      "minimum": 271.807343,
+      "maximum": 298.667898
+    },
+    "verify_cpu_ms": {
+      "median": 280.0,
+      "minimum": 270.0,
+      "maximum": 310.0
+    },
+    "binary_bytes": 98792,
+    "bundle_command_bytes": 131775,
+    "bundle_KiB": 128.6865234375
+  },
+  "6": {
+    "samples": 11,
+    "proof_wall_ms": {
+      "median": 299.355553,
+      "minimum": 292.1835,
+      "maximum": 316.874811
+    },
+    "proof_cpu_ms": {
+      "median": 300.0,
+      "minimum": 290.0,
+      "maximum": 320.0
+    },
+    "verify_wall_ms": {
+      "median": 407.443161,
+      "minimum": 401.195347,
+      "maximum": 417.50768
+    },
+    "verify_cpu_ms": {
+      "median": 410.0,
+      "minimum": 400.0,
+      "maximum": 420.0
+    },
+    "binary_bytes": 147420,
+    "bundle_command_bytes": 196623,
+    "bundle_KiB": 192.0146484375
+  },
+  "10": {
+    "samples": 11,
+    "proof_wall_ms": {
+      "median": 489.393289,
+      "minimum": 484.678652,
+      "maximum": 608.560037
+    },
+    "proof_cpu_ms": {
+      "median": 490.0,
+      "minimum": 490.0,
+      "maximum": 620.0
+    },
+    "verify_wall_ms": {
+      "median": 674.149164,
+      "minimum": 664.340116,
+      "maximum": 705.200763
+    },
+    "verify_cpu_ms": {
+      "median": 680.0,
+      "minimum": 660.0,
+      "maximum": 720.0
+    },
+    "binary_bytes": 243140,
+    "bundle_command_bytes": 324295,
+    "bundle_KiB": 316.6943359375
+  }
+}

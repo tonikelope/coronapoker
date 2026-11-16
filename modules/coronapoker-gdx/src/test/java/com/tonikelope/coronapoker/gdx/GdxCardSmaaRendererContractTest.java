@@ -207,20 +207,25 @@ final class GdxCardSmaaRendererContractTest {
         assertEquals(16, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());
         assertTrue(artwork.contains("uniform float u_artworkSmooth"));
         assertTrue(artwork.contains("uniform float u_artworkLodBias"));
-        assertTrue(artwork.contains("if (u_artworkSmooth < 0.5) {"));
+        assertTrue(artwork.contains("if (u_artworkSmooth < 0.5 && u_extraArtworkSampling < 0.5) {"));
+        assertTrue(artwork.contains("return 0.25 * (texture2D(artwork"));
         assertTrue(artwork.contains("vec2 uvDx = dFdx(uv)"));
         assertTrue(artwork.contains("vec2 uvDy = dFdy(uv)"));
         assertEquals(16, occurrences(artwork,
                 "resolved += texture2D(artwork"));
-        assertEquals(17, occurrences(artwork, "u_artworkLodBias);"));
+        assertEquals(20, occurrences(artwork, ", lodBias)"));
         assertTrue(artwork.contains("return resolved * 0.0625"));
         assertFalse(artwork.toLowerCase().contains("sharpen"));
         assertTrue(regular.contains(
                 "setUniformf(\"u_artworkSmooth\""));
         assertTrue(regular.contains(
                 "setUniformf(\"u_artworkLodBias\""));
+        assertTrue(regular.contains(
+                "setUniformf(\"u_extraArtworkSampling\""));
         assertTrue(rabbit.contains(
                 "setUniformf(\"u_artworkSmooth\""));
+        assertTrue(rabbit.contains(
+                "setUniformf(\"u_extraArtworkSampling\""));
         assertTrue(rabbit.contains(
                 "setUniformf(\"u_artworkLodBias\""));
         assertTrue(table.contains(

@@ -70,11 +70,13 @@ final class CardRenderLabModelTest {
     }
 
     @Test
-    void lodExperimentUsesTheRealShaderUniformForAllArtworkSamples() {
+    void lodExperimentKeepsTheUniformForItsArtworkSamples() {
         String shader = CoronaPokerGdxTable.CARD_FRAGMENT_SHADER;
 
         assertTrue(shader.contains("uniform float u_artworkLodBias"));
-        assertEquals(17, occurrences(shader, "u_artworkLodBias);"));
+        assertTrue(shader.contains("return texture2D(artwork, uv, u_artworkLodBias);"));
+        assertTrue(shader.contains("u_extraArtworkSampling > 0.5 ? -0.75 : u_artworkLodBias;"));
+        assertEquals(20, occurrences(shader, ", lodBias)"));
     }
 
     @Test

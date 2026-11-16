@@ -734,8 +734,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(19, page.options().size());
-        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -750,6 +750,7 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
                 "animacion_destape",
                 "card_flip_duration",
+                "community_reveal_style",
                 "card_flip_direction",
                 "card_flip_zoom",
                 "animacion_ciegas_dealer",

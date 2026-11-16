@@ -280,6 +280,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.cinematic_gameover";
             case "animacion_barajado" ->
                 "gdx.settings.tooltip.animation_shuffle";
+            case "community_reveal_style" ->
+                "tooltip.cfg.community_reveal_style";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
             case "animacion_barajado_precarga" ->

@@ -55,6 +55,7 @@ Select a snapshot to open it at full resolution.
 # Features
 
 - Finer card artwork sampling for player hands and community cards in the 2D view, and for opponent cards in the 3D view.
+- Rigid and flexible community-card reveals in both views, with independent settings under Appearance → Animations → Card reveal.
 
 ## 🔐 Security & cryptography
 

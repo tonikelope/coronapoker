@@ -69,6 +69,28 @@ final class GdxPerspectiveCardInteractionTest {
         }
     }
 
+    @Test void rigidRevealKeepsItsSurfaceFlatAndAnEdgeSupportedInEitherDirection() {
+        var left = new Vector3();
+        var middle = new Vector3();
+        var right = new Vector3();
+        for (int direction : new int[]{-1, 1}) {
+            for (float progress : new float[]{0f, 0.15f, 0.5f, 0.85f, 1f}) {
+                GdxPlasticCard.reveal(left, 140f, 190f, 0f, 0.25f, progress,
+                        direction, GdxPlasticCard.RIGID);
+                GdxPlasticCard.reveal(middle, 140f, 190f, 0.5f, 0.25f, progress,
+                        direction, GdxPlasticCard.RIGID);
+                GdxPlasticCard.reveal(right, 140f, 190f, 1f, 0.25f, progress,
+                        direction, GdxPlasticCard.RIGID);
+                assertEquals(140f, left.dst(right), 0.001f);
+                assertEquals(70f, left.dst(middle), 0.001f);
+                assertEquals(0f, Math.min(left.y, right.y), 0.001f);
+                if (progress == 0.5f) {
+                    assertTrue((left.y - right.y) * direction > 100f);
+                }
+            }
+        }
+    }
+
     @Test void pickingFindsTheFrontTriangleFromEitherSideAndRejectsEmptySpace() {
         var near = new GdxCardPickMesh();
         var far = new GdxCardPickMesh();

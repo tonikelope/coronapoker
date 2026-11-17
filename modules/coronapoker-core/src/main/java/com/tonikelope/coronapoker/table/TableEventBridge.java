@@ -88,6 +88,12 @@ public final class TableEventBridge implements AutoCloseable {
         return presentation.get() != null;
     }
 
+    public CompletionStage<Void> collectCompletedHandCards() {
+        TablePresentation current = presentation.get();
+        return current == null || localPublicationsSuppressed.get()
+                ? NO_RENDERER : current.collectCompletedHandCards();
+    }
+
     /**
      * Returns the last sequence already assigned by the attached presentation.
      * Protocol projections use this as a snapshot cut-over frontier: events at

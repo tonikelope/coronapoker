@@ -3,9 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.SplittableRandom;
 
 /**
@@ -180,27 +178,16 @@ final class GdxPotChipInventory {
         if (requested <= 0L || chips.isEmpty()) return List.of();
 
         while (true) {
-            Map<Long, Pick> best = bestPicks();
-            Pick selection = best.get(requested);
-            if (selection != null) {
+            var choice = GdxChipPaymentSelection.find(chips, chip -> cents(chip.amount()), requested);
+            if (choice == null) return List.of();
+            if (choice.exact()) {
                 ArrayList<CoronaPokerGdxTable.VisualChipSpec> selected =
-                        removeSelection(selection);
+                        removeSelection(choice.pick());
                 shuffle(selected, seed ^ 0x510e527fade682d1L);
                 return List.copyOf(selected);
             }
 
-            Map.Entry<Long, Pick> overpay = best.entrySet().stream()
-                    .filter(entry -> entry.getKey() > requested)
-                    .min((left, right) -> {
-                        int amountOrder = Long.compare(left.getKey(),
-                                right.getKey());
-                        return amountOrder != 0 ? amountOrder
-                                : Integer.compare(left.getValue().count(),
-                                        right.getValue().count());
-                    }).orElse(null);
-            if (overpay == null) return List.of();
-
-            int chipToBreak = selectedIndices(overpay.getValue()).stream()
+            int chipToBreak = selectedIndices(choice.pick()).stream()
                     .filter(index -> !GdxChipDenominations.breakDown(
                             cents(chips.get(index).amount()), smallBlind)
                             .isEmpty())
@@ -222,30 +209,10 @@ final class GdxPotChipInventory {
         }
     }
 
-    private Map<Long, Pick> bestPicks() {
-        Map<Long, Pick> best = new LinkedHashMap<>();
-        best.put(0L, Pick.EMPTY);
-        for (int index = 0; index < chips.size(); index++) {
-            long chipAmount = cents(chips.get(index).amount());
-            Map<Long, Pick> next = new LinkedHashMap<>(best);
-            for (Map.Entry<Long, Pick> entry : best.entrySet()) {
-                long amount = entry.getKey() + chipAmount;
-                Pick candidate = new Pick(entry.getValue().count() + 1,
-                        entry.getValue(), index);
-                Pick current = next.get(amount);
-                if (current == null || candidate.count() < current.count()) {
-                    next.put(amount, candidate);
-                }
-            }
-            best = next;
-        }
-        return best;
-    }
-
-    private ArrayList<Integer> selectedIndices(Pick selection) {
+    private ArrayList<Integer> selectedIndices(GdxChipPaymentSelection.Pick selection) {
         ArrayList<Integer> selectedIndices = new ArrayList<>(
                 selection.count());
-        for (Pick pick = selection; pick.index() >= 0;
+        for (var pick = selection; pick.index() >= 0;
                 pick = pick.previous()) {
             selectedIndices.add(pick.index());
         }
@@ -253,7 +220,7 @@ final class GdxPotChipInventory {
     }
 
     private ArrayList<CoronaPokerGdxTable.VisualChipSpec> removeSelection(
-            Pick selection) {
+            GdxChipPaymentSelection.Pick selection) {
         ArrayList<Integer> selectedIndices = selectedIndices(selection);
         selectedIndices.sort(java.util.Comparator.reverseOrder());
         ArrayList<CoronaPokerGdxTable.VisualChipSpec> selected =
@@ -337,11 +304,6 @@ final class GdxPotChipInventory {
     private static long cents(double amount) {
         if (!Double.isFinite(amount) || amount <= 0d) return 0L;
         return Math.max(0L, Math.round(MoneyMath.clean(amount) * 100d));
-    }
-
-    private record Pick(int count, Pick previous, int index) {
-
-        private static final Pick EMPTY = new Pick(0, null, -1);
     }
 
     record RunItTwiceSplit(

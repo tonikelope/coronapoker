@@ -1,9 +1,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Builds the four compact denomination columns painted beside a player stack.
@@ -362,23 +360,12 @@ final class GdxStackChipLayout {
             for (int column = COLUMN_COUNT - 1; column >= 0; column--) {
                 available.addAll(prepared.columns().get(column).chips());
             }
-            Map<Long, Selection> best = bestSelections(available);
-            Selection selection = best.get(targetMinor);
-            if (selection != null) {
-                return new Payment(prepared, selectedChips(selection));
-            }
-            Map.Entry<Long, Selection> overpay = best.entrySet().stream()
-                    .filter(entry -> entry.getKey() > targetMinor)
-                    .min((left, right) -> {
-                        int amountOrder = Long.compare(left.getKey(),
-                                right.getKey());
-                        return amountOrder != 0 ? amountOrder
-                                : Integer.compare(left.getValue().count(),
-                                        right.getValue().count());
-                    }).orElse(null);
-            if (overpay == null) return new Payment(prepared, List.of());
+            var choice = GdxChipPaymentSelection.find(available, Chip::amountMinor, targetMinor);
+            if (choice == null) return new Payment(prepared, List.of());
+            List<Chip> selected = selectedChips(available, choice.pick());
+            if (choice.exact()) return new Payment(prepared, selected);
 
-            Chip toBreak = selectedChips(overpay.getValue()).stream()
+            Chip toBreak = selected.stream()
                     .filter(chip -> !GdxChipDenominations.breakDown(
                             chip.amountMinor(), smallBlind).isEmpty())
                     .min(java.util.Comparator.comparingLong(
@@ -394,26 +381,6 @@ final class GdxStackChipLayout {
                 prepared = add(prepared, chip.amountMinor(), chip.color());
             }
         }
-    }
-
-    private static Map<Long, Selection> bestSelections(List<Chip> available) {
-        Map<Long, Selection> best = new LinkedHashMap<>();
-        best.put(0L, Selection.EMPTY);
-        for (Chip chip : available) {
-            Map<Long, Selection> next = new LinkedHashMap<>(best);
-            for (Map.Entry<Long, Selection> entry : best.entrySet()) {
-                long amount = entry.getKey() + chip.amountMinor();
-                Selection candidate = new Selection(
-                        entry.getValue().count() + 1,
-                        entry.getValue(), chip);
-                Selection current = next.get(amount);
-                if (current == null || candidate.count() < current.count()) {
-                    next.put(amount, candidate);
-                }
-            }
-            best = next;
-        }
-        return best;
     }
 
     static boolean isExactPhysicalPayment(Payment payment,
@@ -440,11 +407,12 @@ final class GdxStackChipLayout {
                 ? Math.max(1L, Math.round(amount * 100d)) : 0L;
     }
 
-    private static List<Chip> selectedChips(Selection selection) {
+    private static List<Chip> selectedChips(List<Chip> available,
+            GdxChipPaymentSelection.Pick selection) {
         ArrayList<Chip> result = new ArrayList<>(selection.count());
-        for (Selection cursor = selection; cursor.chip() != null;
+        for (var cursor = selection; cursor.index() >= 0;
                 cursor = cursor.previous()) {
-            result.add(cursor.chip());
+            result.add(available.get(cursor.index()));
         }
         return List.copyOf(result);
     }
@@ -521,23 +489,22 @@ final class GdxStackChipLayout {
     private static int[] closestExactCounts(long representedUnits,
             double[] compressionTargets, double[] referenceTargets) {
         int[] current = new int[COLUMN_COUNT];
-        SearchResult best = new SearchResult(null,
-                Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, -1);
-        SearchResult result = searchCounts(COLUMN_COUNT - 1,
+        SearchResult best = new SearchResult();
+        searchCounts(COLUMN_COUNT - 1,
                 representedUnits, compressionTargets, referenceTargets,
                 current, best);
-        if (result.counts() != null) return result.counts();
-        int[] fallback = new int[COLUMN_COUNT];
-        fallback[0] = (int) Math.min(Integer.MAX_VALUE, representedUnits);
-        return fallback;
+        if (best.chipCount == -1) {
+            best.counts[0] = (int) Math.min(Integer.MAX_VALUE, representedUnits);
+        }
+        return best.counts;
     }
 
-    private static SearchResult searchCounts(int column, long remainingUnits,
+    private static void searchCounts(int column, long remainingUnits,
             double[] compressionTargets, double[] referenceTargets,
             int[] current, SearchResult best) {
         if (column == 0) {
             if (remainingUnits < 0L || remainingUnits > Integer.MAX_VALUE) {
-                return best;
+                return;
             }
             current[0] = (int) remainingUnits;
             double compressionScore = 0d;
@@ -550,16 +517,18 @@ final class GdxStackChipLayout {
                         referenceTargets[index]);
                 chipCount += current[index];
             }
-            if (compressionScore < best.compressionScore() - 0.000_001d
-                    || Math.abs(compressionScore - best.compressionScore())
+            if (compressionScore < best.compressionScore - 0.000_001d
+                    || Math.abs(compressionScore - best.compressionScore)
                     < 0.000_001d
-                    && (referenceScore < best.referenceScore() - 0.000_001d
-                    || Math.abs(referenceScore - best.referenceScore())
-                    < 0.000_001d && chipCount > best.chipCount())) {
-                return new SearchResult(current.clone(), compressionScore,
-                        referenceScore, chipCount);
+                    && (referenceScore < best.referenceScore - 0.000_001d
+                    || Math.abs(referenceScore - best.referenceScore)
+                    < 0.000_001d && chipCount > best.chipCount)) {
+                System.arraycopy(current, 0, best.counts, 0, COLUMN_COUNT);
+                best.compressionScore = compressionScore;
+                best.referenceScore = referenceScore;
+                best.chipCount = chipCount;
             }
-            return best;
+            return;
         }
         int centre = (int) Math.max(0d,
                 Math.round(compressionTargets[column]));
@@ -567,14 +536,12 @@ final class GdxStackChipLayout {
         int maximum = centre + PROPORTION_SEARCH_RADIUS;
         int units = GdxChipDenominations.units(column);
         maximum = (int) Math.min(maximum, remainingUnits / units);
-        SearchResult result = best;
         for (int count = minimum; count <= maximum; count++) {
             current[column] = count;
-            result = searchCounts(column - 1,
+            searchCounts(column - 1,
                     remainingUnits - (long) count * units,
-                    compressionTargets, referenceTargets, current, result);
+                    compressionTargets, referenceTargets, current, best);
         }
-        return result;
     }
 
     private static double squaredDistance(int count, double target) {
@@ -642,12 +609,10 @@ final class GdxStackChipLayout {
         }
     }
 
-    private record Selection(int count, Selection previous, Chip chip) {
-
-        private static final Selection EMPTY = new Selection(0, null, null);
-    }
-
-    private record SearchResult(int[] counts, double compressionScore,
-            double referenceScore, int chipCount) {
+    private static final class SearchResult {
+        private final int[] counts = new int[COLUMN_COUNT];
+        private double compressionScore = Double.POSITIVE_INFINITY;
+        private double referenceScore = Double.POSITIVE_INFINITY;
+        private int chipCount = -1;
     }
 }

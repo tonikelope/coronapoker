@@ -14596,6 +14596,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        if (!recoveryRequestedForThisHand && !this.passive_recovery_observer && this.conta_mano > 0) {
+            try {
+                awaitPresentationBarrier(table_events.collectCompletedHandCards().toCompletableFuture(),
+                        this::tableWaitCancelled, 4_000L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Hand card collection presentation failed", ex);
+            }
+            if (tableWaitCancelled()) return false;
+        }
+
         // Do this only AFTER recovery has classified the latest persisted hand.  Previously the
         // header was printed at a provisional number and recuperarDatosClavePartida overwrote it
         // with COUNT(hand.id): stopping at showdown therefore opened the next hand as MANO 1

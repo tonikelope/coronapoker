@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +44,9 @@ final class GdxCardSmaaGpuCertificationTest {
                 = new Lwjgl3ApplicationConfiguration();
         config.setTitle("CoronaPoker card SMAA certification");
         config.setInitialVisible(false);
+        var monitors = Lwjgl3ApplicationConfiguration.getMonitors();
+        var monitor = monitors[Math.min(1, monitors.length - 1)];
+        config.setWindowPosition(monitor.virtualX + 8, monitor.virtualY + 8);
         config.disableAudio(true);
         config.setWindowedMode(WIDTH, HEIGHT);
         config.setBackBufferConfig(8, 8, 8, 8, 0, 0, 0);
@@ -84,7 +89,10 @@ final class GdxCardSmaaGpuCertificationTest {
                     + "no-op: only " + artworkChanged
                     + " framebuffer pixels changed");
             byte[] direct = renderNative(renderer, batch, card, projection);
-            byte[] antialiased = renderSmaa(renderer, batch, card, projection);
+            byte[] antialiased = renderSmaa(renderer, batch, card, projection, null);
+            assertArrayEquals(antialiased, renderSmaa(renderer, batch, card,
+                    projection, new Rectangle(28f, 8f, 104f, 112f)),
+                    "Bounding the GPU work must preserve the full framebuffer");
             int weightedPixels = countNonZeroWeightPixels(renderer);
             assertTrue(weightedPixels >= 12,
                     () -> "SMAA generated only " + weightedPixels
@@ -176,7 +184,7 @@ final class GdxCardSmaaGpuCertificationTest {
     }
 
     private static byte[] renderSmaa(GdxCardSmaaRenderer renderer,
-            SpriteBatch batch, Texture card, Matrix4 projection) {
+            SpriteBatch batch, Texture card, Matrix4 projection, Rectangle pixels) {
         clearBackBuffer();
         batch.setProjectionMatrix(projection);
         assertTrue(renderer.begin(WIDTH, HEIGHT,
@@ -185,7 +193,7 @@ final class GdxCardSmaaGpuCertificationTest {
         renderer.endAndComposite(batch, projection, () -> {
             Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, 0);
             Gdx.gl.glViewport(0, 0, WIDTH, HEIGHT);
-        });
+        }, pixels);
         Gdx.gl.glFinish();
         return ScreenUtils.getFrameBufferPixels(0, 0, WIDTH, HEIGHT, false);
     }

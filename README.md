@@ -60,7 +60,7 @@ Select a snapshot to open it at full resolution.
 - The 3D view puts the local stack and pot on the felt, with physical chip stacks, animated transfers and optional chip-area outlines. The stack viewer uses the same 3D chip meshes and printed denominations. The local stack fills up to six ten-chip columns on the left, then uses six more on the right. It exchanges chips when the available columns can no longer hold the denominations within ten chips per column.
 - In 3D, the local and community cards can arc over or steer around the pot and local chip stacks during the deal.
 - Chips follow ballistic paths into the pot and move the stack they land on. The local stack fills and reloads with free-falling chips in the 3D view.
-- Rigid and flexible community-card reveals in both views, with independent settings under Appearance → Animations → Card reveal.
+- Classic community-card reveals in 2D and flexible reveals with slight variations in 3D.
 
 ## 🔐 Security & cryptography
 

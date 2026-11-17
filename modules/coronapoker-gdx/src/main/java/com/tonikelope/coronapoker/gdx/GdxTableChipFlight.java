@@ -7,6 +7,7 @@ import java.util.List;
 /** Table-space toss with two exact, flat contacts and a short clearance arc. */
 final class GdxTableChipFlight {
     private static final float RAMP = .24f;
+    private static final float THROW_RAMP = .16f;
     static final float TOUCHDOWN = .90f;
 
     record Contact(float x, float y, float height, float rotation) {}
@@ -53,7 +54,7 @@ final class GdxTableChipFlight {
         }
         setFlatPose(out, to);
         float rebound = MathUtils.clamp((progress - TOUCHDOWN) / (1f - TOUCHDOWN), 0f, 1f);
-        out.height += diameter * .045f * arch(rebound);
+        out.height += diameter * (.035f + .020f * variation(seed, 12)) * arch(rebound);
     }
 
     /** A throw with a ballistic centre of mass and an end-over-end flip. */
@@ -66,8 +67,11 @@ final class GdxTableChipFlight {
         }
         float dx = to.x() - from.x(), dy = to.y() - from.y();
         float length = Math.max(1f, (float) Math.hypot(dx, dy));
-        out.x = MathUtils.lerp(from.x(), to.x(), t);
-        out.y = MathUtils.lerp(from.y(), to.y(), t);
+        // Brake along the final tangent before transferring the chip to the
+        // stationary pile. End with the same centre and zero lateral speed.
+        float fraction = throwTravel(t);
+        out.x = MathUtils.lerp(from.x(), to.x(), fraction);
+        out.y = MathUtils.lerp(from.y(), to.y(), fraction);
 
         float tumbleBias = .35f * (variation(seed, 32) - .5f);
         float rise = diameter * (.83f + .42f * variation(seed, 16))
@@ -114,8 +118,9 @@ final class GdxTableChipFlight {
                     || nearContact(pile, to, diameter)) continue;
             for (int sample = 1; sample < 28; sample++) {
                 float t = sample / 28f;
-                float x = MathUtils.lerp(from.x(), to.x(), t);
-                float y = MathUtils.lerp(from.y(), to.y(), t);
+                float fraction = throwTravel(t);
+                float x = MathUtils.lerp(from.x(), to.x(), fraction);
+                float y = MathUtils.lerp(from.y(), to.y(), fraction);
                 float dx = x - pile.x(), dy = y - pile.y();
                 if (dx * dx + dy * dy >= collisionRadius * collisionRadius) continue;
                 float angle = tumble(t, tumbleBias);
@@ -140,6 +145,12 @@ final class GdxTableChipFlight {
 
     private static float arch(float t) {
         return 4f * t * (1f - t);
+    }
+
+    private static float throwTravel(float t) {
+        if (t <= 1f - THROW_RAMP) return t;
+        float remaining = (1f - t) / THROW_RAMP;
+        return 1f - THROW_RAMP * remaining * remaining * (2f - remaining);
     }
 
     static void sample(Pose out, Contact from, Contact to, float progress,

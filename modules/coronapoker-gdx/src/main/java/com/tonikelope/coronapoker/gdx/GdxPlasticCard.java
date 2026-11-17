@@ -111,9 +111,14 @@ final class GdxPlasticCard {
             lastTurn = turn;
             peek.set(lift);
             rollingProfile.set(1f);
-            float advance = (1f - minimumV) * turn;
+            // Advance the turnover ahead of the fan as the sheet starts to
+            // settle, leaving the last part of the gesture for horizontal motion.
+            float roll = turn + 0.44f * turn * turn * (1f - turn);
+            float advance = (1f - minimumV) * roll;
             float tip = MathUtils.lerp(155f * lift, 180f,
                     turn);
+            float release = Interpolation.smoother.apply(
+                    MathUtils.clamp((turn - 0.84f) / 0.15f, 0f, 1f));
             floor = 0.0;
             z[0] = -extent * (1.0 - 2.0 * turn);
             y[0] = 0.0;
@@ -122,7 +127,10 @@ final class GdxPlasticCard {
                 // the whole sheet into a nearly vertical panel at mid-turn.
                 rollingProfile.sample(point, normal, 1f, 1f, .5f,
                         minimumV + range * i / STEPS + advance);
-                angle[i] = Math.atan2(-normal.z, normal.y) * tip / 155.0;
+                double tangent = Math.atan2(-normal.z, normal.y) * tip / 155.0;
+                // Let the remaining curl unwind while the fan is still
+                // opening, so the last edge meets the felt with little speed.
+                angle[i] = tangent + (Math.PI - tangent) * release;
                 if (i > 0) {
                     z[i] = z[i - 1] + (Math.cos(angle[i - 1]) + Math.cos(angle[i])) * range / (2.0 * STEPS);
                     y[i] = y[i - 1] + (Math.sin(angle[i - 1]) + Math.sin(angle[i])) * range / (2.0 * STEPS);
@@ -146,23 +154,27 @@ final class GdxPlasticCard {
         }
     }
 
-    static float uncoverLift(float initial, float progress) {
-        return MathUtils.lerp(initial, 1f, Interpolation.smoother.apply(
-                MathUtils.clamp(progress / .65f, 0f, 1f)));
+    static float uncoverLift(float initial, float progress, Motion motion) {
+        float gripHeight = Math.max(initial, 0.994f + (motion.bend() - 1f) * 0.045f);
+        float liftEnd = 0.56f + motion.tempo() * 0.35f;
+        return MathUtils.lerp(initial, gripHeight, Interpolation.smoother.apply(
+                MathUtils.clamp(progress / liftEnd, 0f, 1f)));
     }
 
-    static float uncoverTurn(float initial, float progress) {
-        float lead = .35f * (1f - initial);
-        return Interpolation.smoother.apply(MathUtils.clamp(
-                (progress - lead) / (1f - lead), 0f, 1f));
+    static float uncoverTurn(float initial, float progress, Motion motion) {
+        float covered = 1f - initial;
+        float lead = (0.30f + motion.tempo() * 0.40f)
+                * covered * (1f - 0.56f * initial);
+        float roll = MathUtils.clamp((progress - lead) / (1f - lead), 0f, 1f);
+        return MathUtils.lerp(Interpolation.smoother.apply(roll),
+                Interpolation.smooth.apply(roll), 0.45f * covered * covered);
     }
 
     static float uncoverSeconds(float configuredFlipSeconds) {
-        return configuredFlipSeconds * 0.85f;
+        return configuredFlipSeconds * 0.95f;
     }
 
     record Motion(float tempo, float bend, float corner) { }
-    static final Motion RIGID = new Motion(0f, 0f, 0f);
     static final Motion STANDARD = new Motion(0f, 1f, 0.19f);
 
     /** One bounded gesture per event, independent of render frame rate. */
@@ -178,9 +190,91 @@ final class GdxPlasticCard {
                 (c < 0.5f ? -1f : 1f) * (0.14f + 0.08f * Math.abs(c * 2f - 1f)));
     }
 
+    /** Bends the gripped side first and releases it during a 3D community turn. */
+    static final class CommunityTurn {
+        private static final int STEPS = 96;
+        private static final float RELEASED_AT = 0.91f;
+        private static final double BEND_RADIANS = 0.48;
+        private final double[] forward = new double[STEPS + 1];
+        private final double[] lift = new double[STEPS + 1];
+
+        private float width, height;
+        private int flatDirection;
+        private double sign, span, skewSin, skewCos, floor;
+
+        void set(float width, float height, float progress, float direction, Motion motion) {
+            this.width = width;
+            this.height = height;
+            float p = MathUtils.clamp(progress, 0f, 1f);
+            flatDirection = p == 0f ? 1 : p == 1f ? -1 : 0;
+            if (flatDirection != 0) return;
+
+            p += 0.75f * motion.tempo() * (float) (Math.sin(2.0 * Math.PI * p) * Math.sin(Math.PI * p));
+            float loadedAt = 0.33f + 0.38f * motion.tempo();
+            double load = p < loadedAt
+                    ? Interpolation.smoother.apply(p / loadedAt)
+                    : 1f - Interpolation.smoother.apply(
+                            MathUtils.clamp((p - loadedAt) / (RELEASED_AT - loadedAt), 0f, 1f));
+            sign = Math.copySign(1.0, direction);
+            double skew = -sign * (0.036 + 0.035 * motion.corner()) * load;
+            skewSin = Math.sin(skew);
+            skewCos = Math.cos(skew);
+            span = width * skewCos + height * Math.abs(skewSin);
+
+            // Integrate in material distance from the supported edge toward
+            // the grip. The bend initially lives near the fingers and travels
+            // inward as the card turns, sharing one profile across the plate.
+            double spread = Interpolation.smooth.apply(
+                    MathUtils.clamp((p - 0.11f) / 0.46f, 0f, 1f));
+            double gripStart = 0.66 - 0.45 * spread + 0.16 * motion.corner();
+            double bend = BEND_RADIANS * motion.bend() * load;
+            double turn = Math.PI * Interpolation.smooth.apply(p) - bend * gripCurve(0.5, gripStart);
+            floor = 0.0;
+            for (int step = 1; step <= STEPS; step++) {
+                double distance = (step - 0.5) / STEPS;
+                double tangent = turn + bend * gripCurve(distance, gripStart);
+                forward[step] = forward[step - 1] + Math.cos(tangent) / STEPS;
+                lift[step] = lift[step - 1] + Math.sin(tangent) / STEPS;
+                floor = Math.min(floor, lift[step]);
+            }
+        }
+
+        void sample(Vector3 out, float u, float v) {
+            float x = (u - 0.5f) * width;
+            float z = (v - 0.5f) * height;
+            if (flatDirection != 0) {
+                out.set(x * flatDirection, 0f, z);
+                return;
+            }
+            double along = x * skewCos + z * skewSin;
+            double across = -x * skewSin + z * skewCos;
+            double index = (0.5 - sign * along / span) * STEPS;
+            int cell = MathUtils.clamp((int) index, 0, STEPS - 1);
+            // The source grid extends slightly beyond the physical contour.
+            // Continue the edge tangent so the contour can clip the mesh.
+            double fraction = index - cell;
+            double distance = forward[cell] + fraction * (forward[cell + 1] - forward[cell]);
+            double elevation = lift[cell] + fraction * (lift[cell + 1] - lift[cell]);
+            double rotated = sign * span * (forward[STEPS / 2] - distance);
+            out.set((float) (rotated * skewCos - across * skewSin),
+                    (float) ((elevation - floor) * span),
+                    (float) (rotated * skewSin + across * skewCos));
+        }
+
+        private static double gripCurve(double distance, double start) {
+            double t = Math.max(0.0, (distance - start) / (1.0 - start));
+            return t * t * (3.0 - 2.0 * t);
+        }
+    }
+
     static void flight(Vector3 out, float width, float height, float u, float v, float progress) {
+        flight(out, width, height, u, v, progress, 1f);
+    }
+
+    static void flight(Vector3 out, float width, float height, float u, float v,
+            float progress, float bendScale) {
         double pulse = Math.sin(Math.PI * progress);
-        double bend = 0.10 * pulse * pulse;
+        double bend = 0.10 * bendScale * pulse * pulse;
         if (Math.abs(bend) < 0.0001f) {
             out.set((u - 0.5f) * width, 0f, (v - 0.5f) * height);
             return;
@@ -189,52 +283,5 @@ final class GdxPlasticCard {
         double angle = (v - 0.5f) * bend;
         out.set((u - 0.5f) * width, (float) (radius * (1.0 - Math.cos(angle))),
                 (float) (radius * Math.sin(angle)));
-    }
-
-    static void reveal(Vector3 out, float width, float height, float u, float v,
-            float progress, float direction) {
-        reveal(out, width, height, u, v, progress, direction, STANDARD);
-    }
-
-    static void reveal(Vector3 out, float width, float height, float u, float v,
-            float progress, float direction, Motion motion) {
-        float p = MathUtils.clamp(progress, 0f, 1f);
-        p += motion.tempo() * (float) (Math.sin(2.0 * Math.PI * p) * Math.sin(Math.PI * p));
-        if (p == 0f || p == 1f) {
-            out.set((u - 0.5f) * width * (p == 0f ? 1f : -1f),
-                    0f, (v - 0.5f) * height);
-            return;
-        }
-        float turn = MathUtils.PI * Interpolation.smoother.apply(p);
-        if (motion == RIGID) {
-            double angle = Math.copySign(turn, direction);
-            float edge = (u - 0.5f) * width;
-            double lift = Math.sin(angle);
-            float floor = width * 0.5f;
-            out.set((float) (edge * Math.cos(angle)),
-                    (float) (floor * Math.abs(lift) - edge * lift),
-                    (v - 0.5f) * height);
-            return;
-        }
-        float pulse = (float) Math.sin(Math.PI * p);
-        // The near corner starts first. The far edge follows through the
-        // same continuous surface, rather than turning a rigid rectangle.
-        float cornerLead = motion.corner() * pulse * (2f * v - 1f);
-        double theta = Math.copySign(MathUtils.clamp(turn + cornerLead,
-                0f, MathUtils.PI), direction);
-        double bend = 0.80 * motion.bend() * pulse * (0.75 + 0.25 * v);
-        double from = theta - bend * 0.5;
-        double to = theta + bend * 0.5;
-        double at = from + u * bend;
-        double radius = width / bend;
-        double x = radius * (Math.sin(at) - (Math.sin(from) + Math.sin(to)) * 0.5);
-        // Find the lowest point of the arc, including its interior. This
-        // keeps the supported edge on the felt throughout the turn.
-        double floor = Math.min(Math.cos(from), Math.cos(to));
-        if (from <= -Math.PI && to >= -Math.PI || from <= Math.PI && to >= Math.PI) {
-            floor = -1.0;
-        }
-        double y = radius * (Math.cos(at) - floor);
-        out.set((float) x, (float) y, (v - 0.5f) * height);
     }
 }

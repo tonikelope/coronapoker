@@ -22,6 +22,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import java.nio.IntBuffer;
@@ -73,6 +74,8 @@ final class GdxCardSmaaRenderer implements Disposable {
     private Texture areaTexture;
     private Texture searchTexture;
     private Mesh fullscreenTriangle;
+    private final IntBuffer compositeViewport = BufferUtils.newIntBuffer(4);
+    private final Rectangle compositePixels = new Rectangle();
     private boolean active;
     private boolean resourceInitializationFailed;
     private int activeRenderingMode;
@@ -108,6 +111,11 @@ final class GdxCardSmaaRenderer implements Disposable {
 
     void endAndComposite(SpriteBatch batch, Matrix4 projection,
             Runnable restoreParentTarget) {
+        endAndComposite(batch, projection, restoreParentTarget, null);
+    }
+
+    void endAndComposite(SpriteBatch batch, Matrix4 projection,
+            Runnable restoreParentTarget, Rectangle pixels) {
         if (!active) {
             throw new IllegalStateException("Card SMAA pass is not active");
         }
@@ -126,7 +134,7 @@ final class GdxCardSmaaRenderer implements Disposable {
         colorLayer.getColorBufferTexture().bind(0);
         edgesShader.setUniformi("uColorTexture", 0);
         edgesShader.setUniformf("uTexelSize", texelX, texelY);
-        fullscreenTriangle.render(edgesShader, GL20.GL_TRIANGLES);
+        drawPass(edgesShader, pixels);
         edgesShader.end();
         edgesLayer.end();
 
@@ -142,7 +150,7 @@ final class GdxCardSmaaRenderer implements Disposable {
         weightsShader.setUniformf("uViewportSize", width, height);
         weightsShader.setUniformf("uTexelSize", texelX, texelY);
         weightsShader.setUniformf("uSubsampleIndices", 0f, 0f, 0f, 0f);
-        fullscreenTriangle.render(weightsShader, GL20.GL_TRIANGLES);
+        drawPass(weightsShader, pixels);
         weightsShader.end();
         blendLayer.end();
 
@@ -157,7 +165,7 @@ final class GdxCardSmaaRenderer implements Disposable {
         blendShader.setUniformf("uTexelSize", texelX, texelY);
         blendShader.setUniformf("uInteriorEdgeBlendStrength",
                 INTERIOR_EDGE_BLEND_STRENGTH);
-        fullscreenTriangle.render(blendShader, GL20.GL_TRIANGLES);
+        drawPass(blendShader, compositeBounds(pixels, width, height));
         blendShader.end();
 
         Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -169,6 +177,37 @@ final class GdxCardSmaaRenderer implements Disposable {
         // have completed and the result is in the actual parent target.
         effectiveRenderingMode = activeRenderingMode;
         activeRenderingMode = RENDERING_NATIVE;
+    }
+
+    private Rectangle compositeBounds(Rectangle pixels, int width, int height) {
+        if (pixels == null || pixels.width == 0f) return null;
+        // A modal backdrop can be smaller than the card layer.
+        Gdx.gl.glGetIntegerv(GL20.GL_VIEWPORT, compositeViewport);
+        double scaleX = compositeViewport.get(2) / (double) width;
+        double scaleY = compositeViewport.get(3) / (double) height;
+        int x0 = (int) Math.floor(pixels.x * scaleX);
+        int y0 = (int) Math.floor(pixels.y * scaleY);
+        int x1 = (int) Math.ceil((pixels.x + pixels.width) * scaleX);
+        int y1 = (int) Math.ceil((pixels.y + pixels.height) * scaleY);
+        return compositePixels.set(compositeViewport.get(0) + x0,
+                compositeViewport.get(1) + y0, x1 - x0, y1 - y0);
+    }
+
+    private void drawPass(ShaderProgram shader, Rectangle pixels) {
+        if (pixels == null || pixels.width == 0f) {
+            fullscreenTriangle.render(shader, GL20.GL_TRIANGLES);
+            return;
+        }
+        // Keep full-resolution targets, texel coordinates and clears. Outside
+        // the padded board bounds both the source and its neighbors are empty.
+        Gdx.gl.glScissor((int) pixels.x, (int) pixels.y,
+                (int) pixels.width, (int) pixels.height);
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        try {
+            fullscreenTriangle.render(shader, GL20.GL_TRIANGLES);
+        } finally {
+            Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+        }
     }
 
     /** Rebinds this card target after an inner fold/showdown framebuffer. */

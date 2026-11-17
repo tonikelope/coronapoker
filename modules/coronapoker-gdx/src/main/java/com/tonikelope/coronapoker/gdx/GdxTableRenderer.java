@@ -107,6 +107,17 @@ public final class GdxTableRenderer implements TableRenderer {
     }
 
     @Override
+    public CompletionStage<Void> collectCompletedHandCards() {
+        CompletableFuture<Void> barrier = new CompletableFuture<>();
+        eventPump.submit(() -> {
+            CoronaPokerGdxTable current = table;
+            if (current == null) barrier.complete(null);
+            else current.collectCompletedHandCards(barrier);
+        }, barrier::completeExceptionally);
+        return barrier;
+    }
+
+    @Override
     public void close() {
         if (closed.compareAndSet(false, true) && opened.getAndSet(false)) {
             eventPump.close();

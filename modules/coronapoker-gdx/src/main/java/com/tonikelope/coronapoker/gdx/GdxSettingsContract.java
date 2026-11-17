@@ -42,6 +42,7 @@ final class GdxSettingsContract {
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
     static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
+    static final String COLLECT_HAND_CARDS_KEY = "animacion_recoger_cartas";
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
@@ -418,6 +419,7 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_destape", "DESTAPAR", true,
                     Gate.ANIMATIONS),
+            option(COLLECT_HAND_CARDS_KEY, "RECOGER CARTAS", true, Gate.ANIMATIONS),
             option("animacion_ciegas_dealer", "FICHAS DE POSICIÓN", true,
                     Gate.ANIMATIONS),
             option("animacion_contadores", "CONTADORES", true,
@@ -624,9 +626,9 @@ final class GdxSettingsContract {
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
                     animationToggle("animacion_destape"),
                     animationChoice("card_flip_duration"),
-                    animationChoice("community_reveal_style"),
                     animationChoice("card_flip_direction"),
                     animationChoice("card_flip_zoom"),
+                    animationToggle(COLLECT_HAND_CARDS_KEY),
                     animationToggle("animacion_ciegas_dealer"),
                     animationToggle("animacion_contadores"),
                     animationToggle("animacion_entrada_asientos"),
@@ -695,7 +697,7 @@ final class GdxSettingsContract {
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado", "animacion_barajado_precarga",
             "animacion_reparto",
-            "animacion_destape", "animacion_ciegas_dealer",
+            "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
             "animacion_apuestas",
             "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
@@ -703,8 +705,6 @@ final class GdxSettingsContract {
             "animacion_downgrade", "card_flip_duration",
             "card_flip_direction", "card_flip_zoom", "reparto_velocidad",
             COMMUNITY_DEAL_STYLE_KEY,
-            GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY,
-            GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY,
             "anim_calidad",
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
@@ -749,7 +749,7 @@ final class GdxSettingsContract {
                 PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
-                    "animacion_destape", "animacion_apuestas",
+                    "animacion_destape", "animacion_apuestas", COLLECT_HAND_CARDS_KEY,
                     "animacion_efecto_ganador", HALO_EFFECT_KEY,
                     GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
             case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
@@ -1467,12 +1467,8 @@ final class GdxSettingsContract {
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                if (choice != GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE) {
-                    properties.setProperty(choice.key(), choice.fallback());
-                }
+                properties.setProperty(choice.key(), choice.fallback());
             }
-            properties.setProperty(GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY, "rigid");
-            properties.setProperty(GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY, "flexible");
         }
     }
 
@@ -1519,12 +1515,8 @@ final class GdxSettingsContract {
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                if (choice != GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE
-                        && !stringAtDefault(properties, choice.key(),
-                                choice.fallback())) return false;
+                if (!stringAtDefault(properties, choice.key(), choice.fallback())) return false;
             }
-            return stringAtDefault(properties, GdxAppearanceOptions.COMMUNITY_REVEAL_2D_KEY, "rigid")
-                    && stringAtDefault(properties, GdxAppearanceOptions.COMMUNITY_REVEAL_3D_KEY, "flexible");
         }
         return true;
     }

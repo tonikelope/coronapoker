@@ -15,8 +15,10 @@ import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
@@ -115,7 +117,6 @@ final class GdxPerspectiveTable implements Disposable {
             uniform float u_aspect;
             uniform vec3 u_eye;
             uniform float u_artworkSmooth;
-            uniform bool u_flatBoardReveal;
             varying vec2 v_uv;
             varying float v_light;
             varying vec3 v_normal;
@@ -188,7 +189,7 @@ final class GdxPerspectiveTable implements Disposable {
                     float diffuse = max(0.0, dot(normal, key));
                     float light = min(1.015, 0.76 + 0.24 * diffuse / key.y);
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
-                    vec3 litInk = u_flatBoardReveal ? ink.rgb * v_light : ink.rgb * light + vec3(coat);
+                    vec3 litInk = ink.rgb * light + vec3(coat);
                     vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), u_showdownTint);
                     gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
@@ -201,12 +202,15 @@ final class GdxPerspectiveTable implements Disposable {
 
     private final PerspectiveCamera camera = new PerspectiveCamera();
     private final Matrix4 view = new Matrix4();
-    private final Matrix4 flatBoardView = new Matrix4();
-    private boolean flatBoardReveal;
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
     private final Matrix4 layoutInverseView = new Matrix4();
     private final FloatArray[] chipVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
+    private final StandingChipPile[] potPiles = new StandingChipPile[GdxTableChipSlots.POT_SLOT_COUNT];
+    private final StandingChipPile[] localPiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
+    private final StandingChipPile[] visiblePiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
+    private final BoundingBox standingChipBounds = new BoundingBox();
+    private int visiblePileCount;
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
     private final Vector3 cardSample = new Vector3();
@@ -221,8 +225,10 @@ final class GdxPerspectiveTable implements Disposable {
     private final Vector3 dealPosition = new Vector3();
     private final Vector3 dealPlanningTarget = new Vector3();
     private final ArrayList<GdxCardDealMotion.Pile> dealPiles = new ArrayList<>();
+    private final ArrayList<GdxCardDealMotion.BoardCard> dealtBoardCards = new ArrayList<>(5);
     private final Vector3 projectedPoint = new Vector3();
     private final FloatArray cardVertices = new FloatArray(MAX_CARD_VERTICES * 6);
+    private final FloatArray cardGrid = new FloatArray((REVEAL_COLUMNS + 1) * (REVEAL_ROWS + 1) * 6);
     private final IntBuffer framebufferBinding = BufferUtils.newIntBuffer(1);
     private final IntBuffer viewportBinding = BufferUtils.newIntBuffer(4);
     private ShaderProgram shader;
@@ -237,6 +243,8 @@ final class GdxPerspectiveTable implements Disposable {
     private final Vector3 cardBoundsMin = new Vector3();
     private final Vector3 cardBoundsMax = new Vector3();
     private final Vector3 cardBoundsCorner = new Vector3();
+    private final Rectangle boardCardPixels = new Rectangle();
+    private boolean trackBoardCardPixels;
     private boolean pocketPair;
     private int pocketDrawCount;
     private final FloatArray markerVertices = new FloatArray();
@@ -270,6 +278,7 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
+    private final GdxPlasticCard.CommunityTurn communityTurn = new GdxPlasticCard.CommunityTurn();
     private float uncoverStartPeek;
     private boolean uncoveringPacket;
 
@@ -629,7 +638,14 @@ final class GdxPerspectiveTable implements Disposable {
         int x1 = MathUtils.clamp(MathUtils.ceil(right * w / width) + 8, x0 + 1, w);
         int y0 = MathUtils.clamp(MathUtils.floor(bottom * h / height) - 8, 0, h - 1);
         int y1 = MathUtils.clamp(MathUtils.ceil(top * h / height) + 8, y0 + 1, h);
-        target.beginPair(x0, y0, x1 - x0, y1 - y0);
+        if (target != null) target.beginPair(x0, y0, x1 - x0, y1 - y0);
+        if (trackBoardCardPixels && (target == null || target == boardShell)) {
+            if (boardCardPixels.width == 0f) {
+                boardCardPixels.set(x0, y0, x1 - x0, y1 - y0);
+            } else {
+                boardCardPixels.merge(x0, y0).merge(x1, y1);
+            }
+        }
     }
 
     private static final class PocketDraw {
@@ -678,6 +694,14 @@ final class GdxPerspectiveTable implements Disposable {
         return point;
     }
 
+    Vector3 pocketDealSource(float firstX, float firstY, float secondX, float secondY, float cardWidth) {
+        Vector3 first = pocketAt(firstX, firstY, cardWidth, 0, 0f);
+        float x = first.x, z = first.z;
+        Vector3 second = pocketAt(secondX, secondY, cardWidth, 1, 0f);
+        return projectWorld(near.set((x + second.x) * .5f, CARD_REST_HEIGHT,
+                (z + second.z) * .5f));
+    }
+
     void drawPocket(Texture back, Texture face, float x, float y,
             float cardWidth, float cardHeight, float angle, boolean publicFace,
             float opacity, int slot) {
@@ -715,25 +739,24 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void drawPocketFlip(Texture back, Texture face, float x, float y,
-            float w, float h, float fan, float progress, float direction, float opacity, int slot) {
-        drawPocketFlip(back, face, x, y, w, h, fan, progress, direction, opacity, slot, slot);
-    }
-
-    void drawPocketFlip(Texture back, Texture face, float x, float y,
-            float w, float h, float fan, float progress, float direction, float opacity, int logicalSlot, int slot) {
+            float w, float h, float fan, float progress, GdxPlasticCard.Motion motion,
+            float opacity, int logicalSlot, int slot) {
         activePocketSlot = logicalSlot;
         float p = MathUtils.clamp(progress, 0f, 1f);
-        float turn = GdxPlasticCard.uncoverTurn(uncoverStartPeek, p);
-        float lift = GdxPlasticCard.uncoverLift(uncoverStartPeek, p);
+        float turn = GdxPlasticCard.uncoverTurn(uncoverStartPeek, p, motion);
+        float lift = GdxPlasticCard.uncoverLift(uncoverStartPeek, p, motion);
         Vector3 center = pocketAt(x, y, w, slot, turn);
         float cx = center.x, cz = center.z + h * .06f * lift * (1f - turn);
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
         packetLayerHeight = pocketLayerHeight(slot, w);
         packetBend = true;
         uncoveringPacket = true;
-        float bendingFan = MathUtils.lerp(fan, MathUtils.lerp(coveredFan(slot), fan, turn), cameraProgress);
-        float extent = .5f * (MathUtils.cosDeg(bendingFan)
-                + w / h * Math.abs(MathUtils.sinDeg(bendingFan)));
+        float fanPulse = 4f * p * (1f - p);
+        float fanScale = 1f + 0.70f * motion.corner() * fanPulse * fanPulse;
+        float bendingFan = MathUtils.lerp(fan,
+                MathUtils.lerp(coveredFan(slot), fan, turn) * fanScale, cameraProgress);
+        float angle = Math.abs(bendingFan);
+        float extent = .5f * (MathUtils.cosDeg(angle) + w / h * MathUtils.sinDeg(angle));
         uncoverShape.set(lift, turn, extent);
         try {
             fillPocket(cx, cz, w * EDGE_MARGIN_SCALE, h * EDGE_MARGIN_SCALE,
@@ -749,9 +772,21 @@ final class GdxPerspectiveTable implements Disposable {
 
     static final class DealRoute {
         private final Vector3 source = new Vector3();
+        final GdxPlasticCard.Motion style;
+        private final float flightSeconds;
         private float dealerU, dealerV;
         private GdxCardDealMotion.Route route;
         private float width, height, camera;
+
+        DealRoute() {
+            style = GdxPlasticCard.STANDARD;
+            flightSeconds = 0f;
+        }
+
+        DealRoute(long sequence, float flightSeconds) {
+            style = GdxPlasticCard.motion(sequence);
+            this.flightSeconds = flightSeconds;
+        }
     }
 
     void clearDealPiles() {
@@ -762,30 +797,42 @@ final class GdxPerspectiveTable implements Disposable {
         dealPiles.add(new GdxCardDealMotion.Pile(x - width * .5f, boardCenterY - y, radius, top));
     }
 
+    void clearDealtBoardCards() {
+        dealtBoardCards.clear();
+    }
+
+    void addDealtBoardCard(float x, float y, float w, float h) {
+        dealtBoardCards.add(new GdxCardDealMotion.BoardCard(x - width * .5f,
+                boardCenterY - y, w, h));
+    }
+
     void drawPocketFlight(Texture back, float sourceX, float sourceY, float x, float y,
             float w, float h, float fan, float progress, int slot, int order, DealRoute route) {
         Vector3 target = pocketAt(x, y, w, slot, 0f);
         dealTarget.set(target.x, pocketLayerHeight(slot, w), target.z);
         drawDeal(back, sourceX, sourceY, w, h, MathUtils.lerp(fan, coveredFan(slot), cameraProgress),
-                progress, order, dealTarget.y, route);
+                progress, order, dealTarget.y, route, false);
     }
 
     void drawBoardFlight(Texture back, float sourceX, float sourceY, float x, float y,
             float w, float h, float fan, float progress, int order, DealRoute route) {
         dealTarget.set(x - width * 0.5f, 0f, boardCenterY - y);
-        drawDeal(back, sourceX, sourceY, w, h, fan, progress, order, 0f, route);
+        drawDeal(back, sourceX, sourceY, w, h, fan, progress, order, 0f, route, true);
     }
 
     private void drawDeal(Texture back, float sourceX, float sourceY, float w, float h,
-            float fan, float progress, int order, float lowestLayer, DealRoute plan) {
-        float startAngle = (order & 1) == 0 ? -18f : 18f;
+            float fan, float progress, int order, float lowestLayer, DealRoute plan, boolean community) {
+        float startAngle = ((order & 1) == 0 ? -1f : 1f)
+                * (18f + (plan.style.bend() - 1f) * 32f);
         if (plan.route == null) {
             // Lock the release point even if the dealer's seat moves after the throw.
             plan.dealerU = sourceX / width;
             plan.dealerV = sourceY / height;
         }
-        if (plan.route == null || plan.width != width || plan.height != height || plan.camera != cameraProgress) {
-            dealOrigin(plan.source, plan.dealerU * width, plan.dealerV * height, w);
+        if (plan.route == null || plan.width != width || plan.height != height
+                || plan.camera != cameraProgress) {
+            float launchHeight = w * (0.055f + plan.style.tempo() * 0.34f);
+            dealOriginAtHeight(plan.source, plan.dealerU * width, plan.dealerV * height, launchHeight);
             dealPlanningTarget.set(dealTarget.x, lowestLayer, dealTarget.z);
             float side = width * .5f - w * .5f;
             var bounds = new GdxCardDealMotion.Bounds(
@@ -793,20 +840,35 @@ final class GdxPerspectiveTable implements Disposable {
                     Math.max(side, Math.max(plan.source.x, dealTarget.x)),
                     Math.min(rearEdge + h * .5f, Math.min(plan.source.z, dealTarget.z)),
                     Math.max(frontEdge - h * .5f, Math.max(plan.source.z, dealTarget.z)));
-            plan.route = GdxCardDealMotion.plan(plan.source, dealPlanningTarget, w, h,
-                    startAngle, fan, CARD_REST_HEIGHT, dealPiles, bounds);
+            plan.route = community
+                    ? GdxCardDealMotion.planCommunity(plan.source, dealPlanningTarget, w, h,
+                            startAngle, fan, CARD_REST_HEIGHT, dealPiles,
+                            dealtBoardCards, bounds)
+                    : GdxCardDealMotion.plan(plan.source, dealPlanningTarget, w, h,
+                            startAngle, fan, CARD_REST_HEIGHT, dealPiles, bounds);
             plan.width = width;
             plan.height = height;
             plan.camera = cameraProgress;
         }
-        GdxCardDealMotion.sample(dealPosition, plan.source, dealTarget, progress, w, plan.route);
-        float angle = GdxCardDealMotion.angle(startAngle, fan, progress);
+        float pathProgress = community ? GdxCardDealMotion.communityProgress(progress, plan.flightSeconds, w, plan.route)
+                : progress;
+        GdxCardDealMotion.sample(dealPosition, plan.source, dealTarget, pathProgress, w, plan.route);
+        float angle = GdxCardDealMotion.angle(startAngle, fan, pathProgress, plan.route);
+        float shadow = .35f;
+        if (community) {
+            float heightFraction = MathUtils.clamp((dealPosition.y - dealTarget.y) / (w * .15f), 0f, 1f);
+            float distanceFromFelt = Interpolation.smooth.apply(heightFraction);
+            shadow = MathUtils.lerp(1f, shadow, distanceFromFelt);
+        }
         drawFlexibleFlight(back, dealPosition.x, dealPosition.z, w, h, angle,
-                dealPosition.y, plan.route.airborne(progress));
+                dealPosition.y, plan.route.airborne(pathProgress), plan.style.bend(), shadow);
     }
 
     void dealOrigin(Vector3 out, float screenX, float screenY, float cardWidth) {
-        float launchHeight = cardWidth * .055f;
+        dealOriginAtHeight(out, screenX, screenY, cardWidth * .055f);
+    }
+
+    private void dealOriginAtHeight(Vector3 out, float screenX, float screenY, float launchHeight) {
         Vector3 origin = surfaceAt(screenX, screenY, CARD_REST_HEIGHT + launchHeight);
         out.set(origin.x, launchHeight, origin.z);
     }
@@ -814,6 +876,89 @@ final class GdxPerspectiveTable implements Disposable {
     void beginChipRack() {
         for (FloatArray vertices : chipVertices) vertices.clear();
         resetCardBounds();
+    }
+
+    void beginStandingChipRack() {
+        visiblePileCount = 0;
+        standingChipBounds.inf();
+    }
+
+    void addStandingChipPile(boolean pot, int slot, int pileIndex, int column,
+            int seed, float x, float y, int count, float diameter, float thickness,
+            float depthSway, GdxTableChipRack.Impact impact) {
+        StandingChipPile[] piles = pot ? potPiles : localPiles;
+        StandingChipPile pile = piles[slot];
+        if (pile == null) {
+            pile = new StandingChipPile();
+            piles[slot] = pile;
+        }
+        // Vertices are in table space. A camera move only changes projection;
+        // a resized table or a landing that moves the pile changes its mesh.
+        boolean moving = impact != null && impact.moving();
+        if (pile.mesh == null || moving || pile.moving || pile.count != count
+                || pile.column != column || pile.index != pileIndex || pile.seed != seed
+                || pile.x != x || pile.y != y || pile.tableWidth != width
+                || pile.boardY != boardCenterY || pile.diameter != diameter) {
+            int color = GdxChipDenominations.color(column);
+            FloatArray geometry = chipVertices[color];
+            geometry.clear();
+            resetCardBounds();
+            for (int level = 0; level < count; level++) {
+                float offset = CoronaPokerGdxTable.detailedStackChipLateralOffset(seed, column, level, diameter);
+                float rotation = CoronaPokerGdxTable.tableChipRotation(seed, column, pileIndex, level);
+                float dx = impact == null ? 0f : impact.offsetX(level, diameter);
+                float dy = impact == null ? 0f : impact.offsetY(level, diameter) * depthSway;
+                addTableChip(color, x + offset + dx, y + dy, diameter,
+                        level * thickness, thickness, rotation, level == 0);
+            }
+            pile.mesh = GdxCardShell.uploadSolid(pile.mesh, geometry);
+            pile.min.set(cardBoundsMin);
+            pile.max.set(cardBoundsMax);
+            pile.count = count;
+            pile.column = column;
+            pile.index = pileIndex;
+            pile.seed = seed;
+            pile.x = x;
+            pile.y = y;
+            pile.tableWidth = width;
+            pile.boardY = boardCenterY;
+            pile.diameter = diameter;
+            pile.moving = moving;
+        }
+        visiblePiles[visiblePileCount++] = pile;
+        standingChipBounds.ext(pile.min).ext(pile.max);
+    }
+
+    void drawStandingChipRack(Texture[] faces, float opacity) {
+        if (visiblePileCount == 0) return;
+        cardBoundsMin.set(standingChipBounds.min);
+        cardBoundsMax.set(standingChipBounds.max);
+        begin(8, faces[0], faces[0], opacity);
+        beginCroppedCardLayer(chipShell);
+        try {
+            chipShell.renderLayer(() -> {
+                // Depth and blending are shared across the rack. Keep the
+                // original denomination order and then the original pile order.
+                for (int color = 0; color < faces.length; color++) {
+                    faces[color].bind(0);
+                    int column = GdxChipDenominations.columnForColor(color);
+                    for (int p = 0; p < visiblePileCount; p++) {
+                        StandingChipPile pile = visiblePiles[p];
+                        if (pile.column == column) pile.mesh.render(shader, GL20.GL_TRIANGLES);
+                    }
+                }
+            }, width, height);
+        } finally {
+            chipShell.endPair();
+        }
+    }
+
+    private static final class StandingChipPile {
+        private Mesh mesh;
+        private final Vector3 min = new Vector3(), max = new Vector3();
+        private int count, column, index, seed;
+        private float x, y, tableWidth, boardY, diameter;
+        private boolean moving;
     }
 
     private final Quaternion chipAttitude = new Quaternion();
@@ -903,12 +1048,18 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
-    void addFlyingChipShadow(GdxTableChipFlight.Pose pose, float diameter) {
+    void addFlyingChipShadow(GdxTableChipFlight.Pose pose, float diameter,
+            float progress, float landingHeight) {
         FloatArray vertices = chipVertices[0];
         float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
         float altitude = pose.height / diameter;
         float radius = diameter * (.54f + altitude * .18f);
-        float shade = -.66f / (1f + altitude * .85f);
+        float settle = Interpolation.smooth.apply(MathUtils.clamp((progress - .80f) / .20f, 0f, 1f));
+        // A base chip owns its contact shadow. A chip joining a pile gives
+        // way to the shadow already cast by that pile's base.
+        float shade = MathUtils.lerp(-.66f / (1f + altitude * .85f),
+                landingHeight <= 0f ? -1f : 0f, settle);
+        if (shade == 0f) return;
         cardBoundsMin.set(Math.min(cardBoundsMin.x, cx - radius), .02f,
                 Math.min(cardBoundsMin.z, cz - radius));
         cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + radius), .02f,
@@ -973,7 +1124,6 @@ final class GdxPerspectiveTable implements Disposable {
         chipCatalogView.setToOrtho(0f, width, 0f, height, -depth, depth)
                 .rotate(Vector3.X, ELEVATION);
         shader.setUniformMatrix("u_projection", chipCatalogView);
-        shader.setUniformi("u_flatBoardReveal", 0);
         shader.setUniformf("u_eye", width * .5f,
                 MathUtils.sinDeg(ELEVATION) * depth, MathUtils.cosDeg(ELEVATION) * depth);
         renderChipGeometry(faces, chipCatalogView, width, height);
@@ -1067,48 +1217,61 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private void drawFlexibleFlight(Texture back, float cx, float cz,
-            float w, float h, float fan, float lift, float progress) {
-        drawContact(back, cx, cz, w, h, fan, 0.35f);
+            float w, float h, float fan, float lift, float progress, float bend, float shadow) {
+        if (shadow > 0f) drawContact(back, cx, cz, w, h, fan, shadow);
         meshColumns = 1;
         meshRows = CARD_STRIPS;
         cardWorldWidth = w;
-        cardVertices.clear();
-        for (int row = 0; row < meshRows; row++) {
-            float v0 = row / (float) meshRows;
-            float v1 = (row + 1f) / meshRows;
-            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v0);
-            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v1);
-            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v0);
-            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v0);
-            putFlight(cx, cz, w, h, fan, lift, progress, 0f, v1);
-            putFlight(cx, cz, w, h, fan, lift, progress, 1f, v1);
+        cardGrid.clear();
+        for (int row = 0; row <= meshRows; row++) {
+            float v = row / (float) meshRows;
+            putFlight(cx, cz, w, h, fan, lift, progress, bend, 0f, v);
+            putFlight(cx, cz, w, h, fan, lift, progress, bend, 1f, v);
         }
+        triangulateCardGrid();
         renderPocket(4, back, back, 1f, h / w);
     }
 
     private void putFlight(float cx, float cz, float w, float h, float fan,
-            float lift, float progress, float u, float v) {
+            float lift, float progress, float bend, float u, float v) {
         GdxPlasticCard.flight(cardSample, w * EDGE_MARGIN_SCALE,
-                h * EDGE_MARGIN_SCALE, u, v, progress);
+                h * EDGE_MARGIN_SCALE, u, v, progress, bend);
         float cosine = MathUtils.cosDeg(fan);
         float sine = MathUtils.sinDeg(fan);
-        put(cardVertices, cx + cardSample.x * cosine - cardSample.z * sine,
+        put(cardGrid, cx + cardSample.x * cosine - cardSample.z * sine,
                 CARD_REST_HEIGHT + lift + cardSample.y,
                 cz + cardSample.x * sine + cardSample.z * cosine, u, v, 1f);
     }
 
-    void beginBoardCardPass() {
+    void beginBoardCardPass(boolean trackPixels) {
         boardCardPass = true;
+        trackBoardCardPixels = trackPixels;
+        boardCardPixels.set(0f, 0f, 0f, 0f);
     }
 
     void endBoardCardPass() {
         boardCardPass = false;
+        trackBoardCardPixels = false;
+    }
+
+    Rectangle boardCardPixels() {
+        return boardCardPixels;
     }
 
     void drawBoardCard(Texture back, Texture face, float x, float y, float w,
             float h, float fan, float opacity, boolean highlight) {
+        drawBoardCard(back, face, x, y, w, h, fan, opacity, highlight, 0f);
+    }
+
+    void drawBoardCard(Texture back, Texture face, float x, float y, float w,
+            float h, float fan, float opacity, boolean highlight, float elevation) {
         fillPocket(x - width * 0.5f, boardCenterY - y, w * EDGE_MARGIN_SCALE,
                 h * EDGE_MARGIN_SCALE, fan, 0f, false);
+        if (elevation > 0f) {
+            for (int vertexY = 1; vertexY < cardVertices.size; vertexY += 6) {
+                cardVertices.items[vertexY] += elevation;
+            }
+        }
         renderPocket(2, face, back, opacity, h / w, showdownTintAmount(highlight));
     }
 
@@ -1127,7 +1290,7 @@ final class GdxPerspectiveTable implements Disposable {
             float turn, float direction, GdxPlasticCard.Motion motion, float layer, int slot, DealRoute route) {
         if (flying) {
             dealTarget.set(x - width * 0.5f, layer, boardCenterY - y);
-            drawDeal(back, sourceX, sourceY, w, h, 0f, flightProgress, 0, 0f, route);
+            drawDeal(back, sourceX, sourceY, w, h, 0f, flightProgress, 0, 0f, route, true);
         } else {
             revealBaseHeight = layer;
             try {
@@ -1143,81 +1306,58 @@ final class GdxPerspectiveTable implements Disposable {
                 w, h, 0f, progress, direction, 1f, motion);
     }
 
-    void drawFlatBoardReveal(Texture back, Texture face, float x, float y,
-            float w, float h, float progress, float direction, GdxPlasticCard.Motion motion) {
-        prepareShader();
-        // The 2D board keeps its exact pixel positions. The sheet's lift is
-        // depth, while its deformation across the board remains visible.
-        flatBoardView.setToOrtho(0f, width, 0f, height, -height, height)
-                .rotate(Vector3.X, 90f);
-        int screenW = Gdx.graphics.getBackBufferWidth();
-        int screenH = Gdx.graphics.getBackBufferHeight();
-        float pixelsX = screenW / width;
-        float pixelsY = screenH / height;
-        float halfW = w * EDGE_MARGIN_SCALE * 0.5f;
-        float halfH = h * EDGE_MARGIN_SCALE * 0.5f;
-        int left = MathUtils.clamp(MathUtils.floor((x - halfW) * pixelsX) - 8, 0, screenW - 1);
-        int right = MathUtils.clamp(MathUtils.ceil((x + halfW) * pixelsX) + 8, left + 1, screenW);
-        int bottom = MathUtils.clamp(MathUtils.floor((y - halfH) * pixelsY) - 8, 0, screenH - 1);
-        int top = MathUtils.clamp(MathUtils.ceil((y + halfH) * pixelsY) + 8, bottom + 1, screenH);
-        flatBoardReveal = true;
-        pocketShell.beginPair(left, bottom, right - left, top - bottom);
-        try {
-            drawPlasticReveal(back, face, x, -y, w, h, 0f, progress, direction, 1f, motion);
-        } finally {
-            flatBoardReveal = false;
-            pocketShell.endPair();
-        }
-    }
-
-    private void drawPlasticReveal(Texture back, Texture face, float cx, float cz,
-            float w, float h, float fan, float progress, float direction, float opacity) {
-        drawPlasticReveal(back, face, cx, cz, w, h, fan, progress, direction, opacity,
-                GdxPlasticCard.STANDARD);
-    }
-
     private void drawPlasticReveal(Texture back, Texture face, float cx, float cz,
             float w, float h, float fan, float progress, float direction, float opacity,
             GdxPlasticCard.Motion motion) {
         float p = MathUtils.clamp(progress, 0f, 1f);
-        if (!flatBoardReveal) {
-            float pulse = MathUtils.sin(MathUtils.PI * p);
-            float projectedWidth = MathUtils.lerp(w, w * 0.20f, pulse);
-            drawContact(back, cx, cz, projectedWidth, h, fan, (1f - pulse * 0.42f) * opacity);
-        }
+        communityTurn.set(w, h, p, direction, motion);
+        float flex = MathUtils.sin(MathUtils.PI * p);
+        float projectedWidth = MathUtils.lerp(w, w * 0.20f, flex);
+        drawContact(back, cx, cz, projectedWidth, h, fan, (1f - flex * 0.42f) * opacity);
         meshColumns = REVEAL_COLUMNS;
         meshRows = REVEAL_ROWS;
         cardWorldWidth = w;
-        cardVertices.clear();
-        for (int row = 0; row < REVEAL_ROWS; row++) {
-            float v0 = row / (float) REVEAL_ROWS;
-            float v1 = (row + 1f) / REVEAL_ROWS;
-            for (int column = 0; column < REVEAL_COLUMNS; column++) {
-                float u0 = column / (float) REVEAL_COLUMNS;
-                float u1 = (column + 1f) / REVEAL_COLUMNS;
-                putReveal(cx, cz, w, h, u0, v0, p, direction, fan, motion);
-                putReveal(cx, cz, w, h, u0, v1, p, direction, fan, motion);
-                putReveal(cx, cz, w, h, u1, v0, p, direction, fan, motion);
-                putReveal(cx, cz, w, h, u1, v0, p, direction, fan, motion);
-                putReveal(cx, cz, w, h, u0, v1, p, direction, fan, motion);
-                putReveal(cx, cz, w, h, u1, v1, p, direction, fan, motion);
+        float cosine = MathUtils.cosDeg(fan);
+        float sine = MathUtils.sinDeg(fan);
+        cardGrid.clear();
+        for (int row = 0; row <= REVEAL_ROWS; row++) {
+            float v = row / (float) REVEAL_ROWS;
+            for (int column = 0; column <= REVEAL_COLUMNS; column++) {
+                float u = column / (float) REVEAL_COLUMNS;
+                putReveal(cx, cz, u, v, cosine, sine);
             }
         }
+        triangulateCardGrid();
         renderPocket(4, back, face, opacity, h / w);
     }
 
-    private void putReveal(float cx, float cz, float w, float h,
-            float u, float v, float progress, float direction, float fan, GdxPlasticCard.Motion motion) {
+    private void triangulateCardGrid() {
+        // Evaluate each animated point once and keep the original winding
+        // and diagonal used by the shell's surface and rim interpolation.
+        cardVertices.clear();
+        int stride = (meshColumns + 1) * 6;
+        for (int row = 0; row < meshRows; row++) {
+            for (int column = 0; column < meshColumns; column++) {
+                int a = row * stride + column * 6;
+                int b = a + stride;
+                cardVertices.addAll(cardGrid.items, a, 6);
+                cardVertices.addAll(cardGrid.items, b, 6);
+                cardVertices.addAll(cardGrid.items, a + 6, 6);
+                cardVertices.addAll(cardGrid.items, a + 6, 6);
+                cardVertices.addAll(cardGrid.items, b, 6);
+                cardVertices.addAll(cardGrid.items, b + 6, 6);
+            }
+        }
+    }
+
+    private void putReveal(float cx, float cz, float u, float v,
+            float cosine, float sine) {
         float artU = (u - 0.5f) * EDGE_MARGIN_SCALE + 0.5f;
         float artV = (v - 0.5f) * EDGE_MARGIN_SCALE + 0.5f;
-        GdxPlasticCard.reveal(cardSample, w, h, artU, artV, progress, direction, motion);
-        float flex = MathUtils.sin(MathUtils.PI * progress);
-        float light = 1f - flex * (0.055f + 0.055f * MathUtils.sin(MathUtils.PI * u));
-        float cosine = MathUtils.cosDeg(fan);
-        float sine = MathUtils.sinDeg(fan);
-        put(cardVertices, cx + cardSample.x * cosine - cardSample.z * sine,
+        communityTurn.sample(cardSample, artU, artV);
+        put(cardGrid, cx + cardSample.x * cosine - cardSample.z * sine,
                 CARD_REST_HEIGHT + revealBaseHeight + cardSample.y,
-                cz + cardSample.x * sine + cardSample.z * cosine, u, v, light);
+                cz + cardSample.x * sine + cardSample.z * cosine, u, v, 1f);
     }
 
     private void fillPocket(float x, float z, float w, float h, float fan,
@@ -1318,7 +1458,7 @@ final class GdxPerspectiveTable implements Disposable {
                     boardShell.endPair();
                 }
             } else {
-                drawShell(flatBoardReveal ? pocketShell : shell, cardVertices,
+                drawShell(shell, cardVertices,
                         meshColumns, meshRows, material, top, bottom,
                         cardWorldWidth, aspect, opacity, highlight, pick);
             }
@@ -1331,6 +1471,12 @@ final class GdxPerspectiveTable implements Disposable {
                     new VertexAttribute(Usage.Generic, 1, "a_light"));
         }
         card.setVertices(cardVertices.items, 0, cardVertices.size);
+        if (trackBoardCardPixels) {
+            // Contact shadows paint directly into the SMAA capture.
+            resetCardBounds();
+            includeCardBounds(cardVertices);
+            beginCroppedCardLayer(null);
+        }
         begin(material, top, bottom, opacity);
         shader.setUniformf("u_aspect", aspect);
         card.render(shader, GL20.GL_TRIANGLES);
@@ -1359,8 +1505,7 @@ final class GdxPerspectiveTable implements Disposable {
         bottom.bind(1);
         top.bind(0);
         shader.bind();
-        shader.setUniformMatrix("u_projection", flatBoardReveal ? flatBoardView : view);
-        shader.setUniformi("u_flatBoardReveal", flatBoardReveal ? 1 : 0);
+        shader.setUniformMatrix("u_projection", view);
         shader.setUniformf("u_eye", camera.position);
         shader.setUniformi("u_texture", 0);
         shader.setUniformi("u_reverse", 1);
@@ -1401,5 +1546,7 @@ final class GdxPerspectiveTable implements Disposable {
         pocketShell.dispose();
         boardShell.dispose();
         chipShell.dispose();
+        for (StandingChipPile pile : potPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
+        for (StandingChipPile pile : localPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
     }
 }

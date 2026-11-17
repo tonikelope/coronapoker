@@ -128,6 +128,10 @@ final class GdxTableChipRack {
             x = y = vx = vy = scale = 0f;
         }
 
+        boolean moving() {
+            return moving;
+        }
+
         private static float levelSway(int level) {
             return .62f + .38f * Math.min(1f, level / 4f);
         }

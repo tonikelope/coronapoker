@@ -284,8 +284,6 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.cinematic_gameover";
             case "animacion_barajado" ->
                 "gdx.settings.tooltip.animation_shuffle";
-            case "community_reveal_style" ->
-                "tooltip.cfg.community_reveal_style";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
             case "animacion_barajado_precarga" ->
@@ -298,6 +296,8 @@ final class GdxSettingsTooltips {
                 "tooltip.cfg.community_deal_style";
             case "animacion_destape" ->
                 "gdx.settings.tooltip.animation_reveal";
+            case GdxSettingsContract.COLLECT_HAND_CARDS_KEY ->
+                "gdx.settings.tooltip.animation_collect_hand_cards";
             case "card_flip_duration" ->
                 "tooltip.cfg.card_flip_duration";
             case "card_flip_zoom" -> "tooltip.cfg.card_flip_zoom";

@@ -33,10 +33,14 @@ final class GdxShuffleAudioSynchronizationTest {
         String update = method(table, "private void updateLiveShuffle()",
                 "private void startLiveShuffleSound(");
         int upload = update.indexOf("active.animation.frameAt(0f)");
-        int clock = update.indexOf("active.startPresentation(System.nanoTime())");
+        int clock = update.indexOf("active.startPresentation(renderFrameNanos)");
         int audio = update.indexOf("startLiveShuffleSound(active, 0)");
         assertTrue(upload >= 0 && clock > upload && audio > clock,
                 "frame zero, shared epoch and WAV must arm in that order");
+        assertTrue(update.contains("active.elapsedSeconds(renderFrameNanos)"));
+        assertTrue(method(table, "private void drawLiveShuffleOverlay()",
+                "private void drawTextOnlyShuffleOverlay(").contains(
+                        "frameAt(active.elapsedSeconds(renderFrameNanos))"));
         assertFalse(method(table, "private void acceptLiveShuffle(",
                 "private void updateLiveShuffle()").contains(
                         "startLiveShuffleSound("),

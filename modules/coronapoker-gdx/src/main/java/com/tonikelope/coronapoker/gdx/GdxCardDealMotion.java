@@ -8,8 +8,12 @@ import java.util.List;
 /** A low throw, a soft touchdown and a final slide with continuous deceleration. */
 final class GdxCardDealMotion {
     static final float TOUCHDOWN = 0.68f;
+    private static final float ALIGNMENT_TRAVEL = travel(TOUCHDOWN);
     private static final int SWEEP_STEPS = 96;
     private static final float[] DETOURS = {.55f, -.55f, 1.05f, -1.05f, 1.55f, -1.55f};
+    private static final float[] COMMUNITY_CONTACTS = {.82f, .89f, .94f, .975f, .995f};
+    private static final float COMMUNITY_BRAKE = .42f;
+    private static final float MAX_DIRECT_COMMUNITY_LIFT = .88f;
     private static final Route DIRECT = new Route(0f, 0f, 0f, 0f, TOUCHDOWN);
 
     private GdxCardDealMotion() { }
@@ -29,6 +33,7 @@ final class GdxCardDealMotion {
     }
 
     record Pile(float x, float z, float radius, float top) {}
+    record BoardCard(float x, float z, float width, float height) {}
 
     record Bounds(float left, float right, float rear, float front) {
         boolean contains(float x, float z) {
@@ -36,7 +41,12 @@ final class GdxCardDealMotion {
         }
     }
 
-    record Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown) {
+    record Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown,
+            boolean directCommunity) {
+        Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown) {
+            this(sideways, lift, riseUntil, descendFrom, touchdown, false);
+        }
+
         float airborne(float progress) {
             return MathUtils.clamp(progress / touchdown, 0f, 1f);
         }
@@ -44,6 +54,20 @@ final class GdxCardDealMotion {
         float cost() {
             return lift * 1.65f + Math.abs(sideways) * .40f + (touchdown - TOUCHDOWN) * 18f;
         }
+    }
+
+    private static float communityTravel(float progress) {
+        float cruise = 1f - COMMUNITY_BRAKE * .5f;
+        if (progress <= 1f - COMMUNITY_BRAKE) return progress / cruise;
+        float remaining = 1f - progress;
+        return 1f - remaining * remaining / (2f * COMMUNITY_BRAKE * cruise);
+    }
+
+    private static float clearanceLift(float progress, Route route) {
+        if (route.lift == 0f || progress >= route.touchdown) return 0f;
+        float rise = route.riseUntil == 0f ? 1f : smooth(progress / route.riseUntil);
+        float fall = smooth((route.touchdown - progress) / (route.touchdown - route.descendFrom));
+        return route.lift * rise * fall;
     }
 
     static float travel(float progress) {
@@ -61,21 +85,22 @@ final class GdxCardDealMotion {
 
     static void sample(Vector3 out, Vector3 from, Vector3 to, float progress, float width, Route route) {
         float p = MathUtils.clamp(progress, 0f, 1f);
+        float q = route.airborne(p);
+        if (route.directCommunity) {
+            float t = communityTravel(p);
+            out.set(MathUtils.lerp(from.x, to.x, t),
+                    to.y + launchHeight(from, to, q) + clearanceLift(p, route),
+                    MathUtils.lerp(from.z, to.z, t));
+            return;
+        }
         float t = travel(p);
-        float q = airborne(p);
         float dx = to.x - from.x, dz = to.z - from.z;
         float distance = (float) Math.hypot(dx, dz);
         float arch = Math.min(width * 0.12f, distance * 0.018f);
-        float pulse = (float) Math.sin(Math.PI * q);
+        float pulse = q == 1f ? 0f : (float) Math.sin(Math.PI * q);
         float sideways = route.sideways * lateralShape(t) / Math.max(1f, distance);
-        float lift = 0f;
-        if (p < route.touchdown && route.lift > 0f) {
-            float rise = route.riseUntil <= 0f ? 1f : smooth(p / route.riseUntil);
-            float fall = smooth((route.touchdown - p) / (route.touchdown - route.descendFrom));
-            lift = route.lift * rise * fall;
-        }
         out.set(MathUtils.lerp(from.x, to.x, t) - dz * sideways,
-                to.y + (from.y - to.y) * (1f - q) * (1f - q) + arch * pulse * pulse + lift,
+                to.y + launchHeight(from, to, q) + arch * pulse * pulse + clearanceLift(p, route),
                 MathUtils.lerp(from.z, to.z, t) + dx * sideways);
     }
 
@@ -83,23 +108,131 @@ final class GdxCardDealMotion {
         return MathUtils.lerp(from, to, smooth(progress));
     }
 
+    static float angle(float from, float to, float progress, Route route) {
+        return angle(from, to, route.directCommunity ? route.airborne(progress) : progress);
+    }
+
+    /** Give a high descent time to settle without changing the checked path. */
+    static float communityProgress(float progress, float seconds, float width, Route route) {
+        if (progress <= 0f || progress >= 1f || seconds <= 0f || route.lift < width * .06f) return progress;
+        float remaining = 1f - route.descendFrom;
+        float falling = route.touchdown - route.descendFrom;
+        if (falling <= 0f) return progress;
+        float landingSeconds = .065f + .075f * Math.min(1f, route.lift / width);
+        float reserve = Math.min(.46f, landingSeconds / seconds * remaining / falling);
+        if (reserve <= remaining) return progress;
+        float start = 1f - reserve;
+        float beforeSpeed = route.descendFrom / start;
+        float afterSpeed = remaining / reserve;
+        // Match the horizontal and vertical velocities at the timing join.
+        float speed = 2f * beforeSpeed * afterSpeed / (beforeSpeed + afterSpeed);
+        if (progress < start) {
+            return timedSegment(progress / start, 0f, route.descendFrom, beforeSpeed * start, speed * start);
+        }
+        return timedSegment((progress - start) / reserve, route.descendFrom, 1f, speed * reserve, afterSpeed * reserve);
+    }
+
+    private static float timedSegment(float t, float start, float end, float startSpeed, float endSpeed) {
+        float t2 = t * t;
+        return start + t2 * (3f - 2f * t) * (end - start)
+                + t * (1f - t) * ((1f - t) * startSpeed - t * endSpeed);
+    }
+
+    static Route planCommunity(Vector3 from, Vector3 to, float width, float height,
+            float startAngle, float endAngle, float restHeight, List<Pile> piles,
+            List<BoardCard> cards, Bounds bounds) {
+        if (piles.isEmpty() && cards.isEmpty()) {
+            return new Route(0f, 0f, 0f, 0f, COMMUNITY_CONTACTS[0], true);
+        }
+        Route best = null;
+        float bestCost = Float.POSITIVE_INFINITY;
+        for (float touchdown : COMMUNITY_CONTACTS) {
+            float penalty = (touchdown - COMMUNITY_CONTACTS[0]) * width * .30f;
+            if (penalty >= bestCost) break;
+            Route direct = directClearance(from, to, width, height, startAngle, endAngle,
+                    restHeight, piles, cards, touchdown);
+            if (direct == null || direct.lift() > width * MAX_DIRECT_COMMUNITY_LIFT
+                    || direct.lift() + penalty >= bestCost) continue;
+            best = direct;
+            bestCost = direct.lift() + penalty;
+        }
+        if (best != null) return best;
+        // A tall obstacle or an occupied approach makes a straight descent
+        // impractical. Only then search for an aerial route around it.
+        return plan(from, to, width, height, startAngle, endAngle, restHeight, piles, cards, bounds);
+    }
+
+    private static Route directClearance(Vector3 from, Vector3 to, float width, float height,
+            float startAngle, float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards,
+            float touchdown) {
+        float halfW = width * .5f, halfH = height * .5f;
+        float corner = (float) Math.hypot(halfW, halfH);
+        float distance = (float) Math.hypot(to.x - from.x, to.z - from.z);
+        float margin = Math.max(2f, width * .025f);
+        float first = 1f, last = 0f, lift = 0f;
+        for (int step = 0; step < SWEEP_STEPS; step++) {
+            float p0 = (float) step / SWEEP_STEPS, p1 = (float) (step + 1) / SWEEP_STEPS;
+            float mid = (p0 + p1) * .5f;
+            float t0 = communityTravel(p0), t1 = communityTravel(p1), t = communityTravel(mid);
+            float x = MathUtils.lerp(from.x, to.x, t);
+            float z = MathUtils.lerp(from.z, to.z, t);
+            float q0 = Math.min(1f, p0 / touchdown), q1 = Math.min(1f, p1 / touchdown);
+            float angle = angle(startAngle, endAngle, mid / touchdown);
+            float cosine = MathUtils.cosDeg(angle), sine = MathUtils.sinDeg(angle);
+            // Bound the sweep between samples, including rotation of the corners.
+            float reach = Math.max(t - t0, t1 - t) * distance;
+            float rotation = Math.max(Math.abs(angle - angle(startAngle, endAngle, q0)),
+                    Math.abs(angle(startAngle, endAngle, q1) - angle));
+            reach += corner * rotation * MathUtils.degreesToRadians;
+            float top = restHeight;
+            for (Pile pile : piles) {
+                float px = pile.x - x, pz = pile.z - z;
+                float radius = pile.radius + reach;
+                if (px * px + pz * pz > (corner + radius) * (corner + radius)) continue;
+                float u = Math.max(0f, Math.abs(px * cosine + pz * sine) - halfW);
+                float v = Math.max(0f, Math.abs(-px * sine + pz * cosine) - halfH);
+                if (u * u + v * v <= radius * radius) top = Math.max(top, pile.top + margin);
+            }
+            top = Math.max(top, boardObstacleTop(cards, x, z, halfW, halfH, cosine, sine, reach, restHeight));
+            if (top == restHeight) continue;
+            float natural = restHeight + to.y + Math.min(launchHeight(from, to, q0),
+                    launchHeight(from, to, q1));
+            if (natural >= top) continue;
+            if (p1 >= touchdown) return null;
+            first = Math.min(first, p0);
+            last = Math.max(last, p1);
+            lift = Math.max(lift, top - natural);
+        }
+        if (lift == 0f) return new Route(0f, 0f, 0f, 0f, touchdown, true);
+        // Start coming down as soon as the trailing edge clears. A tall
+        // obstacle needs more time to descend than a neighbouring card.
+        float descent = Math.min(.10f, .20f * lift / width);
+        if (first == 0f || touchdown - last < descent) return null;
+        return new Route(0f, lift, first, last, touchdown, true);
+    }
+
     static Route plan(Vector3 from, Vector3 to, float width, float height, float startAngle,
             float endAngle, float restHeight, List<Pile> piles, Bounds bounds) {
-        if (piles.isEmpty()) return DIRECT;
-        Route best = inspect(from, to, width, height, startAngle, endAngle, restHeight, piles, 0f, bounds);
+        return plan(from, to, width, height, startAngle, endAngle, restHeight, piles, List.of(), bounds);
+    }
+
+    private static Route plan(Vector3 from, Vector3 to, float width, float height, float startAngle,
+            float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards, Bounds bounds) {
+        if (piles.isEmpty() && cards.isEmpty()) return DIRECT;
+        Route best = inspect(from, to, width, height, startAngle, endAngle, restHeight, piles, cards, 0f, bounds);
         if (best.lift() < width * .26f) return best;
         for (float detour : DETOURS) {
             float offset = detour * width;
             if (Math.abs(offset) * .40f >= best.cost()) continue;
             Route alternative = inspect(from, to, width, height, startAngle, endAngle,
-                    restHeight, piles, offset, bounds);
+                    restHeight, piles, cards, offset, bounds);
             if (alternative != null && alternative.cost() < best.cost()) best = alternative;
         }
         return best;
     }
 
     private static Route inspect(Vector3 from, Vector3 to, float width, float height, float startAngle,
-            float endAngle, float restHeight, List<Pile> piles, float offset, Bounds bounds) {
+            float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards, float offset, Bounds bounds) {
         float dx = to.x - from.x, dz = to.z - from.z;
         float distance = (float) Math.hypot(dx, dz);
         float nx = -dz / Math.max(1f, distance), nz = dx / Math.max(1f, distance);
@@ -124,10 +257,17 @@ final class GdxCardDealMotion {
             float turn = Math.max(Math.abs(angle - angle(startAngle, endAngle, p0)),
                     Math.abs(angle(startAngle, endAngle, p1) - angle));
             float motion = du * (distance + 4f * Math.abs(offset)) + corner * turn * MathUtils.degreesToRadians;
-            float q0 = airborne(p0), q1 = airborne(p1);
-            float launch = Math.min(launchHeight(from, to, q0), launchHeight(from, to, q1));
-            float pulse = Math.min(MathUtils.sin(MathUtils.PI * q0), MathUtils.sin(MathUtils.PI * q1));
+            // A delayed touchdown stretches the arc. Bound its height for
+            // every admissible touchdown and over the whole sweep interval.
+            float earliestPhase = p0;
+            float latestPhase = airborne(p1);
+            float launch = Math.min(launchHeight(from, to, earliestPhase),
+                    launchHeight(from, to, latestPhase));
+            float pulse = latestPhase == 1f ? 0f : Math.min(
+                    MathUtils.sin(MathUtils.PI * earliestPhase),
+                    MathUtils.sin(MathUtils.PI * latestPhase));
             float naturalHeight = to.y + launch + Math.min(width * .12f, distance * .018f) * pulse * pulse;
+            float top = boardObstacleTop(cards, x, z, halfW, halfH, cosine, sine, motion, restHeight);
             for (Pile pile : piles) {
                 float px = pile.x - x, pz = pile.z - z;
                 float radius = pile.radius + motion;
@@ -135,11 +275,12 @@ final class GdxCardDealMotion {
                 if (px * px + pz * pz > broad * broad) continue;
                 float localX = Math.max(0f, Math.abs(px * cosine + pz * sine) - halfW);
                 float localZ = Math.max(0f, Math.abs(-px * sine + pz * cosine) - halfH);
-                if (localX * localX + localZ * localZ > radius * radius
-                        || naturalHeight + restHeight >= pile.top + margin) continue;
+                if (localX * localX + localZ * localZ <= radius * radius) top = Math.max(top, pile.top + margin);
+            }
+            if (naturalHeight + restHeight < top) {
                 first = Math.min(first, p0);
                 last = Math.max(last, p1);
-                lift = Math.max(lift, pile.top + margin - naturalHeight - restHeight);
+                lift = Math.max(lift, top - naturalHeight - restHeight);
             }
         }
         if (lift <= 0f) return offset == 0f ? DIRECT : new Route(offset, 0f, 0f, 0f, TOUCHDOWN);
@@ -149,13 +290,31 @@ final class GdxCardDealMotion {
         return new Route(offset, lift, first, descendFrom, touchdown);
     }
 
+    private static float boardObstacleTop(List<BoardCard> cards, float x, float z,
+            float halfW, float halfH, float cosine, float sine, float sweep, float restHeight) {
+        if (cards.isEmpty()) return restHeight;
+        float projectedX = Math.abs(cosine) * halfW + Math.abs(sine) * halfH + sweep;
+        float projectedZ = Math.abs(sine) * halfW + Math.abs(cosine) * halfH + sweep;
+        float top = restHeight;
+        for (BoardCard card : cards) {
+            if (Math.abs(x - card.x) < projectedX + card.width * .5f
+                    && Math.abs(z - card.z) < projectedZ + card.height * .5f) {
+                top = Math.max(top, restHeight + GdxPlasticCard.thickness(card.width) + 2f);
+            }
+        }
+        return top;
+    }
+
     private static float launchHeight(Vector3 from, Vector3 to, float phase) {
         float remaining = 1f - phase;
         return (from.y - to.y) * remaining * remaining;
     }
 
     private static float lateralShape(float travel) {
-        float p = 4f * travel * (1f - travel);
+        // Finish the detour in the air. The card approaches and slides on one
+        // tangent after that, with zero sideways speed at the join.
+        float u = Math.min(1f, travel / ALIGNMENT_TRAVEL);
+        float p = 4f * u * (1f - u);
         return p * p;
     }
 

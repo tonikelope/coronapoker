@@ -291,8 +291,7 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(smaa.contains("Gdx.gl.glBlendFuncSeparate"));
         assertTrue(smaa.contains("GL20.GL_ONE_MINUS_SRC_ALPHA"));
         assertTrue(smaa.contains("Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0)"));
-        int composite = smaa.indexOf(
-                "fullscreenTriangle.render(blendShader");
+        int composite = smaa.indexOf("drawPass(blendShader,");
         int effective = smaa.indexOf(
                 "effectiveRenderingMode = activeRenderingMode");
         assertTrue(composite >= 0 && effective > composite);

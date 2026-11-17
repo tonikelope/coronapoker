@@ -44,29 +44,22 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
-    void communityRevealStyleUsesAndResetsIndependentViewDefaults() {
+    void obsoleteRevealStyleDoesNotAffectAnimationDefaults() {
         Properties properties = new Properties();
-        var style = GdxAppearanceOptions.COMMUNITY_REVEAL_STYLE;
-        assertEquals("animacion_destape", GdxAppearanceOptions.parentKey(style));
-        assertEquals("TIPO DE DESTAPE COMUNITARIAS", style.label(new GdxGameText("es")));
-        assertEquals("FLEXIBLE", GdxAppearanceOptions.selectedLabel(style, properties));
-        GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 0);
-        assertEquals("RÍGIDO", GdxAppearanceOptions.selectedLabel(style, properties));
-        assertTrue(GdxAppearanceOptions.isDefault(style, properties));
-
-        GdxAppearanceOptions.select(style, properties, 1);
-        GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 1);
-        assertEquals("FLEXIBLE", GdxAppearanceOptions.selectedLabel(style, properties));
-        assertTrue(GdxAppearanceOptions.isDefault(style, properties));
-        GdxAppearanceOptions.select(style, properties, 0);
-        assertFalse(GdxAppearanceOptions.flexibleCommunityReveal(properties, true));
-        assertTrue(GdxAppearanceOptions.flexibleCommunityReveal(properties, false));
-        properties.setProperty("animacion_destape", "false");
-        assertFalse(GdxAppearanceOptions.enabled(style, properties));
-
-        GdxSettingsContract.restoreAppearanceDefaults(properties, false);
-        assertFalse(GdxAppearanceOptions.flexibleCommunityReveal(properties, false));
-        assertTrue(GdxAppearanceOptions.flexibleCommunityReveal(properties, true));
+        properties.setProperty("community_reveal_style_2d", "rigid");
+        properties.setProperty("community_reveal_style_3d", "rigid");
+        int animationsPage = GdxSettingsContract.APPEARANCE_PAGES.size() + 1;
+        for (int i = 1; i <= GdxSettingsContract.APPEARANCE_PAGES.size() + 1; i++) {
+            if (GdxSettingsContract.isAppearanceTogglePage(i)
+                    && GdxSettingsContract.hasAppearanceAnimationOptions(
+                            GdxSettingsContract.appearanceTogglePage(i))) {
+                animationsPage = i;
+                break;
+            }
+        }
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, animationsPage, false));
+        assertFalse(GdxAppearanceOptions.ANIMATION_CHOICES.stream()
+                .anyMatch(choice -> choice.key().equals("community_reveal_style")));
     }
 
     @Test

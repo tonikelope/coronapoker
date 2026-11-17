@@ -742,8 +742,8 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(19, page.options().size());
-        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(20, page.options().size());
+        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
         assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
@@ -759,9 +759,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
                 "animacion_destape",
                 "card_flip_duration",
-                "community_reveal_style",
                 "card_flip_direction",
                 "card_flip_zoom",
+                GdxSettingsContract.COLLECT_HAND_CARDS_KEY,
                 "animacion_ciegas_dealer",
                 "animacion_contadores",
                 "animacion_entrada_asientos",

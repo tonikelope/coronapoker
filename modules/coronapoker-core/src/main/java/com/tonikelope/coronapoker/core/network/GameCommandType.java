@@ -20,6 +20,7 @@ public enum GameCommandType {
     BOTBALRULE(Direction.HOST_TO_CLIENT),
     BOTREBUYRULE(Direction.HOST_TO_CLIENT),
     BUYIN(Direction.CLIENT_TO_HOST, Direction.HOST_TO_CLIENT),
+    CARD_DELIVERY_V1(Direction.HOST_TO_CLIENT),
     COMM_REVEAL(Direction.HOST_TO_CLIENT),
     DECK_CASCADE_PROOF(Direction.CLIENT_TO_HOST),
     DECK_CASCADE_REQ(Direction.HOST_TO_CLIENT),

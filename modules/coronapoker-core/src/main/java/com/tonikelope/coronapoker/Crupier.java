@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.core.network.CardDeliveryBatch;
 import com.tonikelope.coronapoker.core.BotNickname;
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.CryptoRandom;
@@ -3448,6 +3449,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     failClientCriticalHostCommand("MEGAPACKET", failure);
                     return true;
                 }
+            case CardDeliveryBatch.COMMAND:
+                // Warming observers skip recibirMisCartas but keep the other
+                // seats' residues for the same showdown/recovery checks.
+                if (!localPlayer().isCalentando()) {
+                    return false;
+                }
+                try {
+                    CardDeliveryBatch batch = CardDeliveryBatch.decode(command);
+                    if (batch.phase() != CardDeliveryBatch.Phase.POCKET_CARDS) {
+                        return false;
+                    }
+                    if (!this.single_locked_pocket_cards.isEmpty()
+                            || blindStraddlerSlot() >= 0) {
+                        throw new IllegalArgumentException("Unexpected observer pocket batch");
+                    }
+                    Map<String, byte[]> delivery = checkedCardDelivery(batch,
+                            this.current_hand_id, CardDeliveryBatch.Phase.POCKET_CARDS,
+                            Set.of(this.active_crypto_ring));
+                    this.single_locked_pocket_cards.putAll(delivery);
+                } catch (Exception failure) {
+                    failClientCriticalHostCommand(CardDeliveryBatch.COMMAND, failure);
+                }
+                return true;
             case "POCKET_CARDS":
                 try {
                     ParsedPocketCards parsed = parsePocketCardsWire(
@@ -5727,7 +5751,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pockets[i] = pc;
         }
 
-        // Broadcast and local resolution per target.
+        // All normal pocket residues have passed their complete DLEQ chains.
+        // Blind straddle keeps its separately confirmed notice and release path.
+        if (straddlerSlot < 0) {
+            Map<String, byte[]> delivery = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < currentRing.length; i++) {
+                delivery.put(currentRing[i], pockets[i]);
+            }
+            if (!broadcastCardDelivery(CardDeliveryBatch.Phase.POCKET_CARDS, delivery)) {
+                cancelarManoYDevolverApuestas("peer.broadcast_failed");
+                return false;
+            }
+        }
+
+        // Notify a blind straddler and resolve the host and bot cards locally.
         for (int i = 0; i < currentRing.length; i++) {
             String targetNick = currentRing[i];
             if (i == straddlerSlot) {
@@ -5754,9 +5791,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.single_locked_pocket_cards.put(targetNick, pocketCards);
 
             try {
-                String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
-                String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
-                broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
+                if (straddlerSlot >= 0) {
+                    String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
+                    String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
+                    broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
+                }
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS for " + targetNick, e);
                 cancelarManoYDevolverApuestas("peer.broadcast_failed");
@@ -5818,21 +5857,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String sessionId = configuration().sessionId();
             ShuffleProofContext context = new ShuffleProofContext(sessionId, this.current_hand_id,
                     gameSession().localNickname(), this.active_crypto_ring, this.peer_k_pocket, this.peer_k_community);
-            java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(
-                    decks, permutations, this.cascade_step_owner, context);
+            // Remote proofs are produced asynchronously after the cascade response.
+            // Generate independent local proofs before waiting for the remote ones.
             java.util.List<byte[]> proofs = new java.util.ArrayList<>();
             for (int step = 0; step < permutations.size(); step++) {
                 if (tableWaitCancelled()) return false;
-                byte[] before = decks.get(step);
-                byte[] after = decks.get(step + 1);
                 int[] permutation = permutations.get(step);
+                if (permutation == null) {
+                    proofs.add(null);
+                    continue;
+                }
                 ShuffleProofContext.Step contribution = context.shuffleStep(step);
-                byte[] proof = permutation == null
-                        ? asyncProofs.get(cascadeDeckHash(after))
-                        : ShuffleCascade.proveBoundStepWire(before, after, permutation,
-                                this.cascade_step_k.get(step), contribution, context.pocketKey(contribution));
+                byte[] proof = ShuffleCascade.proveBoundStepWire(decks.get(step), decks.get(step + 1),
+                        permutation, this.cascade_step_k.get(step), contribution, context.pocketKey(contribution));
                 if (proof == null) {
-                    LOGGER.severe("SHUFFLE-VERIFY: missing cascade proof before dealing");
+                    LOGGER.severe("SHUFFLE-VERIFY: missing local cascade proof before dealing");
                     return false;
                 }
                 proofs.add(proof);
@@ -5857,6 +5896,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 rotationProofs.add(proof);
                 before = after;
+            }
+
+            java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(
+                    decks, permutations, this.cascade_step_owner, context);
+            for (int step = 0; step < permutations.size(); step++) {
+                if (permutations.get(step) == null) {
+                    byte[] proof = asyncProofs.get(cascadeDeckHash(decks.get(step + 1)));
+                    if (proof == null) {
+                        LOGGER.severe("SHUFFLE-VERIFY: missing remote cascade proof before dealing");
+                        return false;
+                    }
+                    proofs.set(step, proof);
+                }
             }
 
             byte[] genesis = contextBoundShuffleGenesis(sessionId, this.current_hand_id, this.active_crypto_ring);
@@ -5938,8 +5990,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             logCryptoRingDebug("CLIENT (validated order)", this.active_crypto_ring);
                             initHandStateChain();
+                        } else if (CardDeliveryBatch.COMMAND.equals(partes[2])) {
+                            try {
+                                if (receivedLocalDelivery || blindStraddlerSlot() >= 0
+                                        || !this.single_locked_pocket_cards.isEmpty()) {
+                                    throw new IllegalArgumentException("Unexpected initial pocket batch");
+                                }
+                                Map<String, byte[]> delivery = checkedCardDelivery(comando,
+                                        CardDeliveryBatch.Phase.POCKET_CARDS,
+                                        Set.of(this.active_crypto_ring));
+                                String localNick = gameSession().localNickname();
+                                int[] indices = resolveOwnPocketDelivery(delivery.get(localNick));
+                                this.single_locked_pocket_cards.putAll(delivery);
+                                installLocalPocketCards(cartas, indices);
+                                receivedLocalDelivery = true;
+                            } catch (Exception error) {
+                                this.received_commands.reject(comando);
+                                try {
+                                    failClientCriticalHostCommand(CardDeliveryBatch.COMMAND, error);
+                                } finally {
+                                    setFin_de_la_transmision(true);
+                                    game_transport.closeHostConnection();
+                                }
+                                return null;
+                            }
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length == 5) {
                             try {
+                                if (blindStraddlerSlot() < 0) {
+                                    throw new IllegalArgumentException("Expected initial pocket batch");
+                                }
                                 ParsedPocketCards parsed = parsePocketCardsWire(partes, this.active_crypto_ring);
                                 String targetNick = parsed.targetNick;
                                 byte[] unlockedByOthers = parsed.residue;
@@ -5951,33 +6030,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
 
                                 if (targetNick.equals(gameSession().localNickname())) {
-                                    if (this.local_mega_packet == null) {
-                                        throw new IllegalArgumentException("POCKET_CARDS received before MEGAPACKET");
-                                    }
-                                    GamePeerController localParticipant = peers()
-                                            .get(gameSession().localNickname());
-                                    if (localParticipant != null
-                                            && localParticipant.getSra_unlock() != null) {
-                                        this.local_sra_unlock = localParticipant.getSra_unlock();
-                                    }
-                                    if (!RistrettoSRA.isValidScalar(this.local_sra_unlock)) {
-                                        throw new IllegalArgumentException("missing local pocket unlock");
-                                    }
-                                    byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
-                                    if (myPocket.length != 64 || !RistrettoSRA.arePointsValid(myPocket)) {
-                                        throw new IllegalArgumentException("invalid unlocked POCKET_CARDS points");
-                                    }
-                                    byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
-                                    byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
-                                    int id1 = RistrettoSRA.resolveCardIndex(c1);
-                                    int id2 = RistrettoSRA.resolveCardIndex(c2);
-                                    if (id1 < 0 || id2 < 0 || id1 == id2) {
-                                        throw new IllegalArgumentException("POCKET_CARDS do not resolve to two distinct cards");
-                                    }
-                                    this.local_original_cards[0] = (byte) id1;
-                                    this.local_original_cards[1] = (byte) id2;
-                                    cartas[0] = CardCode.fromIndex(id1).shortCode();
-                                    cartas[1] = CardCode.fromIndex(id2).shortCode();
+                                    installLocalPocketCards(cartas, resolveOwnPocketDelivery(unlockedByOthers));
                                     receivedLocalDelivery = true;
                                 }
                             } catch (Exception e) {
@@ -6071,6 +6124,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         return new ArrayList<>(java.util.Arrays.asList(cartas));
+    }
+
+    private Map<String, byte[]> checkedCardDelivery(String command, CardDeliveryBatch.Phase phase,
+            Set<String> recipients) {
+        CardDeliveryBatch batch = CardDeliveryBatch.decode(command.substring(
+                command.indexOf('#', command.indexOf('#') + 1) + 1));
+        return checkedCardDelivery(batch, this.current_hand_id, phase, recipients);
+    }
+
+    static Map<String, byte[]> checkedCardDelivery(CardDeliveryBatch batch, byte[] handId,
+            CardDeliveryBatch.Phase phase, Set<String> recipients) {
+        Map<String, byte[]> delivery = batch.requireDelivery(handId, phase, recipients);
+        for (byte[] residue : delivery.values()) {
+            if (!RistrettoSRA.arePointsValid(residue)
+                    || (phase == CardDeliveryBatch.Phase.POCKET_CARDS
+                    && (isZeroPoint(residue, 0) || isZeroPoint(residue, 32)))) {
+                throw new IllegalArgumentException("Card delivery contains invalid points");
+            }
+        }
+        return delivery;
+    }
+
+    private int[] resolveOwnPocketDelivery(byte[] residue) {
+        if (this.local_mega_packet == null) {
+            throw new IllegalArgumentException("POCKET_CARDS received before MEGAPACKET");
+        }
+        GamePeerController localParticipant = peers().get(gameSession().localNickname());
+        if (localParticipant != null && localParticipant.getSra_unlock() != null) {
+            this.local_sra_unlock = localParticipant.getSra_unlock();
+        }
+        if (!RistrettoSRA.isValidScalar(this.local_sra_unlock)) {
+            throw new IllegalArgumentException("missing local pocket unlock");
+        }
+        int[] indices = resolvePocketCardIndices(residue, this.local_sra_unlock);
+        if (indices == null) {
+            throw new IllegalArgumentException("POCKET_CARDS do not resolve to two distinct cards");
+        }
+        return indices;
+    }
+
+    private void installLocalPocketCards(String[] cards, int[] indices) {
+        for (int i = 0; i < indices.length; i++) {
+            this.local_original_cards[i] = (byte) indices[i];
+            cards[i] = CardCode.fromIndex(indices[i]).shortCode();
+        }
     }
 
     static boolean initialPocketResiduesComplete(String[] ring, int deferredSlot,
@@ -21347,8 +21445,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             hostIndices[i] = idx;
         }
 
-        // Broadcasts the pieces to each remote human. broadcastGAMECommandFromServer
-        // sends to every client; only the intended recipient can decrypt their piece.
+        if (!remoteHumans.isEmpty() && !pieceCommand.startsWith("RABBIT_")) {
+            Map<String, byte[]> delivery = new java.util.LinkedHashMap<>();
+            for (String nick : remoteHumans) {
+                delivery.put(nick, copies.get(nick));
+            }
+            if (!broadcastCardDelivery(CardDeliveryBatch.Phase.valueOf(pieceCommand), delivery)) {
+                if (abortOnFail) {
+                    cancelarManoYDevolverApuestas("peer.broadcast_failed");
+                }
+                return null;
+            }
+            return hostIndices;
+        }
+
+        // Rabbit uses its separate authorization and consumer.
         for (String r : remoteHumans) {
             try {
                 String nickB64 = Base64.getEncoder().encodeToString(r.getBytes("UTF-8"));
@@ -21395,6 +21506,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
             byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, pocketKey);
+            if (unlocked.length != 64 || !RistrettoSRA.arePointsValid(unlocked)) {
+                return null;
+            }
             int first = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(unlocked, 0, 32));
             int second = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(unlocked, 32, 64));
             return first >= 0 && second >= 0 && first != second
@@ -21507,6 +21621,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         : street == Crupier.TURN ? "RIT2_TURN_PIECE" : "RIT2_RIVER_PIECE")
                 : (street == Crupier.FLOP ? "FLOP_PIECE"
                         : street == Crupier.TURN ? "TURN_PIECE" : "RIVER_PIECE");
+        final CardDeliveryBatch.Phase expectedPhase = CardDeliveryBatch.Phase.valueOf(expectedCmd);
+        boolean receivedBatch = false;
         long deliveryDeadline = System.currentTimeMillis() + COMMUNITY_DELIVERY_TIMEOUT_MS;
         do {
             synchronized (this.getReceived_commands()) {
@@ -21527,8 +21643,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     try {
                         String commandType = partes.length >= 3 ? partes[2] : "";
-                        boolean expectedPiece = expectedCmd.equals(commandType);
-                        if ((expectedPiece || "COMM_REVEAL".equals(commandType)) && partes.length != 5) {
+                        if (expectedCmd.equals(commandType)
+                                || ("COMM_REVEAL".equals(commandType) && partes.length != 5)) {
                             rejectCriticalCommunityMessage(comando,
                                     "ZERO-TRUST: malformed critical community wire. Closing host channel", null);
                             return false;
@@ -21538,30 +21654,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "ZERO-TRUST: malformed MISDEAL during community delivery. Closing host channel", null);
                             return false;
                         }
-                        if (expectedPiece) {
-                            String targetNick = decodeStrictUtf8(java.util.Base64.getDecoder().decode(partes[3]));
-                            if (targetNick.isEmpty()
-                                    || !targetNick.equals(java.text.Normalizer.normalize(
-                                            targetNick, java.text.Normalizer.Form.NFC))
-                                    || this.active_crypto_ring == null
-                                    || !java.util.Arrays.asList(this.active_crypto_ring).contains(targetNick)) {
-                                throw new IllegalArgumentException("community piece target outside active ring");
+                        if (CardDeliveryBatch.COMMAND.equals(commandType)) {
+                            if (receivedBatch || this.active_crypto_ring == null) {
+                                throw new IllegalArgumentException("Unexpected community delivery batch");
                             }
-                            byte[] piece = java.util.Base64.getDecoder().decode(partes[4]);
-                            int expectedLen = (street == Crupier.FLOP) ? 96 : 32;
-                            if (piece.length != expectedLen || !RistrettoSRA.arePointsValid(piece)) {
-                                throw new IllegalArgumentException("community piece is not a canonical point block");
+                            Set<String> recipients = new java.util.HashSet<>();
+                            String hostNick = game_transport.hostNickname();
+                            for (String nick : this.active_crypto_ring) {
+                                if (!nick.equals(hostNick) && !BotNickname.isBot(nick)) {
+                                    recipients.add(nick);
+                                }
                             }
-                            if (!targetNick.equals(localNick)) {
-                                // Piece for another recipient; I can't decrypt it
-                                // (everyone else's still has its lock). It has nevertheless
-                                // been fully consumed and shape-validated for this broadcast.
+                            Map<String, byte[]> delivery = checkedCardDelivery(comando, expectedPhase, recipients);
+                            receivedBatch = true;
+                            if (iAmObserver) {
                                 continue;
                             }
-                            if (iAmObserver || piece_ok) {
-                                rejectCriticalCommunityMessage(comando,
-                                        "ZERO-TRUST: unexpected or duplicate local community piece. Closing host channel", null);
-                                return false;
+                            byte[] piece = delivery.get(localNick);
+                            if (piece == null) {
+                                throw new IllegalArgumentException("Missing local community delivery");
                             }
                             // Dual-lock: after the rotation, community pieces are encrypted
                             // with community scalars. The recipient applies THEIR
@@ -21615,7 +21726,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     } catch (Exception ex) {
                         String commandType = partes.length >= 3 ? partes[2] : "";
-                        if (expectedCmd.equals(commandType)
+                        if (CardDeliveryBatch.COMMAND.equals(commandType)
                                 || "COMM_REVEAL".equals(commandType)
                                 || "MISDEAL".equals(commandType)) {
                             rejectCriticalCommunityMessage(comando,
@@ -24258,9 +24369,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private boolean broadcastCardDelivery(CardDeliveryBatch.Phase phase, Map<String, byte[]> residues) {
+        try {
+            String command = CardDeliveryBatch.encode(this.current_hand_id, phase, residues);
+            synchronized (lock_game_broadcast) {
+                return broadcastGAMECommandFromServerLocked(command, null, true, true);
+            }
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.SEVERE, "Unable to deliver card batch for " + phase, failure);
+            return false;
+        }
+    }
+
     /** Caller holds {@link #lock_game_broadcast}; recursive broadcasts are reentrant. */
     private void broadcastGAMECommandFromServerLocked(String command, String skip_nick,
             boolean confirmation) {
+        broadcastGAMECommandFromServerLocked(command, skip_nick, confirmation, false);
+    }
+
+    private boolean broadcastGAMECommandFromServerLocked(String command, String skip_nick,
+            boolean confirmation, boolean requireAllAcknowledgements) {
 
         ArrayList<String> pendientes = new ArrayList<>();
         ArrayList<GamePeerController> targets = new ArrayList<>();
@@ -24303,14 +24431,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
+            boolean firstSend = true;
             try {
             do {
-                String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-
-                for (GamePeerController p : targets) {
-                    if (pendientes.contains(p.getNick())) {
-                        p.writeGameCommandFromServer(full_command, iv);
+                // The native outbox already retries a batch with the original
+                // wire ID after reconnect. Enqueuing it again would assign a new ID.
+                if (firstSend || !requireAllAcknowledgements) {
+                    String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                    for (GamePeerController p : targets) {
+                        if (pendientes.contains(p.getNick())) {
+                            p.writeGameCommandFromServer(full_command, iv);
+                        }
                     }
+                    firstSend = false;
                 }
 
                 if (confirmation) {
@@ -24319,6 +24452,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     for (GamePeerController p : targets) {
                         if (!p.getNick().equals(skip_nick) && p.isExit()) {
                             pendientes.remove(p.getNick());
+                            tracker.cancelPeer(request, p.getNick());
                             if (nick2player.containsKey(p.getNick())) {
                                 setPlayerTimeout(nick2player.get(p.getNick()), false);
                             }
@@ -24329,9 +24463,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         slowIterCount++;
                         if (slowIterCount >= 2) {
                             long elapsedMs = System.currentTimeMillis() - broadcastStartMs;
-                            String cmdHead = command.length() > 40
-                                    ? command.substring(0, 40) + "..."
-                                    : command;
+                            int separator = command.indexOf('#');
+                            String cmdHead = separator < 0 ? command : command.substring(0, separator);
                             LOGGER.log(Level.WARNING,
                                     "Still waiting for ACK from {0} after {1} ms on broadcast \"{2}\" (TCP alive. No kick, will keep retrying until peers ACK or their sockets die)",
                                     new Object[]{
@@ -24419,12 +24552,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
             } while (confirmation && !pendientes.isEmpty());
+            return !requireAllAcknowledgements || tracker.wasFullyConfirmed(request);
             } finally {
                 if (request != null) {
                     tracker.close(request);
                 }
             }
         }
+        return true;
     }
 
     /**

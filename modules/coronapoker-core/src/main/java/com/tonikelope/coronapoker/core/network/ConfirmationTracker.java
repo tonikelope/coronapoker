@@ -61,6 +61,11 @@ public final class ConfirmationTracker {
         return state != null && state.remaining.isEmpty();
     }
 
+    public synchronized boolean wasFullyConfirmed(Request request) {
+        Pending state = state(request);
+        return state != null && state.remaining.isEmpty() && !state.cancelled;
+    }
+
     public synchronized List<String> remaining(Request request) {
         Pending state = state(request);
         if (state == null) {
@@ -72,6 +77,7 @@ public final class ConfirmationTracker {
     public synchronized void cancelPeer(Request request, String peer) {
         Pending state = state(request);
         if (state != null && state.remaining.remove(peer)) {
+            state.cancelled = true;
             notifyAll();
         }
     }
@@ -109,6 +115,7 @@ public final class ConfirmationTracker {
 
         private final Request request;
         private final Set<String> remaining;
+        private boolean cancelled;
 
         private Pending(Request request, Collection<String> expectedPeers) {
             this.request = request;

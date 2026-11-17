@@ -1456,11 +1456,14 @@ class NetworkLobbyGatewayTest {
                 closeClientSocket(client);
                 await(() -> hostContext.get().channel()
                         .isPeerReconnecting("Invitado"));
-                hostContext.get().channel().sendFromHost("Invitado",
-                        "PAUSE#0#queued-during-reconnect").toCompletableFuture()
-                        .get(10, TimeUnit.SECONDS);
-                await(() -> clientInbound.stream().filter(
-                        "PAUSE#0#queued-during-reconnect"::equals).count() == 1L);
+                String batch = CardDeliveryBatch.encode(
+                        new byte[com.tonikelope.coronapoker.CanonicalActionRecord.HAND_ID_BYTES],
+                        CardDeliveryBatch.Phase.POCKET_CARDS, java.util.Map.of("Invitado",
+                                java.util.Arrays.copyOf(com.tonikelope.coronapoker.crypto.RistrettoSRA
+                                        .getGenesisDeck(), 64)));
+                hostContext.get().channel().sendFromHost("Invitado", batch)
+                        .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                await(() -> clientInbound.stream().filter(batch::equals).count() == 1L);
                 releaseFirstReconnect.countDown();
 
                 assertEquals(1, hostContext.get().channel()
@@ -1483,8 +1486,7 @@ class NetworkLobbyGatewayTest {
                         "ACTION#survives-reconnect"::equals).count());
                 assertEquals(1L, clientInbound.stream().filter(
                         "PAUSE#0#after-reconnect"::equals).count());
-                assertEquals(1L, clientInbound.stream().filter(
-                        "PAUSE#0#queued-during-reconnect"::equals).count());
+                assertEquals(1L, clientInbound.stream().filter(batch::equals).count());
             } finally {
                 releaseFirstReconnect.countDown();
                 client.close();

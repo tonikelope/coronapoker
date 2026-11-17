@@ -1,6 +1,5 @@
 package com.tonikelope.coronapoker.core.network;
 
-import com.tonikelope.coronapoker.core.ApplicationMetadata;
 import com.tonikelope.coronapoker.core.AvatarImageValidator;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -17,7 +16,7 @@ final class NetworkAvatarCapacityContractTest {
                 new byte[AvatarImageValidator.MAX_FILE_BYTES]);
         String join = Base64.getEncoder().encodeToString(
                 "Jugador1234567".getBytes(StandardCharsets.UTF_8))
-                + "#" + ApplicationMetadata.VERSION + "#" + avatar
+                + "#" + NetworkLobbyGateway.WIRE_VERSION + "#" + avatar
                 + "#JOIN#"
                 + Base64.getEncoder().encodeToString(new byte[91]) + "#"
                 + Base64.getEncoder().encodeToString(new byte[72]);

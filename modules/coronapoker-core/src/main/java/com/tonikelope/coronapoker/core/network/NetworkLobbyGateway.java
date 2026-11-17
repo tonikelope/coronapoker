@@ -110,6 +110,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
      */
     static final int MAX_HANDSHAKE_FRAME_BYTES
             = 2 * AvatarImageValidator.MAX_FILE_BYTES;
+    static final String WIRE_VERSION = ApplicationMetadata.VERSION + "/cards-1";
     static final int MAX_CLIENT_TEXT_FRAME_BYTES = 256 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
     static final int MAX_CHAT_TEXT_CHARS = 4_096;
@@ -593,7 +594,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     GameCommandType.Direction.HOST_TO_CLIENT, executor);
             connection.sessionId = sessionId;
             byte[] avatar = readAvatar(request.connection().avatar());
-            String join = b64(request.connection().nickname()) + "#" + ApplicationMetadata.VERSION
+            String join = b64(request.connection().nickname()) + "#" + WIRE_VERSION
                     + "#" + (avatar == null ? "*" : Base64.getEncoder().encodeToString(avatar))
                     + "#JOIN#" + Base64.getEncoder().encodeToString(identity.publicKey())
                     + "#" + Base64.getEncoder().encodeToString(identity.signJoin(sessionId));
@@ -682,7 +683,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         proof.doFinal(localNickname.getBytes(
                                 StandardCharsets.UTF_8)));
                 candidate.writeEncrypted(b64(localNickname) + "#"
-                        + ApplicationMetadata.VERSION + "#*#*#" + proof64);
+                        + WIRE_VERSION + "#*#*#" + proof64);
                 String ack = candidate.readEncryptedText();
                 if (ack == null || !ack.startsWith("RECONNECT_OK")) {
                     throw new IOException("Reconnect denied: " + ack);
@@ -775,12 +776,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     }
                     return;
                 }
-                if (parts.length != 6 || !ApplicationMetadata.VERSION.equals(parts[1])
+                if (parts.length != 6 || !WIRE_VERSION.equals(parts[1])
                         || !"JOIN".equals(parts[3])) {
                     abusiveHandshake = parts.length != 6
                             || parts.length > 3
                             && !"JOIN".equals(parts[3]);
-                    connection.writeEncrypted("BADVERSION#" + ApplicationMetadata.VERSION);
+                    connection.writeEncrypted("BADVERSION#" + WIRE_VERSION);
                     return;
                 }
                 String nickname = text64(parts[0]);
@@ -955,7 +956,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private Connection acceptReconnect(Connection candidate, String[] parts)
                 throws Exception {
             String nickname = text64(parts[0]);
-            if (!ApplicationMetadata.VERSION.equals(parts[1])
+            if (!WIRE_VERSION.equals(parts[1])
                     || !"*".equals(parts[2]) || !"*".equals(parts[3])) {
                 candidate.writeEncrypted("RECONNECT_DENIED#BAD_VERSION");
                 return null;
@@ -1533,8 +1534,12 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
                 case "PONG", "PONG2" -> source.recordHeartbeatReply(
                         generation, parts[0], Integer.parseInt(parts[1]));
-                case "CONF" -> source.confirm(generation,
-                        Integer.parseInt(parts[1]));
+                case "CONF" -> {
+                    if (parts.length != 3 || !"OK".equals(parts[2])) {
+                        throw new IOException("Malformed GAME confirmation");
+                    }
+                    source.confirm(generation, Integer.parseInt(parts[1]));
+                }
                 case "EXIT" -> {
                     if (fromClient) removePeer(source.remoteNickname, true);
                     else { publish(LobbySnapshot.Phase.CLOSED, "El servidor ha cancelado la timba"); close(); }
@@ -1561,6 +1566,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     int id = Integer.parseInt(parts[1]);
                     String subcommand = parts[2];
                     boolean heldForConfirmation = false;
+                    boolean cardBatch = CardDeliveryBatch.COMMAND.equals(subcommand);
+                    if (cardBatch && !fromClient) {
+                        CardDeliveryBatch.decode(command.substring(command.indexOf('#',
+                                command.indexOf('#') + 1) + 1));
+                    }
                     GameCommandGate.Decision decision = source.gameCommandGate.accept(
                             subcommand, id, command);
                     boolean lobbyCommand = isLobbyGameCommand(subcommand);
@@ -1619,7 +1629,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                      * already durable and remain immediately idempotent.
                      */
                     try {
-                        if (decision.acknowledge()) {
+                        if (decision.acknowledge()
+                                && (!cardBatch || heldForConfirmation
+                                || (!decision.enqueue() && !gameChannel.isClosed()))) {
                             source.writeEncrypted("CONF#" + (id + 1) + "#OK");
                         }
                     } finally {

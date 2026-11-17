@@ -65,6 +65,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean gateNextRunItTwiceBoard
             = new AtomicBoolean();
     private final AtomicBoolean gateNextHandResult = new AtomicBoolean();
+    private final AtomicLong lastGameProgressSequence = new AtomicLong();
     private Runnable firstShowdownCountdown;
     private boolean sawShowdownResult;
     private final AtomicReference<CompletableFuture<Void>>
@@ -348,6 +349,14 @@ final class GdxScenarioRenderer implements TableRenderer {
                 + previousSequence + ", current=" + event.sequence());
         GdxTableViewState projection = state.get();
         assertNotNull(projection, "renderer must open before events arrive");
+        if (event instanceof TableVisualEvent.HandBoundary
+                || event instanceof TableVisualEvent.Shuffle
+                || event instanceof TableVisualEvent.DealHoleCard
+                || event instanceof TableVisualEvent.RevealCommunityCards
+                || event instanceof TableVisualEvent.PlayerAction
+                || event instanceof TableVisualEvent.HandResult) {
+            lastGameProgressSequence.set(event.sequence());
+        }
         if (event instanceof TableVisualEvent.HotJoinState
                 || event instanceof TableVisualEvent.PreparationStatus) {
             // Exercise the production scene cut-over itself. Previous scenarios
@@ -1530,6 +1539,10 @@ final class GdxScenarioRenderer implements TableRenderer {
     void assertDepartureLabel(String nickname, String expected) {
         assertEquals(expected, departureLabel(nickname),
                 "wrong visible departure label for " + nickname);
+    }
+
+    long gameProgressSequence() {
+        return lastGameProgressSequence.get();
     }
 
     long currentHand() {

@@ -25,6 +25,9 @@ class GameChannelPeerControllerTest {
         GameChannelPeerController peer = new GameChannelPeerController(
                 "client", channel, confirmations, key, 17, 21);
 
+        assertTrue(peer.retriesGameCommands());
+        assertFalse(GamePeerController.recoveryBot("bot").retriesGameCommands());
+        assertFalse(com.tonikelope.coronapoker.core.network.GameTransport.unavailable().retriesGameCommands());
         assertFalse(peer.writeGameCommandFromServer(
                 "GAME#41#ACTION#payload", new byte[16]));
         assertEquals("client", channel.nickname);

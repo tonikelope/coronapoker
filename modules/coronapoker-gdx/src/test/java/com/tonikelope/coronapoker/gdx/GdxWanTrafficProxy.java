@@ -35,6 +35,9 @@ final class GdxWanTrafficProxy implements Closeable {
 
     GdxWanTrafficProxy(int hostPort, int delayMs, int jitterMs,
             int bytesPerSecond, int seed) throws IOException {
+        if (delayMs < 0 || jitterMs < 0 || jitterMs > delayMs || bytesPerSecond <= 0) {
+            throw new IllegalArgumentException("Invalid WAN delay, jitter or bandwidth");
+        }
         this.hostPort = hostPort;
         this.delayMs = delayMs;
         this.jitterMs = jitterMs;
@@ -77,24 +80,24 @@ final class GdxWanTrafficProxy implements Closeable {
                 client.setTcpNoDelay(true);
                 host.setTcpNoDelay(true);
                 Thread upstream = startWorker(() -> relay(client, host, seed * 2, true));
-                try {
-                    relay(host, client, seed * 2 + 1, false);
-                } finally {
-                    upstream.interrupt();
-                }
+                relay(host, client, seed * 2 + 1, false);
+                upstream.join();
             } finally {
                 openSockets.remove(host);
                 openSockets.remove(client);
             }
         } catch (IOException closed) {
             // The peer's real transport observes the resulting EOF.
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
     private void relay(Socket from, Socket to, int directionSeed, boolean upstream) {
         BlockingQueue<Frame> frames = new ArrayBlockingQueue<>(64);
         Thread reader = startWorker(() -> queueFrames(from, directionSeed, frames));
-        try (OutputStream target = to.getOutputStream()) {
+        try {
+            OutputStream target = to.getOutputStream();
             long available = 0L;
             for (Frame current = frames.take(); current != EOF; current = frames.take()) {
                 long transfer = (long) current.bytes().length * 1_000_000_000L / bytesPerSecond;
@@ -117,6 +120,14 @@ final class GdxWanTrafficProxy implements Closeable {
             Thread.currentThread().interrupt();
         } finally {
             reader.interrupt();
+            try {
+                // EOF closes this direction after its queue drained. Closing
+                // the entire socket here can discard the final ACK or EXIT
+                // still queued in the opposite direction.
+                to.shutdownOutput();
+            } catch (IOException closed) {
+                // The owner closes both sockets when both relays finish.
+            }
         }
     }
 

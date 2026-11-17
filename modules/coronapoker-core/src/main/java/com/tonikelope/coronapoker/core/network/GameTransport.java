@@ -19,6 +19,11 @@ public interface GameTransport {
 
     ConfirmationTracker confirmations();
 
+    /** Whether this transport owns retries with the original wire identifier. */
+    default boolean retriesGameCommands() {
+        return false;
+    }
+
     void sendCommandToHost(String clearText);
 
     void closeHostConnection();

@@ -223,7 +223,9 @@ public final class GdxMultiprocessNodeMain {
                 if (config.host()) {
                     await(() -> lobby.snapshot().participants().size()
                                     == config.clients + 1,
-                            Duration.ofSeconds(30), "human participants");
+                            config.scenario.startsWith("wan-")
+                                    ? GdxMultiprocessScenarioTest.wanWatchdog(config.hands)
+                                    : Duration.ofSeconds(30), "human participants");
                     for (int index = 0; index < config.bots; index++) {
                         lobby.submit(new LobbyCommand.AddBot())
                                 .toCompletableFuture().get(10,
@@ -233,7 +235,9 @@ public final class GdxMultiprocessNodeMain {
                 int expectedPlayers = config.clients + config.bots + 1;
                 await(() -> lobby.snapshot().participants().size()
                                 == expectedPlayers,
-                        Duration.ofSeconds(30), "complete lobby");
+                        config.scenario.startsWith("wan-")
+                                ? GdxMultiprocessScenarioTest.wanWatchdog(config.hands)
+                                : Duration.ofSeconds(30), "complete lobby");
                 marker("LOBBY_READY", "players=" + expectedPlayers);
                 if (config.host()) {
                     awaitStartCommand();
@@ -320,11 +324,12 @@ public final class GdxMultiprocessNodeMain {
                     driveRunItTwiceDialog(renderer, productTable,
                             runItTwiceVotes, runItTwiceDialogResolutions);
                 }
-                await(renderer::isClosed,
-                        config.scenario.startsWith("wan-")
-                                ? GdxMultiprocessScenarioTest.wanWatchdog(config.hands)
-                                : Duration.ofSeconds(Math.max(150L, config.hands * 30L)),
-                        "table completion");
+                if (config.scenario.startsWith("wan-")) {
+                    awaitWanCompletion(renderer);
+                } else {
+                    await(renderer::isClosed, Duration.ofSeconds(Math.max(150L, config.hands * 30L)),
+                            "table completion");
+                }
                 assertOutcome(config, renderer);
                 if (localZeroTrustEvidenceExpected(config)) {
                     assertZeroTrustArtifacts(config, home, database,
@@ -4606,6 +4611,22 @@ public final class GdxMultiprocessNodeMain {
                     public void close() { }
                 });
         return accepted;
+    }
+
+    private static void awaitWanCompletion(GdxScenarioRenderer renderer) throws Exception {
+        long progress = renderer.gameProgressSequence();
+        long deadline = System.nanoTime() + Duration.ofMinutes(15).toNanos();
+        while (!renderer.isClosed()) {
+            long observed = renderer.gameProgressSequence();
+            if (observed != progress) {
+                progress = observed;
+                deadline = System.nanoTime() + Duration.ofMinutes(15).toNanos();
+            }
+            if (System.nanoTime() >= deadline) {
+                throw new IllegalStateException("WAN scenario stopped making gameplay progress");
+            }
+            Thread.sleep(10L);
+        }
     }
 
     private static void await(BooleanSupplier condition, Duration timeout,

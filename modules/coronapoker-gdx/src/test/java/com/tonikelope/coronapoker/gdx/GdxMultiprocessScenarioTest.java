@@ -954,7 +954,11 @@ class GdxMultiprocessScenarioTest {
             for (int index = 1; index <= clients; index++) {
                 int joinPort = port;
                 if (continuousWan) {
-                    var link = new GdxWanTrafficProxy(port, 325, 90, 128 * 1024, index);
+                    var link = new GdxWanTrafficProxy(port,
+                            Integer.getInteger("coronapoker.qa.gdx.wanDelayMs", 325),
+                            Integer.getInteger("coronapoker.qa.gdx.wanJitterMs", 90),
+                            Integer.getInteger("coronapoker.qa.gdx.wanBytesPerSecond", 128 * 1024),
+                            index);
                     wanLinks.add(link);
                     joinPort = link.port();
                 }
@@ -1274,9 +1278,9 @@ class GdxMultiprocessScenarioTest {
                             node.diagnostic());
                     continue;
                 }
-                assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE",
-                        continuousWan ? wanWatchdog(hands) : completionTimeout(hands, clients + bots + 1)),
-                        node.diagnostic());
+                boolean finished = continuousWan ? node.awaitWanCompletion()
+                        : node.await("CP_GDX_E2E_HANDS_COMPLETE", completionTimeout(hands, clients + bots + 1));
+                assertTrue(finished, node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(15)),
                         node.diagnostic());
                 completed.add(node);
@@ -4816,6 +4820,17 @@ class GdxMultiprocessScenarioTest {
                 Thread.sleep(10L);
             }
             return false;
+        }
+
+        boolean awaitWanCompletion() throws Exception {
+            // Each node owns a gameplay-progress watchdog. The complete slow
+            // match has no wall-clock performance limit in the coordinator.
+            while (process.isAlive()) {
+                if (contains("CP_GDX_E2E_HANDS_COMPLETE")) return true;
+                Thread.sleep(10L);
+            }
+            readerDone.await(2, TimeUnit.SECONDS);
+            return contains("CP_GDX_E2E_HANDS_COMPLETE");
         }
 
         int awaitExit(Duration timeout) throws Exception {

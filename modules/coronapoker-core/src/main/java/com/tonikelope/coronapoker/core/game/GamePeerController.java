@@ -60,6 +60,11 @@ public interface GamePeerController {
                 clearCommand, getAes_key(), iv, getHmac_key()));
     }
 
+    /** Whether the peer's channel owns retransmission with a stable wire identifier. */
+    default boolean retriesGameCommands() {
+        return false;
+    }
+
     void markExitAndNotify(String reason);
 
     void exitAndCloseSocket();

@@ -113,6 +113,11 @@ public final class GameChannelPeerController implements GamePeerController {
     }
 
     @Override
+    public boolean retriesGameCommands() {
+        return true;
+    }
+
+    @Override
     public void markExitAndNotify(String reason) {
         exit.set(true);
         confirmations.wakeAll();

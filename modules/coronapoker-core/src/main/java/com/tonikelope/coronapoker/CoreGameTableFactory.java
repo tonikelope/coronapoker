@@ -2615,6 +2615,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         }
         @Override public boolean gameStarted() { return true; }
         @Override public ConfirmationTracker confirmations() { return confirmations; }
+        @Override public boolean retriesGameCommands() { return true; }
 
         @Override
         public void sendCommandToHost(String clearText) {

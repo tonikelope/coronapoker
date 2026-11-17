@@ -18210,6 +18210,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+        boolean firstSend = true;
         try {
         do {
             try {
@@ -18219,12 +18220,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 for (GamePlayerController jugador : players()) {
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
-                        if (p != null && !p.isCpu()) {
+                        if (p != null && !p.isCpu()
+                                && (firstSend || !p.retriesGameCommands())) {
                             p.writeGameCommandFromServer(command, iv);
                         }
                     }
                 }
 
+                firstSend = false;
                 this.waitSyncConfirmations(pendientes, tracker, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline (same as broadcastGAMECommandFromServer).
@@ -18251,7 +18254,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, "Failed to send RECOVERDATA", ex);
             }
 
-        } while (!pendientes.isEmpty());
+        } while (!pendientes.isEmpty() && !tableWaitCancelled());
         } finally {
             tracker.close(request);
         }
@@ -18271,6 +18274,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+        boolean firstSend = true;
         try {
         do {
             try {
@@ -18281,12 +18285,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 for (GamePlayerController jugador : players()) {
                     if (pendientes.contains(jugador.getNickname())) {
                         GamePeerController p = peers().get(jugador.getNickname());
-                        if (p != null && !p.isCpu()) {
+                        if (p != null && !p.isCpu()
+                                && (firstSend || !p.retriesGameCommands())) {
                             p.writeGameCommandFromServer(command, iv);
                         }
                     }
                 }
 
+                firstSend = false;
                 this.waitSyncConfirmations(pendientes, tracker, request);
 
                 // PAUSE/TIMEOUT-aware progress deadline: see enviarDatosClaveRecuperados and the
@@ -18310,7 +18316,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-        } while (!pendientes.isEmpty());
+        } while (!pendientes.isEmpty() && !tableWaitCancelled());
         } finally {
             tracker.close(request);
         }
@@ -18401,10 +18407,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ConfirmationTracker.Request request = confirmation
                 ? tracker.register(id + 1, pendientes) : null;
 
+        boolean firstSend = true;
         try {
         do {
 
-            game_transport.sendCommandToHost(full_command);
+            if (firstSend || !game_transport.retriesGameCommands()) {
+                game_transport.sendCommandToHost(full_command);
+                firstSend = false;
+            }
 
             if (confirmation) {
                 this.waitSyncConfirmations(pendientes, tracker, request);
@@ -18418,7 +18428,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!pendientes.isEmpty() && confirmation);
+        } while (!pendientes.isEmpty() && confirmation && !tableWaitCancelled());
         } finally {
             if (request != null) {
                 tracker.close(request);
@@ -24436,22 +24446,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
             boolean firstSend = true;
-            // The native outbox retries the same wire ID after reconnect. A
-            // second submission would give the same receipt a new wire ID and
-            // make the receiver reject it as a second receipt from that signer.
-            boolean enqueueOnce = requireAllAcknowledgements || "HANDVERIFY".equals(commandName);
+            // Native outboxes retry with the same wire ID. Resubmitting from
+            // here would allocate a fresh ID and turn the retry into a second
+            // critical operation. Legacy sockets retain the dealer's retry.
             try {
             do {
-                if (firstSend || !enqueueOnce) {
-                    for (BroadcastTarget target : targets) {
-                        if (pendientes.contains(target.peer().getNick())) {
-                            byte[] iv = new byte[16];
-                            CryptoRandom.fill(iv);
-                            target.peer().writeGameCommandFromServer("GAME#" + id + "#" + target.command(), iv);
-                        }
+                for (BroadcastTarget target : targets) {
+                    if (pendientes.contains(target.peer().getNick())
+                            && (firstSend || !requireAllAcknowledgements
+                            && !target.peer().retriesGameCommands())) {
+                        byte[] iv = new byte[16];
+                        CryptoRandom.fill(iv);
+                        target.peer().writeGameCommandFromServer("GAME#" + id + "#" + target.command(), iv);
                     }
-                    firstSend = false;
                 }
+                firstSend = false;
 
                 if (confirmation) {
                     this.waitSyncConfirmations(pendientes, tracker, request);

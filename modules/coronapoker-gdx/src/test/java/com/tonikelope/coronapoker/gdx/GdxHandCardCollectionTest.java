@@ -49,6 +49,55 @@ final class GdxHandCardCollectionTest {
         assertTrue(sweep.finished());
     }
 
+    @Test
+    void retiresTheLowerCardsBeforeTheFirstFadeFrameWithoutDroppingTheTop() {
+        var sweep = sequence(100, 0, 1, 2, 3, 4);
+        sweep.advance(0L);
+        assertEquals(5, sweep.visibleBoardCardCount());
+        sweep.advance(467_990_000L);
+        assertEquals(5, sweep.visibleBoardCardCount());
+        assertEquals(1f, sweep.opacity());
+
+        sweep.advance(468_010_000L);
+        assertEquals(4f, sweep.boardPosition(), .0001f);
+        assertEquals(1f, sweep.opacity(), .0001f);
+        assertEquals(1, sweep.visibleBoardCardCount(),
+                "Lower cards must be gone before the composite starts fading");
+        assertEquals(0, sweep.board.get(0).slot(), "The first flop card stays on top");
+        assertEquals(4f * GdxPlasticCard.thickness(140f),
+                sweep.cardElevation(0, 4f, 140f, 158f), .0001f,
+                "Retiring the lower sheets must not move the surviving card");
+
+        sweep.advance(558_000_000L);
+        assertEquals(.5f, sweep.opacity(), .001f);
+        assertEquals(1, sweep.visibleBoardCardCount());
+        sweep.advance(650_000_000L);
+        assertEquals(0, sweep.visibleBoardCardCount());
+    }
+
+    @Test
+    void partialAndEmptyBoardsNeverInventATopFlopCard() {
+        var partial = sequence(100, 2, 4);
+        partial.advance(0L);
+        assertEquals(2, partial.visibleBoardCardCount());
+        partial.advance(234_010_000L);
+        assertEquals(1, partial.visibleBoardCardCount());
+        assertEquals(2, partial.board.get(0).slot());
+
+        var riverOnly = sequence(100, 4);
+        riverOnly.advance(0L);
+        assertEquals(1, riverOnly.visibleBoardCardCount());
+        riverOnly.advance(90_000_000L);
+        assertEquals(1, riverOnly.visibleBoardCardCount());
+        assertEquals(.5f, riverOnly.opacity(), .001f);
+
+        var empty = sequence(100);
+        empty.advance(0L);
+        assertEquals(0, empty.visibleBoardCardCount());
+        empty.advance(90_000_000L);
+        assertEquals(0, empty.visibleBoardCardCount());
+    }
+
     private static GdxHandCardCollection sequence(int speed, Integer... slots) {
         var normal = new TableSnapshot.CardSnapshot("A_C", true, false);
         var board = List.of(slots).stream().map(slot -> new GdxHandCardCollection.BoardCard(slot, normal)).toList();

@@ -61,13 +61,13 @@ class HeadlessWanScenarioTest {
     @Test
     void tenHeadlessPlayersCompleteAllHandsUnderContinuousWanCongestion(@TempDir Path root)
             throws Exception {
-        run(root, Integer.getInteger("coronapoker.qa.gdx.soakHands", 3), 325, 90, 128 * 1024);
+        run(root, GdxWanScenarioHands.sustained(), 325, 90, 128 * 1024);
     }
 
     @Test
-    void tenHeadlessPlayersCompleteThreeHandsUnderExtremeWanCongestion(@TempDir Path root)
+    void tenHeadlessPlayersCompleteMultipleHandsUnderExtremeWanCongestion(@TempDir Path root)
             throws Exception {
-        run(root, 3, 3000, 750, 8 * 1024);
+        run(root, GdxWanScenarioHands.extreme(), 3000, 750, 8 * 1024);
     }
 
     private static void run(Path root, int hands, int delay, int jitter, int bandwidth) throws Exception {

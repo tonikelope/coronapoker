@@ -531,7 +531,10 @@ GDX gameplay certification has one catalogue and one result. `fast` and
 internal hand depth, while `stress` adds five complete passes and the deepest
 internal loads. `quick` is the explicit short subset for iteration. See
 [Testing and certification](docs/TESTING.md) for the exact costs and report
-format.
+format. Sustained WAN depth is separate: `balanced` uses 5 sustained and
+2 extreme hands per backend, while `stress` keeps 50 and 3 in each of its
+five passes. `-WanSoakHands` and `-WanExtremeHands` override those depths
+without changing RTT, jitter, bandwidth or the ordinary topology soak.
 
 Launch CoronaPoker:
 

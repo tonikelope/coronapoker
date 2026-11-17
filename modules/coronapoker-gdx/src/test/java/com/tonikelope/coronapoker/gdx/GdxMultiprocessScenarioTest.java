@@ -94,13 +94,13 @@ class GdxMultiprocessScenarioTest {
     void tenGdxPlayersCompleteAllHandsUnderContinuousWanCongestion(@TempDir Path root)
             throws Exception {
         runCompletingScenario(root, CONTINUOUS_WAN_SCENARIO, 9, 0, null,
-                configuredHands("coronapoker.qa.gdx.soakHands", 3));
+                GdxWanScenarioHands.sustained());
     }
 
     @Test
-    void tenGdxPlayersCompleteThreeHandsUnderExtremeWanCongestion(@TempDir Path root)
+    void tenGdxPlayersCompleteMultipleHandsUnderExtremeWanCongestion(@TempDir Path root)
             throws Exception {
-        runCompletingScenario(root, "wan-extreme-congestion", 9, 0, null, 3);
+        runCompletingScenario(root, "wan-extreme-congestion", 9, 0, null, GdxWanScenarioHands.extreme());
     }
 
     @Test

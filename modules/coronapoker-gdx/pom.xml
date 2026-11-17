@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.73</version>
+        <version>27.74</version>
     </parent>
     <artifactId>coronapoker-gdx</artifactId>
     <name>CoronaPoker GDX application</name>
@@ -324,6 +324,28 @@
                 <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
                 <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-stb</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier></dependency>
             </dependencies>
+        </profile>
+        <profile>
+            <id>qa-gpu</id>
+            <properties>
+                <coronapoker.gdx.excludedGroups></coronapoker.gdx.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes combine.self="override">
+                                <include>**/*Gpu*Test.java</include>
+                            </includes>
+                            <groups>certification</groups>
+                            <forkCount>1</forkCount>
+                            <reuseForks>false</reuseForks>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
             <id>card-render-lab</id>

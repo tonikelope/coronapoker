@@ -243,9 +243,9 @@ final class GdxScenarioContract {
                     "realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong")),
             Map.entry("wan-congestion", Set.of(
                     "tenGdxPlayersCompleteAllHandsUnderContinuousWanCongestion",
-                    "tenGdxPlayersCompleteThreeHandsUnderExtremeWanCongestion",
+                    "tenGdxPlayersCompleteMultipleHandsUnderExtremeWanCongestion",
                     "tenHeadlessPlayersCompleteAllHandsUnderContinuousWanCongestion",
-                    "tenHeadlessPlayersCompleteThreeHandsUnderExtremeWanCongestion",
+                    "tenHeadlessPlayersCompleteMultipleHandsUnderExtremeWanCongestion",
                     "tenGdxPlayersStillConvergeAfterAStalledSettlementLink")),
             Map.entry("zero-trust-consensus", Set.of(
                     "divergentReceiptStopsAsRecoverableFailureWithCompleteEvidence",

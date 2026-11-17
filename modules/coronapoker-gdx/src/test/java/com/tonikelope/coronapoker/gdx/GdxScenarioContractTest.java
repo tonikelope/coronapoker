@@ -206,7 +206,7 @@ class GdxScenarioContractTest {
                 + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxNetworkHumanProjectionIntegrationTest.java");
         Path scenarioSource = repositoryRoot().resolve("modules/coronapoker-gdx/src/"
-                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxReconnectScenarioTest.java");
         String integration = Files.readString(integrationSource,
                 StandardCharsets.UTF_8);
@@ -224,10 +224,10 @@ class GdxScenarioContractTest {
     void sharedScenarioDriverCannotBypassNativeGdxActionControls()
             throws IOException {
         Path driverSource = repositoryRoot().resolve("modules/coronapoker-gdx/src/"
-                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxScenarioRenderer.java");
         Path scenariosSource = repositoryRoot().resolve("modules/coronapoker-gdx/src/"
-                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxReconnectScenarioTest.java");
         String driver = Files.readString(driverSource, StandardCharsets.UTF_8);
         String scenarios = Files.readString(scenariosSource,
@@ -249,7 +249,7 @@ class GdxScenarioContractTest {
             throws IOException {
         Path root = repositoryRoot();
         String driver = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
-                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxScenarioRenderer.java"), StandardCharsets.UTF_8);
         String node = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
                 + "test/java/com/tonikelope/coronapoker/gdx/"
@@ -264,7 +264,7 @@ class GdxScenarioContractTest {
                 StandardCharsets.UTF_8);
         String reconnect = Files.readString(root.resolve(
                 "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
-                + "coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java"),
+                + "coronapoker/gdx/GdxReconnectScenarioTest.java"),
                 StandardCharsets.UTF_8);
 
         assertTrue(node.contains("new GdxScenarioRenderer("),
@@ -294,7 +294,7 @@ class GdxScenarioContractTest {
             throws IOException {
         Path root = repositoryRoot();
         String driver = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
-                + "test/java/com/tonikelope/coronapoker/gdx/scenarios/"
+                + "test/java/com/tonikelope/coronapoker/gdx/"
                 + "GdxScenarioRenderer.java"), StandardCharsets.UTF_8);
         String node = Files.readString(root.resolve("modules/coronapoker-gdx/src/"
                 + "test/java/com/tonikelope/coronapoker/gdx/"
@@ -350,7 +350,7 @@ class GdxScenarioContractTest {
             throws IOException {
         String driver = Files.readString(repositoryRoot().resolve(
                 "modules/coronapoker-gdx/src/test/java/com/tonikelope/"
-                + "coronapoker/gdx/scenarios/GdxScenarioRenderer.java"),
+                + "coronapoker/gdx/GdxScenarioRenderer.java"),
                 StandardCharsets.UTF_8);
 
         assertTrue(driver.contains("lastEventSequence"),
@@ -421,6 +421,35 @@ class GdxScenarioContractTest {
     private static int occurrences(String text, String needle) {
         return (text.length() - text.replace(needle, "").length())
                 / needle.length();
+    }
+
+    @Test
+    void wanPresetsKeepTransitionsAndReserveLongCampaignsForStress() throws IOException {
+        String runner = Files.readString(repositoryRoot().resolve("tools/qa/run-certification.ps1"), StandardCharsets.UTF_8);
+        var modes = java.util.regex.Pattern.compile("(?m)^\\s*(quick|fast|balanced|stress)\\s*=\\s*@\\{([^}]+)}").matcher(runner);
+        Map<String, Map<String, Integer>> profiles = new java.util.HashMap<>();
+        while (modes.find()) {
+            var values = java.util.regex.Pattern.compile("(\\w+)\\s*=\\s*(\\d+)").matcher(modes.group(2));
+            Map<String, Integer> fields = new java.util.HashMap<>();
+            while (values.find()) fields.put(values.group(1), Integer.parseInt(values.group(2)));
+            profiles.put(modes.group(1), fields);
+        }
+        assertEquals(Set.of("quick", "fast", "balanced", "stress"), profiles.keySet());
+        profiles.values().forEach(profile -> {
+            assertTrue(profile.get("WanSoak") >= 2, "WAN must cross a hand boundary");
+            assertTrue(profile.get("WanExtreme") >= 2, "extreme WAN must cross a hand boundary");
+        });
+        var balanced = profiles.get("balanced");
+        var stress = profiles.get("stress");
+        assertEquals(20, balanced.get("Soak").intValue());
+        assertEquals(20, balanced.get("HeadsUp").intValue());
+        assertTrue(balanced.get("WanSoak") < balanced.get("Soak"));
+        assertTrue(stress.get("WanSoak") >= 20);
+        assertTrue(stress.get("WanExtreme") >= 3);
+        assertTrue(balanced.get("WanExtreme") < stress.get("WanExtreme"));
+        assertTrue(stress.get("Repeats") > balanced.get("Repeats"));
+        assertTrue(runner.contains("-Dcoronapoker.qa.gdx.wanSoakHands=$WanSoakHands"));
+        assertTrue(runner.contains("-Dcoronapoker.qa.gdx.wanExtremeHands=$WanExtremeHands"));
     }
 
     @Test

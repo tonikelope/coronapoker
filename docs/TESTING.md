@@ -200,7 +200,9 @@ depths, so `-Mode stress -Scenario normal` repeats its mapped methods five times
 | `-VerboseScenarios` | `qa.cmd` | Stream scenario Maven output while retaining logs |
 | `-VerboseOutput` | `certify.cmd` | Lower-level spelling of the same behaviour |
 | `-ScenarioRepeats <1..10>` | `certify.cmd` only | Override the number of complete schedule passes |
-| `-SoakHands <5..1000>` | `certify.cmd` only | Override only the normal-soak hand budget |
+| `-SoakHands <5..1000>` | `certify.cmd` only | Override normal soak and sustained WAN unless overridden separately |
+| `-WanSoakHands <2..1000>` | Both commands | Override sustained WAN depth per backend |
+| `-WanExtremeHands <2..1000>` | Both commands | Override extreme WAN depth per backend |
 | `-StartAtScenario <name>` | `certify.cmd` only | Continue the complete schedule at the first method of that key |
 | `-StartAtRepeat <1..10>` | `certify.cmd` only | Select the outer pass used with `-StartAtScenario` |
 | `-ListOnly` | `certify.cmd` only | Print the catalogue selected by `-Mode` and `-Scenario` |
@@ -388,12 +390,37 @@ The `wan-congestion` scenario also runs complete ten-player encrypted games
 through the renderer-neutral table API with `java.awt.headless=true`, as well
 as the independent GDX process scenarios. Both paths keep delay, jitter and
 bandwidth limits active on all nine client links for the entire game. In
-`balanced`, each path completes 20 hands at 650 ms RTT with 90 ms one-way
-jitter and 128 KiB/s per direction, plus three hands at 6 s RTT with 750 ms
+`balanced`, each path completes 5 hands at 650 ms RTT with 90 ms one-way
+jitter and 128 KiB/s per direction, plus 2 hands at 6 s RTT with 750 ms
 one-way jitter and 8 KiB/s. Every hand must have ten matching verification
 hashes and persisted balance snapshots, and all players must finish with
 identical balances and conserved capital. A gameplay progress watchdog
 detects stalls without imposing a maximum total game duration.
+
+| Mode | Sustained WAN hands per backend | Extreme WAN hands per backend |
+|---|---|---|
+| `quick` | 5 | 2 |
+| `fast` | 5 | 2 |
+| `balanced` | 5 | 2 |
+| `stress` | 50 | 3 |
+
+WAN depth is independent of the ordinary topology soak. `quick` and `fast`
+use the same 5 sustained and 2 extreme hands per backend when selected.
+`stress` keeps 50 sustained and 3 extreme hands per backend in each of its
+five passes. All modes keep identical network severity and validation.
+Use `-WanSoakHands` and `-WanExtremeHands` (2..1000) with `qa.cmd` or
+`certify.cmd` to override these depths. An explicit legacy `-SoakHands`
+also overrides sustained WAN unless `-WanSoakHands` is supplied.
+
+The full pre-release campaign used 20 sustained and 3 extreme hands on
+both backends before this calibration. To reproduce that depth:
+
+```powershell
+.\tools\qa\certify.cmd -Mode balanced -WanSoakHands 20 -WanExtremeHands 3 -Seed 42
+```
+
+Scenario sources follow their declared Java package directories. This also
+lets incremental compilation find the existing class outputs between cases.
 
 The WAN regressions exercise the production transport and cryptographic gates.
 Connection notices (`TIMEOUT` and `TELEMETRY`) use an authenticated bounded
@@ -408,7 +435,9 @@ finite absolute caps. Large outgoing proofs receive transfer grace because an
 ACK can only follow complete frame reception. Tests also cover silent peers,
 continuous trickles that cannot extend the hard cap, delayed initial positions,
 delayed recovery data, cancellation without duplicate writes, and persistence
-of evidence when an abort precedes the initial hand hash.
+of evidence when an abort precedes the initial hand hash. Valid connection
+notices arriving after a player departs are ignored after authenticating
+their source and validating their payload, without changing expulsion authority.
 
 ## Choosing the right gate
 
@@ -530,6 +559,19 @@ the installed Java 25.0.4.1 image lacking `jdk.httpserver`, including real JCEF
 startup, native mute controls and session transitions.
 
 ## Community card presentation
+
+The opt-in real GPU checks run with a fresh JVM per class because libGDX owns
+process-wide GLFW callbacks and native state. After installing the current
+reactor with `qa.cmd extended`, run:
+
+```powershell
+mvn -f modules/pom.xml -pl coronapoker-gdx -Pqa-gpu test
+```
+
+The `qa-gpu` profile selects only GPU certification classes. Their windows start
+hidden on the secondary monitor when available and disable audio. Ordinary
+product tests and gameplay certification do not activate this profile.
+
 
 `GdxCommunityStreetDealTest` checks the flop stack, the flight and flip
 timing, and the animation durations against the dealer barrier.

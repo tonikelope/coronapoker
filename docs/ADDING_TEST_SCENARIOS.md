@@ -52,13 +52,13 @@ is always visible through:
 
 | File | Responsibility |
 |---|---|
-| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContract.java` | Executable scenario catalogue and historical reference set |
-| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioContractTest.java` | Catalogue and scenario-harness contracts |
-| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxReconnectScenarioTest.java` | Production-core game flows observed through GDX |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxScenarioContract.java` | Executable scenario catalogue and historical reference set |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxScenarioContractTest.java` | Catalogue and scenario-harness contracts |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxReconnectScenarioTest.java` | Production-core game flows observed through GDX |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxNetworkHumanProjectionIntegrationTest.java` | Real network state projected through native GDX controls |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessScenarioTest.java` | Parent process, topologies, faults and final assertions |
 | `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxMultiprocessNodeMain.java` | Host and client process behaviour plus semantic markers |
-| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/scenarios/GdxScenarioRenderer.java` | Test renderer, native action readiness and observations |
+| `modules/coronapoker-gdx/src/test/java/com/tonikelope/coronapoker/gdx/GdxScenarioRenderer.java` | Test renderer, native action readiness and observations |
 | `tools/qa/run-certification.ps1` | Execution policy and reports, never scenario ownership |
 
 ## 1. Define the contract before editing the harness

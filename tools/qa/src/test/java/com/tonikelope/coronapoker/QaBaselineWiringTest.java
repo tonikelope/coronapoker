@@ -203,13 +203,15 @@ class QaBaselineWiringTest {
         Pattern modePattern = Pattern.compile("(?m)^\\s*"
                 + "(quick|fast|balanced|stress) = @\\{ Repeats = (\\d+); "
                 + "Soak = (\\d+); HeadsUp = (\\d+); FullMixed = (\\d+); "
-                + "FullHuman = (\\d+) \\}");
+                + "FullHuman = (\\d+); WanSoak = (\\d+); WanExtreme = (\\d+) \\}");
         Matcher matcher = modePattern.matcher(certification);
         Map<String, List<String>> defaults = new java.util.LinkedHashMap<>();
+        Map<String, List<String>> wanDefaults = new java.util.LinkedHashMap<>();
         while (matcher.find()) {
             defaults.put(matcher.group(1), List.of(matcher.group(2),
                     matcher.group(3), matcher.group(4), matcher.group(5),
                     matcher.group(6)));
+            wanDefaults.put(matcher.group(1), List.of(matcher.group(7), matcher.group(8)));
         }
 
         assertEquals(Set.of("quick", "fast", "balanced", "stress"),
@@ -223,6 +225,11 @@ class QaBaselineWiringTest {
                     + " | " + String.join(" | ", values) + " |";
             assertTrue(testing.contains(documentedRow),
                     "public mode table differs from runner defaults: " + mode);
+        });
+        wanDefaults.forEach((mode, values) -> {
+            String documentedRow = "| `" + mode + "` | " + String.join(" | ", values) + " |";
+            assertTrue(testing.contains(documentedRow),
+                    "WAN depth table differs from runner defaults: " + mode);
         });
     }
 

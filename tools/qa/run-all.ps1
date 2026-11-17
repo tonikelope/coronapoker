@@ -12,6 +12,10 @@ param(
 
     [long] $Seed,
 
+    [ValidateRange(2, 1000)] [int] $WanSoakHands,
+
+    [ValidateRange(2, 1000)] [int] $WanExtremeHands,
+
     [ValidateRange(1, 1000)] [int] $RandomConditionHands = 20,
 
     [ValidateRange(0, 10)] [int] $IndeterminateRetries = 2,
@@ -61,11 +65,15 @@ Scenario modes:
 
 Passes repeat the mapped-test schedule. The four depth values affect only the
 scenario methods that implement those normal table topologies.
+WAN hands per backend and pass: quick/fast/balanced 5 sustained + 2 extreme,
+stress 50 sustained + 3 extreme. Network severity is identical in every mode.
 
 Options:
   -Scenario <name>       Run only one GDX scenario and its mapped tests
   -Seed <long>           Replay a scenario base seed
   -IncludeBots           Add statistical bot QA to extended or all
+  -WanSoakHands         Override sustained WAN hands per backend (2..1000)
+  -WanExtremeHands      Override extreme WAN hands per backend (2..1000)
   -RandomConditionHands Initial hand budget for chance-gated scenarios
   -IndeterminateRetries Automatic retries that double that hand budget
   -VerboseScenarios      Stream scenario Maven output (logs are always saved)
@@ -401,6 +409,11 @@ if ($runsScenarios) {
         Seed = $Seed
         RandomConditionHands = $RandomConditionHands
         IndeterminateRetries = $IndeterminateRetries
+    }
+    foreach ($wanDepth in @('WanSoakHands', 'WanExtremeHands')) {
+        if ($PSBoundParameters.ContainsKey($wanDepth)) {
+            $certificationParams[$wanDepth] = $PSBoundParameters[$wanDepth]
+        }
     }
     if ($VerboseScenarios) {
         $certificationParams.VerboseOutput = $true

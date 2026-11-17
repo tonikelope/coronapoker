@@ -7,6 +7,8 @@ param(
     [ValidateRange(1, 10)] [int] $StartAtRepeat = 1,
     [ValidateRange(1, 10)] [int] $ScenarioRepeats,
     [ValidateRange(5, 1000)] [int] $SoakHands,
+    [ValidateRange(2, 1000)] [int] $WanSoakHands,
+    [ValidateRange(2, 1000)] [int] $WanExtremeHands,
     [ValidateRange(1, 1000)] [int] $RandomConditionHands = 20,
     [ValidateRange(0, 10)] [int] $IndeterminateRetries = 2,
     [long] $Seed,
@@ -39,15 +41,22 @@ Modes:
   balanced   complete         1       20      20        3           1
   stress     complete         5       50      50        10          3
 
-Passes repeat the mapped-test schedule. The soak depth also applies to
-the ten-player scenario under sustained WAN congestion.
+Passes repeat the mapped-test schedule. WAN depth is separate:
+  mode       sustained WAN  extreme WAN (per backend, per pass)
+  quick/fast 5              2
+  balanced   5              2
+  stress     50             3
+RTT, jitter and bandwidth stay unchanged. Every WAN run spans multiple hands.
 
 Options:
   -Scenario <name>          Run one scenario and all of its mapped tests
   -StartAtScenario <name>   Resume the complete schedule at a scenario
   -StartAtRepeat <1..10>    Repetition used with -StartAtScenario
   -ScenarioRepeats <1..10>  Override the mode repetition count
-  -SoakHands <5..1000>      Override the normal and WAN soak length
+  -SoakHands <5..1000>      Override normal soak and WAN unless overridden below
+  -WanSoakHands <2..1000>  Override sustained WAN depth only
+  -WanExtremeHands <2..1000>
+                            Override extreme WAN depth only
   -RandomConditionHands <1..1000>
                             Initial hand budget for chance-gated scenarios
   -IndeterminateRetries <0..10>
@@ -80,10 +89,10 @@ if (-not $PSBoundParameters.ContainsKey('Seed')) {
 }
 
 $modeDefaults = @{
-    quick = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
-    fast = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1 }
-    balanced = @{ Repeats = 1; Soak = 20; HeadsUp = 20; FullMixed = 3; FullHuman = 1 }
-    stress = @{ Repeats = 5; Soak = 50; HeadsUp = 50; FullMixed = 10; FullHuman = 3 }
+    quick = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1; WanSoak = 5; WanExtreme = 2 }
+    fast = @{ Repeats = 1; Soak = 5; HeadsUp = 5; FullMixed = 1; FullHuman = 1; WanSoak = 5; WanExtreme = 2 }
+    balanced = @{ Repeats = 1; Soak = 20; HeadsUp = 20; FullMixed = 3; FullHuman = 1; WanSoak = 5; WanExtreme = 2 }
+    stress = @{ Repeats = 5; Soak = 50; HeadsUp = 50; FullMixed = 10; FullHuman = 3; WanSoak = 50; WanExtreme = 3 }
 }[$Mode]
 if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) {
     $ScenarioRepeats = $modeDefaults.Repeats
@@ -91,10 +100,16 @@ if (-not $PSBoundParameters.ContainsKey('ScenarioRepeats')) {
 if (-not $PSBoundParameters.ContainsKey('SoakHands')) {
     $SoakHands = $modeDefaults.Soak
 }
+if (-not $PSBoundParameters.ContainsKey('WanSoakHands')) {
+    $WanSoakHands = if ($PSBoundParameters.ContainsKey('SoakHands')) { $SoakHands } else { $modeDefaults.WanSoak }
+}
+if (-not $PSBoundParameters.ContainsKey('WanExtremeHands')) {
+    $WanExtremeHands = $modeDefaults.WanExtreme
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $contractPath = Join-Path $repoRoot ('modules\coronapoker-gdx\src\test\java\com\' +
-    'tonikelope\coronapoker\gdx\scenarios\GdxScenarioContract.java')
+    'tonikelope\coronapoker\gdx\GdxScenarioContract.java')
 $testRoot = Join-Path $repoRoot 'modules\coronapoker-gdx\src\test\java'
 $reactorPom = Join-Path $repoRoot 'modules\pom.xml'
 $mavenRepo = Join-Path $repoRoot '.m2\repository'
@@ -284,9 +299,9 @@ if ($StartAtScenario) {
     $schedule = @($schedule | Select-Object -Skip $startIndex)
 }
 
-Write-Host ("Mode={0} BaseSeed={1} scenarios={2} tests={3} repeats={4} soakHands={5} randomConditionHands={6} indeterminateRetries={7}" -f
+Write-Host ("Mode={0} BaseSeed={1} scenarios={2} tests={3} repeats={4} soakHands={5} wanSoakHands={6} wanExtremeHands={7} randomConditionHands={8} indeterminateRetries={9}" -f
     $Mode, $Seed, (@($resolved.Scenario | Sort-Object -Unique).Count),
-    $resolved.Count, $ScenarioRepeats, $SoakHands,
+    $resolved.Count, $ScenarioRepeats, $SoakHands, $WanSoakHands, $WanExtremeHands,
     $RandomConditionHands, $IndeterminateRetries)
 Write-Host ("Chance-gated scenarios auto-retry after INDETERMINATE by doubling " +
     "their hand budget; final exhaustion is reported separately from a functional failure.")
@@ -315,6 +330,8 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
         "-Dqa.sim.seed=$scenarioSeed",
         "-Dcoronapoker.qa.scenarioSeed=$scenarioSeed",
         "-Dcoronapoker.qa.gdx.soakHands=$SoakHands",
+        "-Dcoronapoker.qa.gdx.wanSoakHands=$WanSoakHands",
+        "-Dcoronapoker.qa.gdx.wanExtremeHands=$WanExtremeHands",
         "-Dcoronapoker.qa.gdx.randomConditionHands=$RandomConditionHands",
         "-Dcoronapoker.qa.gdx.indeterminateRetries=$IndeterminateRetries",
         "-Dcoronapoker.qa.gdx.headsUpHands=$($modeDefaults.HeadsUp)",
@@ -356,6 +373,8 @@ for ($index = 0; $index -lt $schedule.Count; $index++) {
             BaseSeed = $Seed
             ScenarioRepeats = $ScenarioRepeats
             SoakHands = $SoakHands
+            WanSoakHands = $WanSoakHands
+            WanExtremeHands = $WanExtremeHands
             RandomConditionHands = $RandomConditionHands
             IndeterminateRetries = $IndeterminateRetries
             IndeterminateAttempts = $indeterminateAttempts

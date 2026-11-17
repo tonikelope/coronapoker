@@ -2866,9 +2866,19 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private volatile boolean reconnecting;
         private volatile int reconnectionCount;
         private long reconnectAttempt;
-        private volatile Integer expectedConfirmation;
-        private volatile Generation expectedConfirmationGeneration;
-        private volatile boolean confirmationReceived;
+        // Only the GAME writer adds entries. The reader can acknowledge either
+        // in-flight write, but only the writer retires the FIFO head.
+        private final Map<Integer, PendingGameWrite> pendingGameWrites = new LinkedHashMap<>();
+
+        private static final class PendingGameWrite {
+            final Generation generation;
+            boolean confirmed;
+            long deadline;
+
+            PendingGameWrite(Generation generation) {
+                this.generation = generation;
+            }
+        }
         private volatile int latency = LobbyParticipant.NO_LATENCY;
         private volatile int secondaryLatency = LobbyParticipant.NO_LATENCY;
         private long pendingSecurityIncidentId;
@@ -3184,10 +3194,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         void confirm(Generation source, int confirmationId) {
             synchronized (confirmationLock) {
-                if (source == expectedConfirmationGeneration
-                        && expectedConfirmation != null
-                        && expectedConfirmation.intValue() == confirmationId) {
-                    confirmationReceived = true;
+                PendingGameWrite write = pendingGameWrites.get(confirmationId);
+                if (write != null && source == write.generation) {
+                    write.confirmed = true;
                     confirmationLock.notifyAll();
                 }
             }
@@ -3198,13 +3207,22 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             java.util.concurrent.CompletableFuture<Void> delivery
                     = new java.util.concurrent.CompletableFuture<>();
             synchronized (gameOutbox) {
-                if (!closed.get() && gameOutbox.offer(body)) {
+                if (closed.get() || !gameOutbox.offer(body)) {
+                    delivery = null;
+                } else {
                     gameDeliveries.addLast(delivery);
-                    return delivery;
                 }
             }
-            close();
-            throw new IOException("Critical GAME outbox is closed or full");
+            if (delivery == null) {
+                close();
+                throw new IOException("Critical GAME outbox is closed or full");
+            }
+            if (body.startsWith("DECK_CASCADE_PROOF#") || body.startsWith("DECK_ROTATION_RESP#")) {
+                synchronized (confirmationLock) {
+                    confirmationLock.notifyAll();
+                }
+            }
+            return delivery;
         }
 
         private void runGameOutbox() {
@@ -3228,30 +3246,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 if (!gameOutbox.isCurrent(entry)) continue;
 
                 int confirmationId = entry.wireId() + 1;
-                synchronized (confirmationLock) {
-                    expectedConfirmation = confirmationId;
-                    expectedConfirmationGeneration = active;
-                    confirmationReceived = false;
-                }
                 try {
-                    writeEncrypted(active, "GAME#" + entry.wireId() + "#"
-                            + entry.command());
-                    long deadline = System.nanoTime()
-                            + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(
-                                    GAME_CONFIRMATION_TIMEOUT_MS);
-                    boolean confirmed;
-                    synchronized (confirmationLock) {
-                        while (!closed.get() && isCurrent(active)
-                                && !confirmationReceived) {
-                            long remaining = deadline - System.nanoTime();
-                            if (remaining <= 0L) break;
-                            long millis = Math.max(1L,
-                                    java.util.concurrent.TimeUnit.NANOSECONDS
-                                            .toMillis(remaining));
-                            confirmationLock.wait(millis);
-                        }
-                        confirmed = confirmationReceived;
-                    }
+                    PendingGameWrite write = sendGameEntry(active, entry);
+                    boolean confirmed = awaitGameConfirmation(active, entry, write);
                     if (confirmed) {
                         java.util.concurrent.CompletableFuture<Void> completed
                                 = null;
@@ -3279,13 +3276,44 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     active.close();
                 } finally {
                     synchronized (confirmationLock) {
-                        if (expectedConfirmationGeneration == active) {
-                            expectedConfirmation = null;
-                            expectedConfirmationGeneration = null;
-                            confirmationReceived = false;
-                        }
+                        pendingGameWrites.remove(confirmationId);
                     }
                 }
+            }
+        }
+
+        private PendingGameWrite sendGameEntry(Generation active, SessionOutbox.Entry entry)
+                throws IOException {
+            PendingGameWrite write;
+            synchronized (confirmationLock) {
+                pendingGameWrites.values().removeIf(pending -> pending.generation != active);
+                int confirmationId = entry.wireId() + 1;
+                write = pendingGameWrites.get(confirmationId);
+                if (write != null) return write;
+                write = new PendingGameWrite(active);
+                pendingGameWrites.put(confirmationId, write);
+            }
+            writeEncrypted(active, "GAME#" + entry.wireId() + "#" + entry.command());
+            write.deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(GAME_CONFIRMATION_TIMEOUT_MS);
+            return write;
+        }
+
+        private boolean awaitGameConfirmation(Generation active, SessionOutbox.Entry head,
+                PendingGameWrite write) throws InterruptedException, IOException {
+            while (true) {
+                SessionOutbox.Entry next;
+                synchronized (confirmationLock) {
+                    if (write.confirmed || closed.get() || !isCurrent(active)) return write.confirmed;
+                    long remaining = write.deadline - System.nanoTime();
+                    if (remaining <= 0L) return false;
+                    next = gameOutbox.nextAfterHead(head);
+                    if (next == null || !shuffleMessagesMayOverlap(head.command(), next.command())
+                            || pendingGameWrites.containsKey(next.wireId() + 1)) {
+                        confirmationLock.wait(Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining)));
+                        continue;
+                    }
+                }
+                sendGameEntry(active, next);
             }
         }
 
@@ -3408,6 +3436,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private static SecretKeySpec copyKey(SecretKeySpec source) {
             return new SecretKeySpec(source.getEncoded(), source.getAlgorithm());
         }
+    }
+
+    static boolean shuffleMessagesMayOverlap(String first, String second) {
+        // Both messages were generated by the dealer's SRA paths. TCP preserves
+        // delivery order, and each enqueue still has its own authenticated ACK.
+        return (first.startsWith("DECK_CASCADE_RESP#") && second.startsWith("DECK_CASCADE_PROOF#"))
+                || (first.startsWith("DECK_CASCADE_PROOF#") && second.startsWith("DECK_ROTATION_RESP#"));
     }
 
     private record Peer(String nickname, Path avatar, boolean local, boolean host,

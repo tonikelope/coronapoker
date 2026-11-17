@@ -48,6 +48,7 @@ public final class GameCommandMailbox {
     }
 
     private final int capacity;
+    private long arrivalSequence;
     private final ArrayDeque<String> queue = new ArrayDeque<>();
     private final ReferenceQueue<String> collectedCommands = new ReferenceQueue<>();
     private final Map<CommandRef, Metadata> metadata = new HashMap<>();
@@ -70,6 +71,7 @@ public final class GameCommandMailbox {
                 queue.addLast(queuedCommand);
                 metadata.put(new CommandRef(queuedCommand, collectedCommands),
                         new Metadata(closeAction));
+                arrivalSequence++;
                 notifyAll();
                 return true;
             }
@@ -87,6 +89,18 @@ public final class GameCommandMailbox {
     public synchronized boolean addAll(Collection<? extends String> commands) {
         for (String command : commands) add(command);
         return !commands.isEmpty();
+    }
+
+    synchronized long arrivalSequence() {
+        return arrivalSequence;
+    }
+
+    /** Avoid waiting if a command arrived after the caller's scan. */
+    synchronized void awaitAfterScan(long observedSequence, long millis) throws InterruptedException {
+        if (Thread.interrupted()) throw new InterruptedException();
+        if (millis > 0L && observedSequence == arrivalSequence) {
+            wait(millis);
+        }
     }
 
     public synchronized String poll() { return queue.pollFirst(); }

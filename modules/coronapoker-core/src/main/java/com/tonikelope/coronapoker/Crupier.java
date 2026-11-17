@@ -4637,7 +4637,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // (into a buffer); re-queue everything else. Do NOT verify here (verifyStepWire is
             // expensive and would block the reader thread that feeds commands in).
             java.util.List<String[]> candidates = new java.util.ArrayList<>();
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
@@ -4697,18 +4699,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (collected.size() < hashToStep.size()) {
-                // Unconditional bounded wait (250 ms), like the host's other wait loops: the throttle
-                // IS the wait timeout. Do NOT guard with isEmpty(): since we re-queue everything that
-                // isn't OUR proof, the queue is almost never empty during betting -> with the guard the
-                // while loop would spin without ever sleeping (busy-spin, 100% core).
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.received_commands.wait(WAIT_QUEUES);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
+                // Deferred traffic stays queued without counting as a new arrival.
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, WAIT_QUEUES);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
+
             }
         }
         return collected;
@@ -4740,7 +4738,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean fatalError = false;
         byte[] newDeck = null;
         do {
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
@@ -4869,14 +4869,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             new Object[]{nick, REMOTE_CASCADE_RESP_TIMEOUT_MS});
                     return null;
                 }
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        return null;
-                    }
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, Math.min(WAIT_QUEUES, remainingMs));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
+
             }
         } while (!ok && !tableShutdownRequested() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         if (!ok) {
@@ -4925,7 +4924,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // waiting until the socket dies naturally (60-90s) — issue#9.
         long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
         do {
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
@@ -4990,14 +4991,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             new Object[]{nick, REMOTE_SRA_PEER_TIMEOUT_MS});
                     return null;
                 }
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        return null;
-                    }
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, Math.min(WAIT_QUEUES, remainingMs));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
+
             }
         } while (!ok && !tableShutdownRequested() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         if (!ok) {
@@ -5032,7 +5032,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.List<UnlockChainWire.RespItem> result = null;
         long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
         do {
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
@@ -5082,14 +5084,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             new Object[]{nick, phase, REMOTE_SRA_PEER_TIMEOUT_MS});
                     return null;
                 }
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        return null;
-                    }
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, Math.min(WAIT_QUEUES, remainingMs));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
+
             }
         } while (!ok && !isFin_de_la_transmision() && !this.termination_pending && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         return ok ? result : null;
@@ -5576,21 +5577,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
         // 5th field = ring K commitments (nick:Kp:Kc;...) for H_0.
         String commitmentsField = serializeCommitments();
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
+        int pocketCount = numPlayersFinal * 2;
+        // The local proof calculation only reads this hand's sealed shuffle inputs.
+        // Keep the deck's full delivery barrier before publishing the proof bundle.
+        var localProofs = game_async.submit(() -> prepareLocalShuffleProofs(pocketCount));
+        try {
+            broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
-        // Identity: now that MEGAPACKET is finalised and every peer (in theory)
-        // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
-        // HandStateChain. Subsequent actions in rondaApuestas ratchet H_t through this
-        // chain on every peer in parallel.
-        initHandStateChain();
+            // Identity: now that MEGAPACKET is finalised and every peer (in theory)
+            // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
+            // HandStateChain. Subsequent actions in rondaApuestas ratchet H_t through this
+            // chain on every peer in parallel.
+            initHandStateChain();
 
-        // Clients need the bundle before they can answer any pocket unlock request.
-        if (!verifyAndBroadcastShuffleBeforeDeal(numPlayersFinal * 2)) {
-            if (!tableWaitCancelled() && !cancelPendingDealerMisdeal()) {
-                markShuffleProofFailed(workingDeck);
-                cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
+            // Clients need the bundle before they can answer any pocket unlock request.
+            if (!verifyAndBroadcastShuffleBeforeDeal(localProofs)) {
+                if (!tableWaitCancelled() && !cancelPendingDealerMisdeal()) {
+                    markShuffleProofFailed(workingDeck);
+                    cancelarManoYDevolverApuestas("zero_trust.host_shuffle_proof_failed");
+                }
+                return false;
             }
-            return false;
+        } finally {
+            localProofs.cancel(true);
         }
 
         // Pocket cascade, batched per remote human helper: pockets[i] = mega_packet[i*64:(i+1)*64].
@@ -5838,65 +5847,80 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    private boolean verifyAndBroadcastShuffleBeforeDeal(int pocketCount) {
-        byte[] megapacket = this.local_mega_packet;
+    private record PreparedShuffleProofs(ShuffleProofContext context,
+            java.util.List<byte[]> cascade, java.util.List<byte[]> rotation) {
+    }
+
+    private PreparedShuffleProofs prepareLocalShuffleProofs(int pocketCount) {
         java.util.List<byte[]> decks = this.cascade_chain_decks;
         java.util.List<int[]> permutations = this.cascade_step_perm;
         java.util.List<byte[]> rotationStates = this.cascade_rotation_states;
         java.util.List<java.math.BigInteger> rotationScalars = this.cascade_rotation_scalars;
         java.util.List<byte[]> remoteRotationProofs = this.cascade_rotation_remote_proofs;
+        java.util.List<byte[]> pocketKeys = this.cascade_step_k;
         if (decks == null || permutations == null || rotationStates == null
                 || rotationScalars == null || remoteRotationProofs == null || rotationStates.isEmpty()
                 || rotationScalars.size() != rotationStates.size()
                 || remoteRotationProofs.size() != rotationStates.size()) {
             LOGGER.severe("SHUFFLE-VERIFY: incomplete shuffle state before dealing");
-            return false;
+            return null;
         }
 
-        try {
-            String sessionId = configuration().sessionId();
-            ShuffleProofContext context = new ShuffleProofContext(sessionId, this.current_hand_id,
-                    gameSession().localNickname(), this.active_crypto_ring, this.peer_k_pocket, this.peer_k_community);
-            // Remote proofs are produced asynchronously after the cascade response.
-            // Generate independent local proofs before waiting for the remote ones.
-            java.util.List<byte[]> proofs = new java.util.ArrayList<>();
-            for (int step = 0; step < permutations.size(); step++) {
-                if (tableWaitCancelled()) return false;
-                int[] permutation = permutations.get(step);
-                if (permutation == null) {
-                    proofs.add(null);
-                    continue;
-                }
-                ShuffleProofContext.Step contribution = context.shuffleStep(step);
-                byte[] proof = ShuffleCascade.proveBoundStepWire(decks.get(step), decks.get(step + 1),
-                        permutation, this.cascade_step_k.get(step), contribution, context.pocketKey(contribution));
-                if (proof == null) {
-                    LOGGER.severe("SHUFFLE-VERIFY: missing local cascade proof before dealing");
-                    return false;
-                }
-                proofs.add(proof);
+        String sessionId = configuration().sessionId();
+        ShuffleProofContext context = new ShuffleProofContext(sessionId, this.current_hand_id,
+                gameSession().localNickname(), this.active_crypto_ring, this.peer_k_pocket, this.peer_k_community);
+        java.util.List<byte[]> proofs = new java.util.ArrayList<>();
+        for (int step = 0; step < permutations.size(); step++) {
+            if (tableWaitCancelled()) return null;
+            int[] permutation = permutations.get(step);
+            if (permutation == null) {
+                proofs.add(null);
+                continue;
             }
+            ShuffleProofContext.Step contribution = context.shuffleStep(step);
+            byte[] proof = ShuffleCascade.proveBoundStepWire(decks.get(step), decks.get(step + 1),
+                    permutation, pocketKeys.get(step), contribution, context.pocketKey(contribution));
+            if (proof == null) {
+                LOGGER.severe("SHUFFLE-VERIFY: missing local cascade proof before dealing");
+                return null;
+            }
+            proofs.add(proof);
+        }
 
-            // Remote rotation proofs are checked by the same full-chain verification below.
-            java.util.List<byte[]> rotationProofs = new java.util.ArrayList<>();
-            byte[] preRotation = decks.get(decks.size() - 1);
-            byte[] before = Arrays.copyOfRange(preRotation, pocketCount * 32, preRotation.length);
-            for (int step = 0; step < rotationStates.size(); step++) {
-                if (tableWaitCancelled()) return false;
-                byte[] after = rotationStates.get(step);
-                byte[] proof = remoteRotationProofs.get(step);
-                if (proof == null && rotationScalars.get(step) != null) {
-                    ShuffleProofContext.Step contribution = context.rotationStep(step);
-                    proof = DualLockWire.proveBoundRotationStepWire(before, after, rotationScalars.get(step),
-                            contribution, context.pocketKey(contribution), context.communityKey(contribution));
-                }
-                if (proof == null) {
-                    LOGGER.severe("SHUFFLE-VERIFY: missing rotation proof before dealing");
-                    return false;
-                }
-                rotationProofs.add(proof);
-                before = after;
+        // Remote rotation proofs are checked by the same full-chain verification below.
+        java.util.List<byte[]> rotationProofs = new java.util.ArrayList<>();
+        byte[] preRotation = decks.get(decks.size() - 1);
+        byte[] before = Arrays.copyOfRange(preRotation, pocketCount * 32, preRotation.length);
+        for (int step = 0; step < rotationStates.size(); step++) {
+            if (tableWaitCancelled()) return null;
+            byte[] after = rotationStates.get(step);
+            byte[] proof = remoteRotationProofs.get(step);
+            if (proof == null && rotationScalars.get(step) != null) {
+                ShuffleProofContext.Step contribution = context.rotationStep(step);
+                proof = DualLockWire.proveBoundRotationStepWire(before, after, rotationScalars.get(step),
+                        contribution, context.pocketKey(contribution), context.communityKey(contribution));
             }
+            if (proof == null) {
+                LOGGER.severe("SHUFFLE-VERIFY: missing rotation proof before dealing");
+                return null;
+            }
+            rotationProofs.add(proof);
+            before = after;
+        }
+        return new PreparedShuffleProofs(context, proofs, rotationProofs);
+    }
+
+    private boolean verifyAndBroadcastShuffleBeforeDeal(java.util.concurrent.Future<PreparedShuffleProofs> localProofs) {
+        try {
+            PreparedShuffleProofs prepared = localProofs.get();
+            if (prepared == null || tableWaitCancelled()) return false;
+            byte[] megapacket = this.local_mega_packet;
+            java.util.List<byte[]> decks = this.cascade_chain_decks;
+            java.util.List<int[]> permutations = this.cascade_step_perm;
+            java.util.List<byte[]> rotationStates = this.cascade_rotation_states;
+            ShuffleProofContext context = prepared.context();
+            java.util.List<byte[]> proofs = prepared.cascade();
+            java.util.List<byte[]> rotationProofs = prepared.rotation();
 
             java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(
                     decks, permutations, this.cascade_step_owner, context);
@@ -5911,7 +5935,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            byte[] genesis = contextBoundShuffleGenesis(sessionId, this.current_hand_id, this.active_crypto_ring);
+            byte[] genesis = contextBoundShuffleGenesis(configuration().sessionId(),
+                    this.current_hand_id, this.active_crypto_ring);
             java.util.List<byte[]> cascadeOutputs = decks.subList(1, decks.size());
             if (tableWaitCancelled()) return false;
             boolean verified = DualLockWire.verifyFullChainWire(context,
@@ -5933,6 +5958,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_log.print(MessageFormat.format(game_text.translate("game.barajado_verificado"),
                     String.valueOf(getMano())));
             return true;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return false;
         } catch (Exception failure) {
             if (!tableWaitCancelled()) {
                 LOGGER.log(Level.SEVERE, "SHUFFLE-VERIFY: could not verify and deliver the proof before dealing",
@@ -5952,7 +5980,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean aviso_parada = false;
 
         do {
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
@@ -6097,19 +6127,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 last_progress_tick = now;
                 aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
-                // Standard Crupier pattern (used by 15+ receive* loops): wait on
-                // received_commands so a producer's notifyAll (Participant reader,
-                // WaitingRoomFrame.cliente) wakes us immediately on the next command.
-                // WAIT_QUEUES is just a safety-net timeout, consistent with the rest of
-                // the file.
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(WAIT_QUEUES);
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
+                // An arrival after the scan is already queued, so rescan immediately.
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, WAIT_QUEUES);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
+
             }
         } while (!ok && !isFin_de_la_transmision());
 
@@ -21625,7 +21650,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean receivedBatch = false;
         long deliveryDeadline = System.currentTimeMillis() + COMMUNITY_DELIVERY_TIMEOUT_MS;
         do {
+            long observedArrival;
             synchronized (this.getReceived_commands()) {
+                observedArrival = this.received_commands.arrivalSequence();
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while ((!piece_ok || !reveal_ok) && !this.getReceived_commands().isEmpty()) {
                     if (gameSession().isPaused()) {
@@ -21754,15 +21781,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     closeHostAfterCriticalCommunityTimeout();
                     return false;
                 }
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.received_commands.wait(Math.min(WAIT_QUEUES, remaining));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        if (!tableShutdownRequested()) closeHostAfterCriticalCommunityFailure();
-                        return false;
-                    }
+                try {
+                    this.received_commands.awaitAfterScan(observedArrival, Math.min(WAIT_QUEUES, remaining));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    if (!tableShutdownRequested()) closeHostAfterCriticalCommunityFailure();
+                    return false;
                 }
+
             }
         } while ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision() && !this.termination_pending);
 

@@ -54,6 +54,13 @@ public final class SessionOutbox {
 
     public synchronized Entry peek() { return queue.peekFirst(); }
 
+    synchronized Entry nextAfterHead(Entry head) {
+        if (head == null || head != queue.peekFirst() || queue.size() < 2) return null;
+        var entries = queue.iterator();
+        entries.next();
+        return entries.next();
+    }
+
     public synchronized boolean removeIfHead(Entry entry) {
         if (entry == null || queue.peekFirst() != entry) return false;
         queue.removeFirst();

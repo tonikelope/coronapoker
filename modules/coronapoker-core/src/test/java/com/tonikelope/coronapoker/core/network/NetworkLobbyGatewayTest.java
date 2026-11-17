@@ -1487,12 +1487,47 @@ class NetworkLobbyGatewayTest {
                 assertEquals(1L, clientInbound.stream().filter(
                         "PAUSE#0#after-reconnect"::equals).count());
                 assertEquals(1L, clientInbound.stream().filter(batch::equals).count());
+                assertPipelinedShuffleSurvivesLostAcknowledgements(client, host,
+                        clientContext.get().channel(), hostInbound);
             } finally {
                 releaseFirstReconnect.countDown();
                 client.close();
                 host.close();
             }
         }
+    }
+
+    private static void assertPipelinedShuffleSurvivesLostAcknowledgements(
+            LobbySession client, LobbySession host, GameChannel clientChannel,
+            List<String> hostInbound) throws Exception {
+        Object hostTransport = field(host, "resource");
+        var peers = (java.util.Map<?, ?>) field(hostTransport, "peers");
+        Object hostConnection = field(peers.get("Invitado"), "connection");
+        Object hostGeneration = field(hostConnection, "generation");
+        Object writeLock = field(hostGeneration, "writeLock");
+        Object clientConnection = field(field(client, "resource"), "serverConnection");
+        var pending = (java.util.Map<?, ?>) field(clientConnection, "pendingGameWrites");
+        Object confirmationLock = field(clientConnection, "confirmationLock");
+        String response = "DECK_CASCADE_RESP#pipeline-test";
+        String proof = "DECK_CASCADE_PROOF#pipeline-test";
+        CompletableFuture<Void> responseDelivery;
+        CompletableFuture<Void> proofDelivery;
+        synchronized (writeLock) {
+            responseDelivery = clientChannel.sendToHost(response).toCompletableFuture();
+            proofDelivery = clientChannel.sendToHost(proof).toCompletableFuture();
+            await(() -> {
+                synchronized (confirmationLock) {
+                    return pending.size() == 2;
+                }
+            });
+            assertFalse(responseDelivery.isDone());
+            assertFalse(proofDelivery.isDone());
+            closeClientSocket(client);
+        }
+        CompletableFuture.allOf(responseDelivery, proofDelivery).get(12, TimeUnit.SECONDS);
+        await(() -> hostInbound.contains(proof));
+        assertEquals(List.of(response, proof), hostInbound.stream()
+                .filter(command -> command.equals(response) || command.equals(proof)).toList());
     }
 
     private static TableSnapshot emptyTable(String nickname) {

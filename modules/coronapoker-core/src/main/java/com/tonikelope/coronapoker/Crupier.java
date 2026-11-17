@@ -3579,6 +3579,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     failClientCriticalHostCommand("VOICEMSGRULE", failure);
                     return true;
                 }
+            case "SHUFFLE_TURN":
+            case "SHUFFLE_TURN_END":
+                // Earlier peers may still send these unused presentation cues.
+                return true;
             case "TELEMETRY":
                 try {
                     applyTelemetryFrameLocally(
@@ -5335,9 +5339,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean restart = false;
             for (int i = 0; i < numPlayers && !restart; i++) {
                 String currNick = currentRing[i];
-                // VISUAL overlay of this player's shuffle turn (all: host, bots, remotes), synced
-                // across every peer. Fire-and-forget; purely for display, doesn't touch the cascade or
-                // consensus. Host emits in RING order (goes around the table).
+                // The local presentation follows the ring without occupying a peer's GAME outbox.
                 emitShuffleTurn(currNick);
                 if (!currNick.equals(gameSession().localNickname())) {
                     GamePeerController p = peers().get(currNick);
@@ -30534,32 +30536,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Announces (VISUAL only, not crypto) that {@code nick} is now processing
-     * its cascade step: applies it locally (host) and BROADCASTS it to clients
-     * fire-and-forget (confirmation=false, no ACKs, so it doesn't block the
-     * dealing thread). Each peer decides whether to paint it per its own
-     * preference (onShuffleTurn respects the local gate). Purely display:
-     * touches neither the cascade nor consensus.
+     * Updates the host's local shuffle-turn presentation.
      */
     private void emitShuffleTurn(String nick) {
         try {
             table_display.showShuffleTurn(nick);
-            this.broadcastGAMECommandFromServer(
-                    "SHUFFLE_TURN#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
-                    null, false);
         } catch (Exception ex) {
             LOGGER.log(Level.FINE, "emitShuffleTurn failed (non-fatal, display only)", ex);
         }
     }
 
     /**
-     * End of shuffling: hides the overlay on every peer (local +
-     * fire-and-forget broadcast).
+     * Clears the host's local shuffle-turn presentation.
      */
     private void emitShuffleTurnEnd() {
         try {
             table_display.hideShuffleTurn();
-            this.broadcastGAMECommandFromServer("SHUFFLE_TURN_END", null, false);
         } catch (Exception ex) {
             LOGGER.log(Level.FINE, "emitShuffleTurnEnd failed (non-fatal, display only)", ex);
         }

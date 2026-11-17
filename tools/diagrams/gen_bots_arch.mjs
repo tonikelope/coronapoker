@@ -25,7 +25,7 @@ const bands = [
     {c: C.game, title: 'GAME INTEGRATION  —  live table (Spanish domain)',
         chips: [
             ['Crupier', 'Dealer · drives each bot turn · implements DealerView'],
-            ['GameFrame', 'Global DIFFICULTY · BOT_THINK_TIME (1500 ms)'],
+            ['CoreGameTableFactory', 'Configures Bot.DIFFICULTY and table services'],
             ['DealerView  «interface»', 'Read-only table slice (street, pot, bets, blinds, positions)'],
             ['BotPlayerView  «interface»', 'Read-only player slice (stack, bet, hole cards, active)'],
         ]},
@@ -63,7 +63,7 @@ let n = 2;
 const id = () => 'c' + (n++);
 
 cells.push(`<mxCell id="title" value="${esc('CoronaPoker — Bot subsystem architecture')}" style="text;html=1;fontSize=24;fontStyle=1;fontColor=#1a1a2e;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="6" width="1300" height="30" as="geometry"/></mxCell>`);
-cells.push(`<mxCell id="subtitle" value="${esc('Top → bottom: the live game drives the decision engine, which leans on opponent modelling and a swappable hand-evaluation stack down to the Alberta combinatorial core. The «interface» seams (DealerView / BotPlayerView / BotEvaluator) let the offline QA harness fake the whole table without Swing.')}" style="text;html=1;fontSize=13;fontStyle=2;fontColor=#5a5a6a;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="1760" height="20" as="geometry"/></mxCell>`);
+cells.push(`<mxCell id="subtitle" value="${esc('Top → bottom: the live game drives the decision engine, which leans on opponent modelling and a swappable hand-evaluation stack down to the Alberta combinatorial core. The «interface» seams (DealerView / BotPlayerView / BotEvaluator) let the offline QA harness fake the whole table without a UI frontend.')}" style="text;html=1;fontSize=13;fontStyle=2;fontColor=#5a5a6a;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="1760" height="20" as="geometry"/></mxCell>`);
 
 bands.forEach((b, bi) => {
     b.y = 40 + bi * BAND_PITCH;
@@ -93,7 +93,7 @@ const legend =
         '<b>Crupier</b> reaches a CPU seat → calls <b>Bot.calculateBotDecision(opponents)</b> → the engine queries the <b>BotEvaluator</b> for hand strength and PPot/NPot, blends them into an <i>effective strength</i>, adjusts by <b>OpponentTracker</b> reads, profile and board texture, and returns BET / CHECK-CALL / FOLD plus a cached bet size.<br>' +
         '<b>Effective strength</b> = strength + (1 − strength)·PPot − strength·NPot   (Papp 1998).<br>' +
         '<b>Swappable evaluation:</b> production wires <b>MemoizedAlbertaEvaluator</b>; <b>AlbertaEvaluatorAdapter</b> stays untouched as the numeric reference the equivalence test compares against (identical PPot/NPot, ~8× faster on the flop two-card look-ahead).<br>' +
-        '<b>The «interface» seams</b> (DealerView · BotPlayerView · BotEvaluator) are the testability boundary: the offline QA harness (tools/qa) injects fake dealers, players and a deterministic RNG so thousands of hands run head-less, without Swing or sockets.';
+        '<b>The «interface» seams</b> (DealerView · BotPlayerView · BotEvaluator) are the testability boundary: the offline QA harness (tools/qa) injects fake dealers, players and a deterministic RNG so thousands of hands run head-less, without a UI frontend or sockets.';
 const legendY = bands[bands.length - 1].y + DY + BAND_H + 26;
 cells.push(`<mxCell id="legend" value="${esc(legend)}" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#FBFBFD;strokeColor=#9aa0b0;strokeWidth=1.5;fontColor=#2a2a35;fontSize=11.5;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;spacingRight=12;" vertex="1" parent="1"><mxGeometry x="40" y="${legendY}" width="1840" height="190" as="geometry"/></mxCell>`);
 

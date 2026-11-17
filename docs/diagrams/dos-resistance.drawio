@@ -16,7 +16,7 @@
           <mxGeometry x="60" y="104" width="620" height="28" as="geometry" />
         </mxCell>
 
-        <mxCell id="f1" value="&lt;b&gt;F1. Identity binding at the choke point&lt;/b&gt;&lt;br&gt;&lt;br&gt;Queued nick-bearing responses (ACTION, REBUY, BUYIN, RESP_SHOWDOWN_KEY, DECK_CASCADE_RESP, DECK_ROTATION_RESP, RESP_SRA_UNLOCK_CHAIN, RIT_VOTE_RESP, SEAT_COMMIT, SEAT_REVEAL) are bound to the authenticated connection before enqueue. SHOWCARDS, HANDVERIFY and STRADDLE_RESP apply the same check in dedicated handlers. A peer cannot act, vote, override an economy value or poison the deal in another peer's name. A mismatch adds a strike." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="f1" value="&lt;b&gt;F1. Identity binding at the choke point&lt;/b&gt;&lt;br&gt;&lt;br&gt;Queued nick-bearing responses (ACTION, REBUY, BUYIN, RESP_SHOWDOWN_KEY, DECK_CASCADE_RESP, DECK_CASCADE_PROOF, DECK_ROTATION_RESP, RESP_SRA_UNLOCK_CHAIN, RIT_VOTE_RESP, SEAT_COMMIT, SEAT_REVEAL) are bound to the authenticated connection before enqueue. SHOWCARDS, HANDVERIFY and STRADDLE_RESP apply the same check in dedicated handlers. A mismatched cascade, rotation, unlock or showdown reply closes the authenticated source connection." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="138" width="620" height="150" as="geometry" />
         </mxCell>
 
@@ -51,7 +51,7 @@
           <mxGeometry x="740" y="506" width="580" height="66" as="geometry" />
         </mxCell>
 
-        <mxCell id="sevArrow" value="increasing severity" style="endArrow=classic;html=1;rounded=0;fontSize=11;fontColor=#666666;strokeColor=#666666;verticalAlign=bottom;" edge="1" parent="1">
+        <mxCell id="sevArrow" value="Severity" style="endArrow=classic;html=1;rounded=0;fontSize=11;fontColor=#666666;strokeColor=#666666;verticalAlign=bottom;" edge="1" parent="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="716" y="150" as="sourcePoint" />
             <mxPoint x="716" y="566" as="targetPoint" />

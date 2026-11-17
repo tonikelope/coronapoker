@@ -18,9 +18,11 @@ The layers of the crypto subsystem and how they depend on one another, namely th
 
 ### Per-hand protocol sequence
 
-Every cryptographic message exchanged during **one complete hand**, covering handshake and identity pinning, the SRA shuffle/rotation cascade, verifiable dealing, signed betting, the verifiable community reveals for all four streets, the showdown key reveal, and the settlement-receipt consensus. Topology: the host (dealer + player) plus two human clients. Every message is drawn explicitly.
+Example hand with a playing host and two human clients. It follows the handshake, seat draw, shuffle and rotation, pocket dealing, four betting rounds, three community reveals, showdown and settlement receipts. Sections 2.7 and 7 cover the optional blind straddle and recovery paths.
 
-![CoronaPoker per-hand cryptographic protocol sequence](diagrams/crypto-hand-sequence.png)
+[![CoronaPoker per-hand cryptographic protocol sequence](diagrams/crypto-hand-sequence.png)](diagrams/crypto-hand-sequence.png)
+
+[Download the full-resolution PNG](diagrams/crypto-hand-sequence.png?raw=1) or open the [editable Draw.io source](diagrams/crypto-hand-sequence.drawio).
 
 ### Denial-of-service resistance and the reaction ladder
 
@@ -94,7 +96,7 @@ When a player reaches showdown it answers the host's `REQ_SHOWDOWN_KEY` with a `
 
 The host runs this same check on each `RESP_SHOWDOWN_KEY` before it will include a revealer in `POTCARDS` (`verifyAndStoreShowdownKey`).
 
-Any mismatch (bad signature, unknown point, conflicting announcement) triggers `SECURITY_LOCKDOWN` (§8) and the hand is aborted before any chips move.
+The host rejects an invalid remote key reply and closes its authenticated source connection. A client that fails to verify the host’s showdown announcement takes the security-failure path in §8 before payout.
 
 ### 2.4 Deterministic shuffle
 
@@ -302,7 +304,7 @@ Where:
 - `flags.bit2` **qualifies** bit1: it is set only when the peer expected a proof (a fresh deal, not a recover) and **no** `DUALLOCK_BUNDLE` ever arrived for this deck. It distinguishes a host that **withholds** the proof (bit1+bit2, suspicious, even if only some peers are starved) from a **slow peer** whose bundle did arrive but whose verification queue has not finished yet (bit1 only, benign, self-correcting). The reception marker is set when the command arrives, before parsing, so an extremely slow verifier never trips bit2.
 - `sig` is `Ed25519(privkey, "RECEIPT\0" || HAND_ID || H_final || flags)`. All flag bits are inside the signed payload, so a host relay cannot strip them.
 
-The host gathers receipts from the currently expected human signers and relays them to the table. The consensus check ([`Crupier.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java), `computeExpectedConsensusSigners`, `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** expected receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1+bit2` **no-shuffle-proof** (warning) > `flags.bit1` alone **deck-pending** (silent) > clean (info).
+The host gathers receipts from the currently expected human signers and relays them to the table. It also broadcasts `HANDVERIFY_RESULT` with the hand ID and its decision. Clients require an OK for that hand as well as their own successful receipt verification. The consensus check ([`Crupier.java`](../modules/coronapoker-core/src/main/java/com/tonikelope/coronapoker/Crupier.java), `computeExpectedConsensusSigners`, `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** expected receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1+bit2` **no-shuffle-proof** (warning) > `flags.bit1` alone **deck-pending** (silent) > clean (info).
 
 `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN` are gating failures. Consensus returns false, transmission ends, and neither `sqlUpdateHandEnd` nor the post-hand reset/advance runs. The already-computed payout objects remain intact in memory and the SQL hand stays open for recovery. This stage deliberately does not refund or settle a second time. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes that allow close because the separate proof gate already blocked unlocks before the local shuffle verdict. A clean OK still requires every signature to verify, every `H_final` to match and every flag to be clear.
 

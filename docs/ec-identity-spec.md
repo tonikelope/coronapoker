@@ -324,7 +324,9 @@ Host → all:      GAME # <command_id> # HANDVERIFY                       (no pa
 Each peer → all: GAME # <command_id> # HANDVERIFY # <nick_b64> # <receipt_b64>
 ```
 
-Both forms ride the standard `GAME # <command_id> #` envelope. The parser distinguishes the trigger from a receipt by field count (3 fields vs 5).
+Both forms ride the standard `GAME # <command_id> #` envelope. The parser distinguishes the trigger from a receipt by field count (3 fields vs 5). Clients send receipts to the host, which relays them to the other clients and sends its own receipt.
+
+The host also sends `HANDVERIFY_RESULT # <hand_id_b64> # <OK|FAIL> # <reason_b64>` in the same envelope. Clients require an OK for their current hand and check the signed receipts independently before closing.
 
 ### 6.2 Receipt format
 
@@ -421,7 +423,8 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `RABBIT_REQ # <request_b64>` | Requester → host | Hand-bound request carrying the requester's Ed25519 proof (`"RABBIT\0"`) |
 | `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request. Every peer verifies requester authorship before charging |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
-| `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
+| `HANDVERIFY # <nick_b64> # <receipt_b64>` | Clients → host, host → clients | Signed end-of-hand receipt |
+| `HANDVERIFY_RESULT # <hand_id_b64> # <status> # <reason_b64>` | Host → clients | Hand-specific `OK` or `FAIL` for settlement |
 
 Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` equality check at join (§3). The production dual-lock proof format v2 uses context-bound DLEQ proofs for the expected public keys. Active-hand recovery requires the matching local `SHUFFLE_CONTEXT@2` verdict alongside `SHUFFLE_VERIFIED@1`.
 

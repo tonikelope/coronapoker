@@ -29,13 +29,13 @@ const bands = [
     {y: 40, c: C.orch, title: 'ORCHESTRATION  &amp;  LOBBY',
         chips: [
             ['Crupier', 'Dealer · orchestrates the ENTIRE crypto pipeline live'],
-            ['WaitingRoomFrame', 'Lobby · handshake + signed JOIN + TOFU'],
+            ['NetworkLobbyGateway', 'Lobby handshake, signed JOIN and TOFU'],
         ]},
     {y: 220, c: C.cons, title: 'CONSENSUS  /  SETTLEMENT',
         chips: [
             ['HandStateChain', 'H_t ratchet (dom. «HAND\\0») · H_final = consensus'],
             ['CanonicalActionRecord', 'Canonical action, 92 B (cents, NFC)'],
-            ['SettlementRecord', 'Canonical settlement table → H_final'],
+            ['SettlementRecord v2', 'Conservation check and carry → H_final'],
             ['ShuffleVerificationQueue', 'Dual-lock verification FIFO (snapshot)'],
         ]},
     {y: 400, c: C.codec, title: 'WIRE CODECS  (crypto payloads)',
@@ -48,10 +48,10 @@ const bands = [
         chips: [
             ['RistrettoSRA', 'Commutative SRA over Ristretto255 (lock=·k, unlock=k⁻¹)'],
             ['DeterministicShuffle', 'Fisher-Yates AES-256-CTR (permutation witness)'],
-            ['ShuffleCascade', 'Genesis anchor + Bayer-Groth chain'],
+            ['ShuffleCascade', 'Genesis anchor + key-bound shuffle steps'],
             ['ShuffleArgument', 'Bayer-Groth ZK: B[i] = k·A[π(i)]'],
-            ['RotationProof', 'Batch-DLEQ: in-place rotation (re-key)'],
-            ['DualLockCascade', 'Verifies the genesis → MEGAPACKET chain'],
+            ['RotationProof', 'Batch-DLEQ bound to the expected key pair'],
+            ['DualLockCascade', 'Checks deck, hand, step and key commitments'],
             ['VerifiableUnlock', 'Unlock + DLEQ proof of the committed key'],
             ['DealChain', 'Per-card DLEQ chain (anchor = commitment)'],
             ['DeckTransform', 'out[i] = k·deck[perm[i]] + helpers'],
@@ -75,17 +75,17 @@ const bands = [
     // ---- cross-cutting infrastructure (independent of the math stack) ----
     {y: 1180, c: C.id, title: 'IDENTITY  ·  Ed25519   —   cross-cutting infrastructure',
         chips: [
-            ['IdentityManager', 'Ed25519 per nick · signs action/JOIN/receipt/showdown'],
-            ['TOFUResolver', 'TOFU pinning (SQLite) · NEW / MATCH / CHANGED'],
-            ['IdenticonDialog', 'OOB visual fingerprint — identity / anti-MITM channel · host-only peer mosaic'],
+            ['PlayerIdentity', 'Per-nick Ed25519 signatures'],
+            ['SqlIdentityTrustStore', 'TOFU and out-of-band verification'],
+            ['IdenticonFingerprint', 'Visual fingerprint for out-of-band checks'],
         ]},
     {y: 1360, c: C.net, title: 'TRANSPORT  ·  SECURE CHANNEL   —   cross-cutting infrastructure',
         chips: [
-            ['NetServer', 'Host socket · carries the encrypted wire'],
-            ['NetClient', 'Client socket · carries the encrypted wire'],
-            ['WireFrame', 'Frame codec · text «*» / binary 0x00 (DoS-bounded)'],
-            ['BinaryWire', 'Binary layout (only after HMAC is verified)'],
-            ['Helpers · Channel', 'AES/CBC + HMAC-SHA256 (encrypt-then-MAC); key ⟵ ECDH+SHA-512'],
+            ['NetworkLobbyGateway', 'Host and client sockets'],
+            ['GameChannelPeerController', 'Authenticated peer and message routing'],
+            ['WireFrameCodec', 'Bounded text and binary frames'],
+            ['BinaryPayloadCodec', 'Validated binary application payloads'],
+            ['SecureChannelCodec', 'AES-CBC and HMAC-SHA256'],
         ]},
 ];
 
@@ -124,8 +124,8 @@ cells.push(`<mxCell id="divider" value="${esc('╌╌╌   CROSS-CUTTING INFRAST
 const orchMidY = bands[0].y + DY + BAND_H / 2;
 const idMidY = bands[6].y + DY + BAND_H / 2;
 const netMidY = bands[7].y + DY + BAND_H / 2;
-cells.push(`<mxCell id="${id()}" value="${esc('Crupier / WaitingRoomFrame\nuse Ed25519 identity')}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=1;html=1;dashed=1;dashPattern=10 6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#C0504D;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9c403d;fontStyle=2;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${bands[0].cid}" target="${bands[6].cid}"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1912" y="${orchMidY}"/><mxPoint x="1912" y="${idMidY}"/></Array></mxGeometry></mxCell>`);
-cells.push(`<mxCell id="${id()}" value="${esc('… and the secure channel\nfor every wire payload')}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=1;html=1;dashed=1;dashPattern=10 6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#5B82BE;strokeWidth=2;endArrow=block;endFill=1;fontColor=#3f5e94;fontStyle=2;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${bands[0].cid}" target="${bands[7].cid}"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1948" y="${orchMidY}"/><mxPoint x="1948" y="${netMidY}"/></Array></mxGeometry></mxCell>`);
+cells.push(`<mxCell id="${id()}" value="${esc('Orchestration uses Ed25519 identity')}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=1;html=1;dashed=1;dashPattern=10 6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#C0504D;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9c403d;fontStyle=2;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${bands[0].cid}" target="${bands[6].cid}"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1912" y="${orchMidY}"/><mxPoint x="1912" y="${idMidY}"/></Array></mxGeometry></mxCell>`);
+cells.push(`<mxCell id="${id()}" value="${esc('Encrypted after the handshake')}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=1;html=1;dashed=1;dashPattern=10 6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#5B82BE;strokeWidth=2;endArrow=block;endFill=1;fontColor=#3f5e94;fontStyle=2;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${bands[0].cid}" target="${bands[7].cid}"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1948" y="${orchMidY}"/><mxPoint x="1948" y="${netMidY}"/></Array></mxGeometry></mxCell>`);
 
 // Legend
 const legend =
@@ -133,9 +133,9 @@ const legend =
         '<b>Verifiable-deal stack:</b>  Orchestration → Consensus → Wire Codecs → Shuffle &amp; Dealing → Proof blocks → Group/Field primitives.<br>' +
         '&nbsp;&nbsp;• ShuffleCascade → ShuffleArgument → { PermutationArgument → ProductArgument → MultiplicationProof , WeightedSumArgument } → PedersenVectorCommit → Ristretto255<br>' +
         '&nbsp;&nbsp;• DualLockCascade → { ShuffleCascade , RotationProof }   ·   DealChain → VerifiableUnlock → Dleq → Transcript   ·   ShuffleVerificationQueue → DualLockWire → DualLockCascade<br>' +
-        '&nbsp;&nbsp;• HandStateChain → { CanonicalActionRecord , SettlementRecord , IdentityManager }   ·   ProofCodec → ShuffleArgument   ·   UnlockChainWire → DealChain<br>' +
+        '&nbsp;&nbsp;• HandStateChain → { CanonicalActionRecord , SettlementRecord , PlayerIdentity }   ·   ProofCodec → ShuffleArgument   ·   UnlockChainWire → DealChain<br>' +
         '&nbsp;&nbsp;• All arithmetic descends to:  Ristretto255 → EdwardsPoint → Fe25519<br>' +
-        '<b>Cross-cutting infrastructure:</b>  the secure channel (AES-CBC + HMAC-SHA256) carries EVERY wire payload; Ed25519 Identity signs actions/JOIN/receipts/showdown. Both are consumed by Orchestration &amp; Consensus but are independent of the math stack.<br>' +
+        '<b>Cross-cutting infrastructure:</b>  the secure channel (AES-CBC + HMAC-SHA256) carries post-handshake payloads; Ed25519 Identity signs actions/JOIN/receipts/showdown. Both are consumed by Orchestration &amp; Consensus but are independent of the math stack.<br>' +
         '<b>Notes:</b>  the <i>genesis</i> (52 Ristretto255 points) never travels — each peer recomputes it as the trust anchor.  The legacy <i>CryptoSRA</i> engine (Montgomery x-only) was retired → today <b>RistrettoSRA</b> + <b>DeterministicShuffle</b>.';
 const legendY = bands[7].y + DY + BAND_H + 22;
 cells.push(`<mxCell id="legend" value="${esc(legend)}" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#FBFBFD;strokeColor=#9aa0b0;strokeWidth=1.5;fontColor=#2a2a35;fontSize=11.5;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;spacingRight=12;" vertex="1" parent="1"><mxGeometry x="40" y="${legendY}" width="1840" height="200" as="geometry"/></mxCell>`);

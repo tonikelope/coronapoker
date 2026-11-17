@@ -17,7 +17,9 @@ public class SettlementReceiptTransportFailureTest {
         assertTrue(source.contains("private boolean emitOwnReceipt(byte[] localReceipt)"));
         assertTrue(source.contains("if (localReceipt == null || !emitOwnReceipt(localReceipt))"));
         assertTrue(source.contains("\"LOCAL_HANDVERIFY_RECEIPT_NOT_DELIVERED\""));
-        assertTrue(source.contains("broadcastGAMECommandFromServer(subcommand, r[2], true)"));
+        assertTrue(source.contains("broadcastPerPeerLocked(HandverifyRelayWire.COMMAND,"));
+        assertTrue(source.contains("nick -> HandverifyRelayWire.encodeFor(nick, pendingRelays), true, true)"));
+        assertTrue(source.contains("if (!delivered)"));
         assertTrue(source.contains("\"HANDVERIFY_RECEIPT_RELAY_FAILED\""));
     }
 

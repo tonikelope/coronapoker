@@ -9,7 +9,7 @@ import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.Base64;
 
-/** Strict parser for the only supported HANDVERIFY receipt wire. */
+/** Strict parser for an individual signed HANDVERIFY receipt. */
 public final class HandverifyReceiptEnvelope {
 
     public static final int RECEIPT_BYTES = CanonicalActionRecord.HAND_ID_BYTES + 32 + 1 + 64;

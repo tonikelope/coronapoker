@@ -118,6 +118,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -130,6 +131,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16870,7 +16872,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // and any CONF for our broadcast queued behind never gets processed
             // — host waits for an ACK that cannot arrive, peer never advances,
             // deadlock holds across reconnects.
-            java.util.ArrayList<String[]> pendingRelays = new java.util.ArrayList<>();
+            List<HandverifyReceiptEnvelope> pendingRelays = new ArrayList<>();
             while (System.currentTimeMillis() < deadline
                     && !receipts.keySet().containsAll(expected)
                     && (earlyHostDecision == null
@@ -16900,15 +16902,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         = HandverifyReceiptEnvelope.parse(partes);
                                 String senderNick = envelope.nick();
                                 byte[] receipt = envelope.receipt();
-                                byte[] signerKey = resolveReceiptSignerPubkey(senderNick);
                                 boolean validIngress = expected.contains(senderNick)
                                         && !receipts.containsKey(senderNick)
-                                        && signerKey != null
-                                        && java.util.Arrays.equals(envelope.handId(), handIdSnap)
-                                        && (envelope.flags() & ~0x07) == 0
-                                        && game_identity.verifyReceiptSignature(signerKey,
-                                                envelope.handId(), envelope.finalHash(),
-                                                envelope.flags(), envelope.signature());
+                                        && Arrays.equals(envelope.handId(), handIdSnap)
+                                        && verifyIncomingSettlementReceipt(envelope);
                                 if (!validIngress) {
                                     LOGGER.log(Level.SEVERE,
                                             "Invalid, duplicate or unexpected critical HANDVERIFY receipt from {0}. Closing source",
@@ -16928,7 +16925,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 receipts.put(senderNick, receipt);
                                 if (isHost) {
-                                    pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
+                                    pendingRelays.add(envelope);
                                 }
                             } catch (Exception ex) {
                                 LOGGER.log(Level.SEVERE,
@@ -16943,6 +16940,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         + forensicToken(ex.getClass().getName())
                                         + ":" + forensicToken(ex.getMessage());
                                 break;
+                            }
+                        } else if (partes.length >= 3 && HandverifyRelayWire.COMMAND.equals(partes[2])) {
+                            try {
+                                if (isHost) throw new IllegalArgumentException("Receipt relay requires the host");
+                                String body = comando.substring(comando.indexOf('#', comando.indexOf('#') + 1) + 1);
+                                Map<String, byte[]> staged = HandverifyRelayWire.validate(body, handIdSnap,
+                                        expected, receipts.keySet(), this::verifyIncomingSettlementReceipt);
+                                receipts.putAll(staged);
+                            } catch (RuntimeException invalidRelay) {
+                                this.received_commands.reject(comando);
+                                criticalReceiptFailure = "INVALID_HANDVERIFY_RELAY";
                             }
                         } else if (partes.length >= 3 && "HANDVERIFY".equals(partes[2])) {
                             LOGGER.log(Level.SEVERE,
@@ -17006,18 +17014,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (isHost && !pendingRelays.isEmpty()) {
-                    for (String[] r : pendingRelays) {
-                        String subcommand = "HANDVERIFY#" + r[0] + "#" + r[1];
-                        try {
-                            broadcastGAMECommandFromServer(subcommand, r[2], true);
-                        } catch (RuntimeException relayEx) {
-                            if (this.termination_pending) return false;
-                            return failSettlementConsensus(
-                                    "HANDVERIFY_RECEIPT_RELAY_FAILED",
-                                    receipts, hFinalSnap, relayEx);
+                    try {
+                        boolean delivered;
+                        synchronized (lock_game_broadcast) {
+                            delivered = broadcastPerPeerLocked(HandverifyRelayWire.COMMAND,
+                                    nick -> HandverifyRelayWire.encodeFor(nick, pendingRelays), true, true);
                         }
+                        if (!delivered) {
+                            if (tableWaitCancelled()) return false;
+                            return failSettlementConsensus("HANDVERIFY_RECEIPT_RELAY_FAILED",
+                                    receipts, hFinalSnap, null);
+                        }
+                    } catch (RuntimeException relayEx) {
+                        if (this.termination_pending) return false;
+                        return failSettlementConsensus("HANDVERIFY_RECEIPT_RELAY_FAILED",
+                                receipts, hFinalSnap, relayEx);
                     }
-                    pendingRelays.clear();
                 }
 
                 if (System.currentTimeMillis() < deadline
@@ -17835,6 +17847,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * host's own pubkey comes from the injected identity when {@code nick} is the
      * local user; everyone else's comes from Participant.getIdentity_pubkey().
      */
+    private boolean verifyIncomingSettlementReceipt(HandverifyReceiptEnvelope envelope) {
+        byte[] signerKey = resolveReceiptSignerPubkey(envelope.nick());
+        return signerKey != null && (envelope.flags() & ~0x07) == 0
+                && game_identity.verifyReceiptSignature(signerKey,
+                envelope.handId(), envelope.finalHash(), envelope.flags(), envelope.signature());
+    }
+
     private byte[] resolveReceiptSignerPubkey(String nick) {
         if (nick == null) {
             return null;
@@ -24417,17 +24436,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean broadcastGAMECommandFromServerLocked(String command, String skip_nick,
             boolean confirmation, boolean requireAllAcknowledgements) {
+        int separator = command.indexOf('#');
+        String commandName = separator < 0 ? command : command.substring(0, separator);
+        return broadcastPerPeerLocked(commandName,
+                nick -> nick.equals(skip_nick) ? null : command, confirmation, requireAllAcknowledgements);
+    }
+
+    private record BroadcastTarget(GamePeerController peer, String command) { }
+
+    /** A null command for a peer excludes it from this broadcast and its ACK roster. */
+    private boolean broadcastPerPeerLocked(String commandName, Function<String, String> commands,
+            boolean confirmation, boolean requireAllAcknowledgements) {
 
         ArrayList<String> pendientes = new ArrayList<>();
-        ArrayList<GamePeerController> targets = new ArrayList<>();
+        ArrayList<BroadcastTarget> targets = new ArrayList<>();
 
         Map<String, GamePeerController> participantes_map = peers();
         synchronized (participantes_map) {
             for (Map.Entry<String, GamePeerController> entry : participantes_map.entrySet()) {
                 GamePeerController p = entry.getValue();
-                if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
+                if (p == null || p.isCpu() || p.isExit()) continue;
+                String command = commands.apply(p.getNick());
+                if (command != null) {
                     pendientes.add(p.getNick());
-                    targets.add(p);
+                    targets.add(new BroadcastTarget(p, command));
                 }
             }
         }
@@ -24435,8 +24467,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!pendientes.isEmpty()) {
 
             int id = GameCommandId.next();
-            byte[] iv = new byte[16];
-            CryptoRandom.fill(iv);
             ConfirmationTracker tracker = game_transport.confirmations();
             ConfirmationTracker.Request request = confirmation
                     ? tracker.register(id + 1, pendientes) : null;
@@ -24465,10 +24495,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // The native outbox already retries a batch with the original
                 // wire ID after reconnect. Enqueuing it again would assign a new ID.
                 if (firstSend || !requireAllAcknowledgements) {
-                    String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-                    for (GamePeerController p : targets) {
-                        if (pendientes.contains(p.getNick())) {
-                            p.writeGameCommandFromServer(full_command, iv);
+                    for (BroadcastTarget target : targets) {
+                        if (pendientes.contains(target.peer().getNick())) {
+                            byte[] iv = new byte[16];
+                            CryptoRandom.fill(iv);
+                            target.peer().writeGameCommandFromServer("GAME#" + id + "#" + target.command(), iv);
                         }
                     }
                     firstSend = false;
@@ -24477,8 +24508,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (confirmation) {
                     this.waitSyncConfirmations(pendientes, tracker, request);
 
-                    for (GamePeerController p : targets) {
-                        if (!p.getNick().equals(skip_nick) && p.isExit()) {
+                    if (requireAllAcknowledgements && tableWaitCancelled()) return false;
+
+                    for (BroadcastTarget target : targets) {
+                        GamePeerController p = target.peer();
+                        if (p.isExit()) {
                             pendientes.remove(p.getNick());
                             tracker.cancelPeer(request, p.getNick());
                             if (nick2player.containsKey(p.getNick())) {
@@ -24491,14 +24525,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         slowIterCount++;
                         if (slowIterCount >= 2) {
                             long elapsedMs = System.currentTimeMillis() - broadcastStartMs;
-                            int separator = command.indexOf('#');
-                            String cmdHead = separator < 0 ? command : command.substring(0, separator);
                             LOGGER.log(Level.WARNING,
                                     "Still waiting for ACK from {0} after {1} ms on broadcast \"{2}\" (TCP alive. No kick, will keep retrying until peers ACK or their sockets die)",
                                     new Object[]{
                                         String.join(", ", pendientes),
                                         elapsedMs,
-                                        cmdHead});
+                                        commandName});
                         }
                         for (String nick : pendientes) {
                             // A nick pending confirmation need not be seated at the table (a

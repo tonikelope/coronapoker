@@ -46,6 +46,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import com.tonikelope.coronapoker.HandverifyRelayWire;
 import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -110,7 +111,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
      */
     static final int MAX_HANDSHAKE_FRAME_BYTES
             = 2 * AvatarImageValidator.MAX_FILE_BYTES;
-    static final String WIRE_VERSION = ApplicationMetadata.VERSION + "/cards-1";
+    static final String WIRE_VERSION = ApplicationMetadata.VERSION + "/cards-2";
     static final int MAX_CLIENT_TEXT_FRAME_BYTES = 256 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
     static final int MAX_CHAT_TEXT_CHARS = 4_096;
@@ -1567,9 +1568,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     String subcommand = parts[2];
                     boolean heldForConfirmation = false;
                     boolean cardBatch = CardDeliveryBatch.COMMAND.equals(subcommand);
-                    if (cardBatch && !fromClient) {
-                        CardDeliveryBatch.decode(command.substring(command.indexOf('#',
-                                command.indexOf('#') + 1) + 1));
+                    boolean receiptBatch = HandverifyRelayWire.COMMAND.equals(subcommand);
+                    boolean batch = cardBatch || receiptBatch;
+                    if (batch && !fromClient) {
+                        String body = command.substring(command.indexOf('#', command.indexOf('#') + 1) + 1);
+                        if (cardBatch) {
+                            CardDeliveryBatch.decode(body);
+                        } else {
+                            HandverifyRelayWire.decode(body);
+                        }
                     }
                     GameCommandGate.Decision decision = source.gameCommandGate.accept(
                             subcommand, id, command);
@@ -1630,7 +1637,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                      */
                     try {
                         if (decision.acknowledge()
-                                && (!cardBatch || heldForConfirmation
+                                && (!batch || heldForConfirmation
                                 || (!decision.enqueue() && !gameChannel.isClosed()))) {
                             source.writeEncrypted("CONF#" + (id + 1) + "#OK");
                         }

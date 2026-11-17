@@ -157,9 +157,7 @@ final class GdxCardShell implements Disposable {
         renderLayer(() -> {
             Gdx.gl.glDisable(GL20.GL_CULL_FACE);
             shader.bind();
-            vertices.clear();
-            vertices.addAll(geometry);
-            draw(shader);
+            draw(shader, geometry);
         }, worldWidth, worldHeight);
     }
 
@@ -172,14 +170,12 @@ final class GdxCardShell implements Disposable {
             for (int i = 0; i < geometry.length; i++) {
                 if (geometry[i].isEmpty()) continue;
                 textures[i].bind(0);
-                vertices.clear();
-                vertices.addAll(geometry[i]);
-                draw(shader);
+                draw(shader, geometry[i]);
             }
         }, worldWidth, worldHeight);
     }
 
-    private void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
+    void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
@@ -415,7 +411,7 @@ final class GdxCardShell implements Disposable {
     private void ensureMesh(int count) {
         if (mesh == null || capacity < count) {
             if (mesh != null) mesh.dispose();
-            capacity = Math.max(count, 4096);
+            capacity = Math.max(count, Math.max(4096, capacity * 3 / 2));
             mesh = new Mesh(false, capacity, 0,
                     new VertexAttribute(Usage.Position, 3, "a_position"),
                     new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
@@ -425,9 +421,31 @@ final class GdxCardShell implements Disposable {
     }
 
     private void draw(ShaderProgram shader) {
-        ensureMesh(vertices.size / 9);
-        mesh.setVertices(vertices.items, 0, vertices.size);
+        draw(shader, vertices);
+    }
+
+    private void draw(ShaderProgram shader, FloatArray geometry) {
+        ensureMesh(geometry.size / 9);
+        mesh.setVertices(geometry.items, 0, geometry.size);
         mesh.render(shader, GL20.GL_TRIANGLES);
+    }
+
+    static Mesh uploadSolid(Mesh mesh, FloatArray geometry) {
+        int count = geometry.size / 9;
+        if (mesh == null || count > mesh.getMaxVertices()) {
+            int capacity = count;
+            if (mesh != null) {
+                capacity = Math.max(count, mesh.getMaxVertices() * 3 / 2);
+                mesh.dispose();
+            }
+            mesh = new Mesh(Mesh.VertexDataType.VertexBufferObject, true, capacity, 0,
+                    new VertexAttribute(Usage.Position, 3, "a_position"),
+                    new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
+                    new VertexAttribute(Usage.Generic, 1, "a_light"),
+                    new VertexAttribute(Usage.Normal, 3, "a_normal"));
+        }
+        mesh.setVertices(geometry.items, 0, geometry.size);
+        return mesh;
     }
 
     @Override public void dispose() {

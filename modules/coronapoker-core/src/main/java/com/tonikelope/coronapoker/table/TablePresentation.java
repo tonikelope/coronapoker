@@ -112,6 +112,11 @@ public final class TablePresentation implements AutoCloseable {
         return sequence.get();
     }
 
+    synchronized CompletionStage<Void> collectCompletedHandCards() {
+        return opened && !closed && !terminalPublished
+                ? renderer.collectCompletedHandCards() : CompletableFuture.completedFuture(null);
+    }
+
     @Override
     public synchronized void close() {
         if (closed) return;

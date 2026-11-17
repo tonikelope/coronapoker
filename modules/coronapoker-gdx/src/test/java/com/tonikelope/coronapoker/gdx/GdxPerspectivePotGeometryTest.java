@@ -201,6 +201,9 @@ class GdxPerspectivePotGeometryTest {
             assertEquals(.75f * midpointLift, quarterLift, .001f);
             assertEquals((float) Math.PI, Math.abs(pose.tumbleAngle), 1.1f);
             assertTrue(pose.height > 160f);
+            GdxTableChipFlight.sampleParabola(pose, from, to, .999f, DIAMETER, obstacles, 0f, seed);
+            assertEquals(to.x(), pose.x, .02f);
+            assertEquals(to.y(), pose.y, .02f);
             GdxTableChipFlight.sampleParabola(pose, from, to, 1f, DIAMETER, obstacles, 0f, seed);
             assertEquals(to.y(), pose.y);
             assertEquals(to.height(), pose.height);

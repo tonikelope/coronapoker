@@ -8,6 +8,7 @@
  */
 package com.tonikelope.coronapoker.table;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -22,6 +23,11 @@ public interface TableRenderer extends AutoCloseable {
     CompletionStage<Void> open(TableSnapshot initialState);
 
     CompletionStage<Void> render(TableVisualEvent event);
+
+    /** Optional local presentation before the next hand replaces the cards. */
+    default CompletionStage<Void> collectCompletedHandCards() {
+        return CompletableFuture.completedFuture(null);
+    }
 
     @Override
     void close();

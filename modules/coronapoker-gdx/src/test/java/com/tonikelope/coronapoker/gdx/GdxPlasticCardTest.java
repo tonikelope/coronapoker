@@ -8,13 +8,15 @@ import static org.junit.jupiter.api.Assertions.*;
 final class GdxPlasticCardTest {
     @Test void theWholeCardStartsAndFinishesFlatAtItsOriginalFootprint() {
         Vector3 point = new Vector3();
+        var shape = new GdxPlasticCard.CommunityTurn();
         for (float direction : new float[]{-1f, 1f}) {
             for (float progress : new float[]{0f, 1f}) {
+                shape.set(100f, 140f, progress, direction, GdxPlasticCard.STANDARD);
                 for (int row = 0; row <= 16; row++) {
                     for (int column = 0; column <= 28; column++) {
                         float u = column / 28f;
                         float v = row / 16f;
-                        GdxPlasticCard.reveal(point, 100f, 140f, u, v, progress, direction);
+                        shape.sample(point, u, v);
                         assertEquals((u - 0.5f) * 100f * (progress == 0f ? 1 : -1), point.x, 0.0001f);
                         assertEquals(0f, point.y, 0.0001f);
                         assertEquals((v - 0.5f) * 140f, point.z, 0.0001f);
@@ -24,43 +26,91 @@ final class GdxPlasticCardTest {
         }
     }
 
-    @Test void flexPreservesThePlasticWidthAndNeverPassesThroughTheFelt() {
-        Vector3 point = new Vector3();
-        Vector3 previous = new Vector3();
-        for (float direction : new float[]{-1f, 1f}) {
-            for (int frame = 1; frame < 100; frame++) {
-                for (float v : new float[]{0f, 0.5f, 1f}) {
-                    float length = 0f;
-                    float minHeight = Float.POSITIVE_INFINITY;
-                    for (int column = 0; column <= 100; column++) {
-                        GdxPlasticCard.reveal(point, 100f, 140f, column / 100f,
-                                v, frame / 100f, direction);
-                        assertTrue(Float.isFinite(point.x) && Float.isFinite(point.y));
-                        assertTrue(point.y >= -0.0001f, "Card penetrates the felt");
-                        if (column > 0) length += point.dst(previous);
-                        previous.set(point);
-                        minHeight = Math.min(minHeight, point.y);
+    @Test void communityTurnKeepsBothDimensionsAndContactsTheFelt() {
+        var shape = new GdxPlasticCard.CommunityTurn();
+        var point = new Vector3();
+        var previous = new Vector3();
+        for (long seed : new long[]{0, 11, 12, 105}) {
+            var motion = GdxPlasticCard.motion(seed);
+            for (float direction : new float[]{-1f, 1f}) {
+                for (int frame = 0; frame <= 60; frame++) {
+                    shape.set(100f, 140f, frame / 60f, direction, motion);
+                    float minimumHeight = Float.POSITIVE_INFINITY;
+                    for (boolean acrossWidth : new boolean[]{true, false}) {
+                        for (float fixed : new float[]{0f, 0.5f, 1f}) {
+                            float length = 0f;
+                            for (int step = 0; step <= 100; step++) {
+                                float distance = step / 100f;
+                                shape.sample(point, acrossWidth ? distance : fixed,
+                                        acrossWidth ? fixed : distance);
+                                assertTrue(Float.isFinite(point.x) && Float.isFinite(point.z));
+                                assertTrue(point.y >= -0.0001f, "Community card penetrates the felt");
+                                minimumHeight = Math.min(minimumHeight, point.y);
+                                if (step > 0) length += point.dst(previous);
+                                previous.set(point);
+                            }
+                            assertEquals(acrossWidth ? 100f : 140f, length, 0.005f);
+                        }
                     }
-                    assertEquals(100f, length, 0.002f, "Plastic stretches during the turn");
-                    assertEquals(0f, minHeight, 0.002f, "No part of the card remains supported");
+                    assertEquals(0f, minimumHeight, 0.001f, "The card loses contact with the felt");
                 }
             }
         }
     }
 
-    @Test void theTurningSurfaceActuallyBowsAndItsNearCornerLeads() {
-        Vector3 left = new Vector3();
-        Vector3 middle = new Vector3();
-        Vector3 right = new Vector3();
+    @Test void communityTurnFlexesAtTheGripFirstAndSettlesFlat() {
+        var shape = new GdxPlasticCard.CommunityTurn();
+        var left = new Vector3();
+        var right = new Vector3();
         for (float direction : new float[]{-1f, 1f}) {
-            GdxPlasticCard.reveal(left, 100f, 140f, 0f, 0.5f, 0.35f, direction);
-            GdxPlasticCard.reveal(right, 100f, 140f, 1f, 0.5f, 0.35f, direction);
-            GdxPlasticCard.reveal(middle, 100f, 140f, 0.5f, 0.5f, 0.35f, direction);
-            assertTrue(middle.dst(new Vector3(left).lerp(right, 0.5f)) > 6f);
-            GdxPlasticCard.reveal(left, 100f, 140f, 0.5f, 0f, 0.25f, direction);
-            GdxPlasticCard.reveal(right, 100f, 140f, 0.5f, 1f, 0.25f, direction);
-            assertTrue(Math.abs(left.y - right.y) > 5f, "All corners move as one rigid panel");
+            float support = direction > 0f ? 1f : 0f;
+            shape.set(100f, 140f, 0.22f, direction, GdxPlasticCard.STANDARD);
+            assertEquals(0f, bow(shape, support, 0.5f), 0.005f);
+            assertTrue(bow(shape, 0.5f, 1f - support) > 2.4f);
+            shape.sample(left, 0.5f, 0f);
+            shape.sample(right, 0.5f, 1f);
+            assertTrue(right.y - left.y > 1f && right.y - left.y < 3f);
+
+            shape.set(100f, 140f, 0.53f, direction, GdxPlasticCard.STANDARD);
+            float bowMidTurn = bow(shape, 0f, 1f);
+            assertTrue(bowMidTurn > 4.8f && bowMidTurn < 7.3f);
+            assertTrue(bow(shape, support, 0.5f) > 0.25f, "The bend has not spread across the card");
+            shape.set(100f, 140f, 0.78f, direction, GdxPlasticCard.STANDARD);
+            assertTrue(bow(shape, 0f, 1f) < 1f);
+            shape.set(100f, 140f, 0.94f, direction, GdxPlasticCard.STANDARD);
+            assertEquals(0f, bow(shape, 0f, 1f), 0.001f);
+            for (float progress : new float[]{0f, 0.9999f, 1f}) {
+                shape.set(100f, 140f, progress, direction, GdxPlasticCard.STANDARD);
+                shape.sample(right, 1f, 1f);
+                assertEquals(progress == 0f ? 50f : -50f, right.x, 0.0001f);
+                assertEquals(0f, right.y, 0.0001f);
+                assertEquals(70f, right.z, 0.0001f);
+            }
         }
+    }
+
+    @Test void communityTurnVariesWithTheGestureSeedAndRepeatsWithinAReveal() {
+        var shape = new GdxPlasticCard.CommunityTurn();
+        var first = new Vector3();
+        var second = new Vector3();
+        shape.set(100f, 140f, 0.36f, 1f, GdxPlasticCard.motion(12));
+        shape.sample(first, 0.05f, 0.95f);
+        shape.set(100f, 140f, 0.36f, 1f, GdxPlasticCard.motion(11));
+        shape.sample(second, 0.05f, 0.95f);
+        assertTrue(first.dst(second) > 0.1f && first.dst(second) < 8f);
+        shape.set(100f, 140f, 0.36f, 1f, GdxPlasticCard.motion(12));
+        shape.sample(second, 0.05f, 0.95f);
+        assertEquals(first, second);
+    }
+
+    private static float bow(GdxPlasticCard.CommunityTurn shape, float from, float to) {
+        var left = new Vector3();
+        var middle = new Vector3();
+        var right = new Vector3();
+        shape.sample(left, from, 0.5f);
+        shape.sample(middle, (from + to) * 0.5f, 0.5f);
+        shape.sample(right, to, 0.5f);
+        return middle.dst(left.lerp(right, 0.5f));
     }
 
     @Test void airborneFlexDoesNotStretchTheCardOrSnapOnLanding() {
@@ -84,11 +134,14 @@ final class GdxPlasticCardTest {
     @Test void theFinalHandoffDoesNotPopOrBounce() {
         Vector3 previous = new Vector3();
         Vector3 settled = new Vector3();
+        var shape = new GdxPlasticCard.CommunityTurn();
         for (float direction : new float[]{-1f, 1f}) {
             for (float u : new float[]{0f, 0.5f, 1f}) {
                 for (float v : new float[]{0f, 1f}) {
-                    GdxPlasticCard.reveal(previous, 100f, 140f, u, v, 0.9999f, direction);
-                    GdxPlasticCard.reveal(settled, 100f, 140f, u, v, 1f, direction);
+                    shape.set(100f, 140f, 0.9999f, direction, GdxPlasticCard.STANDARD);
+                    shape.sample(previous, u, v);
+                    shape.set(100f, 140f, 1f, direction, GdxPlasticCard.STANDARD);
+                    shape.sample(settled, u, v);
                     assertTrue(previous.dst(settled) < 0.02f);
                 }
             }
@@ -164,35 +217,6 @@ final class GdxPlasticCardTest {
         assertEquals(56f, at.z, 0.001f);
     }
 
-    @Test void variedRevealsAreRepeatableAndStaySupportedUntilTheSameEndpoint() {
-        Vector3 point = new Vector3(), repeat = new Vector3(), previous = new Vector3();
-        assertNotEquals(GdxPlasticCard.motion(11), GdxPlasticCard.motion(12));
-        for (long seed = 0; seed < 32; seed++) {
-            var motion = GdxPlasticCard.motion(seed);
-            assertEquals(motion, GdxPlasticCard.motion(seed));
-            for (int frame = 0; frame <= 20; frame++) {
-                float progress = frame / 20f;
-                float minHeight = Float.POSITIVE_INFINITY;
-                float length = 0f;
-                for (int column = 0; column <= 100; column++) {
-                    float u = column / 100f;
-                    GdxPlasticCard.reveal(point, 100f, 140f, u, 0.5f, progress, 1f, motion);
-                    GdxPlasticCard.reveal(repeat, 100f, 140f, u, 0.5f, progress, 1f, motion);
-                    assertEquals(point, repeat);
-                    assertTrue(point.y >= -0.001f);
-                    minHeight = Math.min(minHeight, point.y);
-                    if (column > 0) length += point.dst(previous);
-                    previous.set(point);
-                    if (frame == 0 || frame == 20) {
-                        assertEquals(0f, point.y, 0.001f);
-                        assertEquals((u - 0.5f) * 100f * (frame == 0 ? 1f : -1f), point.x, 0.001f);
-                    }
-                }
-                assertEquals(0f, minHeight, 0.01f);
-                assertEquals(100f, length, 0.005f);
-            }
-        }
-    }
     @Test void aPublicUncoverContinuesThePrivateBendAndFinishesFlat() {
         var shape = new GdxPlasticCard.UncoverShape();
         var peek = new GdxPlasticCard.PeekShape();
@@ -301,13 +325,14 @@ final class GdxPlasticCardTest {
         var point=new Vector3(); var normal=new Vector3();
         float duration=GdxPlasticCard.uncoverSeconds(.620f);
         int frames=(int)Math.ceil(duration*60);
+        var motion = GdxPlasticCard.STANDARD;
         for(float initial:new float[]{0f,.5f,1f}) {
             Vector3[] previous=new Vector3[101];
             float maxStep=0f;
             for(int frame=0;frame<=frames;frame++) {
                 float p=frame/(float)frames;
-                float lift=GdxPlasticCard.uncoverLift(initial,p);
-                float turn=GdxPlasticCard.uncoverTurn(initial,p);
+                float lift=GdxPlasticCard.uncoverLift(initial,p,motion);
+                float turn=GdxPlasticCard.uncoverTurn(initial,p,motion);
                 shape.set(lift,turn,.55f);
                 for(int row=0;row<=100;row++) {
                     shape.sample(point,normal,100f,140f,.5f,row/100f);
@@ -325,9 +350,34 @@ final class GdxPlasticCardTest {
             assertTrue(maxStep*frames<140f*3.64f,
                     "Discontinuous uncover path at 60 Hz: "+maxStep*frames);
         }
-        assertTrue(GdxPlasticCard.uncoverTurn(0f,.60f)>0f);
-        assertTrue(GdxPlasticCard.uncoverLift(0f,.60f)<1f,
+        assertTrue(GdxPlasticCard.uncoverTurn(0f,.42f,motion)>0f);
+        assertTrue(GdxPlasticCard.uncoverLift(0f,.42f,motion)
+                        < GdxPlasticCard.uncoverLift(0f,1f,motion),
                 "Lifting and rolling must overlap instead of stopping between phases");
+    }
+
+    @Test void pocketUncoverSettlesBeforeTheFanStopsAcrossGestureVariations() {
+        var shape = new GdxPlasticCard.UncoverShape();
+        var point = new Vector3();
+        var normal = new Vector3();
+        for (float initial : new float[]{0f, 0.5f, 1f}) {
+            for (long seed = 0; seed < 24; seed++) {
+                var motion = GdxPlasticCard.motion(seed);
+                assertEquals(initial, GdxPlasticCard.uncoverLift(initial, 0f, motion), 0f);
+                assertEquals(0f, GdxPlasticCard.uncoverTurn(initial, 0f, motion), 0f);
+                assertEquals(1f, GdxPlasticCard.uncoverTurn(initial, 1f, motion), 0f);
+                float settlingTurn = GdxPlasticCard.uncoverTurn(initial, 0.91f, motion);
+                assertTrue(settlingTurn < 1f, "The fan should still be opening at contact");
+                shape.set(GdxPlasticCard.uncoverLift(initial, 0.91f, motion), settlingTurn, 0.55f);
+                for (int row = 0; row <= 20; row++) {
+                    shape.sample(point, normal, 100f, 140f, 0.5f, row / 20f);
+                    assertEquals(0f, point.y, 0.08f, "A corner still has to drop onto the felt");
+                    assertEquals(-1f, normal.y, 0.001f);
+                }
+            }
+        }
+        assertNotEquals(GdxPlasticCard.uncoverTurn(0f, 0.5f, GdxPlasticCard.motion(12)),
+                GdxPlasticCard.uncoverTurn(0f, 0.5f, GdxPlasticCard.motion(11)));
     }
 
     @Test void showdownTintPreservesPrintedArtwork() {

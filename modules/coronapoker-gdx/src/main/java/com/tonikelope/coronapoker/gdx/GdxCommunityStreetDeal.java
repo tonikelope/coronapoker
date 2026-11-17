@@ -20,8 +20,11 @@ record GdxCommunityStreetDeal(float appearsAt, float flightSeconds,
         return new GdxCommunityStreetDeal(
                 Math.max(0f, leadIn - flightSeconds), flightSeconds,
                 Math.min(flipSeconds, MAX_FLOP_FLIP_SECONDS),
-                Math.min(FLOP_SPREAD_SECONDS * speedPercent / 100f,
-                        MAX_FLOP_SPREAD_SECONDS));
+                flopSpreadSeconds(speedPercent));
+    }
+
+    static float flopSpreadSeconds(int speedPercent) {
+        return Math.min(FLOP_SPREAD_SECONDS * speedPercent / 100f, MAX_FLOP_SPREAD_SECONDS);
     }
 
     static GdxCommunityStreetDeal single(float leadIn, float flightSeconds,

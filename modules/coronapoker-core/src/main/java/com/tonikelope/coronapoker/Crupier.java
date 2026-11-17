@@ -8595,9 +8595,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void setTiempo_pausa(int tiempo) {
 
         synchronized (lock_pausa_barra) {
-            this.tiempo_pausa = tiempo;
-
-            game_progress.countdown(tiempo);
+            this.tiempo_pausa = Math.max(0, tiempo);
+            if (this.tiempo_pausa == 0) {
+                game_progress.reset(0);
+            } else {
+                game_progress.countdown(this.tiempo_pausa);
+            }
         }
 
     }

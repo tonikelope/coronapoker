@@ -47,6 +47,14 @@ final class GdxGameDialogSink implements GameDialogSink {
     }
 
     @Override
+    public WaitDialog showZeroTrustWait(String message, int preferredWidth) {
+        GdxTableDialog dialog = GdxTableDialog.zeroTrustWait(message, preferredWidth);
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        if (shell != null) shell.showDialog(dialog);
+        return dialog::dismiss;
+    }
+
+    @Override
     public CompletionStage<Boolean> confirm(String message, Icon icon) {
         return show(GdxTableDialog.Kind.CONFIRM, message, icon, 0, 0);
     }

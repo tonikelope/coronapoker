@@ -784,6 +784,10 @@ class GdxMultiprocessScenarioTest {
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_ZERO_TRUST_DIALOG_SHOWN",
                         Duration.ofSeconds(150)), node.diagnostic());
+                if ("consensus-fault-missing".equals(scenario)) {
+                    assertTrue(node.contains("CP_GDX_E2E_ZERO_TRUST_WAIT_SHOWN"), node.diagnostic());
+                    assertTrue(node.contains("CP_GDX_E2E_ZERO_TRUST_WAIT_CLOSED"), node.diagnostic());
+                }
                 assertTrue(node.contains("recoverable=true"),
                         "Zero Trust alert did not certify recoverable wording\n"
                         + node.diagnostic());

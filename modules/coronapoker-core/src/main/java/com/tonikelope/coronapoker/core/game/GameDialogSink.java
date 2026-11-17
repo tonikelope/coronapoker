@@ -18,6 +18,17 @@ public interface GameDialogSink {
     record AntiDosDecision(boolean expel, boolean suppressWarnings) {
     }
 
+    @FunctionalInterface
+    interface WaitDialog extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    /** Opens a blocking presentation that only the dealer can dismiss. */
+    default WaitDialog showZeroTrustWait(String message, int preferredWidth) {
+        return () -> { };
+    }
+
     enum Icon {
         NONE,
         ROBOT,

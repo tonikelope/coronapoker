@@ -8081,6 +8081,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        if (request.isVerificationWait() && request.complete()) return;
         if (request.kind() == GdxTableDialog.Kind.TIMED_WARNING
                 || request.kind() == GdxTableDialog.Kind.INFO
                 && request.icon() == com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.BLINDS) {
@@ -8090,7 +8091,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             request.accept();
             return;
         }
-        if (request.isNotice() && !request.isRecovery()) {
+        if (request.isNotice() && !request.isRecovery() && !request.isVerificationWait()) {
             postTableNotice(request.kind() == GdxTableDialog.Kind.INFO
                     ? GdxTableChatFeed.Kind.INFO : GdxTableChatFeed.Kind.WARNING,
                     request.title(), request.message());
@@ -8120,11 +8121,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
         closeChipCatalog();
-        if (activeDialog == null
-                || request.isZeroTrust() && !activeDialog.isZeroTrust()) {
+        if (activeDialog == null || request.isZeroTrust()
+                && (!activeDialog.isZeroTrust()
+                || (activeDialog.isVerificationWait() && !request.isVerificationWait()))) {
             // A security notice can require acknowledgement before teardown.
             // It must not wait behind an ordinary decision or confirmation.
-            if (activeDialog != null) dialogQueue.addFirst(activeDialog);
+            if (activeDialog != null) {
+                if (activeDialog.isVerificationWait()) activeDialog.dismiss();
+                else dialogQueue.addFirst(activeDialog);
+            }
             activeDialog = request;
             request.opened(totalTime);
             focusAutoCallAmount(request, true);
@@ -9537,6 +9542,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : dialog.isRunItTwice() ? 520f
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
+                : dialog.isVerificationWait() ? 390f
                 : dialog.isZeroTrust() ? 760f
                 : dialog.isNotice() ? 470f
                 : dialog.hasStandaloneOption() ? 500f
@@ -21952,25 +21958,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawSharedProgressBar(float x, float y, float width) {
-        float height = COMMUNITY_TIMER_HEIGHT;
+    private void drawIndeterminateProgress(float x, float y, float width, float height, Color accent) {
         shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f);
         roundedRect(x, y, width, height, 5f);
+        float segmentWidth = width * 0.24f;
+        float segmentX = x - segmentWidth + (totalTime * 0.48f % 1f) * (width + segmentWidth);
+        float clippedX = Math.max(x, segmentX);
+        float clippedRight = Math.min(x + width, segmentX + segmentWidth);
+        if (clippedRight > clippedX) {
+            shapes.setColor(accent.r, accent.g, accent.b, 0.96f);
+            roundedRect(clippedX, y, clippedRight - clippedX, height, 5f);
+        }
+    }
+
+    private void drawSharedProgressBar(float x, float y, float width) {
+        float height = COMMUNITY_TIMER_HEIGHT;
         if (liveState.sharedProgressIndeterminate()) {
-            float segmentWidth = width * 0.24f;
-            float travel = width + segmentWidth;
-            float segmentX = x - segmentWidth
-                    + (totalTime * 0.48f % 1f) * travel;
-            float clippedX = Math.max(x, segmentX);
-            float clippedRight = Math.min(x + width,
-                    segmentX + segmentWidth);
-            if (clippedRight > clippedX) {
-                shapes.setColor(POT_GOLD.r, POT_GOLD.g, POT_GOLD.b, 0.96f);
-                roundedRect(clippedX, y, clippedRight - clippedX,
-                        height, 5f);
-            }
+            drawIndeterminateProgress(x, y, width, height, POT_GOLD);
             return;
         }
+        shapes.setColor(0.018f, 0.032f, 0.055f, 0.96f);
+        roundedRect(x, y, width, height, 5f);
         float remaining = liveState.sharedProgressFraction();
         if (remaining > 0.002f) {
             Color timerColor = remaining > 0.55f ? SWING_STACK_GREEN
@@ -25456,6 +25464,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRecoveryDialog(dialog, width, height);
             return;
         }
+        if (dialog.isVerificationWait()) {
+            drawSettlementVerificationDialog(dialog, panelX, panelY, panelW, panelH);
+            return;
+        }
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
         GdxTableDialogLayout.RunItTwice runItTwiceLayout =
@@ -25862,6 +25874,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     button.x, button.y, button.width, button.height,
                     Color.WHITE, 1f);
         }
+        batch.end();
+    }
+
+    private void drawSettlementVerificationDialog(GdxTableDialog dialog, float x, float y,
+            float width, float height) {
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        GdxUiDialogStyle.drawNoticePanel(shapes, x, y, width, height, FOLD_RED);
+        GdxUiDialogStyle.drawInset(shapes, x + 28f, y + 99f,
+                width - 56f, height - 194f, 1f);
+        drawIndeterminateProgress(x + 64f, y + 57f, width - 128f, 12f, FOLD_RED);
+        shapes.end();
+
+        batch.begin();
+        Rectangle title = GdxTableDialogLayout.title(x, y, width, height);
+        drawFittedCenteredInBox(uiFont, dialog.title(), title.x, title.y,
+                title.width, title.height, FOLD_RED, 1f);
+        drawDialogMessage(dialog.message(), new Rectangle(x + 64f, y + 109f,
+                width - 128f, height - 216f), uiFont);
         batch.end();
     }
 

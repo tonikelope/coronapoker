@@ -3466,6 +3466,23 @@ public final class GdxMultiprocessNodeMain {
     private static GameDialogSink zeroTrustDialogSink(Config config) {
         GameDialogSink fallback = GameDialogSink.noop();
         return new GameDialogSink() {
+            private final java.util.concurrent.atomic.AtomicBoolean verificationWaiting
+                    = new java.util.concurrent.atomic.AtomicBoolean();
+
+            @Override
+            public WaitDialog showZeroTrustWait(String message, int preferredWidth) {
+                if (!verificationWaiting.compareAndSet(false, true)) {
+                    throw new AssertionError("Duplicate settlement waiting dialog");
+                }
+                marker("ZERO_TRUST_WAIT_SHOWN", "nick=" + config.nickname);
+                return () -> {
+                    if (!verificationWaiting.compareAndSet(true, false)) {
+                        throw new AssertionError("Settlement waiting dialog already dismissed");
+                    }
+                    marker("ZERO_TRUST_WAIT_CLOSED", "nick=" + config.nickname);
+                };
+            }
+
             @Override
             public CompletionStage<Void> showError(String message,
                     int preferredWidth) {
@@ -3493,6 +3510,9 @@ public final class GdxMultiprocessNodeMain {
             @Override
             public CompletionStage<Void> showZeroTrustAlert(String message,
                     int preferredWidth) {
+                if (verificationWaiting.get()) {
+                    throw new AssertionError("Settlement waiting dialog blocked the Zero Trust verdict");
+                }
                 String normalized = message.toLowerCase(Locale.ROOT);
                 if (normalized.contains("liquidado normalmente")
                         || normalized.contains("settled normally")) {

@@ -4308,6 +4308,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // instant without losing collected dead money (blinds/antes).
     private volatile double showdown_presentation_pot = 0d;
     private volatile boolean showdown_payout_pending = false;
+    private volatile ShowdownVerificationWait showdownVerificationWait;
     private volatile java.util.Map<String, Double>
             showdown_presentation_investments = java.util.Map.of();
     private volatile double apuestas = 0;
@@ -18002,6 +18003,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * own Zero Trust warning.
      */
     private void showConsensusPopup(String title, String body) {
+        ShowdownVerificationWait pending = showdownVerificationWait;
+        if (pending != null) {
+            pending.close();
+        }
         String composed = (title != null ? title + "\n\n" : "") + body;
         awaitDialog(game_dialogs.showZeroTrustAlert(
                 composed, zeroTrustPopupWidth()));
@@ -22977,15 +22982,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private boolean hasUnplayedRabbitCards() {
+        return (street <= PREFLOP && communityCard(0).isTapada())
+                || (street <= FLOP && communityCard(3).isTapada())
+                || (street <= TURN && communityCard(4).isTapada());
+    }
+
     private void procesarCartasComunesRestantes() {
         // With no rabbit to uncover (typical case: showdown reached the river with
         // everything already revealed), leave the timer bar alone — briefly calling
         // barraIndeterminada + resetBarra(0) back to back caused a visible flicker
         // at the end of showdown.
-        boolean willRabbit = (street <= PREFLOP && communityCard(0).isTapada())
-                || (street <= FLOP && communityCard(3).isTapada())
-                || (street <= TURN && communityCard(4).isTapada());
-        if (!willRabbit) {
+        if (!hasUnplayedRabbitCards()) {
             return;
         }
         game_progress.indeterminate();
@@ -28179,10 +28187,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return terminationPending || finTransmision;
     }
 
+    private int showdownPauseSeconds(int remainingPlayers) {
+        if (presentation_settings.testMode()) return PAUSA_ENTRE_MANOS_TEST;
+        if (getJugadoresActivos() <= 1 || localPlayer().isExit()) return 0;
+        int displaySeconds = configuration().showdownTime();
+        if (this.bote.getSide_pot_count() != 0) return Math.round(1.5f * displaySeconds);
+        return remainingPlayers > 1 || configuration().rabbitHunting() != 0
+                ? displaySeconds : Math.round(0.5f * displaySeconds);
+    }
+
+    // Those controls and their full action window remain after the verified close.
+    private boolean hasPostSettlementActions() {
+        return pending_voluntary_show_offer != VoluntaryShowOffer.NONE
+                || (configuration().rabbitHunting() != 0 && hasUnplayedRabbitCards())
+                || (configuration().iwtsth() && (isIwtsthing() || isIwtsthing_request()
+                || remotePlayers().stream().anyMatch(GamePlayerController::isIwtsthCandidate)));
+    }
+
+    private boolean awaitOverlappingShowdownCountdown(java.util.concurrent.Future<?> countdown) {
+        try {
+            countdown.get();
+            return !tableWaitCancelled();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.CancellationException failure) {
+            if (!tableWaitCancelled()) {
+                LOGGER.log(Level.WARNING, "Showdown presentation countdown ended early", failure);
+            }
+            return false;
+        }
+    }
+
     public void pausaConBarra(int tiempo) {
-
         this.setTiempo_pausa(tiempo);
+        waitForPauseCountdown();
+        synchronized (lock_iwtsth) {
+            lock_iwtsth.notifyAll();
+        }
+    }
 
+    private void waitForPauseCountdown() {
         // Consecutive one-second ticks where the countdown hasn't decremented because
         // an IWTSTH (request or handling) or a rabbit is in progress (see decidePauseTick).
         //
@@ -28204,7 +28249,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // thinking over the dialog's yes/no, where iwtsthing IS active).
         final int MAX_REQUEST_VUELTAS_SIN_BAJAR = 15;
 
-        while (getTiempoPausa() > 0) {
+        while (getTiempoPausa() > 0 && !Thread.currentThread().isInterrupted()) {
 
             // The local player has left the game: the pause is purely time for
             // humans to take in what happened, and there's no human left watching.
@@ -28218,7 +28263,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // hand in progress with the local player NOT exiting (a peer drop routed to
             // recover) would idle here forever, since decidePauseTick returns IDLE while
             // fin is set. rit_sideb_interrupted covers the same case with no race window.
-            if (localPlayer().isExit()
+            if (localPlayer().isExit() || isFin_de_la_transmision()
                     || this.termination_pending || this.rit_sideb_interrupted) {
                 break;
             }
@@ -28226,6 +28271,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (lock_pausa_barra) {
                 try {
                     lock_pausa_barra.wait(1000);
+                    if (tiempo_pausa <= 0 || Thread.currentThread().isInterrupted()) break;
 
                     // Freeze the countdown while an IWTSTH (request or handling) or a
                     // rabbit is being processed, so the round-trip doesn't get cut off
@@ -28276,9 +28322,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        synchronized (lock_iwtsth) {
-            lock_iwtsth.notifyAll();
-        }
     }
 
     public void showdown(HashMap<GamePlayerController, GameHandResult> perdedores,
@@ -28891,6 +28934,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         HashMap<GamePlayerController, GameHandResult> jugadas;
                         HashMap<GamePlayerController, GameHandResult> ganadores;
+                        boolean showdownPauseOverlapped = false;
 
                         synchronized (getLock_contabilidad()) {
                             java.util.Iterator<GamePlayerController> iterator = resisten.iterator();
@@ -29306,27 +29350,50 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // that remainder before signing/persisting terminal
                                 // balances instead of silently losing it at table close.
                                 settleFinalHandRemainder();
-                                // Settlement attestation: absorb who-won-how-much into H_final and
-                                // run the closing receipt consensus over it. Here getBote()/getPagar()
-                                // are final (the payout above is done) and not yet purged by the
-                                // resetBote() loop below, and the hand was not voided. Once per hand,
-                                // common to every branch (showdown, fold, run-it-twice).
-                                if (!runSettlementConsensus()) {
-                                    // Preserve every per-hand contribution/payment and the open
-                                    // SQL row for recovery or forensics. The loop waits for
-                                    // any pending shutdown outside the accounting monitor.
-                                    if (this.termination_pending && table_failure == null) {
-                                        LOGGER.log(Level.INFO,
-                                                "Table exit interrupted hand {0} verification before durable close",
-                                                getMano());
+                                // Keep the dealer as the sole owner of accounting and protocol state.
+                                // The concurrent task only owns the presentation countdown and wait modal.
+                                int pauseSeconds = showdownPauseSeconds(resisten.size());
+                                var pending = new ShowdownVerificationWait(() -> game_dialogs.showZeroTrustWait(
+                                        game_text.translate("game.settlement_verification_wait"), zeroTrustPopupWidth()));
+                                showdownVerificationWait = pending;
+                                setTiempo_pausa(pauseSeconds);
+                                var countdown = game_async.execute(() -> {
+                                    waitForPauseCountdown();
+                                    if (!tableWaitCancelled() && !localPlayer().isExit()) {
+                                        pending.countdownExpired();
                                     }
-                                    continue;
-                                }
-                                if (!sqlUpdateHandEnd(sql_bote_total)) {
-                                    setFin_de_la_transmision(true);
-                                    // Keep the in-memory hand intact and its SQL row open so
-                                    // recovery can retry from the last atomic state.
-                                    continue;
+                                });
+                                try {
+                                    // Settlement attestation: absorb who-won-how-much into H_final and
+                                    // run the closing receipt consensus over it. Here getBote()/getPagar()
+                                    // are final (the payout above is done) and not yet purged by the
+                                    // resetBote() loop below, and the hand was not voided. Once per hand,
+                                    // common to every branch (showdown, fold, run-it-twice).
+                                    if (!runSettlementConsensus()) {
+                                        // Preserve every per-hand contribution/payment and the open
+                                        // SQL row for recovery or forensics. The loop waits for
+                                        // any pending shutdown outside the accounting monitor.
+                                        if (this.termination_pending && table_failure == null) {
+                                            LOGGER.log(Level.INFO,
+                                                    "Table exit interrupted hand {0} verification before durable close",
+                                                    getMano());
+                                        }
+                                        continue;
+                                    }
+                                    pending.close();
+                                    if (!sqlUpdateHandEnd(sql_bote_total)) {
+                                        setFin_de_la_transmision(true);
+                                        // Keep the in-memory hand intact and its SQL row open so
+                                        // recovery can retry from the last atomic state.
+                                        continue;
+                                    }
+                                    if (!hasPostSettlementActions()) {
+                                        showdownPauseOverlapped = awaitOverlappingShowdownCountdown(countdown);
+                                    }
+                                } finally {
+                                    pending.close();
+                                    showdownVerificationWait = null;
+                                    if (countdown.cancel(true)) setTiempo_pausa(0);
                                 }
                             }
 
@@ -29400,7 +29467,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (!presentation_settings.testMode()) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
                                     presentQueuedVoluntaryShowAction();
-                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || configuration().rabbitHunting() != 0) ? configuration().showdownTime() : Math.round(0.5f * configuration().showdownTime())) : Math.round(1.5f * configuration().showdownTime()));
+                                    if (!showdownPauseOverlapped) {
+                                        pausaConBarra(showdownPauseSeconds(resisten.size()));
+                                    }
                                 }
 
                                 if (this.iwtsthing) {
@@ -29454,7 +29523,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.animateShowdownPayout();
                                 }
                                 presentQueuedVoluntaryShowAction();
-                                this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
+                                if (!showdownPauseOverlapped) {
+                                    pausaConBarra(PAUSA_ENTRE_MANOS_TEST);
+                                }
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
                                 }

@@ -23,6 +23,7 @@ public final class SessionOutbox {
         public String command() { return command; }
         public long generation() { return generation; }
         public int wireId() { return wireId; }
+        public int bytes() { return bytes; }
     }
 
     private final int maxElements;

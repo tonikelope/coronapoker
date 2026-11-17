@@ -86,6 +86,29 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Builds the canonical controller for a renderer-neutral GDX table session. */
 public final class CoreGameTableFactory implements GameTableFactory {
 
+    static void receiveTimeoutNotice(GameChannel.Inbound command, String hostNickname,
+            java.util.Set<String> knownPeers, java.util.function.Consumer<String> apply) {
+        if (!command.peerNickname().equals(hostNickname)) {
+            throw new IllegalArgumentException("TIMEOUT source is not the table host");
+        }
+        String[] fields = command.command().split("#", -1);
+        if (fields.length != 2 || !"TIMEOUT".equals(fields[0])) {
+            throw new IllegalArgumentException("Malformed TIMEOUT notification");
+        }
+        final String nickname;
+        try {
+            nickname = StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(
+                    Base64.getDecoder().decode(fields[1]))).toString().trim();
+        } catch (java.nio.charset.CharacterCodingException malformed) {
+            throw new IllegalArgumentException("Malformed TIMEOUT nickname", malformed);
+        }
+        if (nickname.isEmpty()) throw new IllegalArgumentException("Empty TIMEOUT nickname");
+        // Connection notices can lag DELUSER when the critical and UI senders
+        // make independent progress. A departed player has no timeout state to update.
+        if (!knownPeers.contains(nickname)) return;
+        apply.accept(nickname);
+    }
+
     private static final long TABLE_EXECUTOR_CLOSE_TIMEOUT_SECONDS = 5L;
     private static final long RECOVERY_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS = 10_000L;
     private static final long EXIT_SHUFFLE_PROOF_DRAIN_TIMEOUT_MS = 2_000L;
@@ -734,22 +757,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
             if (!lobby.host()
                     && command.command().startsWith("TIMEOUT#")) {
                 try {
-                    if (!command.peerNickname().equals(lobby.serverNickname())) {
-                        throw new IllegalArgumentException(
-                                "TIMEOUT source is not the table host");
-                    }
-                    String[] fields = command.command().split("#", -1);
-                    if (fields.length != 2) {
-                        throw new IllegalArgumentException(
-                                "Malformed TIMEOUT notification");
-                    }
-                    String nickname = new String(Base64.getDecoder().decode(
-                            fields[1]), StandardCharsets.UTF_8).trim();
-                    if (!peers.containsKey(nickname)) {
-                        throw new IllegalArgumentException(
-                                "Unknown TIMEOUT player");
-                    }
-                    dealer.applyPlayerTimeout(nickname, true);
+                    receiveTimeoutNotice(command, lobby.serverNickname(), peers.keySet(),
+                            nickname -> dealer.applyPlayerTimeout(nickname, true));
                 } catch (RuntimeException invalid) {
                     context.channel().close();
                 }

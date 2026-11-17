@@ -384,6 +384,32 @@ artifacts are already installed in the checkout-local Maven cache.
 
 Use `.\tools\qa\headless-sim.cmd -Help` for exact ranges and defaults.
 
+The `wan-congestion` scenario also runs complete ten-player encrypted games
+through the renderer-neutral table API with `java.awt.headless=true`, as well
+as the independent GDX process scenarios. Both paths keep delay, jitter and
+bandwidth limits active on all nine client links for the entire game. In
+`balanced`, each path completes 20 hands at 650 ms RTT with 90 ms one-way
+jitter and 128 KiB/s per direction, plus three hands at 6 s RTT with 750 ms
+one-way jitter and 8 KiB/s. Every hand must have ten matching verification
+hashes and persisted balance snapshots, and all players must finish with
+identical balances and conserved capital. A gameplay progress watchdog
+detects stalls without imposing a maximum total game duration.
+
+The WAN regressions exercise the production transport and cryptographic gates.
+Connection notices (`TIMEOUT` and `TELEMETRY`) use an authenticated bounded
+latest-value sender and do not occupy the critical confirmed FIFO. Critical
+commands retain their mandatory ACKs. Receiver acceptance remains serialized,
+while PING, CONF and accepted-frame ACK writes run outside the global transport
+monitor. The three-peer TCP regression holds one ACK writer and verifies that
+another peer can confirm independently without releasing the first operation.
+
+Native reply waits distinguish inactivity from inbound byte progress and keep
+finite absolute caps. Large outgoing proofs receive transfer grace because an
+ACK can only follow complete frame reception. Tests also cover silent peers,
+continuous trickles that cannot extend the hard cap, delayed initial positions,
+delayed recovery data, cancellation without duplicate writes, and persistence
+of evidence when an abort precedes the initial hand hash.
+
 ## Choosing the right gate
 
 | Change | Minimum useful validation |

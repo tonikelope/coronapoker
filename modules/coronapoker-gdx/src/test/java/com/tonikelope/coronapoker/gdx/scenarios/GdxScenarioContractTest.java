@@ -67,7 +67,8 @@ class GdxScenarioContractTest {
         Set<String> methods = Arrays.stream(
                 new Class<?>[]{GdxNetworkHumanProjectionIntegrationTest.class,
                     GdxReconnectScenarioTest.class,
-                    GdxMultiprocessScenarioTest.class})
+                    GdxMultiprocessScenarioTest.class,
+                    HeadlessWanScenarioTest.class})
                 .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
                 .filter(method -> method.isAnnotationPresent(Test.class))
                 .map(java.lang.reflect.Method::getName)
@@ -167,7 +168,8 @@ class GdxScenarioContractTest {
         Map<String, Method> methods = Arrays.stream(
                 new Class<?>[]{GdxNetworkHumanProjectionIntegrationTest.class,
                     GdxReconnectScenarioTest.class,
-                    GdxMultiprocessScenarioTest.class})
+                    GdxMultiprocessScenarioTest.class,
+                    HeadlessWanScenarioTest.class})
                 .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
                 .filter(method -> method.isAnnotationPresent(Test.class))
                 .collect(Collectors.toMap(Method::getName,

@@ -114,6 +114,14 @@ public interface GameChannel extends AutoCloseable {
     /** Host-to-one command; completes only after the authenticated ACK. */
     CompletionStage<Void> sendFromHost(String nickname, String command) throws IOException;
 
+    /** Best-effort host connection status only. Critical GAME sends retain their ACK contract. */
+    default void sendConnectionStatusFromHost(String nickname, String command) throws IOException {
+        if (!com.tonikelope.coronapoker.core.network.ConnectionStatusOutbox.isStatus(command)) {
+            throw new IllegalArgumentException("only connection status notices are allowed");
+        }
+        sendFromHost(nickname, command);
+    }
+
     /** True while the logical peer is alive but its socket generation is down. */
     default boolean isPeerReconnecting(String nickname) {
         return false;

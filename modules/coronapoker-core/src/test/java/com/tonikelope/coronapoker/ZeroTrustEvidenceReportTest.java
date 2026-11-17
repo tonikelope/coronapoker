@@ -25,6 +25,39 @@ final class ZeroTrustEvidenceReportTest {
     Path temporary;
 
     @Test
+    void abortBeforeInitialHashStillPersistsTheDisputeAndItsEvidence() throws Exception {
+        Path path = temporary.resolve("before-shuffle.sqlite");
+        try (DatabaseService database = new DatabaseService(path.toString())) {
+            database.start();
+            CoreGameDatabase gameDatabase = new CoreGameDatabase(database);
+            try (Statement statement = database.connection().createStatement()) {
+                statement.execute("INSERT INTO game(id,start,server,players,buyin) VALUES(1,10,'host','host,client',100)");
+                statement.execute("INSERT INTO hand(id,id_game,counter,start,pot) VALUES(7,1,3,20,0)");
+            }
+            Crupier dealer = new Crupier();
+            var session = new com.tonikelope.coronapoker.core.game.GameSession("host", true,
+                    com.tonikelope.coronapoker.core.game.GameConfigCodecV1.fromSettings(
+                            new com.tonikelope.coronapoker.core.NewGameTableDraft().snapshot(), false, "evidence-test"));
+            for (var entry : Map.<String, Object>of("game_database", gameDatabase,
+                    "game_session", session, "sqlite_id_hand", 7).entrySet()) {
+                var field = Crupier.class.getDeclaredField(entry.getKey());
+                field.setAccessible(true);
+                field.set(dealer, entry.getValue());
+            }
+            var insert = Crupier.class.getDeclaredMethod("insertDisputedHandRow", Map.class, byte[].class, String.class);
+            insert.setAccessible(true);
+            String location = (String) insert.invoke(dealer, Map.of(), null, "PRE_SHUFFLE_ABORT");
+            assertTrue(Files.isRegularFile(Path.of(location)));
+            try (Statement statement = database.connection().createStatement();
+                    ResultSet row = statement.executeQuery("SELECT local_h,evidence_text FROM disputed_hands WHERE id_hand=7")) {
+                assertTrue(row.next(), "a missing final hash must not lose the incident row");
+                assertEquals(0, row.getBytes("local_h").length);
+                assertTrue(row.getString("evidence_text").contains("local_h_final_b64=null"));
+            }
+        }
+    }
+
+    @Test
     void writesCompleteEnglishEvidenceBesideDatabase() throws Exception {
         Path databasePath = temporary.resolve("coronapoker.db");
         try (DatabaseService database = new DatabaseService(

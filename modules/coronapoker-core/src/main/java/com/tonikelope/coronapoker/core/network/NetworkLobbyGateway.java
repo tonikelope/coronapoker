@@ -122,10 +122,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final int MAX_CLIENT_VOICE_OPERATIONS_PER_WINDOW = 64;
     static final long CLIENT_FEATURE_RATE_WINDOW_MS = 10_000L;
     static final long GAME_CONFIRMATION_TIMEOUT_MS = 10_000L;
+    static final long GAME_CONFIRMATION_PROGRESS_CAP_MS = 180_000L;
+    static final int LARGE_GAME_COMMAND_BYTES = 32 * 1024;
     static final int GAME_OUTBOX_MAX_ELEMENTS = 10_000;
     static final long GAME_OUTBOX_MAX_BYTES = 16L * 1024L * 1024L;
     static final long HEARTBEAT_INTERVAL_MS = 5_000L;
     static final long HEARTBEAT_REPLY_TIMEOUT_MS = 10_000L;
+    static final long HEARTBEAT_REPLY_PROGRESS_CAP_MS = 60_000L;
     static final long HEARTBEAT_WRITE_TIMEOUT_MS = 60_000L;
     static final int MAX_CONSECUTIVE_HEARTBEAT_FAILURES = 3;
     /** Same definitive peer-loss grace as the established Swing transport. */
@@ -137,6 +140,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
     static final long EXECUTOR_CLOSE_TIMEOUT_MS = 5_000L;
     private static final AtomicInteger THREAD_NUMBER = new AtomicInteger();
     private static final SecureRandom HEARTBEAT_RANDOM = new SecureRandom();
+
+    static long gameAcknowledgementTimeoutMillis(int commandBytes, long lastSuccessfulRtt) {
+        if (commandBytes < 0) throw new IllegalArgumentException("negative command length");
+        // An ACK for a large proof can only follow full frame reception. Socket
+        // buffers can hide its outbound progress from this process meanwhile.
+        return commandBytes >= LARGE_GAME_COMMAND_BYTES ? GAME_CONFIRMATION_PROGRESS_CAP_MS
+                : PeerReplyDeadline.timeoutMillis(GAME_CONFIRMATION_TIMEOUT_MS, lastSuccessfulRtt);
+    }
+
 
     private final Path coronaDirectory;
     private final GameTableFactory gameTables;
@@ -1516,31 +1528,49 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             }
         }
 
-        private synchronized void receiveText(Connection source,
-                Connection.Generation generation, String command,
-                boolean fromClient) throws Exception {
+        @FunctionalInterface
+        private interface GameAcknowledgement {
+            void send() throws IOException;
+        }
+
+        private void receiveText(Connection source, Connection.Generation generation,
+                String command, boolean fromClient) throws Exception {
             if (!source.isCurrent(generation)) return;
             String[] parts = command.split("#", -1);
             switch (parts[0]) {
                 case "PING" -> {
                     int ping = Integer.parseInt(parts[1]);
-                    // Swing's heartbeat deliberately measures two paths. Its socket reader
-                    // returns PONG immediately and its command consumer returns PONG2; a peer
-                    // is healthy only when both arrive. The native gateway has one compact
-                    // dispatcher for both paths, but it must preserve that established wire
-                    // contract or a Swing peer ejects an otherwise healthy GDX peer after
-                    // three rounds (roughly 45 seconds).
-                    source.writePlain("PONG#" + (ping + 1));
-                    source.writePlain("PONG2#" + (ping + 2));
+                    source.writePlain(generation, "PONG#" + (ping + 1));
+                    source.writePlain(generation, "PONG2#" + (ping + 2));
+                    return;
                 }
-                case "PONG", "PONG2" -> source.recordHeartbeatReply(
-                        generation, parts[0], Integer.parseInt(parts[1]));
+                case "PONG", "PONG2" -> {
+                    source.recordHeartbeatReply(generation, parts[0], Integer.parseInt(parts[1]));
+                    return;
+                }
                 case "CONF" -> {
                     if (parts.length != 3 || !"OK".equals(parts[2])) {
                         throw new IOException("Malformed GAME confirmation");
                     }
                     source.confirm(generation, Integer.parseInt(parts[1]));
+                    return;
                 }
+                default -> { }
+            }
+            GameAcknowledgement acknowledgement;
+            synchronized (this) {
+                acknowledgement = acceptTextLocked(source, generation, command, fromClient, parts);
+            }
+            // State acceptance stays serialized. A congested socket never holds
+            // the lobby/table monitor while delivering its mandatory ACK.
+            if (acknowledgement != null) acknowledgement.send();
+        }
+
+        private GameAcknowledgement acceptTextLocked(Connection source,
+                Connection.Generation generation, String command,
+                boolean fromClient, String[] parts) throws Exception {
+            if (!source.isCurrent(generation)) return null;
+            switch (parts[0]) {
                 case "EXIT" -> {
                     if (fromClient) removePeer(source.remoteNickname, true);
                     else { publish(LobbySnapshot.Phase.CLOSED, "El servidor ha cancelado la timba"); close(); }
@@ -1556,7 +1586,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     String nickname = fromClient ? source.remoteNickname : text64(parts[1]);
                     String text = parts.length == 3 ? text64(parts[2]) : "";
                     if (fromClient && text.length() > MAX_CHAT_TEXT_CHARS) {
-                        return;
+                        return null;
                     }
                     if (fromClient) broadcastDirect("CHAT#" + b64(nickname) + "#" + b64(text), source);
                     addChat(nickname, text);
@@ -1635,20 +1665,21 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                      * accepted by the ordered game channel. Exact replays are
                      * already durable and remain immediately idempotent.
                      */
-                    try {
-                        if (decision.acknowledge()
-                                && (!batch || heldForConfirmation
-                                || (!decision.enqueue() && !gameChannel.isClosed()))) {
-                            source.writeEncrypted("CONF#" + (id + 1) + "#OK");
+                    boolean acknowledge = decision.acknowledge()
+                            && (!batch || heldForConfirmation
+                            || (!decision.enqueue() && !gameChannel.isClosed()));
+                    boolean releaseHeld = heldForConfirmation;
+                    return () -> {
+                        try {
+                            if (acknowledge) source.writeEncrypted(generation, "CONF#" + (id + 1) + "#OK");
+                        } finally {
+                            if (releaseHeld) gameChannel.releaseConfirmed();
                         }
-                    } finally {
-                        if (heldForConfirmation) {
-                            gameChannel.releaseConfirmed();
-                        }
-                    }
+                    };
                 }
                 default -> { }
             }
+            return null;
         }
 
         private void receiveGame(String[] parts) throws Exception {
@@ -2020,6 +2051,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 throw new IOException("Game peer is unavailable: " + nickname);
             }
             return peer.connection.enqueueGame(body);
+        }
+
+        private synchronized void sendConnectionStatusTo(String nickname, String body) throws IOException {
+            if (!host) throw new IllegalStateException("Only the host can send connection status");
+            Peer peer = findNormalized(nickname);
+            if (peer == null || peer.connection == null || peer.local || peer.bot) {
+                throw new IOException("Game peer is unavailable: " + nickname);
+            }
+            peer.connection.enqueueConnectionStatus(body);
         }
 
         private synchronized java.util.concurrent.CompletionStage<Void> sendGameToHost(
@@ -2702,6 +2742,13 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     requireCommand(command));
         }
 
+        @Override public void sendConnectionStatusFromHost(String nickname, String command) throws IOException {
+            synchronized (this) {
+                if (closed || terminating) return;
+            }
+            transport.sendConnectionStatusTo(Objects.requireNonNull(nickname, "nickname"), requireCommand(command));
+        }
+
         @Override public void relayHotJoinLifecycleFromHost(String command,
                 String skipNickname) {
             if (!transport.host) {
@@ -2832,13 +2879,25 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             private Integer heartbeatPong;
             private Integer heartbeatPong2;
             private long heartbeatStartNanos;
+            private volatile long lastInboundProgressNanos = System.nanoTime();
 
             private Generation(long id, Socket socket, InputStream input,
                     OutputStream output, SecretKeySpec aes,
                     SecretKeySpec hmac) {
                 this.id = id;
                 this.socket = socket;
-                this.input = input;
+                this.input = new java.io.FilterInputStream(input) {
+                    @Override public int read() throws IOException {
+                        int value = in.read();
+                        if (value >= 0) lastInboundProgressNanos = System.nanoTime();
+                        return value;
+                    }
+                    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+                        int count = in.read(bytes, offset, length);
+                        if (count > 0) lastInboundProgressNanos = System.nanoTime();
+                        return count;
+                    }
+                };
                 this.output = output;
                 this.aes = aes;
                 this.hmac = hmac;
@@ -2866,6 +2925,8 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private final Object confirmationLock = new Object();
         private final AtomicBoolean closed = new AtomicBoolean();
         private final AtomicBoolean gameOutboxStarted = new AtomicBoolean();
+        private final ConnectionStatusOutbox connectionStatuses = new ConnectionStatusOutbox(16, 64 * 1024L);
+        private final AtomicBoolean statusWriterScheduled = new AtomicBoolean();
         private final AtomicLong generationSequence = new AtomicLong(1L);
         private final SecretKeySpec originalHmac;
         private final byte[] sessionFingerprint;
@@ -2879,15 +2940,18 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
 
         private static final class PendingGameWrite {
             final Generation generation;
+            final boolean largeTransfer;
             boolean confirmed;
-            long deadline;
+            PeerReplyDeadline deadline;
 
-            PendingGameWrite(Generation generation) {
+            PendingGameWrite(Generation generation, boolean largeTransfer) {
                 this.generation = generation;
+                this.largeTransfer = largeTransfer;
             }
         }
         private volatile int latency = LobbyParticipant.NO_LATENCY;
         private volatile int secondaryLatency = LobbyParticipant.NO_LATENCY;
+        private volatile long lastSuccessfulRttMillis;
         private long pendingSecurityIncidentId;
         private GameChannel.SecurityIncidentType pendingSecurityIncidentType;
         private String pendingSecurityAddress;
@@ -3023,6 +3087,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 reconnecting = true;
                 long attempt = ++reconnectAttempt;
                 gameOutbox.advanceGenerationPreservingEntries();
+                connectionStatuses.clear();
                 expected.close();
                 generationLock.notifyAll();
                 synchronized (confirmationLock) {
@@ -3067,6 +3132,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         replacement.socket, replacement.input,
                         replacement.output, replacement.aes,
                         replacement.hmac);
+                connectionStatuses.clear();
                 generation = replacement;
                 reconnecting = false;
                 reconnectionCount++;
@@ -3121,14 +3187,20 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     return;
                 }
 
-                long deadline = System.nanoTime()
-                        + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(
-                                HEARTBEAT_REPLY_TIMEOUT_MS);
+                long replyBudget = PeerReplyDeadline.timeoutMillis(HEARTBEAT_REPLY_TIMEOUT_MS, lastSuccessfulRttMillis);
+                synchronized (confirmationLock) {
+                    if (pendingGameWrites.values().stream().anyMatch(pendingWrite ->
+                            pendingWrite.generation == active && pendingWrite.largeTransfer)) {
+                        replyBudget = HEARTBEAT_REPLY_PROGRESS_CAP_MS;
+                    }
+                }
+                PeerReplyDeadline deadline = new PeerReplyDeadline(System.nanoTime(), replyBudget,
+                        HEARTBEAT_REPLY_PROGRESS_CAP_MS);
                 synchronized (active.heartbeatLock) {
                     while (isCurrent(active) && active.expectedHeartbeat != null
                             && (active.heartbeatPong == null
                             || active.heartbeatPong2 == null)) {
-                        long remaining = deadline - System.nanoTime();
+                        long remaining = deadline.remainingNanos(System.nanoTime(), active.lastInboundProgressNanos);
                         if (remaining <= 0L) break;
                         try {
                             long millis = Math.max(1L,
@@ -3188,9 +3260,11 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 if ("PONG".equals(verb) && value == ping + 1) {
                     source.heartbeatPong = value;
                     latency = measured;
+                    lastSuccessfulRttMillis = Math.max(1L, measured);
                 } else if ("PONG2".equals(verb) && value == ping + 2) {
                     source.heartbeatPong2 = value;
                     secondaryLatency = measured;
+                    lastSuccessfulRttMillis = Math.max(1L, measured);
                 }
                 source.heartbeatLock.notifyAll();
             }
@@ -3206,6 +3280,42 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     write.confirmed = true;
                     confirmationLock.notifyAll();
                 }
+            }
+        }
+
+        private void enqueueConnectionStatus(String body) {
+            Generation active = generation;
+            if (active == null || !isCurrent(active)) return;
+            if (connectionStatuses.offer(active.id, body)) scheduleStatusWriter();
+        }
+
+        private void scheduleStatusWriter() {
+            if (closed.get() || !statusWriterScheduled.compareAndSet(false, true)) return;
+            try {
+                executor.execute(this::runStatusWriter);
+            } catch (java.util.concurrent.RejectedExecutionException shutdown) {
+                statusWriterScheduled.set(false);
+                connectionStatuses.clear();
+            }
+        }
+
+        private void runStatusWriter() {
+            try {
+                ConnectionStatusOutbox.Entry notice;
+                while (!closed.get() && (notice = connectionStatuses.poll()) != null) {
+                    Generation active = generation;
+                    if (active == null || active.id != notice.generation() || !isCurrent(active)) continue;
+                    try {
+                        // Same authenticated framing and atomic socket writer, without occupying
+                        // the confirmed poker FIFO or retaining notices across reconnection.
+                        writeEncrypted(active, "GAME#" + GameCommandId.next() + "#" + notice.command());
+                    } catch (IOException unavailable) {
+                        active.close();
+                    }
+                }
+            } finally {
+                statusWriterScheduled.set(false);
+                if (!closed.get() && !connectionStatuses.isEmpty()) scheduleStatusWriter();
             }
         }
 
@@ -3297,11 +3407,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 int confirmationId = entry.wireId() + 1;
                 write = pendingGameWrites.get(confirmationId);
                 if (write != null) return write;
-                write = new PendingGameWrite(active);
+                write = new PendingGameWrite(active, entry.bytes() >= LARGE_GAME_COMMAND_BYTES);
                 pendingGameWrites.put(confirmationId, write);
             }
             writeEncrypted(active, "GAME#" + entry.wireId() + "#" + entry.command());
-            write.deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(GAME_CONFIRMATION_TIMEOUT_MS);
+            // Byte progress preserves a slow live transfer. The absolute cap still
+            // closes a peer that trickles bytes or answers PING while withholding the ACK.
+            write.deadline = new PeerReplyDeadline(System.nanoTime(),
+                    gameAcknowledgementTimeoutMillis(entry.bytes(), lastSuccessfulRttMillis),
+                    GAME_CONFIRMATION_PROGRESS_CAP_MS);
             return write;
         }
 
@@ -3311,7 +3425,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 SessionOutbox.Entry next;
                 synchronized (confirmationLock) {
                     if (write.confirmed || closed.get() || !isCurrent(active)) return write.confirmed;
-                    long remaining = write.deadline - System.nanoTime();
+                    long remaining = write.deadline.remainingNanos(System.nanoTime(), active.lastInboundProgressNanos);
                     if (remaining <= 0L) return false;
                     next = gameOutbox.nextAfterHead(head);
                     if (next == null || !shuffleMessagesMayOverlap(head.command(), next.command())
@@ -3427,6 +3541,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 reconnecting = false;
                 generationLock.notifyAll();
             }
+            connectionStatuses.clear();
             List<java.util.concurrent.CompletableFuture<Void>> abandoned;
             synchronized (gameOutbox) {
                 gameOutbox.advanceGeneration();

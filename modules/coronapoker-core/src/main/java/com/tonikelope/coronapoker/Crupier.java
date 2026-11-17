@@ -43,6 +43,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSnapshotMapper;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.network.ConfirmationTracker;
+import com.tonikelope.coronapoker.core.network.ConnectionStatusOutbox;
 import com.tonikelope.coronapoker.core.network.GameCommandId;
 import com.tonikelope.coronapoker.core.network.GameTransport;
 import com.tonikelope.coronapoker.core.network.TelemetryCodec;
@@ -1481,9 +1482,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /** Applies and publishes the narrow timeout flag for native renderers. */
     public void applyPlayerTimeout(String nickname, boolean timedOut) {
         GamePlayerController player = nick2player.get(nickname);
-        if (player == null) {
-            throw new IllegalArgumentException("Unknown timeout player");
-        }
+        // A queued connection notice can outlive a concurrent roster update.
+        if (player == null) return;
         setPlayerTimeout(player, timedOut);
     }
 
@@ -5138,7 +5138,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 return false;
             }
-            waitSyncConfirmations(pending, tracker, request);
+            // The short confirmation interval is a polling/retry interval, not
+            // the deadline for a cryptographic delivery on a congested connection.
+            long ackDeadline = System.nanoTime()
+                    + TimeUnit.MILLISECONDS.toNanos(REMOTE_SRA_PEER_TIMEOUT_MS);
+            do {
+                waitSyncConfirmations(pending, tracker, request);
+                if (tableWaitCancelled()) return false;
+            } while (!pending.isEmpty() && !p.isExit() && System.nanoTime() < ackDeadline);
             if (pending.isEmpty() && !p.isExit()) {
                 return true;
             }
@@ -12640,6 +12647,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok;
         boolean failed = false;
 
+        // POSITIONS follows the distributed seat draw and its confirmed broadcasts.
+        // It is an initialization barrier, so use the same finite budget as
+        // HAND_READY instead of the short individual-message retry interval.
         long start_time = System.currentTimeMillis();
 
         do {
@@ -12713,7 +12723,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
+                } else if (System.currentTimeMillis() - start_time > HAND_READY_PROGRESS_TIMEOUT_MS) {
 
                     LOGGER.log(Level.SEVERE, "recibirPosiciones timeout. The client connection will close");
                     failed = true;
@@ -17896,7 +17906,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         st.setLong(2, timestampMillis / 1000L);
                         st.setBytes(3, receiptsBlob);
                         st.setString(4, receiptNicks.toString());
-                        st.setBytes(5, localHFinal);
+                        // Before H_0 exists there is no valid final hash. An empty BLOB
+                        // records that absence without inventing a cryptographic value.
+                        st.setBytes(5, localHFinal == null ? new byte[0] : localHFinal);
                         st.setString(6, reason);
                         st.executeUpdate();
                     }
@@ -17994,6 +18006,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // transmission dies before RECOVERDATA arrives.
         RecoveryReceiveState receiveState = new RecoveryReceiveState(configuration().sessionId());
 
+        // Recovery is a state-transfer barrier, bounded by the sender's recovery budget.
         long start_time = System.currentTimeMillis();
 
         do {
@@ -18042,7 +18055,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
+                } else if (System.currentTimeMillis() - start_time > BROADCAST_PROGRESS_TIMEOUT_MS) {
 
                     LOGGER.log(Level.SEVERE, "RECOVERDATA timeout. Recovery failed and the client connection will close");
                     receiveState.rejectTimeout();
@@ -18080,6 +18093,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         RecoveryActionReceiveState receiveState = new RecoveryActionReceiveState();
 
+        // Recovery is a state-transfer barrier, bounded by the sender's recovery budget.
         long start_time = System.currentTimeMillis();
 
         do {
@@ -18113,7 +18127,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!receiveState.isTerminal()) {
                 if (pause_gate.await()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS) {
+                } else if (System.currentTimeMillis() - start_time > BROADCAST_PROGRESS_TIMEOUT_MS) {
                     LOGGER.log(Level.SEVERE, "ACTIONDATA timeout. Recovery failed and the client connection will close");
                     receiveState.rejectTimeout();
                     break;
@@ -18223,6 +18237,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         boolean firstSend = true;
+        java.util.Set<String> timeoutNotified = new java.util.HashSet<>();
         try {
         do {
             try {
@@ -18251,7 +18266,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         setPlayerTimeout(nick2player.get(nick), true);
-                        if (!peers().get(nick).isForce_reset_socket()) {
+                        if (!peers().get(nick).isForce_reset_socket() && timeoutNotified.add(nick)) {
                             try {
                                 this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
@@ -18287,6 +18302,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         boolean firstSend = true;
+        java.util.Set<String> timeoutNotified = new java.util.HashSet<>();
         try {
         do {
             try {
@@ -18313,7 +18329,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         setPlayerTimeout(nick2player.get(nick), true);
-                        if (!peers().get(nick).isForce_reset_socket()) {
+                        if (!peers().get(nick).isForce_reset_socket() && timeoutNotified.add(nick)) {
                             try {
                                 this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
@@ -24379,6 +24395,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void broadcastGAMECommandFromServer(String command, String skip_nick, boolean confirmation) {
+        if (!confirmation && ConnectionStatusOutbox.isStatus(command)) {
+            broadcastGAMECommandFromServerLocked(command, skip_nick, false);
+            return;
+        }
         synchronized (lock_game_broadcast) {
             broadcastGAMECommandFromServerLocked(command, skip_nick, confirmation);
         }
@@ -24439,25 +24459,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             ConfirmationTracker.Request request = confirmation
                     ? tracker.register(id + 1, pendientes) : null;
 
-            // No artificial timeout: if a client takes long to confirm (slow network,
-            // saturated CPU, a large SRA deck), we keep waiting indefinitely. TCP
-            // guarantees the message arrives or the socket dies — it never gets lost
-            // "in between". The only way out of the loop is pendientes emptying out
-            // (everyone confirmed, or everyone marked exit because their socket truly
-            // died).
-            //
-            // So the "infinite" wait isn't invisible when reviewing the debug log, we
-            // count do-while iterations. Each iteration represents a full
-            // CONFIRMATION_TIMEOUT (~10s) period where waitSyncConfirmations didn't
-            // receive every ACK. From the second consecutive stalled iteration on, we
-            // emit a JUL WARNING with the still-pending nicks and elapsed time — purely
-            // forensic, it doesn't speed up kicks or trigger timeouts: the flow still
-            // depends on TCP/isExit.
+            // The short confirmation interval polls the same request. Native outboxes
+            // retain the original wire ID, and the progress deadline below bounds peers
+            // that withhold ACKs while allowing the existing pause/reconnect grace.
+            // Connection UI notices use their own bounded sender and never enter this FIFO.
             long broadcastStartMs = System.currentTimeMillis();
             long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
             boolean firstSend = true;
+        java.util.Set<String> timeoutNotified = new java.util.HashSet<>();
             // Native outboxes retry with the same wire ID. Resubmitting from
             // here would allocate a fresh ID and turn the retry into a second
             // critical operation. Legacy sockets retain the dealer's retry.
@@ -24469,7 +24480,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             && !target.peer().retriesGameCommands())) {
                         byte[] iv = new byte[16];
                         CryptoRandom.fill(iv);
-                        target.peer().writeGameCommandFromServer("GAME#" + id + "#" + target.command(), iv);
+                        String envelope = "GAME#" + id + "#" + target.command();
+                        if (!confirmation && ConnectionStatusOutbox.isStatus(target.command())) {
+                            target.peer().writeConnectionStatusFromServer(envelope, iv);
+                        } else {
+                            target.peer().writeGameCommandFromServer(envelope, iv);
+                        }
                     }
                 }
                 firstSend = false;
@@ -24477,7 +24493,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (confirmation) {
                     this.waitSyncConfirmations(pendientes, tracker, request);
 
-                    if (requireAllAcknowledgements && tableWaitCancelled()) return false;
+                    // Final SERVEREXIT frames still drain after the shutdown fence,
+                    // but interruption cancels every broadcast, including legacy ACK waits.
+                    if (Thread.currentThread().isInterrupted()
+                            || requireAllAcknowledgements && tableWaitCancelled()) return false;
 
                     for (BroadcastTarget target : targets) {
                         GamePeerController p = target.peer();
@@ -24512,7 +24531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 setPlayerTimeout(pendiente_jugador, true);
                             }
                             GamePeerController pendiente_participante = peers().get(nick);
-                            if (pendiente_participante != null && !pendiente_participante.isForce_reset_socket()) {
+                            if (pendiente_participante != null && !pendiente_participante.isForce_reset_socket() && timeoutNotified.add(nick)) {
                                 try {
                                     this.broadcastGAMECommandFromServer(
                                             "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),

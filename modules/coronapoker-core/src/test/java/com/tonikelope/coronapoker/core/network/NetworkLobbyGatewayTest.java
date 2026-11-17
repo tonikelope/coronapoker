@@ -64,6 +64,123 @@ class NetworkLobbyGatewayTest {
     @TempDir Path temporary;
 
     @Test
+    void connectionStatusBypassesAnUnconfirmedPokerHeadWithoutAcknowledgingIt() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        AtomicReference<GameLaunchContext> hostContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> clientContext = new AtomicReference<>();
+        AtomicReference<GameLaunchContext> otherContext = new AtomicReference<>();
+        String init = "INIT#" + GameConfigCodecV1.encodeBase64(GameConfigCodecV1.fromSettings(
+                new NewGameTableDraft().snapshot(), false, "status-transport"));
+        GameTableFactory tables = context -> {
+            (context.lobby().host() ? hostContext : "Invitado".equals(context.lobby().localNickname())
+                    ? clientContext : otherContext).set(context);
+            return new TableSession(emptyTable(context.lobby().localNickname()), command -> { },
+                    new TableEventBridge(), () -> {
+                        try {
+                            return context.lobby().host() ? context.channel().broadcastFromHost(init, null)
+                                    : CompletableFuture.completedFuture(null);
+                        } catch (java.io.IOException failure) {
+                            return CompletableFuture.failedFuture(failure);
+                        }
+                    });
+        };
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(temporary.resolve("status-host"), tables);
+                NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(temporary.resolve("status-client"), tables);
+                NetworkLobbyGateway otherGateway = new NetworkLobbyGateway(temporary.resolve("status-other"), tables)) {
+            LobbySession host = hostGateway.open(request(false, "Anfitrion", port)).get(5, TimeUnit.SECONDS);
+            LobbySession client = clientGateway.open(request(true, "Invitado", port)).get(5, TimeUnit.SECONDS);
+            LobbySession other = otherGateway.open(request(true, "Lejano", port)).get(5, TimeUnit.SECONDS);
+            try {
+                await(() -> host.snapshot().participants().size() == 3);
+                Object hostTransport = field(host, "resource");
+                Object clientTransport = field(client, "resource");
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                host.tableSession().toCompletableFuture().get(2, TimeUnit.SECONDS)
+                        .attach(immediateRenderer()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                client.tableSession().toCompletableFuture().get(2, TimeUnit.SECONDS);
+                other.tableSession().toCompletableFuture().get(2, TimeUnit.SECONDS);
+                GameChannel hostChannel = hostContext.get().channel();
+                GameChannel clientChannel = clientContext.get().channel();
+                CopyOnWriteArrayList<String> received = new CopyOnWriteArrayList<>();
+                clientChannel.subscribe(inbound -> received.add(inbound.command()));
+                await(() -> received.contains(init));
+                var peers = (java.util.Map<?, ?>) field(hostTransport, "peers");
+                Object hostConnection = field(peers.get("Invitado"), "connection");
+                Object clientConnection = field(clientTransport, "serverConnection");
+                Object clientGeneration = field(clientConnection, "generation");
+                Object writeLock = field(clientGeneration, "writeLock");
+                java.io.InputStream input = (java.io.InputStream) field(clientGeneration, "input");
+                SessionOutbox criticalOutbox = (SessionOutbox) field(hostConnection, "gameOutbox");
+                Field holds = clientChannel.getClass().getDeclaredField("confirmationHolds");
+                holds.setAccessible(true);
+                CompletableFuture<Void> critical;
+                String timeout = "TIMEOUT#SW52aXRhZG8=";
+                String telemetry = "TELEMETRY#123#SW52aXRhZG8=|6000/6500/0";
+                assertThrows(IllegalStateException.class,
+                        () -> clientChannel.sendConnectionStatusFromHost("Anfitrion", timeout));
+                synchronized (writeLock) {
+                    critical = hostChannel.sendFromHost("Invitado", "PAUSE#0#held").toCompletableFuture();
+                    await(() -> {
+                        synchronized (clientChannel) {
+                            try { return holds.getInt(clientChannel) == 1; }
+                            catch (IllegalAccessException failure) { throw new AssertionError(failure); }
+                        }
+                    });
+                    hostChannel.sendConnectionStatusFromHost("Invitado", timeout);
+                    hostChannel.sendConnectionStatusFromHost("Invitado", telemetry);
+                    await(() -> {
+                        try { return input.available() > 0; }
+                        catch (java.io.IOException failure) { throw new AssertionError(failure); }
+                    });
+                    assertFalse(critical.isDone(), "connection UI cannot acknowledge a poker operation");
+                    assertEquals(1, criticalOutbox.size(), "notices must never join the critical ACK FIFO");
+                    assertThrows(IllegalArgumentException.class,
+                            () -> hostChannel.sendConnectionStatusFromHost("Invitado", "HANDVERIFY#receipt"));
+
+                }
+                critical.get(3, TimeUnit.SECONDS);
+                await(() -> received.contains(timeout) && received.contains(telemetry));
+                assertEquals(1L, received.stream().filter("PAUSE#0#held"::equals).count());
+                await(criticalOutbox::isEmpty);
+                assertEquals(0, field(hostConnection, "reconnectionCount"));
+
+                // Hold one host-side ACK writer. Another authenticated peer must
+                // still receive its own ACK without acknowledging the held action.
+                CopyOnWriteArrayList<String> hostReceived = new CopyOnWriteArrayList<>();
+                hostChannel.subscribe(inbound -> hostReceived.add(inbound.command()));
+                Object hostGeneration = field(hostConnection, "generation");
+                Object hostWriteLock = field(hostGeneration, "writeLock");
+                Field hostHolds = hostChannel.getClass().getDeclaredField("confirmationHolds");
+                hostHolds.setAccessible(true);
+                CompletableFuture<Void> heldAction;
+                synchronized (hostWriteLock) {
+                    heldAction = clientChannel.sendToHost("ACTION#held-peer").toCompletableFuture();
+                    await(() -> {
+                        synchronized (hostChannel) {
+                            try { return hostHolds.getInt(hostChannel) == 1; }
+                            catch (IllegalAccessException failure) { throw new AssertionError(failure); }
+                        }
+                    });
+                    otherContext.get().channel().sendToHost("ACTION#independent-peer")
+                            .toCompletableFuture().get(3, TimeUnit.SECONDS);
+                    assertFalse(heldAction.isDone(), "another peer's ACK cannot release this action");
+                    assertTrue(hostReceived.isEmpty(), "accepted messages stay held until their mandatory ACKs");
+                }
+                heldAction.get(3, TimeUnit.SECONDS);
+                await(() -> hostReceived.size() == 2);
+                assertEquals(List.of("ACTION#held-peer", "ACTION#independent-peer"), hostReceived);
+            } finally {
+                other.close();
+                client.close();
+                host.close();
+            }
+        }
+    }
+
+    @Test
     void settlementConsensusResultIsRegisteredOnlyFromHost() {
         assertEquals(GameCommandType.HANDVERIFY_RESULT,
                 GameCommandType.from(GameCommandType.Direction.HOST_TO_CLIENT,

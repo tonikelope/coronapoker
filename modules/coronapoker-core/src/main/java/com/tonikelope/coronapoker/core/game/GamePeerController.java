@@ -60,6 +60,16 @@ public interface GamePeerController {
                 clearCommand, getAes_key(), iv, getHmac_key()));
     }
 
+    /** Connection UI notices may be coalesced or discarded by an unavailable native socket. */
+    default boolean writeConnectionStatusFromServer(String clearCommand, byte[] iv) {
+        String[] parts = clearCommand.split("#", 3);
+        if (parts.length != 3 || !"GAME".equals(parts[0])
+                || !com.tonikelope.coronapoker.core.network.ConnectionStatusOutbox.isStatus(parts[2])) {
+            throw new IllegalArgumentException("only connection status notices are allowed");
+        }
+        return writeGameCommandFromServer(clearCommand, iv);
+    }
+
     /** Whether the peer's channel owns retransmission with a stable wire identifier. */
     default boolean retriesGameCommands() {
         return false;

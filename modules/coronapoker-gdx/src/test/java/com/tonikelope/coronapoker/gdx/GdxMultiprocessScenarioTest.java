@@ -98,6 +98,12 @@ class GdxMultiprocessScenarioTest {
     }
 
     @Test
+    void tenGdxPlayersCompleteThreeHandsUnderExtremeWanCongestion(@TempDir Path root)
+            throws Exception {
+        runCompletingScenario(root, "wan-extreme-congestion", 9, 0, null, 3);
+    }
+
+    @Test
     void tenGdxPlayersStillConvergeAfterAStalledSettlementLink(@TempDir Path root)
             throws Exception {
         runCompletingScenario(root, WAN_SHOWDOWN_STALL, 9, 0, null, 3);
@@ -945,19 +951,20 @@ class GdxMultiprocessScenarioTest {
         List<GdxWanTrafficProxy> wanLinks = new ArrayList<>();
         Set<NodeProcess> killed = new HashSet<>();
         boolean continuousWan = scenario.startsWith("wan-");
+        boolean extremeWan = "wan-extreme-congestion".equals(scenario);
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
                     "server", port, clients, bots, hands, scenario);
             nodes.add(host);
-            assertTrue(host.await("CP_GDX_E2E_READY", Duration.ofSeconds(30)),
+            assertTrue(host.await("CP_GDX_E2E_READY", continuousWan ? wanWatchdog(hands) : Duration.ofSeconds(30)),
                     host.diagnostic());
             for (int index = 1; index <= clients; index++) {
                 int joinPort = port;
                 if (continuousWan) {
                     var link = new GdxWanTrafficProxy(port,
-                            Integer.getInteger("coronapoker.qa.gdx.wanDelayMs", 325),
-                            Integer.getInteger("coronapoker.qa.gdx.wanJitterMs", 90),
-                            Integer.getInteger("coronapoker.qa.gdx.wanBytesPerSecond", 128 * 1024),
+                            Integer.getInteger("coronapoker.qa.gdx.wanDelayMs", extremeWan ? 3000 : 325),
+                            Integer.getInteger("coronapoker.qa.gdx.wanJitterMs", extremeWan ? 750 : 90),
+                            Integer.getInteger("coronapoker.qa.gdx.wanBytesPerSecond", (extremeWan ? 8 : 128) * 1024),
                             index);
                     wanLinks.add(link);
                     joinPort = link.port();
@@ -967,11 +974,11 @@ class GdxMultiprocessScenarioTest {
                         scenario);
                 nodes.add(client);
                 assertTrue(client.await("CP_GDX_E2E_READY",
-                        Duration.ofSeconds(30)), client.diagnostic());
+                        continuousWan ? wanWatchdog(hands) : Duration.ofSeconds(30)), client.diagnostic());
             }
             for (NodeProcess node : nodes) {
                 assertTrue(node.await("CP_GDX_E2E_LOBBY_READY",
-                        Duration.ofSeconds(30)), node.diagnostic());
+                        continuousWan ? wanWatchdog(hands) : Duration.ofSeconds(30)), node.diagnostic());
             }
             host.send("START_GAME");
             assertTrue(host.await("CP_GDX_E2E_GAME_START_REQUESTED",

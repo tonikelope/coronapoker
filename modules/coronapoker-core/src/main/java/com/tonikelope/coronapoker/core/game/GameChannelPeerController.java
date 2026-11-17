@@ -113,6 +113,21 @@ public final class GameChannelPeerController implements GamePeerController {
     }
 
     @Override
+    public boolean writeConnectionStatusFromServer(String clearCommand, byte[] iv) {
+        try {
+            ParsedEnvelope envelope = ParsedEnvelope.parse(clearCommand);
+            if (!com.tonikelope.coronapoker.core.network.ConnectionStatusOutbox.isStatus(envelope.command())) {
+                throw new IllegalArgumentException("only connection status notices are allowed");
+            }
+            channel.sendConnectionStatusFromHost(nickname, envelope.command());
+            return false;
+        } catch (IOException | RuntimeException unavailable) {
+            // A dropped UI notice never retires a poker participant.
+            return true;
+        }
+    }
+
+    @Override
     public boolean retriesGameCommands() {
         return true;
     }

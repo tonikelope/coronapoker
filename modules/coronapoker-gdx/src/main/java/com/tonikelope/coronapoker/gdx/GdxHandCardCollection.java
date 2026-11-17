@@ -7,7 +7,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** Sweeps the board from flop to river, then fades the complete card layer. */
+/** Sweeps the board from flop to river, then fades its top card. */
 final class GdxHandCardCollection {
     static final int RIVER_SLOT = 4;
     static final float FADE_SECONDS = .18f;
@@ -35,6 +35,13 @@ final class GdxHandCardCollection {
         if (sweepSeconds == 0f) return RIVER_SLOT;
         float progress = MathUtils.clamp(clock.elapsedSeconds() / sweepSeconds, 0f, 1f);
         return MathUtils.lerp(board.get(0).slot(), RIVER_SLOT, Interpolation.smooth.apply(progress));
+    }
+
+    int visibleBoardCardCount() {
+        if (board.isEmpty() || finished()) return 0;
+        // Retire the covered sheets before the first fade frame, even while
+        // opacity still rounds to 1. Keep board intact for the top elevation.
+        return clock.elapsedSeconds() < sweepSeconds ? board.size() : 1;
     }
 
     float cardElevation(int index, float position, float width, float gap) {

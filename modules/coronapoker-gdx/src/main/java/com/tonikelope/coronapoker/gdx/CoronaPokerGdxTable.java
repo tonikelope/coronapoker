@@ -1393,6 +1393,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShapeRenderer shapes;
     private SpriteBatch batch;
     private ShaderProgram roundedCardShader;
+    private final GdxCommunityTurn2D communityTurn2D = new GdxCommunityTurn2D();
     private ShaderProgram rabbitPeelShader;
     /*
      * Last rounded-card GPU state. Several remote cards normally share one
@@ -16311,7 +16312,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float lastPosition = Float.POSITIVE_INFINITY;
         // Later slots are underneath. Painting them first also preserves
         // the ordering in 2D, where the sheets have no physical thickness.
-        for (int index = handCardCollection.board.size() - 1; index >= 0; index--) {
+        // Once stacked, only the first collected card survives the fade.
+        // Its disabled/showdown alpha must never reveal the printing below it.
+        for (int index = handCardCollection.visibleBoardCardCount() - 1; index >= 0; index--) {
             var item = handCardCollection.board.get(index);
             float position = Math.max(item.slot(), sweep);
             var card = new LiveCardPlacement(firstX + cardW * .5f + gap * position,
@@ -16452,18 +16455,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         Texture face = liveCardFace(card.code());
         if (!perspectiveActive) {
-            float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
-            float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
-            float revealScale = cardFlipScale(progress);
-            configureCardShader(face, cardBack, cardFlipAngle(progress,
-                    liveCommunityReveal.flipDirection), true,
+            communityTurn2D.prepare(placement.x, placement.y,
+                    placement.width, placement.height, placement.rotation,
+                    cardFlipScale(progress), settledProgress,
+                    liveCommunityReveal.flipDirection, motion, CARD_SHADER_CANVAS_SCALE);
+            configureCardShader(face, cardBack, 0f, false,
                     placement.height / placement.width, true);
+            communityTurn2D.drawShadow(batch, cardBack);
+            communityTurn2D.drawBack(batch, cardBack);
+            configureCardShader(face, cardBack, MathUtils.PI, false,
+                    placement.height / placement.width, true);
+            communityTurn2D.drawFace(batch, cardBack);
             batch.setColor(Color.WHITE);
-            batch.draw(cardBack, placement.x - canvasWidth / 2f,
-                    placement.y - canvasHeight / 2f, canvasWidth / 2f,
-                    canvasHeight / 2f, canvasWidth, canvasHeight,
-                    revealScale, revealScale, placement.rotation, 0, 0,
-                    cardBack.getWidth(), cardBack.getHeight(), false, false);
             return;
         }
 

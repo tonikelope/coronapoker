@@ -1172,6 +1172,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxImageGalleryWindow tableGallery = new GdxImageGalleryWindow();
     private final GdxRobertRulesWindow rulesWindow = new GdxRobertRulesWindow();
     private GdxTableDialog activeDialog;
+    private final ArrayDeque<GdxTableDialog> verificationWaits = new ArrayDeque<>();
+    private final com.badlogic.gdx.math.Vector3 verificationWaitAnchor = new com.badlogic.gdx.math.Vector3();
     private GdxTableDialog autoActionDialog;
     private boolean chipCatalogVisible;
     private ChipCatalogTarget chipCatalogTarget;
@@ -8081,7 +8083,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
-        if (request.isVerificationWait() && request.complete()) return;
+        if (request.isVerificationWait()) {
+            verificationWaits.removeIf(GdxTableDialog::complete);
+            if (!request.complete()) verificationWaits.addLast(request);
+            return;
+        }
         if (request.kind() == GdxTableDialog.Kind.TIMED_WARNING
                 || request.kind() == GdxTableDialog.Kind.INFO
                 && request.icon() == com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.BLINDS) {
@@ -8091,7 +8097,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             request.accept();
             return;
         }
-        if (request.isNotice() && !request.isRecovery() && !request.isVerificationWait()) {
+        if (request.isNotice() && !request.isRecovery()) {
             postTableNotice(request.kind() == GdxTableDialog.Kind.INFO
                     ? GdxTableChatFeed.Kind.INFO : GdxTableChatFeed.Kind.WARNING,
                     request.title(), request.message());
@@ -8121,14 +8127,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Dealer/network decisions always outrank the optional identity view.
         tableIdentityDialog = null;
         closeChipCatalog();
-        if (activeDialog == null || request.isZeroTrust()
-                && (!activeDialog.isZeroTrust()
-                || (activeDialog.isVerificationWait() && !request.isVerificationWait()))) {
+        if (activeDialog == null || request.isZeroTrust() && !activeDialog.isZeroTrust()) {
             // A security notice can require acknowledgement before teardown.
             // It must not wait behind an ordinary decision or confirmation.
             if (activeDialog != null) {
-                if (activeDialog.isVerificationWait()) activeDialog.dismiss();
-                else dialogQueue.addFirst(activeDialog);
+                dialogQueue.addFirst(activeDialog);
             }
             activeDialog = request;
             request.opened(totalTime);
@@ -9542,7 +9545,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : dialog.isRunItTwice() ? 520f
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
                 : dialog.isRebuy() ? 390f
-                : dialog.isVerificationWait() ? 390f
                 : dialog.isZeroTrust() ? 760f
                 : dialog.isNotice() ? 470f
                 : dialog.hasStandaloneOption() ? 500f
@@ -12005,6 +12007,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!foregroundPot) drawTableChipFlights(false);
         drawLocalHud(width, height);
         drawPocketPeekButton(width, height);
+        drawZeroTrustWait(tableCx, tableCy + boardCardH * 0.64f);
         if (foregroundPot) {
             // The ALL-IN GIF deliberately covers the middle of the table, but
             // the authoritative pot must remain a tangible destination. Chips
@@ -25464,10 +25467,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawRecoveryDialog(dialog, width, height);
             return;
         }
-        if (dialog.isVerificationWait()) {
-            drawSettlementVerificationDialog(dialog, panelX, panelY, panelW, panelH);
-            return;
-        }
         GdxTableDialogLayout.AutoCall autoCallLayout = dialog.isAutoCall()
                 ? GdxTableDialogLayout.autoCall(panelX, panelY, panelW) : null;
         GdxTableDialogLayout.RunItTwice runItTwiceLayout =
@@ -25494,6 +25493,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (dialog.isNotice()) {
             GdxUiDialogStyle.drawNoticePanel(shapes, panelX, panelY,
                     panelW, panelH, accent);
+            if (dialog.isZeroTrust()) {
+                GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.PADLOCK,
+                        panelX + 41f, panelY + panelH - 49f, 38f, accent, 1f);
+            }
         } else {
             GdxUiDialogStyle.drawPanel(shapes, panelX, panelY,
                     panelW, panelH, accent, 1f);
@@ -25877,22 +25880,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    private void drawSettlementVerificationDialog(GdxTableDialog dialog, float x, float y,
-            float width, float height) {
+    GdxTableDialog currentZeroTrustWait() {
+        verificationWaits.removeIf(GdxTableDialog::complete);
+        return verificationWaits.peekLast();
+    }
+
+    private void drawZeroTrustWait(float boardCenter, float boardTop) {
+        GdxTableDialog dialog = currentZeroTrustWait();
+        if (dialog == null) return;
+
+        if (perspectiveActive) {
+            var point = verificationWaitAnchor.set(boardCenter, boardTop, 0f)
+                    .prj(perspectiveTable.boardProjection());
+            boardCenter = (point.x + 1f) * viewport.getWorldWidth() / 2f;
+            boardTop = (point.y + 1f) * viewport.getWorldHeight() / 2f;
+        }
+        float panelWidth = Math.min(790f, viewport.getWorldWidth() - 48f);
+        float panelHeight = 113f;
+        float x = boardCenter - panelWidth / 2f;
+        float y = Math.min(boardTop + 16f, viewport.getWorldHeight() - panelHeight - 16f);
+
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        GdxUiDialogStyle.drawNoticePanel(shapes, x, y, width, height, FOLD_RED);
-        GdxUiDialogStyle.drawInset(shapes, x + 28f, y + 99f,
-                width - 56f, height - 194f, 1f);
-        drawIndeterminateProgress(x + 64f, y + 57f, width - 128f, 12f, FOLD_RED);
+        GdxUiDialogStyle.drawNoticePanel(shapes, x, y, panelWidth, panelHeight, POT_GOLD);
+        GdxUiIconRenderer.draw(shapes, GdxUiIconRenderer.Icon.PADLOCK,
+                x + 29f, y + panelHeight - 29f, 28f, POT_GOLD, 1f);
+        drawIndeterminateProgress(x + 28f, y + 14f, panelWidth - 56f, 8f, POT_GOLD);
         shapes.end();
 
         batch.begin();
-        Rectangle title = GdxTableDialogLayout.title(x, y, width, height);
-        drawFittedCenteredInBox(uiFont, dialog.title(), title.x, title.y,
-                title.width, title.height, FOLD_RED, 1f);
-        drawDialogMessage(dialog.message(), new Rectangle(x + 64f, y + 109f,
-                width - 128f, height - 216f), uiFont);
+        drawFittedCenteredInBox(settingsHeadingFont, dialog.title(), x + 24f, y + 67f,
+                panelWidth - 48f, 31f, POT_GOLD, 1f);
+        drawFittedCenteredInBox(settingsBodyFont, dialog.message(), x + 24f, y + 33f,
+                panelWidth - 48f, 29f, Color.WHITE, 1f);
         batch.end();
     }
 

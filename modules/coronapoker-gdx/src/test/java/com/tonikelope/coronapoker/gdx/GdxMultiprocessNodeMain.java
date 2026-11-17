@@ -247,6 +247,9 @@ public final class GdxMultiprocessNodeMain {
                 GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                         expectedPlayers, productTable, lobby);
                 scenarioRenderer.set(renderer);
+                if (config.host() && GdxMultiprocessScenarioTest.WAN_SHOWDOWN_STALL.equals(config.scenario)) {
+                    renderer.onFirstShowdownCountdown(() -> marker("WAN_SHOWDOWN_STARTED", ""));
+                }
                 if ("raise-mix".equals(config.scenario)) {
                     renderer.enableRaiseMix();
                 }
@@ -318,8 +321,10 @@ public final class GdxMultiprocessNodeMain {
                             runItTwiceVotes, runItTwiceDialogResolutions);
                 }
                 await(renderer::isClosed,
-                        Duration.ofSeconds(Math.max(150L,
-                                config.hands * 30L)), "table completion");
+                        config.scenario.startsWith("wan-")
+                                ? GdxMultiprocessScenarioTest.wanWatchdog(config.hands)
+                                : Duration.ofSeconds(Math.max(150L, config.hands * 30L)),
+                        "table completion");
                 assertOutcome(config, renderer);
                 if (localZeroTrustEvidenceExpected(config)) {
                     assertZeroTrustArtifacts(config, home, database,
@@ -4191,6 +4196,11 @@ public final class GdxMultiprocessNodeMain {
             table.setAnte(true);
             table.setAnteMode(AnteMode.BIG_BLIND);
         }
+        if (config.scenario.startsWith("wan-")) {
+            // Preserve the ten human signers during long check/call soaks.
+            table.setMaxBuyinBb(NewGameTableDraft.MAX_BUYIN_BB);
+            table.setBuyin(table.maximumBuyin());
+        }
         if ("reconnect-every-street".equals(config.scenario)) {
             // This scenario must reach a live decision on each street. Its
             // oracle is transport reconnection, not short-stack elimination;
@@ -4303,7 +4313,8 @@ public final class GdxMultiprocessNodeMain {
             renderer.assertShowedExpectedReconnects(
                     requiredVisibleReconnects(config));
         }
-        if ("normal".equals(config.scenario)) {
+        if ("normal".equals(config.scenario)
+                || config.scenario.startsWith("wan-")) {
             renderer.assertComplete(config.hands);
             return;
         }
@@ -4519,7 +4530,9 @@ public final class GdxMultiprocessNodeMain {
     }
 
     private static Set<String> requiredVisibleReconnects(Config config) {
-        if ("straddle-network-cut".equals(config.scenario)) {
+        if ("straddle-network-cut".equals(config.scenario)
+                || GdxMultiprocessScenarioTest.WAN_SHOWDOWN_STALL.equals(config.scenario)) {
+            // The stalled link can recover before its transport needs to reconnect.
             return Set.of();
         }
         return requiredReconnectsForNode(config,
@@ -4546,7 +4559,8 @@ public final class GdxMultiprocessNodeMain {
     private static Set<String> expectedDisconnectedPeers(Config config) {
         return switch (config.scenario) {
             case "reconnect-midhand", "reconnect-every-street",
-                    "allin-reconnect", "rit-network-cut" -> Set.of("client1");
+                    "allin-reconnect", "rit-network-cut",
+                    GdxMultiprocessScenarioTest.WAN_SHOWDOWN_STALL -> Set.of("client1");
             case "reconnect-twice", "reconnect-storm",
                     "dual-reconnect" -> Set.of("client1", "client2");
             case "host-channel-flap" -> java.util.stream.IntStream.rangeClosed(

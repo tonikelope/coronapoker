@@ -4,7 +4,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.util.function.Supplier;
 
-/** Coordinates the end of the presentation countdown with the consensus verdict. */
+/** Shows a slow-wait notice only while the operation is still pending. */
 final class ShowdownVerificationWait implements AutoCloseable {
     private final Supplier<GameDialogSink.WaitDialog> showDialog;
     private GameDialogSink.WaitDialog dialog;

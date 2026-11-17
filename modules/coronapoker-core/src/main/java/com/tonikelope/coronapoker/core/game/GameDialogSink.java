@@ -24,7 +24,7 @@ public interface GameDialogSink {
         void close();
     }
 
-    /** Opens a blocking presentation that only the dealer can dismiss. */
+    /** Shows a non-modal wait notice until the dealer dismisses its handle. */
     default WaitDialog showZeroTrustWait(String message, int preferredWidth) {
         return () -> { };
     }

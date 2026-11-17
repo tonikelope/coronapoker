@@ -125,10 +125,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -2696,6 +2693,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private static final long ZERO_TRUST_NOTICE_DELAY_MS = 2_000L;
+
+    private <T> T withZeroTrustWait(String message, java.util.function.Supplier<T> operation) {
+        try (var pending = new ShowdownVerificationWait(() -> tableWaitCancelled()
+                ? () -> { } : game_dialogs.showZeroTrustWait(message, zeroTrustPopupWidth()))) {
+            CompletableFuture.delayedExecutor(ZERO_TRUST_NOTICE_DELAY_MS, TimeUnit.MILLISECONDS)
+                    .execute(pending::countdownExpired);
+            return operation.get();
+        }
+    }
+
     /**
      * Betting and recovery both require a verified live deck.
      */
@@ -2703,8 +2711,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!localParticipatesInCurrentCryptoHand()) {
             return true;
         }
-        ShuffleProofGateDecision proof = awaitShuffleProofGate(
-                UNLOCK_PHASE_POCKET, SHUFFLE_PROOF_GATE_TIMEOUT_MS);
+        ShuffleProofGateDecision proof = withZeroTrustWait(
+                game_text.translate("zero_trust.wait_shuffle_proof"),
+                () -> awaitShuffleProofGate(UNLOCK_PHASE_POCKET, SHUFFLE_PROOF_GATE_TIMEOUT_MS));
         if (tableShutdownRequested() || cancelPendingDealerMisdeal() || this.mano_anulada) return false;
         if (shuffleProofStartDecision(proof)
                 == ShuffleProofStartDecision.START_BETTING) {
@@ -14877,7 +14886,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 try {
                     // If the cascade fails (someone doesn't respond), abort initialization.
-                    if (!enviarCartasJugadoresRemotos()) {
+                    if (!withZeroTrustWait(game_text.translate("zero_trust.wait_deal"),
+                            this::enviarCartasJugadoresRemotos)) {
                         barajando = false;
                         finishShufflePresentation(attached_shuffle_presentation,
                                 shuffle_lock, gif_thread_done, "shuffle wait (abort path)");
@@ -14898,7 +14908,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else if (!gameSession().isHost()
                     && !localPlayer().isCalentando() && this.game_recovered == 0) {
-                cartas_locales_recibidas = recibirMisCartas();
+                cartas_locales_recibidas = withZeroTrustWait(game_text.translate("zero_trust.wait_deal"),
+                        this::recibirMisCartas);
             }
 
             // Cascade done: signal the loop to exit at the next cycle boundary.
@@ -16862,9 +16873,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 receipts.put(localNick, localReceipt);
             }
 
-            long deadline = System.currentTimeMillis() + GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS;
             boolean isHost = gameSession().isHost();
-            HostConsensusDecision earlyHostDecision = null;
+            long receiptBudget = GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS;
+            long verdictBudget = Math.max(5_000L, receiptBudget * 2L);
+            // A client can ACK the host's receipt before another peer does, so
+            // the host may begin collecting and relaying after this client. The
+            // terminal frame follows the confirmed relays on the same connection.
+            // Keep verifying relays while awaiting that frame, within the same
+            // combined timeout previously used for the two separate waits.
+            long deadline = System.currentTimeMillis() + receiptBudget + (isHost ? 0L : verdictBudget);
+            HostConsensusDecision hostDecision = null;
+            boolean receiptsComplete = false;
 
             // Identity: relays are collected inside the
             // synchronized block and dispatched OUTSIDE it. The relay broadcast
@@ -16878,18 +16897,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // deadlock holds across reconnects.
             List<HandverifyReceiptEnvelope> pendingRelays = new ArrayList<>();
             while (System.currentTimeMillis() < deadline
-                    && !receipts.keySet().containsAll(expected)
-                    && (earlyHostDecision == null
-                            || earlyHostDecision.allowsClose())
+                    && hostDecision == null
                     && !isFin_de_la_transmision() && !this.termination_pending) {
-                if (receipts.keySet().containsAll(expected)) {
-                    break;
-                }
                 pendingRelays.clear();
                 boolean misdealAbort = false;
                 String misdealMotivo = "";
                 String criticalReceiptFailure = null;
+                long observedArrival;
                 synchronized (this.getReceived_commands()) {
+                    observedArrival = this.received_commands.arrivalSequence();
                     ArrayList<String> rejected = new ArrayList<>();
                     int scanLimit = criticalHandverifySnapshotSize(this.getReceived_commands());
                     int drainedHandverify = 0;
@@ -16973,10 +16989,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     = parseHostSettlementConsensusDecision(
                                             partes, handIdSnap);
                             if (decision != null) {
-                                earlyHostDecision = decision;
-                                if (!decision.allowsClose()) {
-                                    break;
-                                }
+                                hostDecision = decision;
+                                break;
                             }
                         } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
                             misdealAbort = true;
@@ -16999,8 +17013,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             receipts, hFinalSnap, null);
                 }
 
-                if (earlyHostDecision != null
-                        && !earlyHostDecision.allowsClose()) {
+                if (hostDecision != null) {
                     break;
                 }
 
@@ -17036,32 +17049,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (System.currentTimeMillis() < deadline
-                        && !receipts.keySet().containsAll(expected)) {
-                    synchronized (this.getReceived_commands()) {
-                        if (this.getReceived_commands().isEmpty()) {
-                            try {
-                                this.received_commands.wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                                Thread.currentThread().interrupt();
-                                if (isFin_de_la_transmision()
-                                        || this.termination_pending) {
-                                    return false;
-                                }
-                                return failSettlementConsensus(
-                                        "HANDVERIFY_WAIT_INTERRUPTED",
-                                        receipts, hFinalSnap, ex);
-                            }
-                        }
+                if (!receiptsComplete && receipts.keySet().containsAll(expected)) {
+                    if (isHost) break;
+                    receiptsComplete = true;
+                    deadline = Math.min(deadline, System.currentTimeMillis() + verdictBudget);
+                }
+
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining > 0L) {
+                    try {
+                        this.received_commands.awaitAfterScan(observedArrival, Math.min(remaining, WAIT_QUEUES));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        if (isFin_de_la_transmision() || this.termination_pending) return false;
+                        return failSettlementConsensus(receiptsComplete
+                                ? "HOST_HANDVERIFY_RESULT_WAIT_INTERRUPTED"
+                                : "HANDVERIFY_WAIT_INTERRUPTED", receipts, hFinalSnap, ex);
                     }
                 }
             }
 
             if (!isHost) {
-                HostConsensusDecision hostDecision
-                        = earlyHostDecision != null ? earlyHostDecision
-                                : awaitHostSettlementConsensusDecision(
-                                        handIdSnap);
                 if (hostDecision == null) {
                     if (this.termination_pending) return false;
                     return failSettlementConsensus(
@@ -17453,53 +17461,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     "Could not publish terminal HANDVERIFY_RESULT", failure);
             return false;
         }
-    }
-
-    /** Waits for and validates the host's terminal decision for this hand. */
-    private HostConsensusDecision awaitHostSettlementConsensusDecision(
-            byte[] expectedHandId) {
-        long waitBudget = Math.max(5_000L,
-                GameTiming.CLIENT_RECEPTION_TIMEOUT_MILLIS * 2L);
-        long deadline = System.currentTimeMillis() + waitBudget;
-        do {
-            synchronized (this.getReceived_commands()) {
-                ArrayList<String> rejected = new ArrayList<>();
-                while (!this.getReceived_commands().isEmpty()) {
-                    String command = this.received_commands.poll();
-                    String[] parts = command.split("#", -1);
-                    if (parts.length == 6
-                            && "HANDVERIFY_RESULT".equals(parts[2])) {
-                        HostConsensusDecision decision
-                                = parseHostSettlementConsensusDecision(
-                                        parts, expectedHandId);
-                        if (!rejected.isEmpty()) {
-                            restoreRejectedCommands(rejected);
-                        }
-                        if (decision != null) {
-                            return decision;
-                        }
-                        continue;
-                    }
-                    rejected.add(command);
-                }
-                if (!rejected.isEmpty()) {
-                    restoreRejectedCommands(rejected);
-                }
-                if (!isFin_de_la_transmision() && !this.termination_pending
-                        && System.currentTimeMillis() < deadline) {
-                    try {
-                        this.received_commands.wait(WAIT_QUEUES);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        if (this.termination_pending) return null;
-                        return new HostConsensusDecision(false,
-                                "HOST_HANDVERIFY_RESULT_WAIT_INTERRUPTED");
-                    }
-                }
-            }
-        } while (!isFin_de_la_transmision() && !this.termination_pending
-                && System.currentTimeMillis() < deadline);
-        return null;
     }
 
     private HostConsensusDecision parseHostSettlementConsensusDecision(
@@ -20660,27 +20621,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && !shouldAbortRunItTwiceSideBDeal(this.termination_pending, isFin_de_la_transmision()); s++) {
             setStreetLocal(s);
 
-            // EXACT CLONE of rondaApuestas's community deal (SIDE-A's run-out): orange
-            // "decrypting" label + indeterminate bar after 500ms, and in finally restores
-            // the pot_label's foreground and clears the indeterminate state. So SIDE-B
-            // deals visually identical to SIDE-A.
-            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
-                table_display.showDecryptingStreet(game_text.translate("zero_trust.decrypting_street"));
-                game_progress.setIndeterminate(true);
-            }, 500, TimeUnit.MILLISECONDS);
-
-            boolean ok = false;
-            try {
-                ok = gameSession().isHost()
-                        ? enviarRit2Comunitarias(resisten)
-                        : recibirCartasComunitarias();
-            } finally {
-                loadingTask.cancel(false);
-                scheduler.shutdown();
-                table_display.finishDecryptingStreet();
-                game_progress.setIndeterminate(false);
-            }
+            boolean ok = withZeroTrustWait(communityUnlockWaitMessage(s), () -> gameSession().isHost()
+                    ? enviarRit2Comunitarias(resisten) : recibirCartasComunitarias());
 
             if (!ok) {
                 return false;
@@ -21603,6 +21545,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return prior;
     }
 
+    private String communityUnlockWaitMessage(int street) {
+        String phase = game_text.translate(switch (street) {
+            case FLOP -> "gdx.stats.web.flop";
+            case TURN -> "gdx.stats.web.turn";
+            case RIVER -> "gdx.stats.web.river";
+            default -> throw new IllegalArgumentException("No community cards for street " + street);
+        });
+        return game_text.translate("zero_trust.wait_sra_unlock", phase.toLowerCase(java.util.Locale.ROOT));
+    }
+
     private boolean recibirCartasComunitarias() {
         if (this.hand_state_chain == null) {
             try {
@@ -21981,25 +21933,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (street > PREFLOP) {
-            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
-                table_display.showDecryptingStreet(game_text.translate("zero_trust.decrypting_street"));
-                game_progress.setIndeterminate(true);
-            }, 500, TimeUnit.MILLISECONDS);
-
-            boolean success = false;
-            try {
-                if (gameSession().isHost()) {
-                    success = enviarCartasComunitarias(resisten);
-                } else {
-                    success = recibirCartasComunitarias();
-                }
-            } finally {
-                loadingTask.cancel(false);
-                scheduler.shutdown();
-                table_display.finishDecryptingStreet();
-                game_progress.setIndeterminate(false);
-            }
+            boolean success = withZeroTrustWait(communityUnlockWaitMessage(street), () -> gameSession().isHost()
+                    ? enviarCartasComunitarias(resisten) : recibirCartasComunitarias());
 
             if (!success) {
                 resisten.clear();
@@ -24501,11 +24436,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
             boolean firstSend = true;
+            // The native outbox retries the same wire ID after reconnect. A
+            // second submission would give the same receipt a new wire ID and
+            // make the receiver reject it as a second receipt from that signer.
+            boolean enqueueOnce = requireAllAcknowledgements || "HANDVERIFY".equals(commandName);
             try {
             do {
-                // The native outbox already retries a batch with the original
-                // wire ID after reconnect. Enqueuing it again would assign a new ID.
-                if (firstSend || !requireAllAcknowledgements) {
+                if (firstSend || !enqueueOnce) {
                     for (BroadcastTarget target : targets) {
                         if (pendientes.contains(target.peer().getNick())) {
                             byte[] iv = new byte[16];
@@ -28191,7 +28128,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private int showdownPauseSeconds(int remainingPlayers) {
-        if (presentation_settings.testMode()) return PAUSA_ENTRE_MANOS_TEST;
         if (getJugadoresActivos() <= 1 || localPlayer().isExit()) return 0;
         int displaySeconds = configuration().showdownTime();
         if (this.bote.getSide_pot_count() != 0) return Math.round(1.5f * displaySeconds);
@@ -28938,6 +28874,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         HashMap<GamePlayerController, GameHandResult> jugadas;
                         HashMap<GamePlayerController, GameHandResult> ganadores;
                         boolean showdownPauseOverlapped = false;
+                        boolean acceleratedShowdown = presentation_settings.testMode();
 
                         synchronized (getLock_contabilidad()) {
                             java.util.Iterator<GamePlayerController> iterator = resisten.iterator();
@@ -29354,8 +29291,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // balances instead of silently losing it at table close.
                                 settleFinalHandRemainder();
                                 // Keep the dealer as the sole owner of accounting and protocol state.
-                                // The concurrent task only owns the presentation countdown and wait modal.
-                                int pauseSeconds = showdownPauseSeconds(resisten.size());
+                                // The concurrent task only owns the presentation countdown and notice.
+                                int pauseSeconds = acceleratedShowdown ? PAUSA_ENTRE_MANOS_TEST
+                                        : showdownPauseSeconds(resisten.size());
                                 var pending = new ShowdownVerificationWait(() -> game_dialogs.showZeroTrustWait(
                                         game_text.translate("game.settlement_verification_wait"), zeroTrustPopupWidth()));
                                 showdownVerificationWait = pending;
@@ -29467,7 +29405,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             startIWTSTHPlayersBlinking();
 
-                            if (!presentation_settings.testMode()) {
+                            if (!acceleratedShowdown) {
                                 if (getJugadoresActivos() > 1 && !localPlayer().isExit()) {
                                     presentQueuedVoluntaryShowAction();
                                     if (!showdownPauseOverlapped) {
@@ -29527,7 +29465,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 presentQueuedVoluntaryShowAction();
                                 if (!showdownPauseOverlapped) {
-                                    pausaConBarra(PAUSA_ENTRE_MANOS_TEST);
+                                    this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
                                 }
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);

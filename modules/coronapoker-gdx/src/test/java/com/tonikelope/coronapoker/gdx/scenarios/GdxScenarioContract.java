@@ -241,6 +241,9 @@ final class GdxScenarioContract {
                     "nativeGdxIwtsthOffersAndRevealsAMuckedBotLikeSwing")),
             Map.entry("blind-increase", Set.of(
                     "realGdxHandsAdvanceBlindsUpdateBothHudProjectionsAndPlayTheGong")),
+            Map.entry("wan-congestion", Set.of(
+                    "tenGdxPlayersCompleteAllHandsUnderContinuousWanCongestion",
+                    "tenGdxPlayersStillConvergeAfterAStalledSettlementLink")),
             Map.entry("zero-trust-consensus", Set.of(
                     "divergentReceiptStopsAsRecoverableFailureWithCompleteEvidence",
                     "missingReceiptStopsAsRecoverableFailureWithCompleteEvidence",

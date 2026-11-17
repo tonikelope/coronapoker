@@ -37,6 +37,12 @@ import org.junit.jupiter.api.io.TempDir;
 class GdxMultiprocessScenarioTest {
 
     private static final int HOT_JOIN_CHURN_CYCLES = 8;
+    static final String CONTINUOUS_WAN_SCENARIO = "wan-continuous-congestion";
+    static final String WAN_SHOWDOWN_STALL = "wan-showdown-stall";
+    // Watchdog for a stalled test. The scenario has no performance target.
+    static Duration wanWatchdog(int hands) {
+        return Duration.ofMinutes(Math.max(15L, 4L * hands));
+    }
 
     private static final Set<String> EXPECTED_MISDEAL_SCENARIOS = Set.of(
             "abrupt-exit", "dual-abrupt-exit", "mixed-exit-crash",
@@ -82,6 +88,19 @@ class GdxMultiprocessScenarioTest {
     void normalSupportingTopologyRunsAsIndependentGdxProcesses(
             @TempDir Path root) throws Exception {
         runCompletingScenario(root, "normal", 1, 2, null);
+    }
+
+    @Test
+    void tenGdxPlayersCompleteAllHandsUnderContinuousWanCongestion(@TempDir Path root)
+            throws Exception {
+        runCompletingScenario(root, CONTINUOUS_WAN_SCENARIO, 9, 0, null,
+                configuredHands("coronapoker.qa.gdx.soakHands", 3));
+    }
+
+    @Test
+    void tenGdxPlayersStillConvergeAfterAStalledSettlementLink(@TempDir Path root)
+            throws Exception {
+        runCompletingScenario(root, WAN_SHOWDOWN_STALL, 9, 0, null, 3);
     }
 
     @Test
@@ -923,7 +942,9 @@ class GdxMultiprocessScenarioTest {
             port = reservation.getLocalPort();
         }
         List<NodeProcess> nodes = new ArrayList<>();
+        List<GdxWanTrafficProxy> wanLinks = new ArrayList<>();
         Set<NodeProcess> killed = new HashSet<>();
+        boolean continuousWan = scenario.startsWith("wan-");
         try {
             NodeProcess host = startNode(root.resolve("host"), "host",
                     "server", port, clients, bots, hands, scenario);
@@ -931,8 +952,14 @@ class GdxMultiprocessScenarioTest {
             assertTrue(host.await("CP_GDX_E2E_READY", Duration.ofSeconds(30)),
                     host.diagnostic());
             for (int index = 1; index <= clients; index++) {
+                int joinPort = port;
+                if (continuousWan) {
+                    var link = new GdxWanTrafficProxy(port, 325, 90, 128 * 1024, index);
+                    wanLinks.add(link);
+                    joinPort = link.port();
+                }
                 NodeProcess client = startNode(root.resolve("client-" + index),
-                        "client", "client" + index, port, clients, bots, hands,
+                        "client", "client" + index, joinPort, clients, bots, hands,
                         scenario);
                 nodes.add(client);
                 assertTrue(client.await("CP_GDX_E2E_READY",
@@ -945,7 +972,11 @@ class GdxMultiprocessScenarioTest {
             host.send("START_GAME");
             assertTrue(host.await("CP_GDX_E2E_GAME_START_REQUESTED",
                     Duration.ofSeconds(20)), host.diagnostic());
-            if (scenario.equals("allin-controlled-exit")
+            if (WAN_SHOWDOWN_STALL.equals(scenario)) {
+                assertTrue(host.await("CP_GDX_E2E_WAN_SHOWDOWN_STARTED", wanWatchdog(hands)),
+                        host.diagnostic());
+                wanLinks.get(0).holdUpstream(Duration.ofMillis(11_400));
+            } else if (scenario.equals("allin-controlled-exit")
                     || scenario.equals("allin-abrupt-exit")) {
                 NodeProcess allInPeer = nodes.get(1);
                 assertTrue(allInPeer.await(
@@ -1244,11 +1275,15 @@ class GdxMultiprocessScenarioTest {
                     continue;
                 }
                 assertTrue(node.await("CP_GDX_E2E_HANDS_COMPLETE",
-                        completionTimeout(hands, clients + bots + 1)),
+                        continuousWan ? wanWatchdog(hands) : completionTimeout(hands, clients + bots + 1)),
                         node.diagnostic());
                 assertEquals(0, node.awaitExit(Duration.ofSeconds(15)),
                         node.diagnostic());
                 completed.add(node);
+            }
+            if (WAN_SHOWDOWN_STALL.equals(scenario)) {
+                assertTrue(wanLinks.get(0).delayedUpstreamFrames() > 0,
+                        "the showdown stall did not delay any client frames");
             }
             assertMatchingConservedLedgers(completed, scenario,
                     clients + bots + 1);
@@ -1310,6 +1345,9 @@ class GdxMultiprocessScenarioTest {
         } finally {
             for (NodeProcess node : nodes) {
                 node.close();
+            }
+            for (GdxWanTrafficProxy link : wanLinks) {
+                link.close();
             }
         }
     }

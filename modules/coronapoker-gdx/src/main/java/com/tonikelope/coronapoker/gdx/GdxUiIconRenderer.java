@@ -27,6 +27,7 @@ final class GdxUiIconRenderer {
         SETTINGS,
         INFO,
         BLOCKED,
+        PADLOCK,
         SHARE
     }
 
@@ -55,6 +56,7 @@ final class GdxUiIconRenderer {
             case SETTINGS -> drawSettings(shapes, centerX, centerY, size);
             case INFO -> drawInfo(shapes, centerX, centerY, size);
             case BLOCKED -> drawBlocked(shapes, centerX, centerY, size);
+            case PADLOCK -> drawPadlock(shapes, centerX, centerY, size, a);
             case SHARE -> drawShare(shapes, centerX, centerY, size);
             default -> { }
         }
@@ -228,6 +230,30 @@ final class GdxUiIconRenderer {
         shapes.circle(cx, cy + size * 0.15f, size * 0.055f, 20);
         roundedRect(shapes, cx - size * 0.055f, cy - size * 0.22f,
                 size * 0.11f, size * 0.27f, size * 0.045f);
+    }
+
+    private static void drawPadlock(ShapeRenderer shapes, float cx, float cy,
+            float size, float alpha) {
+        float shackleY = cy + size * 0.17f;
+        float shackleRadius = size * 0.27f;
+        shapes.arc(cx, shackleY, shackleRadius, 0f, 180f, 20);
+        shapes.rect(cx - shackleRadius, cy, shackleRadius * 2f, shackleY - cy);
+        Color fill = GdxUiDialogStyle.NOTICE_FILL;
+        Color accent = shapes.getColor();
+        float red = accent.r;
+        float green = accent.g;
+        float blue = accent.b;
+        shapes.setColor(fill.r, fill.g, fill.b, alpha);
+        float inner = size * 0.18f;
+        shapes.arc(cx, shackleY, inner, 0f, 180f, 20);
+        shapes.rect(cx - inner, cy, inner * 2f, shackleY - cy);
+        shapes.setColor(red, green, blue, alpha);
+        roundedRect(shapes, cx - size * 0.36f, cy - size * 0.42f,
+                size * 0.72f, size * 0.48f, size * 0.08f);
+        shapes.setColor(fill.r, fill.g, fill.b, alpha);
+        shapes.circle(cx, cy - size * 0.14f, size * 0.075f, 12);
+        shapes.rect(cx - size * 0.035f, cy - size * 0.29f,
+                size * 0.07f, size * 0.15f);
     }
 
     private static void drawBlocked(ShapeRenderer shapes, float cx, float cy,

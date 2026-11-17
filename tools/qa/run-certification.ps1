@@ -39,15 +39,15 @@ Modes:
   balanced   complete         1       20      20        3           1
   stress     complete         5       50      50        10          3
 
-Passes repeat the mapped-test schedule. The four depth values affect only the
-scenario methods that implement those normal table topologies.
+Passes repeat the mapped-test schedule. The soak depth also applies to
+the ten-player scenario under sustained WAN congestion.
 
 Options:
   -Scenario <name>          Run one scenario and all of its mapped tests
   -StartAtScenario <name>   Resume the complete schedule at a scenario
   -StartAtRepeat <1..10>    Repetition used with -StartAtScenario
   -ScenarioRepeats <1..10>  Override the mode repetition count
-  -SoakHands <5..1000>      Override the normal soak length
+  -SoakHands <5..1000>      Override the normal and WAN soak length
   -RandomConditionHands <1..1000>
                             Initial hand budget for chance-gated scenarios
   -IndeterminateRetries <0..10>

@@ -65,6 +65,8 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean gateNextRunItTwiceBoard
             = new AtomicBoolean();
     private final AtomicBoolean gateNextHandResult = new AtomicBoolean();
+    private Runnable firstShowdownCountdown;
+    private boolean sawShowdownResult;
     private final AtomicReference<CompletableFuture<Void>>
             heldPresentation = new AtomicReference<>();
     private final AtomicBoolean sawLocalControls = new AtomicBoolean();
@@ -189,6 +191,10 @@ final class GdxScenarioRenderer implements TableRenderer {
         this.expectedPlayers = expectedPlayers;
         this.productTable = productTable;
         this.lobby = lobby;
+    }
+
+    void onFirstShowdownCountdown(Runnable callback) {
+        firstShowdownCountdown = callback;
     }
 
     void gateActionOnHand(long handId) {
@@ -383,6 +389,14 @@ final class GdxScenarioRenderer implements TableRenderer {
                     "a later event restored PREPARANDO CRUPIER over the live table");
         }
         assertProjectedLabelContract(event, projection);
+        if (firstShowdownCountdown != null) {
+            sawShowdownResult |= event instanceof TableVisualEvent.HandResult;
+            if (sawShowdownResult && event instanceof TableVisualEvent.SharedProgress progress
+                    && progress.mode() == TableVisualEvent.SharedProgress.Mode.COUNTDOWN) {
+                firstShowdownCountdown.run();
+                firstShowdownCountdown = null;
+            }
+        }
         if (event instanceof TableVisualEvent.HandBoundary boundary) {
             if (boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.PREPARE) {

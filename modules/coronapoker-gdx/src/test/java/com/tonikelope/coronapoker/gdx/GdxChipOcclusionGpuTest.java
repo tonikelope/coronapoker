@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GdxChipOcclusionGpuTest {
     private static final int W = 640, H = 400;
     private static final float D = 39f, THICKNESS = GdxTableChipRack.thickness(D);
+    private static final Color PREVIEW_GOLD = new Color(0xffad20ff);
 
     @Test void stackedAndFlyingChipsOnTheProductionRenderer(@TempDir Path dir) {
         var config = new Lwjgl3ApplicationConfiguration();
@@ -136,11 +137,13 @@ class GdxChipOcclusionGpuTest {
         var renderer = new GdxPerspectiveTable(samples);
         var batch = new SpriteBatch();
         Texture red = texture(Color.RED), green = texture(Color.GREEN);
+        Texture yellow = texture(new Color(0xe2a72fff));
         Texture[] faces = {green, red, red, red};
         try {
             renderer.layout(W, H, H * .5f);
             renderer.drawBackdrop(batch, red, false, 64f, W, H, 1f);
             verifyStackPreview(renderer, green);
+            verifyPreviewBrightnessFollowsHud(renderer, yellow);
             byte[] singles = flightGrid(renderer, faces, 1);
             assertArrayEquals(singles, flightGrid(renderer, faces, 63),
                     "Every transform must survive batching across multiple pages of the same denomination");
@@ -164,6 +167,7 @@ class GdxChipOcclusionGpuTest {
             renderer.dispose();
             red.dispose();
             green.dispose();
+            yellow.dispose();
             batch.dispose();
         }
     }
@@ -217,6 +221,35 @@ class GdxChipOcclusionGpuTest {
                 "Clearing hover fades back to the original rack");
     }
 
+    private static void verifyPreviewBrightnessFollowsHud(GdxPerspectiveTable renderer, Texture yellow) {
+        float x = W * .5f, y = H * .5f, diameter = 85f, thickness = 12f;
+        Texture[] faces = {yellow, yellow, yellow, yellow};
+        captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 0f, 1_000_000_000L);
+        long time = 1_200_000_000L;
+        var top = renderer.chipPointToScreen(x, y, 3 * thickness).cpy();
+        var rim = renderer.chipPointToScreen(x, y - diameter / 2f, 2.5f * thickness).cpy();
+        for (boolean danger : new boolean[]{false, true}) {
+            float dimTime = danger ? 0f : (float) (1.5 * Math.PI / 5.2);
+            float brightTime = (float) (.5 * Math.PI / (danger ? 6.4 : 5.2));
+            float trough = CoronaPokerGdxTable.localHudTurnFramePulse(dimTime, danger);
+            float peak = CoronaPokerGdxTable.localHudTurnFramePulse(brightTime, danger);
+            assertEquals(0f, trough, .001f);
+            assertEquals(1f, peak, .001f);
+            byte[] dim = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, trough, time);
+            byte[] bright = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, peak, time);
+            for (var point : List.of(top, rim)) {
+                int index = (Math.round(point.y) * W + Math.round(point.x)) * 4;
+                assertTrue(pixelLuma(bright, index) > pixelLuma(dim, index) + 5f,
+                        "Yellow chips brighten on the HUD peak, including in the timer warning");
+            }
+        }
+    }
+
+    private static float pixelLuma(byte[] frame, int index) {
+        return .2126f * (frame[index] & 255) + .7152f * (frame[index + 1] & 255)
+                + .0722f * (frame[index + 2] & 255);
+    }
+
     private static byte[] captureStackPreview(GdxPerspectiveTable renderer, Texture[] faces,
             float x, float y, float diameter, float thickness, int previewCount, float pulse, long frameNanos) {
         ScreenUtils.clear(Color.BLACK);
@@ -224,7 +257,7 @@ class GdxChipOcclusionGpuTest {
         renderer.beginStandingChipRack(frameNanos);
         renderer.addStandingChipPile(false, 0, 0, 0, 176, x, y, 3, diameter, thickness, 1f,
                 null, previewCount);
-        renderer.drawStandingChipRack(faces, 1f, Color.GOLD, pulse);
+        renderer.drawStandingChipRack(faces, 1f, PREVIEW_GOLD, pulse);
         return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
     }
 

@@ -1141,6 +1141,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Vector2 systemCursorPointer = new Vector2();
     private Cursor.SystemCursor appliedSystemCursor;
     private final Color callCostPulseTint = new Color();
+    private boolean localHudTurnDanger;
+    private float localHudTurnPulse;
     private final GdxTooltipDelay latencyTooltipDelay =
             new GdxTooltipDelay();
     private final GdxTooltipDelay fastAccessTooltipDelay =
@@ -12063,6 +12065,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateSeatPositions(width, height);
         updateLiveShowdownHover(width);
         drawTableBranding(height);
+        localHudTurnDanger = seatTurnDangerActive(seats[0]);
+        localHudTurnPulse = localHudTurnFramePulse(totalTime, localHudTurnDanger);
         // Active-turn and winner backlights belong to the table plane, beneath
         // cards and seat surfaces. Both states therefore share one glow shape.
         drawSeatBackEffects();
@@ -14102,9 +14106,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (presence <= 0f || !isSeatHaloActive(seat)) {
                 continue;
             }
-            boolean danger = seatTurnDangerActive(seat);
-            float pulse = seatHaloPulse(totalTime,
-                    liveAnimationsEnabled());
+            boolean danger = seat.index == 0 ? localHudTurnDanger : seatTurnDangerActive(seat);
+            float pulse = seat.index == 0 ? localHudTurnPulse
+                    : seatHaloPulse(totalTime, liveAnimationsEnabled());
             drawSeatHalo(seat, danger ? FOLD_RED : ACTIVE_TURN_GOLD,
                     seatHaloStrength(pulse) * presence);
         }
@@ -16993,7 +16997,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        float pulse = !pot && stackBetPreviewEnabled ? localCallCostPulse() : 0f;
+        float pulse = !pot && stackBetPreviewEnabled ? localHudTurnPulse : 0f;
         perspectiveTable.drawStandingChipRack(tableChipFaces, alpha, ACTIVE_TURN_GOLD, pulse);
     }
 
@@ -20595,6 +20599,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return wave * wave;
     }
 
+    static float localHudTurnFramePulse(float time, boolean danger) {
+        return danger ? localHudDangerPulse(time) : localHudHaloPulse(time);
+    }
+
     static float seatHaloPulse(float time, boolean animated) {
         return animated ? haloPulse(time, SEAT_HALO_ANGULAR_SPEED)
                 : 0.5f;
@@ -22532,10 +22540,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 checkEnabled);
         float betContentAlpha = betEnabled ? 1f : 0.34f;
         float allInContentAlpha = allInEnabled ? 1f : 0.34f;
-        boolean danger = localHudDangerActive(localTurn,
-                liveState.turnTimerVisible(), liveState.snapshot().paused(),
-                sharedTurnRemaining());
-        float dangerPulse = danger ? localHudDangerPulse(totalTime) : 0f;
+        boolean danger = localHudTurnDanger;
+        float dangerPulse = danger ? localHudTurnPulse : 0f;
         float haloPulse = localHudHaloPulse(totalTime);
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -22558,7 +22564,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : localShownHand || localMonteCarlo ? 0.90f
                 : settledShowdown ? 0.78f + haloPulse * 0.18f
                 : danger ? 0.62f + dangerPulse * 0.38f
-                        : localTurn ? 0.72f + haloPulse * 0.26f
+                        : localTurn ? 0.72f + localHudTurnPulse * 0.26f
                         : localHudIdleFrameAlpha();
         shapes.setColor(
                 MathUtils.lerp(hudFrame.r, 1f, idleFrameLighten),

@@ -172,9 +172,14 @@ final class GdxPerspectiveTable implements Disposable {
                     float sheen = 0.055 * pow(max(0.0, dot(n, normalize(lightDir + eye))), 36.0);
                     vec3 colour = ink.rgb * light + sheen;
                     if (u_chipPreviewTint.a > 0.0) {
-                        float luminance = dot(ink.rgb, vec3(0.2126, 0.7152, 0.0722));
-                        vec3 gold = u_chipPreviewTint.rgb * (0.55 + 0.45 * luminance);
-                        colour = mix(colour, gold * (0.65 + 0.35 * light) + sheen, u_chipPreviewTint.a);
+                        vec3 luma = vec3(0.2126, 0.7152, 0.0722);
+                        float luminance = dot(ink.rgb, luma);
+                        vec3 gold = u_chipPreviewTint.rgb * (0.55 + 0.45 * luminance)
+                                * (0.65 + 0.35 * light) + sheen;
+                        float goldLight = dot(gold, luma);
+                        float peakLight = mix(dot(min(colour, vec3(1.0)), luma), 1.0, 0.17);
+                        float lift = clamp((peakLight - goldLight) / max(1.0 - goldLight, 0.001), 0.0, 1.0);
+                        colour = mix(colour, mix(gold, vec3(1.0), lift), u_chipPreviewTint.a);
                     }
                     gl_FragColor = vec4(colour, u_opacity * (u_material == 8 ? v_light : 1.0));
                     return;

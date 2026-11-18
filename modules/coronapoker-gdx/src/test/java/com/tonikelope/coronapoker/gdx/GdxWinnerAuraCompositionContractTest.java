@@ -135,7 +135,11 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(localHud.contains("settledShowdownColor("));
         assertTrue(seats.contains("settledShowdownColor("));
         assertTrue(localHud.contains("0.78f + haloPulse"));
-        assertTrue(localHud.contains("0.72f + haloPulse"));
+        assertTrue(localHud.contains("0.72f + localHudTurnPulse"));
+        assertTrue(localHud.contains("float dangerPulse = danger ? localHudTurnPulse : 0f"));
+        assertTrue(active.contains("seat.index == 0 ? localHudTurnPulse"));
+        assertTrue(table.contains("stackBetPreviewEnabled ? localHudTurnPulse : 0f"));
+        assertTrue(table.contains("localHudTurnPulse = localHudTurnFramePulse(totalTime, localHudTurnDanger)"));
         assertTrue(localHud.contains("0.58f + haloPulse * 0.06f"));
         assertFalse(seats.contains("shapes.circle(avatarX"),
                 "avatar discs must not fall back to hard polygon edges");
@@ -149,7 +153,7 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(table.contains(
                 "private static final float AVATAR_OUTER_RADIUS = 52f;"),
                 "thinning the ring must not move or shrink the seat footprint");
-        assertTrue(callCost.contains("isActionableTurn(snapshot"));
+        assertTrue(callCost.contains("localCallCostPulse()"));
         assertTrue(callCost.contains("callCostBorderTint("));
         assertFalse(callCost.contains("liveAnimationsEnabled()"));
     }

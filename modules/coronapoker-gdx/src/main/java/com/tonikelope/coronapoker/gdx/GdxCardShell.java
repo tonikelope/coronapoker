@@ -124,7 +124,7 @@ final class GdxCardShell implements Disposable {
             gl.glCullFace(GL20.GL_BACK);
             // Resolve the geometry of each opacity group before blending it
             // with the table and any cards already drawn beneath it.
-            if (pickTarget != null) pickTarget.triangles.clear();
+            if (pickTarget != null) pickTarget.clear();
             for (int side = 0; side < 2; side++) {
                 vertices.clear();
                 for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {

@@ -1578,10 +1578,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxPerspectiveTable perspectiveTable;
     private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
     private boolean perspectiveActive;
+    private static final float POCKET_PEEK_DRAG_DISTANCE = 96f;
     private final Rectangle pocketPeekButton = new Rectangle();
     private final GdxPointerHold pocketPeekPointer = new GdxPointerHold();
     private boolean pocketPeekInputThisFrame;
     private boolean mousePeekHeld;
+    private float pocketPeekDragStartY;
+    private float pocketPeekDragStartAmount;
+    private float pocketPeekDragAmount = Float.NaN;
     private boolean pocketPeekEnabled;
     private boolean pocketPeekNeedsRelease;
     private boolean perspectiveBoardArtwork;
@@ -2208,13 +2212,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (uiLayerAllowsTablePointer() && pocketPeekEnabled && finalSummary == null) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
-                if (pocketPeekSurfaceContains(pointer.x, pointer.y)
-                        && !gameLogPanelContains(pointer.x, pointer.y)) {
+                boolean peekButton = pocketPeekSurfaceContains(pointer.x, pointer.y);
+                boolean drag = !peekButton && button == Input.Buttons.LEFT
+                        && pocketPeekDragContains(pointer.x, pointer.y);
+                if ((peekButton || drag) && !gameLogPanelContains(pointer.x, pointer.y)) {
                     pocketPeekPointer.capture(pointerIndex, button);
                     pocketPeekInputThisFrame = true;
                     feltClickCandidate = false;
                     previousFeltClickNanos = 0L;
-                    mousePeekHeld = button == Input.Buttons.LEFT && canPeekPerspectivePocket();
+                    if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+                    mousePeekHeld = peekButton && button == Input.Buttons.LEFT && canPeekPerspectivePocket();
+                    if (drag) {
+                        pocketPeekDragStartY = pointer.y;
+                        pocketPeekDragStartAmount = pocketPeekDragAmount = perspectiveTable.peekAmount();
+                    }
                     return true;
                 }
             }
@@ -2337,7 +2348,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
-            if (pocketPeekPointer.active()) return true;
+            if (pocketPeekPointer.active()) {
+                if (pocketPeekPointer.owns(pointerIndex, Input.Buttons.LEFT)
+                        && !Float.isNaN(pocketPeekDragAmount)) {
+                    pointer.set(screenX, screenY);
+                    viewport.unproject(pointer);
+                    pocketPeekDragAmount = MathUtils.clamp(pocketPeekDragStartAmount
+                            + (pointer.y - pocketPeekDragStartY) / POCKET_PEEK_DRAG_DISTANCE, 0f, 1f);
+                }
+                return true;
+            }
             if (tableRulesVisible() || tableGalleryInteractive()) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
@@ -2581,7 +2601,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             pointer.set(screenX, screenY);
             viewport.unproject(pointer);
             if (uiLayerAllowsTablePointer()
-                    && pocketPeekSurfaceContains(pointer.x, pointer.y)) {
+                    && (pocketPeekSurfaceContains(pointer.x, pointer.y)
+                        || pocketPeekDragContains(pointer.x, pointer.y))) {
                 return true;
             }
             return blockingTablePointerSurface();
@@ -7800,7 +7821,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean liveCardContains(float x, float y) {
-        return liveCardAt(x, y) != null;
+        return liveCardAt(x, y, false) != null;
     }
 
     private String iwtsthCandidateAt(float x, float y) {
@@ -7835,7 +7856,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return null;
     }
 
-    private ViewedCard liveCardAt(float x, float y) {
+    private ViewedCard liveCardAt(float x, float y, boolean forViewer) {
         for (TableSnapshot.PlayerSnapshot player
                 : liveState.snapshot().players()) {
             Seat seat = seatByNickname(player.nickname());
@@ -7846,11 +7867,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (slot >= 0 && slot < presented.size()
                         && restingHoleCardOwnsPointer(presented.get(slot),
                                 hasActiveHolePresentation(player.nickname()))) {
-                    // A private code in the authoritative snapshot is not a
-                    // publicly exposed texture. Right-click needs the surface,
-                    // not permission to disclose the complete private face.
-                    return liveState.hasPublicHoleCards(player.nickname())
-                            ? viewedCard(presented.get(slot)) : new ViewedCard(activeCardBack(), false);
+                    TableSnapshot.CardSnapshot card = presented.get(slot);
+                    boolean faceExposed = liveState.hasPublicHoleCards(player.nickname())
+                            && !pocketOrder.busy() && card.faceUp() && !card.code().isBlank();
+                    if (forViewer && !faceExposed) return null;
+                    // The card back still owns non-viewer gestures.
+                    return faceExposed ? viewedCard(card) : new ViewedCard(activeCardBack(), false);
                 }
                 continue;
             }
@@ -9918,7 +9940,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport.getWorldWidth())) {
             return;
         }
-        ViewedCard viewedCard = liveCardAt(pointer.x, pointer.y);
+        ViewedCard viewedCard = liveCardAt(pointer.x, pointer.y, true);
         if (viewedCard != null) {
             openCardViewer(viewedCard);
         }
@@ -15151,9 +15173,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && pocketPeekButton.width > 0f && pocketPeekButton.contains(x, y);
     }
 
+    private boolean pocketPeekDragContains(float x, float y) {
+        return preparationPhase == TableVisualEvent.PreparationStatus.Phase.READY
+                && pocketPeekEnabled && perspectiveActive && canPeekPerspectivePocket()
+                && perspectiveTable.pocketLowerEdgeAt(x, y)
+                && !tableChromeOccludesCards(x, y, viewport.getWorldWidth());
+    }
+
+    private void stopPocketPeekInput() {
+        mousePeekHeld = false;
+        pocketPeekDragAmount = Float.NaN;
+    }
+
     private boolean releasePocketPeekPointer(int pointerIndex, int button) {
         if (!pocketPeekPointer.release(pointerIndex, button)) return false;
-        mousePeekHeld = false;
+        stopPocketPeekInput();
         pocketPeekInputThisFrame = true;
         if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
         return true;
@@ -15162,7 +15196,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawPocketPeekButton(float width, float height) {
         if (!perspectiveActive || !pocketPeekEnabled) {
             pocketPeekButton.set(0f, 0f, 0f, 0f);
-            mousePeekHeld = false;
+            stopPocketPeekInput();
             return;
         }
         pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
@@ -15170,7 +15204,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(pocketPeekRequested() ? ORANGE : CYAN);
+        shapes.setColor(pocketPeekRequested() || pocketPeekDragAmount > 0f ? ORANGE : CYAN);
         roundedRect(r.x, r.y, r.width, r.height, 12f);
         shapes.setColor(0.08f, 0.11f, 0.15f, 1f);
         roundedRect(r.x + 2f, r.y + 2f, r.width - 4f, r.height - 4f, 10f);
@@ -15196,7 +15230,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Seat seat = seats[0];
         TableSnapshot.PlayerSnapshot player = livePlayer(seat);
         if (!usesPerspectivePocket(player)) {
-            pocketPeekEnabled = mousePeekHeld = false;
+            pocketPeekEnabled = false;
+            stopPocketPeekInput();
             perspectiveTable.coverCards();
             return;
         }
@@ -15217,12 +15252,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
         pocketPeekEnabled = canPeek && liveState.presentedHoleCards(nickname).stream()
                 .anyMatch(card -> card.visible() && !card.code().isBlank());
-        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) mousePeekHeld = false;
-        if (canPeek) {
-            perspectiveTable.updatePeek(pocketPeekRequested(), Gdx.graphics.getDeltaTime());
-        } else {
-            mousePeekHeld = false;
+        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+            releasePocketPeekPointer(0, Input.Buttons.LEFT);
+            stopPocketPeekInput();
+        }
+        if (!canPeek) {
+            stopPocketPeekInput();
             perspectiveTable.coverCards();
+        } else if (!Float.isNaN(pocketPeekDragAmount)) {
+            perspectiveTable.dragPeek(pocketPeekDragAmount);
+        } else {
+            perspectiveTable.updatePeek(pocketPeekRequested(), Gdx.graphics.getDeltaTime());
         }
         Texture back = activeCardBack();
         LiveHoleFold fold = liveHoleFold != null
@@ -23474,6 +23514,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     Gdx.input.getX(), Gdx.input.getY());
             desired = mediaFrontend.pokerVideoOverlay().systemCursor(
                     position.x, position.y);
+        }
+        if (desired == Cursor.SystemCursor.Arrow && !tableMediaOwnsHover()
+                && ((!Float.isNaN(pocketPeekDragAmount) && canPeekPerspectivePocket())
+                    || pocketPeekDragContains(systemCursorPointer.x, systemCursorPointer.y))) {
+            desired = Cursor.SystemCursor.Hand;
         }
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);

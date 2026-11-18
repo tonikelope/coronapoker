@@ -6,6 +6,10 @@ export const docs = `${repo}/blob/master`;
 export const author = 'https://github.com/tonikelope';
 export const mentalPokerPaper = 'https://people.csail.mit.edu/rivest/pubs/SRA81.pdf';
 export const coronaPokerPaper = 'https://doi.org/10.5281/zenodo.24279299';
+export const zeroKnowledgePaper = {
+  url: 'https://link.springer.com/content/pdf/10.1007/0-387-34805-0_60.pdf',
+  title: 'How to Explain Zero-Knowledge Protocols to Your Children',
+};
 export const shufflePapers = {
   bayerGroth: {
     url: 'https://link.springer.com/chapter/10.1007/978-3-642-29011-4_17',
@@ -68,9 +72,11 @@ export const copy = {
     capture: 'In-game screenshot',
     mental: {
       title: 'Encrypt, shuffle and verify the hand.',
-      intro: [
-        'When the host prepares the deck alone, they can know every card in advance. CoronaPoker prevents this with a protocol based on the original idea of Mental Poker. On their turn, each human player, including the host, encrypts the deck with their own key, then shuffles it and sends it on to the next player. When the shuffled, encrypted deck comes back to the host, the host cannot see anyone else’s private cards or learn the community cards ahead of time. With modern cryptographic techniques such as zero-knowledge proofs, everyone can verify that the deck still contains the original 52 cards without revealing them. At the end, players compare signed receipts to check that they played the same hand.',
-      ],
+      intro: {
+        beforeProof: 'When the host prepares the deck alone, they can know every card in advance. CoronaPoker prevents this with a protocol based on the original idea of Mental Poker. On their turn, each human player, including the host, encrypts the deck with their own key, then shuffles it and sends it on to the next player. When the shuffled, encrypted deck comes back to the host, the host cannot see anyone else’s private cards or learn the community cards ahead of time. With modern cryptographic techniques such as ',
+        proof: 'zero-knowledge proofs',
+        afterProof: ', everyone can verify that the deck still contains the original 52 cards without revealing them. At the end, players compare signed receipts to check that they played the same hand.',
+      },
       walkthrough: 'Mental Poker in CoronaPoker',
       example: 'Illustration with three players',
       names: ['Alice', 'Bob', 'You'],
@@ -350,9 +356,11 @@ export const copy = {
     capture: 'Captura del juego',
     mental: {
       title: 'Cifrar, barajar y verificar la mano.',
-      intro: [
-        'Cuando el anfitrión prepara el mazo por su cuenta, puede conocer todas las cartas de antemano. CoronaPoker bloquea esto mediante un protocolo basado en la idea original de Mental Poker. En su turno, cada jugador humano, incluido el anfitrión, cifra el mazo con su propia clave, después lo baraja y lo envía al siguiente jugador. Así, cuando el anfitrión recibe el mazo barajado y cifrado de vuelta, no puede ver las cartas privadas ajenas ni anticipar las comunitarias. Gracias a técnicas criptográficas más modernas, como las pruebas de conocimiento cero, todos pueden verificar que el mazo conserva las 52 cartas originales sin destaparlas. Al final, comparan recibos firmados para comprobar que jugaron la misma mano.',
-      ],
+      intro: {
+        beforeProof: 'Cuando el anfitrión prepara el mazo por su cuenta, puede conocer todas las cartas de antemano. CoronaPoker bloquea esto mediante un protocolo basado en la idea original de Mental Poker. En su turno, cada jugador humano, incluido el anfitrión, cifra el mazo con su propia clave, después lo baraja y lo envía al siguiente jugador. Así, cuando el anfitrión recibe el mazo barajado y cifrado de vuelta, no puede ver las cartas privadas ajenas ni anticipar las comunitarias. Gracias a técnicas criptográficas más modernas, como las ',
+        proof: 'pruebas de conocimiento cero',
+        afterProof: ', todos pueden verificar que el mazo conserva las 52 cartas originales sin destaparlas. Al final, comparan recibos firmados para comprobar que jugaron la misma mano.',
+      },
       walkthrough: 'Mental Poker en CoronaPoker',
       example: 'Ejemplo con tres jugadores',
       names: ['Alice', 'Bob', 'Tú'],

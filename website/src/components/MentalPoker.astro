@@ -1,5 +1,5 @@
 ---
-import { coronaPokerPaper, docs, mentalPokerPaper, shufflePapers, type copy, type Locale } from '../content';
+import { coronaPokerPaper, docs, mentalPokerPaper, shufflePapers, zeroKnowledgePaper, type copy, type Locale } from '../content';
 import ReceiptDemo from './ReceiptDemo.astro';
 import ShuffleProofDemo from './ShuffleProofDemo.astro';
 
@@ -9,7 +9,7 @@ interface Props {
 
 const { text } = Astro.props;
 const numbers = text.steps.map((_, index) => String(index + 1).padStart(2, '0'));
-const { deal, shuffle, verification, receipts } = text;
+const { deal, intro, shuffle, verification, receipts } = text;
 const hand = [['A', '♠'], ['Q', '♠']];
 const streets = [
   [['J', '♦'], ['9', '♣'], ['7', '♦']],
@@ -30,7 +30,7 @@ const boardRoute = [
       <h2 id="mental-title">{text.title}</h2>
     </div>
     <div class="body-copy">
-      {text.intro.map(paragraph => <p>{paragraph}</p>)}
+      <p>{intro.beforeProof}<a class="proof-reference" href={zeroKnowledgePaper.url} title={zeroKnowledgePaper.title} target="_blank" rel="noopener">{intro.proof}</a>{intro.afterProof}</p>
     </div>
   </div>
 

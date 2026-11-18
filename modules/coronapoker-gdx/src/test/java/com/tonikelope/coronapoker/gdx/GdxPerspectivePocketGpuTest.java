@@ -161,19 +161,20 @@ final class GdxPerspectivePocketGpuTest {
             table.render();
             assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
             byte[] hovered = ScreenUtils.getFrameBufferPixels(true);
-            int[] cyanPixels = outlinePixels(renderer, viewport, idle, hovered, true);
-            assertTrue(cyanPixels[0] > 35 && cyanPixels[1] > 35,
-                    "A cyan rim must appear on each covered card: " + java.util.Arrays.toString(cyanPixels));
+            Point secondCenter = secondCard.get(secondCard.size() / 2);
+            assertEquals(pixelRgb(idle, center), pixelRgb(hovered, center));
+            assertEquals(pixelRgb(idle, secondCenter), pixelRgb(hovered, secondCenter));
+            assertExteriorOutline(renderer, viewport, idle, hovered, true);
 
             mouse.down = true;
             assertTrue(processor.touchDown(dragOrigin.x, dragOrigin.y, 0, Input.Buttons.LEFT));
             table.render();
             assertEquals(0f, renderer.peekAmount());
             assertEquals(true, field(table, "pocketDragCursorApplied"));
-            int[] orangePixels = outlinePixels(renderer, viewport, hovered,
-                    ScreenUtils.getFrameBufferPixels(true), false);
-            assertTrue(orangePixels[0] > 35 && orangePixels[1] > 35,
-                    "Both rims must turn orange before motion: " + java.util.Arrays.toString(orangePixels));
+            byte[] held = ScreenUtils.getFrameBufferPixels(true);
+            assertEquals(pixelRgb(idle, center), pixelRgb(held, center));
+            assertEquals(pixelRgb(idle, secondCenter), pixelRgb(held, secondCenter));
+            assertExteriorOutline(renderer, viewport, idle, held, false);
             assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 12, 0));
             table.render();
             assertEquals(.25f, renderer.peekAmount(), .002f);
@@ -237,11 +238,22 @@ final class GdxPerspectivePocketGpuTest {
         }
     }
 
-    private static int[] outlinePixels(GdxPerspectiveTable table, Viewport viewport,
+    private static int pixelRgb(byte[] frame, Point point) {
+        int width = Gdx.graphics.getBackBufferWidth();
+        int height = Gdx.graphics.getBackBufferHeight();
+        int offset = ((point.y * height / HEIGHT) * width + point.x * width / WIDTH) * 4;
+        return (Byte.toUnsignedInt(frame[offset]) << 16)
+                | (Byte.toUnsignedInt(frame[offset + 1]) << 8)
+                | Byte.toUnsignedInt(frame[offset + 2]);
+    }
+
+    private static void assertExteriorOutline(GdxPerspectiveTable table, Viewport viewport,
             byte[] before, byte[] after, boolean cyan) {
         int height = Gdx.graphics.getBackBufferHeight();
         int width = Gdx.graphics.getBackBufferWidth();
         var world = new Vector2();
+        int[][] neighbours = {{1, 0}, {-1, 0}, {0, 1}, {0, -1},
+                {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
         int[] pixels = new int[2];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -250,18 +262,28 @@ final class GdxPerspectivePocketGpuTest {
                 int green = Byte.toUnsignedInt(after[offset + 1]);
                 int blue = Byte.toUnsignedInt(after[offset + 2]);
                 boolean tinted = cyan
-                        ? blue - red > 95 && green - red > 75
-                                && (Byte.toUnsignedInt(before[offset]) - red > 65
-                                        || blue - Byte.toUnsignedInt(before[offset + 2]) > 65)
-                        : red - blue > 110 && red - green > 75
-                                && red - Byte.toUnsignedInt(before[offset]) > 65;
+                        ? blue - red > 65 && green - red > 50
+                                && blue - Byte.toUnsignedInt(before[offset + 2]) > 55
+                        : red - blue > 65 && red - green > 45
+                                && red - Byte.toUnsignedInt(before[offset]) > 55;
                 if (!tinted) continue;
                 viewport.unproject(world.set((x + 0.5f) * WIDTH / width, (y + 0.5f) * HEIGHT / height));
                 int slot = table.pocketSlotAt(world.x, world.y);
-                if (slot >= 0) pixels[slot]++;
+                if (slot >= 0) continue;
+                for (int[] shift : neighbours) {
+                    viewport.unproject(world.set((x + 0.5f + shift[0]) * WIDTH / width,
+                            (y + 0.5f + shift[1]) * HEIGHT / height));
+                    slot = table.pocketSlotAt(world.x, world.y);
+                    if (slot >= 0) {
+                        pixels[slot]++;
+                        break;
+                    }
+                }
             }
         }
-        return pixels;
+        assertTrue(pixels[0] > 25 && pixels[1] > 25,
+                (cyan ? "Cyan" : "Orange") + " pixels outside each card: "
+                        + java.util.Arrays.toString(pixels));
     }
 
     private static Object field(Object object, String name) throws ReflectiveOperationException {

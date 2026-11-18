@@ -186,9 +186,16 @@ final class GdxPerspectiveTable implements Disposable {
                     return;
                 }
                 if (u_material == 5) {
-                    vec3 edge = vec3(0.91, 0.90, 0.88) * v_light;
-                    edge = mix(edge, u_pocketOutline.rgb, u_pocketOutline.a);
-                    gl_FragColor = vec4(edge, u_opacity);
+                    gl_FragColor = vec4(vec3(0.91, 0.90, 0.88) * v_light, u_opacity);
+                    return;
+                }
+                if (u_material == 10) {
+                    float distance = cardDistance((v_uv - 0.5) * 1.065 + 0.5);
+                    float aa = max(0.5 * length(vec2(dFdx(distance), dFdy(distance))), 0.0001);
+                    float thickness = 0.015;
+                    float coverage = 1.0 - smoothstep(thickness - aa, thickness + aa, distance);
+                    if (distance < -aa || coverage <= 0.001) discard;
+                    gl_FragColor = vec4(u_pocketOutline.rgb, coverage * u_pocketOutline.a * u_opacity);
                     return;
                 }
                 if (u_material == 3) {
@@ -212,14 +219,6 @@ final class GdxPerspectiveTable implements Disposable {
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
                     vec3 litInk = ink.rgb * light + vec3(coat);
                     vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), u_showdownTint);
-                    if (u_pocketOutline.a > 0.0) {
-                        float distance = cardDistance(uv);
-                        float aa = max(0.5 * fwidth(distance), 0.0001);
-                        float line = smoothstep(-0.045 - aa, -0.045 + aa, distance);
-                        float glow = 0.25 * smoothstep(-0.072, -0.045, distance);
-                        printed = mix(printed, u_pocketOutline.rgb,
-                                max(line, glow) * u_pocketOutline.a);
-                    }
                     gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
                 }
@@ -1647,7 +1646,7 @@ final class GdxPerspectiveTable implements Disposable {
         target.pickTarget = pickTarget;
         try {
             target.render(shader, vertices, columns, rows, material, top, bottom,
-                    cardWidth, aspect, width, height);
+                    cardWidth, aspect, width, height, outline != null);
         } finally {
             target.pickTarget = null;
         }
@@ -1669,7 +1668,6 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformi("u_cardSide", 0);
         shader.setUniformf("u_showdownTint", 0f);
         shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
-        shader.setUniformf("u_pocketOutline", 0f, 0f, 0f, 0f);
         shader.setUniformf("u_opacity", opacity);
         shader.setUniformf("u_artworkSmooth", smoothArtwork ? 1f : 0f);
     }

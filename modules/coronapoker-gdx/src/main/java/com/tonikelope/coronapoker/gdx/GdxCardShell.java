@@ -107,7 +107,8 @@ final class GdxCardShell implements Disposable {
     }
 
     void render(ShaderProgram shader, FloatArray source, int cols, int strips,
-            int material, Texture top, Texture bottom, float cardWidth, float aspect, float worldWidth, float worldHeight) {
+            int material, Texture top, Texture bottom, float cardWidth, float aspect,
+            float worldWidth, float worldHeight, boolean exteriorOutline) {
         columns = cols;
         rows = strips;
         halfThickness = GdxPlasticCard.thickness(cardWidth) * 0.5f;
@@ -120,6 +121,7 @@ final class GdxCardShell implements Disposable {
             bottom.bind(1);
             top.bind(0);
             shader.bind();
+            if (exteriorOutline) drawExteriorOutline(shader, source, material);
             gl.glEnable(GL20.GL_CULL_FACE);
             gl.glCullFace(GL20.GL_BACK);
             // Resolve the geometry of each opacity group before blending it
@@ -151,6 +153,24 @@ final class GdxCardShell implements Disposable {
             shader.setUniformi("u_material", material);
             shader.setUniformi("u_cardSide", 0);
         }, worldWidth, worldHeight);
+    }
+
+    private void drawExteriorOutline(ShaderProgram shader, FloatArray source, int material) {
+        // The padded bending grid extends past the printed contour. Draw the
+        // band midway between the faces so the shell masks its inner edge
+        // and a nearer card still occludes the outline of the one beneath it.
+        Gdx.gl.glDisable(GL20.GL_CULL_FACE);
+        vertices.clear();
+        vertices.ensureCapacity(source.size / 6 * 9);
+        for (int i = 0; i < source.size; i += 6) {
+            vertices.add(source.items[i], source.items[i + 1] - halfThickness,
+                    source.items[i + 2], source.items[i + 3]);
+            vertices.add(source.items[i + 4], 1f);
+            vertices.add(0f, 1f, 0f);
+        }
+        shader.setUniformi("u_material", 10);
+        draw(shader);
+        shader.setUniformi("u_material", material);
     }
 
     void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight) {

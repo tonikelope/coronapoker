@@ -737,9 +737,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(20, page.options().size());
+        assertEquals(21, page.options().size());
         assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -766,10 +766,27 @@ final class GdxSettingsContractTest {
                 "animacion_contador_final",
                 "animacion_fuego_allin",
                 "animacion_efecto_ganador",
-                "animacion_apuestas"),
+                "animacion_apuestas",
+                GdxSettingsContract.STACK_BET_PREVIEW_KEY),
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+    }
+
+    @Test
+    void stackBetPreviewDefaultsOnAndRequires3dAndAnimations() {
+        String key = GdxSettingsContract.STACK_BET_PREVIEW_KEY;
+        var option = GdxSettingsContract.APPEARANCE_PAGES.get(0).options()
+                .stream().filter(row -> key.equals(row.key())).findFirst().orElseThrow();
+        Properties values = new Properties();
+        assertTrue(option.fallback());
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key));
+        values.setProperty("gdx_table_view", "2d");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty("gdx_table_view", "3d");
+        assertTrue(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty("animaciones", "false");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
     }
 
     @Test

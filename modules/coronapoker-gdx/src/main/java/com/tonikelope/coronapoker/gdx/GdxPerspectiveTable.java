@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Mesh;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
@@ -112,6 +113,7 @@ final class GdxPerspectiveTable implements Disposable {
             uniform int u_material;
             uniform int u_cardSide;
             uniform float u_showdownTint;
+            uniform vec4 u_chipPreviewTint;
             uniform vec2 u_repeat;
             uniform float u_opacity;
             uniform float u_aspect;
@@ -167,8 +169,13 @@ final class GdxPerspectiveTable implements Disposable {
                     float light = 0.58 + 0.42 * max(0.0, dot(n, lightDir));
                     vec3 eye = normalize(u_eye - v_position);
                     float sheen = 0.055 * pow(max(0.0, dot(n, normalize(lightDir + eye))), 36.0);
-                    gl_FragColor = vec4(ink.rgb * light + sheen,
-                            u_opacity * (u_material == 8 ? v_light : 1.0));
+                    vec3 colour = ink.rgb * light + sheen;
+                    if (u_chipPreviewTint.a > 0.0) {
+                        float luminance = dot(ink.rgb, vec3(0.2126, 0.7152, 0.0722));
+                        vec3 gold = u_chipPreviewTint.rgb * (0.55 + 0.45 * luminance);
+                        colour = mix(colour, gold * (0.65 + 0.35 * light) + sheen, u_chipPreviewTint.a);
+                    }
+                    gl_FragColor = vec4(colour, u_opacity * (u_material == 8 ? v_light : 1.0));
                     return;
                 }
                 if (u_material == 5) {
@@ -898,7 +905,7 @@ final class GdxPerspectiveTable implements Disposable {
 
     void addStandingChipPile(boolean pot, int slot, int pileIndex, int column,
             int seed, float x, float y, int count, float diameter, float thickness,
-            float depthSway, GdxTableChipRack.Impact impact) {
+            float depthSway, GdxTableChipRack.Impact impact, int previewCount) {
         StandingChipPile[] piles = pot ? potPiles : localPiles;
         StandingChipPile pile = piles[slot];
         if (pile == null) {
@@ -921,8 +928,10 @@ final class GdxPerspectiveTable implements Disposable {
                 float rotation = CoronaPokerGdxTable.tableChipRotation(seed, column, pileIndex, level);
                 float dx = impact == null ? 0f : impact.offsetX(level, diameter);
                 float dy = impact == null ? 0f : impact.offsetY(level, diameter) * depthSway;
+                int start = geometry.size;
                 addTableChip(color, x + offset + dx, y + dy, diameter,
                         level * thickness, thickness, rotation, level == 0);
+                pile.verticesPerTopChip = (geometry.size - start) / 9;
             }
             pile.mesh = GdxCardShell.uploadSolid(pile.mesh, geometry);
             pile.min.set(cardBoundsMin);
@@ -938,12 +947,13 @@ final class GdxPerspectiveTable implements Disposable {
             pile.diameter = diameter;
             pile.moving = moving;
         }
+        pile.previewCount = previewCount;
         pile.drawnFrame = chipFrame;
         visiblePiles[visiblePileCount++] = pile;
         standingChipBounds.ext(pile.min).ext(pile.max);
     }
 
-    void drawStandingChipRack(Texture[] faces, float opacity) {
+    void drawStandingChipRack(Texture[] faces, float opacity, Color previewColor, float pulse) {
         if (visiblePileCount == 0) return;
         cardBoundsMin.set(standingChipBounds.min);
         cardBoundsMax.set(standingChipBounds.max);
@@ -958,7 +968,21 @@ final class GdxPerspectiveTable implements Disposable {
                     int column = GdxChipDenominations.columnForColor(color);
                     for (int p = 0; p < visiblePileCount; p++) {
                         StandingChipPile pile = visiblePiles[p];
-                        if (pile.column == column) pile.mesh.render(shader, GL20.GL_TRIANGLES);
+                        if (pile.column != column) continue;
+                        if (pile.previewCount == 0 || pulse <= 0f) {
+                            pile.mesh.render(shader, GL20.GL_TRIANGLES);
+                            continue;
+                        }
+                        // Only draw the selected top chips with the tint. The
+                        // two ranges share depth and the original cached mesh.
+                        int total = pile.mesh.getNumVertices();
+                        int first = pile.previewCount == pile.count
+                                ? 0 : total - pile.previewCount * pile.verticesPerTopChip;
+                        if (first > 0) pile.mesh.render(shader, GL20.GL_TRIANGLES, 0, first);
+                        shader.setUniformf("u_chipPreviewTint", previewColor.r, previewColor.g,
+                                previewColor.b, pulse * .88f);
+                        pile.mesh.render(shader, GL20.GL_TRIANGLES, first, total - first);
+                        shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
                     }
                 }
             }, width, height);
@@ -972,6 +996,7 @@ final class GdxPerspectiveTable implements Disposable {
         private Mesh mesh;
         private final Vector3 min = new Vector3(), max = new Vector3();
         private int count, column, index, seed;
+        private int verticesPerTopChip, previewCount;
         private float x, y, tableWidth, boardY, diameter;
         private boolean moving;
     }
@@ -1529,6 +1554,7 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformi("u_material", material);
         shader.setUniformi("u_cardSide", 0);
         shader.setUniformf("u_showdownTint", 0f);
+        shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
         shader.setUniformf("u_opacity", opacity);
         shader.setUniformf("u_artworkSmooth", smoothArtwork ? 1f : 0f);
     }

@@ -43,6 +43,7 @@ final class GdxSettingsContract {
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
     static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
     static final String COLLECT_HAND_CARDS_KEY = "animacion_recoger_cartas";
+    static final String STACK_BET_PREVIEW_KEY = "gdx_stack_bet_preview";
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
@@ -437,6 +438,8 @@ final class GdxSettingsContract {
             option("animacion_efecto_ganador", "EFECTO DE GANADOR", true,
                     Gate.ANIMATIONS),
             option("animacion_apuestas", "FICHAS VOLADORAS", true,
+                    Gate.ANIMATIONS),
+            option(STACK_BET_PREVIEW_KEY, "PREVISUALIZACIÓN DE FICHAS (3D)", true,
                     Gate.ANIMATIONS));
 
     private static final List<Integer> VOICE_RETENTION_DAYS = List.of(
@@ -638,7 +641,8 @@ final class GdxSettingsContract {
                     animationToggle("animacion_contador_final"),
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
-                    animationToggle("animacion_apuestas"));
+                    animationToggle("animacion_apuestas"),
+                    animationToggle(STACK_BET_PREVIEW_KEY));
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -697,7 +701,7 @@ final class GdxSettingsContract {
             "animacion_barajado", "animacion_barajado_precarga",
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
-            "animacion_apuestas",
+            "animacion_apuestas", STACK_BET_PREVIEW_KEY,
             "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
             "animacion_swap",
@@ -754,7 +758,7 @@ final class GdxSettingsContract {
             case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
                     "animacion_ciegas_dealer", "animacion_contadores",
                     "animacion_entrada_asientos", "animacion_swap",
-                    FINAL_SUMMARY_CARDS_ANIMATION_KEY,
+                    FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,
                     "animacion_contador_final", "animacion_downgrade" ->
                 PerformanceImpact.LOW;
             case "gdx_msaa_samples" -> switch (integer(values, key, 4)) {
@@ -1614,6 +1618,8 @@ final class GdxSettingsContract {
         if (TABLE_CHIP_MARKINGS_KEY.equals(option.key())) {
             return GdxAppearanceOptions.perspectiveTable(properties);
         }
+        if (STACK_BET_PREVIEW_KEY.equals(option.key())
+                && !GdxAppearanceOptions.perspectiveTable(properties)) return false;
         if (isGlobalCommunicationOption(option)
                 && !mayEditGlobalCommunication) return false;
         if (option.parentKey() != null) {

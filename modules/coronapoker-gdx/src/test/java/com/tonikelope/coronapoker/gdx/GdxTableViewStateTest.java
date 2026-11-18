@@ -36,6 +36,31 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void stackBetPreviewUsesLiveRaiseIncrementAndTheFullStepperZone() {
+        var controls = ActionControlState.forTurn(
+                4, 2, 2, 1, 1, 20, 2, true, 0);
+        var layout = CoronaPokerGdxTable.localActionLayout(1920f);
+        float y = layout.bet().y + 10f;
+        assertEquals(3d, CoronaPokerGdxTable.stackBetPreviewAmount(
+                layout, layout.call().x + 1f, y, controls, 4d));
+        assertEquals(20d, CoronaPokerGdxTable.stackBetPreviewAmount(
+                layout, layout.allIn().x + 1f, y, controls, 4d));
+        for (float x : new float[]{layout.minus().x, layout.bet().x - 2f, layout.bet().x,
+                layout.plus().x - 2f, layout.plus().x + 1f}) {
+            assertEquals(7d, CoronaPokerGdxTable.stackBetPreviewAmount(layout, x, y, controls, 4d));
+            assertEquals(20d, CoronaPokerGdxTable.stackBetPreviewAmount(layout, x, y, controls, 17d));
+        }
+        assertEquals(0d, CoronaPokerGdxTable.stackBetPreviewAmount(
+                layout, layout.fold().x + 1f, y, controls, 4d));
+        assertEquals(0d, CoronaPokerGdxTable.stackBetPreviewAmount(
+                layout, layout.call().x + 1f, y, controls.withShowCards(true), 4d));
+        var check = ActionControlState.forTurn(
+                0, 2, 2, 1, 0, 20, 2, true, 0);
+        assertEquals(0d, CoronaPokerGdxTable.stackBetPreviewAmount(
+                layout, layout.call().x + 1f, y, check, 4d));
+    }
+
+    @Test
     void localAllInRevealIsPublicBeforePartialHandAndSurvivesRosterRefresh() {
         GdxTableViewState state = new GdxTableViewState(snapshot());
         var left = new TableSnapshot.CardSnapshot("A_C", true, false);

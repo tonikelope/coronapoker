@@ -314,6 +314,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_final_summary_cards";
             case "animacion_contador_final" ->
                 "gdx.settings.tooltip.animation_final_count";
+            case GdxSettingsContract.STACK_BET_PREVIEW_KEY ->
+                "gdx.settings.tooltip.stack_bet_preview";
             case "animacion_fuego_allin" ->
                 "gdx.settings.tooltip.animation_allin_fire";
             case "animacion_efecto_ganador" ->

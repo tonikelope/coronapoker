@@ -1487,6 +1487,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             0f, STACK_CHIP_TEXTURE_SIZE, STACK_CHIP_TEXTURE_SIZE, 0f, -1f, 1f);
     private final int[] perspectivePotLevels = new int[GdxChipDenominations.COLUMN_COUNT];
     private final int[] perspectiveLocalLevels = new int[GdxChipDenominations.COLUMN_COUNT];
+    private final int[] stackBetPreviewSourceLevels = new int[GdxChipDenominations.COLUMN_COUNT];
+    private GdxStackChipLayout.Layout stackBetPreviewSource;
+    private long stackBetPreviewMinor;
+    private int[] cachedStackBetPreview;
+    private int[] activeStackBetPreview;
     private float tableChipDiameter;
     private float localRackCenterY, localRackOffsetX;
     private final Rectangle chipRackCompositeBounds = new Rectangle();
@@ -11213,15 +11218,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         ActionControlState controls = liveState.actionControls();
         if (controls.raiseAction()
                 == ActionControlState.RaiseAction.DISABLED) return false;
-        double amount = liveBetAmount;
-        if (amount < controls.raiseMinimum()
-                || amount > controls.raiseMaximum()) {
-            amount = controls.raiseAmount();
-        }
-        TableCommand command = betCommand(amount, controls);
+        TableCommand command = betCommand(selectedRaiseIncrement(controls), controls);
         int confirmationTarget = command instanceof TableCommand.AllIn ? 6 : 5;
         submitConfirmedAction(confirmationTarget, command);
         return true;
+    }
+
+    private double selectedRaiseIncrement(ActionControlState controls) {
+        return liveBetAmount < controls.raiseMinimum() || liveBetAmount > controls.raiseMaximum()
+                ? controls.raiseAmount() : liveBetAmount;
     }
 
     /**
@@ -16760,6 +16765,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         perspectiveLocalChipBounds.set(0f, 0f, 0f, 0f);
         perspectiveLocalRightChipBounds.set(0f, 0f, 0f, 0f);
         if (!perspectiveActive) {
+            activeStackBetPreview = null;
             advanceChipPileImpacts(flatPotChipImpacts);
             return;
         }
@@ -16822,6 +16828,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         perspectivePotRack.arrange(plannedPotChips);
         perspectiveLocalRack.arrange(plannedLocalChips);
         if (settled) perspectiveLocalRack.compactLocalLeft();
+        activeStackBetPreview = stackBetPreview(stack);
         perspectiveTable.clearDealPiles();
         if (!liveCardFlights.isEmpty() || liveCommunityReveal != null) {
             // Empty slots reserved for airborne departures keep their place in
@@ -16877,9 +16884,53 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return perspectiveLocalChipBounds.contains(x, y) || perspectiveLocalRightChipBounds.contains(x, y);
     }
 
+    private int[] stackBetPreview(GdxStackChipLayout.Layout stack) {
+        LocalActionLayout actions = cachedLocalActionLayout(viewport.getWorldWidth());
+        ActionControlState controls = liveState.actionControls();
+        double amount = stackBetPreviewAmount(actions, pointer.x, pointer.y, controls,
+                selectedRaiseIncrement(controls));
+        long amountMinor = Math.round(amount * 100d);
+        if (amountMinor <= 0L || finalSummary != null || autoActionDialog != null
+                || hasPendingLocalActionSubmission() || !hasActiveLocalTurn()
+                || fastAccessSurfaceContains(pointer.x, pointer.y)
+                || !tablePreference("animaciones", true)
+                || !tablePreference(GdxSettingsContract.STACK_BET_PREVIEW_KEY, true)) {
+            return null;
+        }
+        if (amountMinor == Math.round(controls.playerStack() * 100d)) return perspectiveLocalLevels;
+        if (stackBetPreviewSource != stack || stackBetPreviewMinor != amountMinor
+                || !Arrays.equals(stackBetPreviewSourceLevels, perspectiveLocalLevels)) {
+            cachedStackBetPreview = GdxStackChipLayout.previewPaymentCounts(
+                    stack, perspectiveLocalLevels, amountMinor);
+            stackBetPreviewSource = stack;
+            stackBetPreviewMinor = amountMinor;
+            System.arraycopy(perspectiveLocalLevels, 0, stackBetPreviewSourceLevels, 0,
+                    perspectiveLocalLevels.length);
+        }
+        return cachedStackBetPreview;
+    }
+
+    static double stackBetPreviewAmount(LocalActionLayout actions, float x, float y,
+            ActionControlState controls, double raiseIncrement) {
+        if (controls.showCards()) return 0d;
+        if (actions.call().contains(x, y) && controls.callAction() == ActionControlState.CallAction.CALL) {
+            return controls.callAmount();
+        }
+        if (actions.allIn().contains(x, y) && controls.allInEnabled()) return controls.playerStack();
+        Rectangle minus = actions.minus();
+        Rectangle plus = actions.plus();
+        if (controls.raiseAction() != ActionControlState.RaiseAction.DISABLED
+                && contains(x, y, minus.x, minus.y, plus.x + plus.width - minus.x, minus.height)) {
+            return controls.raiseConsumesEntireStack(raiseIncrement)
+                    ? controls.playerStack() : MoneyMath.clean(controls.callAmount() + raiseIncrement);
+        }
+        return 0d;
+    }
+
     private void drawPerspectiveChipRack(boolean pot, float alpha) {
         if (alpha <= 0f) return;
         int[] levels = pot ? perspectivePotLevels : perspectiveLocalLevels;
+        int[] preview = pot ? null : activeStackBetPreview;
         GdxTableChipSlots rack = pot ? perspectivePotRack : perspectiveLocalRack;
         int seed = pot ? POT_CHIP_SEED : seats[0].name.hashCode();
         float thickness = GdxTableChipRack.thickness(tableChipDiameter);
@@ -16903,8 +16954,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float x = tableChipPileX(pot, column, pileIndex);
                 float y = tableChipPileY(pot, column, pileIndex);
                 var impact = (pot ? potChipImpacts : localChipImpacts)[slot];
+                int previewCount = preview == null ? 0
+                        : count - rack.height(column, pileIndex, levels[column] - preview[column]);
                 perspectiveTable.addStandingChipPile(pot, slot, pileIndex, column, seed,
-                        x, y, count, tableChipDiameter, thickness, depthSway, impact);
+                        x, y, count, tableChipDiameter, thickness, depthSway, impact, previewCount);
                 float extent = tableChipDiameter * .53f;
                 for (int corner = 0; corner < 8; corner++) {
                     var point = perspectiveTable.chipPointToScreen(
@@ -16920,7 +16973,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        perspectiveTable.drawStandingChipRack(tableChipFaces, alpha);
+        float pulse = preview == null ? 0f : callCostBorderPulse(totalTime, true);
+        perspectiveTable.drawStandingChipRack(tableChipFaces, alpha, ACTIVE_TURN_GOLD, pulse);
     }
 
     private float tableChipPileX(boolean pot, int column, int pileIndex) {

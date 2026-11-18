@@ -274,6 +274,8 @@ can safely overlay the supported presentation assets:
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.
 - **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
 - **Community card deal style** under Appearance > Animations and effects. **By street** is the default. The flop arrives as a covered stack, turns over in the first slot, then spreads to the right. The turn and river travel covered from the dealer and turn over after landing. The flight is slower in this mode. **All face down at the start of the hand** deals the full board at the same speed as the players' cards. A saved change takes effect from the next hand.
+- **3D chip preview** pulses the chips for Call, the current Bet or Raise, or All-in in gold while you hover over the controls on your turn. It is on by default under Appearance > Animations and effects.
+
 - **End-of-game cards** under Appearance > Animations and effects controls how the balance cards enter the final summary. The animation is on by default. Turn it off to show the cards immediately in place. The final count has its own switch.
 - **Action confirmation** with an optional safety prompt before fold, all-in or raise.
 - **Straddle timeout** is a personal setting under Game Settings > Blinds. By default the player declines when time runs out.

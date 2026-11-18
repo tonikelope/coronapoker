@@ -1,7 +1,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Builds the four compact denomination columns painted beside a player stack.
@@ -382,6 +384,59 @@ final class GdxStackChipLayout {
             }
         }
     }
+
+    /**
+     * Picks the cheapest sufficient set of visible chips, keeping only top-down
+     * prefixes of each denomination. A prefix can include a split-pot remainder.
+     */
+    static int[] previewPaymentCounts(Layout layout, int[] visibleCounts, long targetMinor) {
+        if (targetMinor <= 0L) return new int[COLUMN_COUNT];
+        long available = 0L;
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            List<Chip> chips = layout.columns().get(column).chips();
+            for (int index = 0; index < visibleCounts[column]; index++) {
+                available += chips.get(index).amountMinor();
+            }
+        }
+        if (targetMinor >= available) return visibleCounts.clone();
+
+        var empty = new PreviewPick(-1, 0, 0, null);
+        Map<Long, PreviewPick> partials = Map.of(0L, empty);
+        PreviewPick best = null;
+        long bestAmount = Long.MAX_VALUE;
+        for (int column = COLUMN_COUNT - 1; column >= 0; column--) {
+            List<Chip> chips = layout.columns().get(column).chips();
+            var next = new LinkedHashMap<>(partials);
+            for (var entry : partials.entrySet()) {
+                long amount = entry.getKey();
+                PreviewPick previous = entry.getValue();
+                for (int count = 1; count <= visibleCounts[column]; count++) {
+                    amount += chips.get(visibleCounts[column] - count).amountMinor();
+                    int chipCount = previous.chipCount() + count;
+                    if (amount >= targetMinor) {
+                        if (best == null || amount < bestAmount
+                                || (amount == bestAmount && chipCount < best.chipCount())) {
+                            best = new PreviewPick(column, count, chipCount, previous);
+                            bestAmount = amount;
+                        }
+                        break;
+                    }
+                    PreviewPick current = next.get(amount);
+                    if (current == null || chipCount < current.chipCount()) {
+                        next.put(amount, new PreviewPick(column, count, chipCount, previous));
+                    }
+                }
+            }
+            partials = next;
+        }
+        int[] selected = new int[COLUMN_COUNT];
+        for (PreviewPick pick = best; pick != empty; pick = pick.previous()) {
+            selected[pick.column()] = pick.count();
+        }
+        return selected;
+    }
+
+    private record PreviewPick(int column, int count, int chipCount, PreviewPick previous) { }
 
     static boolean isExactPhysicalPayment(Payment payment,
             double exactAmount) {

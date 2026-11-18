@@ -11,6 +11,29 @@ import org.junit.jupiter.api.Test;
 final class GdxStackChipLayoutTest {
 
     @Test
+    void previewSelectsExactTopChipsOrTheSmallestCoverageForChange() {
+        var rack = GdxStackChipLayout.compose(0d, 1d);
+        int ones = GdxChipDenominations.color(0);
+        int twos = GdxChipDenominations.color(1);
+        int fives = GdxChipDenominations.color(2);
+        rack = GdxStackChipLayout.add(rack, 100, ones);
+        rack = GdxStackChipLayout.add(rack, 110, ones);
+        rack = GdxStackChipLayout.add(rack, 200, twos);
+        rack = GdxStackChipLayout.add(rack, 500, fives);
+        int[] visible = {2, 1, 1, 0};
+        assertArrayEquals(new int[]{1, 1, 0, 0},
+                GdxStackChipLayout.previewPaymentCounts(rack, visible, 310));
+        assertArrayEquals(new int[]{1, 0, 0, 0},
+                GdxStackChipLayout.previewPaymentCounts(rack, visible, 100));
+        assertArrayEquals(new int[]{0, 0, 1, 0},
+                GdxStackChipLayout.previewPaymentCounts(rack, visible, 450));
+        assertArrayEquals(visible,
+                GdxStackChipLayout.previewPaymentCounts(rack, visible, 910));
+        assertArrayEquals(new int[]{1, 1, 0, 0},
+                GdxStackChipLayout.previewPaymentCounts(rack, new int[]{1, 1, 0, 0}, 310));
+    }
+
+    @Test
     void keepsEveryVisualCompositionExactAndInsideFourColumns() {
         for (double amount : List.of(0.01d, 0.10d, 0.20d, 0.30d, 1.30d,
                 9.80d, 10.00d, 10.05d, 39.00d, 90.00d, 9_999.99d)) {

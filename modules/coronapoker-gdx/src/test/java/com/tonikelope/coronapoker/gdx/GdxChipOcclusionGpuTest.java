@@ -140,6 +140,7 @@ class GdxChipOcclusionGpuTest {
         try {
             renderer.layout(W, H, H * .5f);
             renderer.drawBackdrop(batch, red, false, 64f, W, H, 1f);
+            verifyStackPreview(renderer, green);
             byte[] singles = flightGrid(renderer, faces, 1);
             assertArrayEquals(singles, flightGrid(renderer, faces, 63),
                     "Every transform must survive batching across multiple pages of the same denomination");
@@ -167,14 +168,51 @@ class GdxChipOcclusionGpuTest {
         }
     }
 
+    private static void verifyStackPreview(GdxPerspectiveTable renderer, Texture green) {
+        float x = W * .5f, y = H * .5f, diameter = 85f, thickness = 12f;
+        Texture[] faces = {green, green, green, green};
+        byte[] original = captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f);
+        byte[] minimum = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 0f);
+        byte[] peak = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f);
+        assertArrayEquals(original, minimum, "The pulse returns to the original chip colour");
+
+        var top = renderer.chipPointToScreen(x, y, 3 * thickness).cpy();
+        var upperRim = renderer.chipPointToScreen(x, y - diameter / 2f, 2.5f * thickness).cpy();
+        var middleRim = renderer.chipPointToScreen(x, y - diameter / 2f, 1.5f * thickness).cpy();
+        var bottomRim = renderer.chipPointToScreen(x, y - diameter / 2f, .5f * thickness).cpy();
+        for (var point : List.of(top, upperRim, middleRim)) {
+            int index = (Math.round(point.y) * W + Math.round(point.x)) * 4;
+            assertTrue((peak[index] & 255) > (original[index] & 255) + 50,
+                    "The selected chip face and both adjoining rims should pulse: " + point);
+        }
+        int index = (Math.round(bottomRim.y) * W + Math.round(bottomRim.x)) * 4;
+        assertEquals(original[index], peak[index], "The unselected bottom chip retains its colour");
+        assertEquals(original[index + 1], peak[index + 1]);
+        assertEquals(original[index + 2], peak[index + 2]);
+        assertTrue((original[index + 1] & 255) > 50, "Sample must hit the bottom chip");
+        assertArrayEquals(original, captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f),
+                "Clearing hover immediately restores the entire rack");
+    }
+
+    private static byte[] captureStackPreview(GdxPerspectiveTable renderer, Texture[] faces,
+            float x, float y, float diameter, float thickness, int previewCount, float pulse) {
+        ScreenUtils.clear(Color.BLACK);
+        renderer.beginChipFrame();
+        renderer.beginStandingChipRack();
+        renderer.addStandingChipPile(false, 0, 0, 0, 176, x, y, 3, diameter, thickness, 1f,
+                null, previewCount);
+        renderer.drawStandingChipRack(faces, 1f, Color.GOLD, pulse);
+        return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
+    }
+
     private static byte[] capture(GdxPerspectiveTable renderer, Texture[] faces, boolean pot,
             boolean front, boolean rack, boolean flight) {
         ScreenUtils.clear(Color.BLACK);
         renderer.beginChipFrame();
         if (rack) {
             renderer.beginStandingChipRack();
-            renderer.addStandingChipPile(pot, 0, 0, 0, 176, W * .5f, H * .5f, 12, D, THICKNESS, 1f, null);
-            renderer.drawStandingChipRack(faces, 1f);
+            renderer.addStandingChipPile(pot, 0, 0, 0, 176, W * .5f, H * .5f, 12, D, THICKNESS, 1f, null, 0);
+            renderer.drawStandingChipRack(faces, 1f, Color.GOLD, 0f);
         }
         if (flight) {
             // Over a diameter of horizontal clearance in both configurations.

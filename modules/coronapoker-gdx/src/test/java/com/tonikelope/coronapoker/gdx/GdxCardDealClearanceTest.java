@@ -106,7 +106,7 @@ final class GdxCardDealClearanceTest {
         Vector3 to = new Vector3(390f, 0f, 0f);
         var bounds = new GdxCardDealMotion.Bounds(-900f, 900f, -500f, 500f);
         var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, List.of(), List.of(), bounds);
+                -18f, 0f, REST, List.of(), bounds);
         assertEquals(.82f, route.touchdown(), .001f);
         assertTrue(route.directCommunity());
         var before = new Vector3();
@@ -132,25 +132,20 @@ final class GdxCardDealClearanceTest {
     }
 
     @Test
-    void communityKeepsItsHeadingWhenThePreviousCardOnlyRequiresALaterTouchdown() {
-        Vector3 from = new Vector3(-500f, 8f, 0f);
-        Vector3 to = new Vector3(500f, 0f, 0f);
+    void communityCanGlideAcrossTheFootprintOfAPreviouslyDealtCard() {
+        var from = new Vector3(-500f, 8f, 0f);
+        var to = new Vector3(500f, 0f, 0f);
         var bounds = new GdxCardDealMotion.Bounds(-900f, 900f, -500f, 500f);
-        var previous = new GdxCardDealMotion.BoardCard(342f, 0f, BOARD_CARD, BOARD_CARD * ASPECT);
         var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, List.of(), List.of(previous), bounds);
+                -18f, 0f, REST, List.of(), bounds);
         var pose = new Vector3();
-        assertTrue(route.directCommunity());
-        assertTrue(route.touchdown() > .82f);
-        for (int step = 0; step <= 1000; step++) {
-            float progress = step / 1000f;
-            GdxCardDealMotion.sample(pose, from, to, progress, BOARD_CARD, route);
-            assertEquals(0f, pose.z, .001f);
-            if (progress >= route.touchdown()) {
-                assertTrue(pose.x - previous.x() >= BOARD_CARD);
-                assertEquals(0f, pose.y, .001f);
-            }
-        }
+        GdxCardDealMotion.sample(pose, from, to, route.touchdown(), BOARD_CARD, route);
+        float previousCardCenter = to.x - BOARD_CARD - 18f;
+        assertTrue(pose.x - previousCardCenter < BOARD_CARD, "The flat slide can start over a dealt card");
+        assertEquals(0f, pose.y, .001f);
+        assertTrue(pose.x < to.x);
+        GdxCardDealMotion.sample(pose, from, to, 1f, BOARD_CARD, route);
+        assertTrue(pose.epsilonEquals(to, .001f));
     }
 
     @Test
@@ -160,7 +155,7 @@ final class GdxCardDealClearanceTest {
         var bounds = new GdxCardDealMotion.Bounds(-900f, 900f, -500f, 500f);
         var piles = List.of(new GdxCardDealMotion.Pile(0f, 0f, 35f, 36f));
         var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, piles, List.of(), bounds);
+                -18f, 0f, REST, piles, bounds);
         assertTrue(route.directCommunity());
         assertTrue(route.lift() > 0f && route.descendFrom() < .66f);
         var before = new Vector3();
@@ -192,57 +187,45 @@ final class GdxCardDealClearanceTest {
     }
 
     @Test
-    void lowCommunityDetourSettlesDuringTheApproachFromARemoteDealer() {
-        // A throw from the left side crosses the pot and the four cards already dealt.
-        float gap = BOARD_CARD + 18f;
-        var from = new Vector3(-907f, 7.7f, -233f);
-        var to = new Vector3(2f * gap, 0f, 0f);
-        var bounds = new GdxCardDealMotion.Bounds(from.x, 890f, -500f, 500f);
-        var cards = List.of(boardCard(-2f * gap), boardCard(-gap), boardCard(0f), boardCard(gap));
-        var piles = List.of(new GdxCardDealMotion.Pile(-45f, -163f, 29f, 67f),
-                new GdxCardDealMotion.Pile(25f, -167f, 29f, 47f));
-        var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, piles, cards, bounds);
-        assertFalse(route.directCommunity());
-        assertTrue(route.lift() > 0f && route.lift() < BOARD_CARD * .06f);
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "low remote approach");
-
-        for (float seconds : new float[]{.26f, .52f}) {
-            var pose = new Vector3();
-            float nearEnd = GdxCardDealMotion.communityProgress(1f - .025f / seconds, seconds, BOARD_CARD, route);
-            GdxCardDealMotion.sample(pose, from, to, nearEnd, BOARD_CARD, route, true);
-            assertTrue(pose.y < route.lift() * .10f, "The last frames should already be near the felt");
-            assertTrue(pose.x < to.x, "The card should still be advancing as it flattens");
-            GdxCardDealMotion.sample(pose, from, to, 1f, BOARD_CARD, route, true);
-            assertTrue(pose.epsilonEquals(to, .001f));
-        }
-    }
-
-    private static GdxCardDealMotion.BoardCard boardCard(float x) {
-        return new GdxCardDealMotion.BoardCard(x, 0f, BOARD_CARD, BOARD_CARD * ASPECT);
-    }
-
-    @Test
-    void communityUsesAerialClearanceWhenTheDirectDescentIsBlockedByTallPiles() {
-        Vector3 from = new Vector3(-500f, 8f, 0f);
-        Vector3 to = new Vector3(500f, 0f, 0f);
+    void blockedCommunityFlightTouchesDownAwayFromItsSlotAndSlidesAlongTheRow() {
+        var from = new Vector3(-500f, 8f, 0f);
+        var to = new Vector3(500f, 0f, 0f);
         var bounds = new GdxCardDealMotion.Bounds(-900f, 900f, -500f, 500f);
         var piles = List.of(new GdxCardDealMotion.Pile(385f, 0f, 25f, 145f),
                 new GdxCardDealMotion.Pile(500f, 120f, 16f, 145f),
                 new GdxCardDealMotion.Pile(500f, -120f, 16f, 145f));
         var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, piles, List.of(), bounds);
+                -18f, 0f, REST, piles, bounds);
         assertFalse(route.directCommunity());
+        assertTrue(route.approachesAtFeltHeight());
         assertTrue(route.lift() > BOARD_CARD * .7f);
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "tall piles across the direct route");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "tall pile before the slot");
 
-        var tallColumns = List.of(new GdxCardDealMotion.Pile(0f, 0f, 45f, 275f),
-                new GdxCardDealMotion.Pile(378f, 75f, 44f, 32f));
-        var detour = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
-                -18f, 0f, REST, tallColumns, List.of(), bounds);
-        assertFalse(detour.directCommunity());
-        assertNotEquals(0f, detour.sideways(), "A tall column with space beside it should permit an air detour");
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, detour, true, tallColumns, "aerial detour around tall columns");
+        var descending = new Vector3();
+        var earlier = new Vector3();
+        var contact = new Vector3();
+        var sliding = new Vector3();
+        float touchdown = route.touchdown();
+        GdxCardDealMotion.sample(earlier, from, to, (route.descendFrom() + touchdown) * .5f, BOARD_CARD, route);
+        GdxCardDealMotion.sample(descending, from, to, touchdown - .001f, BOARD_CARD, route);
+        GdxCardDealMotion.sample(contact, from, to, touchdown, BOARD_CARD, route);
+        GdxCardDealMotion.sample(sliding, from, to, touchdown + .001f, BOARD_CARD, route);
+        assertTrue(earlier.y > descending.y);
+        assertTrue(contact.dst(to) >= BOARD_CARD * .4f);
+        assertEquals(to.z, contact.z, .001f);
+        assertEquals(to.y, contact.y, .001f);
+        assertTrue(contact.cpy().sub(descending).epsilonEquals(sliding.cpy().sub(contact), .03f),
+                "The descent meets the slide without changing direction or speed");
+        float previousDistance = contact.dst(to);
+        for (int frame = 1; frame <= 30; frame++) {
+            float progress = touchdown + (1f - touchdown) * frame / 30f;
+            GdxCardDealMotion.sample(sliding, from, to, progress, BOARD_CARD, route);
+            assertEquals(to.z, sliding.z, .001f);
+            assertEquals(to.y, sliding.y, .001f);
+            assertTrue(sliding.dst(to) < previousDistance);
+            previousDistance = sliding.dst(to);
+        }
+        assertTrue(sliding.epsilonEquals(to, .001f));
     }
 
     private static void verify(GdxPerspectiveTable table, float x, float y, Vector3 target,
@@ -258,9 +241,12 @@ final class GdxCardDealClearanceTest {
                 Math.min(rear, from.z), Math.max(front, from.z));
         var route = width == BOARD_CARD
                 ? GdxCardDealMotion.planCommunity(from, target, width, width * ASPECT,
-                        startAngle, restAngle, REST, piles, List.of(), bounds)
+                        startAngle, restAngle, REST, piles, bounds)
                 : GdxCardDealMotion.plan(from, target, width, width * ASPECT,
                         startAngle, restAngle, REST, piles, bounds);
+        if (width == BOARD_CARD) {
+            assertTrue(route.approachesAtFeltHeight(), caseName + " needs a clear slide: " + route);
+        }
         checkSweep(from, target, width, startAngle, restAngle, route, width == BOARD_CARD, piles, caseName);
     }
 

@@ -246,7 +246,6 @@ final class GdxPerspectiveTable implements Disposable {
     private final Vector3 dealPosition = new Vector3();
     private final Vector3 dealPlanningTarget = new Vector3();
     private final ArrayList<GdxCardDealMotion.Pile> dealPiles = new ArrayList<>();
-    private final ArrayList<GdxCardDealMotion.BoardCard> dealtBoardCards = new ArrayList<>(5);
     private final Vector3 projectedPoint = new Vector3();
     private final FloatArray cardVertices = new FloatArray(MAX_CARD_VERTICES * 6);
     private final FloatArray cardGrid = new FloatArray((REVEAL_COLUMNS + 1) * (REVEAL_ROWS + 1) * 6);
@@ -823,15 +822,6 @@ final class GdxPerspectiveTable implements Disposable {
         dealPiles.add(new GdxCardDealMotion.Pile(x - width * .5f, boardCenterY - y, radius, top));
     }
 
-    void clearDealtBoardCards() {
-        dealtBoardCards.clear();
-    }
-
-    void addDealtBoardCard(float x, float y, float w, float h) {
-        dealtBoardCards.add(new GdxCardDealMotion.BoardCard(x - width * .5f,
-                boardCenterY - y, w, h));
-    }
-
     void drawPocketFlight(Texture back, float sourceX, float sourceY, float x, float y,
             float w, float h, float fan, float progress, int slot, int order, DealRoute route) {
         Vector3 target = pocketAt(x, y, w, slot, 0f);
@@ -868,8 +858,7 @@ final class GdxPerspectiveTable implements Disposable {
                     Math.max(frontEdge - h * .5f, Math.max(plan.source.z, dealTarget.z)));
             plan.route = community
                     ? GdxCardDealMotion.planCommunity(plan.source, dealPlanningTarget, w, h,
-                            startAngle, fan, CARD_REST_HEIGHT, dealPiles,
-                            dealtBoardCards, bounds)
+                            startAngle, fan, CARD_REST_HEIGHT, dealPiles, bounds)
                     : GdxCardDealMotion.plan(plan.source, dealPlanningTarget, w, h,
                             startAngle, fan, CARD_REST_HEIGHT, dealPiles, bounds);
             plan.width = width;

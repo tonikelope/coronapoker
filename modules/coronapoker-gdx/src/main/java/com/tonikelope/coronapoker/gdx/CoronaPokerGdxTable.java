@@ -16317,17 +16317,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         int visibleSlots = Math.min(5,
                 Math.max(Math.max(presentedBoardEnd, revealEnd), flightEnd));
-        boolean streetFlight = liveCommunityReveal != null && liveCommunityReveal.streetDeal != null
-                && liveCommunityReveal.streetDeal.inFlight(liveCommunityReveal.elapsedSeconds);
-        if (perspectiveActive && (streetFlight || flightEnd > 0)) {
-            perspectiveTable.clearDealtBoardCards();
-            for (int slot = 0; slot < presentedBoardEnd; slot++) {
-                if (!presentsRestingCommunityCard(slot, board.get(slot)) || hasActiveCommunityFlight(slot)
-                        || liveCommunityReveal != null && liveCommunityReveal.containsSlot(slot)) continue;
-                LiveCardPlacement card = communityCardPlacement(slot, firstX, cardY, cardW, cardH, gap);
-                perspectiveTable.addDealtBoardCard(card.x, card.y, card.width, card.height);
-            }
-        }
         for (int slot = 0; slot < visibleSlots; slot++) {
             LiveCardPlacement placement = communityCardPlacement(slot,
                     firstX, cardY, cardW, cardH, gap);

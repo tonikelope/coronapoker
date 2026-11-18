@@ -11,7 +11,9 @@ final class GdxCardDealMotion {
     private static final float ALIGNMENT_TRAVEL = travel(TOUCHDOWN);
     private static final int SWEEP_STEPS = 96;
     private static final float[] DETOURS = {.55f, -.55f, 1.05f, -1.05f, 1.55f, -1.55f};
-    private static final float[] COMMUNITY_CONTACTS = {.82f, .89f, .94f, .975f, .995f};
+    private static final float[] COMMUNITY_CONTACTS = {.82f, .89f};
+    private static final float CURVED_TOUCHDOWN = .76f;
+    private static final float[] COMMUNITY_SLIDES = {.42f, -.42f, .72f, -.72f, 1.10f, -1.10f};
     private static final float COMMUNITY_BRAKE = .42f;
     private static final float MAX_DIRECT_COMMUNITY_LIFT = .88f;
     private static final Route DIRECT = new Route(0f, 0f, 0f, 0f, TOUCHDOWN);
@@ -33,7 +35,15 @@ final class GdxCardDealMotion {
     }
 
     record Pile(float x, float z, float radius, float top) {}
-    record BoardCard(float x, float z, float width, float height) {}
+    record Slide(float x, float z) {
+        float length() {
+            return (float) Math.hypot(x, z);
+        }
+
+        static float speedFactor(float touchdown) {
+            return -2f * touchdown / (1f - touchdown);
+        }
+    }
 
     record Bounds(float left, float right, float rear, float front) {
         boolean contains(float x, float z) {
@@ -42,9 +52,18 @@ final class GdxCardDealMotion {
     }
 
     record Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown,
-            boolean directCommunity) {
+            boolean directCommunity, Slide slide) {
         Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown) {
             this(sideways, lift, riseUntil, descendFrom, touchdown, false);
+        }
+
+        Route(float sideways, float lift, float riseUntil, float descendFrom, float touchdown,
+                boolean directCommunity) {
+            this(sideways, lift, riseUntil, descendFrom, touchdown, directCommunity, null);
+        }
+
+        boolean approachesAtFeltHeight() {
+            return directCommunity || slide != null;
         }
 
         float airborne(float progress) {
@@ -72,7 +91,7 @@ final class GdxCardDealMotion {
         float rise = route.riseUntil == 0f ? 1f : smooth(progress / route.riseUntil);
         if (progress <= route.descendFrom) return route.lift * rise;
         float remaining = (route.touchdown - progress) / (route.touchdown - route.descendFrom);
-        if (community) {
+        if (community && route.slide == null) {
             // Spend the clearance height as the card covers the remaining approach.
             // In particular, the final braking frames should carry very little height.
             float contact = routeTravel(route.touchdown, route);
@@ -105,6 +124,11 @@ final class GdxCardDealMotion {
         float t = routeTravel(p, route);
         float y = to.y + launchHeight(from, to, q);
         float lift = clearanceLift(p, t, route, community);
+        if (route.slide != null) {
+            out.set(approachCoordinate(from.x, to.x, route.slide.x, p, route.touchdown),
+                    y + lift, approachCoordinate(from.z, to.z, route.slide.z, p, route.touchdown));
+            return;
+        }
         if (route.directCommunity) {
             out.set(MathUtils.lerp(from.x, to.x, t), y + lift, MathUtils.lerp(from.z, to.z, t));
             return;
@@ -124,7 +148,7 @@ final class GdxCardDealMotion {
     }
 
     static float angle(float from, float to, float progress, Route route) {
-        return angle(from, to, route.directCommunity ? route.airborne(progress) : progress);
+        return angle(from, to, route.approachesAtFeltHeight() ? route.airborne(progress) : progress);
     }
 
     /** Give even a shallow descent enough rendered frames to settle. */
@@ -154,100 +178,162 @@ final class GdxCardDealMotion {
     }
 
     static Route planCommunity(Vector3 from, Vector3 to, float width, float height,
-            float startAngle, float endAngle, float restHeight, List<Pile> piles,
-            List<BoardCard> cards, Bounds bounds) {
-        if (piles.isEmpty() && cards.isEmpty()) {
-            return new Route(0f, 0f, 0f, 0f, COMMUNITY_CONTACTS[0], true);
-        }
+            float startAngle, float endAngle, float restHeight, List<Pile> piles, Bounds bounds) {
+        if (piles.isEmpty()) return new Route(0f, 0f, 0f, 0f, COMMUNITY_CONTACTS[0], true);
+
+        var clearance = new CommunityClearance(from, to, width, height, startAngle, endAngle,
+                restHeight, piles, bounds);
         Route best = null;
         float bestCost = Float.POSITIVE_INFINITY;
         for (float touchdown : COMMUNITY_CONTACTS) {
+            float slideLength = clearance.distance() * (1f - communityTravel(touchdown));
+            if (touchdown > COMMUNITY_CONTACTS[0] && slideLength < width * .16f) continue;
+            Route direct = clearance.inspect(touchdown, null);
             float penalty = (touchdown - COMMUNITY_CONTACTS[0]) * width * .30f;
-            if (penalty >= bestCost) break;
-            Route direct = directClearance(from, to, width, height, startAngle, endAngle,
-                    restHeight, piles, cards, touchdown);
-            if (direct == null || direct.lift() > width * MAX_DIRECT_COMMUNITY_LIFT
-                    || direct.lift() + penalty >= bestCost) continue;
-            best = direct;
-            bestCost = direct.lift() + penalty;
+            if (direct != null && direct.lift <= width * MAX_DIRECT_COMMUNITY_LIFT
+                    && direct.lift + penalty < bestCost) {
+                best = direct;
+                bestCost = direct.lift + penalty;
+            }
         }
         if (best != null) return best;
-        // A tall obstacle or an occupied approach makes a straight descent
-        // impractical. Only then search for an aerial route around it.
-        return plan(from, to, width, height, startAngle, endAngle, restHeight, piles, cards, bounds);
+
+        // Try entering the community row from either end. If that strip is
+        // blocked too, approach from in front of or behind the target instead.
+        Route across = clearance.curved(true);
+        if (across != null) return across;
+        Route depth = clearance.curved(false);
+        if (depth != null) return depth;
+        return plan(from, to, width, height, startAngle, endAngle, restHeight, piles, bounds);
     }
 
-    private static Route directClearance(Vector3 from, Vector3 to, float width, float height,
-            float startAngle, float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards,
-            float touchdown) {
-        float halfW = width * .5f, halfH = height * .5f;
-        float corner = (float) Math.hypot(halfW, halfH);
-        float distance = (float) Math.hypot(to.x - from.x, to.z - from.z);
-        float margin = Math.max(2f, width * .025f);
-        float first = 1f, last = 0f, lift = 0f;
-        for (int step = 0; step < SWEEP_STEPS; step++) {
-            float p0 = (float) step / SWEEP_STEPS, p1 = (float) (step + 1) / SWEEP_STEPS;
-            float mid = (p0 + p1) * .5f;
-            float t0 = communityTravel(p0), t1 = communityTravel(p1), t = communityTravel(mid);
-            float x = MathUtils.lerp(from.x, to.x, t);
-            float z = MathUtils.lerp(from.z, to.z, t);
-            float q0 = Math.min(1f, p0 / touchdown), q1 = Math.min(1f, p1 / touchdown);
-            float angle = angle(startAngle, endAngle, mid / touchdown);
-            float cosine = MathUtils.cosDeg(angle), sine = MathUtils.sinDeg(angle);
-            // Bound the sweep between samples, including rotation of the corners.
-            float reach = Math.max(t - t0, t1 - t) * distance;
-            float rotation = Math.max(Math.abs(angle - angle(startAngle, endAngle, q0)),
-                    Math.abs(angle(startAngle, endAngle, q1) - angle));
-            reach += corner * rotation * MathUtils.degreesToRadians;
-            float top = restHeight;
-            for (Pile pile : piles) {
-                float px = pile.x - x, pz = pile.z - z;
-                float radius = pile.radius + reach;
-                if (px * px + pz * pz > (corner + radius) * (corner + radius)) continue;
-                float u = Math.max(0f, Math.abs(px * cosine + pz * sine) - halfW);
-                float v = Math.max(0f, Math.abs(-px * sine + pz * cosine) - halfH);
-                if (u * u + v * v <= radius * radius) top = Math.max(top, pile.top + margin);
-            }
-            top = Math.max(top, boardObstacleTop(cards, x, z, halfW, halfH, cosine, sine, reach, restHeight));
-            if (top == restHeight) continue;
-            float natural = restHeight + to.y + Math.min(launchHeight(from, to, q0),
-                    launchHeight(from, to, q1));
-            if (natural >= top) continue;
-            if (p1 >= touchdown) return null;
-            first = Math.min(first, p0);
-            last = Math.max(last, p1);
-            lift = Math.max(lift, top - natural);
+    private static float approachCoordinate(float start, float target, float offset,
+            float progress, float touchdown) {
+        if (progress >= touchdown) {
+            float remaining = (1f - progress) / (1f - touchdown);
+            return target + offset * remaining * remaining;
         }
-        if (lift == 0f) return new Route(0f, 0f, 0f, 0f, touchdown, true);
-        // Start coming down as soon as the trailing edge clears. A tall
-        // obstacle needs more time to descend than a neighbouring card.
-        float descent = Math.min(.10f, .20f * lift / width);
-        if (first == 0f || touchdown - last < descent) return null;
-        return new Route(0f, lift, first, last, touchdown, true);
+        float q = progress / touchdown;
+        float delta = target + offset - start;
+        // The cubic's final tangent matches the speed and direction of the
+        // flat, braking slide. The card reaches the felt without a turn or stop.
+        float tangent = offset * Slide.speedFactor(touchdown);
+        return start + q * delta + (delta - tangent) * q * q * (1f - q);
+    }
+
+    private record CommunityClearance(Vector3 from, Vector3 to, float width, float height,
+            float startAngle, float endAngle, float restHeight, List<Pile> piles, Bounds bounds) {
+        float distance() {
+            return (float) Math.hypot(to.x - from.x, to.z - from.z);
+        }
+
+        Route curved(boolean across) {
+            Route best = null;
+            float bestCost = Float.POSITIVE_INFINITY;
+            for (float amount : COMMUNITY_SLIDES) {
+                float offset = amount * width;
+                Slide slide = across ? new Slide(offset, 0f) : new Slide(0f, offset);
+                Route route = inspect(CURVED_TOUCHDOWN, slide);
+                if (route == null) continue;
+                float cost = route.lift + slide.length() * .22f;
+                if (cost < bestCost) {
+                    best = route;
+                    bestCost = cost;
+                }
+            }
+            return best;
+        }
+
+        Route inspect(float touchdown, Slide slide) {
+            float halfW = width * .5f, halfH = height * .5f;
+            float corner = (float) Math.hypot(halfW, halfH);
+            float distance = distance();
+            float margin = Math.max(2f, width * .025f);
+            float first = 1f, last = 0f, lift = 0f;
+            for (int step = 0; step < SWEEP_STEPS; step++) {
+                float p0 = (float) step / SWEEP_STEPS, p1 = (float) (step + 1) / SWEEP_STEPS;
+                float mid = (p0 + p1) * .5f;
+                float x, z, reach;
+                if (slide == null) {
+                    float t = communityTravel(mid);
+                    x = MathUtils.lerp(from.x, to.x, t);
+                    z = MathUtils.lerp(from.z, to.z, t);
+                    reach = Math.max(t - communityTravel(p0), communityTravel(p1) - t) * distance;
+                } else {
+                    x = approachCoordinate(from.x, to.x, slide.x, mid, touchdown);
+                    z = approachCoordinate(from.z, to.z, slide.z, mid, touchdown);
+                    reach = approachReach(slide, p0, p1, touchdown);
+                    if (!bounds.contains(x, z)) return null;
+                }
+                float q0 = Math.min(1f, p0 / touchdown), q1 = Math.min(1f, p1 / touchdown);
+                float angle = angle(startAngle, endAngle, mid / touchdown);
+                float cosine = MathUtils.cosDeg(angle), sine = MathUtils.sinDeg(angle);
+                float rotation = Math.max(Math.abs(angle - angle(startAngle, endAngle, q0)),
+                        Math.abs(angle(startAngle, endAngle, q1) - angle));
+                reach += corner * rotation * MathUtils.degreesToRadians;
+                float top = restHeight;
+                for (Pile pile : piles) {
+                    float px = pile.x - x, pz = pile.z - z;
+                    float radius = pile.radius + reach;
+                    if (px * px + pz * pz > (corner + radius) * (corner + radius)) continue;
+                    float u = Math.max(0f, Math.abs(px * cosine + pz * sine) - halfW);
+                    float v = Math.max(0f, Math.abs(-px * sine + pz * cosine) - halfH);
+                    if (u * u + v * v <= radius * radius) top = Math.max(top, pile.top + margin);
+                }
+                if (top == restHeight) continue;
+                float natural = restHeight + to.y + Math.min(launchHeight(from, to, q0),
+                        launchHeight(from, to, q1));
+                if (natural >= top) continue;
+                if (p1 >= touchdown) return null;
+                first = Math.min(first, p0);
+                last = Math.max(last, p1);
+                lift = Math.max(lift, top - natural);
+            }
+            if (lift > 0f) {
+                float descent = MathUtils.clamp(.22f * lift / width, .055f, .18f);
+                if (touchdown - last < descent) return null;
+            } else {
+                first = 0f;
+            }
+            return new Route(0f, lift, first, last, touchdown, slide == null, slide);
+        }
+
+        private float approachReach(Slide slide, float p0, float p1, float touchdown) {
+            if (p0 >= touchdown) {
+                return slide.length() * (1f - p0) * (p1 - p0) / ((1f - touchdown) * (1f - touchdown));
+            }
+            float q0 = p0 / touchdown, q1 = Math.min(1f, p1 / touchdown);
+            float slope0 = q0 * (2f - 3f * q0);
+            float slope1 = q1 * (2f - 3f * q1);
+            float slopeMin = Math.min(slope0, slope1);
+            float slopeMax = q0 <= 1f / 3f && q1 >= 1f / 3f ? 1f / 3f : Math.max(slope0, slope1);
+            float dx = to.x + slide.x - from.x, dz = to.z + slide.z - from.z;
+            float tx = dx - slide.x * Slide.speedFactor(touchdown);
+            float tz = dz - slide.z * Slide.speedFactor(touchdown);
+            // The velocity is affine in the quadratic slope. Its largest
+            // magnitude over the interval must be at one of the slope extrema.
+            double speed = Math.max(Math.hypot(dx + tx * slopeMin, dz + tz * slopeMin),
+                    Math.hypot(dx + tx * slopeMax, dz + tz * slopeMax));
+            return (float) speed * (p1 - p0) / (2f * touchdown);
+        }
     }
 
     static Route plan(Vector3 from, Vector3 to, float width, float height, float startAngle,
             float endAngle, float restHeight, List<Pile> piles, Bounds bounds) {
-        return plan(from, to, width, height, startAngle, endAngle, restHeight, piles, List.of(), bounds);
-    }
-
-    private static Route plan(Vector3 from, Vector3 to, float width, float height, float startAngle,
-            float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards, Bounds bounds) {
-        if (piles.isEmpty() && cards.isEmpty()) return DIRECT;
-        Route best = inspect(from, to, width, height, startAngle, endAngle, restHeight, piles, cards, 0f, bounds);
+        if (piles.isEmpty()) return DIRECT;
+        Route best = inspect(from, to, width, height, startAngle, endAngle, restHeight, piles, 0f, bounds);
         if (best.lift() < width * .26f) return best;
         for (float detour : DETOURS) {
             float offset = detour * width;
             if (Math.abs(offset) * .40f >= best.cost()) continue;
-            Route alternative = inspect(from, to, width, height, startAngle, endAngle,
-                    restHeight, piles, cards, offset, bounds);
+            Route alternative = inspect(from, to, width, height, startAngle, endAngle, restHeight, piles, offset, bounds);
             if (alternative != null && alternative.cost() < best.cost()) best = alternative;
         }
         return best;
     }
 
     private static Route inspect(Vector3 from, Vector3 to, float width, float height, float startAngle,
-            float endAngle, float restHeight, List<Pile> piles, List<BoardCard> cards, float offset, Bounds bounds) {
+            float endAngle, float restHeight, List<Pile> piles, float offset, Bounds bounds) {
         float dx = to.x - from.x, dz = to.z - from.z;
         float distance = (float) Math.hypot(dx, dz);
         float nx = -dz / Math.max(1f, distance), nz = dx / Math.max(1f, distance);
@@ -282,7 +368,7 @@ final class GdxCardDealMotion {
                     MathUtils.sin(MathUtils.PI * earliestPhase),
                     MathUtils.sin(MathUtils.PI * latestPhase));
             float naturalHeight = to.y + launch + Math.min(width * .12f, distance * .018f) * pulse * pulse;
-            float top = boardObstacleTop(cards, x, z, halfW, halfH, cosine, sine, motion, restHeight);
+            float top = restHeight;
             for (Pile pile : piles) {
                 float px = pile.x - x, pz = pile.z - z;
                 float radius = pile.radius + motion;
@@ -303,21 +389,6 @@ final class GdxCardDealMotion {
         float descendFrom = last < 1f ? last : .985f;
         float touchdown = Math.min(1f, Math.max(TOUCHDOWN, descendFrom + .14f));
         return new Route(offset, lift, first, descendFrom, touchdown);
-    }
-
-    private static float boardObstacleTop(List<BoardCard> cards, float x, float z,
-            float halfW, float halfH, float cosine, float sine, float sweep, float restHeight) {
-        if (cards.isEmpty()) return restHeight;
-        float projectedX = Math.abs(cosine) * halfW + Math.abs(sine) * halfH + sweep;
-        float projectedZ = Math.abs(sine) * halfW + Math.abs(cosine) * halfH + sweep;
-        float top = restHeight;
-        for (BoardCard card : cards) {
-            if (Math.abs(x - card.x) < projectedX + card.width * .5f
-                    && Math.abs(z - card.z) < projectedZ + card.height * .5f) {
-                top = Math.max(top, restHeight + GdxPlasticCard.thickness(card.width) + 2f);
-            }
-        }
-        return top;
     }
 
     private static float launchHeight(Vector3 from, Vector3 to, float phase) {

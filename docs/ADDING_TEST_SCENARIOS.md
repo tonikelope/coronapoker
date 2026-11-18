@@ -16,6 +16,8 @@ Do not turn every regression into a complete multiplayer scenario.
 | GDX command, projection, dialog state or lifecycle binding | Focused test in `coronapoker-gdx` |
 | Complete game flow using production core objects | `GdxReconnectScenarioTest` |
 | Real sockets, separate processes, crash or recovery | `GdxMultiprocessScenarioTest` |
+| Full table lifecycle under WAN congestion without a graphics context | `HeadlessWanScenarioTest` alongside the multiprocess WAN coverage |
+| Native rendering, framebuffer or pointer behaviour | The separate `qa-gpu` profile |
 | Large seeded protocol volume | `tools/qa/headless-sim.cmd` campaign |
 
 A mocked projection test cannot prove reconnect, crash handling or a process
@@ -40,6 +42,8 @@ The surrounding contracts are:
 5. `GdxMultiprocessNodeMain.java` drives each host or client process.
 6. `run-certification.ps1` reads the Java map and applies repetition, depth,
    seed, isolation and reporting policy.
+7. `HeadlessWanScenarioTest.java` covers the renderer-neutral WAN path. The
+   same `wan-congestion` key also runs the independent GDX process cases.
 
 Do not add a second scenario list to PowerShell or Markdown. The live catalogue
 is always visible through:
@@ -128,8 +132,9 @@ Functional text checks must use `GdxFunctionalLabelOracle` or an equivalent
 semantic observation. Assert canonical action, pot, blind and result meaning.
 Do not assert one translated string or force the user's language.
 
-Visual alignment, font quality and exact pixels remain manual checks. A
-functional label oracle proves meaning, not appearance.
+Use the GPU lane for specific framebuffer invariants. Use visual review for
+alignment, font quality and overall appearance. A functional label oracle
+checks the meaning of a label.
 
 ## 5. Add process coverage when the boundary matters
 
@@ -149,6 +154,11 @@ The final oracle normally checks that:
 
 Scale timeouts by work and participant count. Do not increase a timeout until
 the log proves semantic progress throughout the additional interval.
+
+Reuse `GdxWanTrafficProxy` for sustained WAN coverage. Keep the link limits
+active across hand boundaries and use `GdxWanScenarioHands` for the configured
+sustained and extreme hand budgets. Assert the durable hand count and final
+ledger for every peer.
 
 ## 6. Register the method once
 
@@ -178,13 +188,17 @@ applies to the functional path, not byte-for-byte cryptographic identity.
 
 ## 8. Validate from narrow to broad
 
-Run the focused method first:
+Run the focused method first. Clear the default GDX certification-tag
+exclusion and use the method seed from the scenario report when replaying
+outside the runner.
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -am test `
   '-Dtest=GdxMultiprocessScenarioTest#yourMethodName' `
   '-Dsurefire.failIfNoSpecifiedTests=false' `
-  '-Dqa.sim.seed=42'
+  '-Dcoronapoker.gdx.excludedGroups=' `
+  '-Dqa.sim.seed=42' `
+  '-Dcoronapoker.qa.scenarioSeed=42'
 ```
 
 Run the exact scenario key with a known base seed:

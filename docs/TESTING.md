@@ -304,8 +304,8 @@ mvn clean verify
 ```
 
 It covers `coronapoker-core`, `coronapoker-gdx` and the architecture module.
-Tests tagged `certification` are excluded and run only through the scenario
-certifier.
+The product gate excludes tests tagged `certification`. Use the scenario
+certifier for the gameplay catalogue and `qa-gpu` for the separate GPU checks.
 
 Focused product test:
 
@@ -452,6 +452,7 @@ their source and validating their payload, without changing expulsion authority.
 | Bot decision or evaluator change | Product gate plus `qa-bots`. Run `qa-fast` for deterministic feedback during iteration. |
 | Documentation only | Link, formatting and documentation contract checks |
 | Normal release | `.\qa.cmd all balanced` |
+| Release without gameplay scenarios | `.\qa.cmd extended`, affected component checks and release artifact verification |
 
 Automation proves rules, conservation, protocol agreement, persistence,
 recovery, command and event wiring, and socket or process lifecycle. It does not
@@ -558,26 +559,40 @@ only validates its newly built runtime. The 27.18 video hotfix was checked with
 the installed Java 25.0.4.1 image lacking `jdk.httpserver`, including real JCEF
 startup, native mute controls and session transitions.
 
-## Community card presentation
+## Table rendering and audio checks
 
 The opt-in real GPU checks run with a fresh JVM per class because libGDX owns
-process-wide GLFW callbacks and native state. After installing the current
-reactor with `qa.cmd extended`, run:
+process-wide GLFW callbacks and native state. After running `qa.cmd test` or
+`qa.cmd extended`, run the profile on a machine with a working graphics driver.
 
 ```powershell
 mvn -f modules/pom.xml -pl coronapoker-gdx -Pqa-gpu test
 ```
 
-The `qa-gpu` profile selects only GPU certification classes. Their windows start
-hidden on the secondary monitor when available and disable audio. Ordinary
-product tests and gameplay certification do not activate this profile.
+The profile runs four GPU certification classes in hidden windows with audio
+disabled. Ordinary product tests and gameplay certification leave this profile
+off.
 
+| GPU test | Coverage |
+|---|---|
+| `GdxCardSmaaGpuCertificationTest` | Card shader and antialiasing output |
+| `GdxCommunityTurn2DGpuTest` | Both directions of the 2D flip and the resting artwork and footprint |
+| `GdxChipOcclusionGpuTest` | Chip occlusion and depth ordering in the 3D renderer |
+| `GdxPerspectivePocketGpuTest` | Starting a peek drag anywhere on either covered 3D pocket card |
 
 `GdxCommunityStreetDealTest` checks the flop stack, the flight and flip
 timing, and the animation durations against the dealer barrier.
+`GdxCardDealClearanceTest` checks 3D card clearance, touchdown and glide, and
+`GdxChipContactsTest` checks physical chip contacts without a graphics context.
 `GdxProductionStateAuthorityTest` checks the ordered table projection,
 hand-boundary settings, Run It Twice, Rabbit and hot-join cutover. These
 tests run without a graphics context.
+
+For last-hand audio, `GdxTableHostMaintenanceWiringTest` checks confirmation,
+cancellation and clearing the flag, with a recording sound stub to catch either
+generic switch cue. `GdxSoundFeedbackTest` checks the dedicated cues against
+the actual state transitions. Listening in a multiplayer table still requires
+a manual audio check.
 
 ## Extending the scenario catalogue
 

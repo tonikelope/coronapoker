@@ -199,6 +199,7 @@ Walkie-talkie style, push-to-record: **hold a key (F9 by default, rebindable), s
 
 ### 🔊 Audio settings
 Click the speaker icon to mute or unmute the game. Open **Settings > Audio** for the **master volume**, **output device** and **microphone** controls. By default, Shift + Up or Down changes the volume. Rebind the volume and push-to-record shortcuts under **Settings > Controls**.
+Marking or clearing **Last hand** plays its dedicated cue when the table confirms the change.
 
 ### Player avatars
 Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Remote PNG/JPEG/GIF avatars are rejected before rasterization when their Base64/decoded size, dimensions, frame count or total canvas work exceeds the bounded policy. Temporary files and thumbnails are owned by the room session and cleaned together. Client rosters are capped at the same ten participants as the host before any avatar allocation. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon for detecting a network MITM.
@@ -508,8 +509,10 @@ Use the lifecycle according to intent:
 | Increment the version and rebuild the runnable JAR | `.\qa.cmd build -IncrementVersion` |
 | Rebuild and run product and architecture tests | `.\qa.cmd test` |
 | Add the slow replayable non-bot regression lane | `.\qa.cmd extended` |
+| List scenario keys and their mapped tests without running them | `.\qa.cmd list` |
 | Run the complete scenario catalogue once | `.\qa.cmd scenarios fast` |
 | Complete release gate | `.\qa.cmd all balanced` |
+| Check native rendering and pointer behaviour after `qa.cmd test` | `mvn -f modules/pom.xml -pl coronapoker-gdx -Pqa-gpu test` |
 | Compile and run the product module tests | `mvn verify` |
 | Produce a clean GDX distribution | `mvn clean package` |
 | Build without tests for packaging diagnosis only | `mvn clean package -DskipTests` |
@@ -517,9 +520,9 @@ Use the lifecycle according to intent:
 | Run a seeded headless protocol campaign | `.\tools\qa\headless-sim.cmd` |
 | Certify the complete GDX scenario catalogue | `.\tools\qa\certify.cmd -Mode balanced` |
 
-Only the clean full-reactor command constitutes a distribution build. Building
-the GDX module directly is useful for local iteration but does not certify the
-complete product.
+Use a clean product reactor for a local distribution build. The release
+process uses `tools/build/build-platform-jars.ps1` for the five platform JARs
+and the [Windows installer workflow](packaging/windows/README.md#release-integration).
 
 `-IncrementVersion` is deliberately opt-in and valid only with `build`. Before
 Maven starts, it reads the current two-component product version, increments
@@ -552,10 +555,10 @@ self-update mechanism requires that special helper at the repository root.
 
 ## 🧪 Testing & certification
 
-The `test` command runs code and architecture tests. Extended QA,
-headless campaigns and GDX behavioural certification are separate layers and
-are never packaged in the game JAR. `qa.cmd` is the recommended single entry
-point. The individual Maven and runner commands remain available for diagnosis.
+The `test` command runs code and architecture tests. Extended QA, headless
+campaigns, GDX gameplay certification and GPU checks cover different parts of
+the product. For a release that omits gameplay scenarios, use `qa.cmd extended`
+with the affected component checks and artifact verification.
 
 **[Testing and certification](docs/TESTING.md)** is the canonical guide for
 test groups, expected cost, dependencies, command order, scenario modes and

@@ -8394,9 +8394,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void requestLastHandChange() {
         if (liveState == null || !tableHost) return;
+        // LastHandStatus alone plays the dedicated on/off cue.
         if (liveState.lastHand()) {
-            runSwitchAction(true,
-                    () -> submit(new TableCommand.SetLastHand(false)));
+            submit(new TableCommand.SetLastHand(false));
             return;
         }
         GdxTableDialog confirmation = new GdxTableDialog(
@@ -8408,8 +8408,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 uppercase(gameText.translate("ui.cancelar")),
                 uppercase(gameText.translate("game.ultima_mano_3")));
         confirmation.result().thenAccept(accepted -> {
-            if (accepted) runSwitchAction(false,
-                    () -> submit(new TableCommand.SetLastHand(true)));
+            if (accepted) submit(new TableCommand.SetLastHand(true));
         });
         showDialog(confirmation);
     }

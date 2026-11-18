@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.badlogic.gdx.audio.Sound;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import com.tonikelope.coronapoker.table.TableVisualEvent;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +42,46 @@ final class GdxTableHostMaintenanceWiringTest {
         assertEquals(1, submitted.size());
         assertInstanceOf(TableCommand.ForceReconnectPlayers.class,
                 submitted.get(0));
+    }
+
+    @Test
+    void lastHandSwitchLeavesFeedbackToItsAuthoritativeEvent()
+            throws ReflectiveOperationException {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted, hostLobby(true));
+        List<String> genericCues = new ArrayList<>();
+        for (String cue : List.of("buttonOnSound", "buttonOffSound")) {
+            var field = CoronaPokerGdxTable.class.getDeclaredField(cue);
+            field.setAccessible(true);
+            field.set(table, Proxy.newProxyInstance(Sound.class.getClassLoader(),
+                    new Class<?>[]{Sound.class}, (proxy, method, args) -> {
+                        if (!method.getName().equals("play")) return null;
+                        genericCues.add(cue);
+                        return 1L;
+                    }));
+        }
+        var request = CoronaPokerGdxTable.class.getDeclaredMethod(
+                "requestLastHandChange");
+        request.setAccessible(true);
+
+        request.invoke(table);
+        assertTrue(table.resolveActiveDialogChoice(false));
+        table.advanceDialogState();
+        assertTrue(submitted.isEmpty());
+
+        request.invoke(table);
+        assertTrue(table.resolveActiveDialogChoice(true));
+        table.advanceDialogState();
+        assertEquals(List.of(new TableCommand.SetLastHand(true)), submitted);
+
+        var state = CoronaPokerGdxTable.class.getDeclaredField("liveState");
+        state.setAccessible(true);
+        ((GdxTableViewState) state.get(table)).apply(
+                new TableVisualEvent.LastHandStatus(2L, true));
+        request.invoke(table);
+        assertEquals(List.of(new TableCommand.SetLastHand(true),
+                new TableCommand.SetLastHand(false)), submitted);
+        assertTrue(genericCues.isEmpty(), genericCues::toString);
     }
 
     @Test

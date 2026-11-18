@@ -10,6 +10,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -147,6 +148,7 @@ final class GdxPerspectivePocketGpuTest {
             mouse.move(new Point(WIDTH / 2, 0));
             table.render();
             assertEquals(Cursor.SystemCursor.Arrow, field(table, "appliedSystemCursor"));
+            byte[] idle = ScreenUtils.getFrameBufferPixels(true);
             mouse.move(center);
             mouse.down = mouse.justPressed = true;
             assertTrue(processor.touchDown(center.x, center.y, 0, Input.Buttons.LEFT));
@@ -158,11 +160,20 @@ final class GdxPerspectivePocketGpuTest {
             mouse.move(dragOrigin);
             table.render();
             assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
+            byte[] hovered = ScreenUtils.getFrameBufferPixels(true);
+            int[] cyanPixels = outlinePixels(renderer, viewport, idle, hovered, true);
+            assertTrue(cyanPixels[0] > 35 && cyanPixels[1] > 35,
+                    "A cyan rim must appear on each covered card: " + java.util.Arrays.toString(cyanPixels));
 
             mouse.down = true;
             assertTrue(processor.touchDown(dragOrigin.x, dragOrigin.y, 0, Input.Buttons.LEFT));
             table.render();
             assertEquals(0f, renderer.peekAmount());
+            assertEquals(true, field(table, "pocketDragCursorApplied"));
+            int[] orangePixels = outlinePixels(renderer, viewport, hovered,
+                    ScreenUtils.getFrameBufferPixels(true), false);
+            assertTrue(orangePixels[0] > 35 && orangePixels[1] > 35,
+                    "Both rims must turn orange before motion: " + java.util.Arrays.toString(orangePixels));
             assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 12, 0));
             table.render();
             assertEquals(.25f, renderer.peekAmount(), .002f);
@@ -181,6 +192,7 @@ final class GdxPerspectivePocketGpuTest {
             mouse.down = false;
             assertTrue(processor.touchUp(dragOrigin.x, dragOrigin.y - 120, 0, Input.Buttons.LEFT));
             table.render();
+            assertEquals(false, field(table, "pocketDragCursorApplied"));
             float dt = Math.min(Gdx.graphics.getDeltaTime(), .05f);
             float firstClosingAmount = (1f + 17f * dt) * (float) Math.exp(-17f * dt);
             assertEquals(firstClosingAmount, renderer.peekAmount(), .0001f,
@@ -208,6 +220,9 @@ final class GdxPerspectivePocketGpuTest {
             }
             assertNotNull(exposed, "A fully exposed local card is available again in the viewer");
             mouse.move(exposed);
+            table.render();
+            assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
+            assertNull(field(renderer, "pocketOutline"));
             mouse.down = mouse.justPressed = true;
             processor.touchDown(exposed.x, exposed.y, 0, Input.Buttons.LEFT);
             table.render();
@@ -220,6 +235,33 @@ final class GdxPerspectivePocketGpuTest {
             Gdx.input = original;
             table.dispose();
         }
+    }
+
+    private static int[] outlinePixels(GdxPerspectiveTable table, Viewport viewport,
+            byte[] before, byte[] after, boolean cyan) {
+        int height = Gdx.graphics.getBackBufferHeight();
+        int width = Gdx.graphics.getBackBufferWidth();
+        var world = new Vector2();
+        int[] pixels = new int[2];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int offset = (y * width + x) * 4;
+                int red = Byte.toUnsignedInt(after[offset]);
+                int green = Byte.toUnsignedInt(after[offset + 1]);
+                int blue = Byte.toUnsignedInt(after[offset + 2]);
+                boolean tinted = cyan
+                        ? blue - red > 95 && green - red > 75
+                                && (Byte.toUnsignedInt(before[offset]) - red > 65
+                                        || blue - Byte.toUnsignedInt(before[offset + 2]) > 65)
+                        : red - blue > 110 && red - green > 75
+                                && red - Byte.toUnsignedInt(before[offset]) > 65;
+                if (!tinted) continue;
+                viewport.unproject(world.set((x + 0.5f) * WIDTH / width, (y + 0.5f) * HEIGHT / height));
+                int slot = table.pocketSlotAt(world.x, world.y);
+                if (slot >= 0) pixels[slot]++;
+            }
+        }
+        return pixels;
     }
 
     private static Object field(Object object, String name) throws ReflectiveOperationException {

@@ -115,6 +115,7 @@ final class GdxPerspectiveTable implements Disposable {
             uniform int u_cardSide;
             uniform float u_showdownTint;
             uniform vec4 u_chipPreviewTint;
+            uniform vec4 u_pocketOutline;
             uniform vec2 u_repeat;
             uniform float u_opacity;
             uniform float u_aspect;
@@ -185,7 +186,9 @@ final class GdxPerspectiveTable implements Disposable {
                     return;
                 }
                 if (u_material == 5) {
-                    gl_FragColor = vec4(vec3(0.91, 0.90, 0.88) * v_light, u_opacity);
+                    vec3 edge = vec3(0.91, 0.90, 0.88) * v_light;
+                    edge = mix(edge, u_pocketOutline.rgb, u_pocketOutline.a);
+                    gl_FragColor = vec4(edge, u_opacity);
                     return;
                 }
                 if (u_material == 3) {
@@ -209,6 +212,14 @@ final class GdxPerspectiveTable implements Disposable {
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
                     vec3 litInk = ink.rgb * light + vec3(coat);
                     vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), u_showdownTint);
+                    if (u_pocketOutline.a > 0.0) {
+                        float distance = cardDistance(uv);
+                        float aa = max(0.5 * fwidth(distance), 0.0001);
+                        float line = smoothstep(-0.045 - aa, -0.045 + aa, distance);
+                        float glow = 0.25 * smoothstep(-0.072, -0.045, distance);
+                        printed = mix(printed, u_pocketOutline.rgb,
+                                max(line, glow) * u_pocketOutline.a);
+                    }
                     gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
                 }
@@ -267,6 +278,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final Rectangle boardCardPixels = new Rectangle();
     private boolean trackBoardCardPixels;
     private boolean pocketPair;
+    private Color pocketOutline;
     private int pocketDrawCount;
     private final FloatArray markerVertices = new FloatArray();
     private int meshColumns;
@@ -592,6 +604,11 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void beginPocketPair() {
+        beginPocketPair(null);
+    }
+
+    void beginPocketPair(Color outline) {
+        pocketOutline = outline;
         pocketAnchorZ = Float.NaN;
         for (GdxCardPickMesh pick : pocketPicks) pick.triangles.clear();
         activePocketSlot = -1;
@@ -601,6 +618,7 @@ final class GdxPerspectiveTable implements Disposable {
     void endPocketPair() {
         flushPocketPair();
         pocketPair = false;
+        pocketOutline = null;
         activePocketSlot = -1;
     }
 
@@ -618,7 +636,8 @@ final class GdxPerspectiveTable implements Disposable {
                 PocketDraw draw = pocketDraws[i];
                 drawShell(pocketShell, draw.vertices, draw.columns, draw.rows, draw.material,
                         draw.top, draw.bottom, draw.cardWidth, draw.aspect,
-                        draw.opacity, draw.highlight, draw.pickTarget);
+                        draw.opacity, draw.highlight, draw.pickTarget,
+                        draw.material == 2 ? pocketOutline : null);
             }
         } finally {
             pocketShell.endPair();
@@ -1614,9 +1633,17 @@ final class GdxPerspectiveTable implements Disposable {
     private void drawShell(GdxCardShell target, FloatArray vertices, int columns, int rows,
             int material, Texture top, Texture bottom, float cardWidth, float aspect,
             float opacity, float highlight, GdxCardPickMesh pickTarget) {
+        drawShell(target, vertices, columns, rows, material, top, bottom,
+                cardWidth, aspect, opacity, highlight, pickTarget, null);
+    }
+
+    private void drawShell(GdxCardShell target, FloatArray vertices, int columns, int rows,
+            int material, Texture top, Texture bottom, float cardWidth, float aspect,
+            float opacity, float highlight, GdxCardPickMesh pickTarget, Color outline) {
         begin(material, top, bottom, opacity);
         shader.setUniformf("u_aspect", aspect);
         shader.setUniformf("u_showdownTint", highlight);
+        if (outline != null) shader.setUniformf("u_pocketOutline", outline);
         target.pickTarget = pickTarget;
         try {
             target.render(shader, vertices, columns, rows, material, top, bottom,
@@ -1642,6 +1669,7 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformi("u_cardSide", 0);
         shader.setUniformf("u_showdownTint", 0f);
         shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
+        shader.setUniformf("u_pocketOutline", 0f, 0f, 0f, 0f);
         shader.setUniformf("u_opacity", opacity);
         shader.setUniformf("u_artworkSmooth", smoothArtwork ? 1f : 0f);
     }

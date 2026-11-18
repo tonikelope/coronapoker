@@ -15269,8 +15269,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // The public fan puts physical slot zero in front. Draw the rear
         // sheet first so a dimmed front sheet can blend over it as in 2D.
         int rearSlot = faceUpPair && pocketOrder.pose(cards.get(0).code(), 0).slot() == 1 ? 0 : 1;
+        Color outline = null;
+        if (pocketPeekEnabled) {
+            if (!Float.isNaN(pocketPeekDragAmount)) {
+                outline = ORANGE;
+            } else if (pocketPeekDragContains(pointer.x, pointer.y)) {
+                outline = CYAN;
+            }
+        }
         float previousOpacity = -1f;
-        perspectiveTable.beginPocketPair();
+        perspectiveTable.beginPocketPair(outline);
         try {
             for (int layer = 0; layer < limit; layer++) {
                 int slot = limit == 1 ? 0 : faceUpPair ? (layer == 0 ? rearSlot : 1 - rearSlot)

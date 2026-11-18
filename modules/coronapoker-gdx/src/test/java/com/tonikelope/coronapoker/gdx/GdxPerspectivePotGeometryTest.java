@@ -32,16 +32,78 @@ class GdxPerspectivePotGeometryTest {
         }
     }
 
-    @Test void useEveryPlaceBeforeIncreasingPileHeight() {
-        var rack = new GdxTableChipSlots(GdxTableChipSlots.POT_SLOT_COUNT);
+    @Test void potUsesFixedDenominationPositionsOnBothSides() {
+        var rack = GdxTableChipSlots.pot();
+        rack.arrange(new int[]{1, 0, 0, 0});
+        int blue = rack.slot(0, 0);
+        assertEquals(1, GdxTableChipSlots.side(blue));
         rack.arrange(new int[]{1, 1, 1, 1});
-        assertEquals(0, rack.slot(0, 0));
-        assertEquals(1, rack.slot(1, 0));
-        assertEquals(2, rack.slot(2, 0));
+        assertEquals(blue, rack.slot(0, 0));
+        float previousX = Float.NEGATIVE_INFINITY;
+        for (int column = 3; column >= 0; column--) {
+            int slot = rack.slot(column, 0);
+            float x = GdxTableChipSlots.offsetX(slot, DIAMETER, 165f, 24f);
+            assertEquals(column >= 2 ? -1 : 1, GdxTableChipSlots.side(slot));
+            assertEquals(GdxTableChipSlots.offsetY(blue, DIAMETER, 45f, 24f),
+                    GdxTableChipSlots.offsetY(slot, DIAMETER, 45f, 24f));
+            assertTrue(x > previousX);
+            previousX = x;
+        }
+    }
+
+    @Test void potUsesTheAuxiliaryAreaOnlyAfterBothSidesFill() {
+        var rack = GdxTableChipSlots.pot();
+        rack.arrange(new int[]{30, 10, 10, 10});
+        int blue = rack.slot(0, 0);
+        assertEquals(6, potLateralPiles(rack));
+        rack.arrange(new int[]{40, 10, 10, 10});
+        assertEquals(6, potLateralPiles(rack));
+        assertEquals(GdxTableChipSlots.POT_UPPER_CENTER, rack.slot(0, 3));
+
+        rack.arrange(new int[]{40, 10, 0, 10});
+        assertEquals(GdxTableChipSlots.POT_UPPER_CENTER, rack.slot(0, 3));
+        rack.compactPotSides();
+        assertEquals(6, potLateralPiles(rack));
+        assertEquals(blue, rack.slot(0, 0));
+        assertEquals(-1, GdxTableChipSlots.side(rack.slot(0, 3)));
+        rack.arrange(new int[]{40, 10, 10, 10});
+        assertEquals(0, rack.slot(2, 0), "Red reclaims its front position");
+        assertEquals(6, potLateralPiles(rack));
+        assertEquals(GdxTableChipSlots.POT_UPPER_CENTER, rack.slot(0, 3));
+    }
+
+    @Test void fullPotMakesRoomForANewDenominationAtItsOwnPosition() {
+        var rack = GdxTableChipSlots.pot();
+        rack.arrange(new int[]{90, 0, 0, 0});
+        assertEquals(9, rack.piles(0));
+        rack.arrange(new int[]{90, 0, 1, 0});
+        assertEquals(0, rack.slot(2, 0));
+        assertEquals(8, rack.piles(0));
+        assertFalse(rack.ownsSlot(0, rack.slot(2, 0)));
+        int chips = 0;
+        for (int pile = 0; pile < rack.piles(0); pile++) chips += rack.height(0, pile, 90);
+        assertEquals(90, chips);
+        assertEquals(6, potLateralPiles(rack));
+    }
+
+    private static int potLateralPiles(GdxTableChipSlots rack) {
+        int count = 0;
+        for (int column = 0; column < 4; column++) {
+            for (int pile = 0; pile < rack.piles(column); pile++) {
+                if (GdxTableChipSlots.side(rack.slot(column, pile)) != 0) count++;
+            }
+        }
+        return count;
+    }
+
+    @Test void useEveryPlaceBeforeIncreasingPileHeight() {
+        var rack = GdxTableChipSlots.pot();
+        rack.arrange(new int[]{1, 1, 1, 1});
+        int blue = rack.slot(0, 0);
         rack.arrange(new int[]{60, 10, 10, 10});
         assertEquals(6, rack.piles(0));
         assertEquals(10, rack.height(0, 0, 60));
-        assertEquals(0, rack.slot(0, 0));
+        assertEquals(blue, rack.slot(0, 0));
         assertEquals(0, rack.levelForChip(0, 10));
         assertEquals(1, rack.pileForChip(0, 10));
         rack.arrange(new int[]{61, 10, 10, 10});

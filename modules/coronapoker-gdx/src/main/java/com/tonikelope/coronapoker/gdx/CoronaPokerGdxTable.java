@@ -1464,7 +1464,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Rectangle perspectivePotChipBounds = new Rectangle();
     private final Rectangle perspectivePotRightChipBounds = new Rectangle();
     private final Rectangle perspectivePotUpperChipBounds = new Rectangle();
-    private final GdxTableChipSlots perspectivePotRack = new GdxTableChipSlots(GdxTableChipSlots.POT_SLOT_COUNT);
+    private final GdxTableChipSlots perspectivePotRack = GdxTableChipSlots.pot();
     private final GdxTableChipSlots perspectiveLocalRack = GdxTableChipSlots.local();
     private final Rectangle perspectiveLocalRightChipBounds = new Rectangle();
     private GdxStackChipLayout.Layout localTableCapacityChecked;
@@ -16772,7 +16772,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxFeltMarking.rounded(shapes, tableCenterX - localHalfWidth, localBottom,
                 tableCenterX + localHalfWidth, localTop, 35f);
 
-        float potTop = potCenterY + GdxTableChipSlots.offsetY(1, tableChipDiameter,
+        float potTop = potCenterY + GdxTableChipSlots.offsetY(GdxTableChipSlots.POT_UPPER_CENTER, tableChipDiameter,
                 POT_PANEL_HEIGHT * .5f, TABLE_POT_CHIP_GAP) + tableChipDiameter * .5f + margin;
         GdxFeltMarking.rounded(shapes, left,
                 potCenterY - POT_PANEL_HEIGHT * .5f - 9f, right, potTop, 30f);
@@ -16853,7 +16853,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         perspectivePotRack.arrange(plannedPotChips);
         perspectiveLocalRack.arrange(plannedLocalChips);
-        if (settled) perspectiveLocalRack.compactLocalRows();
+        if (settled) {
+            perspectivePotRack.compactPotSides();
+            perspectiveLocalRack.compactLocalRows();
+        }
         updateStackBetPreview(stack);
         perspectiveTable.clearDealPiles();
         if (!liveCardFlights.isEmpty() || liveCommunityReveal != null) {
@@ -21754,7 +21757,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         advanceChipPileImpacts(localChipImpacts);
         for (int i = 0; i < activeTableChipMoves; i++) {
             var move = tableChipMoves.get(i);
-            if (move.falling || move.destinationSlot < 0 || move.firstContact <= previousTableChipFrameNanos
+            if (move.falling && !move.rebuy) continue;
+            if (move.destinationSlot < 0 || move.firstContact <= previousTableChipFrameNanos
                     || move.firstContact > renderFrameNanos) continue;
             var rack = move.toPot ? perspectivePotRack : perspectiveLocalRack;
             if (!rack.ownsSlot(GdxChipDenominations.columnForColor(move.color), move.destinationSlot)) continue;

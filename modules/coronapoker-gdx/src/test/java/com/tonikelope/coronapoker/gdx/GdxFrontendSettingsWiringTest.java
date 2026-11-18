@@ -188,11 +188,11 @@ final class GdxFrontendSettingsWiringTest {
         String normalizedTable = table.replaceAll("\\s+", " ");
         assertTrue(normalizedFrontend.contains(
                 "GdxSettingsStyle.ACTION_FONT_SIZE, "
-                + "GdxSettingsStyle.ACTION_FONT_BORDER, border, characters, "
+                + "0f, border, characters, "
                 + "font -> actionFont = replaceFont(actionFont, font)"));
         assertTrue(normalizedTable.contains(
                 "settingsActionFont = font(creationFontGenerator, "
-                + "GdxSettingsStyle.ACTION_FONT_SIZE,"));
+                + "GdxSettingsStyle.ACTION_FONT_SIZE, 0f);"));
         assertFalse(table.contains(
                 "capturing ? settingsSmallFont\n                : settingsActionFont"));
     }

@@ -158,7 +158,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final int FINAL_HERO_FONT_SIZE = 173;
     private static final int FINAL_HERO_MIN_FONT_SIZE = 18;
     private static final float FINAL_HERO_FONT_BORDER = 5.5f;
-    private static final float FINAL_CARD_EMPHASIS_BORDER = 0.25f;
     private static final float INTRO_LIGHT_SWITCH_TIME =
             STARTUP_PRESENTATION_END_SECONDS;
     private static final float INTRO_CARD_CLEAR_START =
@@ -519,7 +518,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     /** Keep the local controls and quick-access bar below the chat. */
     static final float QUICK_CHAT_PANEL_Y = LOCAL_HUD_SAFE_TOP;
     static final int QUICK_CHAT_INPUT_FONT_SIZE = 21;
-    static final float QUICK_CHAT_INPUT_FONT_BORDER = 0.8f;
     private static final Color QUICK_CHAT_TOGGLE_ON = new Color(0x2f8f6bff);
     private static final Color QUICK_CHAT_TOGGLE_KNOB = new Color(0xe4f5ebff);
     private static final float IMAGE_SEND_COOLDOWN_SECONDS = 2f;
@@ -1509,6 +1507,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean chipRackCompositeUnavailable;
 
     private BitmapFont uiFont;
+    private BitmapFont volumeOverlayFont;
     private BitmapFont mediumUiFont;
     private BitmapFont smallFont;
     private BitmapFont versionFont;
@@ -1553,7 +1552,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont finalDetailFont;
     private BitmapFont finalButtonFont;
     private BitmapFont finalCardFont;
-    private BitmapFont finalCardBoldFont;
     private BitmapFont finalCardResultFont;
     private BitmapFont fpsFont;
     private final GdxProcessPerformanceSampler performanceSampler =
@@ -4059,13 +4057,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         switch (creationResourceIndex) {
             case 1 -> uiFont = font(creationFontGenerator,
-                    GdxVolumeOverlayStyle.FONT_SIZE,
-                    GdxVolumeOverlayStyle.FONT_BORDER);
+                    GdxVolumeOverlayStyle.FONT_SIZE, 0f);
             case 2 -> smallFont = font(creationFontGenerator,
-                    QUICK_CHAT_INPUT_FONT_SIZE, QUICK_CHAT_INPUT_FONT_BORDER);
+                    QUICK_CHAT_INPUT_FONT_SIZE, 0f);
             case 3 -> versionFont = font(creationFontGenerator,
                     GdxProductVersionBrand.FONT_SIZE, 0f);
-            case 4 -> playerNameFont = font(creationFontGenerator, 22, 1.6f);
+            case 4 -> playerNameFont = font(creationFontGenerator, 22, 0f);
             case 5 -> stackFont = font(creationFontGenerator, 24, 0f);
         // Action surfaces already provide their own contrast. A heavy glyph
         // outline makes black labels such as SUBE/VA look double-bold, so the
@@ -4082,19 +4079,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             case 10 -> pauseFont = font(creationFontGenerator, 76, 0f,
                     PAUSE_RED, new Color(0x640000cc));
-            case 11 -> finalButtonFont = font(creationFontGenerator, 26, 0.2f);
+            case 11 -> finalButtonFont = font(creationFontGenerator, 26, 0f);
             case 12 -> settingsTitleFont = font(creationFontGenerator,
                     GdxSettingsStyle.TITLE_FONT_SIZE,
-                    GdxSettingsStyle.TITLE_FONT_BORDER);
+                    0f);
             case 13 -> settingsHeadingFont = font(creationFontGenerator,
                     GdxSettingsStyle.HEADING_FONT_SIZE,
-                    GdxSettingsStyle.HEADING_FONT_BORDER);
+                    0f);
             case 14 -> settingsStepperSignFont = font(creationFontGenerator,
                     GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
-                    GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER);
+                    0f);
             case 15 -> settingsActionFont = font(creationFontGenerator,
                     GdxSettingsStyle.ACTION_FONT_SIZE,
-                    GdxSettingsStyle.ACTION_FONT_BORDER);
+                    0f);
             case 16 -> settingsBodyFont = font(creationFontGenerator,
                     GdxSettingsStyle.BODY_FONT_SIZE, 0f);
             case 17 -> settingsSmallFont = font(creationFontGenerator,
@@ -4199,8 +4196,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     return false;
                 }
             }
-            case 5 -> finalCardBoldFont = font(creationFontGenerator, 20,
-                    FINAL_CARD_EMPHASIS_BORDER);
+            case 5 -> volumeOverlayFont = font(creationFontGenerator,
+                    GdxVolumeOverlayStyle.FONT_SIZE, GdxVolumeOverlayStyle.FONT_BORDER);
             case 6 -> finalCardResultFont = font(creationFontGenerator, 20,
                     0f);
             case 7 -> finalDetailFont = font(creationFontGenerator, 38, 0f);
@@ -4810,19 +4807,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         var mono = GdxMonospaceFonts.source(false);
         var bold = GdxMonospaceFonts.source(true);
         List<GdxFontRefresh.Font> fonts = new ArrayList<>();
-        fonts.add(new GdxFontRefresh.Font(mclaren, GdxVolumeOverlayStyle.FONT_SIZE, GdxVolumeOverlayStyle.FONT_BORDER,
+        fonts.add(new GdxFontRefresh.Font(mclaren, GdxVolumeOverlayStyle.FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> uiFont = replaceFont(uiFont, font)));
+        fonts.add(new GdxFontRefresh.Font(mclaren, GdxVolumeOverlayStyle.FONT_SIZE,
+                GdxVolumeOverlayStyle.FONT_BORDER, DEFAULT_FONT_BORDER, characters,
+                font -> volumeOverlayFont = replaceFont(volumeOverlayFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 38, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> mediumUiFont = replaceFont(mediumUiFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mclaren, QUICK_CHAT_INPUT_FONT_SIZE, QUICK_CHAT_INPUT_FONT_BORDER,
+        fonts.add(new GdxFontRefresh.Font(mclaren, QUICK_CHAT_INPUT_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> smallFont = replaceFont(smallFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, GdxProductVersionBrand.FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> versionFont = replaceFont(versionFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mclaren, 22, 1.6f,
+        fonts.add(new GdxFontRefresh.Font(mclaren, 22, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> playerNameFont = replaceFont(playerNameFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 24, 0f,
@@ -4852,23 +4852,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         fonts.add(new GdxFontRefresh.Font(mclaren, 58, 0f,
                 PAUSE_RED, new Color(0x640000cc), characters,
                 font -> pauseCompactFont = replaceFont(pauseCompactFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mclaren, 26, 0.2f,
+        fonts.add(new GdxFontRefresh.Font(mclaren, 26, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> finalButtonFont = replaceFont(finalButtonFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren,
-                GdxSettingsStyle.TITLE_FONT_SIZE, GdxSettingsStyle.TITLE_FONT_BORDER,
+                GdxSettingsStyle.TITLE_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsTitleFont = replaceFont(settingsTitleFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren,
-                GdxSettingsStyle.HEADING_FONT_SIZE, GdxSettingsStyle.HEADING_FONT_BORDER,
+                GdxSettingsStyle.HEADING_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsHeadingFont = replaceFont(settingsHeadingFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren,
-                GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE, GdxSettingsStyle.STEPPER_SIGN_FONT_BORDER,
+                GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsStepperSignFont = replaceFont(settingsStepperSignFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren,
-                GdxSettingsStyle.ACTION_FONT_SIZE, GdxSettingsStyle.ACTION_FONT_BORDER,
+                GdxSettingsStyle.ACTION_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsActionFont = replaceFont(settingsActionFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, GdxSettingsStyle.BODY_FONT_SIZE, 0f,
@@ -4892,9 +4892,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         fonts.add(new GdxFontRefresh.Font(mclaren, 162, 0f,
                 DEFAULT_FONT_BORDER, amountCharacters,
                 font -> chipCatalogAmountFont = replaceFont(chipCatalogAmountFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mclaren, 20, FINAL_CARD_EMPHASIS_BORDER,
-                DEFAULT_FONT_BORDER, characters,
-                font -> finalCardBoldFont = replaceFont(finalCardBoldFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 20, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> finalCardResultFont = replaceFont(finalCardResultFont, font)));
@@ -4972,7 +4969,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             seatActionFont, uiFont, settingsHeadingFont,
             settingsActionFont, finalButtonFont, stackFont,
             settingsBodyFont, playerNameFont, actionFont, smallFont,
-            finalCardBoldFont, finalCardResultFont, finalCardFont,
+            finalCardResultFont, finalCardFont,
             settingsSmallFont, settingsTinyFont, versionFont
         };
         for (BitmapFont font : standard) {
@@ -19163,7 +19160,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawVolumeOverlayTopLayer() {
-        GdxVolumeOverlayStyle.draw(shapes, batch, viewport, uiFont,
+        GdxVolumeOverlayStyle.draw(shapes, batch, viewport, volumeOverlayFont,
                 glyph, soundIcon, muteIcon, effectsVolume, audioOutputAvailable());
     }
 
@@ -26511,7 +26508,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.end();
 
         batch.begin();
-        drawFittedCenteredInBox(finalTitleFont, dialog.nickname(),
+        drawFittedCenteredInBox(settingsTitleFont, dialog.nickname(),
                 panelX + 45f, panelY + panelH - 88f,
                 panelW - 90f, 50f, POT_GOLD, 1f);
         drawFittedCenteredInBox(uiFont,
@@ -32269,7 +32266,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         finalSummaryAvatarCornerRadius(identitySize), 0f,
                         Color.WHITE, cardAlpha);
             }
-            drawFittedCenteredInBox(finalCardBoldFont, balance.nickname(),
+            drawFittedCenteredInBox(finalCardResultFont, balance.nickname(),
                     x + 10f * motion.scale(),
                     identityY - 31f * motion.scale(),
                     animatedCardW - 20f * motion.scale(),
@@ -32956,6 +32953,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(screenshotSound);
         disposeSafely(feltChangeSound);
         disposeSafely(uiFont);
+        disposeSafely(volumeOverlayFont);
         disposeSafely(mediumUiFont);
         disposeSafely(smallFont);
         disposeSafely(versionFont);
@@ -32977,7 +32975,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(finalDetailFont);
         disposeSafely(finalButtonFont);
         disposeSafely(finalCardFont);
-        disposeSafely(finalCardBoldFont);
         disposeSafely(finalCardResultFont);
         disposeSafely(fpsFont);
         disposeSafely(gameLogTextFont);
@@ -33171,6 +33168,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (layer != null) layer.dispose();
         }
         uiFont.dispose();
+        volumeOverlayFont.dispose();
         mediumUiFont.dispose();
         smallFont.dispose();
         versionFont.dispose();
@@ -33200,7 +33198,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         finalDetailFont.dispose();
         finalButtonFont.dispose();
         finalCardFont.dispose();
-        finalCardBoldFont.dispose();
         finalCardResultFont.dispose();
         fpsFont.dispose();
         gameLogTextFont.dispose();

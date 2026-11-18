@@ -513,6 +513,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RECOVERY_STOP_NOTICE_SECONDS = 5f;
     private static final float QUICK_CHAT_WIDTH_RATIO = 0.30f;
     private static final float QUICK_CHAT_SCREEN_MARGIN = 18f;
+    private static final float CHAT_FEED_PADDING_X = 8f;
+    private static final float CHAT_FEED_PADDING_Y = 4f;
+    private static final float CHAT_FEED_MESSAGE_GAP = 4f;
     /** Keep the local controls and quick-access bar below the chat. */
     static final float QUICK_CHAT_PANEL_Y = LOCAL_HUD_SAFE_TOP;
     static final int QUICK_CHAT_INPUT_FONT_SIZE = 21;
@@ -31104,7 +31107,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : Math.max(LOCAL_HUD_SAFE_TOP, FAST_BAR_Y + FAST_BUTTON_SIZE
                         + 2f * FAST_BAR_PADDING + 14f);
         float top = bottom + GdxTableChatFeed.VISIBLE_LIMIT
-                * (smallFont.getCapHeight() + smallFont.getLineHeight() + 9f);
+                * (smallFont.getCapHeight() + smallFont.getLineHeight() + 1f
+                        + 2f * CHAT_FEED_PADDING_Y + CHAT_FEED_MESSAGE_GAP);
         // The lower left seats occupy the chat lane on fuller tables. Keep
         // the feed inside the left half, with a clear lane beside those pods.
         float right = worldWidth * 0.39f;
@@ -31148,31 +31152,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         clipChatText(x, bottom, width, viewport.getWorldHeight() - bottom);
         batch.begin();
         float rowBottom = bottom;
+        float textWidth = Math.max(1f, width - 2f * CHAT_FEED_PADDING_X);
         for (int index = lines.size() - 1; index >= 0; index--) {
             GdxTableChatFeed.Visible visible = lines.get(index);
             boolean notice = visible.line().isNotice();
             GlyphLayout layout = feedGlyphs.computeIfAbsent(visible.line(),
-                    line -> layoutFeedLine(line, notice ? Math.max(1f, width - 16f) : width));
-            float rowHeight = layout.height + (notice ? 10f : 9f);
+                    line -> layoutFeedLine(line, textWidth));
+            float labelHeight = layout.height + 2f * CHAT_FEED_PADDING_Y;
+            float rowHeight = labelHeight + (notice ? 2f : CHAT_FEED_MESSAGE_GAP);
             if (index == lines.size() - 1) rowBottom -= (1f - slide) * rowHeight;
-            float alpha = visible.alpha(totalTime);
-            if (notice) {
-                drawTableNoticeLine(layout, x, rowBottom, width, alpha);
-            } else {
-                drawChatLine(layout, x, rowBottom + rowHeight - 4f, alpha);
-            }
+            drawTableChatFeedLine(layout, x, rowBottom, width, labelHeight, notice, visible.alpha(totalTime));
             rowBottom += rowHeight;
         }
         batch.end();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
     }
 
-    private void drawTableNoticeLine(GlyphLayout layout, float x,
-            float bottom, float availableWidth, float alpha) {
+    private void drawTableChatFeedLine(GlyphLayout layout, float x, float bottom,
+            float availableWidth, float labelHeight, boolean notice, float alpha) {
         drawRoundedTextureInBatch(solidWhiteTexture, x, bottom,
-                Math.min(availableWidth, layout.width + 16f), layout.height + 8f,
-                5f, 0f, GdxUiDialogStyle.NOTICE_FILL, alpha);
-        drawChatLine(layout, x + 8f, bottom + layout.height + 4f, alpha);
+                Math.min(availableWidth, layout.width + 2f * CHAT_FEED_PADDING_X), labelHeight,
+                notice ? 5f : 8f, 0f, notice ? GdxUiDialogStyle.NOTICE_FILL : Color.BLACK, alpha);
+        drawChatLine(layout, x + CHAT_FEED_PADDING_X, bottom + layout.height + CHAT_FEED_PADDING_Y, alpha);
     }
 
     private GlyphLayout layoutFeedLine(GdxTableChatFeed.Line line, float width) {

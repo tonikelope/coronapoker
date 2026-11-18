@@ -10,7 +10,6 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -37,7 +36,6 @@ final class GdxPerspectivePocketGpuTest {
         config.setInitialVisible(false);
         config.disableAudio(true);
         config.setWindowedMode(WIDTH, HEIGHT);
-        config.setBackBufferConfig(8, 8, 8, 8, 24, 8, 0);
         var failure = new AtomicReference<Throwable>();
         new Lwjgl3Application(new ApplicationAdapter() {
             @Override public void render() {
@@ -45,7 +43,6 @@ final class GdxPerspectivePocketGpuTest {
                 try {
                     long window = ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
-                    assertEquals(0, Gdx.graphics.getBufferFormat().samples);
                     verifyPocket(dir);
                 } catch (Throwable error) {
                     failure.set(error);
@@ -150,7 +147,6 @@ final class GdxPerspectivePocketGpuTest {
             mouse.move(new Point(WIDTH / 2, 0));
             table.render();
             assertEquals(Cursor.SystemCursor.Arrow, field(table, "appliedSystemCursor"));
-            byte[] idle = ScreenUtils.getFrameBufferPixels(true);
             mouse.move(center);
             mouse.down = mouse.justPressed = true;
             assertTrue(processor.touchDown(center.x, center.y, 0, Input.Buttons.LEFT));
@@ -162,29 +158,12 @@ final class GdxPerspectivePocketGpuTest {
             mouse.move(dragOrigin);
             table.render();
             assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
-            byte[] hovered = ScreenUtils.getFrameBufferPixels(true);
-            Point secondCenter = secondCard.get(secondCard.size() / 2);
-            assertEquals(pixelRgb(idle, center), pixelRgb(hovered, center));
-            assertEquals(pixelRgb(idle, secondCenter), pixelRgb(hovered, secondCenter));
-            assertExteriorOutline(renderer, viewport, idle, hovered, true, true);
-
-            String outlineKey = GdxSettingsContract.TABLE_PEEK_OUTLINE_KEY;
-            prefs.properties().setProperty(outlineKey, "false");
-            table.render();
-            assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
-            assertExteriorOutline(renderer, viewport, idle,
-                    ScreenUtils.getFrameBufferPixels(true), true, false);
-            prefs.properties().remove(outlineKey);
 
             mouse.down = true;
             assertTrue(processor.touchDown(dragOrigin.x, dragOrigin.y, 0, Input.Buttons.LEFT));
             table.render();
             assertEquals(0f, renderer.peekAmount());
             assertEquals(true, field(table, "pocketDragCursorApplied"));
-            byte[] held = ScreenUtils.getFrameBufferPixels(true);
-            assertEquals(pixelRgb(idle, center), pixelRgb(held, center));
-            assertEquals(pixelRgb(idle, secondCenter), pixelRgb(held, secondCenter));
-            assertExteriorOutline(renderer, viewport, idle, held, false, true);
             assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 12, 0));
             table.render();
             assertEquals(.25f, renderer.peekAmount(), .002f);
@@ -233,7 +212,6 @@ final class GdxPerspectivePocketGpuTest {
             mouse.move(exposed);
             table.render();
             assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
-            assertNull(field(renderer, "pocketOutline"));
             mouse.down = mouse.justPressed = true;
             processor.touchDown(exposed.x, exposed.y, 0, Input.Buttons.LEFT);
             table.render();
@@ -245,69 +223,6 @@ final class GdxPerspectivePocketGpuTest {
         } finally {
             Gdx.input = original;
             table.dispose();
-        }
-    }
-
-    private static int pixelRgb(byte[] frame, Point point) {
-        int width = Gdx.graphics.getBackBufferWidth();
-        int height = Gdx.graphics.getBackBufferHeight();
-        int offset = ((point.y * height / HEIGHT) * width + point.x * width / WIDTH) * 4;
-        return (Byte.toUnsignedInt(frame[offset]) << 16)
-                | (Byte.toUnsignedInt(frame[offset + 1]) << 8)
-                | Byte.toUnsignedInt(frame[offset + 2]);
-    }
-
-    private static void assertExteriorOutline(GdxPerspectiveTable table, Viewport viewport,
-            byte[] before, byte[] after, boolean cyan, boolean visible) {
-        int height = Gdx.graphics.getBackBufferHeight();
-        int width = Gdx.graphics.getBackBufferWidth();
-        var world = new Vector2();
-        int[][] neighbours = {{1, 0}, {-1, 0}, {0, 1}, {0, -1},
-                {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
-        int[] pixels = new int[2];
-        int[] blended = new int[2];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int offset = (y * width + x) * 4;
-                int red = Byte.toUnsignedInt(after[offset]);
-                int green = Byte.toUnsignedInt(after[offset + 1]);
-                int blue = Byte.toUnsignedInt(after[offset + 2]);
-                int feltRed = Byte.toUnsignedInt(before[offset]);
-                int feltGreen = Byte.toUnsignedInt(before[offset + 1]);
-                int feltBlue = Byte.toUnsignedInt(before[offset + 2]);
-                if (feltRed > 75 || feltGreen > 125 || feltBlue > 110) continue;
-                int outlineRed = cyan ? 54 : 255;
-                int outlineGreen = cyan ? 217 : 107;
-                int outlineBlue = cyan ? 255 : 39;
-                float coverage = cyan ? (blue - feltBlue) / (255f - feltBlue)
-                        : (red - feltRed) / (255f - feltRed);
-                if (coverage < 0.06f || coverage > 1f
-                        || Math.abs(red - (feltRed + coverage * (outlineRed - feltRed))) > 3f
-                        || Math.abs(green - (feltGreen + coverage * (outlineGreen - feltGreen))) > 3f
-                        || Math.abs(blue - (feltBlue + coverage * (outlineBlue - feltBlue))) > 3f) continue;
-                viewport.unproject(world.set((x + 0.5f) * WIDTH / width, (y + 0.5f) * HEIGHT / height));
-                int slot = table.pocketSlotAt(world.x, world.y);
-                if (slot >= 0) continue;
-                for (int[] shift : neighbours) {
-                    viewport.unproject(world.set((x + 0.5f + shift[0]) * WIDTH / width,
-                            (y + 0.5f + shift[1]) * HEIGHT / height));
-                    slot = table.pocketSlotAt(world.x, world.y);
-                    if (slot >= 0) {
-                        pixels[slot]++;
-                        if (coverage < 0.94f) blended[slot]++;
-                        break;
-                    }
-                }
-            }
-        }
-        if (visible) {
-            assertTrue(pixels[0] > 25 && pixels[1] > 25,
-                    (cyan ? "Cyan" : "Orange") + " pixels outside each card: "
-                            + java.util.Arrays.toString(pixels));
-            assertTrue(blended[0] > 10 && blended[1] > 10,
-                    "Partially covered pixels outside each card: " + java.util.Arrays.toString(blended));
-        } else {
-            assertArrayEquals(new int[2], pixels);
         }
     }
 

@@ -115,7 +115,6 @@ final class GdxPerspectiveTable implements Disposable {
             uniform int u_cardSide;
             uniform float u_showdownTint;
             uniform vec4 u_chipPreviewTint;
-            uniform vec4 u_pocketOutline;
             uniform vec2 u_repeat;
             uniform float u_opacity;
             uniform float u_aspect;
@@ -130,11 +129,6 @@ final class GdxPerspectiveTable implements Disposable {
                 float radius = 0.075;
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
                 return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
-            }
-            const float POCKET_OUTLINE_WIDTH = 0.015;
-            float pocketOutlineCoverageAt(vec2 uv, float aa) {
-                return 1.0 - smoothstep(POCKET_OUTLINE_WIDTH - aa,
-                        POCKET_OUTLINE_WIDTH + aa, cardDistance(uv));
             }
             void main() {
                 if (u_material == 1) {
@@ -192,25 +186,6 @@ final class GdxPerspectiveTable implements Disposable {
                 }
                 if (u_material == 5) {
                     gl_FragColor = vec4(vec3(0.91, 0.90, 0.88) * v_light, u_opacity);
-                    return;
-                }
-                if (u_material == 10) {
-                    vec2 uv = (v_uv - 0.5) * 1.065 + 0.5;
-                    vec2 dx = dFdx(uv);
-                    vec2 dy = dFdy(uv);
-                    float distance = cardDistance(uv);
-                    float pixelSpan = length(vec2(dFdx(distance), dFdy(distance)));
-                    if (distance < -pixelSpan || distance > POCKET_OUTLINE_WIDTH + pixelSpan) discard;
-                    // Four rotated samples keep the narrow border smooth on
-                    // corners and diagonals even when window MSAA is off.
-                    float aa = max(0.18 * pixelSpan, 0.0001);
-                    float coverage = 0.25 * (
-                            pocketOutlineCoverageAt(uv - 0.375 * dx - 0.125 * dy, aa)
-                            + pocketOutlineCoverageAt(uv - 0.125 * dx + 0.375 * dy, aa)
-                            + pocketOutlineCoverageAt(uv + 0.125 * dx - 0.375 * dy, aa)
-                            + pocketOutlineCoverageAt(uv + 0.375 * dx + 0.125 * dy, aa));
-                    if (coverage <= 0.001) discard;
-                    gl_FragColor = vec4(u_pocketOutline.rgb, coverage * u_pocketOutline.a * u_opacity);
                     return;
                 }
                 if (u_material == 3) {
@@ -292,7 +267,6 @@ final class GdxPerspectiveTable implements Disposable {
     private final Rectangle boardCardPixels = new Rectangle();
     private boolean trackBoardCardPixels;
     private boolean pocketPair;
-    private Color pocketOutline;
     private int pocketDrawCount;
     private final FloatArray markerVertices = new FloatArray();
     private int meshColumns;
@@ -618,11 +592,6 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void beginPocketPair() {
-        beginPocketPair(null);
-    }
-
-    void beginPocketPair(Color outline) {
-        pocketOutline = outline;
         pocketAnchorZ = Float.NaN;
         for (GdxCardPickMesh pick : pocketPicks) pick.triangles.clear();
         activePocketSlot = -1;
@@ -632,7 +601,6 @@ final class GdxPerspectiveTable implements Disposable {
     void endPocketPair() {
         flushPocketPair();
         pocketPair = false;
-        pocketOutline = null;
         activePocketSlot = -1;
     }
 
@@ -650,8 +618,7 @@ final class GdxPerspectiveTable implements Disposable {
                 PocketDraw draw = pocketDraws[i];
                 drawShell(pocketShell, draw.vertices, draw.columns, draw.rows, draw.material,
                         draw.top, draw.bottom, draw.cardWidth, draw.aspect,
-                        draw.opacity, draw.highlight, draw.pickTarget,
-                        draw.material == 2 ? pocketOutline : null);
+                        draw.opacity, draw.highlight, draw.pickTarget);
             }
         } finally {
             pocketShell.endPair();
@@ -1647,21 +1614,13 @@ final class GdxPerspectiveTable implements Disposable {
     private void drawShell(GdxCardShell target, FloatArray vertices, int columns, int rows,
             int material, Texture top, Texture bottom, float cardWidth, float aspect,
             float opacity, float highlight, GdxCardPickMesh pickTarget) {
-        drawShell(target, vertices, columns, rows, material, top, bottom,
-                cardWidth, aspect, opacity, highlight, pickTarget, null);
-    }
-
-    private void drawShell(GdxCardShell target, FloatArray vertices, int columns, int rows,
-            int material, Texture top, Texture bottom, float cardWidth, float aspect,
-            float opacity, float highlight, GdxCardPickMesh pickTarget, Color outline) {
         begin(material, top, bottom, opacity);
         shader.setUniformf("u_aspect", aspect);
         shader.setUniformf("u_showdownTint", highlight);
-        if (outline != null) shader.setUniformf("u_pocketOutline", outline);
         target.pickTarget = pickTarget;
         try {
             target.render(shader, vertices, columns, rows, material, top, bottom,
-                    cardWidth, aspect, width, height, outline != null);
+                    cardWidth, aspect, width, height);
         } finally {
             target.pickTarget = null;
         }

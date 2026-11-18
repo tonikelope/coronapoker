@@ -823,29 +823,6 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void pocketOutlineIsAnIndependent3dToggleBelowThePeekButton() {
-        String key = GdxSettingsContract.TABLE_PEEK_OUTLINE_KEY;
-        var options = GdxSettingsContract.appearanceTablePage().options();
-        var button = options.stream().filter(row ->
-                GdxSettingsContract.TABLE_PEEK_BUTTON_KEY.equals(row.key())).findFirst().orElseThrow();
-        var outline = options.get(options.indexOf(button) + 1);
-        assertEquals(key, outline.key());
-        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key));
-
-        Properties values = new Properties();
-        values.setProperty(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, "false");
-        values.setProperty("gdx_table_view", "3d");
-        assertTrue(GdxSettingsContract.displayedValue(outline, values, true));
-        assertTrue(GdxSettingsContract.enabled(outline, values, true));
-        values.setProperty("gdx_table_view", "2d");
-        assertFalse(GdxSettingsContract.enabled(outline, values, true));
-        values.setProperty(key, "false");
-        assertFalse(GdxSettingsContract.displayedValue(outline, values, true));
-        GdxSettingsContract.restoreAppearancePageDefaults(values, 0, true);
-        assertEquals("true", values.getProperty(key));
-    }
-
-    @Test
     void startupVideoDefaultsToClosedAndRespectsTheSavedPreference() {
         org.junit.jupiter.api.Assumptions.assumeTrue(PokerVideoPlatformSupport.isAvailable());
         String key = GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY;

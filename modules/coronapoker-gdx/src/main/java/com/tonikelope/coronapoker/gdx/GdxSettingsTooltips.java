@@ -248,8 +248,6 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.table_chip_markings";
             case GdxSettingsContract.TABLE_PEEK_BUTTON_KEY ->
                 "gdx.settings.tooltip.table_peek_button";
-            case GdxSettingsContract.TABLE_PEEK_OUTLINE_KEY ->
-                "gdx.settings.tooltip.table_peek_outline";
             case GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY ->
                 "gdx.settings.tooltip.dim_folded_opponents";
             case "resaltar_jugada_showdown" ->

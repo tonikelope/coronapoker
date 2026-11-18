@@ -89,7 +89,6 @@ final class GdxSettingsContract {
             AUTO_REBUY_KEY);
     static final String TABLE_CHIP_MARKINGS_KEY = "gdx_table_chip_markings";
     static final String TABLE_PEEK_BUTTON_KEY = "gdx_table_peek_button";
-    static final String TABLE_PEEK_OUTLINE_KEY = "gdx_table_peek_outline";
     static final String POT_PLAYER_COUNT_KEY = "mostrar_jugadores_bote";
     static final String DIM_FOLDED_OPPONENTS_KEY = "atenuar_jugadores_foldeados";
     static final String TABLE_VIEW_KEY = "gdx_table_view";
@@ -375,8 +374,6 @@ final class GdxSettingsContract {
                     "DELIMITAR ZONAS DE FICHAS (3D)", true, Gate.NONE),
             option(TABLE_PEEK_BUTTON_KEY,
                     "MOSTRAR BOTÓN DE VISTAZO (3D)", true, Gate.NONE),
-            option(TABLE_PEEK_OUTLINE_KEY,
-                    "MOSTRAR BORDE DE MIS CARTAS TAPADAS (3D)", true, Gate.NONE),
             option(DIM_FOLDED_OPPONENTS_KEY,
                     "ATENUAR JUGADORES REMOTOS FOLDEADOS", true, Gate.NONE),
             option("resaltar_jugada_showdown",
@@ -691,8 +688,7 @@ final class GdxSettingsContract {
             "baraja", "trasera", "color_tapete", "nivel_luz",
             "show_time", "gdx_show_fps", "gdx_show_cpu_memory",
             "mostrar_coste_igualar", POT_PLAYER_COUNT_KEY, TABLE_CHIP_MARKINGS_KEY, DIM_FOLDED_OPPONENTS_KEY,
-            TABLE_PEEK_BUTTON_KEY, TABLE_PEEK_OUTLINE_KEY,
-            GdxChipAmountText.ZEROS_KEY, TABLE_VIEW_KEY,
+            TABLE_PEEK_BUTTON_KEY, GdxChipAmountText.ZEROS_KEY, TABLE_VIEW_KEY,
             "chat_images_ingame",
             TABLE_CHAT_FEED_KEY, TABLE_SPEAKING_EMOJI_KEY,
             "resaltar_jugada_showdown", "resaltar_avatares",
@@ -1622,9 +1618,7 @@ final class GdxSettingsContract {
     static boolean enabledWithCommunicationRules(ToggleOption option,
             Properties properties, boolean mayEditGlobalCommunication,
             boolean voiceMessages, boolean textToSpeech) {
-        if (TABLE_CHIP_MARKINGS_KEY.equals(option.key())
-                || TABLE_PEEK_BUTTON_KEY.equals(option.key())
-                || TABLE_PEEK_OUTLINE_KEY.equals(option.key())) {
+        if (TABLE_CHIP_MARKINGS_KEY.equals(option.key()) || TABLE_PEEK_BUTTON_KEY.equals(option.key())) {
             return GdxAppearanceOptions.perspectiveTable(properties);
         }
         if (STACK_BET_PREVIEW_KEY.equals(option.key())

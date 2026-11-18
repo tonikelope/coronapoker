@@ -36,6 +36,26 @@ import org.junit.jupiter.api.Test;
 final class GdxTableViewStateTest {
 
     @Test
+    void raisePreviewKeepsTheShownAmountUntilTheStepperHasSettled() {
+        var delay = new CoronaPokerGdxTable.RaisePreviewDelay();
+        long ms = 1_000_000L;
+        assertEquals(300L, delay.displayedAmount(300L, true, 1 * ms));
+        delay.adjusted(100 * ms);
+        assertEquals(300L, delay.displayedAmount(400L, true, 100 * ms));
+        delay.adjusted(270 * ms);
+        assertEquals(300L, delay.displayedAmount(500L, true, 449 * ms));
+        assertEquals(500L, delay.displayedAmount(500L, true, 450 * ms));
+
+        delay.adjusted(500 * ms);
+        assertEquals(100L, delay.displayedAmount(100L, false, 540 * ms));
+        assertEquals(0L, delay.displayedAmount(600L, true, 679 * ms));
+        assertEquals(600L, delay.displayedAmount(600L, true, 680 * ms));
+        delay.adjusted(690 * ms);
+        delay.reset();
+        assertEquals(700L, delay.displayedAmount(700L, true, 700 * ms));
+    }
+
+    @Test
     void stackBetPreviewUsesLiveRaiseIncrementAndTheFullStepperZone() {
         var controls = ActionControlState.forTurn(
                 4, 2, 2, 1, 1, 20, 2, true, 0);

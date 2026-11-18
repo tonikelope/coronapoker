@@ -171,9 +171,13 @@ class GdxChipOcclusionGpuTest {
     private static void verifyStackPreview(GdxPerspectiveTable renderer, Texture green) {
         float x = W * .5f, y = H * .5f, diameter = 85f, thickness = 12f;
         Texture[] faces = {green, green, green, green};
-        byte[] original = captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f);
-        byte[] minimum = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 0f);
-        byte[] peak = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f);
+        long ms = 1_000_000L;
+        byte[] original = captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f, 0);
+        byte[] start = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f, 10 * ms);
+        byte[] rising = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f, 90 * ms);
+        byte[] peak = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f, 170 * ms);
+        byte[] minimum = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 0f, 170 * ms);
+        assertArrayEquals(original, start, "A new selection starts from the original colour");
         assertArrayEquals(original, minimum, "The pulse returns to the original chip colour");
 
         var top = renderer.chipPointToScreen(x, y, 3 * thickness).cpy();
@@ -184,21 +188,40 @@ class GdxChipOcclusionGpuTest {
             int index = (Math.round(point.y) * W + Math.round(point.x)) * 4;
             assertTrue((peak[index] & 255) > (original[index] & 255) + 50,
                     "The selected chip face and both adjoining rims should pulse: " + point);
+            assertTrue((rising[index] & 255) > (original[index] & 255)
+                    && (rising[index] & 255) < (peak[index] & 255),
+                    "The selected surface should fade in: " + point);
         }
         int index = (Math.round(bottomRim.y) * W + Math.round(bottomRim.x)) * 4;
         assertEquals(original[index], peak[index], "The unselected bottom chip retains its colour");
         assertEquals(original[index + 1], peak[index + 1]);
         assertEquals(original[index + 2], peak[index + 2]);
         assertTrue((original[index + 1] & 255) > 50, "Sample must hit the bottom chip");
-        assertArrayEquals(original, captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f),
-                "Clearing hover immediately restores the entire rack");
+        int topIndex = (Math.round(top.y) * W + Math.round(top.x)) * 4;
+        int middleIndex = (Math.round(middleRim.y) * W + Math.round(middleRim.x)) * 4;
+        byte[] reduce = captureStackPreview(renderer, faces, x, y, diameter, thickness, 1, 1f, 200 * ms);
+        assertArrayEquals(peak, reduce, "A new amount starts from the displayed selection");
+        byte[] falling = captureStackPreview(renderer, faces, x, y, diameter, thickness, 1, 1f, 280 * ms);
+        assertEquals(peak[topIndex], falling[topIndex], "A chip in both selections keeps its pulse");
+        assertEquals(rising[middleIndex], falling[middleIndex], "The removed chip fades out");
+        assertArrayEquals(falling,
+                captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f, 280 * ms),
+                "Recalculating mid-fade preserves the current tint");
+        assertArrayEquals(peak,
+                captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, 1f, 440 * ms));
+        assertArrayEquals(peak,
+                captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f, 450 * ms),
+                "Clearing hover starts a fade");
+        assertArrayEquals(original,
+                captureStackPreview(renderer, faces, x, y, diameter, thickness, 0, 1f, 610 * ms),
+                "Clearing hover fades back to the original rack");
     }
 
     private static byte[] captureStackPreview(GdxPerspectiveTable renderer, Texture[] faces,
-            float x, float y, float diameter, float thickness, int previewCount, float pulse) {
+            float x, float y, float diameter, float thickness, int previewCount, float pulse, long frameNanos) {
         ScreenUtils.clear(Color.BLACK);
         renderer.beginChipFrame();
-        renderer.beginStandingChipRack();
+        renderer.beginStandingChipRack(frameNanos);
         renderer.addStandingChipPile(false, 0, 0, 0, 176, x, y, 3, diameter, thickness, 1f,
                 null, previewCount);
         renderer.drawStandingChipRack(faces, 1f, Color.GOLD, pulse);
@@ -210,7 +233,7 @@ class GdxChipOcclusionGpuTest {
         ScreenUtils.clear(Color.BLACK);
         renderer.beginChipFrame();
         if (rack) {
-            renderer.beginStandingChipRack();
+            renderer.beginStandingChipRack(0L);
             renderer.addStandingChipPile(pot, 0, 0, 0, 176, W * .5f, H * .5f, 12, D, THICKNESS, 1f, null, 0);
             renderer.drawStandingChipRack(faces, 1f, Color.GOLD, 0f);
         }

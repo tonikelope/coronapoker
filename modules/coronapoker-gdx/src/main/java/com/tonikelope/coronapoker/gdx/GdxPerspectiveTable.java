@@ -25,6 +25,7 @@ import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /** Table geometry in world space. The existing HUD keeps its own camera. */
 final class GdxPerspectiveTable implements Disposable {
@@ -225,6 +226,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final BoundingBox standingChipBounds = new BoundingBox();
     private int visiblePileCount;
     private long chipFrame;
+    private long standingChipFrameNanos;
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
     private final Vector3 cardSample = new Vector3();
@@ -894,9 +896,16 @@ final class GdxPerspectiveTable implements Disposable {
         resetCardBounds();
     }
 
-    void beginStandingChipRack() {
+    void beginStandingChipRack(long frameNanos) {
+        standingChipFrameNanos = frameNanos;
         visiblePileCount = 0;
         standingChipBounds.inf();
+    }
+
+    void clearLocalStackBetPreview() {
+        for (StandingChipPile pile : localPiles) {
+            if (pile != null) pile.previewFade = null;
+        }
     }
 
     void beginChipFrame() {
@@ -911,6 +920,10 @@ final class GdxPerspectiveTable implements Disposable {
         if (pile == null) {
             pile = new StandingChipPile();
             piles[slot] = pile;
+        }
+        if (pile.drawnFrame < chipFrame - 1 || pile.column != column
+                || pile.index != pileIndex || pile.seed != seed) {
+            pile.previewFade = null;
         }
         // Vertices are in table space. A camera move only changes projection;
         // a resized table or a landing that moves the pile changes its mesh.
@@ -947,7 +960,10 @@ final class GdxPerspectiveTable implements Disposable {
             pile.diameter = diameter;
             pile.moving = moving;
         }
-        pile.previewCount = previewCount;
+        if (previewCount > 0 && pile.previewFade == null) pile.previewFade = new ChipPreviewFade();
+        if (pile.previewFade != null) {
+            pile.previewFade.retarget(count, previewCount, standingChipFrameNanos);
+        }
         pile.drawnFrame = chipFrame;
         visiblePiles[visiblePileCount++] = pile;
         standingChipBounds.ext(pile.min).ext(pile.max);
@@ -969,20 +985,7 @@ final class GdxPerspectiveTable implements Disposable {
                     for (int p = 0; p < visiblePileCount; p++) {
                         StandingChipPile pile = visiblePiles[p];
                         if (pile.column != column) continue;
-                        if (pile.previewCount == 0 || pulse <= 0f) {
-                            pile.mesh.render(shader, GL20.GL_TRIANGLES);
-                            continue;
-                        }
-                        // Only draw the selected top chips with the tint. The
-                        // two ranges share depth and the original cached mesh.
-                        int total = pile.mesh.getNumVertices();
-                        int first = pile.previewCount == pile.count
-                                ? 0 : total - pile.previewCount * pile.verticesPerTopChip;
-                        if (first > 0) pile.mesh.render(shader, GL20.GL_TRIANGLES, 0, first);
-                        shader.setUniformf("u_chipPreviewTint", previewColor.r, previewColor.g,
-                                previewColor.b, pulse * .88f);
-                        pile.mesh.render(shader, GL20.GL_TRIANGLES, first, total - first);
-                        shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
+                        drawStandingChipPile(pile, previewColor, pulse);
                     }
                 }
             }, width, height);
@@ -991,12 +994,87 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
+    private void drawStandingChipPile(StandingChipPile pile, Color gold, float pulse) {
+        ChipPreviewFade fade = pile.previewFade;
+        if (fade == null || pulse <= 0f) {
+            pile.mesh.render(shader, GL20.GL_TRIANGLES);
+            return;
+        }
+        float progress = fade.progress(standingChipFrameNanos);
+        if (progress >= 1f) {
+            int firstTinted = Math.min(pile.count, fade.firstTinted);
+            if (firstTinted > 0) drawStandingChipRange(pile, 0, firstTinted);
+            if (firstTinted == pile.count) return;
+            shader.setUniformf("u_chipPreviewTint", gold.r, gold.g, gold.b, pulse * .88f);
+            drawStandingChipRange(pile, firstTinted, pile.count);
+        } else {
+            // Chips with the same opacity share one draw in the original mesh.
+            // Both sides of a changing selection can fade within the same pile.
+            int first = 0;
+            float strength = fade.strength(0, progress);
+            for (int level = 1; level < pile.count; level++) {
+                float nextStrength = fade.strength(level, progress);
+                if (nextStrength == strength) continue;
+                shader.setUniformf("u_chipPreviewTint", gold.r, gold.g, gold.b, pulse * .88f * strength);
+                drawStandingChipRange(pile, first, level);
+                first = level;
+                strength = nextStrength;
+            }
+            shader.setUniformf("u_chipPreviewTint", gold.r, gold.g, gold.b, pulse * .88f * strength);
+            drawStandingChipRange(pile, first, pile.count);
+        }
+        shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
+    }
+
+    private void drawStandingChipRange(StandingChipPile pile, int first, int end) {
+        // The base level includes the contact shadow, so count backwards from
+        // the end of the mesh for any range that starts above the base.
+        int total = pile.mesh.getNumVertices();
+        int offset = first == 0 ? 0 : total - (pile.count - first) * pile.verticesPerTopChip;
+        int limit = total - (pile.count - end) * pile.verticesPerTopChip;
+        pile.mesh.render(shader, GL20.GL_TRIANGLES, offset, limit - offset);
+    }
+
+    private static final class ChipPreviewFade {
+        private static final long DURATION_NANOS = 160_000_000L;
+
+        private float[] startStrengths = new float[0];
+        private int count;
+        private int firstTinted = Integer.MAX_VALUE;
+        private long startedAt;
+
+        void retarget(int chipCount, int selected, long now) {
+            int newFirst = selected == 0 ? Integer.MAX_VALUE : chipCount - selected;
+            if (newFirst == firstTinted && chipCount == count) return;
+            float progress = progress(now);
+            if (startStrengths.length < chipCount) {
+                startStrengths = Arrays.copyOf(startStrengths, chipCount);
+            }
+            for (int level = 0; level < chipCount; level++) {
+                startStrengths[level] = level < count ? strength(level, progress) : 0f;
+            }
+            count = chipCount;
+            firstTinted = newFirst;
+            startedAt = now;
+        }
+
+        float progress(long now) {
+            float fraction = MathUtils.clamp((now - startedAt) / (float) DURATION_NANOS, 0f, 1f);
+            return Interpolation.smoother.apply(fraction);
+        }
+
+        float strength(int level, float progress) {
+            return MathUtils.lerp(startStrengths[level], level >= firstTinted ? 1f : 0f, progress);
+        }
+    }
+
     private static final class StandingChipPile {
         private long drawnFrame;
         private Mesh mesh;
         private final Vector3 min = new Vector3(), max = new Vector3();
         private int count, column, index, seed;
-        private int verticesPerTopChip, previewCount;
+        private int verticesPerTopChip;
+        private ChipPreviewFade previewFade;
         private float x, y, tableWidth, boardY, diameter;
         private boolean moving;
     }

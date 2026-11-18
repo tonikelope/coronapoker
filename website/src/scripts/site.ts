@@ -90,7 +90,6 @@ if (shuffle) {
   }
 
   async function mixDeck(cards: HTMLElement[], animated: boolean) {
-    status.textContent = frames[completed].dataset.locking!;
     deck.dataset.phase = 'locking';
     deck.dataset.locks = String(completed + 1);
     if (animated) {
@@ -103,7 +102,6 @@ if (shuffle) {
       await new Promise(resolve => window.setTimeout(resolve, 500));
     }
 
-    status.textContent = frames[completed].dataset.mixing!;
     deck.dataset.phase = 'shuffling';
     const order = [...cards];
     for (let index = order.length - 1; index > 0; index--) {

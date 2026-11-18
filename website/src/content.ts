@@ -91,8 +91,6 @@ export const copy = {
         whatIf: 'What if the host leaves the deck in its original order?',
         answer: 'A secret, random shuffle by even one honest player is enough to hide the final order from the others. Everyone puts on a fresh lock before shuffling. That also changes the encrypted value of each card, so the host cannot follow it by matching the values before and after the turn.',
         actions: ['Watch Alice’s turn', 'Watch Bob’s turn', 'Take your turn', 'Change Alice’s locks', 'Change Bob’s locks', 'Change your locks'],
-        locking: ['Alice encrypts all 52 cards with her key.', 'Bob adds a second layer of encryption to all 52 cards.', 'You add a third layer of encryption to all 52 cards.'],
-        mixing: ['Alice shuffles the encrypted cards.', 'Bob shuffles with both layers still in place.', 'You shuffle with all three layers still in place.'],
         rotation: [
           ['Alice removes her square lock from the community part of the deck.', 'Alice puts her round community lock on those same cards.'],
           ['Bob removes his square lock. Alice’s round lock and your original lock stay on.', 'Bob puts his round community lock on those same cards.'],
@@ -100,9 +98,9 @@ export const copy = {
         ],
         states: [
           'Alice starts with the 52 cards in a known order. The demo shows them face down.',
-          'Alice sends Bob the 52 cards with her lock on each one.',
-          'Bob returns the deck to Alice. She forwards it to you with both locks on each card.',
-          'You return the deck to Alice with three locks on each card. The cards stay in place from here. The six private-card slots keep their locks while Alice starts changing the locks on the rest.',
+          'Alice encrypts all 52 cards with her key, shuffles them and sends them to Bob.',
+          'Bob adds a second lock to each card, shuffles the deck and returns it to Alice. She forwards it to you.',
+          'You add a third lock to each card, shuffle and return the deck to Alice. The cards stay in place from here. The six private-card slots keep their locks while Alice starts changing the locks on the rest.',
           'Alice’s new lock is in place. Bob’s lock and yours are still the originals.',
           'Alice and Bob have changed their locks. Your original lock is still in place.',
           'The community part of the deck now has one new lock from each of you. The six private-card slots still have their original locks.',
@@ -375,8 +373,6 @@ export const copy = {
         whatIf: '¿Y si el anfitrión deja el mazo en su orden inicial?',
         answer: 'Basta con que un jugador honesto baraje al azar y en secreto para que los demás pierdan la pista del orden final. Además, cada jugador pone su candado antes de barajar. Así cambia el valor cifrado de cada carta y el anfitrión no puede seguirla comparando los valores de antes y de después.',
         actions: ['Ver el turno de Alice', 'Ver el turno de Bob', 'Jugar tu turno', 'Cambiar los candados de Alice', 'Cambiar los candados de Bob', 'Cambiar tus candados'],
-        locking: ['Alice cifra las 52 cartas con su clave.', 'Bob añade una segunda capa de cifrado a las 52 cartas.', 'Añades una tercera capa de cifrado a las 52 cartas.'],
-        mixing: ['Alice baraja las cartas cifradas.', 'Bob baraja con las dos capas de cifrado puestas.', 'Barajas con las tres capas de cifrado puestas.'],
         rotation: [
           ['Alice quita su candado cuadrado del bloque de las comunitarias.', 'Alice pone su candado comunitario redondo en esas mismas cartas.'],
           ['Bob quita su candado cuadrado. El de Alice y el tuyo siguen puestos.', 'Bob pone su candado comunitario redondo en esas mismas cartas.'],
@@ -384,9 +380,9 @@ export const copy = {
         ],
         states: [
           'Alice parte de las 52 cartas en un orden conocido. Aquí las ves boca abajo.',
-          'Alice envía a Bob las 52 cartas con su candado puesto en cada una.',
-          'Bob devuelve el mazo a Alice. Ella te lo reenvía con dos candados en cada carta.',
-          'Devuelves el mazo a Alice con tres candados por carta. El orden ya queda fijado. Las seis posiciones privadas conservan sus candados y Alice empieza a cambiar los del resto del mazo.',
+          'Alice cifra las 52 cartas con su clave, las baraja y se las envía a Bob.',
+          'Bob pone un segundo candado a cada carta, baraja el mazo y lo devuelve a Alice. Ella te lo reenvía.',
+          'Pones un tercer candado a cada carta, barajas y devuelves el mazo a Alice. El orden ya queda fijado. Las seis posiciones privadas conservan sus candados y Alice empieza a cambiar los del resto del mazo.',
           'Alice ha puesto su candado nuevo. El de Bob y el tuyo siguen siendo los originales.',
           'Alice y Bob ya han cambiado sus candados. Queda por cambiar el tuyo.',
           'La parte del mazo que incluye las comunitarias ya lleva un candado nuevo de cada jugador. Las seis posiciones privadas conservan los suyos.',

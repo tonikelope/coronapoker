@@ -131,8 +131,6 @@ const boardRoute = [
                 {shuffle.states.map((state, index) => (
                   <li
                     data-play={shuffle.actions[index]}
-                    data-locking={shuffle.locking[index]}
-                    data-mixing={shuffle.mixing[index]}
                     data-remove-lock={shuffle.rotation[index - text.names.length]?.[0]}
                     data-replace-lock={shuffle.rotation[index - text.names.length]?.[1]}
                   >{state}</li>

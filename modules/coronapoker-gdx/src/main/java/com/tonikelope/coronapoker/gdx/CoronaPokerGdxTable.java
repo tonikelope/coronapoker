@@ -15176,7 +15176,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean pocketPeekDragContains(float x, float y) {
         return preparationPhase == TableVisualEvent.PreparationStatus.Phase.READY
                 && pocketPeekEnabled && perspectiveActive && canPeekPerspectivePocket()
-                && perspectiveTable.pocketLowerEdgeAt(x, y)
+                && perspectiveTable.pocketSlotAt(x, y) >= 0
                 && !tableChromeOccludesCards(x, y, viewport.getWorldWidth());
     }
 

@@ -6,31 +6,20 @@ import com.badlogic.gdx.utils.FloatArray;
 
 /** Picking uses the same closed triangles as the visible plastic shell. */
 final class GdxCardPickMesh {
-    private final FloatArray triangles = new FloatArray();
-    private float hitV;
-
-    void clear() {
-        triangles.clear();
-    }
-
-    void reserveVertices(int count) {
-        triangles.ensureCapacity(Math.max(0, count * 4 - triangles.size));
-    }
+    final FloatArray triangles = new FloatArray();
 
     void append(FloatArray vertices) {
         for (int at = 0; at < vertices.size; at += 9) {
-            triangles.add(vertices.items[at], vertices.items[at + 1],
-                    vertices.items[at + 2], vertices.items[at + 4]);
+            triangles.add(vertices.items[at], vertices.items[at + 1], vertices.items[at + 2]);
         }
     }
 
     float distance(Vector3 origin, Vector3 direction) {
         float best = Float.POSITIVE_INFINITY;
-        hitV = Float.NaN;
         float[] p = triangles.items;
-        for (int at = 0; at < triangles.size; at += 12) {
-            float ax = p[at + 4] - p[at], ay = p[at + 5] - p[at + 1], az = p[at + 6] - p[at + 2];
-            float bx = p[at + 8] - p[at], by = p[at + 9] - p[at + 1], bz = p[at + 10] - p[at + 2];
+        for (int at = 0; at < triangles.size; at += 9) {
+            float ax = p[at + 3] - p[at], ay = p[at + 4] - p[at + 1], az = p[at + 5] - p[at + 2];
+            float bx = p[at + 6] - p[at], by = p[at + 7] - p[at + 1], bz = p[at + 8] - p[at + 2];
             float hx = direction.y * bz - direction.z * by;
             float hy = direction.z * bx - direction.x * bz;
             float hz = direction.x * by - direction.y * bx;
@@ -43,16 +32,8 @@ final class GdxCardPickMesh {
             float v = (direction.x * qx + direction.y * qy + direction.z * qz) / det;
             if (v < 0f || u + v > 1f) continue;
             float t = (bx * qx + by * qy + bz * qz) / det;
-            if (t >= 0f && t < best) {
-                best = t;
-                float originV = p[at + 3];
-                hitV = originV + u * (p[at + 7] - originV) + v * (p[at + 11] - originV);
-            }
+            if (t >= 0f) best = Math.min(best, t);
         }
         return best;
-    }
-
-    float hitV() {
-        return hitV;
     }
 }

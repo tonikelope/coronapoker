@@ -16,6 +16,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.awt.Point;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class GdxPerspectivePocketGpuTest {
     private static final int WIDTH = 960, HEIGHT = 540;
 
-    @Test void dragControlsTheRealPocketAndCoveredCardsDoNotOpenTheViewer(@TempDir Path dir) {
+    @Test void dragStartsAnywhereOnEitherCoveredPocketCard(@TempDir Path dir) {
         var config = new Lwjgl3ApplicationConfiguration();
         config.setInitialVisible(false);
         config.disableAudio(true);
@@ -90,55 +91,76 @@ final class GdxPerspectivePocketGpuTest {
             var cardAt = CoronaPokerGdxTable.class.getDeclaredMethod("liveCardAt", float.class, float.class, boolean.class);
             cardAt.setAccessible(true);
 
-            Point edge = null, center = null;
-            for (int y = HEIGHT - 1; y > 0 && (edge == null || center == null); y--) {
-                Vector2 point = viewport.unproject(new Vector2(WIDTH / 2f, y));
-                if (edge == null && (boolean) grip.invoke(table, point.x, point.y)) edge = new Point(WIDTH / 2, y);
-                if (center == null && renderer.pocketSlotAt(point.x, point.y) >= 0
-                        && !renderer.pocketLowerEdgeAt(point.x, point.y)) center = new Point(WIDTH / 2, y);
+            var occludes = CoronaPokerGdxTable.class.getDeclaredMethod(
+                    "tableChromeOccludesCards", float.class, float.class, float.class);
+            occludes.setAccessible(true);
+            var visibleCards = List.of(new ArrayList<Point>(), new ArrayList<Point>());
+            var probe = new Vector2();
+            for (int y = 1; y < HEIGHT; y += 3) {
+                for (int x = WIDTH / 2 - 100; x < WIDTH / 2 + 100; x += 4) {
+                    viewport.unproject(probe.set(x, y));
+                    int slot = renderer.pocketSlotAt(probe.x, probe.y);
+                    if (slot < 0 || (boolean) occludes.invoke(table, probe.x, probe.y, viewport.getWorldWidth())) {
+                        continue;
+                    }
+                    assertTrue((boolean) grip.invoke(table, probe.x, probe.y),
+                            "Every visible point on either covered card must accept a drag");
+                    visibleCards.get(slot).add(new Point(x, y));
+                }
             }
-            assertNotNull(edge, "The visible lower edge must be grabbable");
-            assertNotNull(center, "The card must also have a non-grabbable interior");
+            for (var card : visibleCards) {
+                assertTrue(card.size() > 20, "Both covered cards must be visible");
+                for (int sixth : new int[]{1, 3, 5}) {
+                    mouse.move(card.get(card.size() * sixth / 6));
+                    table.render();
+                    assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
+                }
+            }
+            var firstCard = visibleCards.get(0);
+            var secondCard = visibleCards.get(1);
+            Point center = firstCard.get(firstCard.size() / 2);
+            Point dragOrigin = secondCard.get(secondCard.size() / 6);
             Vector2 covered = viewport.unproject(new Vector2(center.x, center.y));
             assertNotNull(cardAt.invoke(table, covered.x, covered.y, false));
             assertNull(cardAt.invoke(table, covered.x, covered.y, true));
 
             var processor = table.inputProcessor();
-            mouse.move(center);
+            mouse.move(new Point(WIDTH / 2, 0));
             table.render();
             assertEquals(Cursor.SystemCursor.Arrow, field(table, "appliedSystemCursor"));
+            mouse.move(center);
             mouse.down = mouse.justPressed = true;
-            processor.touchDown(center.x, center.y, 0, Input.Buttons.LEFT);
+            assertTrue(processor.touchDown(center.x, center.y, 0, Input.Buttons.LEFT));
             table.render();
             mouse.down = mouse.justPressed = false;
             processor.touchUp(center.x, center.y, 0, Input.Buttons.LEFT);
             table.render();
             assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));
-            mouse.move(edge);
+            mouse.move(dragOrigin);
             table.render();
             assertEquals(Cursor.SystemCursor.Hand, field(table, "appliedSystemCursor"));
 
             mouse.down = true;
-            assertTrue(processor.touchDown(edge.x, edge.y, 0, Input.Buttons.LEFT));
+            assertTrue(processor.touchDown(dragOrigin.x, dragOrigin.y, 0, Input.Buttons.LEFT));
             table.render();
             assertEquals(0f, renderer.peekAmount());
-            assertTrue(processor.touchDragged(edge.x, edge.y - 12, 0));
+            assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 12, 0));
             table.render();
             assertEquals(.25f, renderer.peekAmount(), .002f);
-            assertTrue(processor.touchDragged(edge.x, edge.y - 35, 0));
+            assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 35, 0));
             table.render();
             assertEquals(35f / 48f, renderer.peekAmount(), .002f);
-            assertTrue(processor.touchDragged(edge.x, edge.y - 120, 0));
+            assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 120, 0));
             table.render();
             assertEquals(1f, renderer.peekAmount());
-            assertTrue(processor.touchDragged(edge.x, edge.y - 24, 0));
+            assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 24, 0));
             table.render();
             assertEquals(.5f, renderer.peekAmount(), .002f);
-            assertTrue(processor.touchDragged(edge.x, edge.y - 120, 0));
+            assertTrue(processor.touchDragged(dragOrigin.x, dragOrigin.y - 120, 0));
             table.render();
 
             mouse.down = false;
-            assertTrue(processor.touchUp(edge.x, edge.y - 120, 0, Input.Buttons.LEFT));
+            assertTrue(processor.touchUp(dragOrigin.x, dragOrigin.y - 120, 0, Input.Buttons.LEFT));
             table.render();
             float dt = Math.min(Gdx.graphics.getDeltaTime(), .05f);
             float firstClosingAmount = (1f + 17f * dt) * (float) Math.exp(-17f * dt);
@@ -158,9 +180,6 @@ final class GdxPerspectivePocketGpuTest {
             table.render();
 
             Point exposed = null;
-            var occludes = CoronaPokerGdxTable.class.getDeclaredMethod(
-                    "tableChromeOccludesCards", float.class, float.class, float.class);
-            occludes.setAccessible(true);
             for (int y = HEIGHT - 1; y > 0 && exposed == null; y--) {
                 Vector2 point = viewport.unproject(new Vector2(WIDTH / 2f, y));
                 if (cardAt.invoke(table, point.x, point.y, true) != null

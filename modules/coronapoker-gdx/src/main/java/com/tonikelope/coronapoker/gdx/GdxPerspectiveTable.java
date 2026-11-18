@@ -35,7 +35,6 @@ final class GdxPerspectiveTable implements Disposable {
     private static final float ELEVATION = 37f;
     private static final float CARD_REST_HEIGHT = 0.72f;
     private static final float EDGE_MARGIN_SCALE = 1.065f;
-    private static final float POCKET_GRIP_MIN_V = 0.76f;
     private static final int RAIL_STEPS = 36;
     private static final int CARD_STRIPS = 48;
     private static final int REVEAL_COLUMNS = 28;
@@ -309,7 +308,7 @@ final class GdxPerspectiveTable implements Disposable {
     void preparePocket(float aspect) {
         pocketShell.prepare(POCKET_COLUMNS, CARD_STRIPS, aspect);
         for (GdxCardPickMesh pick : pocketPicks) {
-            pick.reserveVertices(MAX_CARD_VERTICES * 3);
+            pick.triangles.ensureCapacity(Math.max(0, MAX_CARD_VERTICES * 9 - pick.triangles.size));
         }
     }
 
@@ -594,7 +593,7 @@ final class GdxPerspectiveTable implements Disposable {
 
     void beginPocketPair() {
         pocketAnchorZ = Float.NaN;
-        for (GdxCardPickMesh pick : pocketPicks) pick.clear();
+        for (GdxCardPickMesh pick : pocketPicks) pick.triangles.clear();
         activePocketSlot = -1;
         pocketPair = true;
         pocketDrawCount = 0;
@@ -693,11 +692,6 @@ final class GdxPerspectiveTable implements Disposable {
             if (distance < nearest) { nearest = distance; slot = i; }
         }
         return slot;
-    }
-
-    boolean pocketLowerEdgeAt(float x, float y) {
-        int slot = pocketSlotAt(x, y);
-        return slot >= 0 && pocketPicks[slot].hitV() >= POCKET_GRIP_MIN_V;
     }
 
     Vector3 projectWorld(Vector3 world) {

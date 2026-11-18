@@ -274,7 +274,7 @@ can safely overlay the supported presentation assets:
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.
 - **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
 - **Community card deal style** under Appearance > Animations and effects. **By street** is the default. The flop arrives as a covered stack, turns over in the first slot, then spreads to the right. The turn and river travel covered from the dealer and turn over after landing. The flight is slower in this mode. **All face down at the start of the hand** deals the full board at the same speed as the players' cards. A saved change takes effect from the next hand.
-- **3D pocket peek** lets you drag up from the bottom edge of your covered cards. They lift with the mouse up to the same limit as the peek button and cover again when you release it. The card viewer is available once your cards are fully exposed.
+- **3D pocket peek** lets you drag up from anywhere on either of your covered cards. They lift with the mouse up to the same limit as the peek button and cover again when you release it. The card viewer is available once your cards are fully exposed.
 
 - **3D chip preview** pulses the chips for Call, the current Bet or Raise, or All-in in gold while you hover over the controls on your turn. It is on by default under Appearance > Animations and effects.
 

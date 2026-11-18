@@ -76,9 +76,6 @@ final class GdxPerspectiveCardInteractionTest {
         far.append(triangle(0f));
         Vector3 origin = new Vector3(0.2f, 5f, 0.2f), direction = new Vector3(0,-1,0);
         assertEquals(2f, near.distance(origin, direction), 0.0001f);
-        assertEquals(.2f, near.hitV(), 0.0001f);
-        assertEquals(2f, near.distance(new Vector3(.1f, 5f, .8f), direction), 0.0001f);
-        assertEquals(.8f, near.hitV(), 0.0001f);
         assertTrue(near.distance(origin, direction) < far.distance(origin, direction));
         assertEquals(3f, near.distance(new Vector3(0.2f,0f,0.2f), new Vector3(0,1,0)), 0.0001f);
         assertFalse(Float.isFinite(near.distance(new Vector3(0.9f,5f,0.9f), direction)));
@@ -89,7 +86,7 @@ final class GdxPerspectiveCardInteractionTest {
         var vertices = new FloatArray();
         for (float[] p : new float[][]{{0,0},{1,0},{0,1}}) {
             vertices.add(p[0],y,p[1],0);
-            vertices.add(p[1],1,0,1);
+            vertices.add(0,1,0,1);
             vertices.add(0);
         }
         return vertices;

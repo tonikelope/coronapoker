@@ -5641,7 +5641,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveCounterDenomination(), visualSeed);
             liveActionChips.add(new LiveActionChip(action,
                     System.nanoTime(), liveCounterAnimationEnabled(),
-                    actionChips));
+                    actionChips, GdxAppearanceOptions.perspectiveTable(tableSettingsProperties())));
             // The canonical sequence fixes both the action label and the exact
             // post-action balances. Counter interpolation remains cosmetic.
             liveState.apply(event);
@@ -21994,6 +21994,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return 6;
     }
 
+    static float betFlightTimeScale(boolean perspective, int chipCount) {
+        return perspective && chipFlightLaneCount(chipCount) > 1 ? .88f : 1f;
+    }
+
     static int chipFlightSequenceIndex(int chipIndex, int chipCount) {
         return Math.max(0, chipIndex)
                 / chipFlightLaneCount(Math.max(0, chipCount));
@@ -33803,11 +33807,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         LiveActionChip(TableVisualEvent.PlayerAction event,
                 long startedAtNanos, boolean deferPlayerCounters,
-                List<VisualChipSpec> visualChips) {
+                List<VisualChipSpec> visualChips, boolean perspective) {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.deferPlayerCounters = deferPlayerCounters;
             int chipCount = visualChips.size();
+            float timeScale = betFlightTimeScale(perspective, chipCount);
             ArrayList<LiveChip> created = new ArrayList<>(chipCount);
             int lanes = chipFlightLaneCount(chipCount);
             float sharedPathRotation = Math.floorMod(
@@ -33818,8 +33823,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float rotation = Math.floorMod(event.nickname().hashCode()
                         + chip * 53, 360);
                 created.add(new LiveChip(event.nickname(),
-                        CHIP_FLIGHT_DELAY + sequence * 0.065f,
-                        CHIP_FLIGHT_SECONDS + sequence * 0.035f,
+                        (CHIP_FLIGHT_DELAY + sequence * 0.065f) * timeScale,
+                        (CHIP_FLIGHT_SECONDS + sequence * 0.035f) * timeScale,
                         rotation, lanes > 1 ? sharedPathRotation : rotation,
                         chipFlightLaneSlot(chip, chipCount),
                         visualChip.color(), chip, visualChip.amount()));
@@ -34285,6 +34290,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 chips = withLandingImpacts(created);
                 return;
             }
+            boolean perspective = GdxAppearanceOptions.perspectiveTable(tableSettingsProperties());
             for (int transferIndex = 0;
                     transferIndex < event.transfers().size(); transferIndex++) {
                 TableVisualEvent.ChipTransfer transfer =
@@ -34300,12 +34306,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         minimumChip, visualSeed);
                 int chipCount = visualChips.size();
                 int lanes = chipFlightLaneCount(chipCount);
+                float timeScale = betFlightTimeScale(perspective, chipCount);
                 float sharedPathRotation = (transferIndex * 97f) % 360f;
                 for (int chipIndex = 0; chipIndex < chipCount; chipIndex++) {
                     int sequence = chipFlightSequenceIndex(chipIndex,
                             chipCount);
-                    float start = transferIndex * 0.025f + sequence * 0.06f;
-                    float duration = 0.34f + sequence * 0.02f;
+                    float start = transferIndex * 0.025f + sequence * 0.06f * timeScale;
+                    float duration = (0.34f + sequence * 0.02f) * timeScale;
                     VisualChipSpec visualChip = visualChips.get(chipIndex);
                     float rotation = (transferIndex * 97f
                             + chipIndex * 53f) % 360f;

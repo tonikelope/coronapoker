@@ -211,6 +211,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 inverseView = new Matrix4();
     private final Matrix4 layoutInverseView = new Matrix4();
     private final FloatArray[] chipVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
+    private final GdxFlyingChipBatch flyingChips = new GdxFlyingChipBatch();
     private final StandingChipPile[] potPiles = new StandingChipPile[GdxTableChipSlots.POT_SLOT_COUNT];
     private final StandingChipPile[] localPiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
     private final StandingChipPile[] visiblePiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
@@ -486,6 +487,7 @@ final class GdxPerspectiveTable implements Disposable {
                 shader = null;
                 throw new IllegalStateException(log);
             }
+            flyingChips.prepare(FRAGMENT);
         }
     }
 
@@ -881,6 +883,7 @@ final class GdxPerspectiveTable implements Disposable {
 
     void beginChipRack() {
         for (FloatArray vertices : chipVertices) vertices.clear();
+        flyingChips.clear();
         resetCardBounds();
     }
 
@@ -974,28 +977,38 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private final Quaternion chipAttitude = new Quaternion();
-    private final Vector3 rotatedChipVertex = new Vector3();
+    private final Vector3 chipNormal = new Vector3();
 
     /** Extruded chip, with the base height measured from the felt. */
     void addTableChip(int color, float x, float y, float diameter, float bottom,
             float thickness, float rotation, boolean contactShadow) {
-        addTableChip(color, x, y, diameter, bottom, thickness, rotation, contactShadow, false);
-    }
-
-    private void addTableChip(int color, float x, float y, float diameter, float bottom,
-            float thickness, float rotation, boolean contactShadow, boolean underside) {
-        // A rising chip remains an opaque solid. A translucent top would write
-        // depth and erase the chips beneath it in the shared depth layer.
-        float visibility = 1f;
-        FloatArray vertices = chipVertices[color];
         float cx = x - width * .5f, cz = boardCenterY - y;
-        float radius = diameter * .5f;
-        float base = bottom + .04f;
-        float extent = contactShadow ? radius * 1.08f : radius;
+        float extent = diameter * .5f * (contactShadow ? 1.08f : 1f);
         cardBoundsMin.set(Math.min(cardBoundsMin.x, cx - extent),
                 Math.min(cardBoundsMin.y, bottom), Math.min(cardBoundsMin.z, cz - extent));
         cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + extent),
-                Math.max(cardBoundsMax.y, base + thickness), Math.max(cardBoundsMax.z, cz + extent));
+                Math.max(cardBoundsMax.y, bottom + .04f + thickness), Math.max(cardBoundsMax.z, cz + extent));
+        appendChip(chipVertices[color], cx, cz, diameter, bottom, thickness, rotation, contactShadow, false);
+    }
+
+    static FloatArray flyingChipTemplate() {
+        var vertices = new FloatArray();
+        appendChip(vertices, 0f, 0f, 1f, -.54f, 1f, 0f, false, true);
+        // Encode the cap and the inset bevel ring separately so the shader can
+        // reproduce min(thickness * .20, diameter * .015) at any chip scale.
+        for (int i = 1; i < vertices.size; i += 9) {
+            float y = vertices.items[i];
+            vertices.items[i] = Math.copySign(Math.abs(y) > .49f ? 1f : 2f, y);
+        }
+        return vertices;
+    }
+
+    private static void appendChip(FloatArray vertices, float cx, float cz, float diameter, float bottom,
+            float thickness, float rotation, boolean contactShadow, boolean underside) {
+        float visibility = 1f;
+        float radius = diameter * .5f;
+        float base = bottom + .04f;
+        float extent = contactShadow ? radius * 1.08f : radius;
         float bevel = Math.min(thickness * .20f, diameter * .015f);
         int segments = 48;
         for (int i = 0; i < segments; i++) {
@@ -1030,27 +1043,12 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void addFlyingTableChip(int color, GdxTableChipFlight.Pose pose, float diameter, float thickness) {
-        FloatArray vertices = chipVertices[color];
-        int first = vertices.size;
         float half = thickness * .5f;
         pose.attitude(chipAttitude);
-        chipAttitude.transform(rotatedChipVertex.set(Vector3.Y)).nor();
-        float centerY = pose.centerHeight(diameter * .5f, half, rotatedChipVertex.y) + .04f;
-        addTableChip(color, pose.x, pose.y, diameter, centerY - half - .04f,
-                thickness, pose.rotation, false, true);
-        float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
-        float[] data = vertices.items;
-        for (int i = first; i < vertices.size; i += 9) {
-            chipAttitude.transform(rotatedChipVertex.set(
-                    data[i] - cx, data[i+1] - centerY, data[i+2] - cz));
-            data[i] = cx + rotatedChipVertex.x;
-            data[i+1] = centerY + rotatedChipVertex.y;
-            data[i+2] = cz + rotatedChipVertex.z;
-            chipAttitude.transform(rotatedChipVertex.set(data[i+6], data[i+7], data[i+8]));
-            data[i+6] = rotatedChipVertex.x;
-            data[i+7] = rotatedChipVertex.y;
-            data[i+8] = rotatedChipVertex.z;
-        }
+        chipAttitude.transform(chipNormal.set(Vector3.Y)).nor();
+        float centerY = pose.centerHeight(diameter * .5f, half, chipNormal.y) + .04f;
+        flyingChips.add(color, pose.x - width * .5f, centerY, boardCenterY - pose.y,
+                diameter, thickness, chipAttitude, pose.rotation);
     }
 
     void addFlyingChipShadow(GdxTableChipFlight.Pose pose, float diameter,
@@ -1092,7 +1090,7 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void drawChipRack(Texture[] faces, float opacity, boolean airborne) {
-        if (!Float.isFinite(cardBoundsMin.x)) return;
+        if (airborne ? flyingChips.isEmpty() : !Float.isFinite(cardBoundsMin.x)) return;
         begin(8, faces[0], faces[0], opacity);
         if (airborne) {
             shell.renderLayer(() -> {
@@ -1102,8 +1100,7 @@ final class GdxPerspectiveTable implements Disposable {
                 shader.setUniformi("u_material", 9);
                 renderRackDepth(potPiles);
                 renderRackDepth(localPiles);
-                shader.setUniformi("u_material", 8);
-                shell.drawSolids(shader, chipVertices, faces);
+                flyingChips.draw(view, camera.position, faces, opacity);
             }, width, height);
             return;
         }
@@ -1566,6 +1563,7 @@ final class GdxPerspectiveTable implements Disposable {
         pocketShell.dispose();
         boardShell.dispose();
         chipShell.dispose();
+        flyingChips.dispose();
         for (StandingChipPile pile : potPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
         for (StandingChipPile pile : localPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
     }

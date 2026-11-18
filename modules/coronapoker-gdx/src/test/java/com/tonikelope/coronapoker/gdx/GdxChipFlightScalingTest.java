@@ -13,6 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GdxChipFlightScalingTest {
 
     @Test
+    void perspectiveShortensOnlyMultiLaneBets() {
+        assertEquals(1f, CoronaPokerGdxTable.betFlightTimeScale(true, 1));
+        assertEquals(1f, CoronaPokerGdxTable.betFlightTimeScale(true, 7));
+        assertEquals(.88f, CoronaPokerGdxTable.betFlightTimeScale(true, 8));
+        assertEquals(.88f, CoronaPokerGdxTable.betFlightTimeScale(true, 162));
+        assertEquals(1f, CoronaPokerGdxTable.betFlightTimeScale(false, 162));
+    }
+
+    @Test
     void paymentsUseFiveStableDenominationColors() {
         for (double amount : new double[]{0.1d, 0.2d, 0.5d, 1d,
             1.7d, 3d}) {

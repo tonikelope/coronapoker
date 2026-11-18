@@ -20,6 +20,7 @@ final class GdxChipContacts {
         final Vector3 previous = new Vector3(), previousNormal = new Vector3();
         boolean hasPrevious;
         int landingPile;
+        float verticalExtent;
     }
 
     private final ArrayList<Disc> discs = new ArrayList<>();
@@ -29,8 +30,10 @@ final class GdxChipContacts {
     private final Vector3 axis = new Vector3(), push = new Vector3(), entryNormal = new Vector3();
     private final Vector3 preferred = new Vector3(), ray = new Vector3(), best = new Vector3();
     private float[] starts = new float[64], ends = new float[64];
+    private int[] neighbors = new int[64];
+    private int neighborCount;
     private float low, high, bestDistance;
-    private float radius, half, reach2, skin, retention;
+    private float radius, half, reach, reach2, skin, retention;
     private int count;
     private long frame, lastTime;
     private float entry, exit, depth, entryLimit;
@@ -41,6 +44,7 @@ final class GdxChipContacts {
         radius = diameter * .5f;
         half = GdxTableChipRack.thickness(diameter) * .5f;
         reach2 = 4f * (radius * radius + half * half);
+        reach = Math.nextUp((float) Math.sqrt(reach2));
         skin = diameter * .00002f;
         retention = (float) Math.exp(-Math.max(0L, nanos - lastTime) / 120_000_000d);
         lastTime = nanos;
@@ -58,6 +62,7 @@ final class GdxChipContacts {
         d.landingPile = -1;
         d.center.set(x, bottom + half, -tableY);
         d.normal.set(Vector3.Y);
+        d.verticalExtent = half;
         Track track = layers.get(layer);
         if (track == null) {
             track = new Track();
@@ -78,6 +83,7 @@ final class GdxChipContacts {
         d.landingPile = landingPile;
         pose.attitude(rotation);
         rotation.transform(d.normal.set(Vector3.Y)).nor();
+        d.verticalExtent = support(d.normal, 0f, 1f, 0f);
         wanted.set(pose.x, pose.centerHeight(radius, half, d.normal.y), -pose.y);
         d.center.set(wanted);
         d.hasPrevious = track != null && track.frame == frame - 1 && track.frame != 0;
@@ -92,7 +98,7 @@ final class GdxChipContacts {
 
         // Earlier arrivals own their contact first. A later placement is checked
         // against every already fixed solid, including any touched by a slide.
-        float floor = verticalExtent(d);
+        float floor = d.verticalExtent;
         // Near a shared landing the reserved layer below must stay below.
         // A sloped envelope brings the rim up continuously from the side.
         // It collapses to one chip thickness when both chips lie flat.
@@ -142,7 +148,7 @@ final class GdxChipContacts {
     private float landingFloor(Disc d, Disc lower) {
         float dx = d.center.x - lower.center.x, dz = d.center.z - lower.center.z;
         float distance = (float) Math.sqrt(dx * dx + dz * dz);
-        float top = lower.center.y + verticalExtent(lower) + verticalExtent(d);
+        float top = lower.center.y + lower.verticalExtent + d.verticalExtent;
         if (distance == 0f) return top;
         // Either the upper or the oblique support plane suffices to separate
         // the two discs. At a distance the oblique plane is below the felt.
@@ -159,8 +165,16 @@ final class GdxChipContacts {
         if (starts.length < count) {
             starts = new float[count * 2];
             ends = new float[starts.length];
+            neighbors = new int[starts.length];
         }
-        searchLine(d, floor, Vector3.Y);
+        // The vertical solution is always finite. A better solution cannot
+        // reach a disc beyond that displacement plus the two bounding radii.
+        searchLine(d, floor, Vector3.Y, true);
+        float range = bestDistance + reach + 2f * skin;
+        neighborCount = 0;
+        for (int i = 0; i < count - 1; i++) {
+            if (preferred.dst2(discs.get(i).center) <= range * range) neighbors[neighborCount++] = i;
+        }
         searchLine(d, floor, d.normal);
         searchLine(d, floor, push);
         if (d.hasPrevious) {
@@ -178,14 +192,19 @@ final class GdxChipContacts {
     }
 
     private void searchLine(Disc d, float floor, Vector3 direction) {
+        searchLine(d, floor, direction, false);
+    }
+
+    private void searchLine(Disc d, float floor, Vector3 direction, boolean allDiscs) {
         if (direction.len2() < .000001f) return;
         ray.set(direction).nor();
         int intervals = 0;
         float floorLimit = floor - preferred.y;
         float min = ray.y > 0f ? floorLimit / ray.y : Float.NEGATIVE_INFINITY;
         float max = ray.y < 0f ? floorLimit / ray.y : Float.POSITIVE_INFINITY;
-        for (int i = 0; i < count - 1; i++) {
-            Disc other = discs.get(i);
+        int candidates = allDiscs ? count - 1 : neighborCount;
+        for (int i = 0; i < candidates; i++) {
+            Disc other = discs.get(allDiscs ? i : neighbors[i]);
             delta.set(preferred).sub(other.center);
             float along = delta.dot(ray);
             if (axis.set(delta).mulAdd(ray, -along).len2() > reach2 + skin * radius * 8f) continue;
@@ -238,6 +257,11 @@ final class GdxChipContacts {
         tracking = sweep && a.hasPrevious && b.hasPrevious;
         if (tracking) {
             oldDelta.set(a.previous).sub(b.previous);
+            // A whole swept segment on the same side of any bounding slab
+            // cannot enter the circumsphere, even if the two chips rotate.
+            if ((delta.x > reach && oldDelta.x > reach) || (delta.x < -reach && oldDelta.x < -reach)
+                    || (delta.y > reach && oldDelta.y > reach) || (delta.y < -reach && oldDelta.y < -reach)
+                    || (delta.z > reach && oldDelta.z > reach) || (delta.z < -reach && oldDelta.z < -reach)) return false;
             axis.set(delta).sub(oldDelta);
             float len2 = axis.len2();
             float t = len2 == 0f ? 0f : Math.max(0f, Math.min(1f, -oldDelta.dot(axis) / len2));
@@ -299,18 +323,14 @@ final class GdxChipContacts {
         }
         float distance = limit - sign * end;
         // Do not select a displacement that would immediately be undone by the felt.
-        if (distance < depth && a.center.y + sign * y * (distance + skin) >= verticalExtent(a) - skin) {
+        if (distance < depth && a.center.y + sign * y * (distance + skin) >= a.verticalExtent - skin) {
             depth = distance;
             push.set(sign * x, sign * y, sign * z).scl(distance + skin);
         } else if (!Float.isFinite(depth)) {
             depth = Float.MAX_VALUE;
-            push.set(0f, b.center.y + verticalExtent(b) + verticalExtent(a) - a.center.y + skin, 0f);
+            push.set(0f, b.center.y + b.verticalExtent + a.verticalExtent - a.center.y + skin, 0f);
         }
         return true;
-    }
-
-    private float verticalExtent(Disc disc) {
-        return support(disc.normal, 0f, 1f, 0f);
     }
 
     private float support(Vector3 n, float x, float y, float z) {

@@ -140,6 +140,9 @@ class GdxChipOcclusionGpuTest {
         try {
             renderer.layout(W, H, H * .5f);
             renderer.drawBackdrop(batch, red, false, 64f, W, H, 1f);
+            byte[] singles = flightGrid(renderer, faces, 1);
+            assertArrayEquals(singles, flightGrid(renderer, faces, 63),
+                    "Every transform must survive batching across multiple pages of the same denomination");
             for (boolean pot : new boolean[]{true, false}) {
                 for (boolean front : new boolean[]{false, true}) {
                     byte[] rack = capture(renderer, faces, pot, front, true, false);
@@ -182,6 +185,25 @@ class GdxChipOcclusionGpuTest {
             renderer.drawChipRack(faces, 1f, true);
         }
         return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
+    }
+
+    private static byte[] flightGrid(GdxPerspectiveTable renderer, Texture[] faces, int groupSize) {
+        ScreenUtils.clear(Color.BLACK);
+        renderer.beginChipFrame();
+        for (int i = 0; i < 63; i++) {
+            if (i % groupSize == 0) renderer.beginChipRack();
+            var point = renderer.boardAt((i % 9 + 1) * W / 10f, (i / 9 + 1) * H / 8f);
+            var pose = GdxChipContactsTest.flat(point.x, point.y, 2f + i % 5);
+            pose.pitch = .5f * (float) Math.sin(i);
+            pose.roll = .45f * (float) Math.cos(i);
+            renderer.addFlyingTableChip(0, pose, D * .5f, THICKNESS * .5f);
+            if ((i + 1) % groupSize == 0) renderer.drawChipRack(faces, 1f, true);
+        }
+        byte[] image = ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
+        int green = 0;
+        for (int i = 0; i < image.length; i += 4) if (dominant(image, i, 1)) green++;
+        assertTrue(green > 3000, "The grid must contain visible flying chips");
+        return image;
     }
 
     private static boolean dominant(byte[] pixels, int i, int channel) {

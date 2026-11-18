@@ -419,9 +419,14 @@ final class GdxRobertRulesWindow implements AutoCloseable {
             case TOP, BOTTOM -> Cursor.SystemCursor.VerticalResize;
             case TOP_LEFT, BOTTOM_RIGHT -> Cursor.SystemCursor.NWSEResize;
             case TOP_RIGHT, BOTTOM_LEFT -> Cursor.SystemCursor.NESWResize;
-            case NONE -> GdxFloatingGameLogLayout.headerBounds(panel).contains(x, y)
-                    ? Cursor.SystemCursor.AllResize : Cursor.SystemCursor.Arrow;
+            case NONE -> innerCursor(x, y);
         };
+    }
+
+    private Cursor.SystemCursor innerCursor(float x, float y) {
+        if (closeBounds().contains(x, y) || sliderBounds().contains(x, y)) return Cursor.SystemCursor.Hand;
+        if (GdxFloatingGameLogLayout.headerBounds(panel).contains(x, y)) return Cursor.SystemCursor.AllResize;
+        return Cursor.SystemCursor.Arrow;
     }
 
     private int mouseX(Rectangle web, float x) { return Math.round((x - web.x) * browserWidth / web.width); }

@@ -1684,8 +1684,19 @@ final class PokerVideoOverlay implements AutoCloseable {
     }
 
     Cursor.SystemCursor systemCursor(float pointerX, float pointerY) {
-        return resizeCursorHandle(pointerX, pointerY) == ResizeHandle.NONE
-                ? Cursor.SystemCursor.Arrow : Cursor.SystemCursor.None;
+        if (resizeCursorHandle(pointerX, pointerY) != ResizeHandle.NONE) return Cursor.SystemCursor.None;
+        if (!hostVisible || windowTransitionActive()) return Cursor.SystemCursor.Arrow;
+        if (minimized) return handOver(iconBounds.contains(pointerX, pointerY));
+        return handOver(closeBounds.contains(pointerX, pointerY)
+                || canMaximize() && maximizeBounds.contains(pointerX, pointerY)
+                || previousBounds.contains(pointerX, pointerY) || nextBounds.contains(pointerX, pointerY)
+                || opacityBounds.contains(pointerX, pointerY) || favoriteBounds.contains(pointerX, pointerY)
+                || favoritesModeBounds.contains(pointerX, pointerY) || videoTypeBounds.contains(pointerX, pointerY)
+                || shareAction != null && shareBounds.contains(pointerX, pointerY));
+    }
+
+    private static Cursor.SystemCursor handOver(boolean clickable) {
+        return clickable ? Cursor.SystemCursor.Hand : Cursor.SystemCursor.Arrow;
     }
 
     private ResizeHandle resizeCursorHandle(float pointerX, float pointerY) {

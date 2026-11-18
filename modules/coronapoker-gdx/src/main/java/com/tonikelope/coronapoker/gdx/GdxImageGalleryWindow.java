@@ -321,6 +321,7 @@ final class GdxImageGalleryWindow implements AutoCloseable {
     }
 
     private Cursor.SystemCursor innerCursor(float x, float y) {
+        if (closeBounds().contains(x, y)) return Cursor.SystemCursor.Hand;
         if (titleDragBounds().contains(x, y)) return Cursor.SystemCursor.AllResize;
         if (webBounds(panel).contains(x, y)) return browser.cursor();
         return Cursor.SystemCursor.Arrow;

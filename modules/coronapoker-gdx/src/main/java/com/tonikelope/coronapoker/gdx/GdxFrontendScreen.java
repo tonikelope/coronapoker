@@ -1364,7 +1364,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && !loadingOverlay && !hasBlockingFrontendModal(), frameDelta,
                 surface == Surface.LOBBY && lobbySession != null
                         ? this::shareLobbyVideo : null);
-        updateAvatarCropSystemCursor();
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
         if (!loadingOverlay || !backdropBlurActive) {
             loadingBackdropCached = false;
@@ -1372,6 +1371,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && modalBackdropBlur.hasCachedFrame(
                         Gdx.graphics.getBackBufferWidth(),
                         Gdx.graphics.getBackBufferHeight())) {
+            applyFrontendSystemCursor(Cursor.SystemCursor.Arrow);
             renderCachedLoadingFrame();
             return;
         }
@@ -1759,6 +1759,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawTooltipTopLayer(dropdown == Dropdown.NONE ? null : dropdownClip);
         }
         drawCenteredFeedbackTopLayer();
+        updateFrontendSystemCursor();
     }
 
     /**
@@ -2093,7 +2094,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             tooltipDelay.clear();
         } else {
             viewport.apply();
-            drawTooltipTopLayer(null);
+            drawTooltipTopLayer(null, 355f);
         }
     }
 
@@ -14328,6 +14329,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawTooltipTopLayer(Rectangle popup) {
+        drawTooltipTopLayer(popup, 430f);
+    }
+
+    private void drawTooltipTopLayer(Rectangle popup, float maxTextWidth) {
         TooltipHit hovered = popup == null ? null : dropdownOptionTooltip;
         for (int index = tooltipHits.size() - 1; hovered == null && index >= 0;
                 index--) {
@@ -14346,11 +14351,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!tooltipDelay.ready(hovered.identity())) return;
         String value = gameText.translate(hovered.key, hovered.arguments);
         int maxLines = (int) ((HEIGHT - 48f) / 22f);
-        List<String> lines = wrapText(tinyFont, value, 430f, maxLines);
+        List<String> lines = wrapText(tinyFont, value, maxTextWidth, maxLines);
         float widest = 0f;
         for (String line : lines) widest = Math.max(widest,
                 textWidth(tinyFont, line));
-        float boxW = Math.min(470f, Math.max(190f, widest + 34f));
+        float boxW = Math.min(maxTextWidth + 34f, Math.max(190f, widest + 34f));
         float boxH = 24f + lines.size() * 22f;
         Rectangle bounds = GdxSettingsTooltips.bounds(pointer, boxW, boxH,
                 WIDTH, HEIGHT, popup);
@@ -15806,7 +15811,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 worldX, worldY, radius);
     }
 
-    private void updateAvatarCropSystemCursor() {
+    private void updateFrontendSystemCursor() {
         Cursor.SystemCursor desired = Cursor.SystemCursor.Arrow;
         AvatarCropSession session = avatarCropSession;
         if (session != null) {
@@ -15820,11 +15825,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NWSEResize;
                 case TOP_RIGHT, BOTTOM_LEFT ->
                     Cursor.SystemCursor.NESWResize;
-                default -> Cursor.SystemCursor.Arrow;
+                case MOVE -> Cursor.SystemCursor.AllResize;
+                default -> frontendHitCursor();
             };
-        } else if (rulesWindow.isOpen()) {
+        } else if (rulesWindow.isOpen() && rulesWindow.ownsPointer(pointer.x, pointer.y)) {
             desired = rulesWindow.cursor(pointer.x, pointer.y);
-        } else if (lobbyGalleryInteractive()) {
+        } else if (lobbyGalleryInteractive() && lobbyGallery.ownsPointer(pointer.x, pointer.y)) {
             desired = lobbyGallery.cursor(pointer.x, pointer.y);
         } else if (statsEvidenceOpen) {
             GdxFloatingGameLogLayout.ResizeHandle handle =
@@ -15840,11 +15846,43 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Cursor.SystemCursor.NWSEResize;
                 case TOP_RIGHT, BOTTOM_LEFT ->
                     Cursor.SystemCursor.NESWResize;
-                case NONE -> Cursor.SystemCursor.Arrow;
+                case NONE -> frontendHitCursor();
             };
-        } else {
+        } else if (!hasBlockingFrontendModal() && pokerVideoOverlay.ownsHover(pointer.x, pointer.y)) {
             desired = pokerVideoOverlay.systemCursor(pointer.x, pointer.y);
+        } else {
+            desired = frontendHitCursor();
         }
+        applyFrontendSystemCursor(desired);
+    }
+
+    private Cursor.SystemCursor frontendHitCursor() {
+        if (editMenu != null) {
+            return hasCursorHit(editMenuHits) ? Cursor.SystemCursor.Hand : Cursor.SystemCursor.Arrow;
+        }
+        if (dropdown != Dropdown.NONE) {
+            return dropdownClip.contains(pointer) && hasCursorHit(hits)
+                    ? Cursor.SystemCursor.Hand : Cursor.SystemCursor.Arrow;
+        }
+        for (PasswordRevealHit hit : passwordRevealHits) {
+            if (hit.bounds.contains(pointer)) return Cursor.SystemCursor.Hand;
+        }
+        for (TextFieldHit hit : textFieldHits) {
+            if (hit.bounds.contains(pointer)) return Cursor.SystemCursor.Ibeam;
+        }
+        return hasCursorHit(hits) || hasCursorHit(secondaryHits)
+                ? Cursor.SystemCursor.Hand : Cursor.SystemCursor.Arrow;
+    }
+
+    private boolean hasCursorHit(List<Hit> targets) {
+        for (Hit hit : targets) {
+            if (hit.bounds.contains(pointer)
+                    && (hit.bounds.width < WIDTH || hit.bounds.height < HEIGHT)) return true;
+        }
+        return false;
+    }
+
+    private void applyFrontendSystemCursor(Cursor.SystemCursor desired) {
         if (desired != appliedSystemCursor) {
             Gdx.graphics.setSystemCursor(desired);
             appliedSystemCursor = desired;

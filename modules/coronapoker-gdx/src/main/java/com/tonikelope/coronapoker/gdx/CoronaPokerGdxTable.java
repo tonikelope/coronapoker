@@ -8207,10 +8207,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             request.accept();
             return;
         }
-        if (request.isNotice() && !request.isRecovery()) {
-            postTableNotice(request.kind() == GdxTableDialog.Kind.INFO
-                    ? GdxTableChatFeed.Kind.INFO : GdxTableChatFeed.Kind.WARNING,
-                    request.title(), request.message());
+        // Zero Trust incidents are already written to the game log by the dealer.
+        if (request.kind() == GdxTableDialog.Kind.ERROR) {
+            gameLog.print(request.title() + ": " + request.message());
+        } else if (request.kind() == GdxTableDialog.Kind.INFO && !request.isRecovery()) {
+            postTableNotice(GdxTableChatFeed.Kind.INFO, request.title(), request.message());
         }
         if (request.isAutoAction()) {
             // AUTO owns neither the modal stack nor its input focus. It keeps
@@ -24969,11 +24970,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void openQuickChatVideo(PokerVideoSearch.Video video) {
         if (mediaFrontend == null) return;
         mediaFrontend.openChatVideo(video, message -> showDialog(new GdxTableDialog(
-                GdxTableDialog.Kind.INFO,
-                gameText.translate("gdx.settings.option.mostrar_videos_poker"),
-                message,
-                com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
-                720, 0, false, "", gameText.translate("ui.aceptar"))));
+                GdxTableDialog.Kind.ERROR, uppercase(gameText.translate("gdx.dialog.error")),
+                message, com.tonikelope.coronapoker.core.game.GameDialogSink.Icon.NONE,
+                720, 0, false, "", gameText.translate("ui.cerrar"))));
     }
 
     private String voicePlaybackBlock() {

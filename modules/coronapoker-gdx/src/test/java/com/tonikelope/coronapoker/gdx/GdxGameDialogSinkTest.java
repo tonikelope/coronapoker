@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.table.TableSnapshot;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -55,6 +58,80 @@ final class GdxGameDialogSinkTest {
                 "BACK", "CANCEL REBUY");
         assertEquals("BACK", pendingRebuy.negativeLabel());
         assertEquals("CANCEL REBUY", pendingRebuy.positiveLabel());
+    }
+
+    @Test
+    void tableErrorsStayModalAndAreWrittenToTheGameLogInsteadOfChat(
+            @TempDir Path temporary) throws Exception {
+        var text = new GdxGameText("es");
+        var dialogs = new GdxGameDialogSink(text);
+        var gameLog = new GdxGameLogSink(temporary.resolve("games.sqlite"));
+        gameLog.reset();
+        var table = tableWithLog(gameLog);
+        var chat = tableChatFeed(table);
+
+        List<String> messages = List.of(
+                text.translate("rebuy.sin_margen"),
+                text.translate("error.crupier_fatal"),
+                text.translate("gdx.video.share.unavailable"));
+        for (String message : messages) {
+            var error = dialogs.request(GdxTableDialog.Kind.ERROR, message,
+                    GameDialogSink.Icon.NONE, 760, 0);
+            table.showDialog(error);
+            assertTrue(table.hasActiveDialog());
+            assertFalse(error.complete());
+            assertTrue(chat.visible(0f).isEmpty());
+            assertTrue(chat.history().isEmpty());
+
+            assertTrue(table.resolveActiveDialogChoice(true));
+            table.advanceDialogState();
+            assertFalse(table.hasActiveDialog());
+        }
+
+        List<String> expected = messages.stream().map(message -> "ERROR: " + message).toList();
+        assertEquals(expected, gameLog.snapshot().lines());
+        assertEquals(expected, Files.readAllLines(gameLog.persistentLogPath()));
+    }
+
+    @Test
+    void zeroTrustAlertsKeepTheDealersLogAndInformationalNoticesStillReachChat() throws Exception {
+        var gameLog = new GdxGameLogSink();
+        var table = tableWithLog(gameLog);
+        var chat = tableChatFeed(table);
+        var dialogs = new GdxGameDialogSink(new GdxGameText("es"));
+
+        gameLog.print("Dealer incident");
+        var security = dialogs.request(GdxTableDialog.Kind.ZERO_TRUST,
+                "Security alert", GameDialogSink.Icon.NONE, 760, 0);
+        table.showDialog(security);
+        assertTrue(table.hasActiveDialog());
+        assertFalse(security.complete());
+        assertEquals(List.of("Dealer incident"), gameLog.snapshot().lines());
+        assertTrue(chat.visible(0f).isEmpty());
+        assertTrue(chat.history().isEmpty());
+        assertTrue(table.resolveActiveDialogChoice(true));
+        table.advanceDialogState();
+
+        table.showDialog(dialogs.request(GdxTableDialog.Kind.INFO,
+                "Game finished", GameDialogSink.Icon.EXIT, 760, 0));
+        assertEquals(1, chat.history().size());
+        assertEquals(GdxTableChatFeed.Kind.INFO, chat.history().get(0).kind());
+        assertEquals("Game finished", chat.history().get(0).text());
+        assertEquals(List.of("Dealer incident"), gameLog.snapshot().lines());
+    }
+
+    private static CoronaPokerGdxTable tableWithLog(GdxGameLogSink gameLog) {
+        var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.PREFLOP,
+                0d, "", false, List.of(), List.of());
+        return new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
+                command -> { }, () -> { }, gameLog, null);
+    }
+
+    private static GdxTableChatFeed tableChatFeed(CoronaPokerGdxTable table)
+            throws ReflectiveOperationException {
+        var field = CoronaPokerGdxTable.class.getDeclaredField("chatFeed");
+        field.setAccessible(true);
+        return (GdxTableChatFeed) field.get(table);
     }
 
     @Test

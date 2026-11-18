@@ -37,6 +37,7 @@ final class GdxCardShell implements Disposable {
     private final IntBuffer viewport = BufferUtils.newIntBuffer(4);
     private final Matrix4 projection = new Matrix4();
     private final FloatArray vertices = new FloatArray();
+    private final FloatArray surfaceSamples = new FloatArray();
     private final Vector3 tangent = new Vector3();
     private final Vector3 normal = new Vector3();
     private final Vector3 point = new Vector3();
@@ -113,6 +114,7 @@ final class GdxCardShell implements Disposable {
         captureSurface(source);
         contour = contours.computeIfAbsent(new Grid(cols, strips, aspect),
                 key -> new GdxCardContour(key.columns(), key.rows(), key.aspect()));
+        sampleSurface();
         renderLayer(() -> {
             GL20 gl = Gdx.gl;
             bottom.bind(1);
@@ -128,9 +130,7 @@ final class GdxCardShell implements Disposable {
                 for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {
                     int at = vertex;
                     if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
-                    float u = contour.faces.items[at * 2];
-                    float v = contour.faces.items[at * 2 + 1];
-                    surfaceVertex(u, v, side == 0 ? 1f : -1f, false);
+                    appendSurfaceVertex(contour.faceSamples[at], side);
                 }
                 shader.setUniformi("u_cardSide", side);
                 if (pickTarget != null) pickTarget.append(vertices);
@@ -139,12 +139,12 @@ final class GdxCardShell implements Disposable {
             gl.glDisable(GL20.GL_CULL_FACE);
             vertices.clear();
             for (int edge = 0; edge < contour.rim.size / 2; edge++) {
-                rimVertex(edge, 1f);
-                rimVertex(edge, -1f);
-                rimVertex(edge + 1, 1f);
-                rimVertex(edge + 1, 1f);
-                rimVertex(edge, -1f);
-                rimVertex(edge + 1, -1f);
+                rimVertex(edge, 0);
+                rimVertex(edge, 1);
+                rimVertex(edge + 1, 0);
+                rimVertex(edge + 1, 0);
+                rimVertex(edge, 1);
+                rimVertex(edge + 1, 1);
             }
             shader.setUniformi("u_material", 5);
             draw(shader);
@@ -366,21 +366,36 @@ final class GdxCardShell implements Disposable {
         }
     }
 
-    private void rimVertex(int edge, float side) {
-        int index = edge * 2 % contour.rim.size;
-        surfaceVertex(contour.rim.items[index], contour.rim.items[index + 1], side, true);
+    private void rimVertex(int edge, int side) {
+        int index = contour.rimSamples[edge % contour.rimSamples.length];
+        appendSurfaceVertex(index, side);
+        vertices.items[vertices.size - 4] = .94f;
     }
 
-    private void surfaceVertex(float u, float v, float side, boolean rim) {
-        interpolate(point, grid, u, v);
-        interpolate(normal, normals, u, v);
+    private void appendSurfaceVertex(int index, int side) {
+        vertices.addAll(surfaceSamples.items, (2 * index + side) * 9, 9);
+    }
+
+    private void sampleSurface() {
+        surfaceSamples.clear();
+        surfaceSamples.ensureCapacity(contour.sampleUvs.size * 9);
+        for (int i = 0; i < contour.sampleUvs.size; i += 2) {
+            float u = contour.sampleUvs.items[i], v = contour.sampleUvs.items[i + 1];
+            interpolate(point, grid, u, v);
+            interpolate(normal, normals, u, v);
+            sampleSide(u, v, 1f);
+            sampleSide(u, v, -1f);
+        }
+    }
+
+    private void sampleSide(float u, float v, float side) {
         // Do not renormalize the offset: the face triangles interpolate the
         // vertex offsets linearly. The rim must meet that very same surface.
-        vertices.add(point.x + side * halfThickness * normal.x,
+        surfaceSamples.add(point.x + side * halfThickness * normal.x,
                 point.y - halfThickness + side * halfThickness * normal.y,
                 point.z + side * halfThickness * normal.z, u);
-        vertices.add(v, rim ? 0.94f : 1f);
-        vertices.add(normal.x * side, normal.y * side, normal.z * side);
+        surfaceSamples.add(v, 1f);
+        surfaceSamples.add(normal.x * side, normal.y * side, normal.z * side);
     }
 
     private void interpolate(Vector3 out, float[] values, float u, float v) {

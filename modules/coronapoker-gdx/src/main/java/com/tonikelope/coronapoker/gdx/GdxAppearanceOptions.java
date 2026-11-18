@@ -68,9 +68,6 @@ final class GdxAppearanceOptions {
                     new String[]{"right", "left", "mixed"},
                     new String[]{"HACIA LA DERECHA", "HACIA LA IZQUIERDA",
                         "MIXTO"}),
-            numeric("card_flip_zoom", "EFECTO AL DESTAPAR", "100",
-                    new String[]{"100", "115", "130", "145"},
-                    new String[]{"DESACTIVADO", "SUAVE", "NORMAL", "FUERTE"}),
             numeric("swap_velocidad", "VELOCIDAD DE ORDENAR", "320",
                     new String[]{"520", "320", "200"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -113,7 +110,7 @@ final class GdxAppearanceOptions {
     /** A selector follows the view in the settings and its animation switches. */
     static boolean enabled(Choice choice, Properties properties) {
         boolean only2d = switch (choice.key()) {
-            case "card_flip_zoom", "swap_velocidad", "swap_arco" -> true;
+            case "swap_velocidad", "swap_arco" -> true;
             default -> false;
         };
         if (only2d && perspectiveTable(properties)) return false;
@@ -135,7 +132,7 @@ final class GdxAppearanceOptions {
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";
-            case "card_flip_duration", "card_flip_direction", "card_flip_zoom" ->
+            case "card_flip_duration", "card_flip_direction" ->
                 "animacion_destape";
             case "swap_velocidad", "swap_arco" -> "animacion_swap";
             default -> null;

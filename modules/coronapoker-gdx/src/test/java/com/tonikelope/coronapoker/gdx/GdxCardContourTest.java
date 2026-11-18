@@ -6,6 +6,25 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxCardContourTest {
+    @Test void sharedSurfaceSamplesPreserveAllClippedFaceAndRimCoordinates() {
+        for (int[] grid : new int[][]{{1, 1}, {28, 16}, {32, 48}}) {
+            var contour = new GdxCardContour(grid[0], grid[1], 1.4f);
+            assertMappings(contour.faces, contour.faceSamples, contour.sampleUvs);
+            assertMappings(contour.rim, contour.rimSamples, contour.sampleUvs);
+            assertTrue(contour.sampleUvs.size < contour.faces.size + contour.rim.size);
+        }
+    }
+
+    private static void assertMappings(FloatArray coords, int[] indices, FloatArray samples) {
+        assertEquals(coords.size, 2 * indices.length);
+        for (int i = 0; i < indices.length; i++) {
+            for (int axis = 0; axis < 2; axis++) {
+                assertEquals(Float.floatToRawIntBits(coords.items[2 * i + axis]),
+                        Float.floatToRawIntBits(samples.items[2 * indices[i] + axis]));
+            }
+        }
+    }
+
     @Test void roundedFacesFillTheirClosedRimWithoutHolesOrOverlappingTriangles() {
         for (int[] grid : new int[][]{{1, 1}, {28, 16}, {32, 48}}) {
             for (float aspect : new float[]{1.36f, 1.4f, 1.53f}) {

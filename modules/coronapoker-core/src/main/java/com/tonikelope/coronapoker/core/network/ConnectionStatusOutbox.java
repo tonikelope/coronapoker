@@ -13,6 +13,7 @@ public final class ConnectionStatusOutbox {
     private final int maxElements;
     private final long maxBytes;
     private final LinkedHashMap<String, Entry> pending = new LinkedHashMap<>();
+    private long activeGeneration = -1L;
     private long queuedBytes;
 
     ConnectionStatusOutbox(int maxElements, long maxBytes) {
@@ -45,6 +46,7 @@ public final class ConnectionStatusOutbox {
     }
 
     synchronized boolean offer(long generation, String command) {
+        if (generation < 0L || generation != activeGeneration) return false;
         String key = key(command);
         int bytes = command.getBytes(StandardCharsets.UTF_8).length;
         Entry previous = pending.get(key);
@@ -68,5 +70,10 @@ public final class ConnectionStatusOutbox {
     synchronized boolean isEmpty() { return pending.isEmpty(); }
     synchronized int size() { return pending.size(); }
     synchronized long queuedBytes() { return queuedBytes; }
-    synchronized void clear() { pending.clear(); queuedBytes = 0L; }
+    /** Change socket and invalidate its pending notices in the same critical section as offer. */
+    synchronized void resetGeneration(long generation) {
+        activeGeneration = generation;
+        pending.clear();
+        queuedBytes = 0L;
+    }
 }

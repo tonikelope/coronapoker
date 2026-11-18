@@ -15,6 +15,15 @@ final class GdxCommunityTurn2D {
     private static final int QUAD_FLOATS = 20;
     private static final float GUARD = CoronaPokerGdxTable.cardEdgeGuardUv();
     private static final int SHADOW_TAPS = 9;
+    private static final float[] TAP_X = new float[SHADOW_TAPS];
+    private static final float[] TAP_Y = new float[SHADOW_TAPS];
+    static {
+        for (int tap = 1; tap < SHADOW_TAPS; tap++) {
+            float angle = (tap - 1) * MathUtils.PI2 / (SHADOW_TAPS - 1);
+            TAP_X[tap] = MathUtils.cos(angle);
+            TAP_Y[tap] = MathUtils.sin(angle);
+        }
+    }
     private static final int LAYER_FLOATS = COLUMNS * ROWS * QUAD_FLOATS;
     private final GdxPlasticCard.CommunityTurn sheet = new GdxPlasticCard.CommunityTurn();
     private final Vector3 point = new Vector3();
@@ -22,7 +31,6 @@ final class GdxCommunityTurn2D {
     private final Vector3 along = new Vector3();
     private final Vector3 normal = new Vector3();
     private final Color color = new Color();
-    private final float[] physical = new float[STRIDE * (ROWS + 1) * 3];
     private final float[] projected = new float[STRIDE * (ROWS + 1) * 2];
     private final float[] colors = new float[STRIDE * (ROWS + 1)];
     private final float[] backVertices = new float[COLUMNS * ROWS * QUAD_FLOATS];
@@ -38,14 +46,16 @@ final class GdxCommunityTurn2D {
         float cos = MathUtils.cosDeg(rotation), sin = MathUtils.sinDeg(rotation);
         float cameraHeight = width * 4f;
         float shadowWeight = MathUtils.sin(MathUtils.PI * MathUtils.clamp(progress, 0f, 1f));
+        shadowCount = progress > 0f && progress < 1f ? LAYER_FLOATS : 0;
         for (int row = 0; row <= ROWS; row++) {
             for (int column = 0; column <= COLUMNS; column++) {
                 int index = row * STRIDE + column;
                 float u = coordinate(column, COLUMNS), v = coordinate(row, ROWS);
                 sheet.sample(point, u, v);
-                physical[index * 3] = point.x;
-                physical[index * 3 + 1] = point.y;
-                physical[index * 3 + 2] = point.z;
+                if (shadowCount > 0) {
+                    shadowVertex(column, row, x, y, scale, cos, sin, width, shadowWeight,
+                            (u - .5f) / shaderCanvasScale + .5f, (.5f - v) / shaderCanvasScale + .5f);
+                }
                 // A high, nearly overhead viewpoint keeps the flat board's footprint
                 // exact, while elevation gives the lifted side a little parallax.
                 float perspective = cameraHeight / (cameraHeight - point.y);
@@ -66,7 +76,7 @@ final class GdxCommunityTurn2D {
                 colors[index] = color.set(light, light, light, 1f).toFloatBits();
             }
         }
-        backCount = faceCount = shadowCount = 0;
+        backCount = faceCount = 0;
         for (int row = 0; row < ROWS; row++) {
             for (int column = 0; column < COLUMNS; column++) {
                 int a = row * STRIDE + column, b = a + STRIDE;
@@ -82,19 +92,12 @@ final class GdxCommunityTurn2D {
                 count = vertex(target, count, d, column + 1, row, face, shaderCanvasScale);
                 if (face) faceCount = count;
                 else backCount = count;
-                shadowCount = shadowVertex(shadowCount, a, column, row, x, y, scale,
-                        cos, sin, width, shadowWeight, shaderCanvasScale);
-                shadowCount = shadowVertex(shadowCount, b, column, row + 1, x, y, scale,
-                        cos, sin, width, shadowWeight, shaderCanvasScale);
-                shadowCount = shadowVertex(shadowCount, c, column + 1, row + 1, x, y, scale,
-                        cos, sin, width, shadowWeight, shaderCanvasScale);
-                shadowCount = shadowVertex(shadowCount, d, column + 1, row, x, y, scale,
-                        cos, sin, width, shadowWeight, shaderCanvasScale);
             }
         }
     }
 
     void drawShadow(SpriteBatch batch, Texture back) {
+        if (shadowCount == 0) return;
         for (int tap = 0; tap < SHADOW_TAPS; tap++) {
             batch.draw(back, shadowVertices, tap * LAYER_FLOATS, shadowCount);
         }
@@ -133,29 +136,39 @@ final class GdxCommunityTurn2D {
         return count;
     }
 
-    private int shadowVertex(int count, int index, int column, int row,
+    private void shadowVertex(int column, int row,
             float x, float y, float scale, float cos, float sin, float width,
-            float weight, float canvasScale) {
-        float elevation = physical[index * 3 + 1];
-        float px = physical[index * 3] + elevation * .23f;
-        float py = physical[index * 3 + 2] - elevation * .18f - width * .012f;
+            float weight, float u, float v) {
+        float elevation = point.y;
+        float px = point.x + elevation * .23f;
+        float py = point.z - elevation * .18f - width * .012f;
         float softness = width * .008f + Math.max(0f, elevation) * .045f;
         float alpha = weight * (.17f - .07f * MathUtils.clamp(elevation / width, 0f, 1f));
         // Diffuse light softens the shadow as the card leaves the felt. Each
         // tap follows the same material, so the penumbra stays at the contact.
-        for (int tap = 0; tap < SHADOW_TAPS; tap++) {
-            float angle = (tap - 1) * MathUtils.PI2 / (SHADOW_TAPS - 1);
-            float dx = tap == 0 ? 0f : softness * MathUtils.cos(angle);
-            float dy = tap == 0 ? 0f : softness * MathUtils.sin(angle);
-            int offset = tap * LAYER_FLOATS + count;
-            shadowVertices[offset++] = x + scale * ((px + dx) * cos - (py + dy) * sin);
-            shadowVertices[offset++] = y + scale * ((px + dx) * sin + (py + dy) * cos);
-            shadowVertices[offset++] = color.set(0f, 0f, 0f, alpha * (tap == 0 ? .2f : .1f))
-                    .toFloatBits();
-            shadowVertices[offset++] = (coordinate(column, COLUMNS) - .5f) / canvasScale + .5f;
-            shadowVertices[offset] = (.5f - coordinate(row, ROWS)) / canvasScale + .5f;
+        float centerColor = color.set(0f, 0f, 0f, alpha * .2f).toFloatBits();
+        float outerColor = color.set(0f, 0f, 0f, alpha * .1f).toFloatBits();
+        int quad = (row * COLUMNS + column) * QUAD_FLOATS;
+        for (int tap = 0; tap < SHADOW_TAPS; tap++, quad += LAYER_FLOATS) {
+            float sx = px + softness * TAP_X[tap], sy = py + softness * TAP_Y[tap];
+            float wx = x + scale * (sx * cos - sy * sin);
+            float wy = y + scale * (sx * sin + sy * cos);
+            float packed = tap == 0 ? centerColor : outerColor;
+            // SpriteBatch consumes independent quads. Fill each adjoining corner
+            // from the single projection of this physical point.
+            if (row < ROWS && column < COLUMNS) putShadow(quad, wx, wy, packed, u, v);
+            if (row > 0 && column < COLUMNS) putShadow(quad - COLUMNS * QUAD_FLOATS + 5, wx, wy, packed, u, v);
+            if (row > 0 && column > 0) putShadow(quad - STRIDE * QUAD_FLOATS + 10, wx, wy, packed, u, v);
+            if (row < ROWS && column > 0) putShadow(quad - QUAD_FLOATS + 15, wx, wy, packed, u, v);
         }
-        return count + 5;
+    }
+
+    private void putShadow(int offset, float x, float y, float packedColor, float u, float v) {
+        shadowVertices[offset] = x;
+        shadowVertices[offset + 1] = y;
+        shadowVertices[offset + 2] = packedColor;
+        shadowVertices[offset + 3] = u;
+        shadowVertices[offset + 4] = v;
     }
 
     private static float coordinate(int index, int cells) {

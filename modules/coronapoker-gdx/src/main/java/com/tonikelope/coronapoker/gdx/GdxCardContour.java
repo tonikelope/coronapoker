@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.LongMap;
 import java.util.Arrays;
 
 /** Closed rounded sheet topology, split at every triangle of the bending grid. */
@@ -11,6 +12,8 @@ final class GdxCardContour {
     private static final int CORNER_STEPS = 24;
     final FloatArray faces = new FloatArray();
     final FloatArray rim = new FloatArray();
+    final FloatArray sampleUvs = new FloatArray();
+    final int[] faceSamples, rimSamples;
     private final FloatArray hull = new FloatArray();
     private final double[] first = new double[256];
     private final double[] second = new double[256];
@@ -61,6 +64,27 @@ final class GdxCardContour {
                 previous = t;
             }
         }
+        var indices = new LongMap<Integer>();
+        faceSamples = indexSamples(faces, indices);
+        rimSamples = indexSamples(rim, indices);
+    }
+
+    /** Share only bit-identical UVs, including points introduced by clipping. */
+    private int[] indexSamples(FloatArray coords, LongMap<Integer> indices) {
+        int[] samples = new int[coords.size / 2];
+        for (int i = 0; i < samples.length; i++) {
+            float u = coords.items[2 * i], v = coords.items[2 * i + 1];
+            long key = ((long) Float.floatToRawIntBits(u) << 32)
+                    | Integer.toUnsignedLong(Float.floatToRawIntBits(v));
+            Integer index = indices.get(key);
+            if (index == null) {
+                index = sampleUvs.size / 2;
+                indices.put(key, index);
+                sampleUvs.add(u, v);
+            }
+            samples[i] = index;
+        }
+        return samples;
     }
 
     private static int intersections(double[] cuts, int count, double origin, double delta, int lines) {

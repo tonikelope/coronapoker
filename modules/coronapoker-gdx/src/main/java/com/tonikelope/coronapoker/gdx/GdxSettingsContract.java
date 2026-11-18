@@ -627,7 +627,6 @@ final class GdxSettingsContract {
                     animationToggle("animacion_destape"),
                     animationChoice("card_flip_duration"),
                     animationChoice("card_flip_direction"),
-                    animationChoice("card_flip_zoom"),
                     animationToggle(COLLECT_HAND_CARDS_KEY),
                     animationToggle("animacion_ciegas_dealer"),
                     animationToggle("animacion_contadores"),
@@ -758,8 +757,6 @@ final class GdxSettingsContract {
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY,
                     "animacion_contador_final", "animacion_downgrade" ->
                 PerformanceImpact.LOW;
-            case "card_flip_zoom" -> integer(values, key, 100) <= 100
-                    ? PerformanceImpact.NONE : PerformanceImpact.LOW;
             case "gdx_msaa_samples" -> switch (integer(values, key, 4)) {
                 case 0 -> PerformanceImpact.NONE;
                 case 2 -> PerformanceImpact.LOW;

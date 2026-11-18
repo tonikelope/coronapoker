@@ -2980,6 +2980,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 ExecutorService executor, boolean startGameOutbox) {
             this.generation = new Generation(0L, socket, input, output,
                     aes, hmac);
+            connectionStatuses.resetGeneration(generation.id);
             this.originalHmac = copyKey(hmac);
             this.sessionFingerprint = IdenticonFingerprint
                     .fromSeed(aes.getEncoded()).digest();
@@ -3087,7 +3088,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 reconnecting = true;
                 long attempt = ++reconnectAttempt;
                 gameOutbox.advanceGenerationPreservingEntries();
-                connectionStatuses.clear();
+                connectionStatuses.resetGeneration(-1L);
                 expected.close();
                 generationLock.notifyAll();
                 synchronized (confirmationLock) {
@@ -3132,7 +3133,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                         replacement.socket, replacement.input,
                         replacement.output, replacement.aes,
                         replacement.hmac);
-                connectionStatuses.clear();
+                connectionStatuses.resetGeneration(replacement.id);
                 generation = replacement;
                 reconnecting = false;
                 reconnectionCount++;
@@ -3295,7 +3296,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 executor.execute(this::runStatusWriter);
             } catch (java.util.concurrent.RejectedExecutionException shutdown) {
                 statusWriterScheduled.set(false);
-                connectionStatuses.clear();
+                connectionStatuses.resetGeneration(-1L);
             }
         }
 
@@ -3541,7 +3542,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 reconnecting = false;
                 generationLock.notifyAll();
             }
-            connectionStatuses.clear();
+            connectionStatuses.resetGeneration(-1L);
             List<java.util.concurrent.CompletableFuture<Void>> abandoned;
             synchronized (gameOutbox) {
                 gameOutbox.advanceGeneration();

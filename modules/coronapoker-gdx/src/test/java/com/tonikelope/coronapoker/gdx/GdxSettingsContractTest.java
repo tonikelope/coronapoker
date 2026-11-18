@@ -173,11 +173,6 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.PerformanceImpact.HIGH);
         assertPerformanceImpact("gdx_fps_limit", "360",
                 GdxSettingsContract.PerformanceImpact.MEDIUM);
-
-        assertPerformanceImpact("card_flip_zoom", "100",
-                GdxSettingsContract.PerformanceImpact.NONE);
-        assertPerformanceImpact("card_flip_zoom", "145",
-                GdxSettingsContract.PerformanceImpact.LOW);
     }
 
     private static void assertPerformanceImpact(String key, String value,
@@ -743,8 +738,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
-        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -760,7 +755,6 @@ final class GdxSettingsContractTest {
                 "animacion_destape",
                 "card_flip_duration",
                 "card_flip_direction",
-                "card_flip_zoom",
                 GdxSettingsContract.COLLECT_HAND_CARDS_KEY,
                 "animacion_ciegas_dealer",
                 "animacion_contadores",

@@ -300,7 +300,6 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_collect_hand_cards";
             case "card_flip_duration" ->
                 "tooltip.cfg.card_flip_duration";
-            case "card_flip_zoom" -> "tooltip.cfg.card_flip_zoom";
             case "animacion_ciegas_dealer" ->
                 "gdx.settings.tooltip.animation_position_chips";
             case "animacion_contadores" ->

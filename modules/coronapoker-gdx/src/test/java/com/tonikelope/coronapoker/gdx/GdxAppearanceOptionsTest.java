@@ -129,25 +129,22 @@ final class GdxAppearanceOptionsTest {
     @Test
     void choosing3dLocksOnly2dEffectsAndKeepsTheirValues() {
         Properties properties = new Properties();
-        GdxAppearanceOptions.Choice zoom = choice("card_flip_zoom");
         GdxAppearanceOptions.Choice speed = choice("swap_velocidad");
         GdxAppearanceOptions.Choice style = choice("swap_arco");
-        properties.setProperty(zoom.key(), "130");
+        properties.setProperty("card_flip_zoom", "130");
         properties.setProperty(speed.key(), "520");
         properties.setProperty(style.key(), "true");
 
         GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 1);
-        assertFalse(GdxAppearanceOptions.enabled(zoom, properties));
         assertFalse(GdxAppearanceOptions.enabled(speed, properties));
         assertFalse(GdxAppearanceOptions.enabled(style, properties));
         assertTrue(GdxAppearanceOptions.enabled(choice("card_flip_duration"), properties));
         assertTrue(GdxAppearanceOptions.enabled(choice("card_flip_direction"), properties));
 
         GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 0);
-        assertTrue(GdxAppearanceOptions.enabled(zoom, properties));
         assertTrue(GdxAppearanceOptions.enabled(speed, properties));
         assertTrue(GdxAppearanceOptions.enabled(style, properties));
-        assertEquals("130", properties.getProperty(zoom.key()));
+        assertEquals("130", properties.getProperty("card_flip_zoom"));
         assertEquals("520", properties.getProperty(speed.key()));
         assertEquals("true", properties.getProperty(style.key()));
     }

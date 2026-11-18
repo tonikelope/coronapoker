@@ -1468,6 +1468,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final int[] nextPotFlightChip = new int[GdxChipDenominations.COLUMN_COUNT];
     private final int[] nextLocalFlightChip = new int[GdxChipDenominations.COLUMN_COUNT];
     private final ArrayList<TableChipMove> tableChipMoves = new ArrayList<>();
+    private final GdxChipContacts chipContacts = new GdxChipContacts();
     private final ArrayList<GdxTableChipFlight.Pile> tableFlightPiles = new ArrayList<>();
     private final GdxTableChipRack.Impact[] potChipImpacts = new GdxTableChipRack.Impact[GdxTableChipSlots.POT_SLOT_COUNT];
     private final GdxTableChipRack.Impact[] localChipImpacts = new GdxTableChipRack.Impact[GdxTableChipSlots.LOCAL_SLOT_COUNT];
@@ -21633,6 +21634,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final class TableChipMove {
         final GdxTableChipFlight.Pose pose = new GdxTableChipFlight.Pose();
+        GdxChipContacts.Track track;
         GdxTableChipFlight.Contact from;
         long landing, firstContact, tossSeed;
         boolean toPot;
@@ -21669,6 +21671,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void prepareTableChipFlights() {
         activeTableChipMoves = 0;
         if (!perspectiveActive) return;
+        perspectiveTable.beginChipFrame();
+        chipContacts.begin(tableChipDiameter, renderFrameNanos);
         queueInitialStackDrops();
         if (liveBetAnimationEnabled()) queueTableTransfers();
         if (activeTableChipMoves == 0) return;
@@ -21683,6 +21687,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         moves.sort(java.util.Comparator.comparingLong(move -> move.landing));
         System.arraycopy(perspectivePotLevels, 0, nextPotFlightChip, 0, nextPotFlightChip.length);
         System.arraycopy(perspectiveLocalLevels, 0, nextLocalFlightChip, 0, nextLocalFlightChip.length);
+        boolean firstFlight = true;
         for (TableChipMove move : moves) {
             int column = GdxChipDenominations.columnForColor(move.color);
             int[] next = move.toPot ? nextPotFlightChip : nextLocalFlightChip;
@@ -21691,6 +21696,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             var rack = move.toPot ? perspectivePotRack : perspectiveLocalRack;
             move.destinationSlot = rack.slot(column, rack.pileForChip(column, index));
             if (move.from == null && !move.falling) continue;
+            if (firstFlight) {
+                addStandingChipContacts(true, perspectivePotLevels);
+                if (seatPresenceAlpha(0) > 0f) addStandingChipContacts(false, perspectiveLocalLevels);
+                firstFlight = false;
+            }
             var target = tableChipAtIndex(move.toPot, column, index,
                     move.falling ? move.progress : 1f);
             move.landingHeight = target.height();
@@ -21706,6 +21716,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else {
                 GdxTableChipFlight.sampleParabola(move.pose, move.from, target, move.progress,
                         tableChipDiameter, tableFlightPiles, move.lane, move.tossSeed);
+            }
+            int pile = move.destinationSlot + (move.toPot ? GdxTableChipSlots.LOCAL_SLOT_COUNT : 0);
+            chipContacts.place(move.pose, move.track, move.progress, pile);
+        }
+    }
+
+    private void addStandingChipContacts(boolean pot, int[] levels) {
+        for (int column = 0; column < levels.length; column++) {
+            for (int index = 0; index < levels[column]; index++) {
+                var chip = tableChipAtIndex(pot, column, index);
+                int layer = (index * levels.length + column) * 2 + (pot ? 1 : 0);
+                chipContacts.standing(layer, chip.x(), chip.y(), chip.height());
             }
         }
     }
@@ -21725,7 +21747,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float flightProgress = (progress - (end - duration)) / duration;
                 if (flightProgress < 0f) break;
                 var move = queueTableChip(false, null, color, seed, (end - duration) * totalSeconds,
-                        duration * totalSeconds, flightProgress, 0f, index, false);
+                        duration * totalSeconds, flightProgress, 0f, index, false,
+                        fill.drops.computeIfAbsent(index * plannedLocalChips.length + column,
+                                k -> new GdxChipContacts.Track()));
                 move.falling = true;
                 move.destinationIndex = index;
             }
@@ -21752,7 +21776,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 queueTableChip(false, progress <= 0f ? null : tableChipAtIndex(true, column, index), chip.color,
                         livePayout.startedAtNanos, chip.startSeconds, chip.durationSeconds,
                         progress, chip.index % 5 - 2, chip.index,
-                        singleLocalChipRebounds(livePayout.chips.size(), chip.nickname));
+                        singleLocalChipRebounds(livePayout.chips.size(), chip.nickname), chip.track);
             }
         }
         if (liveRebuy != null) {
@@ -21769,7 +21793,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             chip.rotation * MathUtils.degreesToRadians);
                 }
                 var move = queueTableChip(false, origin, chip.color, liveRebuy.startedAtNanos,
-                        chip.startSeconds, chip.durationSeconds, progress, lane, chip.index, false);
+                        chip.startSeconds, chip.durationSeconds, progress, lane, chip.index, false, chip.track);
                 move.rebuy = true;
                 move.falling = chip.rain && progress > 0f;
             }
@@ -21808,17 +21832,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             var move = queueTableChip(true, origin, chip.color,
                     startedAt, chip.startSeconds, chip.durationSeconds,
-                    progress, chip.laneSlot, chip.chipIndex, singleLocalChipRebounds(chips.size(), chip.nickname));
+                    progress, chip.laneSlot, chip.chipIndex, singleLocalChipRebounds(chips.size(), chip.nickname),
+                    chip.track);
             if (!localChip) move.tossSeed = remoteBetTossSeed(startedAt, chip);
         }
     }
 
     private TableChipMove queueTableChip(boolean toPot, GdxTableChipFlight.Contact from, int color,
             long startedAt, float launchSeconds, float flightSeconds, float progress, float lane,
-            int chipIndex, boolean rebound) {
+            int chipIndex, boolean rebound, GdxChipContacts.Track track) {
         if (activeTableChipMoves == tableChipMoves.size()) tableChipMoves.add(new TableChipMove());
         TableChipMove move = tableChipMoves.get(activeTableChipMoves++);
         move.from = from;
+        move.track = track;
         move.toPot = toPot;
         move.rebuy = false;
         move.rebound = rebound;
@@ -33951,6 +33977,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static final class LivePayoutChip implements LandingImpact {
+        final GdxChipContacts.Track track = new GdxChipContacts.Track();
 
         final String nickname;
         final int index;
@@ -34087,6 +34114,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static final class LiveInitialStackFill {
+        final Map<Integer, GdxChipContacts.Track> drops = new HashMap<>();
 
         final TableVisualEvent.InitialStackFill event;
         final long startedAtNanos;
@@ -34119,6 +34147,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static final class LiveRebuyChip {
+        final GdxChipContacts.Track track = new GdxChipContacts.Track();
 
         final String nickname;
         final int index;
@@ -34324,6 +34353,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static final class LiveChip implements LandingImpact {
+        final GdxChipContacts.Track track = new GdxChipContacts.Track();
 
         final String nickname;
         final float startSeconds;

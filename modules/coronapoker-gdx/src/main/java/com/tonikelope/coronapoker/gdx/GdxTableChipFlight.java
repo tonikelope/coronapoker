@@ -2,6 +2,7 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Quaternion;
 import java.util.List;
 
 /** Table-space toss with two exact, flat contacts and a short clearance arc. */
@@ -17,6 +18,18 @@ final class GdxTableChipFlight {
         float x, y, height, rotation, pitch, roll;
         boolean tumbling;
         float axisX, axisZ, tumbleAngle;
+
+        void attitude(Quaternion out) {
+            if (tumbling) out.setFromAxisRad(axisX, 0f, axisZ, tumbleAngle);
+            else out.setEulerAnglesRad(0f, pitch, roll);
+        }
+
+        float centerHeight(float radius, float halfThickness, float normalY) {
+            if (tumbling) return height + halfThickness;
+            float upright = Math.abs(normalY);
+            return height + radius * (float) Math.sqrt(Math.max(0f, 1f - upright * upright))
+                    + halfThickness * upright;
+        }
     }
 
     private GdxTableChipFlight() {}

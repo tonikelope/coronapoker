@@ -149,6 +149,11 @@ final class GdxPerspectiveTable implements Disposable {
                     gl_FragColor = vec4(0.015, 0.012, 0.010, 0.30 * shade * u_opacity);
                     return;
                 }
+                if (u_material == 9) {
+                    if (v_light < 0.0) discard; // The contact shadow has no solid surface.
+                    gl_FragColor = vec4(0.0);
+                    return;
+                }
                 if (u_material == 8 && v_light < 0.0) {
                     float shade = 1.0 - smoothstep(0.34, 0.50, length(v_uv - 0.5));
                     gl_FragColor = vec4(0.01, 0.01, 0.01, shade * 0.28 * (-v_light) * u_opacity);
@@ -211,6 +216,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final StandingChipPile[] visiblePiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
     private final BoundingBox standingChipBounds = new BoundingBox();
     private int visiblePileCount;
+    private long chipFrame;
     private final Vector3 near = new Vector3();
     private final Vector3 far = new Vector3();
     private final Vector3 cardSample = new Vector3();
@@ -883,6 +889,10 @@ final class GdxPerspectiveTable implements Disposable {
         standingChipBounds.inf();
     }
 
+    void beginChipFrame() {
+        chipFrame++;
+    }
+
     void addStandingChipPile(boolean pot, int slot, int pileIndex, int column,
             int seed, float x, float y, int count, float diameter, float thickness,
             float depthSway, GdxTableChipRack.Impact impact) {
@@ -925,6 +935,7 @@ final class GdxPerspectiveTable implements Disposable {
             pile.diameter = diameter;
             pile.moving = moving;
         }
+        pile.drawnFrame = chipFrame;
         visiblePiles[visiblePileCount++] = pile;
         standingChipBounds.ext(pile.min).ext(pile.max);
     }
@@ -954,6 +965,7 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private static final class StandingChipPile {
+        private long drawnFrame;
         private Mesh mesh;
         private final Vector3 min = new Vector3(), max = new Vector3();
         private int count, column, index, seed;
@@ -1021,16 +1033,9 @@ final class GdxPerspectiveTable implements Disposable {
         FloatArray vertices = chipVertices[color];
         int first = vertices.size;
         float half = thickness * .5f;
-        float centerY = pose.height + half + .04f;
-        if (pose.tumbling) {
-            chipAttitude.setFromAxisRad(pose.axisX, 0f, pose.axisZ, pose.tumbleAngle);
-        } else {
-            chipAttitude.setEulerAnglesRad(0f, pose.pitch, pose.roll);
-            chipAttitude.transform(rotatedChipVertex.set(0f, 1f, 0f));
-            float normalY = Math.abs(rotatedChipVertex.y);
-            float rim = diameter * .5f * (float) Math.sqrt(Math.max(0f, 1f - normalY * normalY));
-            centerY += rim + half * (normalY - 1f);
-        }
+        pose.attitude(chipAttitude);
+        chipAttitude.transform(rotatedChipVertex.set(Vector3.Y)).nor();
+        float centerY = pose.centerHeight(diameter * .5f, half, rotatedChipVertex.y) + .04f;
         addTableChip(color, pose.x, pose.y, diameter, centerY - half - .04f,
                 thickness, pose.rotation, false, true);
         float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
@@ -1090,10 +1095,25 @@ final class GdxPerspectiveTable implements Disposable {
         if (!Float.isFinite(cardBoundsMin.x)) return;
         begin(8, faces[0], faces[0], opacity);
         if (airborne) {
-            shell.renderSolids(shader, chipVertices, faces, width, height);
+            shell.renderLayer(() -> {
+                // The racks already own their colour below the HUD. Recover their
+                // depth in this overlay so a flight can pass behind a nearer rim.
+                shader.bind();
+                shader.setUniformi("u_material", 9);
+                renderRackDepth(potPiles);
+                renderRackDepth(localPiles);
+                shader.setUniformi("u_material", 8);
+                shell.drawSolids(shader, chipVertices, faces);
+            }, width, height);
             return;
         }
         renderChipGeometry(faces, view, width, height);
+    }
+
+    private void renderRackDepth(StandingChipPile[] piles) {
+        for (StandingChipPile pile : piles) {
+            if (pile != null && pile.drawnFrame == chipFrame) pile.mesh.render(shader, GL20.GL_TRIANGLES);
+        }
     }
 
     private final Matrix4 chipCatalogView = new Matrix4();

@@ -228,6 +228,7 @@ class GdxChipOcclusionGpuTest {
         long time = 1_200_000_000L;
         var top = renderer.chipPointToScreen(x, y, 3 * thickness).cpy();
         var rim = renderer.chipPointToScreen(x, y - diameter / 2f, 2.5f * thickness).cpy();
+        byte[] normalPeak = null;
         for (boolean danger : new boolean[]{false, true}) {
             float dimTime = danger ? 0f : (float) (1.5 * Math.PI / 5.2);
             float brightTime = (float) (.5 * Math.PI / (danger ? 6.4 : 5.2));
@@ -236,12 +237,20 @@ class GdxChipOcclusionGpuTest {
             assertEquals(0f, trough, .001f);
             assertEquals(1f, peak, .001f);
             byte[] dim = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, trough, time);
-            byte[] bright = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, peak, time);
+            Color tint = CoronaPokerGdxTable.turnHudColor(danger);
+            assertEquals(danger ? 0xd9343fff : 0xffad20ff, Color.rgba8888(tint));
+            byte[] bright = captureStackPreview(renderer, faces, x, y, diameter, thickness, 2, peak, time, tint);
             for (var point : List.of(top, rim)) {
                 int index = (Math.round(point.y) * W + Math.round(point.x)) * 4;
                 assertTrue(pixelLuma(bright, index) > pixelLuma(dim, index) + 5f,
                         "Yellow chips brighten on the HUD peak, including in the timer warning");
+                if (danger) {
+                    assertTrue((bright[index] & 255) - (bright[index + 1] & 255)
+                            > (normalPeak[index] & 255) - (normalPeak[index + 1] & 255),
+                            "The warning tint must be redder on the face and rim");
+                }
             }
+            if (!danger) normalPeak = bright;
         }
     }
 
@@ -252,12 +261,19 @@ class GdxChipOcclusionGpuTest {
 
     private static byte[] captureStackPreview(GdxPerspectiveTable renderer, Texture[] faces,
             float x, float y, float diameter, float thickness, int previewCount, float pulse, long frameNanos) {
+        return captureStackPreview(renderer, faces, x, y, diameter, thickness, previewCount, pulse,
+                frameNanos, PREVIEW_GOLD);
+    }
+
+    private static byte[] captureStackPreview(GdxPerspectiveTable renderer, Texture[] faces,
+            float x, float y, float diameter, float thickness, int previewCount, float pulse, long frameNanos,
+            Color tint) {
         ScreenUtils.clear(Color.BLACK);
         renderer.beginChipFrame();
         renderer.beginStandingChipRack(frameNanos);
         renderer.addStandingChipPile(false, 0, 0, 0, 176, x, y, 3, diameter, thickness, 1f,
                 null, previewCount);
-        renderer.drawStandingChipRack(faces, 1f, PREVIEW_GOLD, pulse);
+        renderer.drawStandingChipRack(faces, 1f, tint, pulse);
         return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
     }
 

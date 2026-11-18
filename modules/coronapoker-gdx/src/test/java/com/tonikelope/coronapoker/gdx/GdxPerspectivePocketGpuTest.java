@@ -8,6 +8,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Cursor;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
@@ -86,6 +87,24 @@ final class GdxPerspectivePocketGpuTest {
 
             var renderer = (GdxPerspectiveTable) field(table, "perspectiveTable");
             var viewport = (Viewport) field(table, "viewport");
+            var button = (Rectangle) field(table, "pocketPeekButton");
+            var hitsButton = CoronaPokerGdxTable.class.getDeclaredMethod(
+                    "pocketPeekSurfaceContains", float.class, float.class);
+            hitsButton.setAccessible(true);
+            assertTrue(button.width > 0f, "The button must be shown when the setting is absent");
+            float buttonX = button.x + button.width / 2f, buttonY = button.y + button.height / 2f;
+            assertTrue((boolean) hitsButton.invoke(table, buttonX, buttonY));
+            prefs.properties().setProperty(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, "false");
+            assertFalse((boolean) hitsButton.invoke(table, buttonX, buttonY));
+            table.render();
+            assertEquals(0f, button.width, "The disabled button must not be drawn");
+
+            mouse.peekKeyDown = true;
+            for (int frame = 0; frame < 20 && renderer.peekAmount() == 0f; frame++) table.render();
+            assertTrue(renderer.peekAmount() > 0f, "V still peeks with the button hidden");
+            mouse.peekKeyDown = false;
+            renderer.coverCards();
+            table.render();
             var grip = CoronaPokerGdxTable.class.getDeclaredMethod("pocketPeekDragContains", float.class, float.class);
             grip.setAccessible(true);
             var cardAt = CoronaPokerGdxTable.class.getDeclaredMethod("liveCardAt", float.class, float.class, boolean.class);
@@ -211,7 +230,7 @@ final class GdxPerspectivePocketGpuTest {
 
     private static final class Mouse {
         private int x, y;
-        boolean down, justPressed;
+        boolean down, justPressed, peekKeyDown;
 
         void move(Point point) {
             x = point.x;
@@ -223,6 +242,8 @@ final class GdxPerspectivePocketGpuTest {
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getX" -> x;
                         case "getY" -> y;
+                        case "isKeyPressed" -> (int) args[0] == Input.Keys.V
+                                ? peekKeyDown : fallback.isKeyPressed((int) args[0]);
                         case "isButtonPressed" -> (int) args[0] == Input.Buttons.LEFT && down;
                         case "isButtonJustPressed" -> (int) args[0] == Input.Buttons.LEFT && justPressed;
                         default -> method.invoke(fallback, args);

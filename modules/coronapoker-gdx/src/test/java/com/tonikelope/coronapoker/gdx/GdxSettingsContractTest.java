@@ -804,6 +804,25 @@ final class GdxSettingsContractTest {
     }
 
     @Test
+    void peekButtonDefaultsOnAndIsConfigurableIn3d() {
+        String key = GdxSettingsContract.TABLE_PEEK_BUTTON_KEY;
+        var option = GdxSettingsContract.appearanceTablePage().options().stream()
+                .filter(row -> key.equals(row.key())).findFirst().orElseThrow();
+        Properties values = new Properties();
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(key));
+        assertTrue(GdxSettingsContract.displayedValue(option, values, true));
+        values.setProperty("gdx_table_view", "2d");
+        assertFalse(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty("gdx_table_view", "3d");
+        values.setProperty("animaciones", "false");
+        assertTrue(GdxSettingsContract.enabled(option, values, true));
+        values.setProperty(key, "false");
+        assertFalse(GdxSettingsContract.displayedValue(option, values, true));
+        GdxSettingsContract.restoreAppearancePageDefaults(values, 0, true);
+        assertEquals("true", values.getProperty(key));
+    }
+
+    @Test
     void startupVideoDefaultsToClosedAndRespectsTheSavedPreference() {
         org.junit.jupiter.api.Assumptions.assumeTrue(PokerVideoPlatformSupport.isAvailable());
         String key = GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY;

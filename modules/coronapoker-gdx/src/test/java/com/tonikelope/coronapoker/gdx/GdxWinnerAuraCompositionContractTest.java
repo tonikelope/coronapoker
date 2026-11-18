@@ -127,7 +127,7 @@ final class GdxWinnerAuraCompositionContractTest {
 
         assertTrue(active.contains("drawSeatHalo("));
         assertTrue(active.contains("seatTurnDangerActive(seat)"));
-        assertTrue(active.contains("danger ? FOLD_RED : ACTIVE_TURN_GOLD"));
+        assertTrue(active.contains("turnHudColor(danger)"));
         assertFalse(active.contains("drawSoftCircleGlow("));
         assertFalse(active.contains("shapes.circle(avatarX"));
         assertTrue(sharedGlow.contains("drawSoftRoundedGlow("));
@@ -139,6 +139,8 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(localHud.contains("float dangerPulse = danger ? localHudTurnPulse : 0f"));
         assertTrue(active.contains("seat.index == 0 ? localHudTurnPulse"));
         assertTrue(table.contains("stackBetPreviewEnabled ? localHudTurnPulse : 0f"));
+        assertTrue(localHud.contains("turnHudColor(danger)"));
+        assertTrue(table.contains("drawStandingChipRack(tableChipFaces, alpha, turnHudColor(localHudTurnDanger), pulse)"));
         assertTrue(table.contains("localHudTurnPulse = localHudTurnFramePulse(totalTime, localHudTurnDanger)"));
         assertTrue(localHud.contains("0.58f + haloPulse * 0.06f"));
         assertFalse(seats.contains("shapes.circle(avatarX"),
@@ -195,7 +197,7 @@ final class GdxWinnerAuraCompositionContractTest {
         assertTrue(turnAccent.contains(
                 "return activeTurn ? ACTIVE_TURN_GOLD : semanticColor"));
         assertTrue(activeGlow.contains(
-                "danger ? FOLD_RED : ACTIVE_TURN_GOLD"));
+                "turnHudColor(danger)"));
     }
 
     private static String method(String source, String startText,

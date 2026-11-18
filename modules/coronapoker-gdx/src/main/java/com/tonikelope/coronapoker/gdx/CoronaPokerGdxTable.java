@@ -14132,7 +14132,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             boolean danger = seat.index == 0 ? localHudTurnDanger : seatTurnDangerActive(seat);
             float pulse = seat.index == 0 ? localHudTurnPulse
                     : seatHaloPulse(totalTime, liveAnimationsEnabled());
-            drawSeatHalo(seat, danger ? FOLD_RED : ACTIVE_TURN_GOLD,
+            drawSeatHalo(seat, turnHudColor(danger),
                     seatHaloStrength(pulse) * presence);
         }
         shapes.end();
@@ -15169,8 +15169,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !tableRulesVisible() && !tableGalleryInteractive();
     }
 
-    private boolean pocketPeekSurfaceContains(float x, float y) {
+    private boolean pocketPeekButtonVisible() {
         return perspectiveActive && pocketPeekEnabled
+                && tablePreference(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, true);
+    }
+
+    private boolean pocketPeekSurfaceContains(float x, float y) {
+        return pocketPeekButtonVisible()
                 && pocketPeekButton.width > 0f && pocketPeekButton.contains(x, y);
     }
 
@@ -15195,9 +15200,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawPocketPeekButton(float width, float height) {
-        if (!perspectiveActive || !pocketPeekEnabled) {
+        if (!perspectiveActive || !pocketPeekEnabled) stopPocketPeekInput();
+        if (!pocketPeekButtonVisible()) {
             pocketPeekButton.set(0f, 0f, 0f, 0f);
-            stopPocketPeekInput();
+            mousePeekHeld = false;
             return;
         }
         pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
@@ -17039,7 +17045,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         float pulse = !pot && stackBetPreviewEnabled ? localHudTurnPulse : 0f;
-        perspectiveTable.drawStandingChipRack(tableChipFaces, alpha, ACTIVE_TURN_GOLD, pulse);
+        perspectiveTable.drawStandingChipRack(tableChipFaces, alpha, turnHudColor(localHudTurnDanger), pulse);
     }
 
     private float tableChipPileX(boolean pot, int column, int pileIndex) {
@@ -20640,6 +20646,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return wave * wave;
     }
 
+    static Color turnHudColor(boolean danger) {
+        return danger ? FOLD_RED : ACTIVE_TURN_GOLD;
+    }
+
     static float localHudTurnFramePulse(float time, boolean danger) {
         return danger ? localHudDangerPulse(time) : localHudHaloPulse(time);
     }
@@ -22598,8 +22608,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : settledShowdown
                 ? settledShowdownColor(Boolean.TRUE.equals(settledLocalWinner))
                 : timeoutAwareRim(liveLocalPlayer,
-                        danger ? FOLD_RED : localTurn ? ACTIVE_TURN_GOLD
-                                : SEAT_RIM);
+                        danger || localTurn ? turnHudColor(danger) : SEAT_RIM);
         float idleFrameLighten = subduedLocalHud ? 0.24f : 0f;
         float hudFrameAlpha = subduedLocalHud ? 0.40f
                 : localShownHand || localMonteCarlo ? 0.90f

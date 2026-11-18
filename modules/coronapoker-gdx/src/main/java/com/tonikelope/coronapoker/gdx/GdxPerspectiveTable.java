@@ -878,7 +878,7 @@ final class GdxPerspectiveTable implements Disposable {
         }
         float pathProgress = community ? GdxCardDealMotion.communityProgress(progress, plan.flightSeconds, w, plan.route)
                 : progress;
-        GdxCardDealMotion.sample(dealPosition, plan.source, dealTarget, pathProgress, w, plan.route);
+        GdxCardDealMotion.sample(dealPosition, plan.source, dealTarget, pathProgress, w, plan.route, community);
         float angle = GdxCardDealMotion.angle(startAngle, fan, pathProgress, plan.route);
         float shadow = .35f;
         if (community) {

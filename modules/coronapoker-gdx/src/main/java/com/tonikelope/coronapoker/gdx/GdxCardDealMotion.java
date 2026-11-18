@@ -63,11 +63,22 @@ final class GdxCardDealMotion {
         return 1f - remaining * remaining / (2f * COMMUNITY_BRAKE * cruise);
     }
 
-    private static float clearanceLift(float progress, Route route) {
+    private static float routeTravel(float progress, Route route) {
+        return route.directCommunity ? communityTravel(progress) : travel(progress);
+    }
+
+    private static float clearanceLift(float progress, float travelled, Route route, boolean community) {
         if (route.lift == 0f || progress >= route.touchdown) return 0f;
         float rise = route.riseUntil == 0f ? 1f : smooth(progress / route.riseUntil);
-        float fall = smooth((route.touchdown - progress) / (route.touchdown - route.descendFrom));
-        return route.lift * rise * fall;
+        if (progress <= route.descendFrom) return route.lift * rise;
+        float remaining = (route.touchdown - progress) / (route.touchdown - route.descendFrom);
+        if (community) {
+            // Spend the clearance height as the card covers the remaining approach.
+            // In particular, the final braking frames should carry very little height.
+            float contact = routeTravel(route.touchdown, route);
+            remaining = (contact - travelled) / (contact - routeTravel(route.descendFrom, route));
+        }
+        return route.lift * rise * smooth(remaining);
     }
 
     static float travel(float progress) {
@@ -84,23 +95,27 @@ final class GdxCardDealMotion {
     }
 
     static void sample(Vector3 out, Vector3 from, Vector3 to, float progress, float width, Route route) {
+        sample(out, from, to, progress, width, route, route.directCommunity);
+    }
+
+    static void sample(Vector3 out, Vector3 from, Vector3 to, float progress, float width,
+            Route route, boolean community) {
         float p = MathUtils.clamp(progress, 0f, 1f);
         float q = route.airborne(p);
+        float t = routeTravel(p, route);
+        float y = to.y + launchHeight(from, to, q);
+        float lift = clearanceLift(p, t, route, community);
         if (route.directCommunity) {
-            float t = communityTravel(p);
-            out.set(MathUtils.lerp(from.x, to.x, t),
-                    to.y + launchHeight(from, to, q) + clearanceLift(p, route),
-                    MathUtils.lerp(from.z, to.z, t));
+            out.set(MathUtils.lerp(from.x, to.x, t), y + lift, MathUtils.lerp(from.z, to.z, t));
             return;
         }
-        float t = travel(p);
         float dx = to.x - from.x, dz = to.z - from.z;
         float distance = (float) Math.hypot(dx, dz);
         float arch = Math.min(width * 0.12f, distance * 0.018f);
         float pulse = q == 1f ? 0f : (float) Math.sin(Math.PI * q);
         float sideways = route.sideways * lateralShape(t) / Math.max(1f, distance);
         out.set(MathUtils.lerp(from.x, to.x, t) - dz * sideways,
-                to.y + launchHeight(from, to, q) + arch * pulse * pulse + clearanceLift(p, route),
+                y + arch * pulse * pulse + lift,
                 MathUtils.lerp(from.z, to.z, t) + dx * sideways);
     }
 
@@ -112,13 +127,13 @@ final class GdxCardDealMotion {
         return angle(from, to, route.directCommunity ? route.airborne(progress) : progress);
     }
 
-    /** Give a high descent time to settle without changing the checked path. */
+    /** Give even a shallow descent enough rendered frames to settle. */
     static float communityProgress(float progress, float seconds, float width, Route route) {
-        if (progress <= 0f || progress >= 1f || seconds <= 0f || route.lift < width * .06f) return progress;
+        if (progress <= 0f || progress >= 1f || seconds <= 0f || route.lift == 0f) return progress;
         float remaining = 1f - route.descendFrom;
         float falling = route.touchdown - route.descendFrom;
         if (falling <= 0f) return progress;
-        float landingSeconds = .065f + .075f * Math.min(1f, route.lift / width);
+        float landingSeconds = .09f + .06f * Math.min(1f, route.lift / width);
         float reserve = Math.min(.46f, landingSeconds / seconds * remaining / falling);
         if (reserve <= remaining) return progress;
         float start = 1f - reserve;

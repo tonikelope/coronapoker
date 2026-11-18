@@ -79,7 +79,7 @@ final class GdxCardDealClearanceTest {
         var route = GdxCardDealMotion.plan(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
                 -18f, 0f, REST, piles, bounds);
         assertNotEquals(0f, route.sideways(), "A tall column offers an open lane around it");
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, piles, "tall and late columns");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, false, piles, "tall and late columns");
         var aligning = new Vector3();
         GdxCardDealMotion.sample(aligning, from, to, GdxCardDealMotion.TOUCHDOWN - .001f, BOARD_CARD, route);
         assertEquals(0f, aligning.z, .01f, "The detour should merge with a straight tangent");
@@ -94,7 +94,7 @@ final class GdxCardDealClearanceTest {
                 -18f, 0f, REST, piles, narrow);
         assertEquals(0f, arc.sideways());
         assertTrue(arc.lift() > 0f);
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, arc, piles, "late landing over tall columns");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, arc, false, piles, "late landing over tall columns");
         var nearTouchdown = new Vector3();
         GdxCardDealMotion.sample(nearTouchdown, from, to, arc.touchdown() - .001f, BOARD_CARD, arc);
         assertEquals(to.y, nearTouchdown.y, .01f, "Touchdown eases down to the felt");
@@ -169,7 +169,7 @@ final class GdxCardDealClearanceTest {
         GdxCardDealMotion.sample(after, from, to, (route.descendFrom() + route.touchdown()) / 2f,
                 BOARD_CARD, route);
         assertTrue(after.y < before.y && after.x > before.x);
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, piles, "ordinary pile in the direct path");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "ordinary pile in the direct path");
     }
 
     @Test
@@ -192,6 +192,37 @@ final class GdxCardDealClearanceTest {
     }
 
     @Test
+    void lowCommunityDetourSettlesDuringTheApproachFromARemoteDealer() {
+        // A throw from the left side crosses the pot and the four cards already dealt.
+        float gap = BOARD_CARD + 18f;
+        var from = new Vector3(-907f, 7.7f, -233f);
+        var to = new Vector3(2f * gap, 0f, 0f);
+        var bounds = new GdxCardDealMotion.Bounds(from.x, 890f, -500f, 500f);
+        var cards = List.of(boardCard(-2f * gap), boardCard(-gap), boardCard(0f), boardCard(gap));
+        var piles = List.of(new GdxCardDealMotion.Pile(-45f, -163f, 29f, 67f),
+                new GdxCardDealMotion.Pile(25f, -167f, 29f, 47f));
+        var route = GdxCardDealMotion.planCommunity(from, to, BOARD_CARD, BOARD_CARD * ASPECT,
+                -18f, 0f, REST, piles, cards, bounds);
+        assertFalse(route.directCommunity());
+        assertTrue(route.lift() > 0f && route.lift() < BOARD_CARD * .06f);
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "low remote approach");
+
+        for (float seconds : new float[]{.26f, .52f}) {
+            var pose = new Vector3();
+            float nearEnd = GdxCardDealMotion.communityProgress(1f - .025f / seconds, seconds, BOARD_CARD, route);
+            GdxCardDealMotion.sample(pose, from, to, nearEnd, BOARD_CARD, route, true);
+            assertTrue(pose.y < route.lift() * .10f, "The last frames should already be near the felt");
+            assertTrue(pose.x < to.x, "The card should still be advancing as it flattens");
+            GdxCardDealMotion.sample(pose, from, to, 1f, BOARD_CARD, route, true);
+            assertTrue(pose.epsilonEquals(to, .001f));
+        }
+    }
+
+    private static GdxCardDealMotion.BoardCard boardCard(float x) {
+        return new GdxCardDealMotion.BoardCard(x, 0f, BOARD_CARD, BOARD_CARD * ASPECT);
+    }
+
+    @Test
     void communityUsesAerialClearanceWhenTheDirectDescentIsBlockedByTallPiles() {
         Vector3 from = new Vector3(-500f, 8f, 0f);
         Vector3 to = new Vector3(500f, 0f, 0f);
@@ -203,7 +234,7 @@ final class GdxCardDealClearanceTest {
                 -18f, 0f, REST, piles, List.of(), bounds);
         assertFalse(route.directCommunity());
         assertTrue(route.lift() > BOARD_CARD * .7f);
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, piles, "tall piles across the direct route");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, route, true, piles, "tall piles across the direct route");
 
         var tallColumns = List.of(new GdxCardDealMotion.Pile(0f, 0f, 45f, 275f),
                 new GdxCardDealMotion.Pile(378f, 75f, 44f, 32f));
@@ -211,7 +242,7 @@ final class GdxCardDealClearanceTest {
                 -18f, 0f, REST, tallColumns, List.of(), bounds);
         assertFalse(detour.directCommunity());
         assertNotEquals(0f, detour.sideways(), "A tall column with space beside it should permit an air detour");
-        checkSweep(from, to, BOARD_CARD, -18f, 0f, detour, tallColumns, "aerial detour around tall columns");
+        checkSweep(from, to, BOARD_CARD, -18f, 0f, detour, true, tallColumns, "aerial detour around tall columns");
     }
 
     private static void verify(GdxPerspectiveTable table, float x, float y, Vector3 target,
@@ -230,16 +261,16 @@ final class GdxCardDealClearanceTest {
                         startAngle, restAngle, REST, piles, List.of(), bounds)
                 : GdxCardDealMotion.plan(from, target, width, width * ASPECT,
                         startAngle, restAngle, REST, piles, bounds);
-        checkSweep(from, target, width, startAngle, restAngle, route, piles, caseName);
+        checkSweep(from, target, width, startAngle, restAngle, route, width == BOARD_CARD, piles, caseName);
     }
 
     private static void checkSweep(Vector3 from, Vector3 to, float width, float startAngle,
-            float endAngle, GdxCardDealMotion.Route route, List<GdxCardDealMotion.Pile> piles,
+            float endAngle, GdxCardDealMotion.Route route, boolean community, List<GdxCardDealMotion.Pile> piles,
             String caseName) {
         Vector3 position = new Vector3();
         for (int frame = 0; frame <= 1_000; frame++) {
             float progress = frame / 1000f;
-            GdxCardDealMotion.sample(position, from, to, progress, width, route);
+            GdxCardDealMotion.sample(position, from, to, progress, width, route, community);
             assertTrue(Float.isFinite(position.y), caseName);
             double radians = Math.toRadians(GdxCardDealMotion.angle(startAngle, endAngle, progress, route));
             double c = Math.cos(radians), s = Math.sin(radians);

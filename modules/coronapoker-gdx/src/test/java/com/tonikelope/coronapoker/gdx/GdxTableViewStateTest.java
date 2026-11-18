@@ -5823,7 +5823,7 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void rabbitHandReplacesAnAlreadyShownHandsCaptionAndHighlight() {
+    void rabbitHandChangesTheBadgeAndHoverWithoutReplacingTheShowdownSelection() {
         GdxTableViewState state = new GdxTableViewState(snapshotAt(
                 TableSnapshot.Street.SHOWDOWN));
         state.apply(new TableVisualEvent.RevealHoleCards(1, "ana",
@@ -5831,10 +5831,12 @@ final class GdxTableViewStateTest {
         state.apply(new TableVisualEvent.ShowdownHighlight(2, "ana", true,
                 List.of(0), List.of(0, 1, 2, 3)));
 
+        state.apply(new TableVisualEvent.HandResult(
+                3, "ana", "PAREJA", true, TableSnapshot.Street.SHOWDOWN));
         state.apply(new TableVisualEvent.RabbitResult(
-                3, "ana", 0.2d, 999.8d, 1));
+                4, "ana", 0.2d, 999.8d, 1));
         state.apply(new TableVisualEvent.RabbitHand(
-                4, "ana", "COLOR", List.of(0, 1), List.of(1, 2, 4)));
+                5, "ana", "COLOR", List.of(0, 1), List.of(1, 2, 4)));
 
         assertTrue(state.requestedRabbit("ana"));
         assertEquals("COLOR", state.rabbitHandName("ana"));
@@ -5842,6 +5844,10 @@ final class GdxTableViewStateTest {
                 state.showdownHighlight("ana").holeCardSlots());
         assertEquals(List.of(1, 2, 4),
                 state.showdownHighlight("ana").communityCardSlots());
+        assertEquals(Boolean.TRUE, state.showdownCardSelected("ana", 0, false));
+        assertEquals(Boolean.FALSE, state.showdownCardSelected("ana", 1, false));
+        assertEquals(Boolean.TRUE, state.showdownCardSelected("", 3, true));
+        assertEquals(Boolean.FALSE, state.showdownCardSelected("", 4, true));
     }
 
     @Test

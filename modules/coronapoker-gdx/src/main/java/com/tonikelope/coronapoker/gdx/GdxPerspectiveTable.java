@@ -208,7 +208,9 @@ final class GdxPerspectiveTable implements Disposable {
                     float light = min(1.015, 0.76 + 0.24 * diffuse / key.y);
                     float coat = 0.035 * pow(max(0.0, dot(normal, normalize(key + eye))), 72.0);
                     vec3 litInk = ink.rgb * light + vec3(coat);
-                    vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), u_showdownTint);
+                    // Positive tint selects the top, negative tint the reverse.
+                    float faceTint = max(0.0, u_cardSide == 0 ? u_showdownTint : -u_showdownTint);
+                    vec3 printed = mix(litInk, vec3(1.0, 0.925, 0.0), faceTint);
                     gl_FragColor = vec4(printed, ink.a * u_opacity);
                     return;
                 }
@@ -759,7 +761,9 @@ final class GdxPerspectiveTable implements Disposable {
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, true);
         renderPocket(3, back, back, 0.20f * opacity, cardHeight / cardWidth);
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, false);
-        renderPocket(2, publicFace ? face : back, face, opacity, cardHeight / cardWidth, showdownTintAmount(highlight));
+        float tint = showdownTintAmount(highlight);
+        renderPocket(2, publicFace ? face : back, face, opacity,
+                cardHeight / cardWidth, publicFace ? tint : -tint);
         packetBend = false;
     }
 

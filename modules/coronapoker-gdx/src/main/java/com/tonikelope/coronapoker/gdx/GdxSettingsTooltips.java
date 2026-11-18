@@ -127,7 +127,11 @@ final class GdxSettingsTooltips {
         String description;
         boolean jokeBankSetting = false;
         if (jokeResource == null) {
-            description = text.translate(descriptionKey(settingKey));
+            String key = descriptionKey(settingKey);
+            if (key == null) {
+                return new Content("", GdxSettingsContract.PerformanceImpact.NONE);
+            }
+            description = text.translate(key);
             String jokeBank = GdxGameAudioResources.jokeBankFolder(
                     settingKey, text.language());
             if (jokeBank != null) {
@@ -182,7 +186,7 @@ final class GdxSettingsTooltips {
 
     static String descriptionKey(String settingKey) {
         if (settingKey == null || settingKey.isBlank()) {
-            return "gdx.settings.tooltip.generic";
+            return null;
         }
         if (GamePresentationSettings.jokeSoundResource(settingKey) != null) {
             return "gdx.settings.tooltip.joke_sound_item_official";
@@ -222,9 +226,20 @@ final class GdxSettingsTooltips {
             case "sonido_inicio" -> "tooltip.cfg.game_start_sound";
             case "musica_recuperacion" ->
                 "tooltip.cfg.recovery_music";
-            case "sonido_ascensor", "musica_sala_espera", "musica_about",
+            case "sonido_apostar", "sonido_igualar", "sonido_pasar",
+                    "sonido_allin", "sonido_fold", "sonido_barajado",
+                    "sonido_reparto", "sonido_destape", "sonido_destape_mis_cartas",
+                    "sonido_ciegas", "sonido_conteo", "sonido_carga_stacks",
+                    "sonido_caja", "sonido_ultima_mano", "sonido_pausa",
+                    "sonido_tu_turno", "sonido_aviso_tiempo", "sonido_fin_partida",
+                    "sonido_iwtsth", "sonido_entra", "sonido_entrar_sala",
+                    "sonido_conexion", "sonido_sale", "sonido_interruptor",
+                    "sonido_screenshot", "sonido_tapete", "sonido_visor",
+                    "sonido_zoom", "sonido_volumen", "sonido_arranque",
+                    "sonido_aviso", "sonido_error", "sonido_error_red",
+                    "sonido_ascensor", "musica_sala_espera", "musica_about",
                     "musica_stats", "musica_gestor_bots" ->
-                "tooltip.cfg.music_surface";
+                "gdx.settings.tooltip.audio_event." + settingKey;
             case "voice_messages" -> "tooltip.cfg.voice_notes_rule";
             case "tts_server" -> "tooltip.cfg.tts";
             case "audio_block_voice_messages" -> "tooltip.cfg.notes_local";
@@ -233,6 +248,8 @@ final class GdxSettingsTooltips {
                 "tooltip.cfg.notes_retention";
             case "voice_notes_view" -> "tooltip.cfg.view_notes";
             case "voice_notes_purge" -> "tooltip.cfg.purge_notes";
+            case GdxSettingsContract.TABLE_VIEW_KEY ->
+                "gdx.settings.tooltip.gdx_table_view";
             case "baraja" -> "tooltip.cfg.deck";
             case "trasera" -> "tooltip.cfg.deck_back";
             case "color_tapete" -> "tooltip.cfg.table_felt";
@@ -399,32 +416,7 @@ final class GdxSettingsTooltips {
             case "iwtsth" -> "tooltip.cfg.iwtsth";
             case "run_it_twice" -> "tooltip.cfg.rit";
             case "rabbit_hunting" -> "tooltip.cfg.rabbit";
-            default -> categorizedDescriptionKey(settingKey);
+            default -> null;
         };
-    }
-
-    private static String categorizedDescriptionKey(String settingKey) {
-        if (settingKey.startsWith("sonido_")
-                || settingKey.startsWith("sonidos_")
-                || settingKey.startsWith("musica_")) {
-            return "gdx.settings.tooltip.audio_event";
-        }
-        if (settingKey.startsWith("animacion_")
-                || settingKey.startsWith("card_flip_")
-                || settingKey.startsWith("swap_")) {
-            return "gdx.settings.tooltip.animation";
-        }
-        if (settingKey.startsWith("cinematicas")) {
-            return "gdx.settings.tooltip.cinematic";
-        }
-        if (settingKey.startsWith("chat_")
-                || settingKey.equals("show_time")
-                || settingKey.startsWith("mostrar_")
-                || settingKey.startsWith("resaltar_")
-                || settingKey.startsWith("screenshot_")
-                || settingKey.equals(GdxSettingsContract.ANTI_DOS_WARNINGS_KEY)) {
-            return "gdx.settings.tooltip.information";
-        }
-        return "gdx.settings.tooltip.generic";
     }
 }

@@ -10,6 +10,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -31,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class GdxPerspectivePocketGpuTest {
     private static final int WIDTH = 960, HEIGHT = 540;
 
-    @Test void dragStartsAnywhereOnEitherCoveredPocketCard(@TempDir Path dir) {
+    @Test void coveredCardsSupportDraggingAndKeepTheirAppearanceDuringRabbitHunting(@TempDir Path dir) {
         var config = new Lwjgl3ApplicationConfiguration();
         config.setInitialVisible(false);
         config.disableAudio(true);
@@ -189,8 +190,15 @@ final class GdxPerspectivePocketGpuTest {
                     "Drag release must use the peek button's closing spring");
             assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));
 
+            mouse.move(new Point(WIDTH / 2, 0));
+            renderer.coverCards();
+            verifyRabbitPocket(table, visibleCards, mouse, renderer, viewport);
+            mouse.move(new Point(WIDTH / 2, 0));
+            renderer.coverCards();
+            table.render();
+
             var barrier = new CompletableFuture<Void>();
-            table.acceptEvent(new TableVisualEvent.RevealHoleCards(3L, "local", left, right, ""), barrier);
+            table.acceptEvent(new TableVisualEvent.RevealHoleCards(8L, "local", left, right, ""), barrier);
             assertFalse(barrier.isDone(), "The public uncover must animate");
             assertNull(cardAt.invoke(table, covered.x, covered.y, true),
                     "The viewer is disabled during the public uncover");
@@ -223,6 +231,74 @@ final class GdxPerspectivePocketGpuTest {
         } finally {
             Gdx.input = original;
             table.dispose();
+        }
+    }
+
+    private static void verifyRabbitPocket(CoronaPokerGdxTable table,
+            List<? extends List<Point>> visibleCards, Mouse mouse,
+            GdxPerspectiveTable renderer, Viewport viewport) throws Exception {
+        table.acceptEvent(new TableVisualEvent.HandResult(3L, "local", "PAREJA",
+                true, TableSnapshot.Street.SHOWDOWN, true), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.ShowdownHighlight(4L, "local",
+                true, List.of(0, 1), List.of(0, 1, 2)), new CompletableFuture<>());
+        table.render();
+        byte[] before = ScreenUtils.getFrameBufferPixels(true);
+
+        var rabbitCard = new TableVisualEvent.RabbitCard(4,
+                new TableSnapshot.CardSnapshot("Q_C", false, false));
+        table.acceptEvent(new TableVisualEvent.RabbitCards(5L,
+                List.of(rabbitCard), true), new CompletableFuture<>());
+        var reveal = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.RabbitCards(6L,
+                List.of(new TableVisualEvent.RabbitCard(4,
+                        new TableSnapshot.CardSnapshot("Q_C", true, false))),
+                false), reveal);
+        long deadline = System.nanoTime() + 8_000_000_000L;
+        while (!reveal.isDone() && System.nanoTime() < deadline) table.render();
+        assertTrue(reveal.isDone(), "The Rabbit peel must finish");
+        reveal.join();
+        table.acceptEvent(new TableVisualEvent.RabbitHand(7L, "local", "COLOR",
+                List.of(1), List.of(1, 2, 3, 4)), new CompletableFuture<>());
+        table.render();
+        assertCoveredCardsMatch(before, visibleCards);
+
+        Object local = ((Object[]) field(table, "seats"))[0];
+        var badgeBounds = CoronaPokerGdxTable.class.getDeclaredMethod(
+                "localActionBadgeBounds", local.getClass(), float.class);
+        badgeBounds.setAccessible(true);
+        var badge = (Rectangle) badgeBounds.invoke(null, local, viewport.getWorldWidth());
+        var center = viewport.project(badge.getCenter(new Vector2()));
+        mouse.move(new Point(Math.round(center.x), HEIGHT - 1 - Math.round(center.y)));
+        table.render();
+        assertEquals("local", field(table, "liveShowdownHoverNickname"));
+        assertCoveredCardsMatch(before, visibleCards);
+
+        mouse.peekKeyDown = true;
+        for (int frame = 0; frame < 20 && renderer.peekAmount() == 0f; frame++) table.render();
+        assertTrue(renderer.peekAmount() > 0f, "V must still peek during Rabbit Hunting");
+        assertFalse(((GdxTableViewState) field(table, "liveState")).hasPublicHoleCards("local"));
+        mouse.peekKeyDown = false;
+    }
+
+    private static void assertCoveredCardsMatch(byte[] before,
+            List<? extends List<Point>> visibleCards) {
+        byte[] after = ScreenUtils.getFrameBufferPixels(true);
+        int width = Gdx.graphics.getBackBufferWidth();
+        int height = Gdx.graphics.getBackBufferHeight();
+        for (int slot = 0; slot < visibleCards.size(); slot++) {
+            List<Point> points = visibleCards.get(slot);
+            int changed = 0;
+            for (Point point : points) {
+                int pixel = 4 * (point.y * height / HEIGHT * width + point.x * width / WIDTH);
+                if (Math.abs(Byte.toUnsignedInt(before[pixel]) - Byte.toUnsignedInt(after[pixel])) > 8
+                        || Math.abs(Byte.toUnsignedInt(before[pixel + 1]) - Byte.toUnsignedInt(after[pixel + 1])) > 8
+                        || Math.abs(Byte.toUnsignedInt(before[pixel + 2]) - Byte.toUnsignedInt(after[pixel + 2])) > 8) {
+                    changed++;
+                }
+            }
+            assertTrue(changed < points.size() / 10,
+                    "Rabbit Hunting changed the covered card in slot " + slot
+                    + " at " + changed + " of " + points.size() + " pixels");
         }
     }
 

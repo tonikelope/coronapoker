@@ -15282,9 +15282,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boolean showFace = exposed && publicHand && !pocketOrder.busy();
                 // Upload the authorized local artwork before the first peek.
                 Texture face = exposed ? liveCardFace(pocket.code()) : back;
+                // A private fan has one opacity. Applying hand selection to
+                // its covered cards would make one back translucent.
                 float opacity = fold != null ? foldCardAlpha(fold.progress, true)
-                        : folded && !showFace ? MathUtils.lerp(DISABLED_CARD_ALPHA, 1f, perspectiveTable.peekAmount())
-                        : liveRestingCardAlpha(pocket, nickname, slot, false, hoveredSlot == slot);
+                        : showFace ? liveRestingCardAlpha(pocket, nickname, slot, false, hoveredSlot == slot)
+                        : folded ? MathUtils.lerp(DISABLED_CARD_ALPHA, 1f, perspectiveTable.peekAmount())
+                        : 1f;
                 if (faceUpPair && previousOpacity >= 0f && previousOpacity != opacity) {
                     perspectiveTable.flushPocketPair();
                 }
@@ -15299,7 +15302,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 } else {
                     perspectiveTable.drawPocket(back, face, placement.x, y,
                             w, h, -placement.rotation, showFace,
-                            opacity, slot, pose, highlight != null && highlight.nickname().equals(nickname)
+                            opacity, slot, pose, exposed && highlight != null && highlight.nickname().equals(nickname)
                                     && highlight.holeCardSlots().contains(slot));
                 }
             }
@@ -23811,14 +23814,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             contentX, rowW, rows, row);
                     if (!rowViewport.contains(x, y)
                             || !bounds.contains(x, y)) continue;
-                    if (row == 0) {
+                    if (row == GdxSettingsContract.APPEARANCE_DECK_ROW) {
                         openSettingsSelectionList(SettingsSelectionList.DECK);
-                    } else if (row == 1 && presentationSettings != null) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_CARD_BACK_ROW && presentationSettings != null) {
                         openSettingsSelectionList(
                                 SettingsSelectionList.CARD_BACK);
-                    } else if (row == 2 && presentationSettings != null) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_FELT_ROW && presentationSettings != null) {
                         openSettingsSelectionList(SettingsSelectionList.FELT);
-                    } else if (row == 3) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
                         int direction = settingsStepperDirection(x, contentX,
                                 rowW);
                         if (direction != 0) {
@@ -27327,17 +27330,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsLayout.PixelRows rows = settingsAppearanceTableRows(
                     content, firstY,
                     settingsAppearanceScroll);
-            String[] keys = {"baraja", "trasera", "color_tapete",
-                "nivel_luz", GdxChipAmountText.ZEROS_KEY,
-                GdxAppearanceOptions.TABLE_VIEW.key()};
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
-                String key = row < keys.length ? keys[row]
-                        : GdxSettingsContract.appearanceTablePage().options()
-                                .get(row - GdxSettingsContract
-                                        .APPEARANCE_PRIMARY_ROW_COUNT).key();
                 SettingsTooltipHover hovered = settingsTooltipHover(
-                        settingsAppearanceTableRowBounds(x, width, rows, row), key,
+                        settingsAppearanceTableRowBounds(x, width, rows, row),
+                        GdxSettingsContract.appearanceTableSettingKey(row),
                         viewportBounds, properties);
                 if (hovered != null) return hovered;
             }
@@ -27458,8 +27455,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
-        return new SettingsTooltipHover(key, GdxSettingsTooltips.content(key,
-                properties, gameText, modOverride, jokeBankMode));
+        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key,
+                properties, gameText, modOverride, jokeBankMode);
+        return content.text().isBlank() ? null : new SettingsTooltipHover(key, content);
     }
 
     private record SettingsTooltipHover(String settingKey,
@@ -27956,16 +27954,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     float rowY = rows.rowY(row);
                     if (row < GdxSettingsContract
                             .APPEARANCE_PRIMARY_ROW_COUNT) {
-                        boolean enabled = row == 3
-                                || presentationSettings != null;
-                        if (GdxSettingsContract.appearanceTableChoice(row) != null) {
-                            drawSettingsDropdownShape(x, rowY, width, true, alpha);
-                        } else if (row == 0 || row == 1 || row == 2) {
-                            drawSettingsDropdownShape(x, rowY, width,
-                                    enabled, alpha);
+                        if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
+                            drawSettingsStepperShape(x, rowY, width, true, alpha);
                         } else {
-                            drawSettingsStepperShape(x, rowY, width, enabled,
-                                    alpha);
+                            boolean enabled = GdxSettingsContract.appearanceTableChoice(row) != null
+                                    || presentationSettings != null;
+                            drawSettingsDropdownShape(x, rowY, width, enabled, alpha);
                         }
                     } else {
                         GdxSettingsContract.ToggleOption option =
@@ -28809,7 +28803,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 for (int row = rows.firstIndex();
                         row < rows.lastExclusive(); row++) {
                     float rowY = rows.rowY(row);
-                    if (row == 0) {
+                    if (row == GdxSettingsContract.APPEARANCE_DECK_ROW) {
                         drawSettingsChoiceText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.deck")),
@@ -28822,7 +28816,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         liveDeck)),
                                         "goliat".equalsIgnoreCase(liveDeck)),
                                 presentationSettings != null, alpha);
-                    } else if (row == 1) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_CARD_BACK_ROW) {
                         drawSettingsChoiceText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.card_back")),
@@ -28845,7 +28839,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         presentationSettings
                                                                 .cardBack())),
                                 presentationSettings != null, alpha);
-                    } else if (row == 2) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_FELT_ROW) {
                         drawSettingsChoiceText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.felt")),
@@ -28861,7 +28855,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                         presentationSettings
                                                                 .felt())),
                                 presentationSettings != null, alpha);
-                    } else if (row == 3) {
+                    } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
                         drawSettingsStepperText(x, rowY, width,
                                 uppercase(gameText.translate(
                                         "gdx.settings.row.light_off")),
@@ -30136,9 +30130,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         content, frame.firstRowY(),
                         settingsAppearanceScroll);
                 int row = switch (settingsSelectionList) {
-                    case DECK -> 0;
-                    case CARD_BACK -> 1;
-                    default -> 2;
+                    case DECK -> GdxSettingsContract.APPEARANCE_DECK_ROW;
+                    case CARD_BACK -> GdxSettingsContract.APPEARANCE_CARD_BACK_ROW;
+                    default -> GdxSettingsContract.APPEARANCE_FELT_ROW;
                 };
                 yield settingsAppearanceTableRowBounds(x, width, rows, row);
             }

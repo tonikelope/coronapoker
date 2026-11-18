@@ -578,7 +578,7 @@ off.
 | `GdxCardSmaaGpuCertificationTest` | Card shader and antialiasing output |
 | `GdxCommunityTurn2DGpuTest` | Both directions of the 2D flip and the resting artwork and footprint |
 | `GdxChipOcclusionGpuTest` | Chip occlusion and depth ordering in the 3D renderer |
-| `GdxPerspectivePocketGpuTest` | Starting a peek drag anywhere on either covered 3D pocket card |
+| `GdxPerspectivePocketGpuTest` | Peek drag across both covered 3D cards, stable card backs during Rabbit Hunting and while hovering its hand label, and private peek before public reveal |
 
 `GdxCommunityStreetDealTest` checks the flop stack, the flight and flip
 timing, and the animation durations against the dealer barrier.

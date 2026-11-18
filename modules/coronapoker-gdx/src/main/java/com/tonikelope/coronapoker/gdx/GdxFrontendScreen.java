@@ -9854,14 +9854,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     * GdxSettingsLayout.CONTENT_HORIZONTAL_INSET;
             GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
                     groups, 1f);
-            String[] keys = {"baraja", "trasera", "color_tapete",
-                "nivel_luz", GdxChipAmountText.ZEROS_KEY,
-                    GdxAppearanceOptions.TABLE_VIEW.key()};
             for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
                 float currentY = rows.rowY(row);
                 Rectangle bounds = GdxSettingsLayout.groupedRow(baseX,
                         currentY, baseWidth, row, groups, rowCount);
-                if (row == 0) {
+                if (row == GdxSettingsContract.APPEARANCE_DECK_ROW) {
                     settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
                             uppercase(gameText.translate(
@@ -9876,7 +9873,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "goliat".equalsIgnoreCase(
                                             configuredDeck())),
                             Dropdown.DECK, true);
-                } else if (row == 1) {
+                } else if (row == GdxSettingsContract.APPEARANCE_CARD_BACK_ROW) {
                     settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
                             uppercase(gameText.translate(
@@ -9891,7 +9888,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "default".equalsIgnoreCase(
                                             configuredBack())),
                             Dropdown.CARD_BACK, true);
-                } else if (row == 2) {
+                } else if (row == GdxSettingsContract.APPEARANCE_FELT_ROW) {
                     settingsDropdownChoice(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
                             uppercase(gameText.translate(
@@ -9902,7 +9899,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "verde".equalsIgnoreCase(
                                             configuredFelt())),
                             Dropdown.FELT, true);
-                } else if (row == 3) {
+                } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
                     settingsStepper(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
                             uppercase(gameText.translate(
@@ -9945,11 +9942,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             enabled, false,
                             settingsOptionAnimationKey(option.key()));
                 }
-                String key = row < keys.length ? keys[row]
-                        : page.options()
-                                .get(row - GdxSettingsContract
-                                        .APPEARANCE_PRIMARY_ROW_COUNT).key();
-                settingsTooltip(bounds, key);
+                settingsTooltip(bounds,
+                        GdxSettingsContract.appearanceTableSettingKey(row));
             }
             drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w),
                     rows);
@@ -14301,7 +14295,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void gameSettingTooltip(float x, float y, float w, float h,
             String settingKey) {
-        tooltip(x, y, w, h, GdxSettingsTooltips.descriptionKey(settingKey));
+        String descriptionKey = GdxSettingsTooltips.descriptionKey(settingKey);
+        if (descriptionKey != null) tooltip(x, y, w, h, descriptionKey);
     }
 
     private void settingsTooltip(Rectangle bounds, String settingKey) {
@@ -14323,6 +14318,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
                 settingKey, initialProperties, gameText, modOverride,
                 jokeBankMode);
+        if (content.text().isBlank()) return;
         tooltipHits.add(new TooltipHit(visible,
                 "gdx.settings.tooltip.text",
                 new Object[]{content.text()}, content.performanceImpact()));

@@ -75,7 +75,7 @@ final class GdxTableViewState {
     private final java.util.Set<String> iwtsthCandidates = new HashSet<>();
     private final java.util.Set<Integer> rabbitCardSlots = new HashSet<>();
     private final java.util.Set<String> rabbitRequesters = new HashSet<>();
-    private final Map<String, String> rabbitHandNames = new HashMap<>();
+    private final Map<String, RabbitHandPresentation> rabbitHands = new HashMap<>();
     private boolean rabbitRequestable;
     private String rabbitNoticeNickname = "";
     private long rabbitNoticeUntilNanos;
@@ -268,11 +268,12 @@ final class GdxTableViewState {
     }
 
     ShowdownHighlightState showdownHighlight(String nickname) {
-        return showdownHighlights.get(nickname);
+        RabbitHandPresentation rabbit = rabbitHands.get(nickname);
+        return rabbit == null ? showdownHighlights.get(nickname) : rabbit.highlight();
     }
 
     boolean hasShowdownHighlights() {
-        return !showdownHighlights.isEmpty();
+        return !showdownHighlights.isEmpty() || !rabbitHands.isEmpty();
     }
 
     boolean hasHandResult(String nickname) {
@@ -467,7 +468,8 @@ final class GdxTableViewState {
     }
 
     String rabbitHandName(String nickname) {
-        return rabbitHandNames.getOrDefault(nickname, "");
+        RabbitHandPresentation rabbit = rabbitHands.get(nickname);
+        return rabbit == null ? "" : rabbit.name();
     }
 
     void dismissRabbitRequest() {
@@ -807,11 +809,11 @@ final class GdxTableViewState {
                     player.winner(), player.position(), player.lastAction(),
                     player.handName(), player.holeCards()));
         } else if (event instanceof TableVisualEvent.RabbitHand hand) {
-            rabbitHandNames.put(hand.nickname(), hand.handName());
-            showdownHighlights.put(hand.nickname(),
-                    new ShowdownHighlightState(hand.nickname(), true,
-                            hand.holeCardSlots(),
-                            hand.communityCardSlots()));
+            // Hovering the Rabbit badge inspects a hypothetical hand. Keep
+            // the actual showdown selection for the resting cards.
+            rabbitHands.put(hand.nickname(), new RabbitHandPresentation(
+                    hand.handName(), new ShowdownHighlightState(hand.nickname(),
+                            true, hand.holeCardSlots(), hand.communityCardSlots())));
         } else if (event instanceof TableVisualEvent.RabbitNotice notice) {
             rabbitNoticeNickname = notice.nickname();
             rabbitNoticeUntilNanos = nanoTime.getAsLong()
@@ -1063,7 +1065,7 @@ final class GdxTableViewState {
         rabbitCardSlots.clear();
         rabbitCardSlots.addAll(snapshot.presentation().rabbitCardSlots());
         rabbitRequesters.clear();
-        rabbitHandNames.clear();
+        rabbitHands.clear();
         rabbitRequestable = false;
         rabbitNoticeNickname = "";
         rabbitNoticeUntilNanos = 0L;
@@ -1110,6 +1112,7 @@ final class GdxTableViewState {
         resolvedWonPotIndexes.keySet().retainAll(currentNicknames);
         returnedSidePotPlayers.retainAll(currentNicknames);
         showdownHighlights.keySet().retainAll(currentNicknames);
+        rabbitHands.keySet().retainAll(currentNicknames);
         revealedHoleCards.keySet().retainAll(currentNicknames);
         publicHoleCards.retainAll(currentNicknames);
         lateShownHands.retainAll(currentNicknames);
@@ -1238,6 +1241,10 @@ final class GdxTableViewState {
                     ? legacy : TableVisualEvent.PlayerAction.ActionKind.BET;
             case NONE -> legacy;
         };
+    }
+
+    private record RabbitHandPresentation(String name,
+            ShowdownHighlightState highlight) {
     }
 
     /** Renderer-owned copy; view state must never manufacture core events. */
@@ -1433,7 +1440,7 @@ final class GdxTableViewState {
             iwtsthCandidates.clear();
             rabbitCardSlots.clear();
             rabbitRequesters.clear();
-            rabbitHandNames.clear();
+            rabbitHands.clear();
             rabbitRequestable = false;
             rabbitNoticeNickname = "";
             rabbitNoticeUntilNanos = 0L;

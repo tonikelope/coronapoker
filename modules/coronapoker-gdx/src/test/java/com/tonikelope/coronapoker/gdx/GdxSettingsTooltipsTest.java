@@ -56,7 +56,7 @@ final class GdxSettingsTooltipsTest {
             assertEquals(rowCounts.get(page).intValue(), rows.size());
             for (String row : rows) {
                 String key = GdxSettingsTooltips.descriptionKey(row);
-                assertNotEquals("gdx.settings.tooltip.generic", key, row);
+                assertNotNull(key, row);
                 for (String language : List.of("en", "es")) {
                     assertNotEquals(key, new GdxGameText(language).translate(key),
                             row + " " + language);
@@ -122,10 +122,7 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
-    void everyVisibleAudioAndAppearanceOptionHasARealDescription() {
-        Stream<String> audio = GdxSettingsContract.AUDIO_PAGES.stream()
-                .flatMap(page -> page.options().stream())
-                .map(GdxSettingsContract.ToggleOption::key);
+    void everyVisibleAppearanceOptionHasARealDescription() {
         Stream<String> appearance = GdxSettingsContract.APPEARANCE_PAGES
                 .stream().flatMap(page -> page.options().stream())
                 .map(GdxSettingsContract.ToggleOption::key);
@@ -133,11 +130,49 @@ final class GdxSettingsTooltipsTest {
                 .options().stream().map(GdxSettingsContract.ToggleOption::key);
         Stream<String> choices = GdxAppearanceOptions.ANIMATION_CHOICES
                 .stream().map(GdxAppearanceOptions.Choice::key);
-        Stream.concat(Stream.concat(Stream.concat(audio, appearance), table),
-                choices)
-                .forEach(key -> assertFalse(
-                        "gdx.settings.tooltip.generic".equals(
-                                GdxSettingsTooltips.descriptionKey(key)), key));
+        Stream.concat(Stream.concat(appearance, table), choices)
+                .forEach(key -> assertNotNull(GdxSettingsTooltips.descriptionKey(key), key));
+    }
+
+    @Test
+    void everyAudioSettingHasSpecificHelpInSpanishAndEnglish() {
+        var spanish = new GdxGameText("es");
+        var english = new GdxGameText("en");
+        GdxSettingsContract.AUDIO_PAGES.stream()
+                .flatMap(page -> page.options().stream())
+                .map(GdxSettingsContract.ToggleOption::key)
+                .forEach(setting -> {
+                    String key = GdxSettingsTooltips.descriptionKey(setting);
+                    assertNotNull(key, setting);
+                    assertNotEquals("gdx.settings.tooltip.audio_event", key, setting);
+                    assertNotEquals("tooltip.cfg.music_surface", key, setting);
+                    assertNotEquals(key, spanish.translate(key), setting);
+                    assertNotEquals(key, english.translate(key), setting);
+                });
+    }
+
+    @Test
+    void tableViewIsTheFirstSettingAndEveryTableRowHasLocalizedHelp() {
+        assertEquals(GdxAppearanceOptions.TABLE_VIEW,
+                GdxSettingsContract.appearanceTableChoice(0));
+        var spanish = new GdxGameText("es");
+        var english = new GdxGameText("en");
+        for (int row = 0; row < GdxSettingsContract.appearanceTableRowCount(); row++) {
+            String setting = GdxSettingsContract.appearanceTableSettingKey(row);
+            String key = GdxSettingsTooltips.descriptionKey(setting);
+            assertNotNull(key, setting);
+            assertFalse(Set.of("generic", "animation", "cinematic", "information", "audio_event")
+                    .contains(key.substring(key.lastIndexOf('.') + 1)), setting);
+            assertNotEquals(key, spanish.translate(key), setting);
+            assertNotEquals(key, english.translate(key), setting);
+        }
+        String viewHelp = GdxSettingsTooltips.content(
+                GdxSettingsContract.appearanceTableSettingKey(0),
+                new Properties(), spanish).text();
+        assertTrue(viewHelp.contains("2D") && viewHelp.contains("3D")
+                && viewHelp.contains("pulsada V") && viewHelp.contains("arrastra"));
+        assertTrue(GdxSettingsTooltips.content("unmapped_setting",
+                new Properties(), spanish).text().isEmpty());
     }
 
     @Test
@@ -150,9 +185,7 @@ final class GdxSettingsTooltipsTest {
                 "auto_call_enabled", "auto_action_persist",
                 "modo_auto_confirm", "confirmar_todo", "auto_rebuy",
                 "shortcut");
-        keys.forEach(key -> assertFalse(
-                "gdx.settings.tooltip.generic".equals(
-                        GdxSettingsTooltips.descriptionKey(key)), key));
+        keys.forEach(key -> assertNotNull(GdxSettingsTooltips.descriptionKey(key), key));
     }
 
     @Test
@@ -192,6 +225,7 @@ final class GdxSettingsTooltipsTest {
                 .stream().map(GdxAppearanceOptions.Choice::key);
         Stream.concat(toggles, choices).forEach(key -> {
             String descriptionKey = GdxSettingsTooltips.descriptionKey(key);
+            assertNotNull(descriptionKey, key);
             assertFalse(genericKeys.contains(descriptionKey), key);
             String spanish = new GdxGameText("es").translate(descriptionKey);
             String english = new GdxGameText("en").translate(descriptionKey);
@@ -261,7 +295,7 @@ final class GdxSettingsTooltipsTest {
                 new GdxGameText("es"), true,
                 GdxGameAudioResources.JokeBankMode.FUSED).text();
 
-        assertTrue(officialSpanish.contains("sounds/joke/es/allin/"));
+        assertTrue(officialSpanish.contains("sounds/" + resource));
         assertTrue(officialSpanish.contains("cualquier nombre"));
         assertFalse(officialSpanish.contains("sustituirlo"));
         assertTrue(modSpanish.contains("sounds/" + resource));
@@ -304,8 +338,6 @@ final class GdxSettingsTooltipsTest {
                 "think_time", "think_seconds", "showdown_time",
                 "allow_hot_join", "iwtsth", "run_it_twice",
                 "rabbit_hunting");
-        keys.forEach(key -> assertFalse(
-                "gdx.settings.tooltip.generic".equals(
-                        GdxSettingsTooltips.descriptionKey(key)), key));
+        keys.forEach(key -> assertNotNull(GdxSettingsTooltips.descriptionKey(key), key));
     }
 }

@@ -48,8 +48,12 @@ final class GdxSettingsContract {
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
             GdxCardSmaaRenderer.RENDERING_SMOOTH;
-    static final int APPEARANCE_AMOUNT_ZEROS_ROW = 4;
-    static final int APPEARANCE_TABLE_VIEW_ROW = 5;
+    static final int APPEARANCE_TABLE_VIEW_ROW = 0;
+    static final int APPEARANCE_DECK_ROW = 1;
+    static final int APPEARANCE_CARD_BACK_ROW = 2;
+    static final int APPEARANCE_FELT_ROW = 3;
+    static final int APPEARANCE_LIGHT_ROW = 4;
+    static final int APPEARANCE_AMOUNT_ZEROS_ROW = 5;
     static final int APPEARANCE_PRIMARY_ROW_COUNT = 6;
 
     static GdxAppearanceOptions.Choice appearanceTableChoice(int row) {
@@ -1227,6 +1231,19 @@ final class GdxSettingsContract {
 
     static TogglePage appearanceTablePage() {
         return APPEARANCE_TABLE_PAGE;
+    }
+
+    static String appearanceTableSettingKey(int row) {
+        return switch (row) {
+            case APPEARANCE_TABLE_VIEW_ROW -> TABLE_VIEW_KEY;
+            case APPEARANCE_DECK_ROW -> "baraja";
+            case APPEARANCE_CARD_BACK_ROW -> "trasera";
+            case APPEARANCE_FELT_ROW -> "color_tapete";
+            case APPEARANCE_LIGHT_ROW -> "nivel_luz";
+            case APPEARANCE_AMOUNT_ZEROS_ROW -> GdxChipAmountText.ZEROS_KEY;
+            default -> APPEARANCE_TABLE_PAGE.options()
+                    .get(row - APPEARANCE_PRIMARY_ROW_COUNT).key();
+        };
     }
 
     static int appearanceTableRowCount() {

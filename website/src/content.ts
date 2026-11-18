@@ -73,7 +73,8 @@ export const copy = {
     mental: {
       title: 'Encrypt, shuffle and verify the hand.',
       intro: {
-        beforeProof: 'When the host prepares the deck alone, they can know every card in advance. CoronaPoker prevents this with a protocol based on the original idea of Mental Poker. On their turn, each human player, including the host, encrypts the deck with their own key, then shuffles it and sends it on to the next player. When the shuffled, encrypted deck comes back to the host, the host cannot see anyone else’s private cards or learn the community cards ahead of time. With modern cryptographic techniques such as ',
+        beforeMentalPoker: 'When the host prepares the deck alone, they can know every card in advance. CoronaPoker prevents this with a protocol based on the original idea of ',
+        beforeProof: '. On their turn, each human player, including the host, encrypts the deck with their own key, then shuffles it and sends it on to the next player. When the shuffled, encrypted deck comes back to the host, the host cannot see anyone else’s private cards or learn the community cards ahead of time. With modern cryptographic techniques such as ',
         proof: 'zero-knowledge proofs',
         afterProof: ', everyone can verify that the deck still contains the original 52 cards without revealing them. At the end, players compare signed receipts to check that they played the same hand.',
       },
@@ -223,7 +224,6 @@ export const copy = {
       detailsTitle: 'Under the hood',
       credits: 'The original paper',
       paperAuthors: 'Adi Shamir, Ronald L. Rivest and Leonard M. Adleman',
-      paperLink: 'Read Mental Poker (PDF)',
       paperSource: 'MIT technical report, 1979. Published in The Mathematical Gardner, 1981, pp. 37–43.',
       details: 'CoronaPoker implements its Mental Poker protocol from scratch using published techniques. SRA encryption over Ristretto255 lets each player add and remove their own lock. An adaptation of Bayer–Groth verifies the shuffle. DLEQ proofs check changes to the community-card locks and each lock removal during the deal. A SHA-256 hash chain links the hand history and pot settlement to the fingerprint in each receipt. Receipts are signed with Ed25519.',
       signers: 'At hand close, the game signs a receipt on each human participant’s own computer, including the host’s, as long as they are still in the game. If you folded and stayed at the table, your game still signs your receipt. Bots and spectators sit out the receipt exchange.',
@@ -357,7 +357,8 @@ export const copy = {
     mental: {
       title: 'Cifrar, barajar y verificar la mano.',
       intro: {
-        beforeProof: 'Cuando el anfitrión prepara el mazo por su cuenta, puede conocer todas las cartas de antemano. CoronaPoker bloquea esto mediante un protocolo basado en la idea original de Mental Poker. En su turno, cada jugador humano, incluido el anfitrión, cifra el mazo con su propia clave, después lo baraja y lo envía al siguiente jugador. Así, cuando el anfitrión recibe el mazo barajado y cifrado de vuelta, no puede ver las cartas privadas ajenas ni anticipar las comunitarias. Gracias a técnicas criptográficas más modernas, como las ',
+        beforeMentalPoker: 'Cuando el anfitrión prepara el mazo por su cuenta, puede conocer todas las cartas de antemano. CoronaPoker bloquea esto mediante un protocolo basado en la idea original de ',
+        beforeProof: '. En su turno, cada jugador humano, incluido el anfitrión, cifra el mazo con su propia clave, después lo baraja y lo envía al siguiente jugador. Así, cuando el anfitrión recibe el mazo barajado y cifrado de vuelta, no puede ver las cartas privadas ajenas ni anticipar las comunitarias. Gracias a técnicas criptográficas más modernas, como las ',
         proof: 'pruebas de conocimiento cero',
         afterProof: ', todos pueden verificar que el mazo conserva las 52 cartas originales sin destaparlas. Al final, comparan recibos firmados para comprobar que jugaron la misma mano.',
       },
@@ -507,7 +508,6 @@ export const copy = {
       detailsTitle: 'Cómo está implementado',
       credits: 'El artículo original',
       paperAuthors: 'Adi Shamir, Ronald L. Rivest y Leonard M. Adleman',
-      paperLink: 'Leer Mental Poker (PDF)',
       paperSource: 'Informe técnico del MIT de 1979. Publicado en The Mathematical Gardner en 1981, pp. 37–43.',
       details: 'CoronaPoker implementa desde cero su protocolo de Mental Poker con técnicas publicadas. El cifrado SRA sobre Ristretto255 permite a cada jugador poner y quitar su propio candado. Una adaptación de Bayer–Groth verifica el barajado. Las pruebas DLEQ comprueban los cambios de candado de las comunes y cada retirada al repartir. Una cadena de hashes SHA-256 vincula el historial de la mano y el reparto del bote a la huella de cada recibo. Los recibos se firman con Ed25519.',
       signers: 'Al cerrar la mano, cada participante humano que sigue en la partida firma su recibo desde su propio juego. El anfitrión también firma. Si tiraste tus cartas y seguiste en la mesa, tu juego firma igualmente. Los bots y los espectadores quedan fuera del intercambio de recibos.',

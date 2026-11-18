@@ -30,7 +30,7 @@ const boardRoute = [
       <h2 id="mental-title">{text.title}</h2>
     </div>
     <div class="body-copy">
-      <p>{intro.beforeProof}<a class="proof-reference" href={zeroKnowledgePaper.url} title={zeroKnowledgePaper.title} target="_blank" rel="noopener">{intro.proof}</a>{intro.afterProof}</p>
+      <p>{intro.beforeMentalPoker}<a class="proof-reference" href={mentalPokerPaper} target="_blank" rel="noopener">Mental Poker</a>{intro.beforeProof}<a class="proof-reference" href={zeroKnowledgePaper.url} title={zeroKnowledgePaper.title} target="_blank" rel="noopener">{intro.proof}</a>{intro.afterProof}</p>
     </div>
   </div>
 
@@ -300,7 +300,6 @@ const boardRoute = [
         <p><cite>Mental Poker</cite><br />{text.paperAuthors}</p>
         <p class="mental-citation">{text.paperSource}</p>
       </div>
-      <a class="text-link" href={mentalPokerPaper} target="_blank" rel="noopener">{text.paperLink} <span aria-hidden="true">↗</span></a>
     </aside>
   </div>
 </section>

@@ -430,6 +430,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float POT_AMOUNT_TOP_OFFSET = 54f;
     private static final float POT_PLAYER_COUNT_INSET = 8f;
     private static final float VISUAL_CHIPS_PER_LANDING_SOUND = 3f;
+    private static final String INITIAL_CHIP_DROP_SOUND = "misc/chip_drop.wav";
+    private static final long INITIAL_CHIP_DROP_SOUND_INTERVAL_NANOS = 55_000_000L;
     private static final float PRIMARY_CHIP_IMPACT_VOLUME = 0.46f;
     private static final float CHIP_IMPACT_VOLUME_VARIATION = 0.07f;
     private static final float CHIP_IMPACT_PITCH_VARIATION = 0.015f;
@@ -1463,7 +1465,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final Rectangle perspectivePotRightChipBounds = new Rectangle();
     private final Rectangle perspectivePotUpperChipBounds = new Rectangle();
     private final GdxTableChipSlots perspectivePotRack = new GdxTableChipSlots(GdxTableChipSlots.POT_SLOT_COUNT);
-    private final GdxTableChipSlots perspectiveLocalRack = new GdxTableChipSlots(GdxTableChipSlots.LOCAL_SLOT_COUNT);
+    private final GdxTableChipSlots perspectiveLocalRack = GdxTableChipSlots.local();
     private final Rectangle perspectiveLocalRightChipBounds = new Rectangle();
     private GdxStackChipLayout.Layout localTableCapacityChecked;
     private GdxStackChipLayout.Layout lastCatalogPlacementStack;
@@ -7015,7 +7017,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLivePayout();
         updateLiveRebuy();
         updatePendingStackRackRebalances();
-        updateLiveInitialStackFill();
         updateLiveCinematic();
         updateLiveShuffle();
         updateLiveCardFlight();
@@ -7122,6 +7123,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawBackground();
         signalReady();
         drawTableScene();
+        updateLiveInitialStackFill();
         if (finalSummary == null) {
             if (!pauseForeground) drawPauseOverlay();
         } else {
@@ -16762,7 +16764,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float localBottom = localRackCenterY + GdxTableChipRack.localOffsetY(0, tableChipDiameter, viewportHeight)
                 - tableChipDiameter * .50f - 4f;
         float cardCenter = localRackCenterY + cardWidth * .46f;
-        float localRear = GdxTableChipRack.localOffsetY(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT - 1,
+        float localRear = GdxTableChipRack.localOffsetY(GdxTableChipSlots.LOCAL_SLOT_COUNT - 1,
                 tableChipDiameter, viewportHeight) + tableChipDiameter * .55f;
         float markerTop = localPositionMarkerY() + localPositionMarkerDiameter(cardWidth) * .5f;
         float localTop = Math.max(markerTop + 6f,
@@ -16809,20 +16811,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             pot = GdxStackChipLayout.colourUpForPiles(pot, liveCounterDenomination(),
                     GdxTableChipSlots.POT_SLOT_COUNT);
         }
-        GdxStackChipLayout.Layout fillingStack = initialTableStack(liveInitialStackFill);
+        LiveInitialStackFill fill = liveInitialStackFill;
+        GdxStackChipLayout.Layout fillingStack = initialTableStack(fill);
         GdxStackChipLayout.Layout stack = fillingStack == null ? stackChipLayout(local) : fillingStack;
         // Keep reserved denominations and landing slots stable until transfers finish.
         if (fillingStack == null && settled) {
             stack = local.stackChipLayout = fitLocalTableCapacity(stack);
         }
-        float progress = fillingStack == null ? 1f : liveInitialStackFill.progress(renderFrameNanos);
+        float progress = fillingStack == null ? 1f : fill.progress(renderFrameNanos);
         for (int column = 0; column < GdxChipDenominations.COLUMN_COUNT; column++) {
             perspectivePotLevels[column] = pot.columnHeight(column);
             plannedPotChips[column] = perspectivePotLevels[column];
             plannedLocalChips[column] = stack.columnHeight(column);
             perspectiveLocalLevels[column] = fillingStack == null ? plannedLocalChips[column]
                     : GdxTableChipRack.initialCount(plannedLocalChips[column], column, progress,
-                            liveInitialStackFill.startedAtNanos);
+                            fill.startedAtNanos);
         }
         refreshPrintedTableChipFaces();
         for (LiveActionChip action : liveActionChips) {
@@ -16850,7 +16853,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         perspectivePotRack.arrange(plannedPotChips);
         perspectiveLocalRack.arrange(plannedLocalChips);
-        if (settled) perspectiveLocalRack.compactLocalLeft();
+        if (settled) perspectiveLocalRack.compactLocalRows();
         updateStackBetPreview(stack);
         perspectiveTable.clearDealPiles();
         if (!liveCardFlights.isEmpty() || liveCommunityReveal != null) {
@@ -16863,6 +16866,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             ? plannedLocalChips : perspectiveLocalLevels);
         }
         updateTableChipImpacts();
+        if (fillingStack != null) updateInitialStackDropImpacts(fill);
         int tallest = 0;
         for (int column = 0; column < plannedPotChips.length; column++) {
             if (perspectivePotRack.piles(column) > 0) {
@@ -18242,8 +18246,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float localPositionMarkerY() {
         float height = viewport.getWorldHeight();
-        float middleRow = GdxTableChipRack.localOffsetY(2, tableChipDiameter, height);
-        float rearRow = GdxTableChipRack.localOffsetY(4, tableChipDiameter, height);
+        float middleRow = GdxTableChipRack.localRowOffsetY(1, tableChipDiameter, height);
+        float rearRow = GdxTableChipRack.localRowOffsetY(2, tableChipDiameter, height);
         return localRackCenterY + (middleRow + rearRow) * .5f;
     }
 
@@ -21750,13 +21754,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         advanceChipPileImpacts(localChipImpacts);
         for (int i = 0; i < activeTableChipMoves; i++) {
             var move = tableChipMoves.get(i);
-            if (move.destinationSlot < 0 || move.firstContact <= previousTableChipFrameNanos
+            if (move.falling || move.destinationSlot < 0 || move.firstContact <= previousTableChipFrameNanos
                     || move.firstContact > renderFrameNanos) continue;
             var rack = move.toPot ? perspectivePotRack : perspectiveLocalRack;
             if (!rack.ownsSlot(GdxChipDenominations.columnForColor(move.color), move.destinationSlot)) continue;
             kickChipPile(move.toPot ? potChipImpacts : localChipImpacts, move.destinationSlot, move.tossSeed);
         }
         previousTableChipFrameNanos = renderFrameNanos;
+    }
+
+    private void updateInitialStackDropImpacts(LiveInitialStackFill fill) {
+        boolean soundDue = !fill.event.soundResource().isBlank()
+                && renderFrameNanos - fill.lastImpactSoundNanos >= INITIAL_CHIP_DROP_SOUND_INTERVAL_NANOS;
+        for (int column = 0; column < perspectiveLocalLevels.length; column++) {
+            int color = GdxChipDenominations.color(column);
+            int landed = perspectiveLocalLevels[column];
+            // Use the same landing counts as the rendered piles. A long frame
+            // can settle several chips at once, so mix at most one drop cue.
+            for (int index = fill.landedChips[column]; index < landed; index++) {
+                int slot = perspectiveLocalRack.slot(column, perspectiveLocalRack.pileForChip(column, index));
+                long seed = GdxTableChipFlight.tossSeed(fill.startedAtNanos, index, color);
+                kickChipPile(localChipImpacts, slot, seed);
+                if (soundDue) {
+                    playResourceSound(INITIAL_CHIP_DROP_SOUND,
+                            variedChipImpactVolume(.34f, seed), variedChipImpactPitch(1f, seed));
+                    fill.lastImpactSoundNanos = renderFrameNanos;
+                    soundDue = false;
+                }
+            }
+            fill.landedChips[column] = landed;
+        }
     }
 
     private void advanceChipPileImpacts(GdxTableChipRack.Impact[] impacts) {
@@ -34336,6 +34363,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private static final class LiveInitialStackFill {
         final Map<Integer, GdxChipContacts.Track> drops = new HashMap<>();
+        final int[] landedChips = new int[GdxChipDenominations.COLUMN_COUNT];
+        long lastImpactSoundNanos;
 
         final TableVisualEvent.InitialStackFill event;
         final long startedAtNanos;
@@ -34348,6 +34377,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.event = event;
             this.startedAtNanos = startedAtNanos;
             this.barrier = barrier;
+            lastImpactSoundNanos = startedAtNanos - INITIAL_CHIP_DROP_SOUND_INTERVAL_NANOS;
         }
 
         float progress(long frameNanos) {

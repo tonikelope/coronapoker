@@ -31,20 +31,23 @@ final class GdxTableChipRack {
     }
 
     static boolean localLeft(int slot) {
-        return slot < GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
+        return slot % GdxTableChipSlots.LOCAL_SLOTS_PER_ROW < GdxTableChipSlots.LOCAL_COLUMNS_PER_SIDE;
     }
 
     static float localX(int slot, float diameter, float bank) {
         boolean left = localLeft(slot);
-        int index = slot % GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
-        float offset = (((index & 1) == 0 ? -.5f : .5f) * CENTRE_PITCH + .06f) * diameter;
+        boolean outer = ((slot & 1) == 0) == left;
+        float offset = ((outer ? .5f : -.5f) * CENTRE_PITCH + .06f) * diameter;
         return (left ? -1f : 1f) * (bank + offset);
     }
 
     static float localOffsetY(int slot, float diameter, float viewportHeight) {
-        int index = slot % GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT;
+        return localRowOffsetY(slot / GdxTableChipSlots.LOCAL_SLOTS_PER_ROW, diameter, viewportHeight);
+    }
+
+    static float localRowOffsetY(int row, float diameter, float viewportHeight) {
         float pitch = MathUtils.lerp(COMPACT_DEPTH_PITCH, CENTRE_PITCH, extraRackDepth(viewportHeight));
-        return ((index / 2 - 1) * pitch + .18f) * diameter;
+        return ((row - 1) * pitch + .18f) * diameter;
     }
 
     private static float extraRackDepth(float viewportHeight) {
@@ -57,7 +60,7 @@ final class GdxTableChipRack {
     }
 
     static float initialLanding(int count, int column, int index, long seed) {
-        float stagger = column * .024f;
+        float stagger = (GdxChipDenominations.COLUMN_COUNT - 1 - column) * .024f;
         float jitter = GdxTableChipFlight.variation(
                 GdxTableChipFlight.tossSeed(seed, index, column), 0);
         // Each chip has its own interval, so the lower layers always land first.

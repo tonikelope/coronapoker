@@ -50,19 +50,51 @@ class GdxPerspectivePotGeometryTest {
         assertEquals(0, rack.pileForChip(0, 60));
     }
 
-    @Test void playerOnlyOpensTheRightSideWhenTheLeftIsFull() {
-        var rack = new GdxTableChipSlots(GdxTableChipSlots.LOCAL_SLOT_COUNT);
+    @Test void playerFillsTheFrontRowFromHighestToLowestAcrossBothSides() {
+        var rack = GdxTableChipSlots.local();
         rack.arrange(new int[]{20, 20, 10, 10});
-        for (int column = 0; column < 4; column++) assertEquals(column, rack.slot(column, 0));
-        rack.arrange(new int[]{21, 20, 10, 10});
-        assertEquals(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT, rack.slot(0, 2));
-        assertEquals(1, rack.height(0, 2, 21));
-        rack.arrange(new int[]{21, 20, 10, 0});
-        rack.compactLocalLeft();
-        assertEquals(3, rack.slot(0, 2));
+        rack.compactLocalRows();
+        for (int column = 0; column < 4; column++) {
+            int slot = rack.slot(column, 0);
+            assertEquals(3 - column, slot);
+            assertEquals(column >= 2, GdxTableChipRack.localLeft(slot));
+            assertEquals(GdxTableChipRack.localOffsetY(0, DIAMETER, 1080f),
+                    GdxTableChipRack.localOffsetY(slot, DIAMETER, 1080f));
+            if (slot > 0) {
+                assertTrue(GdxTableChipRack.localX(slot - 1, DIAMETER, 250f)
+                        < GdxTableChipRack.localX(slot, DIAMETER, 250f));
+            }
+        }
+        assertEquals(4, rack.slot(1, 1));
+        assertEquals(5, rack.slot(0, 1));
+        assertTrue(GdxTableChipRack.localOffsetY(4, DIAMETER, 1080f)
+                > GdxTableChipRack.localOffsetY(3, DIAMETER, 1080f));
     }
 
-    @Test void fullLeftBankKeepsTheCommunityCardsVisibleFromTheGameCamera() {
+    @Test void localPilesKeepTheirSlotsInFlightAndPackByValueWhenSettled() {
+        var rack = GdxTableChipSlots.local();
+        rack.arrange(new int[]{20, 0, 0, 20});
+        assertEquals(0, rack.slot(3, 0));
+        assertEquals(1, rack.slot(0, 0));
+        assertEquals(2, rack.slot(3, 1));
+        rack.compactLocalRows();
+        assertEquals(0, rack.slot(3, 0));
+        assertEquals(1, rack.slot(3, 1));
+        assertEquals(2, rack.slot(0, 0));
+        assertEquals(3, rack.slot(0, 1));
+
+        rack.arrange(new int[]{20, 0, 10, 20});
+        assertEquals(4, rack.slot(2, 0));
+        assertEquals(3, rack.slot(0, 1));
+        rack.compactLocalRows();
+        assertEquals(0, rack.slot(3, 0));
+        assertEquals(1, rack.slot(3, 1));
+        assertEquals(2, rack.slot(2, 0));
+        assertEquals(3, rack.slot(0, 0));
+        assertEquals(4, rack.slot(0, 1));
+    }
+
+    @Test void bothLocalBanksKeepTheCommunityCardsVisibleFromTheGameCamera() {
         GdxNativesLoader.load();
         for (float height : new float[]{1080f, 1120f, 1200f, 1440f}) {
             float width = 1920f;

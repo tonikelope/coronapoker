@@ -56,9 +56,9 @@ class GdxPotChipInventoryTest {
         var fullBank = CoronaPokerGdxTable.visualChipLayout(piles(30, 30, 30, 30));
         assertSame(fullBank, GdxStackChipLayout.colourUpForPiles(fullBank, .1d, GdxTableChipSlots.LOCAL_SLOT_COUNT));
 
-        var bothSides = CoronaPokerGdxTable.visualChipLayout(piles(0, 0, 0, 61));
+        var bothSides = CoronaPokerGdxTable.visualChipLayout(piles(0, 0, 0, 31));
         assertSame(bothSides, GdxStackChipLayout.colourUpForPiles(bothSides, .1d, GdxTableChipSlots.LOCAL_SLOT_COUNT));
-        assertEquals(GdxTableChipSlots.LOCAL_LEFT_SLOT_COUNT + 1, GdxStackChipLayout.pilesNeeded(bothSides));
+        assertEquals(GdxTableChipSlots.LOCAL_SLOTS_PER_ROW, GdxStackChipLayout.pilesNeeded(bothSides));
 
         var oversized = CoronaPokerGdxTable.visualChipLayout(piles(31, 0, 0, 90));
         var overflow = GdxStackChipLayout.colourUpForPiles(oversized, .1d, GdxTableChipSlots.POT_SLOT_COUNT);

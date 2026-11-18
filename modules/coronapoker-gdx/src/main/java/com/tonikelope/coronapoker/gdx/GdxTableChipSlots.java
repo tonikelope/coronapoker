@@ -1,21 +1,35 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import java.util.Arrays;
+
 /** Assigns new piles to the nearest free place before growing existing piles. */
 final class GdxTableChipSlots {
     static final int POT_SLOT_COUNT = 9;
-    static final int LOCAL_LEFT_SLOT_COUNT = 6;
-    static final int LOCAL_SLOT_COUNT = LOCAL_LEFT_SLOT_COUNT * 2;
+    static final int LOCAL_COLUMNS_PER_SIDE = 2;
+    static final int LOCAL_SLOTS_PER_ROW = LOCAL_COLUMNS_PER_SIDE * 2;
+    static final int LOCAL_SLOT_COUNT = LOCAL_SLOTS_PER_ROW * 3;
     private static final int COLOURS = GdxChipDenominations.COLUMN_COUNT;
     private static final int CAPACITY = GdxTableChipRack.CHIPS_PER_PILE;
 
     private final int[][] slots;
     private final int[] used = new int[COLOURS];
     private final boolean[] occupied;
+    private final int[] localPileOrder;
+    private boolean localSlotsDirty;
+
+    static GdxTableChipSlots local() {
+        return new GdxTableChipSlots(LOCAL_SLOT_COUNT, true);
+    }
 
     GdxTableChipSlots(int slotCount) {
+        this(slotCount, false);
+    }
+
+    private GdxTableChipSlots(int slotCount, boolean local) {
         slots = new int[COLOURS][slotCount];
         occupied = new boolean[slotCount];
+        localPileOrder = local ? new int[slotCount] : null;
     }
 
     void arrange(int[] counts) {
@@ -23,7 +37,8 @@ final class GdxTableChipSlots {
             while (used[column] > pilesNeeded(counts[column])) releaseLast(column);
         }
         // Every denomination gets a base before a second pile gets a place.
-        for (int column = 0; column < COLOURS; column++) {
+        for (int priority = 0; priority < COLOURS; priority++) {
+            int column = allocationColumn(priority);
             if (counts[column] <= 0 || used[column] > 0) continue;
             if (nextFree() < 0) {
                 int donor = 0;
@@ -35,7 +50,8 @@ final class GdxTableChipSlots {
             take(column, nextFree());
         }
         for (int depth = 1; depth < occupied.length; depth++) {
-            for (int column = 0; column < COLOURS; column++) {
+            for (int priority = 0; priority < COLOURS; priority++) {
+                int column = allocationColumn(priority);
                 if (used[column] != depth || pilesNeeded(counts[column]) <= depth) continue;
                 int free = nextFree();
                 if (free < 0) return;
@@ -44,21 +60,33 @@ final class GdxTableChipSlots {
         }
     }
 
-    void compactLocalLeft() {
-        // Bring remaining overflow back as soon as a base on the left frees up.
-        int free = nextFree();
-        if (free < 0 || free >= LOCAL_LEFT_SLOT_COUNT) return;
-        for (int column = 0; column < COLOURS; column++) {
-            for (int pile = 0; pile < used[column]; pile++) {
-                int slot = slots[column][pile];
-                if (slot < LOCAL_LEFT_SLOT_COUNT) continue;
-                occupied[slot] = false;
-                occupied[free] = true;
-                slots[column][pile] = free;
-                free = nextFree();
-                if (free >= LOCAL_LEFT_SLOT_COUNT) return;
+    private int allocationColumn(int priority) {
+        return localPileOrder == null ? priority : COLOURS - 1 - priority;
+    }
+
+    void compactLocalRows() {
+        if (!localSlotsDirty) return;
+        int size = 0;
+        // Reserve one pile per denomination first, then fill toward the back.
+        for (int pile = 0; pile < occupied.length; pile++) {
+            for (int priority = 0; priority < COLOURS; priority++) {
+                if (pile < used[allocationColumn(priority)]) {
+                    localPileOrder[size++] = priority * LOCAL_SLOT_COUNT + pile;
+                }
             }
         }
+        Arrays.fill(occupied, false);
+        for (int first = 0; first < size; first += LOCAL_SLOTS_PER_ROW) {
+            int end = Math.min(size, first + LOCAL_SLOTS_PER_ROW);
+            Arrays.sort(localPileOrder, first, end);
+            for (int slot = first; slot < end; slot++) {
+                int pileKey = localPileOrder[slot];
+                int column = allocationColumn(pileKey / LOCAL_SLOT_COUNT);
+                slots[column][pileKey % LOCAL_SLOT_COUNT] = slot;
+                occupied[slot] = true;
+            }
+        }
+        localSlotsDirty = false;
     }
 
     static int pilesNeeded(int chips) {
@@ -74,11 +102,13 @@ final class GdxTableChipSlots {
 
     private void releaseLast(int column) {
         occupied[slots[column][--used[column]]] = false;
+        localSlotsDirty = localPileOrder != null;
     }
 
     private void take(int column, int slot) {
         slots[column][used[column]++] = slot;
         occupied[slot] = true;
+        localSlotsDirty = localPileOrder != null;
     }
 
     int piles(int column) {
@@ -86,7 +116,7 @@ final class GdxTableChipSlots {
     }
 
     int slot(int column, int pile) {
-        return used[column] == 0 ? column : slots[column][pile];
+        return used[column] == 0 ? allocationColumn(column) : slots[column][pile];
     }
 
     boolean ownsSlot(int column, int slot) {

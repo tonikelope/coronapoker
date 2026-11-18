@@ -110,10 +110,10 @@ final class GdxAdaptiveFontQuality {
         parameter.borderColor = borderColor;
         parameter.borderWidth = border * ((float) rasterSize / size);
         parameter.hinting = FreeTypeFontGenerator.Hinting.Full;
-        // Keep FreeType's grayscale coverage for the fill and outline.
-        // The generator defaults curve the alpha and paint the fill twice.
-        parameter.gamma = 1f;
-        parameter.borderGamma = 1f;
+        // Lift partial coverage slightly at the fill and outline edges.
+        // Keep one raster pass so the small glyphs retain their shape.
+        parameter.gamma = 0.85f;
+        parameter.borderGamma = parameter.gamma;
         parameter.renderCount = 1;
         parameter.kerning = true;
         parameter.genMipMaps = false;

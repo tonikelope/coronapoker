@@ -131,6 +131,11 @@ final class GdxPerspectiveTable implements Disposable {
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
                 return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
             }
+            const float POCKET_OUTLINE_WIDTH = 0.015;
+            float pocketOutlineCoverageAt(vec2 uv, float aa) {
+                return 1.0 - smoothstep(POCKET_OUTLINE_WIDTH - aa,
+                        POCKET_OUTLINE_WIDTH + aa, cardDistance(uv));
+            }
             void main() {
                 if (u_material == 1) {
                     vec2 uv = v_uv * vec2(1830.0, 220.0);
@@ -190,11 +195,21 @@ final class GdxPerspectiveTable implements Disposable {
                     return;
                 }
                 if (u_material == 10) {
-                    float distance = cardDistance((v_uv - 0.5) * 1.065 + 0.5);
-                    float aa = max(0.5 * length(vec2(dFdx(distance), dFdy(distance))), 0.0001);
-                    float thickness = 0.015;
-                    float coverage = 1.0 - smoothstep(thickness - aa, thickness + aa, distance);
-                    if (distance < -aa || coverage <= 0.001) discard;
+                    vec2 uv = (v_uv - 0.5) * 1.065 + 0.5;
+                    vec2 dx = dFdx(uv);
+                    vec2 dy = dFdy(uv);
+                    float distance = cardDistance(uv);
+                    float pixelSpan = length(vec2(dFdx(distance), dFdy(distance)));
+                    if (distance < -pixelSpan || distance > POCKET_OUTLINE_WIDTH + pixelSpan) discard;
+                    // Four rotated samples keep the narrow border smooth on
+                    // corners and diagonals even when window MSAA is off.
+                    float aa = max(0.18 * pixelSpan, 0.0001);
+                    float coverage = 0.25 * (
+                            pocketOutlineCoverageAt(uv - 0.375 * dx - 0.125 * dy, aa)
+                            + pocketOutlineCoverageAt(uv - 0.125 * dx + 0.375 * dy, aa)
+                            + pocketOutlineCoverageAt(uv + 0.125 * dx - 0.375 * dy, aa)
+                            + pocketOutlineCoverageAt(uv + 0.375 * dx + 0.125 * dy, aa));
+                    if (coverage <= 0.001) discard;
                     gl_FragColor = vec4(u_pocketOutline.rgb, coverage * u_pocketOutline.a * u_opacity);
                     return;
                 }

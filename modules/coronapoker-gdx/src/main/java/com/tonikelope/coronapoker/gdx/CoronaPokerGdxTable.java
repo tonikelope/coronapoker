@@ -15270,7 +15270,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // sheet first so a dimmed front sheet can blend over it as in 2D.
         int rearSlot = faceUpPair && pocketOrder.pose(cards.get(0).code(), 0).slot() == 1 ? 0 : 1;
         Color outline = null;
-        if (pocketPeekEnabled) {
+        if (pocketPeekEnabled && tablePreference(GdxSettingsContract.TABLE_PEEK_OUTLINE_KEY, true)) {
             if (!Float.isNaN(pocketPeekDragAmount)) {
                 outline = ORANGE;
             } else if (pocketPeekDragContains(pointer.x, pointer.y)) {

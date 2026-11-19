@@ -42,4 +42,17 @@ final class GdxChipPaymentSelectionTest {
         assertNull(GdxChipPaymentSelection.find(
                 List.of(3L, 9L), Long::longValue, 13L));
     }
+
+    @Test
+    void preservesPhysicalOrderWhenARemainderBreaksTheDenominationGrid() {
+        var chips = List.of(600L, 600L, 250L, 250L, 50L, 3L);
+        for (long requested : List.of(852L, 853L)) {
+            var choice = GdxChipPaymentSelection.find(chips, Long::longValue, requested);
+            assertEquals(requested == 853L, choice.exact());
+            assertEquals(3, choice.pick().count());
+            assertEquals(5, choice.pick().index());
+            assertEquals(2, choice.pick().previous().index());
+            assertEquals(0, choice.pick().previous().previous().index());
+        }
+    }
 }

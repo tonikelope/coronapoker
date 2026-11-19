@@ -9,6 +9,8 @@ import java.util.Arrays;
 
 /** Contacts for the rendered solid chips, in mesh coordinates (Y up). */
 final class GdxChipContacts {
+    private static final int DISCS_PER_BLOCK = 16;
+
     static final class Track {
         private long frame;
         private float remaining;
@@ -19,12 +21,14 @@ final class GdxChipContacts {
         final Vector3 center = new Vector3(), normal = new Vector3();
         final Vector3 previous = new Vector3(), previousNormal = new Vector3();
         boolean hasPrevious;
-        int landingPile;
+        Disc earlierOnPile;
         float verticalExtent;
     }
 
     private final ArrayList<Disc> discs = new ArrayList<>();
+    private final ArrayList<Block> blocks = new ArrayList<>();
     private final IntMap<Track> layers = new IntMap<>();
+    private final IntMap<Disc> arrivals = new IntMap<>();
     private final Quaternion rotation = new Quaternion();
     private final Vector3 wanted = new Vector3(), delta = new Vector3(), oldDelta = new Vector3();
     private final Vector3 axis = new Vector3(), push = new Vector3(), entryNormal = new Vector3();
@@ -50,6 +54,7 @@ final class GdxChipContacts {
         lastTime = nanos;
         frame++;
         count = 0;
+        arrivals.clear();
     }
 
     private Disc next() {
@@ -57,9 +62,42 @@ final class GdxChipContacts {
         return discs.get(count++);
     }
 
+    private void recordBounds(Disc disc) {
+        int i = count - 1;
+        int blockIndex = i / DISCS_PER_BLOCK;
+        if (blockIndex == blocks.size()) blocks.add(new Block());
+        Block block = blocks.get(blockIndex);
+        if (i % DISCS_PER_BLOCK == 0) {
+            block.min.set(disc.center);
+            block.max.set(disc.center);
+        } else {
+            block.include(disc.center);
+        }
+        if (disc.hasPrevious) block.include(disc.previous);
+    }
+
+    /** Conservative bounds including both ends of every sweep in arrival order. */
+    private static final class Block {
+        final Vector3 min = new Vector3(), max = new Vector3();
+
+        void include(Vector3 point) {
+            min.set(Math.min(min.x, point.x), Math.min(min.y, point.y), Math.min(min.z, point.z));
+            max.set(Math.max(max.x, point.x), Math.max(max.y, point.y), Math.max(max.z, point.z));
+        }
+
+        boolean intersects(Vector3 now, Vector3 previous, float reach) {
+            return intersects(now.y, previous.y, min.y, max.y, reach)
+                    && intersects(now.x, previous.x, min.x, max.x, reach)
+                    && intersects(now.z, previous.z, min.z, max.z, reach);
+        }
+
+        private static boolean intersects(float now, float previous, float min, float max, float reach) {
+            return Math.min(now, previous) - max <= reach && Math.max(now, previous) - min >= -reach;
+        }
+    }
+
     void standing(int layer, float x, float tableY, float bottom) {
         Disc d = next();
-        d.landingPile = -1;
         d.center.set(x, bottom + half, -tableY);
         d.normal.set(Vector3.Y);
         d.verticalExtent = half;
@@ -76,11 +114,12 @@ final class GdxChipContacts {
         d.previousNormal.set(d.normal);
         track.center.set(d.center);
         track.frame = frame;
+        recordBounds(d);
     }
 
     void place(GdxTableChipFlight.Pose pose, Track track, float progress, int landingPile) {
         Disc d = next();
-        d.landingPile = landingPile;
+        d.earlierOnPile = landingPile >= 0 ? arrivals.get(landingPile) : null;
         pose.attitude(rotation);
         rotation.transform(d.normal.set(Vector3.Y)).nor();
         d.verticalExtent = support(d.normal, 0f, 1f, 0f);
@@ -102,13 +141,13 @@ final class GdxChipContacts {
         // Near a shared landing the reserved layer below must stay below.
         // A sloped envelope brings the rim up continuously from the side.
         // It collapses to one chip thickness when both chips lie flat.
-        if (landingPile >= 0 && progress > .65f) {
+        if (d.earlierOnPile != null && progress > .65f) {
             float blend = Math.min(1f, (progress - .65f) / .35f);
             blend *= blend * (3f - 2f * blend);
-            for (int i = 0; i < count - 1; i++) {
-                Disc lower = discs.get(i);
-                if (lower.landingPile == landingPile && (d.hasPrevious && !track.offset.isZero(skin)
-                        || contact(d, lower, false))) {
+            boolean displaced = d.hasPrevious && !track.offset.isZero(skin);
+            // Only earlier arrivals to this pile can support the landing.
+            for (Disc lower = d.earlierOnPile; lower != null; lower = lower.earlierOnPile) {
+                if (displaced || contact(d, lower, false)) {
                     float above = landingFloor(d, lower);
                     floor = Math.max(floor, d.center.y + blend * (above - d.center.y));
                 }
@@ -119,16 +158,22 @@ final class GdxChipContacts {
         boolean settled = false;
         for (int pass = 0; pass < 2 && !settled; pass++) {
             settled = true;
-            for (int i = 0; i < count - 1; i++) {
-                if (contact(d, discs.get(i), pass == 0)) {
-                    if (!settled || pass > 0) {
-                        findSpace(d, floor);
-                        settled = true;
-                        break;
+            Vector3 previous = pass == 0 && d.hasPrevious ? d.previous : d.center;
+            scan:
+            for (int start = 0; start < count - 1; start += DISCS_PER_BLOCK) {
+                if (!blocks.get(start / DISCS_PER_BLOCK).intersects(d.center, previous, reach)) continue;
+                int end = Math.min(count - 1, start + DISCS_PER_BLOCK);
+                for (int i = start; i < end; i++) {
+                    if (contact(d, discs.get(i), pass == 0)) {
+                        if (!settled || pass > 0) {
+                            findSpace(d, floor);
+                            settled = true;
+                            break scan;
+                        }
+                        d.center.add(push);
+                        d.center.y = Math.max(floor, d.center.y);
+                        settled = false;
                     }
-                    d.center.add(push);
-                    d.center.y = Math.max(floor, d.center.y);
-                    settled = false;
                 }
             }
         }
@@ -143,6 +188,8 @@ final class GdxChipContacts {
             track.remaining = remaining;
             track.frame = frame;
         }
+        if (landingPile >= 0) arrivals.put(landingPile, d);
+        recordBounds(d);
     }
 
     private float landingFloor(Disc d, Disc lower) {
@@ -253,20 +300,28 @@ final class GdxChipContacts {
     }
 
     private boolean contact(Disc a, Disc b, boolean sweep) {
-        delta.set(a.center).sub(b.center);
         tracking = sweep && a.hasPrevious && b.hasPrevious;
+        float dy = a.center.y - b.center.y;
         if (tracking) {
-            oldDelta.set(a.previous).sub(b.previous);
             // A whole swept segment on the same side of any bounding slab
             // cannot enter the circumsphere, even if the two chips rotate.
-            if ((delta.x > reach && oldDelta.x > reach) || (delta.x < -reach && oldDelta.x < -reach)
-                    || (delta.y > reach && oldDelta.y > reach) || (delta.y < -reach && oldDelta.y < -reach)
-                    || (delta.z > reach && oldDelta.z > reach) || (delta.z < -reach && oldDelta.z < -reach)) return false;
+            float oldY = a.previous.y - b.previous.y;
+            if (outsideSameSlab(dy, oldY)) return false;
+            float dx = a.center.x - b.center.x, oldX = a.previous.x - b.previous.x;
+            if (outsideSameSlab(dx, oldX)) return false;
+            float dz = a.center.z - b.center.z, oldZ = a.previous.z - b.previous.z;
+            if (outsideSameSlab(dz, oldZ)) return false;
+            delta.set(dx, dy, dz);
+            oldDelta.set(oldX, oldY, oldZ);
             axis.set(delta).sub(oldDelta);
             float len2 = axis.len2();
             float t = len2 == 0f ? 0f : Math.max(0f, Math.min(1f, -oldDelta.dot(axis) / len2));
             if (axis.scl(t).add(oldDelta).len2() >= reach2) return false;
-        } else if (delta.len2() >= reach2) return false;
+        } else {
+            if (dy * dy >= reach2) return false;
+            delta.set(a.center.x - b.center.x, dy, a.center.z - b.center.z);
+            if (delta.len2() >= reach2) return false;
+        }
 
         entry = Float.NEGATIVE_INFINITY;
         exit = 1f;
@@ -284,6 +339,10 @@ final class GdxChipContacts {
             push.set(entryNormal).scl(entryLimit - delta.dot(entryNormal) + skin);
         }
         return true;
+    }
+
+    private boolean outsideSameSlab(float now, float previous) {
+        return (now > reach && previous > reach) || (now < -reach && previous < -reach);
     }
 
     /** Clip relative motion against the support slabs of the two oriented cylinders. */

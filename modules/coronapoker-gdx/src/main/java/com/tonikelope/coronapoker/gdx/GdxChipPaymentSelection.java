@@ -21,6 +21,7 @@ final class GdxChipPaymentSelection {
         long unit = 0L;
         for (int i = 0; i < amounts.length; i++) {
             long amount = value.applyAsLong(chips.get(i));
+            if (target > 0L && amount == target) return new Choice(new Pick(i, 1, EMPTY), true);
             amounts[i] = amount;
             total = addCapped(total, amount);
             largest = Math.max(largest, amount);
@@ -38,22 +39,31 @@ final class GdxChipPaymentSelection {
         // one chip past it. Larger partial sums cannot win either selection.
         long max = Math.min(total, addCapped(target, largest - 1L));
         if (max / unit <= MAX_DENSE_SUM) {
-            return dense(amounts, target, unit, (int) (max / unit));
+            long minCount = target / largest + (target % largest == 0L ? 0 : 1);
+            return dense(amounts, target, unit, (int) (max / unit), minCount);
         }
         return sparse(amounts, target, max);
     }
 
-    private static Choice dense(long[] amounts, long target, long unit, int max) {
+    private static Choice dense(long[] amounts, long target, long unit, int max, long minCount) {
         Pick[] best = new Pick[max + 1];
         best[0] = EMPTY;
         int reachable = 0;
+        int prefixUnit = 0;
+        int first = (int) (target / unit);
+        boolean integralTarget = target % unit == 0L;
+        if (!integralTarget) first++;
         for (int i = 0; i < amounts.length; i++) {
             long scaled = amounts[i] / unit;
             if (scaled == 0L || scaled > max) continue;
             int amount = (int) scaled;
+            // Earlier chips can only reach multiples of their own GCD. This
+            // stays useful even if a small remainder makes the global unit 1.
+            int step = Math.max(1, prefixUnit);
+            int limit = Math.min(reachable, max - amount);
             // Descending sums never reuse the current chip. Keeping the first
             // equal-count pick preserves the original chip identities.
-            for (int sum = Math.min(reachable, max - amount); sum >= 0; sum--) {
+            for (int sum = limit - limit % step; sum >= 0; sum -= step) {
                 Pick prior = best[sum];
                 if (prior == null) continue;
                 Pick current = best[sum + amount];
@@ -61,10 +71,13 @@ final class GdxChipPaymentSelection {
                     best[sum + amount] = new Pick(i, prior.count() + 1, prior);
                 }
             }
+            prefixUnit = (int) gcd(prefixUnit, amount);
+            if (integralTarget && best[first] != null) {
+                if (best[first].count() == minCount) return new Choice(best[first], true);
+                max = first; // An overpayment can no longer win.
+            }
             reachable = Math.min(max, reachable + amount);
         }
-        int first = (int) (target / unit);
-        if (target % unit != 0L) first++;
         for (int sum = first; sum <= reachable; sum++) {
             if (best[sum] != null) return new Choice(best[sum], sum * unit == target);
         }

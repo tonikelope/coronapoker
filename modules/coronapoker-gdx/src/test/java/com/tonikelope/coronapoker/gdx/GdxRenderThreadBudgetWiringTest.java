@@ -56,7 +56,7 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("private boolean createNextGraphicsCore() {\n"
                 + "        switch (creationResourceIndex) {"));
         assertTrue(table.contains(
-                "case 1 -> shapes = new ShapeRenderer(65_536);"));
+                "case 1 -> shapes = new GdxTableShapeRenderer(65_536);"));
         assertTrue(table.contains("case 2 -> batch = new SpriteBatch(2000);"));
         assertTrue(table.contains("case 11 -> {\n"
                 + "                if (!modalBackdropBlur.prepareNextBuffer("));

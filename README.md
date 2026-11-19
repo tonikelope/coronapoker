@@ -59,7 +59,7 @@ Select a snapshot to open it at full resolution.
 - The table defaults to 3D when no view has been selected. The 2D view remains available in the table appearance settings.
 - The 3D view puts the local stack and pot on the felt, with physical chip stacks, animated transfers and optional chip-area outlines. The stack viewer uses the same 3D chip meshes and printed denominations. The local stack fills the front row first, with two piles on each side ordered from highest to lowest denomination from left to right. Extra piles use the rows behind it. It exchanges chips when the available positions can no longer hold the denominations within ten chips per pile. At game start, the falling chips add synchronized impacts to the stack-counting sound. The pot uses the same left-to-right denomination order around its label. The area above the label takes overflow once both sides are full.
 - In 3D, the local and community cards can arc over or steer around the pot and local chip stacks during the deal. Community cards touch down and glide into their slots.
-- Chips follow ballistic paths into the pot and move the stack they land on. The local stack fills and reloads with free-falling chips in the 3D view.
+- Chips follow ballistic paths into the pot and move the stack they land on. The local stack fills and reloads with free-falling chips in the 3D view. Large chip showers render more smoothly, with the same chip detail and shadows.
 - Classic community-card reveals in 2D and flexible reveals with slight variations in 3D.
 
 ## 🔐 Security & cryptography

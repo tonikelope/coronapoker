@@ -13,6 +13,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
+import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.awt.Point;
@@ -32,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class GdxPerspectivePocketGpuTest {
     private static final int WIDTH = 960, HEIGHT = 540;
 
-    @Test void coveredCardsSupportDraggingAndKeepTheirAppearanceDuringRabbitHunting(@TempDir Path dir) {
+    @Test void perspectiveTablePreservesCoveredCardsAndAutoCallInput(@TempDir Path dir) {
         var config = new Lwjgl3ApplicationConfiguration();
         config.setInitialVisible(false);
         config.disableAudio(true);
@@ -44,6 +46,7 @@ final class GdxPerspectivePocketGpuTest {
                 try {
                     long window = ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
+                    verifyAutoCallPreview(dir);
                     verifyPocket(dir);
                 } catch (Throwable error) {
                     failure.set(error);
@@ -53,6 +56,106 @@ final class GdxPerspectivePocketGpuTest {
             }
         }, config);
         if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    private static void verifyAutoCallPreview(Path dir) throws Exception {
+        try (var prefs = new PreferencesService(dir.resolve("auto.properties"))) {
+            prefs.properties().setProperty("gdx_table_view", "3d");
+            prefs.properties().setProperty("modo_auto_confirm", "true");
+            prefs.properties().setProperty("auto_call_enabled", "true");
+            for (String key : List.of("musica", "sonido_efectos", "sonido_ascensor")) {
+                prefs.properties().setProperty(key, "false");
+            }
+            var player = new TableSnapshot.PlayerSnapshot("local", 20d, 0d, 20d,
+                    true, false, false, false, -2, -2, 0, 0L, false,
+                    TableSnapshot.Position.DEALER, "", "", List.of());
+            var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.PREFLOP,
+                    0d, "local", false, List.of(player), List.of());
+            var submitted = new ArrayList<TableCommand>();
+            var table = new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
+                    submitted::add, () -> {}, new GdxGameLogSink(), prefs);
+            Input original = Gdx.input;
+            var mouse = new Mouse();
+            try {
+                Gdx.input = mouse.input(original);
+                table.create();
+                table.resize(WIDTH, HEIGHT);
+                var travel = CoronaPokerGdxTable.class.getDeclaredField("perspectiveTravel");
+                travel.setAccessible(true);
+                travel.setFloat(table, 1f);
+                table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
+                        TableVisualEvent.PreparationStatus.Phase.READY), new CompletableFuture<>());
+                var controls = ActionControlState.forTurn(2d, 2d, 2d, 1d,
+                        0d, 20d, 2, true, 0);
+                table.acceptEvent(new TableVisualEvent.ActionControls(3L, controls),
+                        new CompletableFuture<>());
+                var viewport = (Viewport) field(table, "viewport");
+                float width = viewport.getWorldWidth();
+                Rectangle call = CoronaPokerGdxTable.localActionLayout(width).call();
+                mouse.move(screenCenter(viewport, call));
+                table.render();
+                var manual = (int[]) field(table, "activeStackBetPreview");
+                assertNotNull(manual, "Hovering IR must select physical chips");
+                manual = manual.clone();
+
+                mouse.move(new Point(WIDTH / 2, 0));
+                var toggle = CoronaPokerGdxTable.class.getDeclaredMethod("toggleQueuedPreAction", int.class);
+                toggle.setAccessible(true);
+                toggle.invoke(table, 2);
+                var eligible = CoronaPokerGdxTable.class.getDeclaredField("autoActionEligibleAt");
+                eligible.setAccessible(true);
+                eligible.setFloat(table, 0f);
+                table.render();
+
+                var auto = (GdxTableDialog) field(table, "autoActionDialog");
+                assertNotNull(auto, "The queued call must open the Auto HUD");
+                assertArrayEquals(manual, (int[]) field(table, "activeStackBetPreview"));
+
+                Rectangle cancel = CoronaPokerGdxTable.autoActionHudLayout(width).cancel();
+                Point click = screenCenter(viewport, cancel);
+                mouse.move(click);
+                mouse.down = mouse.justPressed = true;
+                var processor = table.inputProcessor();
+                processor.touchDown(click.x, click.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertNull(field(table, "autoActionDialog"), "CANCELAR must immediately restore the HUD");
+                assertFalse(auto.result().toCompletableFuture().join());
+                assertTrue(submitted.isEmpty(), "The cancellation press must not submit a poker action");
+
+                mouse.down = mouse.justPressed = false;
+                processor.touchUp(click.x, click.y, 0, Input.Buttons.LEFT);
+                mouse.move(new Point(WIDTH / 2, 0));
+                table.render();
+                assertNull(field(table, "activeStackBetPreview"), "Auto chips must stop pulsing after cancellation");
+                mouse.move(screenCenter(viewport, call));
+                table.render();
+                assertArrayEquals(manual, (int[]) field(table, "activeStackBetPreview"));
+                assertTrue(submitted.isEmpty(), "Releasing CANCELAR must not affect the hand");
+
+                table.acceptEvent(new TableVisualEvent.ActionControls(4L, controls),
+                        new CompletableFuture<>());
+                toggle.invoke(table, 2);
+                eligible.setFloat(table, 0f);
+                table.render();
+                var nextAuto = (GdxTableDialog) field(table, "autoActionDialog");
+                assertNotNull(nextAuto);
+                mouse.spaceJustPressed = true;
+                table.render();
+                mouse.spaceJustPressed = false;
+                assertTrue(nextAuto.complete(), "SPACE must finish the countdown");
+                assertTrue(nextAuto.result().toCompletableFuture().join());
+                assertEquals(List.of(new TableCommand.CheckOrCall()), submitted,
+                        "SPACE must still accept the Auto call exactly once");
+            } finally {
+                Gdx.input = original;
+                table.dispose();
+            }
+        }
+    }
+
+    private static Point screenCenter(Viewport viewport, Rectangle bounds) {
+        Vector2 center = viewport.project(bounds.getCenter(new Vector2()));
+        return new Point(Math.round(center.x), HEIGHT - 1 - Math.round(center.y));
     }
 
     private static void verifyPocket(Path dir) throws Exception {
@@ -310,7 +413,7 @@ final class GdxPerspectivePocketGpuTest {
 
     private static final class Mouse {
         private int x, y;
-        boolean down, justPressed, peekKeyDown;
+        boolean down, justPressed, peekKeyDown, spaceJustPressed;
 
         void move(Point point) {
             x = point.x;
@@ -324,6 +427,8 @@ final class GdxPerspectivePocketGpuTest {
                         case "getY" -> y;
                         case "isKeyPressed" -> (int) args[0] == Input.Keys.V
                                 ? peekKeyDown : fallback.isKeyPressed((int) args[0]);
+                        case "isKeyJustPressed" -> (int) args[0] == Input.Keys.SPACE
+                                ? spaceJustPressed : fallback.isKeyJustPressed((int) args[0]);
                         case "isButtonPressed" -> (int) args[0] == Input.Buttons.LEFT && down;
                         case "isButtonJustPressed" -> (int) args[0] == Input.Buttons.LEFT && justPressed;
                         default -> method.invoke(fallback, args);

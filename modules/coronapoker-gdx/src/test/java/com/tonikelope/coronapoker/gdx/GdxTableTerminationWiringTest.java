@@ -177,19 +177,19 @@ final class GdxTableTerminationWiringTest {
     }
 
     @Test
-    void cancellingAutoModeReleasesTheHudOnTheNextTableFrame() {
-        CoronaPokerGdxTable table = table(new ArrayList<>());
+    void cancellingAutoModeImmediatelyRestoresTheManualHud() {
+        ArrayList<TableCommand> submitted = new ArrayList<>();
+        CoronaPokerGdxTable table = table(submitted);
         GdxTableDialog autoAction = GdxTableDialog.autoAction("IGUALAR");
         table.showDialog(autoAction);
 
         assertTrue(table.hasActiveDialog());
         assertTrue(table.resolveActiveDialogChoice(false));
-        assertTrue(autoAction.complete());
 
-        table.advanceDialogState();
-
+        assertFalse(autoAction.result().toCompletableFuture().join());
         assertFalse(table.hasActiveDialog(),
-                "the normal local HUD must return after CANCELAR");
+                "the normal local HUD must return as soon as CANCELAR is pressed");
+        assertTrue(submitted.isEmpty());
     }
 
     @Test

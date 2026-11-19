@@ -279,7 +279,7 @@ can safely overlay the supported presentation assets:
 - **Table view** is the first option under Appearance > Table. Choose 2D for a top-down view or 3D to play in perspective with covered hole cards.
 - **3D pocket peek** lets you drag up from anywhere on either of your covered cards. A closed-hand cursor shows when you have grabbed them. The cards lift with the mouse up to the same limit as the peek button and cover again when you release it. The card viewer is available once your cards are fully exposed. Appearance > Table > Show peek button (3D) is on by default. You can hide the button and keep using the drag gesture or the V key.
 
-- **3D chip preview** pulses the chips for Call, the current Bet or Raise, or All-in in the same colour as your turn border while you hover over the controls on your turn. It is on by default under Appearance > Animations and effects.
+- **3D chip preview** pulses the chips for Call, the current Bet or Raise, or All-in in the same colour as your turn border while you hover over the controls on your turn. During the Auto call countdown, the same chips pulse in sync with the HUD. This preview is on by default under Appearance > Animations and effects.
 
 - **End-of-game cards** under Appearance > Animations and effects controls how the balance cards enter the final summary. The animation is on by default. Turn it off to show the cards immediately in place. The final count has its own switch.
 - **Action confirmation** with an optional safety prompt before fold, all-in or raise.

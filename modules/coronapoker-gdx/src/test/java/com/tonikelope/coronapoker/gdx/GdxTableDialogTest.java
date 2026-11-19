@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import com.tonikelope.coronapoker.core.game.GameText;
 import org.junit.jupiter.api.Test;
 
 final class GdxTableDialogTest {
@@ -151,8 +152,10 @@ final class GdxTableDialogTest {
 
     @Test
     void autoActionCountdownFreezesForTheWholeTablePause() {
-        GdxTableDialog action = GdxTableDialog.autoAction("IGUALAR");
+        GdxTableDialog action = GdxTableDialog.autoAction(
+                "IGUALAR", GameText.keys(), 3d);
         assertTrue(action.isAutoAction());
+        assertEquals(3d, action.pendingAutoActionWager());
         action.opened(10f);
         assertEquals(0.6f, action.remainingFraction(12f), 0.0001f);
 
@@ -165,6 +168,21 @@ final class GdxTableDialogTest {
         assertTrue(action.expired(53f));
         action.timeout();
         assertTrue(action.result().toCompletableFuture().join());
+        assertEquals(0d, action.pendingAutoActionWager());
+    }
+
+    @Test
+    void cancellingAutoCallClearsItsPreviewAndDoesNotAcceptIt() {
+        GdxTableDialog action = GdxTableDialog.autoAction(
+                "IGUALAR", GameText.keys(), 3d);
+        action.opened(10f);
+        assertEquals(3d, action.pendingAutoActionWager());
+
+        action.dismiss();
+
+        assertFalse(action.result().toCompletableFuture().join());
+        assertEquals(0d, action.pendingAutoActionWager());
+        assertTrue(action.readyToClose());
     }
 
     @Test

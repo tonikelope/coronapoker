@@ -44,6 +44,7 @@ final class GdxTableDialog {
     private int amount;
     private BigDecimal autoCallCommittedAmount;
     private String autoCallAmountText;
+    private double autoActionWager;
     private final CompletableFuture<Boolean> result = new CompletableFuture<>();
     private float openedAt = Float.NaN;
     private float timerPausedAt = Float.NaN;
@@ -153,10 +154,20 @@ final class GdxTableDialog {
     }
 
     static GdxTableDialog autoAction(String action, GameText text) {
-        return new GdxTableDialog(Kind.AUTO_ACTION,
+        return autoAction(action, text, 0d);
+    }
+
+    static GdxTableDialog autoAction(String action, GameText text, double wager) {
+        GdxTableDialog dialog = new GdxTableDialog(Kind.AUTO_ACTION,
                 tr(text, "modo_auto.titulo", "MODO AUTO"), action,
                 GameDialogSink.Icon.NONE, 720, 5, true,
                 tr(text, "ui.cancelar", "CANCELAR"), "");
+        dialog.autoActionWager = wager;
+        return dialog;
+    }
+
+    double pendingAutoActionWager() {
+        return complete() ? 0d : autoActionWager;
     }
 
     static GdxTableDialog gameOverChoice(int seconds) {

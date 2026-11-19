@@ -22,6 +22,7 @@ import com.tonikelope.coronapoker.table.TableSessionSummary;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.core.game.AutoActionResolver;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.IdentityTrustStore;
@@ -78,6 +79,35 @@ final class GdxTableViewStateTest {
                 0, 2, 2, 1, 0, 20, 2, true, 0);
         assertEquals(0d, CoronaPokerGdxTable.stackBetPreviewAmount(
                 layout, layout.call().x + 1f, y, check, 4d));
+    }
+
+    @Test
+    void autoCallPreviewsTheSameChipsAsManualCallOrAllIn() {
+        var controls = ActionControlState.forTurn(
+                4, 2, 2, 1, 1, 20, 2, true, 0);
+        var layout = CoronaPokerGdxTable.localActionLayout(1920f);
+        double manualCall = CoronaPokerGdxTable.stackBetPreviewAmount(layout,
+                layout.call().x + 1f, layout.call().y + 1f, controls, 2d);
+        assertEquals(3d, manualCall);
+        assertEquals(manualCall, CoronaPokerGdxTable.autoActionWager(
+                AutoActionResolver.Target.CHECK_OR_CALL, controls));
+
+        var shortStack = ActionControlState.forTurn(
+                4, 2, 2, 1, 1, 2, 2, true, 0);
+        double manualAllIn = CoronaPokerGdxTable.stackBetPreviewAmount(layout,
+                layout.allIn().x + 1f, layout.allIn().y + 1f, shortStack, 2d);
+        assertEquals(2d, manualAllIn);
+        assertEquals(manualAllIn, CoronaPokerGdxTable.autoActionWager(
+                AutoActionResolver.Target.ALL_IN, shortStack));
+
+        var check = ActionControlState.forTurn(
+                0, 2, 2, 1, 0, 20, 2, true, 0);
+        assertEquals(0d, CoronaPokerGdxTable.autoActionWager(
+                AutoActionResolver.Target.CHECK_OR_CALL, check));
+        assertEquals(0d, CoronaPokerGdxTable.autoActionWager(
+                AutoActionResolver.Target.FOLD, controls));
+        assertEquals(0d, CoronaPokerGdxTable.autoActionWager(
+                AutoActionResolver.Target.NONE, controls));
     }
 
     @Test

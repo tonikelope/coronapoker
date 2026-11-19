@@ -9635,7 +9635,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             dialog.accept();
         } else {
             if (!dialog.allowsDismissal()) return false;
-            dialog.dismiss();
+            if (dialog == autoActionDialog) {
+                cancelHudAutoAction();
+            } else {
+                dialog.dismiss();
+            }
         }
         return true;
     }
@@ -9650,7 +9654,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (autoActionDialog == null) return false;
         if (liveState == null || liveState.snapshot().paused()) return false;
         if (!quickChatOpen() && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            autoActionDialog.dismiss();
+            cancelHudAutoAction();
             return true;
         }
         if (!quickChatOpen() && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -9668,9 +9672,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         primaryPointer.capturePressedGesture();
         if (layout.cancel().contains(pointer.x, pointer.y)) {
-            autoActionDialog.dismiss();
+            cancelHudAutoAction();
         }
         return true;
+    }
+
+    private void cancelHudAutoAction() {
+        autoActionDialog.dismiss();
+        autoActionDialog = null;
+        autoActionInputGate.accepts(null, false);
     }
 
     private float dialogWidth(GdxTableDialog dialog) {
@@ -10030,15 +10040,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         int selection = queuedPreAction;
-        AutoActionResolver.QueuedAction queued = switch (selection) {
-            case 1 -> AutoActionResolver.QueuedAction.FOLD_OR_CHECK;
-            case 2 -> AutoActionResolver.QueuedAction.CHECK_OR_CALL;
-            default -> AutoActionResolver.QueuedAction.NONE;
-        };
-        AutoActionResolver.Target resolved = AutoActionResolver.resolve(queued,
-                controls, liveState.snapshot().street()
-                        == TableSnapshot.Street.PREFLOP,
-                liveState.bigBlind(), autoCallEnabled, autoCallMax);
+        AutoActionResolver.Target resolved = resolveQueuedPreAction(controls);
         int target = switch (resolved) {
             case FOLD -> 1;
             case CHECK_OR_CALL -> 2;
@@ -10073,7 +10075,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String action = autoActionMessage(target, controls.callAction(),
                 gameText);
         GdxTableDialog confirmation = GdxTableDialog.autoAction(action,
-                gameText);
+                gameText, autoActionWager(resolved, controls));
         confirmation.result().thenAccept(accepted -> {
             if (accepted && hasActiveLocalTurn()) {
                 // See the direct path above: a synchronous hand boundary must
@@ -10083,6 +10085,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         });
         showDialog(confirmation);
+    }
+
+    private AutoActionResolver.Target resolveQueuedPreAction(
+            ActionControlState controls) {
+        AutoActionResolver.QueuedAction queued = switch (queuedPreAction) {
+            case 1 -> AutoActionResolver.QueuedAction.FOLD_OR_CHECK;
+            case 2 -> AutoActionResolver.QueuedAction.CHECK_OR_CALL;
+            default -> AutoActionResolver.QueuedAction.NONE;
+        };
+        return AutoActionResolver.resolve(queued, controls,
+                liveState.snapshot().street() == TableSnapshot.Street.PREFLOP,
+                liveState.bigBlind(), autoCallEnabled, autoCallMax);
     }
 
     /**
@@ -16941,7 +16955,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void updateStackBetPreview(GdxStackChipLayout.Layout stack) {
-        if (finalSummary != null || autoActionDialog != null
+        if (finalSummary != null
                 || hasPendingLocalActionSubmission() || !hasActiveLocalTurn()
                 || !tablePreference("animaciones", true)
                 || !tablePreference(GdxSettingsContract.STACK_BET_PREVIEW_KEY, true)) {
@@ -16949,14 +16963,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         stackBetPreviewEnabled = true;
-        LocalActionLayout actions = cachedLocalActionLayout(viewport.getWorldWidth());
         ActionControlState controls = liveState.actionControls();
-        boolean hudHover = !fastAccessSurfaceContains(pointer.x, pointer.y);
-        double amount = hudHover ? stackBetPreviewAmount(actions, pointer.x, pointer.y,
-                controls, selectedRaiseIncrement(controls)) : 0d;
-        long amountMinor = Math.round(amount * 100d);
-        boolean raiseHovered = amountMinor > 0L && actions.raiseZoneContains(pointer.x, pointer.y);
-        amountMinor = raisePreviewDelay.displayedAmount(amountMinor, raiseHovered, renderFrameNanos);
+        double amount = 0d;
+        boolean raiseHovered = false;
+        if (autoActionDialog != null) {
+            amount = autoActionDialog.pendingAutoActionWager();
+        } else if (queuedPreAction != 0 && autoActionControlsReady) {
+            amount = autoActionWager(resolveQueuedPreAction(controls), controls);
+        } else if (!fastAccessSurfaceContains(pointer.x, pointer.y)) {
+            LocalActionLayout actions = cachedLocalActionLayout(viewport.getWorldWidth());
+            amount = stackBetPreviewAmount(actions, pointer.x, pointer.y,
+                    controls, selectedRaiseIncrement(controls));
+            raiseHovered = amount > 0d && actions.raiseZoneContains(pointer.x, pointer.y);
+        }
+        long amountMinor = raisePreviewDelay.displayedAmount(
+                Math.round(amount * 100d), raiseHovered, renderFrameNanos);
         activeStackBetPreview = amountMinor <= 0L ? null
                 : amountMinor == Math.round(controls.playerStack() * 100d) ? perspectiveLocalLevels
                 : selectedStackBetChips(stack, amountMinor);
@@ -16981,6 +17002,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     perspectiveLocalLevels.length);
         }
         return cachedStackBetPreview;
+    }
+
+    static double autoActionWager(AutoActionResolver.Target target,
+            ActionControlState controls) {
+        if (controls.showCards() || controls.callAmount() <= 0d) return 0d;
+        return switch (target) {
+            case CHECK_OR_CALL -> controls.callAction() == ActionControlState.CallAction.CALL
+                    ? controls.callAmount() : 0d;
+            case ALL_IN -> controls.allInEnabled() ? controls.playerStack() : 0d;
+            default -> 0d;
+        };
     }
 
     static double stackBetPreviewAmount(LocalActionLayout actions, float x, float y,

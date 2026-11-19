@@ -155,7 +155,7 @@ final class GdxCardSmaaGpuCertificationTest {
                 CoronaPokerGdxTable.CARD_VERTEX_SHADER,
                 CoronaPokerGdxTable.CARD_FRAGMENT_SHADER);
         ShaderProgram rabbit = new ShaderProgram(
-                CoronaPokerGdxTable.CARD_VERTEX_SHADER,
+                GdxRabbitPeel.VERTEX_SHADER,
                 CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER);
         try {
             assertTrue(regular.isCompiled(), () ->

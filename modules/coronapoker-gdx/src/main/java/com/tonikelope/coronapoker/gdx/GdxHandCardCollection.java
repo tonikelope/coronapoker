@@ -16,12 +16,15 @@ final class GdxHandCardCollection {
     record BoardCard(int slot, TableSnapshot.CardSnapshot card) { }
 
     final List<BoardCard> board;
+    final boolean wholeHand;
     final CompletableFuture<Void> barrier;
     private final GdxCardDealMotion.FrameClock clock = new GdxCardDealMotion.FrameClock();
     private final float sweepSeconds;
 
-    GdxHandCardCollection(List<BoardCard> board, int speedPercent, CompletableFuture<Void> barrier) {
+    GdxHandCardCollection(List<BoardCard> board, int speedPercent,
+            boolean wholeHand, CompletableFuture<Void> barrier) {
         this.board = List.copyOf(board);
+        this.wholeHand = wholeHand;
         this.barrier = barrier;
         // The outer flop card crosses two gaps during the spread. Scale that
         // cadence by the distance to the river, then tighten the collection.

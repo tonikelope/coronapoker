@@ -201,7 +201,7 @@ final class GdxCardSmaaRendererContractTest {
                 "private void configureCardShader(Texture front, Texture cardBack,",
                 "private void setCardShowdownOverlay(boolean highlighted)");
         String rabbit = method(table,
-                "private void useRabbitPeelShader(Texture front, float progress,",
+                "private void useRabbitPeelShader(LiveCardPlacement placement, float progress,",
                 "private void configureCardShader(Texture front, float angle,");
 
         assertEquals(16, CoronaPokerGdxTable.cardArtworkSmoothSampleCount());

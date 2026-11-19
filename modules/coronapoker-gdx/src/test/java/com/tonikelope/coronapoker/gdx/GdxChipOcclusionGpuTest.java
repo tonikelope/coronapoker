@@ -15,6 +15,7 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -61,6 +62,8 @@ class GdxChipOcclusionGpuTest {
             prefs.properties().setProperty(key, "false");
         }
         prefs.properties().setProperty("gdx_table_view", "3d");
+        prefs.properties().setProperty("animacion_destape", "false");
+        prefs.properties().setProperty("animacion_reparto", "false");
         var players = List.of(player("local", TableSnapshot.Position.DEALER),
                 player("left", TableSnapshot.Position.SMALL_BLIND), player("right", TableSnapshot.Position.BIG_BLIND));
         var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.PREFLOP, 0d, "", false,
@@ -73,6 +76,8 @@ class GdxChipOcclusionGpuTest {
             table.render();
             assertEquals(true, field(table, "perspectiveActive"));
             long seq = 1;
+            table.acceptEvent(new TableVisualEvent.PreparationStatus(seq,
+                    TableVisualEvent.PreparationStatus.Phase.READY), new CompletableFuture<>());
             for (var player : players) {
                 var barrier = new CompletableFuture<Void>();
                 table.acceptEvent(new TableVisualEvent.PlayerAction(++seq, player.nickname(),
@@ -119,7 +124,96 @@ class GdxChipOcclusionGpuTest {
             var inventory = (GdxPotChipInventory) field(table, "livePotChips");
             assertEquals(711L, CoronaPokerGdxTable.visualChipAmountMinor(inventory.snapshot()));
             System.out.println("Three all-ins settled, peak concurrent flying chips: " + peak);
+            verifyRunItTwicePot(table, seq);
         } finally { table.dispose(); }
+    }
+
+    private static void verifyRunItTwicePot(CoronaPokerGdxTable table, long seq)
+            throws Exception {
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(++seq, 0, List.of(
+                communityCard("2_C"), communityCard("3_D"), communityCard("4_P"))),
+                new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(++seq, 3,
+                List.of(communityCard("5_C"))), new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.RevealCommunityCards(++seq, 4,
+                List.of(communityCard("6_D"))), new CompletableFuture<>());
+        int[] before = ((int[]) field(table, "perspectivePotLevels")).clone();
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(++seq,
+                TableVisualEvent.RunItTwiceBoard.Side.A, "POT-A:", 3.55, List.of()),
+                new CompletableFuture<>());
+        table.render();
+        assertEquals(711L, visiblePotAmount(table));
+        assertTrue(Arrays.stream((int[]) field(table, "perspectivePotLevels")).sum()
+                >= Arrays.stream(before).sum(), "Announcing A keeps the whole rack on the felt");
+
+        // The uncalled side pot is entirely returned on A. That payout can
+        // exceed the nominal half even though B still owns its contested share.
+        var firstPayout = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.PayoutBatch(++seq, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer("local", 2d, 0.45d, 2d),
+                new TableVisualEvent.PayoutBatch.Transfer("left", 2d, 0d, 2d)),
+                0d, 3.11d), firstPayout);
+        assertFalse(firstPayout.isDone());
+        renderPayout(table, firstPayout, 311L);
+        assertEquals(311L, visiblePotAmount(table));
+        var text = (GdxGameText) field(table, "gameText");
+        var expectedSideB = CoronaPokerGdxTable.communityPotText(text,
+                text.translate("runittwice.pot_label_full", text.translate("runittwice.pot_label_b")), 3.55d);
+        assertEquals(expectedSideB, field(table, "potText"));
+        int[] afterA = ((int[]) field(table, "perspectivePotLevels")).clone();
+        assertTrue(Arrays.stream(afterA).sum() > 0);
+
+        var rewind = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(++seq,
+                TableVisualEvent.RunItTwiceBoard.Side.B, "POT-B:", 3.55, List.of(3, 4)),
+                rewind);
+        assertFalse(rewind.isDone());
+        var collection = (GdxHandCardCollection) field(table, "handCardCollection");
+        assertFalse(collection.wholeHand);
+        assertEquals(List.of(3, 4), collection.board.stream()
+                .map(GdxHandCardCollection.BoardCard::slot).toList());
+        var projection = (GdxTableViewState) field(table, "liveState");
+        assertEquals(List.of("2_C", "3_D", "4_P"), projection.snapshot().communityCards()
+                .subList(0, 3).stream().map(TableSnapshot.CardSnapshot::code).toList());
+        renderPayout(table, rewind, 311L);
+        assertEquals(false, field(table, "handCardsCollected"));
+        assertEquals(311L, visiblePotAmount(table));
+        assertArrayEquals(afterA, (int[]) field(table, "perspectivePotLevels"));
+
+        var secondPayout = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.PayoutBatch(++seq, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer("right", 3.1d, 0d, 3.1d)),
+                0d, 0d), secondPayout);
+        renderPayout(table, secondPayout, 1L);
+        assertEquals(1L, visiblePotAmount(table), "The odd chip stays on the felt");
+        assertEquals("", ((CoronaPokerGdxTable.PotPanelText) field(table, "potText")).amount());
+    }
+
+    private static TableSnapshot.CardSnapshot communityCard(String code) {
+        return new TableSnapshot.CardSnapshot(code, true, false);
+    }
+
+    private static void renderPayout(CoronaPokerGdxTable table,
+            CompletableFuture<Void> barrier, long minimumStanding) throws Exception {
+        long deadline = System.nanoTime() + 15_000_000_000L;
+        do {
+            table.render();
+            assertTrue(visiblePotAmount(table) >= minimumStanding);
+            assertTrue(Arrays.stream((int[]) field(table, "perspectivePotLevels")).sum() > 0);
+        } while (!barrier.isDone() && System.nanoTime() < deadline);
+        assertTrue(barrier.isDone(), "The payout animation must finish");
+        barrier.join();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static long visiblePotAmount(CoronaPokerGdxTable table)
+            throws ReflectiveOperationException {
+        var livePot = CoronaPokerGdxTable.class.getDeclaredMethod("livePot");
+        livePot.setAccessible(true);
+        var visible = CoronaPokerGdxTable.class.getDeclaredMethod("displayedPotVisualChips", double.class);
+        visible.setAccessible(true);
+        return CoronaPokerGdxTable.visualChipAmountMinor(
+                (List<CoronaPokerGdxTable.VisualChipSpec>) visible.invoke(table, livePot.invoke(table)));
     }
 
     private static TableSnapshot.PlayerSnapshot player(String name, TableSnapshot.Position position) {

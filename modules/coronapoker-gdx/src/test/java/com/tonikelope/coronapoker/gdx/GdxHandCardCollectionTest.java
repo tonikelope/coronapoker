@@ -101,6 +101,6 @@ final class GdxHandCardCollectionTest {
     private static GdxHandCardCollection sequence(int speed, Integer... slots) {
         var normal = new TableSnapshot.CardSnapshot("A_C", true, false);
         var board = List.of(slots).stream().map(slot -> new GdxHandCardCollection.BoardCard(slot, normal)).toList();
-        return new GdxHandCardCollection(board, speed, new CompletableFuture<>());
+        return new GdxHandCardCollection(board, speed, true, new CompletableFuture<>());
     }
 }

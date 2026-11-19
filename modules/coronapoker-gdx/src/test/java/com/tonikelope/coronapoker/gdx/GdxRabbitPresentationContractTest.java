@@ -36,28 +36,22 @@ final class GdxRabbitPresentationContractTest {
     }
 
     @Test
-    void packagesTheOriginalSwingRabbitCardArtwork() throws Exception {
+    void packagesTheRabbitCoverArtwork() throws Exception {
         BufferedImage covered = image("/images/bugs2.png");
-        BufferedImage revealed = image("/images/bugs2_b.png");
-
         assertEquals(484, covered.getWidth());
         assertEquals(652, covered.getHeight());
-        assertEquals(covered.getWidth(), revealed.getWidth());
-        assertEquals(covered.getHeight(), revealed.getHeight());
-        assertTrue(revealed.getColorModel().hasAlpha(),
-                "the revealed Rabbit peel must overlay the card face");
     }
 
     @Test
-    void rabbitPeelShaderHonorsTheSpriteBatchSamplerContract() {
+    void rabbitPeelUsesTheRoundedCoverAndShadesBothSidesOfTheMesh() {
         String shader = CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER;
 
         assertTrue(shader.contains("uniform sampler2D u_texture;"));
         assertTrue(shader.contains(
-                "sampleCardArtwork(u_texture, uv)"),
-                "u_texture must remain active and cannot be optimized away");
-        assertTrue(shader.contains("* u_canvasScale + vec2(0.5)"),
-                "Rabbit cards need the same transparent AA canvas as every other card");
+                "sampleCardArtwork(u_texture, v_texCoords)"));
+        assertTrue(shader.contains("roundedCardCoverage(v_texCoords)"));
+        assertTrue(shader.contains("gl_FrontFacing"));
+        assertFalse(shader.contains("u_overlayTexture"));
         assertTrue(shader.contains("uniform vec4 u_highlight;"));
         assertTrue(shader.contains(
                 "mix(pixel.rgb, u_highlight.rgb, u_highlight.a)"),
@@ -101,8 +95,6 @@ final class GdxRabbitPresentationContractTest {
                 "all cards must receive the selected mode's LOD policy");
         assertFalse(shader.contains("cardArtworkContrast"),
                 "the lab-selected profiles must not restore colour heuristics");
-        assertTrue(CoronaPokerGdxTable.RABBIT_PEEL_FRAGMENT_SHADER.contains(
-                "sampleCardArtwork(u_overlayTexture, uv)"));
     }
 
     private static BufferedImage image(String resource) throws Exception {

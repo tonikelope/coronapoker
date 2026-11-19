@@ -397,7 +397,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + STACK_CHIP_ROTATION_VARIANTS * 2;
     private static final int CHIP_TEXTURE_CREATION_STEPS = CHIP_COLOR_COUNT
             * CHIP_TEXTURES_PER_COLOR;
-    private static final int FIRST_CHIP_TEXTURE_CREATION_STEP = 4;
+    private static final int FIRST_CHIP_TEXTURE_CREATION_STEP = 3;
     private static final int POT_TEXTURE_CREATION_STEP =
             FIRST_CHIP_TEXTURE_CREATION_STEP + CHIP_TEXTURE_CREATION_STEPS;
     private static final float STACK_CHIP_MARK_PERIOD = MathUtils.PI2 / 8f;
@@ -455,7 +455,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float CARD_ARTWORK_NATIVE_LOD_BIAS = 0f;
     private static final float CARD_ARTWORK_SMOOTH_LOD_BIAS = -0.25f;
     /** Limits Rabbit Hunting movement to the artwork's lifted corner. */
-    private static final float RABBIT_PEEL_MAX_DIAGONAL = 1.34f;
     private static final float PLAYER_POD_WIDTH = 286f;
     private static final float PLAYER_POD_HEIGHT = 120f;
     static final float RIVAL_MONEY_CELL_X = 63f;
@@ -766,36 +765,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "#extension GL_OES_standard_derivatives : enable\n"
             + "precision mediump float;\n"
             + "#endif\n"
-            + "varying vec4 v_color;\n"
             + "varying vec2 v_texCoords;\n"
-            // SpriteBatch requires an active sampler named u_texture when a
-            // custom shader is selected. It carries the covered Rabbit card.
+            + "varying float v_bend;\n"
+            + "varying float v_light;\n"
+            + "varying float v_lift;\n"
             + "uniform sampler2D u_texture;\n"
-            + "uniform sampler2D u_frontTexture;\n"
-            + "uniform sampler2D u_overlayTexture;\n"
-            + "uniform float u_progress;\n"
-            + "uniform float u_peelExtent;\n"
             + "uniform float u_cornerRadius;\n"
             + "uniform float u_edgeSoftness;\n"
-            + "uniform float u_canvasScale;\n"
+            + "uniform float u_opacity;\n"
             + "uniform vec4 u_highlight;\n"
             + ROUNDED_CARD_COVERAGE_GLSL
             + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
-            + "    vec2 uv = (v_texCoords - vec2(0.5)) * u_canvasScale + vec2(0.5);\n"
-            + "    float diagonal = uv.x + uv.y;\n"
-            + "    float frontier = u_progress * u_peelExtent - 0.015;\n"
-            + "    float peel = 1.0 - smoothstep(frontier - 0.008, frontier + 0.008, diagonal);\n"
-            + "    float rounded = roundedCardCoverage(uv);\n"
-            + "    if (peel * rounded <= 0.001) discard;\n"
-            + "    vec4 covered = sampleCardArtwork(u_texture, uv);\n"
-            + "    vec4 face = sampleCardArtwork(u_frontTexture, uv);\n"
-            + "    vec4 flap = sampleCardArtwork(u_overlayTexture, uv);\n"
-            + "    vec4 revealed = vec4(mix(face.rgb, flap.rgb, flap.a),\n"
-            + "            flap.a + face.a * (1.0 - flap.a));\n"
-            + "    vec4 pixel = revealed * v_color;\n"
+            + "    float rounded = roundedCardCoverage(v_texCoords);\n"
+            + "    if (rounded <= 0.001) discard;\n"
+            + "    vec4 covered = sampleCardArtwork(u_texture, v_texCoords);\n"
+            + "    float undersideLight = 0.47 + 0.37 * smoothstep(0.10, 0.37, v_lift)\n"
+            + "            + 0.10 * v_light;\n"
+            + "    vec3 surface = gl_FrontFacing ? covered.rgb * mix(1.0, v_light, v_bend)\n"
+            + "            : vec3(0.96, 0.95, 0.92) * undersideLight;\n"
+            + "    vec4 pixel = vec4(surface, covered.a * rounded * u_opacity);\n"
             + "    pixel.rgb = mix(pixel.rgb, u_highlight.rgb, u_highlight.a);\n"
-            + "    pixel.a *= covered.a * peel * rounded;\n"
             + "    if (pixel.a <= 0.001) discard;\n"
             + "    gl_FragColor = pixel;\n"
             + "}\n";
@@ -1412,6 +1402,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private ShaderProgram roundedCardShader;
     private final GdxCommunityTurn2D communityTurn2D = new GdxCommunityTurn2D();
     private ShaderProgram rabbitPeelShader;
+    private GdxRabbitPeel rabbitPeel;
     /*
      * Last rounded-card GPU state. Several remote cards normally share one
      * back and one projection; retaining that exact state lets SpriteBatch
@@ -1633,7 +1624,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture talkIcon;
     private Texture defaultCardBack;
     private Texture rabbitCardBack;
-    private Texture rabbitRevealOverlay;
     private Texture[] introCardFaces;
     private final IntroCardLayout introCardLayout;
     private final Color introShadeTop = new Color();
@@ -1718,7 +1708,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float potCenterX;
     private float potCenterY;
     private double lastPotValue = Double.NaN;
-    private PotPanelText potText = new PotPanelText("", "0");
+    private PotPanelText potText = new PotPanelText("", "");
 
     private float totalTime;
     private float volumeOverlayUntil;
@@ -1802,6 +1792,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private double runItTwiceBoardPotAmount;
     private long runItTwicePotPartitionSeed;
     private boolean runItTwicePotPartitionPending;
+    private boolean runItTwicePotPartitioned;
+    private RunItTwiceStandingPot runItTwiceStandingPot;
+    private TableVisualEvent.RunItTwiceBoard.Side runItTwiceBoardSide;
+    private double runItTwiceNextPot = Double.NaN;
     private final float[] potChipRebalanceFromCounts =
             new float[GdxStackChipLayout.COLUMN_COUNT];
     private final float[] potChipRebalanceTargetCounts =
@@ -3786,9 +3780,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (startupIntroOnly) return true;
             }
             case 4 -> {
-                rabbitPeelShader = new ShaderProgram(CARD_VERTEX_SHADER,
+                rabbitPeelShader = new ShaderProgram(GdxRabbitPeel.VERTEX_SHADER,
                         RABBIT_PEEL_FRAGMENT_SHADER);
                 requireCompiled(rabbitPeelShader, "Rabbit peel shader");
+                rabbitPeel = new GdxRabbitPeel();
             }
             case 5 -> {
                 avatarShader = new ShaderProgram(CARD_VERTEX_SHADER,
@@ -3958,8 +3953,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 0 -> defaultCardBack = cardTexture(
                     "images/decks/goliat/hq/trasera.jpg");
             case 1 -> rabbitCardBack = cardTexture("images/bugs2.png");
-            case 2 -> rabbitRevealOverlay = cardTexture("images/bugs2_b.png");
-            case 3 -> {
+            case 2 -> {
                 flyingChips = new Texture[4];
                 stackedChipFaces = new Texture[4]
                         [STACK_CHIP_ROTATION_VARIANTS];
@@ -5692,6 +5686,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 rebalancePotChipInventory();
                 liveState.apply(event);
                 livePotContributions.clear();
+                prepareRunItTwicePotPartitionIfReady(false);
                 syncSeatsFromLiveState();
                 barrier.complete(null);
                 return;
@@ -6093,6 +6088,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 barrier.complete(null);
             }
         } else {
+            List<GdxHandCardCollection.BoardCard> outgoingBoard = List.of();
             if (event instanceof TableVisualEvent.HandBoundary boundary
                     && boundary.phase() != TableVisualEvent.HandBoundary.Phase.END) {
                 resetHandCardCollection();
@@ -6118,6 +6114,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && boundary.phase()
                     == TableVisualEvent.HandBoundary.Phase.END) {
                 captureShowdownInvestments();
+                if (hasRunItTwicePot() && chipRackVisible(boundary.snapshot().pot())) {
+                    // The dealer fell back to a normal showdown with a payout pending.
+                    restoreUnspentRunItTwicePotChips();
+                }
                 // END now carries the exact whole pot that is still visible
                 // before payout. Action contributions are already included in
                 // that amount; retaining this renderer-local cache would count
@@ -6128,6 +6128,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (event instanceof TableVisualEvent.RunItTwiceBoard board
                     && board.side()
                     == TableVisualEvent.RunItTwiceBoard.Side.B) {
+                if (canCollectHandCards()) {
+                    outgoingBoard = collectableBoardCards(board.redealSlots());
+                }
                 liveWinnerStarts.clear();
                 liveShowdownHoverNickname = null;
                 liveHandProbabilities.clear();
@@ -6230,6 +6233,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // numeric stack so both representations agree immediately.
                 rebalanceSeatRack(result.nickname());
             }
+            if (!outgoingBoard.isEmpty()) {
+                startCardCollection(outgoingBoard, false, barrier);
+                return;
+            }
             barrier.complete(null);
         }
     }
@@ -6283,27 +6290,43 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             });
             return;
         }
-        if (handCardsCollected || liveShuffle != null || liveState == null
-                || liveState.snapshot().street() != TableSnapshot.Street.SHOWDOWN
-                || !tablePreference("animaciones", true)
-                || !tablePreference(GdxSettingsContract.COLLECT_HAND_CARDS_KEY, true)) {
+        if (!canCollectHandCards()
+                || liveState.snapshot().street() != TableSnapshot.Street.SHOWDOWN) {
             barrier.complete(null);
             return;
         }
-        var cards = liveState.snapshot().communityCards();
-        var board = new ArrayList<GdxHandCardCollection.BoardCard>(5);
-        for (int slot = 0; slot < Math.min(5, cards.size()); slot++) {
-            if (presentsRestingCommunityCard(slot, cards.get(slot))) {
-                board.add(new GdxHandCardCollection.BoardCard(slot, cards.get(slot)));
-            }
-        }
+        var board = collectableBoardCards(List.of(0, 1, 2, 3, 4));
         if (board.isEmpty() && !hasBackgroundHoleCardLayerContent()
                 && !hasForegroundHoleCardLayerContent()) {
             barrier.complete(null);
             return;
         }
+        startCardCollection(board, true, barrier);
+    }
+
+    private boolean canCollectHandCards() {
+        return !handCardsCollected && handCardCollection == null
+                && liveShuffle == null && liveState != null
+                && liveAnimationsEnabled()
+                && tablePreference(GdxSettingsContract.COLLECT_HAND_CARDS_KEY, true);
+    }
+
+    private List<GdxHandCardCollection.BoardCard> collectableBoardCards(
+            List<Integer> slots) {
+        var cards = liveState.snapshot().communityCards();
+        var board = new ArrayList<GdxHandCardCollection.BoardCard>(5);
+        for (int slot = 0; slot < Math.min(5, cards.size()); slot++) {
+            if (slots.contains(slot) && presentsRestingCommunityCard(slot, cards.get(slot))) {
+                board.add(new GdxHandCardCollection.BoardCard(slot, cards.get(slot)));
+            }
+        }
+        return board;
+    }
+
+    private void startCardCollection(List<GdxHandCardCollection.BoardCard> board,
+            boolean wholeHand, CompletableFuture<Void> barrier) {
         int speed = MathUtils.clamp(liveDealSpeedPercent(), 60, 150);
-        handCardCollection = new GdxHandCardCollection(board, speed, barrier);
+        handCardCollection = new GdxHandCardCollection(board, speed, wholeHand, barrier);
     }
 
     private void updateHandCardCollection() {
@@ -6311,7 +6334,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (active == null) return;
         active.advance(renderFrameNanos);
         if (active.finished()) {
-            handCardsCollected = true;
+            handCardsCollected = active.wholeHand;
             handCardCollection = null;
             active.barrier.complete(null);
         }
@@ -6421,11 +6444,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // from split payments can differ by a cent and make the label grow
         // immediately before the chips leave it.
         double payoutPotBefore = livePot();
-        // A hot join or a recovery cut-over may know the authoritative amount
-        // before it has renderer-local chip identities. Repair that exceptional
-        // cache now, using a balanced physical rack, so a later all-in/side-pot
-        // payout cannot turn the missing history into an invented x10 tower.
-        reconcilePotChipInventory(payoutPotBefore, event.sequence());
+        if (hasRunItTwicePot()) {
+            prepareRunItTwicePayout(event, payoutPotBefore, payoutAmount);
+            boolean payingSideA = runItTwiceBoardSide == TableVisualEvent.RunItTwiceBoard.Side.A;
+            if (MoneyMath.compare(potAfter, 0d) == 0
+                    && (payingSideA || runItTwiceBoardSide == null && investedAmountAfter > 0d)) {
+                // Both board events quote the same nominal half. The preview
+                // keeps that amount while A's result remains on the table.
+                runItTwiceNextPot = payingSideA ? runItTwiceBoardPotAmount : payoutPotBefore;
+            }
+        } else {
+            // A hot join may supply the amount before the renderer knows the
+            // chip identities. Restore the physical rack before paying out.
+            reconcilePotChipInventory(payoutPotBefore, event.sequence());
+        }
         displayedPayoutPot(payoutPotBefore, potAfter, payoutAmount, 0d);
         livePotContributions.clear();
         List<VisualChipSpec> payoutChips = withdrawPotVisualChips(
@@ -6452,6 +6484,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 payoutPotBefore, liveShowdownInvestments, payoutChips,
                 liveCounterDenomination());
         syncSeatsFromLiveState();
+    }
+
+    private void prepareRunItTwicePayout(TableVisualEvent event,
+            double displayedPot, double payoutAmount) {
+        prepareRunItTwicePotPartitionIfReady(true);
+        if (!runItTwicePotPartitioned
+                && event instanceof TableVisualEvent.PayoutBatch payout
+                && MoneyMath.compare(payout.investedAmountAfter(), 0d) > 0) {
+            // A scene cut-over can miss A's board event. Its payout still
+            // carries the amount left for B and any eventual carryover.
+            reconcilePotChipInventory(payoutAmount, event.sequence());
+            runItTwiceSideBPotChips = balancedVisualChips(payout.investedAmountAfter(),
+                    liveCounterDenomination(), event.sequence() ^ 0x082efa98ec4e6c89L);
+            runItTwicePotPartitioned = true;
+        }
+        if (MoneyMath.compare(livePotChips.amount(), payoutAmount) < 0) {
+            // An uncalled side pot is returned entirely on A, so the payment
+            // can exceed the nominal half in the label.
+            mergeUnspentRunItTwicePotChips();
+        }
+        if (!runItTwicePotPartitioned) {
+            reconcilePotChipInventory(Math.max(displayedPot, payoutAmount),
+                    event.sequence());
+        } else if (MoneyMath.compare(livePotChips.amount(), payoutAmount) < 0) {
+            reconcilePotChipInventory(payoutAmount, event.sequence());
+        }
     }
 
     private void replacePotChipInventory(double exactAmount, long seed) {
@@ -6551,7 +6609,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<VisualChipSpec> withdrawPotVisualChips(double exactAmount,
             long seed) {
         double requested = Math.max(0d, MoneyMath.clean(exactAmount));
-        if (usesPerspectiveChipCapacity() && livePayout == null) {
+        if (usesPerspectiveChipCapacity() && !hasRunItTwicePot()
+                && livePayout == null) {
             livePotChips.relieveTableCapacity(liveCounterDenomination());
         }
         return livePotChips.withdraw(requested,
@@ -6580,15 +6639,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void acceptRunItTwicePotBoard(
             TableVisualEvent.RunItTwiceBoard board) {
         if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
-            runItTwiceSideBPotChips = List.of();
-            runItTwiceResidualPotChips = List.of();
+            clearRunItTwicePotPartition();
+            runItTwiceBoardSide = board.side();
             runItTwiceBoardPotAmount = board.potAmount();
             runItTwicePotPartitionSeed = board.sequence();
             runItTwicePotPartitionPending = true;
-            prepareRunItTwicePotPartitionIfReady();
+            prepareRunItTwicePotPartitionIfReady(false);
             return;
         }
 
+        runItTwiceBoardSide = board.side();
+        runItTwiceNextPot = Double.NaN;
         // SIDE-A's payout has already consumed its reserved rack. SIDE-B must
         // receive its own exact half, not whatever happened to remain after
         // withdrawing from a full-pot inventory.
@@ -6602,7 +6663,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             livePotChips.clear();
             livePotChips.deposit(runItTwiceSideBPotChips);
             runItTwiceSideBPotChips = List.of();
-        } else if (visualChipAmountMinor(livePotChips.snapshot())
+        } else if (!runItTwicePotPartitioned
+                && visualChipAmountMinor(livePotChips.snapshot())
                 != Math.round(board.potAmount() * 100d)) {
             // Recovery-only fallback. Normal play always reaches the reserved
             // branch above, while a mid-sequence reconnect can legitimately
@@ -6613,7 +6675,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         potChipRebalanceStartedAt = Float.NaN;
     }
 
-    private void prepareRunItTwicePotPartitionIfReady() {
+    private void prepareRunItTwicePotPartitionIfReady(boolean settling) {
         if (!runItTwicePotPartitionPending
                 || !liveActionChips.isEmpty()
                 || liveChipBatch != null || pendingCollectBets != null) {
@@ -6625,14 +6687,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Math.round(runItTwiceBoardPotAmount * 100d));
         long fullMinor = visualChipAmountMinor(fullPot);
         if (boardMinor <= 0L) {
-            clearRunItTwicePotPartition();
+            runItTwicePotPartitionPending = false;
+            runItTwicePotPartitioned = true;
             return;
         }
         if (fullMinor < boardMinor * 2L) {
-            // No physical flight remains at this point, so an undersized
-            // renderer cache is stale (typically a recovery cut-over). Repair
-            // the complete visual pot before partitioning; canonical money is
-            // untouched and still comes exclusively from the board event.
+            // The vote may arrive before the last street's collection is
+            // queued. Let those chips land before repairing missing history.
+            if (!settling) return;
             fullPot = balancedVisualChips(
                     boardMinor * 2L / 100d, liveCounterDenomination(),
                     runItTwicePotPartitionSeed ^ 0xbe5466cf34e90c6cL);
@@ -6643,6 +6705,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
                 .splitForRunItTwice(fullPot, runItTwiceBoardPotAmount,
                         liveCounterDenomination(), capacities,
+                        !usesPerspectiveChipCapacity(),
                         runItTwicePotPartitionSeed);
         if (visualChipAmountMinor(split.sideA()) != boardMinor
                 || visualChipAmountMinor(split.sideB()) != boardMinor) {
@@ -6668,17 +6731,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         runItTwiceSideBPotChips = split.sideB();
         runItTwiceResidualPotChips = split.remainder();
         runItTwicePotPartitionPending = false;
+        runItTwicePotPartitioned = true;
         potChipRebalanceStartedAt = Float.NaN;
     }
 
     private void restoreUnspentRunItTwicePotChips() {
-        if (!runItTwiceSideBPotChips.isEmpty()) {
-            livePotChips.deposit(runItTwiceSideBPotChips);
-        }
-        if (!runItTwiceResidualPotChips.isEmpty()) {
-            livePotChips.deposit(runItTwiceResidualPotChips);
-        }
+        mergeUnspentRunItTwicePotChips();
         clearRunItTwicePotPartition();
+    }
+
+    private void mergeUnspentRunItTwicePotChips() {
+        livePotChips.deposit(runItTwiceSideBPotChips);
+        livePotChips.deposit(runItTwiceResidualPotChips);
+        runItTwiceSideBPotChips = List.of();
+        runItTwiceResidualPotChips = List.of();
     }
 
     private void clearRunItTwicePotPartition() {
@@ -6687,6 +6753,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         runItTwiceBoardPotAmount = 0d;
         runItTwicePotPartitionSeed = 0L;
         runItTwicePotPartitionPending = false;
+        runItTwicePotPartitioned = false;
+        runItTwiceStandingPot = null;
+        runItTwiceBoardSide = null;
+        runItTwiceNextPot = Double.NaN;
     }
 
     private void applyLandedChipInventories(LiveChip chip, float progress, long startedAt) {
@@ -8969,16 +9039,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         : localHud.stackChipVisualBounds().contains(x, y))) {
             return ChipCatalogTarget.player(local.name);
         }
-        if (chipRackVisible(livePot())) {
-            if (perspectiveActive) {
-                if (perspectivePotChipsContain(x, y)) return ChipCatalogTarget.tablePot();
-            } else {
-                StackChipRackGeometry geometry = animatedPotChipRackGeometry();
-                Rectangle bounds = chipRackVisualBounds(potChipRackCenterX(potCenterX),
-                        potChipRackBaseY(geometry), geometry);
-                if (tablePlaneContains(x, y, bounds.x, bounds.y, bounds.width, bounds.height)) {
-                    return ChipCatalogTarget.tablePot();
-                }
+        if (perspectiveActive) {
+            if (perspectivePotChipsContain(x, y)) return ChipCatalogTarget.tablePot();
+        } else if (chipRackVisible(potPanelAmount())) {
+            StackChipRackGeometry geometry = animatedPotChipRackGeometry();
+            Rectangle bounds = chipRackVisualBounds(potChipRackCenterX(potCenterX),
+                    potChipRackBaseY(geometry), geometry);
+            if (tablePlaneContains(x, y, bounds.x, bounds.y, bounds.width, bounds.height)) {
+                return ChipCatalogTarget.tablePot();
             }
         }
         for (Seat seat : seats) {
@@ -15832,9 +15900,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveRabbitCard(TableSnapshot.CardSnapshot card,
             LiveCardPlacement placement, float alpha,
             boolean showdownTint) {
-        // The covered Rabbit artwork remains visible below the peeled layer.
-        // Tint both layers so the hand highlight covers the complete card,
-        // including the still-covered right-hand portion.
+        if (card.faceUp() && !card.code().isBlank()) {
+            drawRabbitPeelLayer(liveCardFace(card.code()), placement, 1f,
+                    alpha, showdownTint);
+            return;
+        }
         drawRabbitCoveredCard(placement, alpha, showdownTint);
         if (!card.faceUp() && liveState.rabbitRequestable()) {
             GameConfigCodecV1.Configuration configuration
@@ -15845,10 +15915,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     liveState.rabbitRequestCount(
                             liveState.snapshot().localNickname()));
             drawRabbitCostChip(cost, placement, alpha);
-        }
-        if (card.faceUp() && !card.code().isBlank()) {
-            drawRabbitPeelLayer(liveCardFace(card.code()), placement, 1f,
-                    alpha, showdownTint);
         }
     }
 
@@ -15894,42 +15960,42 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawRabbitCoveredCard(LiveCardPlacement placement,
-            float alpha) {
-        drawRabbitCoveredCard(placement, alpha, false);
+            float alpha, boolean showdownTint) {
+        drawRabbitFlatCard(rabbitCardBack, placement, alpha, showdownTint);
     }
 
-    private void drawRabbitCoveredCard(LiveCardPlacement placement,
+    private void drawRabbitFlatCard(Texture artwork, LiveCardPlacement placement,
             float alpha, boolean showdownTint) {
         batch.setColor(1f, 1f, 1f, alpha);
-        useRoundedCardShader(rabbitCardBack, !perspectiveBoardArtwork);
+        useRoundedCardShader(artwork, !perspectiveBoardArtwork);
         setCardShowdownOverlay(showdownTint);
         float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
         float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
-        batch.draw(rabbitCardBack,
+        batch.draw(artwork,
                 placement.x - canvasWidth / 2f,
                 placement.y - canvasHeight / 2f,
                 canvasWidth / 2f, canvasHeight / 2f,
                 canvasWidth, canvasHeight, 1f, 1f,
-                placement.rotation, 0, 0, rabbitCardBack.getWidth(),
-                rabbitCardBack.getHeight(), false, false);
+                placement.rotation, 0, 0, artwork.getWidth(),
+                artwork.getHeight(), false, false);
     }
 
     private void drawRabbitPeelLayer(Texture face,
             LiveCardPlacement placement, float progress, float alpha,
             boolean showdownTint) {
-        useRabbitPeelShader(face, progress, showdownTint);
-        batch.setColor(1f, 1f, 1f, alpha);
-        float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
-        float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
-        batch.draw(rabbitCardBack,
-                placement.x - canvasWidth / 2f,
-                placement.y - canvasHeight / 2f,
-                canvasWidth / 2f, canvasHeight / 2f,
-                canvasWidth, canvasHeight, 1f, 1f,
-                placement.rotation, 0, 0, rabbitCardBack.getWidth(),
-                rabbitCardBack.getHeight(), false, false);
-        batch.flush();
+        if (progress <= 0f) {
+            drawRabbitCoveredCard(placement, alpha, showdownTint);
+            return;
+        }
+        drawRabbitFlatCard(face, placement, alpha, showdownTint);
+        batch.end();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFuncSeparate(batch.getBlendSrcFunc(), batch.getBlendDstFunc(),
+                batch.getBlendSrcFuncAlpha(), batch.getBlendDstFuncAlpha());
+        useRabbitPeelShader(placement, progress, alpha, showdownTint);
+        rabbitPeel.draw(rabbitPeelShader);
         batch.setShader(null);
+        batch.begin();
     }
 
     static float rabbitRestingAlpha(boolean rabbitCard, float normalAlpha) {
@@ -16349,7 +16415,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean beginHandCardFadeLayer() {
-        if (handCardCollection == null || handCardCollection.opacity() >= 1f) return false;
+        if (handCardCollection == null || !handCardCollection.wholeHand
+                || handCardCollection.opacity() >= 1f) return false;
         int width = Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics.getBackBufferHeight();
         if (handCardFadeLayer == null || handCardFadeLayer.getWidth() != width
@@ -16401,7 +16468,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (liveShuffle != null) {
             return;
         }
-        if (handCardCollection != null) {
+        if (handCardCollection != null && handCardCollection.wholeHand) {
             drawCollectedBoard(cardY, cardW, cardH, gap, firstX, cardBack);
             return;
         }
@@ -16450,6 +16517,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     deal.slot(), firstX, cardY, cardW, cardH, gap),
                     flight.flightProgress(), cardBack, flight.route);
         }
+        if (handCardCollection != null) {
+            drawCollectedBoard(cardY, cardW, cardH, gap, firstX, cardBack);
+        }
     }
 
     private void drawCollectedBoard(float cardY, float cardW, float cardH,
@@ -16465,9 +16535,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float position = Math.max(item.slot(), sweep);
             var card = new LiveCardPlacement(firstX + cardW * .5f + gap * position,
                     cardY + cardH * .5f, cardW, cardH, 0f);
-            if (perspectiveActive && position != lastPosition) drawBoardContactShadow(back, card, 1f);
-            drawLiveRestingCard(item.card(), card, back, "", item.slot(), true,
-                    handCardCollection.cardElevation(index, position, cardW, gap));
+            float elevation = handCardCollection.cardElevation(index, position, cardW, gap);
+            if (handCardCollection.wholeHand) {
+                if (perspectiveActive && position != lastPosition) drawBoardContactShadow(back, card, 1f);
+                drawLiveRestingCard(item.card(), card, back, "", item.slot(), true, elevation);
+            } else {
+                float opacity = handCardCollection.opacity();
+                if (perspectiveActive && position != lastPosition) drawBoardContactShadow(back, card, opacity);
+                drawLiveRestingCard(item.card(), card, back, 1f,
+                        liveRestingCardAlpha(item.card(), "", item.slot(), true, card) * opacity,
+                        false, elevation);
+            }
             lastPosition = position;
         }
     }
@@ -16628,10 +16706,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveRabbitRevealCard(int slot,
             LiveCardPlacement placement) {
         TableSnapshot.CardSnapshot card = liveRabbitReveal.card(slot);
-        float progress = Interpolation.smoother.apply(
+        float progress = Interpolation.sineOut.apply(
                 liveRabbitReveal.progress(renderElapsedSeconds(liveRabbitReveal.startedAtNanos)));
         Texture face = liveCardFace(card.code());
-        drawRabbitCoveredCard(placement, 1f);
         drawRabbitPeelLayer(face, placement, progress, 1f, false);
     }
 
@@ -16763,14 +16840,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawPotPanelOnTable(float alpha) {
         float opacity = MathUtils.clamp(alpha, 0f, 1f);
-        double currentPot = Math.max(0d, livePot());
-        String currentPotTitle = communityPotTitle(gameText,
-                liveState.runItTwicePotPrefix());
-        if (Double.compare(currentPot, lastPotValue) != 0
+        double labelAmount = Math.max(0d, potPanelAmount());
+        String potPrefix = previewRunItTwiceSideB()
+                ? gameText.translate("runittwice.pot_label_full",
+                        gameText.translate("runittwice.pot_label_b"))
+                : liveState.runItTwicePotPrefix();
+        String currentPotTitle = communityPotTitle(gameText, potPrefix);
+        if (Double.compare(labelAmount, lastPotValue) != 0
                 || !currentPotTitle.equals(potText.title())) {
-            lastPotValue = currentPot;
-            potText = communityPotText(gameText,
-                    liveState.runItTwicePotPrefix(), currentPot);
+            lastPotValue = labelAmount;
+            potText = communityPotText(gameText, potPrefix, labelAmount);
         }
 
         float panelWidth = potPanelBounds.width;
@@ -16807,8 +16886,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, opacity);
-        List<VisualChipSpec> potChips = perspectiveActive
-                ? List.of() : displayedPotVisualChips(currentPot);
+        List<VisualChipSpec> potChips = perspectiveActive ? List.of()
+                : displayedPotVisualChips(labelAmount);
         if (!potChips.isEmpty()) {
             StackChipRackGeometry potGeometry = animatedPotChipRackGeometry();
             float iconBaseY = potChipRackBaseY(potGeometry);
@@ -16830,9 +16909,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedCenteredInBox(stackFont, potText.title(),
                 textLeft, contentY + POT_PANEL_HEIGHT - 27f, textWidth, 20f,
                 Color.WHITE, opacity);
-        drawFittedMoneyInBox(localOutcomeMediumFont, potText.amount(),
-                textLeft, amountY, textWidth, amountHeight,
-                Color.WHITE, opacity);
+        if (!potText.amount().isEmpty()) {
+            drawFittedMoneyInBox(localOutcomeMediumFont, potText.amount(),
+                    textLeft, amountY, textWidth, amountHeight,
+                    Color.WHITE, opacity);
+        }
         batch.setColor(Color.WHITE);
         batch.end();
 
@@ -16910,10 +16991,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         localRackCenterY = handOnTable.y - cardWidth * .46f;
 
         boolean settled = tableChipLayoutSettled();
-        if (settled) livePotChips.relieveTableCapacity(liveCounterDenomination());
+        boolean compactPot = settled && !hasRunItTwicePot();
+        if (compactPot) livePotChips.relieveTableCapacity(liveCounterDenomination());
         List<VisualChipSpec> visiblePot = displayedPotVisualChips(Math.max(0d, livePot()));
         GdxStackChipLayout.Layout pot = potVisualChipLayout(visiblePot);
-        if (settled && visiblePot != livePotChips.snapshot()) {
+        if (compactPot && visiblePot != livePotChips.snapshot()) {
             pot = GdxStackChipLayout.colourUpForPiles(pot, liveCounterDenomination(),
                     GdxTableChipSlots.POT_SLOT_COUNT);
         }
@@ -16959,10 +17041,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         perspectivePotRack.arrange(plannedPotChips);
         perspectiveLocalRack.arrange(plannedLocalChips);
-        if (settled) {
-            perspectivePotRack.compactPotSides();
-            perspectiveLocalRack.compactLocalRows();
-        }
+        if (compactPot) perspectivePotRack.compactPotSides();
+        if (settled) perspectiveLocalRack.compactLocalRows();
         updateStackBetPreview(stack);
         perspectiveTable.clearDealPiles();
         if (!liveCardFlights.isEmpty() || liveCommunityReveal != null) {
@@ -17323,8 +17403,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private List<VisualChipSpec> displayedPotVisualChips(double currentPot) {
-        if (!chipRackVisible(currentPot)) return List.of();
+        if (!perspectiveActive && previewRunItTwiceSideB()) {
+            if (!runItTwiceSideBPotChips.isEmpty()) return runItTwiceSideBPotChips;
+            currentPot = runItTwiceNextPot;
+        }
+        boolean physicalRunItTwicePot = perspectiveActive && hasRunItTwicePot();
+        if (!physicalRunItTwicePot && !chipRackVisible(currentPot)) return List.of();
         List<VisualChipSpec> inventory = livePotChips.snapshot();
+        if (physicalRunItTwicePot) {
+            inventory = runItTwiceStandingPotChips(inventory);
+        }
         LivePayout payout = livePayout;
         if (payout != null) {
             ArrayList<VisualChipSpec> visible = new ArrayList<>(inventory);
@@ -17338,7 +17426,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             return List.copyOf(visible);
         }
-        if (visualChipAmountMinor(inventory)
+        if (physicalRunItTwicePot || visualChipAmountMinor(inventory)
                 == Math.round(currentPot * 100d)) {
             return inventory;
         }
@@ -17347,6 +17435,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return balancedVisualChips(currentPot, liveCounterDenomination(),
                 0x2f6e2b1L);
     }
+
+    private List<VisualChipSpec> runItTwiceStandingPotChips(
+            List<VisualChipSpec> active) {
+        List<VisualChipSpec> sideB = runItTwiceSideBPotChips;
+        List<VisualChipSpec> residual = runItTwiceResidualPotChips;
+        if (sideB.isEmpty() && residual.isEmpty()) return active;
+        RunItTwiceStandingPot cached = runItTwiceStandingPot;
+        if (cached == null || cached.active() != active
+                || cached.sideB() != sideB || cached.residual() != residual) {
+            ArrayList<VisualChipSpec> all = new ArrayList<>(active);
+            all.addAll(sideB);
+            all.addAll(residual);
+            runItTwiceStandingPot = new RunItTwiceStandingPot(active, sideB,
+                    residual, List.copyOf(all));
+        }
+        return runItTwiceStandingPot.chips();
+    }
+
+    private record RunItTwiceStandingPot(List<VisualChipSpec> active,
+            List<VisualChipSpec> sideB, List<VisualChipSpec> residual,
+            List<VisualChipSpec> chips) {}
 
     static float lastHandBadgeCenterY(float potPanelBottomY) {
         // The board's top edge is exactly POT_BOARD_GAP below the pot panel.
@@ -17937,7 +18046,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     static PotPanelText communityPotText(GdxGameText text,
             String runItTwicePrefix, double amount) {
         return new PotPanelText(communityPotTitle(text, runItTwicePrefix),
-                formatAmount(Math.max(0d, amount)));
+                chipRackVisible(amount) ? formatAmount(amount) : "");
     }
 
     private static String communityPotTitle(GdxGameText text,
@@ -17981,32 +18090,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         configureCardShader(front, defaultCardBack, angle, true, aspect);
     }
 
-    private void useRabbitPeelShader(Texture front, float progress,
-            boolean showdownTint) {
-        Objects.requireNonNull(front, "Rabbit reveal requires a card face");
-        batch.flush();
-        batch.setShader(rabbitPeelShader);
-        batch.flush();
-        rabbitRevealOverlay.bind(2);
-        front.bind(1);
+    private void useRabbitPeelShader(LiveCardPlacement placement, float progress,
+            float alpha, boolean showdownTint) {
+        rabbitPeelShader.bind();
         rabbitCardBack.bind(0);
         rabbitPeelShader.setUniformi("u_texture", 0);
-        rabbitPeelShader.setUniformi("u_frontTexture", 1);
-        rabbitPeelShader.setUniformi("u_overlayTexture", 2);
+        rabbitPeelShader.setUniformMatrix("u_projTrans", batch.getProjectionMatrix());
+        rabbitPeelShader.setUniformf("u_center", placement.x, placement.y);
+        rabbitPeelShader.setUniformf("u_size", placement.width, placement.height);
+        rabbitPeelShader.setUniformf("u_overhead", perspectiveBoardArtwork ? 0f : 1f);
         rabbitPeelShader.setUniformf("u_progress",
                 MathUtils.clamp(progress, 0f, 1f));
-        rabbitPeelShader.setUniformf("u_peelExtent",
-                RABBIT_PEEL_MAX_DIAGONAL);
+        rabbitPeelShader.setUniformf("u_opacity", alpha);
         rabbitPeelShader.setUniformf("u_cornerRadius", CARD_CORNER_RADIUS);
         rabbitPeelShader.setUniformf("u_edgeSoftness", CARD_EDGE_SOFTNESS);
-        rabbitPeelShader.setUniformf("u_canvasScale",
-                CARD_SHADER_CANVAS_SCALE);
         rabbitPeelShader.setUniformf("u_artworkSmooth",
                 cardArtworkSmoothValue());
         rabbitPeelShader.setUniformf("u_extraArtworkSampling",
                 perspectiveBoardArtwork ? 0f : 1f);
         rabbitPeelShader.setUniformf("u_projectedArtwork", perspectiveBoardArtwork
-                ? (float) front.getHeight() / front.getWidth() : 0f);
+                ? (float) rabbitCardBack.getHeight() / rabbitCardBack.getWidth() : 0f);
         rabbitPeelShader.setUniformf("u_artworkLodBias",
                 cardArtworkLodBiasValue());
         rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
@@ -18272,7 +18375,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     pending.presentationSnapshot,
                     livePotContributions, liveCounterDenomination());
         }
-        prepareRunItTwicePotPartitionIfReady();
+        prepareRunItTwicePotPartitionIfReady(false);
     }
 
     private void drawLivePositionChips() {
@@ -21069,7 +21172,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } finally {
             liveChipBatch = null;
         }
-        prepareRunItTwicePotPartitionIfReady();
+        prepareRunItTwicePotPartitionIfReady(false);
     }
 
     private void updateLivePayout() {
@@ -21682,12 +21785,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return visualChipSmallBlind > 0d ? visualChipSmallBlind : 0.01d;
     }
 
+    private boolean hasRunItTwicePot() {
+        return !liveState.runItTwicePotPrefix().isBlank();
+    }
+
+    private boolean previewRunItTwiceSideB() {
+        return livePayout == null && !Double.isNaN(runItTwiceNextPot);
+    }
+
+    private double potPanelAmount() {
+        return previewRunItTwiceSideB() ? runItTwiceNextPot : livePot();
+    }
+
     private double livePot() {
         // A RunItTwiceBoard event owns the exact half shown for the active
         // board. In-flight collection batches still contain the full pot and
         // must not leak it back under a CARA A/CARA B prefix.
-        if (!liveState.runItTwicePotPrefix().isBlank()
-                && livePayout == null) {
+        if (hasRunItTwicePot() && livePayout == null) {
             return liveState.snapshot().pot();
         }
         if (livePayout != null) {
@@ -33189,7 +33303,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(fastMenuIcon);
         disposeSafely(defaultCardBack);
         disposeSafely(rabbitCardBack);
-        disposeSafely(rabbitRevealOverlay);
         disposeSafely(pot);
         if (introCardFaces != null) {
             for (Texture texture : introCardFaces) disposeSafely(texture);
@@ -33223,6 +33336,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(avatarShader);
         disposeSafely(alphaEdgeRenderer);
         disposeSafely(rabbitPeelShader);
+        disposeSafely(rabbitPeel);
         disposeSafely(roundedCardShader);
         disposeSafely(batch);
         disposeSafely(shapes);
@@ -33332,6 +33446,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.dispose();
         roundedCardShader.dispose();
         if (rabbitPeelShader != null) rabbitPeelShader.dispose();
+        if (rabbitPeel != null) rabbitPeel.dispose();
         if (avatarShader != null) avatarShader.dispose();
         if (cinematicShader != null) cinematicShader.dispose();
         if (!sharedAllInFireShader && allInFireShader != null) {
@@ -33401,7 +33516,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         communityStraddleIcon.dispose();
         defaultCardBack.dispose();
         rabbitCardBack.dispose();
-        rabbitRevealOverlay.dispose();
         if (flyingChips != null) {
             for (Texture flyingChip : flyingChips) {
                 if (flyingChip != null) flyingChip.dispose();

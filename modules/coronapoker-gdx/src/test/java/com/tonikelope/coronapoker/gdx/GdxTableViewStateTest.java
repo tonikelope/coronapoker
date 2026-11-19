@@ -2491,6 +2491,12 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.communityPotText(spanish, "BOTE-B:", 7.45d));
         assertEquals(new CoronaPokerGdxTable.PotPanelText("POT", "12.50"),
                 CoronaPokerGdxTable.communityPotText(english, "", 12.5d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("POT", ""),
+                CoronaPokerGdxTable.communityPotText(english, "", 0d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-A", ""),
+                CoronaPokerGdxTable.communityPotText(spanish, "BOTE-A:", 0d));
+        assertEquals(new CoronaPokerGdxTable.PotPanelText("BOTE-B", ""),
+                CoronaPokerGdxTable.communityPotText(spanish, "BOTE-B:", 0d));
         assertEquals(new CoronaPokerGdxTable.PotPanelText("POT-B", "7.45"),
                 CoronaPokerGdxTable.communityPotText(english,
                         english.translate("runittwice.pot_label_full",

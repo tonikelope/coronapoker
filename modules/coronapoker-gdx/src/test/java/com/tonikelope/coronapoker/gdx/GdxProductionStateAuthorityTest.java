@@ -884,7 +884,7 @@ final class GdxProductionStateAuthorityTest {
                 List.of(player("human"), player("remote")), List.of());
         GdxTableViewState projection = new GdxTableViewState(input);
         CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
-                true);
+                true, "2d");
         Field denomination = CoronaPokerGdxTable.class.getDeclaredField(
                 "visualChipSmallBlind");
         denomination.setAccessible(true);
@@ -928,6 +928,102 @@ final class GdxProductionStateAuthorityTest {
                 CoronaPokerGdxTable.visualChipLayout(sideB).columns()
                         .stream().map(GdxStackChipLayout.Column::chips)
                         .map(List::size).toList());
+    }
+
+    @Test
+    void perspectiveRunItTwiceDoesNotReplaceChipsWhileTheFinalBetsAreCollected(
+            @TempDir Path temporary) throws Exception {
+        var input = new TableSnapshot(1L, "human", TableSnapshot.Street.PREFLOP,
+                1d, "", false, List.of(player("human"), player("remote")), List.of());
+        var projection = new GdxTableViewState(input);
+        var table = nonAnimatedTable(temporary, projection, false, "3d");
+        Field perspective = CoronaPokerGdxTable.class.getDeclaredField("perspectiveActive");
+        perspective.setAccessible(true);
+        perspective.setBoolean(table, true);
+        table.acceptEvent(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+
+        List<CoronaPokerGdxTable.VisualChipSpec> before = standingPotChips(table);
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(2L,
+                TableVisualEvent.RunItTwiceBoard.Side.A, "BOTE-A:", 1.5d,
+                List.of()), new CompletableFuture<>());
+        assertEquals(1.5d, displayedPot(table));
+        assertEquals(100L, CoronaPokerGdxTable.visualChipAmountMinor(before));
+        assertEquals(before, standingPotChips(table));
+        table.acceptEvent(new TableVisualEvent.CollectBets(3L, List.of(
+                new TableVisualEvent.ChipTransfer("human", 1d, 9d, 0d, 1d),
+                new TableVisualEvent.ChipTransfer("remote", 1d, 9d, 0d, 1d)),
+                1d, 3d), new CompletableFuture<>());
+        assertEquals(1.5d, displayedPot(table));
+        assertEquals(300L, CoronaPokerGdxTable.visualChipAmountMinor(standingPotChips(table)));
+        table.acceptEvent(new TableVisualEvent.Payout(4L, "human", 1.5d,
+                0, 10.5d, 0d), new CompletableFuture<>());
+        assertEquals(0d, displayedPot(table));
+        assertEquals(150L, CoronaPokerGdxTable.visualChipAmountMinor(standingPotChips(table)));
+        var afterA = CoronaPokerGdxTable.visualChipLayout(standingPotChips(table));
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(5L,
+                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE-B:", 1.5d,
+                List.of(3, 4)), new CompletableFuture<>());
+        assertEquals(afterA, CoronaPokerGdxTable.visualChipLayout(standingPotChips(table)));
+        table.acceptEvent(new TableVisualEvent.Payout(6L, "remote", 1.5d,
+                0, 10.5d, 0d), new CompletableFuture<>());
+        assertTrue(standingPotChips(table).isEmpty());
+    }
+
+    @Test
+    void runItTwicePayoutRestoresTheUnpaidChipsAfterJoiningDuringA(
+            @TempDir Path temporary) throws Exception {
+        var input = new TableSnapshot(1L, "human", TableSnapshot.Street.TURN,
+                5d, "", false, List.of(player("human"), player("remote")),
+                List.of(), new TableSnapshot.TablePresentation("BOTE-A:", 0,
+                        List.of(), Map.of()));
+        var table = nonAnimatedTable(temporary, new GdxTableViewState(input),
+                false, "3d");
+        Field perspective = CoronaPokerGdxTable.class.getDeclaredField("perspectiveActive");
+        perspective.setAccessible(true);
+        perspective.setBoolean(table, true);
+        table.acceptEvent(new TableVisualEvent.HotJoinState(1L, input),
+                new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.PayoutBatch(2L, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer("human", 6d, 2d, 16d)),
+                0d, 4.01d), new CompletableFuture<>());
+        assertEquals(401L, CoronaPokerGdxTable.visualChipAmountMinor(standingPotChips(table)));
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(3L,
+                TableVisualEvent.RunItTwiceBoard.Side.B, "BOTE-B:", 5d,
+                List.of(3, 4)), new CompletableFuture<>());
+        assertEquals(401L, CoronaPokerGdxTable.visualChipAmountMinor(standingPotChips(table)));
+        table.acceptEvent(new TableVisualEvent.PayoutBatch(4L, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer("remote", 4d, 0d, 14d)),
+                0d, 0d), new CompletableFuture<>());
+        assertEquals(1L, CoronaPokerGdxTable.visualChipAmountMinor(standingPotChips(table)));
+    }
+
+    @Test
+    void pendingSingleBoardShowdownKeepsTheEntirePotAfterAnAcceptedRunItTwiceVote(
+            @TempDir Path temporary) throws Exception {
+        var input = new TableSnapshot(1L, "human", TableSnapshot.Street.PREFLOP,
+                10d, "", false, List.of(player("human"), player("remote")), List.of());
+        var projection = new GdxTableViewState(input);
+        var table = nonAnimatedTable(temporary, projection, false, "3d");
+        table.acceptEvent(new TableVisualEvent.HandBoundary(1L, 1L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, input),
+                new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.RunItTwiceBoard(2L,
+                TableVisualEvent.RunItTwiceBoard.Side.A, "BOTE-A:", 5d,
+                List.of()), new CompletableFuture<>());
+        var end = new TableSnapshot(1L, "human", TableSnapshot.Street.SHOWDOWN,
+                10d, "", false, input.players(), List.of());
+        table.acceptEvent(new TableVisualEvent.HandBoundary(3L, 1L,
+                TableVisualEvent.HandBoundary.Phase.END, end), new CompletableFuture<>());
+        assertTrue(projection.runItTwicePotPrefix().isEmpty());
+        assertEquals(10d, displayedPot(table));
+        assertEquals(10d, potInventory(table).amount());
+        table.acceptEvent(new TableVisualEvent.PayoutBatch(4L, List.of(
+                new TableVisualEvent.PayoutBatch.Transfer("remote", 10d, 0d, 20d)),
+                0d, 0d), new CompletableFuture<>());
+        assertTrue(potChips(table).isEmpty());
+        assertEquals(0d, displayedPot(table));
     }
 
     @Test
@@ -1036,8 +1132,14 @@ final class GdxProductionStateAuthorityTest {
 
     private static CoronaPokerGdxTable nonAnimatedTable(Path directory,
             GdxTableViewState projection, boolean masterEnabled) {
+        return nonAnimatedTable(directory, projection, masterEnabled, "3d");
+    }
+
+    private static CoronaPokerGdxTable nonAnimatedTable(Path directory,
+            GdxTableViewState projection, boolean masterEnabled, String view) {
         PreferencesService preferences = new PreferencesService(
                 directory.resolve("coronapoker.properties"));
+        preferences.properties().setProperty(GdxSettingsContract.TABLE_VIEW_KEY, view);
         preferences.properties().setProperty("sonido_efectos", "false");
         preferences.properties().setProperty("animaciones",
                 Boolean.toString(masterEnabled));
@@ -1059,6 +1161,15 @@ final class GdxProductionStateAuthorityTest {
     private static List<CoronaPokerGdxTable.VisualChipSpec> potChips(
             CoronaPokerGdxTable table) throws Exception {
         return potInventory(table).snapshot();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<CoronaPokerGdxTable.VisualChipSpec> standingPotChips(
+            CoronaPokerGdxTable table) throws Exception {
+        Method method = CoronaPokerGdxTable.class.getDeclaredMethod(
+                "displayedPotVisualChips", double.class);
+        method.setAccessible(true);
+        return (List<CoronaPokerGdxTable.VisualChipSpec>) method.invoke(table, displayedPot(table));
     }
 
     private static GdxPotChipInventory potInventory(

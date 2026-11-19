@@ -181,7 +181,8 @@ final class GdxFunctionalLabelOracle {
         var visiblePot = CoronaPokerGdxTable.communityPotText(text,
                 boardPrefix, projection.snapshot().pot());
         assertFalse(visiblePot.title().isBlank(), "GDX pot label cannot be blank");
-        assertEquals(CoronaPokerGdxTable.formatAmount(projection.snapshot().pot()),
+        double amount = projection.snapshot().pot();
+        assertEquals(amount == 0d ? "" : CoronaPokerGdxTable.formatAmount(amount),
                 visiblePot.amount(), "GDX pot amount must match the projection");
         if (!boardPrefix.isBlank()) {
             assertEquals(boardPrefix.replace(":", ""), visiblePot.title(),

@@ -1409,17 +1409,18 @@ final class GdxTableViewState {
 
     private void applyHandBoundary(TableVisualEvent.HandBoundary boundary) {
         TableSnapshot boundarySnapshot = boundary.snapshot();
-        // Run It Twice publishes each board payout before END and keeps the
-        // final board label visible during the showdown dwell. Replacing its
-        // already-paid pot with the canonical zero would produce the
-        // impossible "BOTE-B: 0" captured in a real game. The ordered
-        // board payout remains the owner of that visible amount.
         if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.END
                 && !runItTwicePotPrefix.isBlank()) {
-            boundarySnapshot = copySnapshot(boundarySnapshot,
-                    snapshot.pot(), boundarySnapshot.currentTurnNickname(),
-                    boundarySnapshot.players(),
-                    boundarySnapshot.communityCards());
+            if (MoneyMath.compare(boundarySnapshot.pot(), 0d) > 0) {
+                // An END with a pending pot uses the normal showdown path.
+                runItTwicePotPrefix = "";
+            } else {
+                // RIT pays before END. Keep the active board's display state.
+                boundarySnapshot = copySnapshot(boundarySnapshot,
+                        snapshot.pot(), boundarySnapshot.currentTurnNickname(),
+                        boundarySnapshot.players(),
+                        boundarySnapshot.communityCards());
+            }
         }
         snapshot = boundarySnapshot;
         if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.PREPARE) {

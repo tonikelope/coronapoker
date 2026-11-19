@@ -80,20 +80,22 @@ final class GdxPotChipInventory {
     static RunItTwiceSplit splitForRunItTwice(
             List<CoronaPokerGdxTable.VisualChipSpec> source,
             double exactBoardAmount, double smallBlind,
-            int[] relaxedCapacities, long seed) {
+            int[] relaxedCapacities, boolean balanceBoards, long seed) {
         GdxPotChipInventory inventory = new GdxPotChipInventory();
         inventory.deposit(source);
-        // Remove the two halves from the real physical inventory first so an
-        // odd remainder is retained exactly. The dealer then colours up both
-        // equal board piles to the same deterministic rack: SIDE-B must never
-        // inherit a random-looking residue merely because SIDE-A was paid
-        // first.
+        // Reserve the two payments from the physical pot and keep any odd
+        // remainder. The flat view shows one board rack at a time and uses
+        // matching compositions. The 3D table shows both reservations in the
+        // same rack and keeps the original denominations wherever possible.
         List<CoronaPokerGdxTable.VisualChipSpec> rawSideA =
                 inventory.withdraw(exactBoardAmount, smallBlind,
                         seed ^ 0x243f6a8885a308d3L);
         List<CoronaPokerGdxTable.VisualChipSpec> rawSideB =
                 inventory.withdraw(exactBoardAmount, smallBlind,
                         seed ^ 0x13198a2e03707344L);
+        if (!balanceBoards) {
+            return new RunItTwiceSplit(rawSideA, rawSideB, inventory.snapshot());
+        }
         List<CoronaPokerGdxTable.VisualChipSpec> sideA =
                 exactBoardRack(rawSideA, exactBoardAmount, smallBlind,
                         relaxedCapacities);

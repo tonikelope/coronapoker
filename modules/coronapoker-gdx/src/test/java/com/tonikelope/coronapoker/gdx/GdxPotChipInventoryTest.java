@@ -231,7 +231,7 @@ class GdxPotChipInventoryTest {
 
         GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
                 .splitForRunItTwice(fullPot, 15.3d, 0.1d,
-                        capacities, 91L);
+                        capacities, true, 91L);
         GdxStackChipLayout.Layout sideA = CoronaPokerGdxTable
                 .visualChipLayout(split.sideA());
         GdxStackChipLayout.Layout sideB = CoronaPokerGdxTable
@@ -261,7 +261,7 @@ class GdxPotChipInventoryTest {
                 .splitForRunItTwice(fullPot, 15.3d, 0.1d,
                         CoronaPokerGdxTable.relaxedRackCapacities(
                                 CoronaPokerGdxTable.potChipRackGeometry()),
-                        92L);
+                        true, 92L);
 
         assertEquals(15.3d, amount(split.sideA()), 0.000_001d);
         assertEquals(15.3d, amount(split.sideB()), 0.000_001d);
@@ -277,7 +277,7 @@ class GdxPotChipInventoryTest {
                 CoronaPokerGdxTable.potChipRackGeometry());
         GdxPotChipInventory.RunItTwiceSplit split = GdxPotChipInventory
                 .splitForRunItTwice(fullPot, 15.3d, 0.1d,
-                        capacities, 701L);
+                        capacities, true, 701L);
 
         List<TableVisualEvent.PayoutBatch.Transfer> sideA = List.of(
                 new TableVisualEvent.PayoutBatch.Transfer(

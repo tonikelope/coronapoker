@@ -94,13 +94,25 @@ final class GdxUiButtonStyle {
             float width, float height, Color accent, float surfaceRed,
             float surfaceGreen, float surfaceBlue, float surfaceAlpha,
             boolean enabled, float hoverAmount, boolean pressed, float alpha) {
+        drawPalette(shapes, x, y, width, height, accent, surfaceRed,
+                surfaceGreen, surfaceBlue, surfaceAlpha, enabled, hoverAmount,
+                pressed, alpha, null);
+    }
+
+    static void drawPalette(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent, float surfaceRed,
+            float surfaceGreen, float surfaceBlue, float surfaceAlpha,
+            boolean enabled, float hoverAmount, boolean pressed, float alpha,
+            Color hoverAccent) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         CUSTOM_SURFACE.set(surfaceRed, surfaceGreen, surfaceBlue,
                 surfaceAlpha);
-        Color border = enabled
-                ? resolvePaletteAccent(accent, hover,
-                        RESOLVED_PALETTE_ACCENT)
-                : LINE;
+        Color border = LINE;
+        if (enabled) {
+            border = hoverAccent == null
+                    ? resolvePaletteAccent(accent, hover, RESOLVED_PALETTE_ACCENT)
+                    : RESOLVED_PALETTE_ACCENT.set(accent).lerp(hoverAccent, hover);
+        }
         drawMaterial(shapes, x, y, width, height,
                 border, CUSTOM_SURFACE, enabled, hover,
                 pressed, alpha, true);

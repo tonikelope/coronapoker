@@ -22312,7 +22312,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxUiButtonStyle.drawPalette(shapes, x, y, width, height,
                 rimColor, surfaceR, surfaceG, surfaceB,
                 enabled || hover ? 1f : 0.78f, enabled,
-                hover ? 1f : 0f, pressed || selected, alpha);
+                hover ? 1f : 0f, pressed || selected, alpha, CYAN);
     }
 
     static Color hudActionRimColor(Color semanticColor, boolean selected) {
@@ -23213,7 +23213,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0.085f + actionColor.b * sideTint,
                 sideAlpha, enabled,
                 minusHover ? 1f : 0f, pointerDown && minusHover,
-                1f);
+                1f, CYAN);
         drawHudActionSurface(actionX, y, actionWidth, height,
                 actionColor, actionHover, selected,
                 pointerDown && actionHover, enabled);
@@ -23224,7 +23224,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0.085f + actionColor.b * sideTint,
                 sideAlpha, enabled,
                 plusHover ? 1f : 0f, pointerDown && plusHover,
-                1f);
+                1f, CYAN);
     }
 
     static Color hudCallSurfaceColor(ActionControlState.CallAction action) {

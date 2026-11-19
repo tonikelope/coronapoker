@@ -227,6 +227,7 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 layoutInverseView = new Matrix4();
     private final FloatArray[] chipVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
     private final GdxFlyingChipBatch flyingChips = new GdxFlyingChipBatch();
+    private final GdxFlyingChipShadows flyingShadows = new GdxFlyingChipShadows();
     private final StandingChipPile[] potPiles = new StandingChipPile[GdxTableChipSlots.POT_SLOT_COUNT];
     private final StandingChipPile[] localPiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
     private final StandingChipPile[] visiblePiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
@@ -891,6 +892,7 @@ final class GdxPerspectiveTable implements Disposable {
     void beginChipRack() {
         for (FloatArray vertices : chipVertices) vertices.clear();
         flyingChips.clear();
+        flyingShadows.clear();
         resetCardBounds();
     }
 
@@ -934,17 +936,29 @@ final class GdxPerspectiveTable implements Disposable {
             FloatArray geometry = chipVertices[color];
             geometry.clear();
             resetCardBounds();
+            boolean indexed = count <= GdxStandingChipMesh.MAX_INDEXED_CHIPS;
+            if (pile.mesh != null && pile.indexed != indexed) {
+                pile.mesh.dispose();
+                pile.mesh = null;
+            }
             for (int level = 0; level < count; level++) {
                 float offset = CoronaPokerGdxTable.detailedStackChipLateralOffset(seed, column, level, diameter);
                 float rotation = CoronaPokerGdxTable.tableChipRotation(seed, column, pileIndex, level);
                 float dx = impact == null ? 0f : impact.offsetX(level, diameter);
                 float dy = impact == null ? 0f : impact.offsetY(level, diameter) * depthSway;
-                int start = geometry.size;
-                addTableChip(color, x + offset + dx, y + dy, diameter,
-                        level * thickness, thickness, rotation, level == 0);
-                pile.verticesPerTopChip = (geometry.size - start) / 9;
+                float cx = x + offset + dx - width * .5f, cz = boardCenterY - (y + dy);
+                float bottom = level * thickness;
+                boolean shadow = level == 0;
+                includeChipBounds(cx, cz, diameter, bottom, thickness, shadow);
+                if (indexed) {
+                    GdxStandingChipMesh.append(geometry, cx, cz, diameter, bottom, thickness, rotation, shadow);
+                } else {
+                    appendChip(geometry, cx, cz, diameter, bottom, thickness, rotation, shadow, false);
+                }
             }
-            pile.mesh = GdxCardShell.uploadSolid(pile.mesh, geometry);
+            pile.mesh = indexed ? GdxStandingChipMesh.upload(pile.mesh, geometry, count)
+                    : GdxCardShell.uploadSolid(pile.mesh, geometry);
+            pile.indexed = indexed;
             pile.min.set(cardBoundsMin);
             pile.max.set(cardBoundsMax);
             pile.count = count;
@@ -995,7 +1009,7 @@ final class GdxPerspectiveTable implements Disposable {
     private void drawStandingChipPile(StandingChipPile pile, Color gold, float pulse) {
         ChipPreviewFade fade = pile.previewFade;
         if (fade == null || pulse <= 0f) {
-            pile.mesh.render(shader, GL20.GL_TRIANGLES);
+            drawStandingChipRange(pile, 0, pile.count);
             return;
         }
         float progress = fade.progress(standingChipFrameNanos);
@@ -1025,11 +1039,10 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private void drawStandingChipRange(StandingChipPile pile, int first, int end) {
-        // The base level includes the contact shadow, so count backwards from
-        // the end of the mesh for any range that starts above the base.
-        int total = pile.mesh.getNumVertices();
-        int offset = first == 0 ? 0 : total - (pile.count - first) * pile.verticesPerTopChip;
-        int limit = total - (pile.count - end) * pile.verticesPerTopChip;
+        // The base level includes the contact shadow. Indexed and expanded
+        // meshes have the same number of triangle corners in each level.
+        int offset = GdxStandingChipMesh.firstIndex(first);
+        int limit = GdxStandingChipMesh.firstIndex(end);
         pile.mesh.render(shader, GL20.GL_TRIANGLES, offset, limit - offset);
     }
 
@@ -1071,7 +1084,7 @@ final class GdxPerspectiveTable implements Disposable {
         private Mesh mesh;
         private final Vector3 min = new Vector3(), max = new Vector3();
         private int count, column, index, seed;
-        private int verticesPerTopChip;
+        private boolean indexed;
         private ChipPreviewFade previewFade;
         private float x, y, tableWidth, boardY, diameter;
         private boolean moving;
@@ -1084,12 +1097,17 @@ final class GdxPerspectiveTable implements Disposable {
     void addTableChip(int color, float x, float y, float diameter, float bottom,
             float thickness, float rotation, boolean contactShadow) {
         float cx = x - width * .5f, cz = boardCenterY - y;
+        includeChipBounds(cx, cz, diameter, bottom, thickness, contactShadow);
+        appendChip(chipVertices[color], cx, cz, diameter, bottom, thickness, rotation, contactShadow, false);
+    }
+
+    private void includeChipBounds(float cx, float cz, float diameter, float bottom,
+            float thickness, boolean contactShadow) {
         float extent = diameter * .5f * (contactShadow ? 1.08f : 1f);
         cardBoundsMin.set(Math.min(cardBoundsMin.x, cx - extent),
                 Math.min(cardBoundsMin.y, bottom), Math.min(cardBoundsMin.z, cz - extent));
         cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + extent),
                 Math.max(cardBoundsMax.y, bottom + .04f + thickness), Math.max(cardBoundsMax.z, cz + extent));
-        appendChip(chipVertices[color], cx, cz, diameter, bottom, thickness, rotation, contactShadow, false);
     }
 
     static FloatArray flyingChipTemplate() {
@@ -1148,13 +1166,18 @@ final class GdxPerspectiveTable implements Disposable {
         pose.attitude(chipAttitude);
         chipAttitude.transform(chipNormal.set(Vector3.Y)).nor();
         float centerY = pose.centerHeight(diameter * .5f, half, chipNormal.y) + .04f;
-        flyingChips.add(color, pose.x - width * .5f, centerY, boardCenterY - pose.y,
-                diameter, thickness, chipAttitude, pose.rotation);
+        float x = pose.x - width * .5f, z = boardCenterY - pose.y;
+        flyingChips.add(color, x, centerY, z, diameter, thickness, chipAttitude, pose.rotation);
+        // A sphere enclosing the cylinder at every tilt, including its bevel.
+        float extent = diameter * .5f + half;
+        cardBoundsMin.set(Math.min(cardBoundsMin.x, x - extent),
+                Math.min(cardBoundsMin.y, centerY - extent), Math.min(cardBoundsMin.z, z - extent));
+        cardBoundsMax.set(Math.max(cardBoundsMax.x, x + extent),
+                Math.max(cardBoundsMax.y, centerY + extent), Math.max(cardBoundsMax.z, z + extent));
     }
 
     void addFlyingChipShadow(GdxTableChipFlight.Pose pose, float diameter,
             float progress, float landingHeight) {
-        FloatArray vertices = chipVertices[0];
         float cx = pose.x - width * .5f, cz = boardCenterY - pose.y;
         float altitude = pose.height / diameter;
         float radius = diameter * (.54f + altitude * .18f);
@@ -1168,15 +1191,10 @@ final class GdxPerspectiveTable implements Disposable {
                 Math.min(cardBoundsMin.z, cz - radius));
         cardBoundsMax.set(Math.max(cardBoundsMax.x, cx + radius), .02f,
                 Math.max(cardBoundsMax.z, cz + radius));
-        for (int i = 0; i < 24; i++) {
-            float a = MathUtils.PI2 * i / 24f, b = MathUtils.PI2 * (i + 1) / 24f;
-            potVertex(vertices, cx, cz, radius, .02f, 0f, 0f, 0f, true, 1f, shade);
-            potVertex(vertices, cx, cz, radius, .02f, 1f, a, 0f, true, 1f, shade);
-            potVertex(vertices, cx, cz, radius, .02f, 1f, b, 0f, true, 1f, shade);
-        }
+        flyingShadows.add(cx, cz, radius, shade);
     }
 
-    private static void potVertex(FloatArray vertices, float cx, float cz, float radius,
+    static void potVertex(FloatArray vertices, float cx, float cz, float radius,
             float elevation, float radial, float angle, float rotation, boolean top,
             float normalY, float visibility) {
         float x = MathUtils.cos(angle), z = MathUtils.sin(angle);
@@ -1202,15 +1220,21 @@ final class GdxPerspectiveTable implements Disposable {
                 renderRackDepth(potPiles);
                 renderRackDepth(localPiles);
                 flyingChips.draw(view, camera.position, faces, opacity);
-            }, width, height);
+            }, width, height, solidClip(cardBoundsMin.x, cardBoundsMin.y, cardBoundsMin.z,
+                    cardBoundsMax.x, cardBoundsMax.y, cardBoundsMax.z));
             return;
         }
-        renderChipGeometry(faces, view, width, height);
+        beginCroppedCardLayer(chipShell);
+        try {
+            chipShell.renderLayer(() -> flyingShadows.draw(shader), width, height);
+        } finally {
+            chipShell.endPair();
+        }
     }
 
     private void renderRackDepth(StandingChipPile[] piles) {
         for (StandingChipPile pile : piles) {
-            if (pile != null && pile.drawnFrame == chipFrame) pile.mesh.render(shader, GL20.GL_TRIANGLES);
+            if (pile != null && pile.drawnFrame == chipFrame) drawStandingChipRange(pile, 0, pile.count);
         }
     }
 
@@ -1257,6 +1281,34 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private float markerCenterY, markerTilt, markerArtScale;
+    private final com.badlogic.gdx.math.Rectangle solidPixels = new com.badlogic.gdx.math.Rectangle();
+
+    private com.badlogic.gdx.math.Rectangle solidClip(float minX, float minY, float minZ,
+            float maxX, float maxY, float maxZ) {
+        float left = 1f, right = -1f, bottom = 1f, top = -1f;
+        float[] projection = view.val;
+        for (int i = 0; i < 8; i++) {
+            float x = (i & 1) == 0 ? minX : maxX;
+            float y = (i & 2) == 0 ? minY : maxY;
+            float z = (i & 4) == 0 ? minZ : maxZ;
+            float w = projection[Matrix4.M30] * x + projection[Matrix4.M31] * y
+                    + projection[Matrix4.M32] * z + projection[Matrix4.M33];
+            // Perspective bounds are only conservative on one side of the eye.
+            if (!(w > 0f)) return null;
+            cardBoundsCorner.set(x, y, z).prj(view);
+            left = Math.min(left, cardBoundsCorner.x);
+            right = Math.max(right, cardBoundsCorner.x);
+            bottom = Math.min(bottom, cardBoundsCorner.y);
+            top = Math.max(top, cardBoundsCorner.y);
+        }
+        int w = Gdx.graphics.getBackBufferWidth(), h = Gdx.graphics.getBackBufferHeight();
+        // Leave room for the edge samples and for the resolve texture filter.
+        int x0 = MathUtils.clamp((int) Math.floor((left + 1f) * w * .5f) - 2, 0, w - 1);
+        int y0 = MathUtils.clamp((int) Math.floor((bottom + 1f) * h * .5f) - 2, 0, h - 1);
+        int x1 = MathUtils.clamp((int) Math.ceil((right + 1f) * w * .5f) + 2, x0 + 1, w);
+        int y1 = MathUtils.clamp((int) Math.ceil((top + 1f) * h * .5f) + 2, y0 + 1, h);
+        return solidPixels.set(x0, y0, x1 - x0, y1 - y0);
+    }
 
     static float positionMarkerThickness(float diameter) { return diameter * .095f; }
 
@@ -1288,7 +1340,10 @@ final class GdxPerspectiveTable implements Disposable {
             markerShadowVertex(cx, cz, radius * 1.10f, b, 1f);
         }
         begin(7, texture, texture, opacity * onTable * (float)Math.exp(-elevation / (radius * 0.65f)));
-        shell.renderSolid(shader, markerVertices, width, height);
+        float shadowRadius = radius * 1.10f;
+        shell.renderSolid(shader, markerVertices, width, height,
+                solidClip(cx - shadowRadius, .06f, cz - shadowRadius,
+                        cx + shadowRadius, .06f, cz + shadowRadius));
         markerVertices.clear();
         float bevel = thickness * 0.24f;
         float[] ys = {-thickness * .5f, -thickness * .5f + bevel, thickness * .5f - bevel, thickness * .5f};
@@ -1309,7 +1364,10 @@ final class GdxPerspectiveTable implements Disposable {
             }
         }
         begin(6, texture, texture, opacity);
-        shell.renderSolid(shader, markerVertices, width, height);
+        float extent = radius + thickness * .5f;
+        shell.renderSolid(shader, markerVertices, width, height,
+                solidClip(cx - extent, markerCenterY - extent, cz - extent,
+                        cx + extent, markerCenterY + extent, cz + extent));
     }
 
     private void markerShadowVertex(float cx, float cz, float radius, float angle, float radial) {
@@ -1666,6 +1724,7 @@ final class GdxPerspectiveTable implements Disposable {
         boardShell.dispose();
         chipShell.dispose();
         flyingChips.dispose();
+        flyingShadows.dispose();
         for (StandingChipPile pile : potPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
         for (StandingChipPile pile : localPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();
     }

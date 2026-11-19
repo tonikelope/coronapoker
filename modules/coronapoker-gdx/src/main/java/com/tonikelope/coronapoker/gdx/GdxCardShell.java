@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
@@ -153,12 +154,13 @@ final class GdxCardShell implements Disposable {
         }, worldWidth, worldHeight);
     }
 
-    void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight) {
+    void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight,
+            Rectangle clip) {
         renderLayer(() -> {
             Gdx.gl.glDisable(GL20.GL_CULL_FACE);
             shader.bind();
             draw(shader, geometry);
-        }, worldWidth, worldHeight);
+        }, worldWidth, worldHeight, clip);
     }
 
     /** One depth target and one MSAA resolve for the whole pot, not per chip. */
@@ -178,12 +180,23 @@ final class GdxCardShell implements Disposable {
     }
 
     void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
+        renderLayer(drawing, worldWidth, worldHeight, null);
+    }
+
+    void renderLayer(Runnable drawing, float worldWidth, float worldHeight, Rectangle clip) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
+        int w = Gdx.graphics.getBackBufferWidth(), h = Gdx.graphics.getBackBufferHeight();
+        // This shell retains its full-size backing store and its original projection.
+        // Clip only when both targets share the same screen pixel grid.
+        boolean clipped = clip != null && !grouping && regionWidth == 0
+                && viewport.get(0) == 0 && viewport.get(1) == 0
+                && viewport.get(2) == w && viewport.get(3) == h
+                && !GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST);
+        int x = clipped ? (int) clip.x : 0, y = clipped ? (int) clip.y : 0;
+        boolean restoreScissor = false;
         try {
-            int w = Gdx.graphics.getBackBufferWidth();
-            int h = Gdx.graphics.getBackBufferHeight();
             ensureLayer(w, h);
             layer.begin();
             if (regionWidth > 0) {
@@ -197,6 +210,30 @@ final class GdxCardShell implements Disposable {
                 GL30C.glBindFramebuffer(GL30C.GL_FRAMEBUFFER, multisampleTarget);
                 GL11C.glEnable(GL13C.GL_MULTISAMPLE);
             }
+            int x0 = x * resolutionScale, y0 = y * resolutionScale;
+            int resolveWidth = layer.getWidth(), resolveHeight = layer.getHeight();
+            boolean restrict = clipped;
+            if (clipped) {
+                resolveWidth = (int) clip.width * resolutionScale;
+                resolveHeight = (int) clip.height * resolutionScale;
+            } else if (regionWidth > 0) {
+                // The backing store keeps its high-water size. Clear and
+                // resolve only the part sampled by this composition, plus
+                // the border needed by a linear resolve texture.
+                int usedWidth = Math.min(resolveWidth, regionWidth * resolutionScale + 2);
+                int usedHeight = Math.min(resolveHeight, regionHeight * resolutionScale + 2);
+                if (2L * usedWidth * usedHeight <= (long) resolveWidth * resolveHeight
+                        && !GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST)) {
+                    resolveWidth = usedWidth;
+                    resolveHeight = usedHeight;
+                    restrict = true;
+                }
+            }
+            if (restrict) {
+                gl.glEnable(GL20.GL_SCISSOR_TEST);
+                restoreScissor = true;
+                gl.glScissor(x0, y0, resolveWidth, resolveHeight);
+            }
             gl.glDepthMask(true);
             gl.glClearColor(0f, 0f, 0f, 0f);
             if (!grouping || !groupHasCards) {
@@ -209,11 +246,12 @@ final class GdxCardShell implements Disposable {
             if (multisampleTarget != 0) {
                 GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, multisampleTarget);
                 GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, layer.getFramebufferHandle());
-                int rw = layer.getWidth(), rh = layer.getHeight();
-                GL30C.glBlitFramebuffer(0, 0, rw, rh, 0, 0, rw, rh,
+                int x1 = x0 + resolveWidth, y1 = y0 + resolveHeight;
+                GL30C.glBlitFramebuffer(x0, y0, x1, y1, x0, y0, x1, y1,
                         GL20.GL_COLOR_BUFFER_BIT, GL20.GL_NEAREST);
             }
         } finally {
+            if (restoreScissor) gl.glDisable(GL20.GL_SCISSOR_TEST);
             if (!previousMultisample) GL11C.glDisable(GL13C.GL_MULTISAMPLE);
             gl.glDisable(GL20.GL_DEPTH_TEST);
             gl.glDisable(GL20.GL_CULL_FACE);
@@ -227,7 +265,15 @@ final class GdxCardShell implements Disposable {
             groupHeight = worldHeight;
             groupHasCards = true;
         } else {
-            composite(worldWidth, worldHeight);
+            if (clipped) {
+                gl.glEnable(GL20.GL_SCISSOR_TEST);
+                gl.glScissor(x, y, (int) clip.width, (int) clip.height);
+            }
+            try {
+                composite(worldWidth, worldHeight);
+            } finally {
+                if (clipped) gl.glDisable(GL20.GL_SCISSOR_TEST);
+            }
         }
     }
 

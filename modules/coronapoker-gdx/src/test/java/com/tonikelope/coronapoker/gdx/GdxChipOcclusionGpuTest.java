@@ -142,6 +142,7 @@ class GdxChipOcclusionGpuTest {
         try {
             renderer.layout(W, H, H * .5f);
             renderer.drawBackdrop(batch, red, false, 64f, W, H, 1f);
+            verifyOverlappingShadows(renderer, faces);
             verifyStackPreview(renderer, green);
             verifyPreviewBrightnessFollowsHud(renderer, yellow);
             byte[] singles = flightGrid(renderer, faces, 1);
@@ -170,6 +171,24 @@ class GdxChipOcclusionGpuTest {
             yellow.dispose();
             batch.dispose();
         }
+    }
+
+    private static void verifyOverlappingShadows(GdxPerspectiveTable renderer, Texture[] faces) {
+        byte[] strong = captureShadows(renderer, faces, .2f);
+        byte[] faint = captureShadows(renderer, faces, .94f);
+        assertFalse(java.util.Arrays.equals(strong, faint), "Test shadows must have different coverage values");
+        assertArrayEquals(faint, captureShadows(renderer, faces, .2f, .94f),
+                "The later shadow must replace the first at equal depth");
+        assertArrayEquals(strong, captureShadows(renderer, faces, .94f, .2f));
+    }
+
+    private static byte[] captureShadows(GdxPerspectiveTable renderer, Texture[] faces, float... progress) {
+        ScreenUtils.clear(Color.WHITE);
+        renderer.beginChipRack();
+        var pose = GdxChipContactsTest.flat(W * .5f, H * .5f, D * .6f);
+        for (float value : progress) renderer.addFlyingChipShadow(pose, D, value, THICKNESS);
+        renderer.drawChipRack(faces, 1f, false);
+        return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
     }
 
     private static void verifyStackPreview(GdxPerspectiveTable renderer, Texture green) {

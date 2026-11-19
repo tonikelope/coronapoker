@@ -179,6 +179,9 @@ final class GdxCardShell implements Disposable {
         }
     }
 
+    int targetWidth() { return layer.getWidth(); }
+    int targetHeight() { return layer.getHeight(); }
+
     void renderLayer(Runnable drawing, float worldWidth, float worldHeight) {
         renderLayer(drawing, worldWidth, worldHeight, null);
     }

@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.math.Frustum;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
@@ -224,10 +225,12 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 view = new Matrix4();
     private final Matrix4 board = new Matrix4();
     private final Matrix4 inverseView = new Matrix4();
+    private final Frustum chipFrustum = new Frustum();
     private final Matrix4 layoutInverseView = new Matrix4();
     private final FloatArray[] chipVertices = {new FloatArray(), new FloatArray(), new FloatArray(), new FloatArray()};
     private final GdxFlyingChipBatch flyingChips = new GdxFlyingChipBatch();
     private final GdxFlyingChipShadows flyingShadows = new GdxFlyingChipShadows();
+    private final GdxStandingChipMesh standingChipGeometry = new GdxStandingChipMesh();
     private final StandingChipPile[] potPiles = new StandingChipPile[GdxTableChipSlots.POT_SLOT_COUNT];
     private final StandingChipPile[] localPiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
     private final StandingChipPile[] visiblePiles = new StandingChipPile[GdxTableChipSlots.LOCAL_SLOT_COUNT];
@@ -363,6 +366,7 @@ final class GdxPerspectiveTable implements Disposable {
                 .scale(MathUtils.lerp(1f, TABLE_ZOOM, progress), MathUtils.lerp(1f, TABLE_ZOOM, progress), 1f)
                 .mul(camera.combined);
         inverseView.set(view).inv();
+        chipFrustum.update(inverseView);
         board.set(view).translate(-width * 0.5f, CARD_REST_HEIGHT, boardCenterY)
                 .rotate(Vector3.X, -90f);
         feltProjection.set(view).translate(-width * .5f, .02f, boardCenterY)
@@ -951,7 +955,7 @@ final class GdxPerspectiveTable implements Disposable {
                 boolean shadow = level == 0;
                 includeChipBounds(cx, cz, diameter, bottom, thickness, shadow);
                 if (indexed) {
-                    GdxStandingChipMesh.append(geometry, cx, cz, diameter, bottom, thickness, rotation, shadow);
+                    standingChipGeometry.append(geometry, cx, cz, diameter, bottom, thickness, rotation, shadow);
                 } else {
                     appendChip(geometry, cx, cz, diameter, bottom, thickness, rotation, shadow, false);
                 }
@@ -1167,9 +1171,10 @@ final class GdxPerspectiveTable implements Disposable {
         chipAttitude.transform(chipNormal.set(Vector3.Y)).nor();
         float centerY = pose.centerHeight(diameter * .5f, half, chipNormal.y) + .04f;
         float x = pose.x - width * .5f, z = boardCenterY - pose.y;
-        flyingChips.add(color, x, centerY, z, diameter, thickness, chipAttitude, pose.rotation);
         // A sphere enclosing the cylinder at every tilt, including its bevel.
         float extent = diameter * .5f + half;
+        if (!chipFrustum.sphereInFrustum(x, centerY, z, extent + 1f)) return;
+        flyingChips.add(color, x, centerY, z, diameter, thickness, chipAttitude, pose.rotation);
         cardBoundsMin.set(Math.min(cardBoundsMin.x, x - extent),
                 Math.min(cardBoundsMin.y, centerY - extent), Math.min(cardBoundsMin.z, z - extent));
         cardBoundsMax.set(Math.max(cardBoundsMax.x, x + extent),
@@ -1226,7 +1231,7 @@ final class GdxPerspectiveTable implements Disposable {
         }
         beginCroppedCardLayer(chipShell);
         try {
-            chipShell.renderLayer(() -> flyingShadows.draw(shader), width, height);
+            chipShell.renderLayer(() -> flyingShadows.draw(shader, view, chipShell.targetWidth(), chipShell.targetHeight()), width, height);
         } finally {
             chipShell.endPair();
         }

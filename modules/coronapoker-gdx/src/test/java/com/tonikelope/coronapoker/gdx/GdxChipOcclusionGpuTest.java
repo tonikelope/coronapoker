@@ -180,6 +180,11 @@ class GdxChipOcclusionGpuTest {
         assertArrayEquals(faint, captureShadows(renderer, faces, .2f, .94f),
                 "The later shadow must replace the first at equal depth");
         assertArrayEquals(strong, captureShadows(renderer, faces, .94f, .2f));
+        float[] dense = new float[160];
+        java.util.Arrays.fill(dense, .2f);
+        dense[dense.length - 1] = .94f;
+        assertArrayEquals(faint, captureShadows(renderer, faces, dense),
+                "Tiling a dense burst must preserve the winning shadow across tile edges");
     }
 
     private static byte[] captureShadows(GdxPerspectiveTable renderer, Texture[] faces, float... progress) {

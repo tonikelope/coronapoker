@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.IntMap;
 
 /** Indexed versions of the original 48-sided table-chip surfaces. */
 final class GdxStandingChipMesh {
@@ -23,26 +24,68 @@ final class GdxStandingChipMesh {
         for (int i = 0; i < RING; i++) ANGLES[i] = i * MathUtils.PI2 / SEGMENTS;
     }
 
-    private GdxStandingChipMesh() { }
+    private static final int STRIDE = 9;
 
-    static void append(FloatArray into, float x, float z, float diameter, float bottom,
-            float thickness, float rotation, boolean shadow) {
-        float radius = diameter * .5f;
-        float bevel = Math.min(thickness * .20f, diameter * .015f);
-        float base = bottom + .04f;
-        if (shadow) {
-            float extent = radius * 1.08f, contact = bottom + .02f;
-            GdxPerspectiveTable.potVertex(into, x, z, extent, contact, 0f, 0f, rotation, true, 1f, -1f);
-            ring(into, x, z, extent, contact, 1f, rotation, true, 1f, -1f);
+    private final IntMap<Template> templates = new IntMap<>();
+
+    private static final class Template {
+        final FloatArray vertices = new FloatArray((SHADOW_VERTICES + CHIP_VERTICES) * STRIDE);
+        float diameter = Float.NaN;
+
+        void resize(float diameter, float rotation) {
+            this.diameter = diameter;
+            vertices.clear();
+            float radius = diameter * .5f;
+            float extent = radius * 1.08f;
+            GdxPerspectiveTable.potVertex(vertices, 0f, 0f, extent, 0f, 0f, 0f, rotation, true, 1f, -1f);
+            ring(vertices, 0f, 0f, extent, 0f, 1f, rotation, true, 1f, -1f);
+            GdxPerspectiveTable.potVertex(vertices, 0f, 0f, radius, 0f, 0f, 0f, rotation, true, 1f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, .985f, rotation, true, 1f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, .985f, rotation, false, -.6f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, 1f, rotation, false, -.6f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, 1f, rotation, false, 0f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, 1f, rotation, false, 0f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, 1f, rotation, false, .6f, 1f);
+            ring(vertices, 0f, 0f, radius, 0f, .985f, rotation, false, .6f, 1f);
         }
-        GdxPerspectiveTable.potVertex(into, x, z, radius, base + thickness, 0f, 0f, rotation, true, 1f, 1f);
-        ring(into, x, z, radius, base + thickness, .985f, rotation, true, 1f, 1f);
-        ring(into, x, z, radius, base, .985f, rotation, false, -.6f, 1f);
-        ring(into, x, z, radius, base + bevel, 1f, rotation, false, -.6f, 1f);
-        ring(into, x, z, radius, base + bevel, 1f, rotation, false, 0f, 1f);
-        ring(into, x, z, radius, base + (thickness - bevel), 1f, rotation, false, 0f, 1f);
-        ring(into, x, z, radius, base + (thickness - bevel), 1f, rotation, false, .6f, 1f);
-        ring(into, x, z, radius, base + thickness, .985f, rotation, false, .6f, 1f);
+    }
+
+    void append(FloatArray into, float x, float z, float diameter, float bottom,
+            float thickness, float rotation, boolean shadow) {
+        int key = Float.floatToIntBits(rotation);
+        Template template = templates.get(key);
+        if (template == null) {
+            template = new Template();
+            templates.put(key, template);
+        }
+        if (template.diameter != diameter) template.resize(diameter, rotation);
+        int at = into.size;
+        int offset = shadow ? 0 : SHADOW_VERTICES * STRIDE;
+        into.addAll(template.vertices.items, offset, template.vertices.size - offset);
+
+        // Positions retain the original order of floating-point operations.
+        float base = bottom + .04f;
+        float bevel = Math.min(thickness * .20f, diameter * .015f);
+        float top = base + thickness;
+        float upperBevel = base + (thickness - bevel);
+        float lowerBevel = base + bevel;
+        float[] positions = into.items;
+        if (shadow) at = place(positions, at, SHADOW_VERTICES, x, bottom + .02f, z);
+        at = place(positions, at, RING + 1, x, top, z);
+        at = place(positions, at, RING, x, base, z);
+        at = place(positions, at, RING * 2, x, lowerBevel, z);
+        at = place(positions, at, RING * 2, x, upperBevel, z);
+        place(positions, at, RING, x, top, z);
+    }
+
+    private static int place(float[] vertices, int start, int count, float x, float y, float z) {
+        int end = start + count * STRIDE;
+        for (int at = start; at < end; at += STRIDE) {
+            vertices[at] = x + vertices[at];
+            vertices[at + 1] = y;
+            vertices[at + 2] = z + vertices[at + 2];
+        }
+        return end;
     }
 
     private static void ring(FloatArray into, float x, float z, float radius, float y,

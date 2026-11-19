@@ -160,7 +160,7 @@ final class GdxFrontendSettingsGpuTest {
             assertEquals(selection == 5, preview.isOpen());
             screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
         }
-        assertOriginalFrame(preview);
+        assertEnlargedFrame(preview);
         screen.render();
         assertEquals(1, ((List<?>) field(screen, "hits")).size());
         assertTrue(screen.keyDown(Input.Keys.ESCAPE));
@@ -201,7 +201,7 @@ final class GdxFrontendSettingsGpuTest {
                 invoke(table, "selectTableDeckOption", new Class<?>[]{int.class}, deck);
                 assertEquals(selection == 5, preview.isOpen());
             }
-            assertOriginalFrame(preview);
+            assertEnlargedFrame(preview);
             table.render();
             assertTrue((boolean) invoke(table, "hasNestedTableModal", new Class<?>[0]));
             assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
@@ -210,16 +210,16 @@ final class GdxFrontendSettingsGpuTest {
         }
     }
 
-    private static void assertOriginalFrame(GdxImagePreview preview) throws InterruptedException {
+    private static void assertEnlargedFrame(GdxImagePreview preview) throws InterruptedException {
         Texture frame = null;
         long deadline = System.nanoTime() + 3_000_000_000L;
         while (frame == null && System.nanoTime() < deadline) {
             frame = preview.frame();
             if (frame == null) Thread.sleep(5);
         }
-        assertNotNull(frame, "The original animation must reach the renderer");
-        assertEquals(316, frame.getWidth());
-        assertEquals(251, frame.getHeight());
+        assertNotNull(frame, "The enlarged animation must reach the renderer");
+        assertEquals(632, frame.getWidth());
+        assertEquals(502, frame.getHeight());
     }
 
     private static Vector2 pressOption(GdxFrontendScreen screen, String dropdown, int row)

@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.core.network;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.CoreGameTableFactory;
@@ -34,12 +35,14 @@ import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** Proves consecutive human-vs-human hands over the real native channel. */
 class NetworkHumanGameTableIntegrationTest {
@@ -523,6 +527,102 @@ class NetworkHumanGameTableIntegrationTest {
                                 + clientRenderer.diagnostic());
             } finally {
                 client.close();
+                host.close();
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(StreetCinematicMode.class)
+    void shortAllInCallClosingTheTurnKeepsTheRiverBehindTheCinematic(
+            StreetCinematicMode secondClientMode)
+            throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        DatabaseService hostDb = new DatabaseService(
+                temporary.resolve("cinematic-host.sqlite").toString());
+        DatabaseService firstDb = new DatabaseService(
+                temporary.resolve("cinematic-first.sqlite").toString());
+        DatabaseService secondDb = new DatabaseService(
+                temporary.resolve("cinematic-second.sqlite").toString());
+        hostDb.start();
+        firstDb.start();
+        secondDb.start();
+        String shortStack = "Anfitrion";
+        try (hostDb; firstDb; secondDb;
+             NetworkLobbyGateway hostGateway = gateway(
+                     temporary.resolve("cinematic-host"), hostDb,
+                     acceptingInitialBuyinDecision(7, new AtomicInteger()),
+                     acceleratedSettings());
+             NetworkLobbyGateway firstGateway = gateway(
+                     temporary.resolve("cinematic-first"), firstDb,
+                     acceptingInitialBuyinDecision(13, new AtomicInteger()),
+                     acceleratedSettings());
+             NetworkLobbyGateway secondGateway = gateway(
+                     temporary.resolve("cinematic-second"), secondDb,
+                     acceptingInitialBuyinDecision(13, new AtomicInteger()),
+                     streetCinematicSettings(secondClientMode != StreetCinematicMode.DISABLED))) {
+            LobbySession host = hostGateway.open(variableBuyinRequest(false,
+                    shortStack, port)).get(5, TimeUnit.SECONDS);
+            LobbySession first = firstGateway.open(variableBuyinRequest(true,
+                    "Invitado1", port)).get(5, TimeUnit.SECONDS);
+            LobbySession second = secondGateway.open(variableBuyinRequest(true,
+                    "Invitado2", port)).get(5, TimeUnit.SECONDS);
+            List<StreetCinematicRenderer> renderers = new ArrayList<>();
+            try {
+                await(() -> host.snapshot().participants().size() == 3,
+                        Duration.ofSeconds(5));
+                host.submit(new LobbyCommand.StartGame()).toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                for (LobbySession lobby : List.of(host, first, second)) {
+                    TableSession table = lobby.tableSession().toCompletableFuture()
+                            .get(5, TimeUnit.SECONDS);
+                    StreetCinematicRenderer renderer
+                            = new StreetCinematicRenderer(table, shortStack,
+                                    lobby == second && secondClientMode == StreetCinematicMode.FAILED);
+                    renderers.add(renderer);
+                    table.attach(renderer).toCompletableFuture()
+                            .get(5, TimeUnit.SECONDS);
+                }
+                List<StreetCinematicRenderer> showing = secondClientMode == StreetCinematicMode.SHOWN
+                        ? renderers : renderers.subList(0, 2);
+                for (StreetCinematicRenderer renderer : showing) {
+                    renderer.cinematicStarted.get(15, TimeUnit.SECONDS);
+                }
+                for (StreetCinematicRenderer renderer : renderers) {
+                    renderer.allInAccepted.get(5, TimeUnit.SECONDS);
+                }
+                assertThrows(TimeoutException.class,
+                        () -> CompletableFuture.anyOf(showing.stream()
+                                .map(renderer -> renderer.river)
+                                .toArray(CompletableFuture<?>[]::new))
+                                .get(2, TimeUnit.SECONDS),
+                        "the river overtook an all-in call closing the turn");
+                for (StreetCinematicRenderer renderer : renderers) {
+                    renderer.cinematicFinished.complete(null);
+                }
+                for (StreetCinematicRenderer renderer : showing) {
+                    assertTrue(renderer.river.get(8, TimeUnit.SECONDS)
+                            > renderer.cinematicEnd.get(5, TimeUnit.SECONDS));
+                }
+                if (secondClientMode != StreetCinematicMode.SHOWN) {
+                    StreetCinematicRenderer waiting = renderers.get(2);
+                    assertTrue(waiting.river.get(8, TimeUnit.SECONDS)
+                            > waiting.cinematicProgressReset.get(5, TimeUnit.SECONDS));
+                    assertEquals(secondClientMode == StreetCinematicMode.FAILED,
+                            waiting.cinematicStarted.isDone());
+                    assertTrue(waiting.cinematicProgressNanos >= TimeUnit.SECONDS.toNanos(1),
+                            "the client must wait the announced duration without playback");
+                }
+                for (StreetCinematicRenderer renderer : renderers) {
+                    renderer.handCompleted.get(8, TimeUnit.SECONDS);
+                }
+            } finally {
+                renderers.forEach(renderer -> renderer.cinematicFinished.complete(null));
+                second.close();
+                first.close();
                 host.close();
             }
         }
@@ -1081,6 +1181,15 @@ class NetworkHumanGameTableIntegrationTest {
                 new Class<?>[]{GamePresentationSettings.class},
                 (proxy, method, args) -> "testMode".equals(method.getName())
                         ? true : method.invoke(defaults, args));
+    }
+
+    private static GamePresentationSettings streetCinematicSettings(boolean enabled) {
+        GamePresentationSettings defaults = acceleratedSettings();
+        return (GamePresentationSettings) Proxy.newProxyInstance(
+                GamePresentationSettings.class.getClassLoader(),
+                new Class<?>[]{GamePresentationSettings.class},
+                (proxy, method, args) -> "allInCinematics".equals(method.getName())
+                        ? enabled : method.invoke(defaults, args));
     }
 
     private static GamePresentationSettings liveAcceleratedRebuySettings(
@@ -1710,6 +1819,101 @@ class NetworkHumanGameTableIntegrationTest {
         @Override public void close() { }
     }
 
+    private enum StreetCinematicMode { SHOWN, DISABLED, FAILED }
+
+    private static final class StreetCinematicRenderer implements TableRenderer {
+        private final TableSession table;
+        private final String shortStack;
+        private final String localNickname;
+        private final List<String> preflopOrder = new ArrayList<>();
+        private TableSnapshot.Street street = TableSnapshot.Street.PREFLOP;
+        private final CompletableFuture<Void> cinematicStarted = new CompletableFuture<>();
+        private final CompletableFuture<Void> cinematicFinished = new CompletableFuture<>();
+        private final CompletableFuture<Void> allInAccepted = new CompletableFuture<>();
+        private final CompletableFuture<Long> cinematicEnd = new CompletableFuture<>();
+        private final CompletableFuture<Long> river = new CompletableFuture<>();
+        private final CompletableFuture<Void> handCompleted = new CompletableFuture<>();
+        private final CompletableFuture<Long> cinematicProgressReset = new CompletableFuture<>();
+        private long cinematicProgressStarted;
+        private volatile long cinematicProgressNanos;
+
+        StreetCinematicRenderer(TableSession table, String shortStack, boolean failPlayback) {
+            this.table = table;
+            this.shortStack = shortStack;
+            this.localNickname = table.initialState().localNickname();
+            if (failPlayback) {
+                cinematicFinished.completeExceptionally(
+                        new IllegalStateException("simulated GIF decoder failure"));
+            }
+        }
+
+        @Override
+        public CompletionStage<Void> open(TableSnapshot initialState) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<Void> render(TableVisualEvent event) {
+            if (event instanceof TableVisualEvent.RevealCommunityCards reveal) {
+                street = reveal.street();
+                if (street == TableSnapshot.Street.RIVER) {
+                    river.complete(reveal.sequence());
+                }
+            } else if (event instanceof TableVisualEvent.Cinematic cinematic
+                    && cinematic.type() == TableVisualEvent.Cinematic.Type.ALL_IN
+                    && cinematic.nickname().equals(shortStack)) {
+                if (cinematic.phase() == TableVisualEvent.Cinematic.Phase.START) {
+                    cinematicStarted.complete(null);
+                    return cinematicFinished;
+                }
+                cinematicEnd.complete(cinematic.sequence());
+            } else if (event instanceof TableVisualEvent.SharedProgress progress
+                    && street == TableSnapshot.Street.TURN) {
+                if (progress.mode() == TableVisualEvent.SharedProgress.Mode.INDETERMINATE) {
+                    cinematicProgressStarted = System.nanoTime();
+                } else if (progress.mode() == TableVisualEvent.SharedProgress.Mode.RESET
+                        && cinematicProgressStarted != 0L) {
+                    cinematicProgressNanos = System.nanoTime() - cinematicProgressStarted;
+                    cinematicProgressReset.complete(progress.sequence());
+                }
+            } else if (event instanceof TableVisualEvent.PlayerAction action) {
+                if (street == TableSnapshot.Street.PREFLOP) {
+                    preflopOrder.add(action.nickname());
+                } else if (street == TableSnapshot.Street.TURN
+                        && action.kind() == TableVisualEvent.PlayerAction.ActionKind.ALL_IN
+                        && action.nickname().equals(shortStack)) {
+                    allInAccepted.complete(null);
+                }
+            } else if (event instanceof TableVisualEvent.ActionControls controls
+                    && controls.state().allInEnabled()) {
+                table.commands().submit(action(controls.state()));
+            } else if (event instanceof TableVisualEvent.HandBoundary boundary
+                    && boundary.phase() == TableVisualEvent.HandBoundary.Phase.END) {
+                handCompleted.complete(null);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        private TableCommand action(ActionControlState controls) {
+            if (street == TableSnapshot.Street.TURN) {
+                // The seat immediately after the short stack opens for 7.
+                // The other deep stack calls first, so the short call closes the street.
+                int next = (preflopOrder.indexOf(shortStack) + 1) % preflopOrder.size();
+                if (localNickname.equals(preflopOrder.get(next))
+                        && controls.raiseAction() == ActionControlState.RaiseAction.BET) {
+                    return new TableCommand.Bet(7d);
+                }
+                if (localNickname.equals(shortStack)
+                        && controls.callAction() == ActionControlState.CallAction.DISABLED) {
+                    return new TableCommand.AllIn();
+                }
+            }
+            return new TableCommand.CheckOrCall();
+        }
+
+        @Override public void close() { }
+    }
+
     private static final class RunItTwiceRenderer implements TableRenderer {
         private final TableSession table;
         private final AtomicBoolean closedByGame = new AtomicBoolean();
@@ -1719,6 +1923,8 @@ class NetworkHumanGameTableIntegrationTest {
         private final AtomicLong firstRevealSequence = new AtomicLong();
         private final AtomicLong firstPartialHandSequence = new AtomicLong();
         private final AtomicInteger runoutPauseCount = new AtomicInteger();
+        private final CompletableFuture<Void> firstFlop = new CompletableFuture<>();
+        private final AtomicBoolean turnOvertookFlop = new AtomicBoolean();
         private final CopyOnWriteArrayList<Integer> sideBDeals
                 = new CopyOnWriteArrayList<>();
         private final CopyOnWriteArrayList<String> events
@@ -1753,6 +1959,19 @@ class NetworkHumanGameTableIntegrationTest {
             } else if (event instanceof TableVisualEvent.PartialHand partial) {
                 firstPartialHandSequence.compareAndSet(0L,
                         partial.sequence());
+            } else if (event instanceof TableVisualEvent.RevealCommunityCards reveal
+                    && sideBSequence.get() == 0L) {
+                if (reveal.street() == TableSnapshot.Street.FLOP) {
+                    // A covered flop at the slowest setting needs four seconds
+                    // before render scheduling. Simulate that small extra delay.
+                    CompletableFuture.delayedExecutor(4_250L, TimeUnit.MILLISECONDS)
+                            .execute(() -> firstFlop.complete(null));
+                    return firstFlop;
+                }
+                if (reveal.street() == TableSnapshot.Street.TURN
+                        && !firstFlop.isDone()) {
+                    turnOvertookFlop.set(true);
+                }
             } else if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
                 if (board.side() == TableVisualEvent.RunItTwiceBoard.Side.A) {
                     sideASequence.compareAndSet(0L, board.sequence());
@@ -1770,6 +1989,7 @@ class NetworkHumanGameTableIntegrationTest {
         }
 
         void assertCompletePreflopRunItTwice() {
+            assertTrue(!turnOvertookFlop.get(), diagnostic());
             assertEquals(1, runoutPauseCount.get(), diagnostic());
             assertTrue(runoutPauseSequence.get() > 0L, diagnostic());
             assertTrue(firstRevealSequence.get() > runoutPauseSequence.get(),

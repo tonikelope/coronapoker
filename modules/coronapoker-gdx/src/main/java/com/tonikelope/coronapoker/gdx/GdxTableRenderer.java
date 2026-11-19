@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Event adapter for the table scene hosted by the single GDX window. */
 public final class GdxTableRenderer implements TableRenderer {
 
-    private static final int MAX_EVENTS_PER_FRAME = 8;
+    static final int MAX_EVENTS_PER_FRAME = 8;
     private static final long EVENT_FRAME_BUDGET_NANOS = 2_000_000L;
 
     /**

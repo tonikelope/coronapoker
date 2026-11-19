@@ -2161,6 +2161,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ANTES_DESTAPE_ALLIN = 1000;
+    private static final long TABLE_PRESENTATION_TIMEOUT_MILLIS = 4_000L;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     // The showdown pause (seconds the result is shown before the next hand) is
     // configurable per table: lives in GameFrame.SHOWDOWN_TIME (default 10, range 5-30).
@@ -8741,34 +8742,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void playAllInCinematic(String nickname, String filename,
             long durationMillis, boolean enabled) {
         game_async.execute(() -> {
-            long started = System.currentTimeMillis();
+            long started = System.nanoTime();
             try {
-                GameCinematicSink.Result result = enabled
-                        ? game_cinematics.play(new GameCinematicSink.Request(
+                if (enabled) {
+                    try {
+                        game_cinematics.play(new GameCinematicSink.Request(
                                 GameCinematicSink.Type.ALL_IN, nickname,
                                 filename, durationMillis))
-                                .toCompletableFuture().get()
-                        : new GameCinematicSink.Result(false, false);
-                if (!result.shown() || result.skipped()) {
-                    long remaining = started + durationMillis
-                            - System.currentTimeMillis();
+                                .toCompletableFuture().get();
+                    } catch (InterruptedException ex) {
+                        GameCancellation.log(LOGGER, "all-in cinematic playback", ex);
+                        return;
+                    } catch (Exception ex) {
+                        if (!tableWaitCancelled()) {
+                            LOGGER.log(Level.WARNING,
+                                    "All-in cinematic playback failed. Using the announced delay", ex);
+                        }
+                    }
+                }
+                // A renderer can skip START after a live preference change.
+                // Every peer still observes at least the announced delay.
+                if (!tableWaitCancelled()) {
+                    long remaining = durationMillis - TimeUnit.NANOSECONDS
+                            .toMillis(System.nanoTime() - started);
                     if (remaining > 0L) {
                         game_async.pause(remaining);
                     }
                 }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                GameCancellation.log(LOGGER,
-                        "all-in cinematic playback", ex);
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE,
-                        "All-in cinematic playback failed. Continuing the hand", ex);
             } finally {
-                cinematicOff();
                 current_remote_cinematic_b64 = null;
-                game_progress.reset(configuration().thinkTime());
-                synchronized (getLock_apuestas()) {
-                    getLock_apuestas().notifyAll();
+                try {
+                    game_progress.reset(configuration().thinkTime());
+                } finally {
+                    cinematicOff();
+                    synchronized (getLock_apuestas()) {
+                        getLock_apuestas().notifyAll();
+                    }
                 }
             }
         });
@@ -8931,8 +8940,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Mods: the GIF announced in the ACTION comes from the actor's own catalog, which
         // this machine may not have. If it can't be resolved locally and we have our own
         // catalog, substitute the next cinematic from the local bag (same shuffle system as
-        // for our own all-ins), with its own duration (kept as announced if undetermined —
-        // the dialog closes when frames end regardless; duration only paces the skip remainder).
+        // for our own all-ins), with its own duration when available.
         String chosen_filename = announced_filename;
         long chosen_pausa = announced_pausa;
 
@@ -16118,6 +16126,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean awaitAttachedTableEvent(
             java.util.function.LongFunction<? extends TableVisualEvent> eventFactory,
             String failureMessage) {
+        return awaitAttachedTableEvent(eventFactory, failureMessage,
+                TABLE_PRESENTATION_TIMEOUT_MILLIS);
+    }
+
+    private boolean awaitAttachedTableEvent(
+            java.util.function.LongFunction<? extends TableVisualEvent> eventFactory,
+            String failureMessage, long timeoutMillis) {
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
                 = table_events.publishIfAttached(eventFactory);
         if (barrier.isEmpty()) {
@@ -16125,7 +16140,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         try {
             awaitPresentationBarrier(barrier.orElseThrow().toCompletableFuture(),
-                    this::tableWaitCancelled, 4_000L);
+                    this::tableWaitCancelled, timeoutMillis);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -20347,9 +20362,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return false;
     }
 
-    private void destaparCartaComunitaria(int street, ArrayList<GamePlayerController> resisten) {
+    private boolean destaparCartaComunitaria(int street, ArrayList<GamePlayerController> resisten) {
 
+        // A short all-in call can close the street while two deeper players
+        // still have chips. There is then no intervening turn or runout reveal
+        // to wait for the cinematic before the next community card is shown.
+        esperarFinCinematicaAllin();
+        if (tableWaitCancelled()) {
+            return false;
+        }
         pause_gate.await();
+        if (tableWaitCancelled()) {
+            return false;
+        }
 
         switch (street) {
             case FLOP:
@@ -20364,6 +20389,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             default:
                 break;
         }
+        return !tableWaitCancelled();
     }
 
     public int getConta_raise() {
@@ -20668,7 +20694,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Same as the normal run-out: updates the pot (centered, no bet_label, which
             // actualizarContadoresTapete hides during the run-out).
             actualizarContadoresTapete();
-            destaparCartaComunitaria(s, resisten);
+            if (!destaparCartaComunitaria(s, resisten)) {
+                return false;
+            }
         }
         // A stop may arrive after the final unlock/reveal but before settlement.
         // Recovery must still replay the complete RIT atomically; reporting success
@@ -21981,7 +22009,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             actualizarContadoresTapete();
             LOGGER.log(Level.INFO, "Uncovering community cards");
-            destaparCartaComunitaria(street, resisten);
+            if (!destaparCartaComunitaria(street, resisten)) {
+                return resisten;
+            }
         }
 
         sqlUpdateHandPlayers(resisten);
@@ -27190,14 +27220,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (GameCardController card : cards) {
             card.destapar(false);
         }
+        long leadInMillis = localPlayer().isExit() || isFin_de_la_transmision()
+                ? 0L : this.destapar_resistencia
+                        ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA;
+        // The lead-in is intentional. Give the actual motion and renderer
+        // scheduling the full grace period after it.
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealCommunityCards(
-                sequence, firstSlot, snapshots,
-                localPlayer().isExit() || isFin_de_la_transmision()
-                        ? 0L
-                        : this.destapar_resistencia
-                                ? PAUSA_DESTAPAR_CARTA_ALLIN
-                                : PAUSA_DESTAPAR_CARTA),
-                "Community-card reveal presentation barrier failed");
+                sequence, firstSlot, snapshots, leadInMillis),
+                "Community-card reveal presentation barrier failed",
+                leadInMillis + TABLE_PRESENTATION_TIMEOUT_MILLIS);
         return true;
     }
 
@@ -27578,21 +27609,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // machine to finish. EVERY way the cinematic can end (full playback, click-skip,
     // no GIF, cinematics off, recovery replay) clears the flag and notifies
     // LOCK_CINEMATICS; during recovery replay the flag is off (inert wait). Used by
-    // the bot's turn after an all-in and by animated uncovers (resistance and
-    // showdown), which must not step on the central animation.
+    // the next turn and by card reveals, which wait for the central animation.
     private void esperarFinCinematicaAllin() {
         // isExit(): if the local player has left there's no cinematic to respect,
         // and this wait may be running under lock_contabilidad (showdown), which
         // blocks finTransmision — the end flag can't be raised until the lock is
         // released, so checking it alone isn't enough.
-        while (cinematic_state.isPlaying() && !isFin_de_la_transmision()
+        while (cinematic_state.isPlaying() && !tableWaitCancelled()
                 && !localPlayer().isExit()) {
-            if (!cinematic_state.isPlaying() || isFin_de_la_transmision()
-                    || localPlayer().isExit()) {
-                break;
-            }
             try {
-                cinematic_state.awaitChange(1000L);
+                cinematic_state.awaitChange(50L);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 break;

@@ -1819,6 +1819,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveRebuy liveRebuy;
     private LiveInitialStackFill liveInitialStackFill;
     private LiveCinematic liveCinematic;
+    private final ArrayDeque<PendingVisualEvent> deferredVisualEvents = new ArrayDeque<>();
     private LiveShuffle liveShuffle;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
@@ -5446,6 +5447,66 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "The startup intro cannot consume table events");
         }
         Objects.requireNonNull(barrier, "barrier");
+        if (event instanceof TableVisualEvent.HotJoinState
+                || event instanceof TableVisualEvent.CloseTable close
+                && close.summary().reason() != TableSessionSummary.CloseReason.COMPLETED) {
+            cancelDeferredPresentation();
+        } else if (!deferredVisualEvents.isEmpty() || waitsForPresentation(event)) {
+            deferredVisualEvents.addLast(new PendingVisualEvent(event, barrier));
+            return;
+        }
+        applyVisualEvent(event, barrier);
+    }
+
+    private boolean waitsForPresentation(TableVisualEvent event) {
+        if (event instanceof TableVisualEvent.Cinematic) {
+            return liveCinematic != null;
+        }
+        if (event instanceof TableVisualEvent.RevealHoleCards) {
+            return liveAllInCinematicVisible() || liveHoleReveal != null;
+        }
+        if (event instanceof TableVisualEvent.RevealCommunityCards
+                || event instanceof TableVisualEvent.DealCommunityCard
+                || event instanceof TableVisualEvent.RunItTwiceBoard
+                || event instanceof TableVisualEvent.HandResult
+                || event instanceof TableVisualEvent.HandBoundary
+                || event instanceof TableVisualEvent.CloseTable) {
+            return liveAllInCinematicVisible() || liveCommunityReveal != null
+                    || liveHoleReveal != null;
+        }
+        return false;
+    }
+
+    void drainDeferredVisualEvents() {
+        // A relayed event can arrive before local playback catches up. Keep
+        // later sequences behind it and cap catch-up work per render frame.
+        for (int i = 0; i < GdxTableRenderer.MAX_EVENTS_PER_FRAME; i++) {
+            PendingVisualEvent next = deferredVisualEvents.peekFirst();
+            if (next == null || waitsForPresentation(next.event())) {
+                return;
+            }
+            deferredVisualEvents.removeFirst();
+            try {
+                applyVisualEvent(next.event(), next.barrier());
+            } catch (Throwable failure) {
+                next.barrier().completeExceptionally(failure);
+            }
+        }
+    }
+
+    private void cancelDeferredPresentation() {
+        var cancelled = new java.util.concurrent.CancellationException(
+                "Table presentation was replaced or closed");
+        while (!deferredVisualEvents.isEmpty()) {
+            deferredVisualEvents.removeFirst().barrier().completeExceptionally(cancelled);
+        }
+        finishLiveCinematic(cancelled);
+    }
+
+    private record PendingVisualEvent(TableVisualEvent event,
+            CompletableFuture<Void> barrier) {}
+
+    private void applyVisualEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
         if (event instanceof TableVisualEvent.CloseTable close) {
             resetHandCardCollection();
             terminationRequested = false;
@@ -5770,13 +5831,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     System.nanoTime(), barrier);
         } else if (event instanceof TableVisualEvent.Cinematic cinematic
                 && cinematic.phase() == TableVisualEvent.Cinematic.Phase.START) {
-            if (!liveCinematicsEnabled()) {
+            boolean enabled = cinematic.type() == TableVisualEvent.Cinematic.Type.ALL_IN
+                    ? liveAllInCinematicsEnabled() : liveCinematicsEnabled();
+            if (!enabled) {
                 liveState.apply(event);
                 barrier.complete(null);
                 return;
-            }
-            if (liveCinematic != null) {
-                throw new IllegalStateException("A GDX cinematic is already active");
             }
             String asset = cinematic.assetName();
             StreamingGifTextureAnimation animation = cinematicAnimation(
@@ -5787,9 +5847,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // ordinary action/timer events overtake it and produced sequences
             // such as 190 after 195, releasing the dealer through the fallback
             // instead of the real cinematic barrier.
-            liveState.apply(event);
-            liveCinematic = new LiveCinematic(cinematic, animation,
-                    System.nanoTime(), barrier);
+            startLiveCinematic(cinematic, animation, System.nanoTime(), barrier);
             // Optional companion audio is emitted by the dealer as a canonical
             // AudioCue. Keeping one owner prevents local double playback and
             // gives local and remote cinematics the same preference contract.
@@ -7023,7 +7081,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLivePayout();
         updateLiveRebuy();
         updatePendingStackRackRebalances();
-        updateLiveCinematic();
+        updateLiveCinematic(renderFrameNanos);
         updateLiveShuffle();
         updateLiveCardFlight();
         updateLiveHoleSwap();
@@ -7032,6 +7090,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateLiveHoleReveal();
         updateLiveHoleFold();
         updateLiveAllInRunoutPause();
+        drainDeferredVisualEvents();
         updateTableChat();
         voiceCapture.update();
         updateRecoveryStopTransition();
@@ -18975,6 +19034,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : presentationSettings.cinematics();
     }
 
+    private boolean liveAllInCinematicsEnabled() {
+        return presentationSettings == null
+                ? liveCinematicsEnabled() && tablePreference("cinematicas_allin", true)
+                : presentationSettings.allInCinematics();
+    }
+
     private boolean liveDealSoundEnabled() {
         return presentationSettings == null
                 ? tablePreference("sonido_reparto", true)
@@ -21120,21 +21185,45 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void updateLiveCinematic() {
+    void updateLiveCinematic(long nowNanos) {
         LiveCinematic active = liveCinematic;
-        if (active == null || !active.playbackComplete(renderElapsedSeconds(active.startedAtNanos))) {
+        if (active == null) {
             return;
         }
-        try {
-            // The ordered START event was consumed when the GIF began. This
-            // future is solely the causal completion signal for the dealer.
-            active.barrier.complete(null);
-        } catch (Throwable error) {
-            active.barrier.completeExceptionally(error);
-        } finally {
-            active.animation.dispose();
-            liveCinematic = null;
+        float elapsed = Math.max(0L, nowNanos - active.startedAtNanos) / 1_000_000_000f;
+        Throwable failure = active.event.type() == TableVisualEvent.Cinematic.Type.ALL_IN
+                ? active.animation.failure() : null;
+        if (failure != null || active.playbackComplete(elapsed)) {
+            finishLiveCinematic(failure);
         }
+    }
+
+    void startLiveCinematic(TableVisualEvent.Cinematic cinematic,
+            StreamingGifTextureAnimation animation, long nowNanos,
+            CompletableFuture<Void> barrier) {
+        try {
+            liveState.apply(cinematic);
+            liveCinematic = new LiveCinematic(cinematic, animation, nowNanos, barrier);
+        } catch (RuntimeException | Error failure) {
+            animation.dispose();
+            throw failure;
+        }
+    }
+
+    private void finishLiveCinematic(Throwable failure) {
+        LiveCinematic active = liveCinematic;
+        if (active == null) {
+            return;
+        }
+        liveCinematic = null;
+        try {
+            active.animation.dispose();
+        } catch (RuntimeException cleanupFailure) {
+            if (failure == null) failure = cleanupFailure;
+            else failure.addSuppressed(cleanupFailure);
+        }
+        if (failure == null) active.barrier.complete(null);
+        else active.barrier.completeExceptionally(failure);
     }
 
     private void updateLiveSeatAmounts(Seat seat) {
@@ -33137,6 +33226,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        cancelDeferredPresentation();
         finishScreenshotReadback(true);
         screenshotReadback.dispose();
         imagePreview.dispose();
@@ -33333,10 +33423,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 liveShuffle.animation.dispose();
             }
             liveShuffle = null;
-        }
-        if (liveCinematic != null) {
-            liveCinematic.animation.dispose();
-            liveCinematic = null;
         }
         releaseGameOverAnimation();
         releaseRemoteRebuyPresentation();
@@ -34504,14 +34590,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.barrier = barrier;
         }
 
-        float durationSeconds() {
-            float declared = event.durationMillis() / 1_000f;
-            return declared > 0f ? declared
-                    : animation.durationSeconds();
-        }
-
         boolean playbackComplete(float elapsed) {
             float declared = event.durationMillis() / 1_000f;
+            if (event.type() == TableVisualEvent.Cinematic.Type.ALL_IN) {
+                return elapsed >= declared && animation.playbackComplete(elapsed);
+            }
             return declared > 0f
                     ? elapsed >= declared
                     : animation.playbackComplete(elapsed);

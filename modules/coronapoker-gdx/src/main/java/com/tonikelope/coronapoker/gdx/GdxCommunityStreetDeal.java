@@ -10,8 +10,7 @@ record GdxCommunityStreetDeal(float appearsAt, float flightSeconds,
 
     private static final float FLOP_STACK_HOLD_SECONDS = 0.08f;
     private static final float FLOP_SPREAD_SECONDS = 0.52f;
-    // Leave room for the spread inside the dealer's four-second barrier,
-    // including its two-second all-in lead-in and the renderer's end beat.
+    // Keep the grouped flop motion compact at the slowest animation settings.
     private static final float MAX_FLOP_FLIP_SECONDS = 1f;
     private static final float MAX_FLOP_SPREAD_SECONDS = 0.70f;
 

@@ -17,6 +17,8 @@ import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -26,9 +28,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class GdxProductionStateAuthorityTest {
 
@@ -354,6 +361,173 @@ final class GdxProductionStateAuthorityTest {
                 new CompletableFuture<>());
         assertTrue(acceptBoardDeal(table, 9L, 0).isDone());
         assertTrue(table.hasRestingCommunityCards(1, false));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2d,streets,true", "2d,streets,false",
+            "2d,covered,true", "2d,covered,false",
+            "3d,streets,true", "3d,streets,false",
+            "3d,covered,true", "3d,covered,false"})
+    void relayedStreetsWaitForLocalGifAndForEachOther(String view,
+            String dealStyle, boolean animated, @TempDir Path temporary)
+            throws Exception {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.properties().setProperty(GdxSettingsContract.TABLE_VIEW_KEY, view);
+        preferences.properties().setProperty(
+                GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY, dealStyle);
+        preferences.properties().setProperty("sonido_efectos", "false");
+        preferences.properties().setProperty("animacion_reparto", String.valueOf(animated));
+        preferences.properties().setProperty("animacion_destape", String.valueOf(animated));
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+        Field perspective = CoronaPokerGdxTable.class.getDeclaredField("perspectiveActive");
+        perspective.setAccessible(true);
+        perspective.setBoolean(table, "3d".equals(view));
+        assertTrue(GdxAppearanceOptions.perspectiveTable(preferences.properties())
+                == perspective.getBoolean(table));
+        ByteArrayOutputStream gif = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_BYTE_INDEXED),
+                "gif", gif));
+        StreamingGifTextureAnimation animation
+                = StreamingGifTextureAnimation.load(gif.toByteArray(), "test.gif", 1);
+        long start = 1_000_000_000L;
+        TableVisualEvent.Cinematic startEvent = new TableVisualEvent.Cinematic(
+                1L, TableVisualEvent.Cinematic.Type.ALL_IN,
+                TableVisualEvent.Cinematic.Phase.START, "remote", "test.gif", 1L);
+        CompletableFuture<Void> playback = new CompletableFuture<>();
+        try {
+            table.startLiveCinematic(startEvent, animation, start, playback);
+            CompletableFuture<Void> flop = new CompletableFuture<>();
+            CompletableFuture<Void> finish = new CompletableFuture<>();
+            CompletableFuture<Void> turn = new CompletableFuture<>();
+            CompletableFuture<Void> river = new CompletableFuture<>();
+            table.acceptEvent(new TableVisualEvent.RevealCommunityCards(2L, 0,
+                    List.of(card("A_C", true), card("K_D", true), card("J_P", true)),
+                    2_000L), flop);
+            table.acceptEvent(new TableVisualEvent.Cinematic(3L, startEvent.type(),
+                    TableVisualEvent.Cinematic.Phase.FINISH, "remote", "test.gif", 1L), finish);
+            table.acceptEvent(new TableVisualEvent.RevealCommunityCards(4L, 3,
+                    List.of(card("5_T", true)), 2_000L), turn);
+            table.acceptEvent(new TableVisualEvent.RevealCommunityCards(5L, 4,
+                    List.of(card("4_C", true)), 2_000L), river);
+
+            table.updateLiveCinematic(start + 10_000_000L);
+            table.drainDeferredVisualEvents();
+            assertFalse(playback.isDone(), "declared duration must not truncate the GIF");
+            assertFalse(flop.isDone());
+            assertFalse(finish.isDone());
+            assertEquals(TableSnapshot.Street.PREFLOP, projection.snapshot().street());
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L);
+            while (!animation.playbackComplete(10f) && System.nanoTime() < deadline) {
+                animation.decodedFrameAt(10f);
+                Thread.sleep(2L);
+            }
+            table.updateLiveCinematic(start + 10_000_000_000L);
+            assertTrue(playback.isDone());
+            assertFalse(playback.isCompletedExceptionally());
+            table.drainDeferredVisualEvents();
+            if (animated) {
+                assertEquals(TableSnapshot.Street.FLOP, projection.snapshot().street());
+                assertFalse(flop.isDone());
+                assertFalse(turn.isDone());
+                for (long at = 12_000_000_000L; at <= 22_000_000_000L;
+                        at += 5_000_000_000L) {
+                    table.updateLiveCommunityReveal(at);
+                    table.updateLiveCommunityReveal(at + 4_000_000_000L);
+                    table.drainDeferredVisualEvents();
+                }
+            }
+            assertEquals(TableSnapshot.Street.RIVER, projection.snapshot().street());
+            assertTrue(finish.isDone() && flop.isDone() && turn.isDone() && river.isDone());
+            assertFalse(river.isCompletedExceptionally());
+        } finally {
+            animation.dispose();
+        }
+    }
+
+    @Test
+    void relayedAllInRespectsDisabledGifAndKeepsIndeterminateProgress(
+            @TempDir Path temporary) {
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.TURN, 0d, "", false,
+                List.of(player("human"), player("remote")), List.of());
+        GdxTableViewState projection = new GdxTableViewState(input);
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("cinematicas_allin", "false");
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+        table.acceptEvent(new TableVisualEvent.SharedProgress(1L,
+                TableVisualEvent.SharedProgress.Mode.INDETERMINATE, 0), new CompletableFuture<>());
+        CompletableFuture<Void> skipped = new CompletableFuture<>();
+        table.acceptEvent(new TableVisualEvent.Cinematic(2L,
+                TableVisualEvent.Cinematic.Type.ALL_IN,
+                TableVisualEvent.Cinematic.Phase.START, "remote", "unused.gif", 4_000L), skipped);
+        assertTrue(skipped.isDone());
+        assertTrue(projection.sharedProgressIndeterminate());
+        table.acceptEvent(new TableVisualEvent.SharedProgress(3L,
+                TableVisualEvent.SharedProgress.Mode.RESET, 0), new CompletableFuture<>());
+        assertFalse(projection.sharedProgressIndeterminate());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void relayedRevealRecoversWhenGifFailsOrBootstrapReplacesIt(
+            boolean replaceScene, @TempDir Path temporary) throws Exception {
+        List<TableSnapshot.CardSnapshot> board = List.of(card("A_C", true),
+                card("K_D", true), card("J_P", true), card("5_T", true));
+        TableSnapshot input = new TableSnapshot(1L, "human",
+                TableSnapshot.Street.TURN, 0d, "", false,
+                List.of(player("human"), player("remote")), board);
+        GdxTableViewState projection = new GdxTableViewState(input);
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        preferences.properties().setProperty("animacion_destape", "false");
+        preferences.properties().setProperty("animacion_reparto", "false");
+        CoronaPokerGdxTable table = new CoronaPokerGdxTable(240, projection,
+                command -> { }, () -> { }, new GdxGameLogSink(), preferences,
+                null, new GdxGamePresentationSettings(preferences));
+        StreamingGifTextureAnimation animation
+                = StreamingGifTextureAnimation.load(new byte[]{1, 2, 3}, "broken.gif", 1);
+        CompletableFuture<Void> playback = new CompletableFuture<>();
+        CompletableFuture<Void> staleRiver = new CompletableFuture<>();
+        try {
+            table.startLiveCinematic(new TableVisualEvent.Cinematic(1L,
+                    TableVisualEvent.Cinematic.Type.ALL_IN,
+                    TableVisualEvent.Cinematic.Phase.START, "remote", "broken.gif", 5_000L),
+                    animation, 1_000_000_000L, playback);
+            table.acceptEvent(new TableVisualEvent.RevealCommunityCards(2L, 4,
+                    List.of(card("4_C", true))), staleRiver);
+            assertFalse(staleRiver.isDone());
+            if (replaceScene) {
+                table.acceptEvent(new TableVisualEvent.HotJoinState(3L, input),
+                        new CompletableFuture<>());
+                table.drainDeferredVisualEvents();
+                assertTrue(staleRiver.isCompletedExceptionally());
+                assertEquals(TableSnapshot.Street.TURN, projection.snapshot().street());
+            } else {
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L);
+                while (!animation.failed() && System.nanoTime() < deadline) {
+                    Thread.sleep(2L);
+                }
+                table.updateLiveCinematic(1_001_000_000L);
+                table.drainDeferredVisualEvents();
+                assertTrue(staleRiver.isDone());
+                assertFalse(staleRiver.isCompletedExceptionally());
+                assertEquals(TableSnapshot.Street.RIVER, projection.snapshot().street());
+            }
+            assertTrue(playback.isCompletedExceptionally());
+        } finally {
+            animation.dispose();
+        }
     }
 
     @Test

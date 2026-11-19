@@ -264,6 +264,10 @@ final class GdxAntialiasedRoundedRect {
 
     private static void hardCircle(ShapeRenderer shapes, float centerX,
             float centerY, float radius, Color color) {
+        if (shapes instanceof GdxTableShapeRenderer tableShapes && shapes.getCurrentType() == ShapeRenderer.ShapeType.Filled) {
+            tableShapes.filledFan(centerX, centerY, radius, CIRCLE_X, CIRCLE_Y, color);
+            return;
+        }
         for (int step = 1; step <= CIRCLE_SEGMENTS; step++) {
             shapes.triangle(centerX, centerY,
                     centerX + CIRCLE_X[step - 1] * radius,
@@ -279,6 +283,10 @@ final class GdxAntialiasedRoundedRect {
             float x1, float y1, Color color1,
             float x2, float y2, Color color2,
             float x3, float y3, Color color3) {
+        if (shapes instanceof GdxTableShapeRenderer tableShapes && shapes.getCurrentType() == ShapeRenderer.ShapeType.Filled) {
+            tableShapes.filledQuad(x0, y0, color0, x1, y1, color1, x2, y2, color2, x3, y3, color3);
+            return;
+        }
         shapes.triangle(x0, y0, x1, y1, x2, y2,
                 color0, color1, color2);
         shapes.triangle(x0, y0, x2, y2, x3, y3,
@@ -311,6 +319,10 @@ final class GdxAntialiasedRoundedRect {
 
     private static void hardCorner(ShapeRenderer shapes, float centerX,
             float centerY, float radius, int corner, Color color) {
+        if (shapes instanceof GdxTableShapeRenderer tableShapes && shapes.getCurrentType() == ShapeRenderer.ShapeType.Filled) {
+            tableShapes.filledFan(centerX, centerY, radius, CORNER_X[corner], CORNER_Y[corner], color);
+            return;
+        }
         float previousX = centerX + CORNER_X[corner][0] * radius;
         float previousY = centerY + CORNER_Y[corner][0] * radius;
         for (int step = 1; step <= CORNER_SEGMENTS; step++) {

@@ -222,6 +222,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float FINAL_NAV_ICON_SIZE = 28f;
     private static final float FINAL_NAV_LABEL_LEFT_INSET = 41f;
     private static final float FINAL_NAV_LABEL_RIGHT_INSET = 4f;
+    private static final Pattern CAPTION_WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern LOGGED_ACTION_CAPTION = Pattern.compile(
+            "(?:^|\\s)(NO VA|ALL IN|RESUBE|RERAISE|APUESTA|RAISE|"
+            + "CHECK|PASA|CALL|FOLD|SUBE|BET|VA)\\s+\\([^)]*\\)$");
     private static final String[] HAND_TRANSLATION_KEYS = {
         "hand.high_card", "hand.one_pair", "hand.two_pair",
         "hand.three_of_a_kind", "hand.straight", "hand.flush",
@@ -1116,6 +1120,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxGameText gameText;
     private final GdxLocaleFonts localeFonts;
     private final String tableFontCharacters;
+    private final String baseTableFontCharacters;
     private final String localOutcomeCharacters;
     private final String finalHeroCharacters;
     private final LobbySession lobby;
@@ -2949,11 +2954,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         gameText = new GdxGameText(presentationSettings == null
                 ? "es" : presentationSettings.interfaceLanguage());
         localeFonts = new GdxLocaleFonts(gameText);
-        tableFontCharacters = localeFonts.characters(
-                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS));
+        baseTableFontCharacters = GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS);
+        tableFontCharacters = localeFonts.characters(baseTableFontCharacters);
         localOutcomeCharacters = localizedOutcomeCharacters();
         finalHeroCharacters = localeFonts.charactersFor(
-                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS),
+                baseTableFontCharacters,
                 uppercase(gameText.translate("gdx.final.hero.win"))
                 + uppercase(gameText.translate("gdx.final.hero.loss"))
                 + uppercase(gameText.translate("gdx.final.hero.even"))
@@ -3772,7 +3777,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // A single 24-layer seat halo emits 16,560 vertices.  The
             // ShapeRenderer default (5,000) flushed that stable geometry at
             // least four times per frame even with animations disabled.
-            case 1 -> shapes = new ShapeRenderer(65_536);
+            case 1 -> shapes = new GdxTableShapeRenderer(65_536);
             case 2 -> batch = new SpriteBatch(2000);
             case 3 -> {
                 roundedCardShader = new ShaderProgram(CARD_VERTEX_SHADER,
@@ -4251,7 +4256,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean createNextLargeFont(int size, float border, Color color,
             Color borderColor, Consumer<BitmapFont> install) {
         return createNextLargeFont(size, border, color, borderColor, install,
-                GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS));
+                baseTableFontCharacters);
     }
 
     private boolean createNextLargeFont(int size, float border, Color color,
@@ -4799,7 +4804,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private List<GdxFontRefresh.Font> displayFonts() {
         var mclaren = Gdx.files.internal("fonts/McLaren-Regular.ttf");
         String characters = tableFontCharacters;
-        String amountCharacters = GdxAdaptiveFontQuality.charactersWith(TABLE_FONT_EXTRA_CHARACTERS);
+        String amountCharacters = baseTableFontCharacters;
         if (startupIntroOnly) {
             return java.util.stream.Stream.of(
                     new GdxFontRefresh.Font(mclaren, 58, 0f, Color.WHITE,
@@ -20333,27 +20338,38 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static String normalizedCaption(String value) {
-        return value == null ? "" : value.strip().toUpperCase(Locale.ROOT)
-                .replaceAll("\\s+", " ");
+        return value == null ? "" : collapseCaptionWhitespace(value.strip().toUpperCase(Locale.ROOT));
+    }
+
+    private static String collapseCaptionWhitespace(String value) {
+        boolean previousSpace = false;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            // These are the whitespace characters of Java's default \s.
+            if ((c == ' ' && previousSpace) || (c >= '\t' && c <= '\r')) {
+                return CAPTION_WHITESPACE.matcher(value).replaceAll(" ");
+            }
+            previousSpace = c == ' ';
+        }
+        return value;
     }
 
     static TableVisualEvent.PlayerAction.ActionKind
             actionKindFromLegacyLabel(String label) {
-        String normalized = normalizedCaption(label).replace('-', ' ')
-                .replaceAll("\\s+", " ");
+        if (label == null || label.isBlank()) return null;
+        String normalized = normalizedCaption(label);
+        if (normalized.indexOf('-') >= 0) {
+            normalized = collapseCaptionWhitespace(normalized.replace('-', ' '));
+        }
         // Core snapshots historically store the log-oriented form
         // "<nickname> ALL IN (<amount>)".  Swing never painted that whole
         // string: its seat widget rendered only the semantic action.  Recovery
         // and roster snapshots may arrive before a PlayerAction event, so GDX
         // must recover the final action token instead of leaking the nickname
         // and amount into the seat caption.
-        Matcher loggedAction = Pattern.compile(
-                "(?:^|\\s)(NO VA|ALL IN|RESUBE|RERAISE|APUESTA|RAISE|"
-                + "CHECK|PASA|CALL|FOLD|SUBE|BET|VA)"
-                + "\\s+\\([^)]*\\)$")
-                .matcher(normalized);
-        if (loggedAction.find()) {
-            normalized = loggedAction.group(1);
+        if (normalized.indexOf('(') >= 0) {
+            Matcher loggedAction = LOGGED_ACTION_CAPTION.matcher(normalized);
+            if (loggedAction.find()) normalized = loggedAction.group(1);
         }
         return switch (normalized) {
             case "NO VA", "FOLD" ->

@@ -17311,7 +17311,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
     }
 
-    /** Overlays the board in 3D and keeps the legacy label placement in 2D. */
+    /** Uses the unrevealed board slots, then the aggressor's cards on the river. */
     private void drawCallCostOverlay(float cx, float cy, float tableWidth) {
         if (liveState == null || liveState.callCostText().isBlank()
                 || !tablePreference("mostrar_coste_igualar", true)
@@ -17322,20 +17322,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Texture cardBack = activeCardBack();
         float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
         float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
-        float gap = cardW + 18f;
-        float firstX = cx - gap * 2f - cardW / 2f;
+        float gap = cardW + COMMUNITY_CARD_GAP;
+        float firstX = cx - communityBoardWidth(cardW) / 2f;
         float cardY = cy - cardH * 0.36f;
-        if (perspectiveActive) {
-            // The amount overlays the same five-card row on every street.
-            drawCallCostOnTable(firstX, cardY, cardW + 4f * gap, cardH);
-            return;
-        }
         List<TableSnapshot.CardSnapshot> board = liveState.snapshot().communityCards();
-        int firstHidden = -1;
+        // In 3D, an unrevealed slot can be empty in the snapshot.
+        int firstHidden = perspectiveActive && board.size() < 5 ? board.size() : -1;
         for (int slot = 0; slot < Math.min(5, board.size()); slot++) {
             TableSnapshot.CardSnapshot card = board.get(slot);
-            if (card.visible()
-                    && !communityCardFaceUpForOverlay(slot, card)) {
+            if (card.visible() ? !communityCardFaceUpForOverlay(slot, card)
+                    : perspectiveActive) {
                 firstHidden = slot;
                 break;
             }
@@ -17347,7 +17343,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // slots. Do not spend part of that width on an extra inset: doing
             // so made short values such as +0.6 fall to the next native font
             // tier even though the two cards had enough room.
-            drawCallCostOnTable(x, cardY, overlayWidth, cardH);
+            drawCallCostText(x, cardY, overlayWidth, cardH, true);
             return;
         }
 
@@ -17373,23 +17369,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // above the nickname on every remote seat.
         float callY = remoteCallCostBottomY(
                 aggressor.podY + PLAYER_POD_HEIGHT);
-        drawCallCostText(minX, callY, maxX - minX, maxY - callY,
-                REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO, true);
-    }
-
-    private void drawCallCostOnTable(float x, float y, float width, float height) {
-        if (!perspectiveActive) {
-            drawCallCostText(x, y, width, height, 0f, false);
-            return;
-        }
-        float insetHeight = Math.min(height, 118f);
-        float centerY = y + height * 0.5f;
-        batch.setProjectionMatrix(perspectiveTable.callTextProjection(x + width * 0.5f, centerY));
-        try {
-            drawCallCostText(x, centerY - insetHeight * 0.5f, width, insetHeight, 0f, false);
-        } finally {
-            batch.setProjectionMatrix(camera.combined);
-        }
+        drawCallCostText(minX, callY, maxX - minX, maxY - callY, false);
     }
 
     static float remoteCallCostBottomY(float podTopY) {
@@ -17406,8 +17386,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawCallCostText(float x, float y, float width, float height,
-            float horizontalInsetRatio, boolean alignVisualBottom) {
-        float inset = width * horizontalInsetRatio;
+            boolean onBoard) {
+        boolean projected = onBoard && perspectiveActive;
+        float inset = onBoard ? 0f : width * REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO;
         float pulse = localCallCostPulse();
         float contentWidth = width - inset * 2f;
         Color tint = callCostBorderTint(pulse, callCostPulseTint);
@@ -17416,24 +17397,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         BitmapFont selected = crispButtonText.font();
         selected.setColor(tint);
         glyph.setText(selected, crispButtonText.text());
-        // Fit the native glyph geometry inside the board-plane overlay
-        // before projecting it, including the smallest available font tier.
-        float scale = perspectiveActive ? Math.min(1f,
-                Math.min(contentWidth / Math.max(1f, glyph.width),
-                        height / Math.max(1f, glyph.height))) : 1f;
-        float baseline = y + (alignVisualBottom ? glyph.height * scale
-                : (height + glyph.height * scale) / 2f);
-        float textX = x + inset + (contentWidth - glyph.width * scale) / 2f;
-        if (perspectiveActive) {
-            batch.getProjectionMatrix().translate(textX, baseline, 0f).scale(scale, scale, 1f);
-            batch.begin();
-            GdxPixelText.drawProjected(selected, batch, glyph, 0f, 0f);
-        } else {
-            batch.begin();
-            GdxPixelText.draw(selected, batch, glyph, textX, baseline, viewport);
+        // Keep the native height when a long amount needs to fit a narrower slot.
+        float scaleX = perspectiveActive
+                ? Math.min(1f, contentWidth / Math.max(1f, glyph.width)) : 1f;
+        float scaleY = perspectiveActive
+                ? Math.min(1f, height / Math.max(1f, glyph.height)) : 1f;
+        float textHeight = glyph.height * scaleY;
+        float baseline = y + (onBoard ? (height + textHeight) / 2f : textHeight);
+        float textX = x + inset + (contentWidth - glyph.width * scaleX) / 2f;
+        boolean transformed = projected || scaleX < 1f || scaleY < 1f;
+        if (transformed) {
+            if (projected) batch.setProjectionMatrix(perspectiveTable.boardProjection());
+            batch.getProjectionMatrix().translate(textX, baseline, 0f)
+                    .scale(scaleX, scaleY, 1f);
         }
-        batch.end();
-        selected.setColor(Color.WHITE);
+        batch.begin();
+        try {
+            if (transformed) {
+                GdxPixelText.drawProjected(selected, batch, glyph, 0f, 0f);
+            } else {
+                GdxPixelText.draw(selected, batch, glyph, textX, baseline, viewport);
+            }
+        } finally {
+            batch.end();
+            if (transformed) batch.setProjectionMatrix(camera.combined);
+            selected.setColor(Color.WHITE);
+        }
     }
 
     /**

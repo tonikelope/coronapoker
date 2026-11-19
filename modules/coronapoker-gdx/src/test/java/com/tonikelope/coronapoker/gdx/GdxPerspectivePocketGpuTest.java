@@ -8,6 +8,8 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Cursor;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -48,6 +50,7 @@ final class GdxPerspectivePocketGpuTest {
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
                     verifyAutoCallPreview(dir);
                     verifyPocket(dir);
+                    verifyFlopCallCost(dir);
                 } catch (Throwable error) {
                     failure.set(error);
                 } finally {
@@ -56,6 +59,69 @@ final class GdxPerspectivePocketGpuTest {
             }
         }, config);
         if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    private static void verifyFlopCallCost(Path dir) throws Exception {
+        try (var prefs = new PreferencesService(dir.resolve("call-cost.properties"))) {
+            prefs.properties().setProperty("gdx_table_view", "3d");
+            prefs.properties().setProperty("mostrar_coste_igualar", "true");
+            var local = new TableSnapshot.PlayerSnapshot("local", 20d, 0d, 2d,
+                    true, false, false, false, -2, -2, 0, 0L, false,
+                    TableSnapshot.Position.NONE, "", "", List.of());
+            var covered = new TableSnapshot.CardSnapshot("", false, false);
+            var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.FLOP,
+                    8d, "local", false, List.of(local), List.of(
+                            new TableSnapshot.CardSnapshot("3_P", true, false),
+                            new TableSnapshot.CardSnapshot("7_P", true, false),
+                            new TableSnapshot.CardSnapshot("K_P", true, false),
+                            covered, covered));
+            var table = new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
+                    command -> {}, () -> {}, new GdxGameLogSink(), prefs);
+            try {
+                table.create();
+                table.resize(WIDTH, HEIGHT);
+                var travel = CoronaPokerGdxTable.class.getDeclaredField("perspectiveTravel");
+                travel.setAccessible(true);
+                travel.setFloat(table, 1f);
+                table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
+                        TableVisualEvent.PreparationStatus.Phase.READY), new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.CallCost(3L, "+2", "rival"),
+                        new CompletableFuture<>());
+                table.render();
+
+                Viewport viewport = (Viewport) field(table, "viewport");
+                float width = viewport.getWorldWidth();
+                float height = viewport.getWorldHeight();
+                float tableWidth = Math.min(1510f, width * .78f);
+                var draw = CoronaPokerGdxTable.class.getDeclaredMethod("drawCallCostOverlay",
+                        float.class, float.class, float.class);
+                draw.setAccessible(true);
+                Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+                draw.invoke(table, width / 2f, height * .52f, tableWidth);
+                var glyph = (GlyphLayout) field(table, "glyph");
+                float projectedSourceHeight = glyph.height;
+                byte[] pixels = ScreenUtils.getFrameBufferPixels(false);
+                int bufferWidth = Gdx.graphics.getBackBufferWidth();
+                int firstColumn = bufferWidth;
+                for (int offset = 0; offset < pixels.length; offset += 4) {
+                    if (Byte.toUnsignedInt(pixels[offset]) > 32) {
+                        firstColumn = Math.min(firstColumn, (offset / 4) % bufferWidth);
+                    }
+                }
+                assertTrue(firstColumn > bufferWidth * .55f && firstColumn < bufferWidth,
+                        "The flop amount must be drawn in the turn and river slots");
+
+                var perspective = CoronaPokerGdxTable.class.getDeclaredField("perspectiveActive");
+                perspective.setAccessible(true);
+                perspective.setBoolean(table, false);
+                draw.invoke(table, width / 2f, height * .52f, tableWidth);
+                assertEquals(glyph.height, projectedSourceHeight, .01f,
+                        "The source glyph has the same height before the 3D projection");
+            } finally {
+                table.dispose();
+            }
+        }
     }
 
     private static void verifyAutoCallPreview(Path dir) throws Exception {

@@ -369,10 +369,6 @@ final class GdxPerspectiveTable implements Disposable {
         backdropFelt = null;
     }
 
-    Matrix4 callTextProjection(float x, float y) {
-        return board;
-    }
-
     Vector3 boardToScreen(float x, float y) {
         projectedPoint.set(x, y, 0f).prj(board);
         return projectedPoint.set((projectedPoint.x + 1f) * width * 0.5f,

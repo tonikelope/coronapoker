@@ -65,8 +65,6 @@ final class GdxTableViewState {
             showdownHighlights = new HashMap<>();
     private final Map<String, TableVisualEvent.PlayerAction.ActionKind>
             actionKinds = new HashMap<>();
-    private final Map<String, TableVisualEvent.RebuyDecision.Phase>
-            rebuyDecisions = new HashMap<>();
     private final Map<String, String> actionLabels = new HashMap<>();
     private final Map<String, Float> partialHandPercentages = new HashMap<>();
     private final Map<String, Integer> immediateRebuys = new HashMap<>();
@@ -430,7 +428,26 @@ final class GdxTableViewState {
     }
 
     TableVisualEvent.RebuyDecision.Phase rebuyDecision(String nickname) {
-        return rebuyDecisions.get(nickname);
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (player.nickname().equals(nickname)) {
+                return playerRebuyDecision(player);
+            }
+        }
+        return null;
+    }
+
+    static TableVisualEvent.RebuyDecision.Phase playerRebuyDecision(
+            TableSnapshot.PlayerSnapshot player) {
+        if (!canShowRebuyDecision(player)) return null;
+        return switch (player.presentation().rebuyPhase()) {
+            case NONE -> null;
+            case WAITING -> TableVisualEvent.RebuyDecision.Phase.WAITING;
+            case REBOUGHT -> TableVisualEvent.RebuyDecision.Phase.REBOUGHT;
+        };
+    }
+
+    private static boolean canShowRebuyDecision(TableSnapshot.PlayerSnapshot player) {
+        return !player.exited() && !player.spectator() && !player.warming();
     }
 
     String actionLabel(String nickname) {
@@ -514,7 +531,6 @@ final class GdxTableViewState {
         } else if (event instanceof TableVisualEvent.PlayerDeparture departure) {
             actionKinds.remove(departure.nickname());
             actionLabels.put(departure.nickname(), departure.label());
-            rebuyDecisions.remove(departure.nickname());
             immediateRebuys.remove(departure.nickname());
             replacePlayer(departure.nickname(), player
                     -> copyPlayerDeparture(player, departure.label()));
@@ -938,24 +954,14 @@ final class GdxTableViewState {
                         player, transfer));
             }
         } else if (event instanceof TableVisualEvent.RebuyDecision decision) {
-            if (decision.phase()
-                    == TableVisualEvent.RebuyDecision.Phase.CLEARED) {
-                rebuyDecisions.remove(decision.nickname());
-            } else {
-                rebuyDecisions.put(decision.nickname(), decision.phase());
-            }
-            replacePlayer(decision.nickname(), player -> {
-                TableSnapshot.PlayerPresentation current
-                        = player.presentation();
-                TableSnapshot.RebuyPhase phase = switch (decision.phase()) {
-                    case WAITING -> TableSnapshot.RebuyPhase.WAITING;
-                    case REBOUGHT -> TableSnapshot.RebuyPhase.REBOUGHT;
-                    case CLEARED -> TableSnapshot.RebuyPhase.NONE;
-                };
-                return copyPlayerPresentation(player,
-                        copyPresentationRebuy(current, phase,
-                                current.immediateRebuyAmount()));
-            });
+            TableSnapshot.RebuyPhase phase = switch (decision.phase()) {
+                case WAITING -> TableSnapshot.RebuyPhase.WAITING;
+                case REBOUGHT -> TableSnapshot.RebuyPhase.REBOUGHT;
+                case CLEARED -> TableSnapshot.RebuyPhase.NONE;
+            };
+            replacePlayer(decision.nickname(), player -> copyPlayerRebuyPhase(
+                    player, canShowRebuyDecision(player)
+                            ? phase : TableSnapshot.RebuyPhase.NONE));
         } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus status) {
             if (status.enabled()) {
                 immediateRebuys.put(status.nickname(), status.amount());
@@ -1049,7 +1055,6 @@ final class GdxTableViewState {
         showdownHighlights.clear();
         actionKinds.clear();
         actionLabels.clear();
-        rebuyDecisions.clear();
         partialHandPercentages.clear();
         resolvedHandResults.clear();
         lateShownHands.clear();
@@ -1116,23 +1121,15 @@ final class GdxTableViewState {
         revealedHoleCards.keySet().retainAll(currentNicknames);
         publicHoleCards.retainAll(currentNicknames);
         lateShownHands.retainAll(currentNicknames);
-        rebuyDecisions.keySet().retainAll(currentNicknames);
-        immediateRebuys.keySet().retainAll(currentNicknames);
 
         for (TableSnapshot.PlayerSnapshot player : players) {
             TableVisualEvent.PlayerAction.ActionKind kind
                     = snapshotActionKind(player);
             if (kind != null) {
                 actionKinds.put(player.nickname(), kind);
-                String publicActionLabel
-                        = player.presentation().publicActionLabel();
-                if (!publicActionLabel.isBlank()) {
-                    actionLabels.put(player.nickname(), GdxChipAmountText.actionLabel(publicActionLabel));
-                } else if (!player.lastAction().isBlank()) {
-                    // Compatibility fallback for snapshots predating the
-                    // explicit public caption field.
-                    actionLabels.put(player.nickname(), GdxChipAmountText.actionLabel(player.lastAction()));
-                }
+                String label = player.presentation().publicActionLabel();
+                if (label.isBlank()) label = player.lastAction();
+                actionLabels.put(player.nickname(), GdxChipAmountText.actionLabel(label));
                 if (kind == TableVisualEvent.PlayerAction.ActionKind.FOLD) {
                     foldedThisHand.add(player.nickname());
                 } else {
@@ -1196,21 +1193,8 @@ final class GdxTableViewState {
             } else {
                 showdownHighlights.remove(player.nickname());
             }
-            if (presentation.rebuyPhase()
-                    == TableSnapshot.RebuyPhase.NONE) {
-                rebuyDecisions.remove(player.nickname());
-            } else {
-                rebuyDecisions.put(player.nickname(),
-                        TableVisualEvent.RebuyDecision.Phase.valueOf(
-                                presentation.rebuyPhase().name()));
-            }
-            if (presentation.immediateRebuyAmount() > 0) {
-                immediateRebuys.put(player.nickname(),
-                        presentation.immediateRebuyAmount());
-            } else {
-                immediateRebuys.remove(player.nickname());
-            }
         }
+        reconcileCanonicalImmediateRebuys(players);
     }
 
     /**
@@ -1427,7 +1411,6 @@ final class GdxTableViewState {
             showdownHighlights.clear();
             actionKinds.clear();
             actionLabels.clear();
-            rebuyDecisions.clear();
             partialHandPercentages.clear();
             resolvedHandResults.clear();
             lateShownHands.clear();
@@ -1455,40 +1438,26 @@ final class GdxTableViewState {
             // short stack posted all-in by a blind/ante has no later
             // PlayerAction event, so restore only the new snapshot's
             // canonical presentation after clearing the old caches.
-            reconcileCanonicalPlayerPresentation(snapshot.players());
+            List<TableSnapshot.PlayerSnapshot> players = snapshot.players().stream()
+                    .map(player -> copyPlayerRebuyPhase(player,
+                            TableSnapshot.RebuyPhase.NONE))
+                    .toList();
+            snapshot = copySnapshot(snapshot, snapshot.pot(),
+                    snapshot.currentTurnNickname(), players, snapshot.communityCards());
+            reconcileCanonicalPlayerPresentation(players);
+        } else {
+            reconcileCanonicalImmediateRebuys(snapshot.players());
         }
-        // A boundary snapshot is authoritative for durable rebuy state. The
-        // corresponding decision event can race just after END, so retaining
-        // only the event cache briefly hides an already accepted REBOUGHT (or
-        // a persistent immediate-rebuy amount) even though the canonical
-        // player presentation is correct.
-        reconcileCanonicalRebuyPresentation(snapshot.players());
         stopTurn();
     }
 
-    private void reconcileCanonicalRebuyPresentation(
+    private void reconcileCanonicalImmediateRebuys(
             List<TableSnapshot.PlayerSnapshot> players) {
-        java.util.Set<String> currentNicknames = players.stream()
-                .map(TableSnapshot.PlayerSnapshot::nickname)
-                .collect(java.util.stream.Collectors.toSet());
-        rebuyDecisions.keySet().retainAll(currentNicknames);
-        immediateRebuys.keySet().retainAll(currentNicknames);
+        immediateRebuys.clear();
         for (TableSnapshot.PlayerSnapshot player : players) {
-            TableSnapshot.PlayerPresentation presentation
-                    = player.presentation();
-            if (presentation.rebuyPhase()
-                    == TableSnapshot.RebuyPhase.NONE) {
-                rebuyDecisions.remove(player.nickname());
-            } else {
-                rebuyDecisions.put(player.nickname(),
-                        TableVisualEvent.RebuyDecision.Phase.valueOf(
-                                presentation.rebuyPhase().name()));
-            }
-            if (presentation.immediateRebuyAmount() > 0) {
-                immediateRebuys.put(player.nickname(),
-                        presentation.immediateRebuyAmount());
-            } else {
-                immediateRebuys.remove(player.nickname());
+            int amount = player.presentation().immediateRebuyAmount();
+            if (amount > 0) {
+                immediateRebuys.put(player.nickname(), amount);
             }
         }
     }
@@ -1574,6 +1543,15 @@ final class GdxTableViewState {
         if (timer.phase() == TableVisualEvent.TurnTimer.Phase.STOP) {
             stopTurn();
             return;
+        }
+        // The core clears the previous timeout when it gives this seat a turn.
+        for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
+            if (player.nickname().equals(timer.nickname()) && player.active()
+                    && !player.spectator() && !player.exited() && player.timedOut()) {
+                replacePlayer(timer.nickname(),
+                        current -> copyPlayerTimeout(current, false));
+                break;
+            }
         }
         turnTotalMillis = timer.totalMillis();
         turnRemainingMillis = timer.remainingMillis();
@@ -1806,6 +1784,14 @@ final class GdxTableViewState {
                 source.decision(), source.actionKind(), source.lastAction(),
                 source.handName(), source.holeCards(), source.buyIn(),
                 source.rebuyCount(), source.warming(), presentation);
+    }
+
+    private static TableSnapshot.PlayerSnapshot copyPlayerRebuyPhase(
+            TableSnapshot.PlayerSnapshot player, TableSnapshot.RebuyPhase phase) {
+        TableSnapshot.PlayerPresentation current = player.presentation();
+        if (current.rebuyPhase() == phase) return player;
+        return copyPlayerPresentation(player,
+                copyPresentationRebuy(current, phase, current.immediateRebuyAmount()));
     }
 
     private static TableSnapshot.PlayerPresentation copyPresentationRebuy(

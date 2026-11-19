@@ -5596,7 +5596,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             clearRunItTwicePotPartition();
             replacePotChipInventory(liveState.snapshot().pot(),
                     event.sequence());
-            syncRemoteRebuyPresentationFromHotJoinSnapshot();
+            syncRemoteRebuyPresentationFromSnapshot();
             syncSeatsFromLiveState();
             reconcileSeatRacksToAuthoritativeState();
             applyPreparationPhase(TableVisualEvent.PreparationStatus.Phase.READY);
@@ -5641,6 +5641,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             syncSeatsFromLiveState();
             if (event instanceof TableVisualEvent.SeatRoster) {
+                syncRemoteRebuyPresentationFromSnapshot();
                 reconcileSeatRacksToAuthoritativeState();
                 showJoinedPlayerNotices(joinedPlayers);
                 for (String nickname : departedPlayers) {
@@ -6141,11 +6142,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (event instanceof TableVisualEvent.RunItTwiceBoard board) {
                 acceptRunItTwicePotBoard(board);
             }
-            if (event instanceof TableVisualEvent.HandBoundary boundary
-                    && boundary.phase()
-                    != TableVisualEvent.HandBoundary.Phase.END) {
-                reconcilePotChipInventory(boundary.snapshot().pot(),
-                        boundary.sequence());
+            if (event instanceof TableVisualEvent.HandBoundary boundary) {
+                if (boundary.phase() == TableVisualEvent.HandBoundary.Phase.END) {
+                    syncRemoteRebuyPresentationFromSnapshot();
+                } else {
+                    reconcilePotChipInventory(boundary.snapshot().pot(),
+                            boundary.sequence());
+                }
             }
             if (event instanceof TableVisualEvent.PlayerAction action) {
                 clearPendingLocalAction(action);
@@ -20241,7 +20244,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return "TIMEOUT";
         }
         TableVisualEvent.RebuyDecision.Phase rebuy
-                = liveState.rebuyDecision(player.nickname());
+                = GdxTableViewState.playerRebuyDecision(player);
         if (rebuy != null) {
             float started = remoteRebuyStartedAt.getOrDefault(
                     player.nickname(), totalTime);
@@ -26978,11 +26981,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void acceptRemoteRebuyDecision(
             TableVisualEvent.RebuyDecision decision) {
         if (decision.phase()
-                == TableVisualEvent.RebuyDecision.Phase.WAITING) {
-            TableSnapshot.PlayerSnapshot player = livePlayer(decision.nickname());
-            if (player != null && !player.exited()) {
-                beginRemoteRebuyPresentation(decision.nickname(), true);
-            }
+                == TableVisualEvent.RebuyDecision.Phase.WAITING
+                && !decision.nickname().equals(liveState.snapshot().localNickname())
+                && liveState.rebuyDecision(decision.nickname()) == decision.phase()) {
+            beginRemoteRebuyPresentation(decision.nickname(), true);
             return;
         }
         remoteRebuyStartedAt.remove(decision.nickname());
@@ -26991,7 +26993,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void syncRemoteRebuyPresentationFromHotJoinSnapshot() {
+    private void syncRemoteRebuyPresentationFromSnapshot() {
         Set<String> waiting = waitingRemoteRebuyPlayers(liveState.snapshot());
         remoteRebuyStartedAt.keySet().retainAll(waiting);
         if (waiting.isEmpty()) {
@@ -26999,8 +27001,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         for (String nickname : waiting) {
-            // This is a state hydration, not a newly occurring GAME OVER: show
-            // the already-running visual without replaying its opening sound.
+            // Resuming a countdown from a snapshot does not replay its opening sound.
             beginRemoteRebuyPresentation(nickname, false);
         }
     }
@@ -27010,9 +27011,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Set<String> waiting = new HashSet<>();
         for (TableSnapshot.PlayerSnapshot player : snapshot.players()) {
             if (!player.nickname().equals(snapshot.localNickname())
-                    && !player.exited()
-                    && player.presentation().rebuyPhase()
-                            == TableSnapshot.RebuyPhase.WAITING) {
+                    && GdxTableViewState.playerRebuyDecision(player)
+                            == TableVisualEvent.RebuyDecision.Phase.WAITING) {
                 waiting.add(player.nickname());
             }
         }

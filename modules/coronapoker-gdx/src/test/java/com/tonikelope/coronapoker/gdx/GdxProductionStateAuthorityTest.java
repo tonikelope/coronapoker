@@ -184,6 +184,9 @@ final class GdxProductionStateAuthorityTest {
                 "SE VA"), new CompletableFuture<>());
         table.acceptEvent(new TableVisualEvent.PlayerTimeout(5L, "remote", true),
                 new CompletableFuture<>());
+        table.acceptEvent(new TableVisualEvent.RebuyDecision(6L, "remote",
+                TableVisualEvent.RebuyDecision.Phase.REBOUGHT),
+                new CompletableFuture<>());
 
         Map<?, ?> seats = (Map<?, ?>) tableField("seatsByNickname").get(table);
         assertEquals(Set.of("human", "other"), seats.keySet());
@@ -757,6 +760,50 @@ final class GdxProductionStateAuthorityTest {
                 TableVisualEvent.RebuyDecision.Phase.REBOUGHT),
                 new CompletableFuture<>());
         assertFalse(table.hasRemoteRebuyPresentation("host"));
+        table.acceptEvent(new TableVisualEvent.SeatRoster(3L,
+                bootstrap.players()), new CompletableFuture<>());
+        assertTrue(table.hasRemoteRebuyPresentation("host"));
+        table.acceptEvent(new TableVisualEvent.SeatRoster(4L, List.of(
+                player("human"), playerState("host", 0d, false, true, 10, 0))),
+                new CompletableFuture<>());
+        assertFalse(table.hasRemoteRebuyPresentation("host"));
+        assertNull(projection.rebuyDecision("host"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"host, client, 2d", "host, client, 3d",
+        "client, host, 2d", "client, host, 3d"})
+    void nextHandReplacesTheRemoteRebuyCaptionWithTheActualAction(
+            String local, String remote, String view,
+            @TempDir Path temporary) throws Exception {
+        TableSnapshot initial = new TableSnapshot(1L, local,
+                TableSnapshot.Street.SHOWDOWN, 0d, "", false,
+                List.of(player(local), player(remote)), List.of());
+        GdxTableViewState projection = new GdxTableViewState(initial);
+        CoronaPokerGdxTable table = nonAnimatedTable(temporary, projection,
+                false, view);
+        GdxGameText text = (GdxGameText) tableField("gameText").get(table);
+        Method caption = CoronaPokerGdxTable.class.getDeclaredMethod(
+                "lastActionLabelForSeat", int.class);
+        caption.setAccessible(true);
+        table.acceptEvent(new TableVisualEvent.RebuyDecision(1L, remote,
+                TableVisualEvent.RebuyDecision.Phase.REBOUGHT),
+                new CompletableFuture<>());
+        assertEquals(text.translate("rebuy.recompra_4"), caption.invoke(table, 1));
+
+        TableSnapshot next = new TableSnapshot(2L, local,
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                projection.snapshot().players(), List.of());
+        table.acceptEvent(new TableVisualEvent.HandBoundary(2L, 2L,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, next),
+                new CompletableFuture<>());
+        assertEquals("", caption.invoke(table, 1));
+        table.acceptEvent(new TableVisualEvent.PlayerAction(3L, remote,
+                TableVisualEvent.PlayerAction.ActionKind.CALL,
+                "CALL", 1d, 1d, 9d, 1d, 1d), new CompletableFuture<>());
+        assertEquals(CoronaPokerGdxTable.localizedActionLabel(
+                TableVisualEvent.PlayerAction.ActionKind.CALL, "CALL", text),
+                caption.invoke(table, 1));
     }
 
     @Test

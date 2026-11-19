@@ -16303,6 +16303,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ? totalMillis : 0L;
         TurnState turn = gameSession().table().hand().turn();
         if (phase == TableVisualEvent.TurnTimer.Phase.START) {
+            // Clear the old timeout before publishing START so a concurrent
+            // roster snapshot cannot reinstate it after the renderer advances.
+            if (player.isActivo() && player.isTimeout()) player.setTimeout(false);
             turn.begin(nickname, turno,
                     Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(totalMillis)));
             if (gameSession().isPaused()) turn.setPaused(true);

@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tonikelope.coronapoker.table.TableSnapshot;
@@ -29,6 +30,8 @@ final class GdxFunctionalLabelOracle {
     static void assertProjectedLabelContract(TableVisualEvent event,
             GdxTableViewState projection, GdxGameText text) {
         if (event instanceof TableVisualEvent.PlayerAction action) {
+            assertNull(projection.rebuyDecision(action.nickname()),
+                    () -> "Rebuy caption masked the action of " + action.nickname());
             String visible = CoronaPokerGdxTable.localizedActionLabel(
                     projection.actionKind(action.nickname()),
                     projection.actionLabel(action.nickname()), text);
@@ -158,6 +161,9 @@ final class GdxFunctionalLabelOracle {
                     "new hand retained the previous RIT pot label");
             for (TableSnapshot.PlayerSnapshot player
                     : projection.snapshot().players()) {
+                assertNull(projection.rebuyDecision(player.nickname()),
+                        () -> "New hand retained the rebuy caption of "
+                        + player.nickname());
                 boolean currentForcedAction = !player.spectator()
                         && !player.warming() && !player.exited()
                         && player.actionKind()

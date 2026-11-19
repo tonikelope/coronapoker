@@ -361,6 +361,7 @@ public final class CorePlayerController implements GamePlayerController {
         state.setHandName("");
         state.setLastAction("");
         state.resetHandPresentation();
+        state.setRebuyPhase(PlayerState.RebuyPhase.NONE);
         loser = false;
     }
 
@@ -592,7 +593,6 @@ public final class CorePlayerController implements GamePlayerController {
         }
         state.setExited(true);
         state.setWarming(false);
-        state.setTimedOut(false);
         state.setActive(false);
         state.setPosition(PlayerState.Position.NONE);
         state.setUnderTheGun(false);

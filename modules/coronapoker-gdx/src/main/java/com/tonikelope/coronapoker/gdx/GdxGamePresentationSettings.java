@@ -45,6 +45,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private String secretFeltFirst = "";
     private String secretFeltSecond = "";
     private int secretFeltSwitches;
+    private int deckPreviewSelections;
 
     GdxGamePresentationSettings(PreferencesService preferences) {
         this(preferences, discoverInstalledMod());
@@ -188,10 +189,18 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     String selectDeck(String deck, boolean persist) {
         String normalized = deck == null ? "" : deck.toLowerCase(Locale.ROOT);
         String selected = normalizedDecks.getOrDefault(normalized, this.deck());
+        if (!selected.equals(this.deck())) deckPreviewSelections = 0;
         properties.setProperty("baraja", selected);
         if (persist) preferences.saveDeferred();
         return selected;
     }
+
+    boolean deckMenuSelectionCompletesPreview() {
+        if (!"interstate60".equals(deck()) || ++deckPreviewSelections < 5) return false;
+        deckPreviewSelections = 0;
+        return true;
+    }
+
     String felt() {
         return normalizedFelt(properties.getProperty("color_tapete", "verde"));
     }

@@ -430,7 +430,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
-    private final Matrix4 pixelProjection = new Matrix4();
+    private final GdxImagePreview imagePreview = new GdxImagePreview();
     private final GdxTextEditState textEdit = new GdxTextEditState();
     private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
     private final GdxVolumeKeyRepeat volumeKeyRepeat =
@@ -543,6 +543,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean startupAudioHeld;
     private boolean tableAudioSuspended;
     private Hit pressedHit;
+    private boolean settingsPressHits;
     private Hit pointerRepeatHit;
     private Surface pointerRepeatSurface;
     private EditMenu editMenu;
@@ -1462,7 +1463,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else if (surface == Surface.SETTINGS) {
             // A child confirmation belongs above Settings, so Settings itself
             // is the scene captured and blurred in this case.
-            drawSettingsScreen();
+            drawSettingsControls(this::drawSettingsScreen);
         } else if (surface == Surface.STATS) {
             drawStatsScreen();
         } else if (surface == Surface.SCREENSHOTS) {
@@ -1607,9 +1608,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             } else if (updatePromptOpen) {
                 drawUpdateDialog();
             } else if (blindStructureDialog != BlindStructureDialog.NONE) {
-                drawBlindStructureDialog();
+                drawSettingsControls(this::drawBlindStructureDialog);
             } else if (initialBuyinInput != null) {
-                drawInitialBuyinEditor();
+                drawSettingsControls(this::drawInitialBuyinEditor);
             } else if (voiceNotesOpen) {
                 drawVoiceNotesDialog();
             } else if (rootSurfaceModal) {
@@ -1624,7 +1625,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 if (customBotDeleteConfirmation) {
                     pointer.set(-10_000f, -10_000f);
                 }
-                drawCustomBotManagerDialog();
+                drawSettingsControls(this::drawCustomBotManagerDialog);
                 if (customBotDeleteConfirmation) {
                     pointer.set(managerPointerX, managerPointerY);
                 }
@@ -1632,7 +1633,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 if (profileBackupSelection != null) {
                     drawProfileBackupSelection(profileBackupSelection);
                 } else if (settingsAutoCallDialog != null) {
-                    drawSettingsAutoCallDialog();
+                    drawSettingsControls(this::drawSettingsAutoCallDialog);
                 } else {
                     drawSettingsDiscardConfirmation();
                 }
@@ -1697,27 +1698,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawUiImagesInCurrentBatch();
             } else if (aboutOpen && handGeneratorOpen) {
                 drawHandGeneratorCards();
-            } else if (aboutOpen && aboutEasterEggTexture == null) {
+            } else if (aboutOpen) {
                 drawAboutImages();
-            } else if (aboutEasterEggTexture != null) {
-                int backBufferWidth = Gdx.graphics.getBackBufferWidth();
-                int backBufferHeight = Gdx.graphics.getBackBufferHeight();
-                float scale = nativeImageScale(
-                        aboutEasterEggTexture.getWidth(),
-                        aboutEasterEggTexture.getHeight(),
-                        backBufferWidth, backBufferHeight, 48);
-                float imageWidth = aboutEasterEggTexture.getWidth() * scale;
-                float imageHeight = aboutEasterEggTexture.getHeight() * scale;
-                // Bypass FitViewport here: one source pixel must be one
-                // physical back-buffer pixel whenever the image fits.
-                batch.setProjectionMatrix(pixelProjection.setToOrtho2D(
-                        0f, 0f, backBufferWidth, backBufferHeight));
-                batch.setColor(Color.WHITE);
-                batch.draw(aboutEasterEggTexture,
-                        (backBufferWidth - imageWidth) / 2f,
-                        (backBufferHeight - imageHeight) / 2f,
-                        imageWidth, imageHeight);
-                batch.setProjectionMatrix(viewport.getCamera().combined);
             }
             for (TextItem item : texts) {
                 drawTextItem(item);
@@ -1840,7 +1822,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 shapes.end();
                 batch.begin();
                 if (customBotManagerOpen) drawCustomBotManagerImages();
-                if (aboutOpen && aboutCopyrightOpen) drawAboutImages();
+                if (aboutOpen && (aboutCopyrightOpen || aboutEasterEggTexture != null)) drawAboutImages();
                 for (TextItem item : texts) drawTextItem(item);
                 batch.end();
                 if (customBotManagerOpen) drawCustomBotManagerListLayer();
@@ -1872,7 +1854,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
             batch.begin();
             if (customBotManagerOpen) drawCustomBotManagerImages();
-            if (aboutOpen && aboutCopyrightOpen) drawAboutImages();
+            if (aboutOpen && (aboutCopyrightOpen || aboutEasterEggTexture != null)) drawAboutImages();
             for (TextItem item : texts) drawTextItem(item);
             batch.end();
             if (customBotManagerOpen) drawCustomBotManagerListLayer();
@@ -1891,7 +1873,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNestedModalParent() {
-        if (aboutOpen && aboutCopyrightOpen) {
+        if (imagePreview.isOpen()) {
+            drawSettingsScreen();
+            return;
+        }
+        if (aboutOpen && (aboutCopyrightOpen || aboutEasterEggTexture != null)) {
             drawAboutDialog();
             return;
         }
@@ -1940,6 +1926,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         if (aboutOpen && aboutCopyrightOpen) {
             drawAboutCopyrightDialog();
+        } else if (aboutOpen && aboutEasterEggTexture != null) {
+            hit(0f, 0f, WIDTH, HEIGHT, this::closeAboutEasterEgg);
+        } else if (imagePreview.isOpen()) {
+            hit(0f, 0f, WIDTH, HEIGHT, imagePreview::dispose);
         } else if (networkBlocksOpen && networkBlockUnblockConfirmation != null) {
             drawNetworkBlockUnblockConfirmation();
         } else if (voiceNotesOpen && (voiceNoteDeleteConfirmation != null
@@ -1950,6 +1940,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         shapes.end();
         batch.begin();
+        Texture image = aboutOpen ? aboutEasterEggTexture : imagePreview.frame();
+        if (image != null) drawPreviewImage(image);
         for (TextItem item : texts) drawTextItem(item);
         batch.end();
     }
@@ -2163,7 +2155,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private boolean hasNestedFrontendModal() {
         return pendingLanguage == null && !frontendNoticeOwnsPointer()
-                && (aboutOpen && aboutCopyrightOpen
+                && (aboutOpen && (aboutCopyrightOpen || aboutEasterEggTexture != null)
+                || surface == Surface.SETTINGS && imagePreview.isOpen()
                 || (surface == Surface.NEW_GAME || surface == Surface.SETTINGS)
                         && customBotManagerOpen
                         && customBotDeleteConfirmation
@@ -2242,6 +2235,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && frontendNoticeMessage.isBlank()
                 && !settingsDiscardConfirmation
                 && profileBackupSelection == null
+                && !imagePreview.isOpen()
                 && settingsAutoCallDialog == null
                 && initialBuyinInput == null
                 && !voiceNotesOpen
@@ -2269,7 +2263,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawRootModalSurface() {
         switch (surface) {
-            case SETTINGS -> drawSettingsScreen();
+            case SETTINGS -> drawSettingsControls(this::drawSettingsScreen);
             case STATS -> drawStatsScreen();
             case SCREENSHOTS -> drawScreenshotViewer();
             case NEW_GAME -> drawNewGameScreen();
@@ -2680,10 +2674,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         mainMenuButton(595f, 310f, 350f, 82f,
                 uppercase(gameText.translate("menu.ajustes")), 3, false,
                 this::openSettings);
-        mainMenuChoice(975f, 310f, 350f, 82f,
+        drawSettingsControls(() -> mainMenuChoice(975f, 310f, 350f, 82f,
                 gameText.translate("gdx.language_name"),
                 () -> openDropdown(Dropdown.LANGUAGE,
-                        975f, 310f, 350f, 82f));
+                        975f, 310f, 350f, 82f)));
         mainMenuButton(595f, 205f, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
@@ -5781,15 +5775,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
 
-        if (aboutEasterEggTexture != null) {
-            GdxUiDialogStyle.drawPanel(shapes, 330f, 115f, 1260f, 850f,
-                    CYAN_DARK, 1f);
-            textFit(tinyFont, gameText.translate("ui.cerrar"), WIDTH / 2f,
-                    142f, MUTED, true, 600f);
-            hit(0f, 0f, WIDTH, HEIGHT, this::closeAboutEasterEgg);
-            return;
-        }
-
         float w = 1300f;
         float h = 748f;
         float x = (WIDTH - w) / 2f;
@@ -6144,13 +6129,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return usedMiB + " MiB  -  " + Thread.activeCount();
     }
 
-    static float nativeImageScale(int imageWidth, int imageHeight,
-            int viewportWidth, int viewportHeight, int margin) {
-        if (imageWidth <= 0 || imageHeight <= 0) return 1f;
-        float availableWidth = Math.max(1, viewportWidth - 2 * margin);
-        float availableHeight = Math.max(1, viewportHeight - 2 * margin);
-        return Math.min(1f, Math.min(availableWidth / imageWidth,
-                availableHeight / imageHeight));
+    private void drawPreviewImage(Texture texture) {
+        float imageBottom = imagePreview.draw(texture, batch, viewport);
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                "gdx.card_viewer.close_hint")), WIDTH / 2f - 220f,
+                Math.max(18f, imageBottom - 62f), 440f, 40f,
+                new Color(0xe8edf4ff), 1f);
     }
 
     private float wrappedText(BitmapFont font, String value, float x,
@@ -8983,6 +8967,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeSettings(boolean save) {
+        imagePreview.dispose();
         settingsShortcutCaptureId = null;
         if (save && settingsReturnSurface == Surface.LOBBY) {
             NewGameTableDraft.Settings requested = settingsTable == null
@@ -11329,6 +11314,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String selected = presentationSettings.selectDeck(
                 decks.get(option), false);
         dropdown = Dropdown.NONE;
+        if (presentationSettings.deckMenuSelectionCompletesPreview()) {
+            imagePreview.playDeckAnimation();
+        }
         if (Objects.equals(previous, selected)) return;
         playPreferenceSound("misc/uncover.wav", "sonido_destape", 0.92f);
     }
@@ -11356,10 +11344,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         String previous = presentationSettings.felt();
+        boolean wasSecret = presentationSettings.secretFelt();
         String selected = presentationSettings.selectFelt(
                 GdxGamePresentationSettings.FELTS.get(option), false);
         dropdown = Dropdown.NONE;
-        if (Objects.equals(previous, selected)) return;
+        if (previous.equals(selected) && wasSecret == presentationSettings.secretFelt()) return;
         refreshFeltFromSettings();
         playPreferenceSound("misc/mat.wav", "sonido_tapete", 0.92f);
     }
@@ -11808,12 +11797,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawHeader();
         drawProgress();
         switch (page) {
-            case 0 -> drawIdentityPage();
-            case 1 -> drawBlindsPage();
-            case 2 -> drawPurchasePage();
-            case 3 -> drawGamePage();
-            case 4 -> drawBotsPage();
-            default -> drawProfilePage();
+            case 0 -> drawSettingsControls(this::drawIdentityPage);
+            case 1 -> drawSettingsControls(this::drawBlindsPage);
+            case 2 -> drawSettingsControls(this::drawPurchasePage);
+            case 3 -> drawSettingsControls(this::drawGamePage);
+            case 4 -> drawSettingsControls(this::drawBotsPage);
+            default -> drawSettingsControls(this::drawProfilePage);
         }
         drawFooter();
     }
@@ -14257,7 +14246,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             editMenuHits.add(new Hit(new Rectangle(x, y, w, h), () -> {
                 action.run();
                 editMenu = null;
-            }, false));
+            }, HitActivation.RELEASE));
         }
     }
 
@@ -15182,7 +15171,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
                 GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawDropdownOverlay(true);
+        drawSettingsControls(() -> drawDropdownOverlay(true));
         shapes.end();
         batch.begin();
         enableWorldScissor(dropdownClip);
@@ -16398,12 +16387,24 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return suffix;
     }
 
+    /** Settings use the same primary-button press as the live table. */
+    private void drawSettingsControls(Runnable draw) {
+        boolean previous = settingsPressHits;
+        settingsPressHits = true;
+        try {
+            draw.run();
+        } finally {
+            settingsPressHits = previous;
+        }
+    }
+
     private void hit(float x, float y, float w, float h, Runnable action) {
         if (menuRevealBlocksInteraction()) {
             return;
         }
         Rectangle bounds = clippedSettingsHit(x, y, w, h);
-        if (bounds != null) hits.add(new Hit(bounds, action, false));
+        if (bounds != null) hits.add(new Hit(bounds, action,
+                settingsPressHits ? HitActivation.PRESS : HitActivation.RELEASE));
     }
 
     private void repeatHit(float x, float y, float w, float h,
@@ -16412,7 +16413,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return;
         }
         Rectangle bounds = clippedSettingsHit(x, y, w, h);
-        if (bounds != null) hits.add(new Hit(bounds, action, true));
+        if (bounds != null) hits.add(new Hit(bounds, action, HitActivation.REPEAT));
     }
 
     private Rectangle clippedSettingsHit(float x, float y, float w,
@@ -16432,7 +16433,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void secondaryHit(float x, float y, float w, float h,
             Runnable action) {
-        secondaryHits.add(new Hit(new Rectangle(x, y, w, h), action, false));
+        secondaryHits.add(new Hit(new Rectangle(x, y, w, h), action, HitActivation.RELEASE));
     }
 
     private boolean hovered(float x, float y, float w, float h) {
@@ -16480,7 +16481,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Hit matchingRepeatHit(Rectangle bounds) {
         for (int index = hits.size() - 1; index >= 0; index--) {
             Hit hit = hits.get(index);
-            if (hit.repeatable && sameBounds(hit.bounds, bounds)) return hit;
+            if (hit.activation == HitActivation.REPEAT && sameBounds(hit.bounds, bounds)) return hit;
         }
         return null;
     }
@@ -16625,7 +16626,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (lobbyVoiceKey == Input.Keys.UNKNOWN
                     && !lobbyVoicePointer.active() && beginLobbyVoiceRecording()) {
                 lobbyVoicePointer.capture(pointerIndex, button);
-                pressedHit = new Hit(voiceBounds, () -> { }, false);
+                pressedHit = new Hit(voiceBounds, () -> { }, HitActivation.RELEASE);
             }
             return true;
         }
@@ -16696,11 +16697,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Hit hit = hits.get(i);
             if (hit.bounds.contains(pointer)) {
                 pressedHit = hit;
-                if (hit.repeatable && button == Input.Buttons.LEFT) {
+                if (button == Input.Buttons.LEFT
+                        && hit.activation != HitActivation.RELEASE) {
                     hit.action.run();
-                    pointerRepeatHit = hit;
-                    pointerRepeatSurface = surface;
-                    pointerRepeat.press(1);
+                    if (hit.activation == HitActivation.REPEAT) {
+                        pointerRepeatHit = hit;
+                        pointerRepeatSurface = surface;
+                        pointerRepeat.press(1);
+                    }
                 }
                 return true;
             }
@@ -16845,7 +16849,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && lobbyTableTransitionActive(lobbyGameStarting, lobby)) {
             return true;
         }
-        if (released != null && !released.repeatable
+        if (released != null && released.activation == HitActivation.RELEASE
                 && released.bounds.contains(pointer)) {
             released.action.run();
             return true;
@@ -17195,6 +17199,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public boolean keyDown(int keycode) {
         if (pendingLanguage != null || fileChooserPending()) return true;
+        if (imagePreview.isOpen()) {
+            if (GdxDialogKeyboard.isCancel(keycode)) imagePreview.dispose();
+            return true;
+        }
         boolean alt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
         boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
@@ -18040,6 +18048,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public void dispose() {
+        imagePreview.dispose();
         rulesWindow.close();
         disposed = true;
         fontRefresh.close();
@@ -18709,7 +18718,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private record Hit(Rectangle bounds, Runnable action, boolean repeatable) {
+    private enum HitActivation {
+        RELEASE, PRESS, REPEAT
+    }
+
+    private record Hit(Rectangle bounds, Runnable action, HitActivation activation) {
     }
 
     private record TextFieldHit(String id, Rectangle bounds) {

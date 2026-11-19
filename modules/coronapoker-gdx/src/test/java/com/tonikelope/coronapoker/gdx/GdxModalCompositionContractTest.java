@@ -142,7 +142,7 @@ final class GdxModalCompositionContractTest {
                 "} else if (customBotManagerOpen) {");
         int pointerShield = source.indexOf(
                 "if (customBotDeleteConfirmation) {", managerBranch);
-        int managerDraw = source.indexOf("drawCustomBotManagerDialog();",
+        int managerDraw = source.indexOf("drawSettingsControls(this::drawCustomBotManagerDialog);",
                 pointerShield);
         int pointerRestore = source.indexOf(
                 "pointer.set(managerPointerX, managerPointerY);", managerDraw);

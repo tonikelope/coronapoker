@@ -70,13 +70,16 @@ final class GdxAboutEasterEggTest {
     }
 
     @Test
-    void preservesNativePixelsAndOnlyShrinksForSmallBackBuffers() {
-        assertEquals(1f, GdxFrontendScreen.nativeImageScale(
-                1024, 673, 1920, 1080, 48));
-        assertEquals(1f, GdxFrontendScreen.nativeImageScale(
-                1280, 640, 1920, 1080, 48));
-        assertEquals(704f / 1024f, GdxFrontendScreen.nativeImageScale(
-                1024, 673, 800, 600, 48), 0.0001f);
+    void aboutImagesFitTheSameCenteredAreaAsTheCardViewer() {
+        var nativeImage = CoronaPokerGdxTable.cardViewerBounds(1024, 673, 1920, 1080);
+        assertEquals(1024f, nativeImage.width);
+        assertEquals(673f, nativeImage.height);
+        assertEquals(448f, nativeImage.x);
+        assertEquals(203.5f, nativeImage.y);
+        var fittedImage = CoronaPokerGdxTable.cardViewerBounds(1024, 673, 800, 600);
+        assertEquals(576f, fittedImage.width, 0.0001f);
+        assertEquals(400f, fittedImage.x + fittedImage.width / 2f, 0.0001f);
+        assertEquals(300f, fittedImage.y + fittedImage.height / 2f, 0.0001f);
     }
 
     @Test

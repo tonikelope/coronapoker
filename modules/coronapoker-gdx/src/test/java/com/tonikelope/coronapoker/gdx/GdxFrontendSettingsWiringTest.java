@@ -117,7 +117,7 @@ final class GdxFrontendSettingsWiringTest {
         int tooltip = render.indexOf("drawTooltipTopLayer(");
         assertTrue(popup >= 0 && topLayers > popup && tooltip > topLayers);
         assertEquals(1, occurrences(render, "drawTooltipTopLayer("));
-        assertTrue(frontend.contains("case SETTINGS -> drawSettingsScreen();"),
+        assertTrue(frontend.contains("case SETTINGS -> drawSettingsControls(this::drawSettingsScreen);"),
                 "menu and lobby settings must share the same sharp modal");
         assertTrue(frontend.contains(
                 "settingsReturnSurface == Surface.LOBBY && lobby != null"),

@@ -1581,6 +1581,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Texture logo;
     private Texture startupPresentationSpadeTexture;
     private Texture feltTexture;
+    private final GdxImagePreview imagePreview = new GdxImagePreview();
     private String loadedFelt;
     private GdxPerspectiveTable perspectiveTable;
     private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
@@ -1875,6 +1876,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final InputProcessor tableInput = new InputAdapter() {
         @Override
         public boolean keyDown(int keycode) {
+            if (imagePreview.isOpen()) return true;
             boolean capturingShortcut = uiLayer == UI_SETTINGS
                     && settingsSection() == GdxSettingsContract.Section.SHORTCUTS
                     && shortcutCaptureId != null;
@@ -2076,6 +2078,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean scrolled(float amountX, float amountY) {
+            if (imagePreview.isOpen()) return true;
             if (tableRulesVisible() || tableGalleryInteractive()) {
                 pointer.set(Gdx.input.getX(), Gdx.input.getY());
                 viewport.unproject(pointer);
@@ -2161,7 +2164,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchDown(int screenX, int screenY, int pointerIndex,
                 int button) {
-            if (isClientTransportReconnecting()) return true;
+            if (isClientTransportReconnecting() || imagePreview.isOpen()) return true;
             if (tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
             if (chipCatalogVisible) return true;
@@ -3373,6 +3376,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save) {
+        imagePreview.dispose();
         audioPreview.stop();
         settingsSelectionList = SettingsSelectionList.NONE;
         settingsSelectionScroll = 0;
@@ -7211,7 +7215,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateTableSystemCursor();
         if (deferredTooltip != null && !galleryOwnsHover && !mediaOwnsHover && !rulesOwnsHover
                 && activeDialog == null && !preparationModal
-                && !chipCatalogVisible && tableIdentityDialog == null
+                && !imagePreview.isOpen() && !chipCatalogVisible && tableIdentityDialog == null
                 && !gameLogPanelContains(pointer.x, pointer.y)
                 && !quickChatOwnsPointer(pointer.x, pointer.y)
                 && !isClientTransportReconnecting()
@@ -7275,7 +7279,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * remaining sharp behind it.
      */
     private boolean hasNestedTableModal() {
-        return activeDialog != null && uiLayer != UI_NONE;
+        return uiLayer != UI_NONE && (activeDialog != null || imagePreview.isOpen());
     }
 
     private boolean tableVoiceConfirmationVisible() {
@@ -7328,7 +7332,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawNestedTableModalForeground() {
         if (activeDialog != null) {
             drawActiveDialog();
+            return;
         }
+        Texture texture = imagePreview.frame();
+        if (texture == null) return;
+        batch.begin();
+        float imageBottom = imagePreview.draw(texture, batch, viewport);
+        drawFittedCenteredInBox(smallFont, uppercase(gameText.translate(
+                "gdx.card_viewer.close_hint")), viewport.getWorldWidth() / 2f - 220f,
+                Math.max(18f, imageBottom - 62f), 440f, 40f,
+                new Color(0xe8edf4ff), 1f);
+        batch.end();
     }
 
     /** Complete pointer ownership for every truly modal table surface. */
@@ -7462,6 +7476,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleInput() {
+        if (imagePreview.isOpen() && activeDialog == null) {
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                primaryPointer.capturePressedGesture();
+                imagePreview.dispose();
+            } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                imagePreview.dispose();
+            }
+            return;
+        }
         boolean autoActionDecisionInputReady = true;
         boolean screenshotAlt = Gdx.input.isKeyPressed(Input.Keys.ALT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.ALT_RIGHT);
@@ -30480,6 +30503,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (option < 0 || option >= decks.size()) return;
         String selected = presentationSettings.selectDeck(decks.get(option),
                 false);
+        if (presentationSettings.deckMenuSelectionCompletesPreview()) {
+            imagePreview.playDeckAnimation();
+        }
         if (!selected.equals(liveDeck)) {
             liveDeck = selected;
             if (tablePreference("sonido_efectos", true)
@@ -33079,6 +33105,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        imagePreview.dispose();
         resetHandCardCollection();
         if (handCardFadeLayer != null) handCardFadeLayer.dispose();
         audioPreview.stop();

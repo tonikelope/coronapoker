@@ -27,8 +27,7 @@ final class GdxCustomBotManagerContractTest {
                 "if (customBotDeleteConfirmation) {\n"
                 + "                    pointer.set(-10_000f, -10_000f);\n"
                 + "                }\n"
-                + "                drawCustomBotManagerDialog();"));
-        assertTrue(source.contains("drawCustomBotManagerDialog();"));
+                + "                drawSettingsControls(this::drawCustomBotManagerDialog);"));
         assertTrue(source.contains("drawCustomBotManagerImages();"));
         assertTrue(source.contains(
                 "customBotManagerMusic = music(\n"

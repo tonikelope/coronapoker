@@ -20,6 +20,34 @@ final class GdxScreenshotStoreTest {
     Path directory;
 
     @Test
+    void deletingTheVisibleCaptureSelectsTheNextOrPreviousSurvivor() {
+        var first = new GdxScreenshotStore.Shot(directory.resolve("first.png"), 3);
+        var middle = new GdxScreenshotStore.Shot(directory.resolve("middle.png"), 2);
+        var last = new GdxScreenshotStore.Shot(directory.resolve("last.png"), 1);
+        var shots = List.of(first, middle, last);
+
+        assertEquals(new GdxScreenshotStore.Selection(List.of(first, last), 1),
+                GdxScreenshotStore.afterDeletion(shots, 1, middle.file()));
+        assertEquals(new GdxScreenshotStore.Selection(List.of(first, middle), 1),
+                GdxScreenshotStore.afterDeletion(shots, 2, last.file()));
+        assertEquals(new GdxScreenshotStore.Selection(List.of(), 0),
+                GdxScreenshotStore.afterDeletion(List.of(last), 0, last.file()));
+    }
+
+    @Test
+    void deletingAnotherCaptureKeepsTheOneTheUserNavigatedTo() {
+        var first = new GdxScreenshotStore.Shot(directory.resolve("first.png"), 3);
+        var middle = new GdxScreenshotStore.Shot(directory.resolve("middle.png"), 2);
+        var last = new GdxScreenshotStore.Shot(directory.resolve("last.png"), 1);
+        var shots = List.of(first, middle, last);
+
+        assertEquals(new GdxScreenshotStore.Selection(List.of(middle, last), 0),
+                GdxScreenshotStore.afterDeletion(shots, 1, first.file()));
+        assertEquals(new GdxScreenshotStore.Selection(List.of(first, middle), 1),
+                GdxScreenshotStore.afterDeletion(shots, 1, last.file()));
+    }
+
+    @Test
     void savedPngIsOpaqueAndPreservesRenderedRgb() throws Exception {
         GdxNativesLoader.load();
         Path file = directory.resolve("Screenshots")

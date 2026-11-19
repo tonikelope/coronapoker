@@ -101,6 +101,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -1691,12 +1692,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean cardViewerFaceUp;
     private List<GdxScreenshotStore.Shot> screenshotFiles = List.of();
     private CompletableFuture<List<GdxScreenshotStore.Shot>> screenshotScan;
-    private int screenshotScanIndex;
     private long screenshotGeneration;
     private int screenshotIndex;
-    private Texture screenshotTexture;
+    private GdxScreenshotPreview.Image screenshotImage;
     private final GdxScreenshotPreview screenshotPreview = new GdxScreenshotPreview();
     private boolean screenshotRequested;
+    private final GdxScreenshotReadback screenshotReadback = new GdxScreenshotReadback();
     private String screenshotError = "";
     private String screenshotMetadata = "";
     private boolean screenshotOperationPending;
@@ -6973,6 +6974,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void render() {
+        finishScreenshotReadback(false);
         GdxPixelText.beginFrame();
         deferredTooltip = null;
         refreshFontQualityIfDue();
@@ -7244,7 +7246,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxTransientNoticeLayout.drawCentered(shapes, batch, viewport, uiFont,
                     glyph, nativeTextTiers(uiFont), crispButtonText, tableToast, ORANGE, alpha);
         }
-        if (screenshotRequested) {
+        if (screenshotRequested && !screenshotReadback.hasPending()) {
             screenshotRequested = false;
             captureScreenshot();
         }
@@ -25508,10 +25510,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (width <= 0 || height <= 0) return;
         Path file = screenshotDirectory().resolve(
                 screenshotFilename(System.currentTimeMillis()));
-        // OpenGL returns the rows bottom up. The PNG worker flips them so
-        // the render thread can copy the mapped pixels in one operation.
-        byte[] rgba = ScreenUtils.getFrameBufferPixels(0, 0, width, height, false);
-        writeScreenshot(file, width, height, rgba);
+        try {
+            if (screenshotReadback.submit(file, width, height)) return;
+        } catch (RuntimeException failure) {
+            screenshotReadback.disable();
+            LOGGER.log(Level.WARNING, "Using synchronous screenshot readback after OpenGL failure", failure);
+        }
+        try {
+            byte[] rgba = ScreenUtils.getFrameBufferPixels(0, 0, width, height, false);
+            writeScreenshot(file, width, height, rgba);
+        } catch (RuntimeException failure) {
+            LOGGER.log(Level.WARNING, "Could not read screenshot pixels", failure);
+            showTableToast(gameText.translate("gdx.screenshot.save_failed"));
+        }
+    }
+
+    private void finishScreenshotReadback(boolean closing) {
+        try {
+            var frame = screenshotReadback.poll(closing);
+            if (frame != null) {
+                writeScreenshot(frame.file(), frame.width(), frame.height(), frame.rgba());
+            }
+        } catch (RuntimeException failure) {
+            screenshotReadback.disable();
+            LOGGER.log(Level.WARNING, "Could not read screenshot pixels asynchronously", failure);
+            showTableToast(gameText.translate("gdx.screenshot.save_failed"));
+        }
     }
 
     private void writeScreenshot(Path file, int width, int height, byte[] rgba) {
@@ -25529,7 +25553,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         completed ? "gdx.screenshot.saved" : "gdx.screenshot.save_failed")));
             }
         }, "coronapoker-gdx-screenshot");
-        writer.setDaemon(true);
+        // Allow an accepted capture to finish writing when the game exits.
+        writer.setDaemon(false);
         writer.start();
     }
 
@@ -25546,17 +25571,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void openScreenshotViewer() {
-        refreshScreenshotFiles(0);
+        refreshScreenshotFiles();
         openUiLayer(UI_SCREENSHOTS);
     }
 
-    private void refreshScreenshotFiles(int preferredIndex) {
+    private void refreshScreenshotFiles() {
         screenshotFiles = List.of();
         screenshotIndex = 0;
         screenshotError = "";
         screenshotPreview.close();
-        disposeScreenshotTexture();
-        screenshotScanIndex = preferredIndex;
+        screenshotImage = null;
         screenshotScan = GdxScreenshotStore.scanAsync();
     }
 
@@ -25570,9 +25594,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.folder_failed"));
         }
-        screenshotIndex = screenshotFiles.isEmpty() ? 0
-                : MathUtils.clamp(screenshotScanIndex, 0,
-                        screenshotFiles.size() - 1);
         loadScreenshotTexture();
     }
 
@@ -25581,22 +25602,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         screenshotGeneration++;
         screenshotScan = null;
         screenshotPreview.close();
-        disposeScreenshotTexture();
+        screenshotImage = null;
         screenshotFiles = List.of();
         screenshotError = "";
         screenshotMetadata = "";
         screenshotOperationPending = false;
     }
 
-    private void disposeScreenshotTexture() {
-        if (screenshotTexture != null) {
-            screenshotTexture.dispose();
-            screenshotTexture = null;
-        }
-    }
-
     private void loadScreenshotTexture() {
-        disposeScreenshotTexture();
+        screenshotImage = null;
         screenshotMetadata = "";
         if (screenshotFiles.isEmpty()) {
             screenshotPreview.close();
@@ -25609,14 +25623,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         screenshotMetadata = GdxScreenshotStore.displayTitle(
                 selected,
                 screenshotIndex, screenshotFiles.size(), gameText.language());
-        screenshotPreview.request(selected.file());
+        screenshotImage = screenshotPreview.request(screenshotFiles, screenshotIndex);
     }
 
     private void updateScreenshotPreview() {
-        try {
-            Texture ready = screenshotPreview.poll();
-            if (ready != null) screenshotTexture = ready;
-        } catch (RuntimeException failure) {
+        screenshotImage = screenshotPreview.poll(viewport);
+        if (screenshotPreview.failed() && screenshotError.isEmpty()) {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.open_failed"));
         }
@@ -25645,10 +25657,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && contains(x, y, left + 1821f,
                         bottom + 470f, 64f, 110f)) {
             showRelativeScreenshot(1);
-        } else if (screenshotTexture != null && !screenshotOperationPending
+        } else if (screenshotImage != null && !screenshotOperationPending
                 && screenshotCopyBounds(width, height).contains(x, y)) {
             copyCurrentScreenshot();
-        } else if (screenshotTexture != null && !screenshotOperationPending
+        } else if (screenshotImage != null && !screenshotOperationPending
                 && screenshotDeleteBounds(width, height).contains(x, y)) {
             confirmDeleteCurrentScreenshot();
         }
@@ -25681,10 +25693,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void copyCurrentScreenshot() {
-        if (screenshotFiles.isEmpty()) return;
+        if (screenshotFiles.isEmpty() || screenshotOperationPending) return;
         Path selected = screenshotFiles.get(screenshotIndex).file();
         screenshotOperationPending = true;
-        runScreenshotOperation("coronapoker-gdx-copy-screenshot", () -> {
+        runScreenshotOperation(GdxImageClipboard.COPY_EXECUTOR, () -> {
             if (!GdxImageClipboard.copy(selected)) {
                 throw new IOException("Clipboard rejected screenshot");
             }
@@ -25692,9 +25704,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void confirmDeleteCurrentScreenshot() {
-        if (screenshotFiles.isEmpty()) return;
+        if (screenshotFiles.isEmpty() || screenshotOperationPending) return;
         Path selected = screenshotFiles.get(screenshotIndex).file();
-        int selectedIndex = screenshotIndex;
         long generation = screenshotGeneration;
         GdxTableDialog confirmation = new GdxTableDialog(
                 GdxTableDialog.Kind.CONFIRM,
@@ -25709,26 +25720,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (!accepted || screenshotOperationPending
                     || generation != screenshotGeneration || uiLayer != UI_SCREENSHOTS) return;
             screenshotOperationPending = true;
-            runScreenshotOperation("coronapoker-gdx-delete-screenshot", () -> {
-                if (!isManagedScreenshot(screenshotDirectory(), selected)) {
-                    throw new IOException("Screenshot outside managed folder");
-                }
-                GdxImageClipboard.discard(selected);
-                Files.delete(selected);
-            }, "", "ui.borrar_captura_error", () -> {
-                if (uiLayer == UI_SCREENSHOTS) {
-                    refreshScreenshotFiles(selectedIndex);
-                }
-            });
+            runScreenshotOperation(GdxScreenshotStore.CATALOG_EXECUTOR,
+                    () -> GdxScreenshotStore.deleteManaged(selected),
+                    "", "ui.borrar_captura_error", () -> removeDeletedScreenshot(selected));
         });
         showDialog(confirmation);
     }
 
-    private void runScreenshotOperation(String threadName,
+    private void removeDeletedScreenshot(Path deleted) {
+        var updated = GdxScreenshotStore.afterDeletion(screenshotFiles, screenshotIndex, deleted);
+        if (updated.shots() == screenshotFiles) return;
+        screenshotFiles = updated.shots();
+        screenshotIndex = updated.index();
+        loadScreenshotTexture();
+    }
+
+    private void runScreenshotOperation(Executor executor,
             ScreenshotOperation operation, String successKey,
             String failureKey, Runnable afterSuccess) {
         long generation = screenshotGeneration;
-        Thread worker = new Thread(() -> {
+        var application = Gdx.app;
+        executor.execute(() -> {
             boolean success = false;
             try {
                 operation.run();
@@ -25739,8 +25751,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 failure.printStackTrace(System.err);
             }
             boolean completed = success;
-            if (Gdx.app != null) {
-                Gdx.app.postRunnable(() -> {
+            if (application != null) {
+                application.postRunnable(() -> {
                     if (disposed || generation != screenshotGeneration) return;
                     screenshotOperationPending = false;
                     if (completed && afterSuccess != null) afterSuccess.run();
@@ -25750,9 +25762,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                 });
             }
-        }, threadName);
-        worker.setDaemon(true);
-        worker.start();
+        });
     }
 
     @FunctionalInterface
@@ -25787,7 +25797,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Rectangle close = new Rectangle(left + 1812f, bottom + 1008f, 58f, 50f);
         drawWindowClose(close, close.contains(pointer), alpha);
-        if (screenshotTexture != null) {
+        if (screenshotImage != null) {
             Rectangle copy = screenshotCopyBounds(width, height);
             Rectangle delete = screenshotDeleteBounds(width, height);
             drawDialogButton(copy.x, copy.y, copy.width, copy.height,
@@ -25799,12 +25809,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, alpha);
-        if (screenshotTexture != null) {
+        if (screenshotImage != null) {
             Rectangle area = screenshotViewerImageArea(left, bottom);
-            Rectangle bounds = fitInside(screenshotTexture.getWidth(),
-                    screenshotTexture.getHeight(), area.x, area.y,
+            Rectangle bounds = fitInside(screenshotImage.originalWidth(),
+                    screenshotImage.originalHeight(), area.x, area.y,
                     area.width, area.height, true);
-            batch.draw(screenshotTexture, bounds.x, bounds.y,
+            batch.draw(screenshotImage.texture(), bounds.x, bounds.y,
                     bounds.width, bounds.height);
         }
         String viewerTitle = uppercase(gameText.translate(
@@ -25827,7 +25837,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     width / 2f - 360f, bottom + 505f,
                     720f, 90f, new Color(0xe8edf4ff), alpha);
         }
-        if (screenshotTexture != null) {
+        if (screenshotImage != null) {
             Rectangle copy = screenshotCopyBounds(width, height);
             Rectangle delete = screenshotDeleteBounds(width, height);
             float enabledAlpha = screenshotOperationPending
@@ -32385,8 +32395,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && finalSummaryScreenshotReady(elapsed, local, summary.reason(),
                         finalCounterAnimationEnabled())) {
             // Swing captures only after the rolling amount and its three
-            // visible/blank cycles have ended.  Readback remains on the render
-            // thread at the end of this frame; PNG encoding stays asynchronous.
+            // visible/blank cycles have ended. Submit this fully drawn frame
+            // for readback at the same point as a keyboard capture.
             finalSummaryScreenshotTaken = true;
             screenshotRequested = true;
             if (tablePreference("sonido_screenshot", true)) {
@@ -32472,6 +32482,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     void suspendRetainedFinalSummary() {
+        finishScreenshotReadback(true);
         volumeKeyRepeat.clear();
         if (backgroundMusic != null) backgroundMusic.pause();
     }
@@ -33126,6 +33137,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        finishScreenshotReadback(true);
+        screenshotReadback.dispose();
         imagePreview.dispose();
         resetHandCardCollection();
         if (handCardFadeLayer != null) handCardFadeLayer.dispose();
@@ -33343,7 +33356,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         cardViewerSound.dispose();
         screenshotSound.dispose();
         feltChangeSound.dispose();
-        disposeScreenshotTexture();
+        screenshotImage = null;
         soundIcon.dispose();
         muteIcon.dispose();
         lightsOnIcon.dispose();

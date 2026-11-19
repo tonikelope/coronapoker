@@ -108,6 +108,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -838,7 +839,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Surface screenshotReturnSurface = Surface.MENU;
     private List<GdxScreenshotStore.Shot> screenshots = List.of();
     private int screenshotIndex;
-    private Texture screenshotTexture;
+    private GdxScreenshotPreview.Image screenshotImage;
     private final GdxScreenshotPreview screenshotPreview = new GdxScreenshotPreview();
     private String screenshotError = "";
     private String screenshotToast = "";
@@ -847,7 +848,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean screenshotDeleteConfirmation;
     private long screenshotGeneration;
     private CompletableFuture<List<GdxScreenshotStore.Shot>> screenshotScan;
-    private int screenshotScanIndex;
     private String screenshotMetadata = "";
 
     GdxFrontendScreen(PreferencesService preferences,
@@ -2787,7 +2787,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         screenshotDeleteConfirmation = false;
         screenshotOperationPending = false;
         activateSurface(Surface.SCREENSHOTS);
-        refreshScreenshotFiles(0);
+        refreshScreenshotFiles();
         syncMusicForSurface();
     }
 
@@ -2795,7 +2795,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         screenshotGeneration++;
         screenshotScan = null;
         screenshotPreview.close();
-        disposeScreenshotTexture();
+        screenshotImage = null;
         screenshots = List.of();
         screenshotError = "";
         screenshotToast = "";
@@ -2805,13 +2805,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         syncMusicForSurface();
     }
 
-    private void refreshScreenshotFiles(int preferredIndex) {
+    private void refreshScreenshotFiles() {
         screenshots = List.of();
         screenshotIndex = 0;
         screenshotError = "";
         screenshotPreview.close();
-        disposeScreenshotTexture();
-        screenshotScanIndex = preferredIndex;
+        screenshotImage = null;
         screenshotScan = GdxScreenshotStore.scanAsync();
     }
 
@@ -2825,21 +2824,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.folder_failed"));
         }
-        screenshotIndex = screenshots.isEmpty() ? 0
-                : MathUtils.clamp(screenshotScanIndex, 0,
-                        screenshots.size() - 1);
         loadScreenshotTexture();
     }
 
-    private void disposeScreenshotTexture() {
-        if (screenshotTexture != null) {
-            screenshotTexture.dispose();
-            screenshotTexture = null;
-        }
-    }
-
     private void loadScreenshotTexture() {
-        disposeScreenshotTexture();
+        screenshotImage = null;
         if (screenshots.isEmpty()) {
             screenshotPreview.close();
             return;
@@ -2850,14 +2839,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         var shot = screenshots.get(screenshotIndex);
         screenshotMetadata = GdxScreenshotStore.displayTitle(shot,
                 screenshotIndex, screenshots.size(), gameText.language());
-        screenshotPreview.request(shot.file());
+        screenshotImage = screenshotPreview.request(screenshots, screenshotIndex);
     }
 
     private void updateScreenshotPreview() {
-        try {
-            Texture ready = screenshotPreview.poll();
-            if (ready != null) screenshotTexture = ready;
-        } catch (RuntimeException failure) {
+        screenshotImage = screenshotPreview.poll(viewport);
+        if (screenshotPreview.failed() && screenshotError.isEmpty()) {
             screenshotError = uppercase(gameText.translate(
                     "gdx.screenshot.open_failed"));
         }
@@ -2874,7 +2861,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (screenshots.isEmpty() || screenshotOperationPending) return;
         Path selected = screenshots.get(screenshotIndex).file();
         screenshotOperationPending = true;
-        runScreenshotOperation("coronapoker-gdx-frontend-copy-screenshot",
+        runScreenshotOperation(GdxImageClipboard.COPY_EXECUTOR,
                 () -> {
                     if (!GdxImageClipboard.copy(selected)) {
                         throw new IOException("Clipboard rejected screenshot");
@@ -2890,27 +2877,27 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void deleteCurrentScreenshot() {
         if (screenshots.isEmpty() || screenshotOperationPending) return;
         Path selected = screenshots.get(screenshotIndex).file();
-        int selectedIndex = screenshotIndex;
         screenshotDeleteConfirmation = false;
         screenshotOperationPending = true;
-        runScreenshotOperation("coronapoker-gdx-frontend-delete-screenshot",
-                () -> {
-                    if (!GdxScreenshotStore.isManaged(
-                            GdxScreenshotStore.directory(), selected)) {
-                        throw new IOException(
-                                "Screenshot outside managed folder");
-                    }
-                    GdxImageClipboard.discard(selected);
-                    Files.delete(selected);
-                }, "", "ui.borrar_captura_error",
-                () -> refreshScreenshotFiles(selectedIndex));
+        runScreenshotOperation(GdxScreenshotStore.CATALOG_EXECUTOR,
+                () -> GdxScreenshotStore.deleteManaged(selected),
+                "", "ui.borrar_captura_error", () -> removeDeletedScreenshot(selected));
     }
 
-    private void runScreenshotOperation(String threadName,
+    private void removeDeletedScreenshot(Path deleted) {
+        var updated = GdxScreenshotStore.afterDeletion(screenshots, screenshotIndex, deleted);
+        if (updated.shots() == screenshots) return;
+        screenshots = updated.shots();
+        screenshotIndex = updated.index();
+        loadScreenshotTexture();
+    }
+
+    private void runScreenshotOperation(Executor executor,
             ScreenshotOperation operation, String successKey,
             String failureKey, Runnable afterSuccess) {
         long generation = screenshotGeneration;
-        Thread worker = new Thread(() -> {
+        var application = Gdx.app;
+        executor.execute(() -> {
             boolean success = false;
             try {
                 operation.run();
@@ -2920,8 +2907,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         "GDX screenshot operation failed", failure);
             }
             boolean completed = success;
-            if (Gdx.app != null) {
-                Gdx.app.postRunnable(() -> {
+            if (application != null) {
+                application.postRunnable(() -> {
                     if (disposed || generation != screenshotGeneration) {
                         return;
                     }
@@ -2934,9 +2921,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     }
                 });
             }
-        }, threadName);
-        worker.setDaemon(true);
-        worker.start();
+        });
     }
 
     @FunctionalInterface
@@ -2956,13 +2941,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     WIDTH / 2f, 980f, Color.WHITE, true, 1120f);
         }
 
-        if (screenshotTexture != null) {
+        if (screenshotImage != null) {
             Rectangle area = CoronaPokerGdxTable
                     .screenshotViewerImageArea(0f, 0f);
             Rectangle bounds = CoronaPokerGdxTable.fitInside(
-                    screenshotTexture.getWidth(), screenshotTexture.getHeight(),
+                    screenshotImage.originalWidth(), screenshotImage.originalHeight(),
                     area.x, area.y, area.width, area.height, true);
-            uiImages.add(new UiImageItem(screenshotTexture, bounds.x, bounds.y,
+            uiImages.add(new UiImageItem(screenshotImage.texture(), bounds.x, bounds.y,
                     bounds.width, bounds.height));
         }
         String message = !screenshotError.isBlank() ? screenshotError
@@ -2988,7 +2973,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             screenshotNavigationButton(1821f, 470f, 64f, 110f, 1,
                     () -> showRelativeScreenshot(1), !modal);
         }
-        if (screenshotTexture != null) {
+        if (screenshotImage != null) {
             themedButton(660f, 18f, 280f, 64f,
                     uppercase(gameText.translate(
                             "ui.copiar_imagen_portapapeles")),
@@ -18070,7 +18055,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearLobbyMedia();
         disposeAboutEasterEgg();
         screenshotPreview.close();
-        disposeScreenshotTexture();
+        screenshotImage = null;
         submissions.cancel();
         closeLobbySubscription();
         closeAvatarCrop();

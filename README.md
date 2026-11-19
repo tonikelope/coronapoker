@@ -287,6 +287,7 @@ can safely overlay the supported presentation assets:
 - **Straddle timeout** is a personal setting under Game Settings > Blinds. By default the player declines when time runs out.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.
 - **Rebindable keyboard shortcuts** for common table, audio, voice, screenshot and window actions, managed from the built-in controls editor.
+- **Fast screenshot capture and browsing.** Take full-resolution PNG screenshots with a rebindable shortcut. The viewer preloads nearby captures for quick navigation and keeps the original dimensions when copying. The in-game capture path uses asynchronous GPU readback where supported.
 
 ![English Appearance settings showing the table display options](docs/screenshots/appearance-table-en.png)
 

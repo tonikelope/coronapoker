@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -25,13 +26,17 @@ final class GdxScreenshotStore {
 
     private static final String PREFIX = "coronapoker_screenshot_";
     private static final String SUFFIX = ".png";
-    private static final Executor SCANNER = Executors.newSingleThreadExecutor(task -> {
+    private static final int PNG_COMPRESSION_LEVEL = 1;
+    static final Executor CATALOG_EXECUTOR = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "coronapoker-screenshot-catalog");
         thread.setDaemon(true);
         return thread;
     });
 
     record Shot(Path file, long createdAt) {
+    }
+
+    record Selection(List<Shot> shots, int index) {
     }
 
     private GdxScreenshotStore() {
@@ -61,7 +66,8 @@ final class GdxScreenshotStore {
         Pixmap pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
         try {
             BufferUtils.copy(rgba, 0, pixmap.getPixels(), rgba.length);
-            PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap, -1, flipY);
+            PixmapIO.writePNG(new FileHandle(file.toFile()), pixmap,
+                    PNG_COMPRESSION_LEVEL, flipY);
         } finally {
             pixmap.dispose();
         }
@@ -82,6 +88,25 @@ final class GdxScreenshotStore {
         return root.equals(candidate.getParent());
     }
 
+    static void deleteManaged(Path file) throws IOException {
+        if (!isManaged(directory(), file)) {
+            throw new IOException("Screenshot outside managed folder");
+        }
+        Files.deleteIfExists(file);
+    }
+
+    static Selection afterDeletion(List<Shot> shots, int selectedIndex, Path deleted) {
+        for (int index = 0; index < shots.size(); index++) {
+            if (!shots.get(index).file().equals(deleted)) continue;
+            var remaining = new ArrayList<>(shots);
+            remaining.remove(index);
+            int selected = index < selectedIndex ? selectedIndex - 1 : selectedIndex;
+            return new Selection(List.copyOf(remaining),
+                    Math.max(0, Math.min(selected, remaining.size() - 1)));
+        }
+        return new Selection(shots, selectedIndex);
+    }
+
     static CompletableFuture<List<Shot>> scanAsync() {
         Path root = directory();
         return CompletableFuture.supplyAsync(() -> {
@@ -90,7 +115,7 @@ final class GdxScreenshotStore {
             } catch (IOException failure) {
                 throw new CompletionException(failure);
             }
-        }, SCANNER);
+        }, CATALOG_EXECUTOR);
     }
 
     static List<Shot> scan(Path directory) throws IOException {

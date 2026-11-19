@@ -17,13 +17,18 @@ final class GdxAboutEasterEgg {
 
     static byte[] decode(InputStream splash, InputStream encrypted)
             throws IOException, GeneralSecurityException {
-        Objects.requireNonNull(splash, "splash");
         Objects.requireNonNull(encrypted, "encrypted");
+        return decoder(splash).doFinal(encrypted.readAllBytes());
+    }
+
+    static Cipher decoder(InputStream splash)
+            throws IOException, GeneralSecurityException {
+        Objects.requireNonNull(splash, "splash");
         byte[] key = MessageDigest.getInstance("MD5")
                 .digest(splash.readAllBytes());
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
         cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"),
                 new IvParameterSpec(new byte[16]));
-        return cipher.doFinal(encrypted.readAllBytes());
+        return cipher;
     }
 }

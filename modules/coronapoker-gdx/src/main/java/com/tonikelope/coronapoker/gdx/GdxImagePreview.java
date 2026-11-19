@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 
 final class GdxImagePreview implements Disposable {
     private static final Logger LOGGER = Logger.getLogger(GdxImagePreview.class.getName());
@@ -23,14 +25,18 @@ final class GdxImagePreview implements Disposable {
 
     void playDeckAnimation() {
         dispose();
-        try (var splash = Gdx.files.internal("images/splash.gif").read();
-                var encrypted = Gdx.files.internal("images/e").read()) {
-            byte[] bytes = GdxAboutEasterEgg.decode(splash, encrypted);
-            animation = StreamingGifTextureAnimation.load(bytes, "deck preview",
-                    Integer.MAX_VALUE);
-        } catch (IOException | GeneralSecurityException | RuntimeException failure) {
-            LOGGER.log(Level.WARNING, "Unable to open the deck preview", failure);
-        }
+        var splash = Gdx.files.internal("images/splash.gif");
+        var encrypted = Gdx.files.internal("images/e");
+        animation = StreamingGifTextureAnimation.loadDeferred(() -> {
+            Cipher cipher;
+            try (var keySource = splash.read()) {
+                cipher = GdxAboutEasterEgg.decoder(keySource);
+            } catch (GeneralSecurityException failure) {
+                throw new IOException("Unable to decode the deck preview", failure);
+            }
+            return StreamingGifTextureAnimation.progressiveInput(
+                    new CipherInputStream(encrypted.read(), cipher));
+        }, "deck preview", Integer.MAX_VALUE);
     }
 
     boolean isOpen() {
@@ -43,6 +49,10 @@ final class GdxImagePreview implements Disposable {
         float elapsed = startedAt == 0L ? 0f : (now - startedAt) / 1_000_000_000f;
         Texture texture = animation.frameAt(elapsed);
         if (animation.playbackComplete(elapsed)) {
+            if (animation.failed()) {
+                LOGGER.log(Level.WARNING, "Unable to open the deck preview",
+                        animation.failure());
+            }
             dispose();
             return null;
         }

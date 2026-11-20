@@ -276,6 +276,7 @@ can safely overlay the supported presentation assets:
 - **Table light switch.** In both table views, the light fades from full brightness to the configured level and back.
 - **End-of-hand card collection.** The players' remaining cards fade in place as the community cards gather. The collected stack then fades away.
 - **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
+- **3D flying-chip shadow quality** under Appearance > Animations and effects, grouped with **Flying chips**. **High** is the default. **Normal** uses fewer samples for shadows during large chip transfers.
 - **Community card deal style** under Appearance > Animations and effects. **By street** is the default. The flop arrives as a covered stack, turns over in the first slot, then spreads to the right. The turn and river travel covered from the dealer and turn over after landing. The flight is slower in this mode. **All face down at the start of the hand** deals the full board at the same speed as the players' cards. A saved change takes effect from the next hand.
 - **Table view** is the first option under Appearance > Table. Choose 2D for a top-down view or 3D to play in perspective with covered hole cards.
 - **Amount to call** appears in the remaining community-card slots and moves above the aggressor's covered cards on the river. In 3D, the camera projects the same text height onto the community-card row.

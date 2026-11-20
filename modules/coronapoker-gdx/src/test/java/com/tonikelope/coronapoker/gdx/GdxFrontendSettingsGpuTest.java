@@ -94,10 +94,32 @@ final class GdxFrontendSettingsGpuTest {
                     screen.openLobby(lobby);
                     verifySettings(screen, presentation, GdxSettingsSession.Context.WAITING_ROOM);
                 }
+                verifyLobbyNoticeHandoff(screen);
             } finally {
                 screen.dispose();
             }
             verifyLiveTable(prefs, presentation);
+        }
+    }
+
+    private static void verifyLobbyNoticeHandoff(GdxFrontendScreen screen)
+            throws Exception {
+        try (var lobby = lobby(LobbySnapshot.Phase.ERROR, "Server connection lost")) {
+            screen.openLobby(lobby);
+            assertEquals("Server connection lost", field(screen, "frontendNoticeMessage"));
+            var table = GdxFinalSummaryNoticeTest.table();
+            screen.transferLobbyNoticeTo(table);
+            assertEquals("", field(screen, "frontendNoticeMessage"));
+            GdxFinalSummaryNoticeTest.close(table,
+                    com.tonikelope.coronapoker.table.TableSessionSummary.CloseReason.FAILURE, false);
+            assertEquals("Server connection lost",
+                    GdxFinalSummaryNoticeTest.activeDialog(table).message());
+            assertFalse(table.handleFinalSummaryNavigationAction(0));
+            assertTrue(table.resolveActiveDialogChoice(true));
+            table.advanceDialogState();
+            assertTrue(table.handleFinalSummaryNavigationAction(0));
+            screen.returnFromTable(lobby);
+            assertEquals("", field(screen, "frontendNoticeMessage"));
         }
     }
 
@@ -266,8 +288,12 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static LobbySession lobby() {
+        return lobby(LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "");
+    }
+
+    private static LobbySession lobby(LobbySnapshot.Phase phase, String detail) {
         return new LobbySession(new LobbySnapshot("human", "human", "127.0.0.1:2345",
-                true, LobbySnapshot.Phase.WAITING_FOR_PLAYERS, "",
+                true, phase, detail,
                 List.of(new LobbyParticipant("human", null, true, true,
                         false, true, false, true, 0, 0)),
                 List.of(), null, false), command -> CompletableFuture.completedFuture(null));

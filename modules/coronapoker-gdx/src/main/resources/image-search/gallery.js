@@ -393,8 +393,7 @@
     const total = Math.max(1, Math.ceil(gallery.size / pageSize));
     page = Math.min(total - 1, page);
     const start = page * pageSize;
-    el('receive').textContent = copy.receive(gallery.autoReceive);
-    el('receive').setAttribute('aria-pressed', gallery.autoReceive);
+    drawReceiveSwitch(gallery.autoReceive);
     el('clear').disabled = !gallery.size;
     el('local-empty').hidden = !!gallery.size;
     localResults.hidden = !gallery.size;
@@ -426,14 +425,18 @@
       if (el('local').hidden) return;
       if (drawnRevision !== next.revision) drawLocal();
       else {
-        el('receive').textContent = copy.receive(next.autoReceive);
-        el('receive').setAttribute('aria-pressed', next.autoReceive);
+        drawReceiveSwitch(next.autoReceive);
       }
     } catch {
       // Closing the dialog also cancels outstanding queries.
     }
   }
   window.refreshLocalGallery = refreshLocalGallery;
+
+  function drawReceiveSwitch(enabled) {
+    el('receive-label').textContent = copy.receive(enabled);
+    el('receive').setAttribute('aria-checked', enabled);
+  }
 
   function detachSearchGrid() {
     searchPreviews.disconnect();

@@ -29,6 +29,16 @@ final class GdxVisibleTextStyleTest {
         }
     }
 
+    @Test
+    void everyLanguageAvoidsTheMiddleDot() throws IOException {
+        for (var language : GdxGameText.languages()) {
+            String resource = "i18n/messages_" + language.tag().replace('-', '_') + ".properties";
+            String catalog = read(resource);
+            assertFalse(catalog.indexOf(0xb7) >= 0, resource);
+            assertFalse(catalog.toLowerCase(java.util.Locale.ROOT).contains("\\u00b7"), resource);
+        }
+    }
+
     private static String read(String resource) throws IOException {
         try (InputStream input = GdxVisibleTextStyleTest.class
                 .getClassLoader().getResourceAsStream(resource)) {

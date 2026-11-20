@@ -34,7 +34,7 @@ button.danger { color: white; border-color: #ec5b54; background: #6c262a; }
 button.danger:hover:not(:disabled) { border-color: #ff7970; background: #913b40; }
 #local-controls button, #search-controls { font-size: .75rem; }
 #search-cache-status { color: var(--muted); }
-#receive[aria-pressed="true"] { color: var(--green); border-color: #3a7b55; background: #123225; }
+#receive { display: inline-flex; align-items: center; gap: .4rem; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
 section { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 form { padding: .62rem .72rem .25rem; }
@@ -144,5 +144,5 @@ main { flex: 1; min-height: 0; overflow: auto; scrollbar-color: #2d7990 #101b2a;
 footer { justify-content: space-between; padding: .36rem .65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; }
 footer button { min-height: 1.55rem; }
 .notice { justify-content: end; flex-wrap: wrap; padding: .45rem .65rem; background: #241b26; font-size: .78rem; }
-.notice span { margin-right: auto; }
+.notice span { margin-right: auto; text-align: justify; text-align-last: start; overflow-wrap: anywhere; }
 @media (max-width: 490px) { .grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }

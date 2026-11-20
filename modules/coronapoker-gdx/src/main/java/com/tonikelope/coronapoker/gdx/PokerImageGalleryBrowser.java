@@ -186,6 +186,7 @@ final class PokerImageGalleryBrowser implements AutoCloseable {
                     ORIGIN + ROOT + "gallery.js", asset(ROOT + "gallery.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.js", asset("/ui-tooltip.js", "text/javascript"),
                     ORIGIN + "/ui-tooltip.css", asset("/ui-tooltip.css", "text/css"),
+                    ORIGIN + "/ui-switch.css", asset("/ui-switch.css", "text/css"),
                     ORIGIN + "/fonts/McLaren-Regular.ttf", asset("/fonts/McLaren-Regular.ttf", "font/ttf")));
             assets.put(ORIGIN + GdxWebLocalization.COPY_PATH,
                     new Asset(GdxWebLocalization.script(language, "gdx.web.gallery_"), "text/javascript"));

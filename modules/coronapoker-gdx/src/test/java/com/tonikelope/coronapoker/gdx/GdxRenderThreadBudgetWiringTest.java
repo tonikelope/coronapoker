@@ -66,14 +66,14 @@ final class GdxRenderThreadBudgetWiringTest {
 
         String blur = source("GdxModalBackdropBlur.java");
         assertTrue(blur.contains("boolean prepareNextBuffer("));
-        assertTrue(blur.contains("backdrop = createBuffer(width, height, true)"));
-        assertTrue(blur.contains("scratch = createBuffer(width, height, false)"));
-        assertTrue(blur.contains("void endCaptureAndCache("));
+        assertTrue(blur.contains("backdrop = createBuffer(width, height)"));
+        assertTrue(blur.contains("scratch = createBuffer(width, height)"));
+        assertTrue(blur.contains("void blurPresentedScene("));
         assertTrue(blur.contains("boolean hasCachedFrame("));
 
         String frontend = source("GdxFrontendScreen.java");
         assertTrue(frontend.contains("renderCachedLoadingFrame()"));
-        assertTrue(frontend.contains("modalBackdropBlur.endCaptureAndCache("));
+        assertTrue(frontend.contains("modalBackdropBlur.blurPresentedScene("));
         assertTrue(frontend.contains("modalBackdropBlur.hasCachedFrame("));
 
         String shell = source("GdxApplicationShell.java");

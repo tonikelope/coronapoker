@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class GdxSettingsNavigationContractTest {
 
@@ -161,7 +163,7 @@ final class GdxSettingsNavigationContractTest {
                 "GdxFrontendScreen.java"));
 
         assertTrue(table.contains(
-                "GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight)"));
+                "GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight,"));
         assertTrue(table.contains(
                 "positive.width, positive.height, FOLD_RED"));
         assertTrue(table.contains(
@@ -184,14 +186,46 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
                 CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
                 CoronaPokerGdxTable.FastAccessAction.ROBERT_RULES,
+                CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW,
                 CoronaPokerGdxTable.FastAccessAction.EXIT),
-                java.util.stream.IntStream.range(0, 10)
+                java.util.stream.IntStream.range(0, 11)
                         .mapToObj(CoronaPokerGdxTable::fastAccessActionAt)
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
                 CoronaPokerGdxTable.fastAccessActionAt(-1));
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
-                CoronaPokerGdxTable.fastAccessActionAt(10));
+                CoronaPokerGdxTable.fastAccessActionAt(11));
+    }
+
+    @Test
+    void fastAccessViewOffersTheDestinationAndPersistsEachClick(@TempDir Path directory)
+            throws Exception {
+        Path profile = directory.resolve("preferences.properties");
+        try (var preferences = new PreferencesService(profile)) {
+            preferences.start();
+            var table = new CoronaPokerGdxTable(60, () -> {}, () -> {}, preferences);
+            var expanded = CoronaPokerGdxTable.class.getDeclaredField("fastBarExpanded");
+            expanded.setAccessible(true);
+            expanded.setBoolean(table, true);
+            var click = CoronaPokerGdxTable.class.getDeclaredMethod(
+                    "handleFastAccessClick", float.class, float.class);
+            click.setAccessible(true);
+            var label = CoronaPokerGdxTable.class.getDeclaredMethod("targetTableViewLabel");
+            label.setAccessible(true);
+            float x = CoronaPokerGdxTable.fastAccessButtonX(
+                    CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW.ordinal(), 1f) + 26f;
+            float y = CoronaPokerGdxTable.FAST_BAR_Y + 30f;
+
+            assertEquals("2D", label.invoke(table));
+            assertTrue((boolean) click.invoke(table, x, y));
+            assertEquals("2d", preferences.properties().getProperty(GdxSettingsContract.TABLE_VIEW_KEY));
+            assertEquals("3D", label.invoke(table));
+            assertTrue(expanded.getBoolean(table));
+        }
+        try (var reloaded = new PreferencesService(profile)) {
+            reloaded.start();
+            assertEquals("2d", GdxAppearanceOptions.perspectiveViewSetting(reloaded.properties()));
+        }
     }
 
     @Test
@@ -219,6 +253,8 @@ final class GdxSettingsNavigationContractTest {
         assertEquals(10, CoronaPokerGdxTable.fastAccessResourceIndex(
                 CoronaPokerGdxTable.FastAccessAction.ROBERT_RULES));
         assertEquals(-1, CoronaPokerGdxTable.fastAccessResourceIndex(
+                CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW));
+        assertEquals(-1, CoronaPokerGdxTable.fastAccessResourceIndex(
                 CoronaPokerGdxTable.FastAccessAction.BLOCKS));
         assertEquals(-1, CoronaPokerGdxTable.fastAccessResourceIndex(
                 CoronaPokerGdxTable.FastAccessAction.NONE));
@@ -236,14 +272,15 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
                 CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
                 CoronaPokerGdxTable.FastAccessAction.ROBERT_RULES,
+                CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW,
                 CoronaPokerGdxTable.FastAccessAction.STOP,
                 CoronaPokerGdxTable.FastAccessAction.EXIT),
-                java.util.stream.IntStream.range(0, 11)
+                java.util.stream.IntStream.range(0, 12)
                         .mapToObj(index -> CoronaPokerGdxTable
                                 .fastAccessActionAt(index, true))
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
-                CoronaPokerGdxTable.fastAccessActionAt(11, true));
+                CoronaPokerGdxTable.fastAccessActionAt(12, true));
     }
 
     @Test
@@ -258,20 +295,21 @@ final class GdxSettingsNavigationContractTest {
                 CoronaPokerGdxTable.FastAccessAction.SCREENSHOTS,
                 CoronaPokerGdxTable.FastAccessAction.FULLSCREEN,
                 CoronaPokerGdxTable.FastAccessAction.ROBERT_RULES,
+                CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW,
                 CoronaPokerGdxTable.FastAccessAction.BLOCKS,
                 CoronaPokerGdxTable.FastAccessAction.STOP,
                 CoronaPokerGdxTable.FastAccessAction.EXIT),
-                java.util.stream.IntStream.range(0, 12)
+                java.util.stream.IntStream.range(0, 13)
                         .mapToObj(index -> CoronaPokerGdxTable
                                 .fastAccessActionAt(index, true, true))
                         .toList());
         assertEquals(CoronaPokerGdxTable.FastAccessAction.NONE,
-                CoronaPokerGdxTable.fastAccessActionAt(12, true, true));
+                CoronaPokerGdxTable.fastAccessActionAt(13, true, true));
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                732f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
+                791f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
                 true, true, true));
         assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                734f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
+                793f, CoronaPokerGdxTable.FAST_BAR_Y + 30f,
                 true, true, true));
     }
 
@@ -325,9 +363,9 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
                 434f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
         assertTrue(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                673f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+                732f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
         assertFalse(CoronaPokerGdxTable.fastAccessSurfaceContains(
-                675f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
+                734f, CoronaPokerGdxTable.FAST_BAR_Y + 30f, true, true));
     }
 
     @Test

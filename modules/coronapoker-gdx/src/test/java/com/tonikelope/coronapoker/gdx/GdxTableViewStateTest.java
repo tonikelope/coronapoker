@@ -5931,6 +5931,43 @@ final class GdxTableViewStateTest {
     }
 
     @Test
+    void startingAFreshTurnClearsOnlyThatPlayersPriorTimeout() {
+        GdxTableViewState state = new GdxTableViewState(snapshot());
+        state.apply(new TableVisualEvent.PlayerTimeout(1, "ana", true));
+        state.apply(new TableVisualEvent.PlayerTimeout(2, "borja", true));
+
+        state.apply(new TableVisualEvent.TurnTimer(3, "ana", 0, 0,
+                TableVisualEvent.TurnTimer.Phase.START));
+
+        assertTrue(CoronaPokerGdxTable.isActionableTurn(state.snapshot(), "ana"));
+        assertTrue(player(state, "borja").timedOut());
+        state.apply(new TableVisualEvent.PlayerTimeout(4, "ana", true));
+        assertFalse(CoronaPokerGdxTable.isActionableTurn(state.snapshot(), "ana"));
+    }
+
+    @Test
+    void canonicalRosterWithNoActionTextDoesNotRetainPreviousCaption() {
+        TableSnapshot initial = snapshot();
+        GdxTableViewState state = new GdxTableViewState(initial);
+        state.apply(new TableVisualEvent.PlayerAction(1, "borja",
+                TableVisualEvent.PlayerAction.ActionKind.RAISE, "RAISE (+15)",
+                15d, 15d, 985d, 15d, 15d));
+        TableSnapshot.PlayerSnapshot checked = new TableSnapshot.PlayerSnapshot(
+                "borja", 1_000d, 0d, 0d, true, false, false, false,
+                -2, -2, 0, 0L, false, false, TableSnapshot.Position.BIG_BLIND,
+                TableSnapshot.Decision.CHECK, TableSnapshot.ActionKind.CHECK,
+                "", "", List.of(), 1000, 0, false,
+                initial.players().get(1).presentation());
+
+        state.apply(new TableVisualEvent.SeatRoster(2L,
+                List.of(initial.players().get(0), checked)));
+
+        assertEquals(TableVisualEvent.PlayerAction.ActionKind.CHECK,
+                state.actionKind("borja"));
+        assertEquals("", state.actionLabel("borja"));
+    }
+
+    @Test
     void voluntaryDepartureIsProjectedAsExitInsteadOfReconnection() {
         GdxTableViewState state = new GdxTableViewState(
                 snapshot(false, "borja"));
@@ -5987,6 +6024,28 @@ final class GdxTableViewStateTest {
         assertEquals(TableVisualEvent.RebuyDecision.Phase.REBOUGHT,
                 state.rebuyDecision("borja"));
         assertEquals(7, state.immediateRebuyAmount("borja"));
+
+        TableSnapshot next = new TableSnapshot(3L, initial.localNickname(),
+                TableSnapshot.Street.PREFLOP, 0d, "", false,
+                end.players(), List.of());
+        state.apply(new TableVisualEvent.HandBoundary(3, 2,
+                TableVisualEvent.HandBoundary.Phase.PREPARE, next));
+
+        assertNull(state.rebuyDecision("borja"));
+        assertEquals(7, state.immediateRebuyAmount("borja"));
+    }
+
+    @Test
+    void tableLightFadesBothWaysAndReversesFromItsCurrentLevel() {
+        float darkening = CoronaPokerGdxTable.advanceUserLightDimmer(0f, true, .15f);
+        assertEquals(1f / 3f, darkening, .001f);
+        assertEquals(darkening,
+                CoronaPokerGdxTable.advanceUserLightDimmer(darkening, false, 0f));
+        float brightening = CoronaPokerGdxTable.advanceUserLightDimmer(darkening, false, .075f);
+        assertEquals(1f / 6f, brightening, .001f);
+        assertEquals(0f, CoronaPokerGdxTable.advanceUserLightDimmer(brightening, false, 1f));
+        assertEquals(1f, CoronaPokerGdxTable.advanceUserLightDimmer(darkening, true, 1f));
+        assertEquals(.5f, CoronaPokerGdxTable.advanceUserLightDimmer(1f, false, .225f), .001f);
     }
 
     private static TableSnapshot.CardSnapshot card(String code) {

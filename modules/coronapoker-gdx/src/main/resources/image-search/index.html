@@ -6,6 +6,7 @@
   <title>CoronaPoker</title>
   <link rel="stylesheet" href="gallery.css">
   <link rel="stylesheet" href="../ui-tooltip.css">
+  <link rel="stylesheet" href="../ui-switch.css">
   <script src="../ui-tooltip.js" defer></script>
   <link rel="stylesheet" href="/game-fonts.css">
   <script defer src="/game-copy.js"></script>
@@ -27,7 +28,9 @@
       <button id="purge-search-cache" class="danger" type="button"></button>
     </div>
     <div id="local-controls" hidden>
-      <button id="receive" type="button"></button>
+      <button id="receive" type="button" role="switch" aria-checked="false">
+        <span id="receive-label"></span><span class="ui-switch" aria-hidden="true"></span>
+      </button>
       <button id="clear" type="button"></button>
     </div>
   </header>

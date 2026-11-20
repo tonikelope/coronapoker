@@ -61,6 +61,28 @@ final class GdxUiDialogStyle {
                 .replace('\r', '\n').strip();
     }
 
+    static float singleLineWidth(GlyphLayout layout, BitmapFont font,
+            String message) {
+        String text = formatNoticeMessage(message);
+        if (text.indexOf('\n') >= 0) return 0f;
+        layout.setText(font, text);
+        return layout.width;
+    }
+
+    static void layoutTooltip(GlyphLayout layout, BitmapFont font,
+            String text, Color color, float width, float height) {
+        layoutMessage(layout, font, formatNoticeMessage(text), color, width,
+                height, Align.left);
+    }
+
+    static void layoutTooltip(GlyphLayout layout, BitmapFont font, String text,
+            Color color, float preferredWidth, float availableWidth, float height) {
+        float width = Math.min(preferredWidth, availableWidth);
+        float maximumWidth = Math.min(availableWidth, width * 1.16f);
+        layoutMessage(layout, font, formatNoticeMessage(text), color, width,
+                maximumWidth, height, Align.left, true);
+    }
+
     static BitmapFont fitMessage(GlyphLayout layout, String message,
             Color color, float width, float height, int shortTextAlignment,
             GdxCrispButtonText.FontTiers tiers, GdxCrispButtonText.Result fit) {
@@ -90,17 +112,39 @@ final class GdxUiDialogStyle {
     static void layoutMessage(GlyphLayout layout, BitmapFont font,
             String message, Color color, float width, float height,
             int shortTextAlignment, boolean justifyWrapped) {
-        layout.setText(font, message, color, width, shortTextAlignment, true);
+        layoutMessage(layout, font, message, color, width, width, height,
+                shortTextAlignment, justifyWrapped);
+    }
+
+    private static void layoutMessage(GlyphLayout layout, BitmapFont font,
+            String message, Color color, float width, float maximumWidth,
+            float height, int shortTextAlignment, boolean justifyWrapped) {
+        String text = message;
+        layout.setText(font, text, color, width, shortTextAlignment, true);
         if (layout.height > height || layout.width > width) {
-            String excerpt = fittingExcerpt(layout, font, message, color,
-                    width, height);
-            layout.setText(font, excerpt, color, width, shortTextAlignment, true);
+            text = fittingExcerpt(layout, font, text, color, width, height);
+            layout.setText(font, text, color, width, shortTextAlignment, true);
         }
         if (!justifyWrapped || layout.runs.size < 2) return;
+        float maxExtraSpace = font.getSpaceXadvance() * 1.5f;
+        GdxParagraphReflow.Plan reflow = null;
         for (GlyphRun line : layout.runs) {
+            if (GdxParagraphReflow.needsReflow(line, width, maxExtraSpace)) {
+                reflow = GdxParagraphReflow.plan(font, text, width, maximumWidth, maxExtraSpace);
+                break;
+            }
+        }
+        if (reflow != null) {
+            width = reflow.width();
+            layout.setText(font, reflow.text(), color, width, Align.left, true);
+        }
+        for (int index = 0; index < layout.runs.size; index++) {
+            GlyphRun line = layout.runs.get(index);
             line.x = 0f;
-            if (line.wrapState == WrapState.wrapped) {
-                justifyLine(line, width, font.getSpaceXadvance());
+            if (reflow != null && reflow.raggedRuns().get(index)) continue;
+            if (line.wrapState == WrapState.wrapped
+                    || (reflow != null && reflow.softBreakRuns().get(index))) {
+                justifyLine(line, width, maxExtraSpace);
                 layout.width = Math.max(layout.width, line.width);
             }
         }
@@ -130,16 +174,13 @@ final class GdxUiDialogStyle {
     }
 
     private static void justifyLine(GlyphRun line, float width,
-            float spaceWidth) {
-        int gaps = 0;
-        for (int i = 0; i < line.glyphs.size - 1; i++) {
-            if (line.glyphs.get(i).id == ' ') gaps++;
-        }
+            float maxExtraSpace) {
+        int gaps = GdxParagraphReflow.wordGaps(line);
         if (gaps == 0) return;
 
         float extraPerSpace = (width - line.width) / gaps;
         // Limit the extra space so the gaps between words stay readable.
-        if (extraPerSpace <= 0f || extraPerSpace > spaceWidth * 1.5f) return;
+        if (extraPerSpace <= 0f || extraPerSpace > maxExtraSpace) return;
         for (int i = 0; i < line.glyphs.size - 1; i++) {
             if (line.glyphs.get(i).id == ' ') {
                 line.xAdvances.incr(i + 1, extraPerSpace);
@@ -150,20 +191,27 @@ final class GdxUiDialogStyle {
 
     static ConfirmationLayout confirmationLayout(float worldWidth,
             float worldHeight) {
-        float panelWidth = 800f;
+        return confirmationLayout(worldWidth, worldHeight, 0f);
+    }
+
+    static ConfirmationLayout confirmationLayout(float worldWidth,
+            float worldHeight, float singleLineWidth) {
+        float messageInset = 50f;
+        float panelWidth = messagePanelWidth(800f, 1000f, messageInset,
+                singleLineWidth);
         float panelHeight = 330f;
         float panelX = (worldWidth - panelWidth) / 2f;
         float panelY = (worldHeight - panelHeight) / 2f;
+        float centerX = worldWidth / 2f;
         Rectangle panel = new Rectangle(panelX, panelY,
                 panelWidth, panelHeight);
         return new ConfirmationLayout(panel,
                 new Rectangle(panelX + 40f, panelY + 232f,
                         panelWidth - 80f, 48f),
-                new Rectangle(panelX + 50f, panelY + 146f,
-                        panelWidth - 100f, 64f),
-                new Rectangle(panelX + 75f, panelY + 43f, 300f, 75f),
-                new Rectangle(panelX + panelWidth - 375f,
-                        panelY + 43f, 300f, 75f));
+                new Rectangle(panelX + messageInset, panelY + 146f,
+                        panelWidth - 2f * messageInset, 64f),
+                new Rectangle(centerX - 325f, panelY + 43f, 300f, 75f),
+                new Rectangle(centerX + 25f, panelY + 43f, 300f, 75f));
     }
 
     record ConfirmationLayout(Rectangle panel, Rectangle title,
@@ -172,7 +220,14 @@ final class GdxUiDialogStyle {
     }
 
     static NoticeLayout noticeLayout(float worldWidth, float worldHeight) {
-        float panelWidth = 900f;
+        return noticeLayout(worldWidth, worldHeight, 0f);
+    }
+
+    static NoticeLayout noticeLayout(float worldWidth, float worldHeight,
+            float singleLineWidth) {
+        float messageInset = 65f;
+        float panelWidth = messagePanelWidth(900f, 1080f, messageInset,
+                singleLineWidth);
         float panelHeight = 390f;
         float panelX = (worldWidth - panelWidth) / 2f;
         float panelY = (worldHeight - panelHeight) / 2f;
@@ -181,14 +236,21 @@ final class GdxUiDialogStyle {
         return new NoticeLayout(panel,
                 new Rectangle(panelX + 50f, panelY + 292f,
                         panelWidth - 100f, 48f),
-                new Rectangle(panelX + 65f, panelY + 128f,
-                        panelWidth - 130f, 142f),
+                new Rectangle(panelX + messageInset, panelY + 128f,
+                        panelWidth - 2f * messageInset, 142f),
                 new Rectangle(panelX + panelWidth / 2f - 190f,
                         panelY + 40f, 380f, 72f));
     }
 
     record NoticeLayout(Rectangle panel, Rectangle title,
             Rectangle message, Rectangle button) {
+    }
+
+    static float messagePanelWidth(float minimum, float maximum,
+            float messageInset, float textWidth) {
+        // Leave a little room for rounding at the wrap boundary.
+        float needed = (float) Math.ceil(textWidth) + 2f * messageInset + 2f;
+        return Math.max(minimum, Math.min(maximum, needed));
     }
 
     static PreparationLayout preparationLayout(float worldWidth,

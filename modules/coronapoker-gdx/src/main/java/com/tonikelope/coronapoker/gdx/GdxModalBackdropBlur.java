@@ -8,11 +8,15 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
+import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11C;
+import org.lwjgl.opengl.GL30C;
 
 /**
  * Shared separable Gaussian backdrop blur for every native GDX modal.
@@ -71,9 +75,22 @@ final class GdxModalBackdropBlur implements Disposable {
             + "}\n";
 
     private final ShaderProgram shader;
+    private final Matrix4 pixelProjection = new Matrix4();
+    private final Matrix4 savedProjection = new Matrix4();
+    private final Matrix4 savedTransform = new Matrix4();
+    private final Matrix4 identity = new Matrix4();
     private FrameBuffer backdrop;
     private FrameBuffer scratch;
-    private boolean cachedReady;
+    private CaptureArea cachedArea;
+
+    private record CaptureArea(int x, int y, int width, int height) {
+        static CaptureArea of(Viewport viewport) {
+            return new CaptureArea(HdpiUtils.toBackBufferX(viewport.getScreenX()),
+                    HdpiUtils.toBackBufferY(viewport.getScreenY()),
+                    captureDimension(HdpiUtils.toBackBufferX(viewport.getScreenWidth())),
+                    captureDimension(HdpiUtils.toBackBufferY(viewport.getScreenHeight())));
+        }
+    }
 
     GdxModalBackdropBlur() {
         shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -85,142 +102,138 @@ final class GdxModalBackdropBlur implements Disposable {
         }
     }
 
-    void beginCapture(int backBufferWidth, int backBufferHeight) {
-        ensureBuffers(backBufferWidth, backBufferHeight);
-        cachedReady = false;
-        backdrop.begin();
-        Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
-    }
-
     /**
      * Allocates at most one framebuffer for the requested size. Table startup
      * calls this once per render-loop turn so the first modal frame never has
      * to allocate both native-resolution surfaces in one burst.
      */
-    boolean prepareNextBuffer(int backBufferWidth, int backBufferHeight) {
-        int width = captureDimension(backBufferWidth);
-        int height = captureDimension(backBufferHeight);
+    boolean prepareNextBuffer(Viewport viewport) {
+        CaptureArea area = CaptureArea.of(viewport);
+        int width = area.width();
+        int height = area.height();
         if (bufferHasDifferentSize(backdrop, width, height)
                 || bufferHasDifferentSize(scratch, width, height)) {
             disposeBuffers();
         }
         if (backdrop == null) {
-            backdrop = createBuffer(width, height, true);
+            backdrop = createBuffer(width, height);
             return false;
         }
         if (scratch == null) {
-            scratch = createBuffer(width, height, false);
+            scratch = createBuffer(width, height);
         }
         return true;
     }
 
-    /**
-     * Rebinds the backdrop after a nested framebuffer pass.
-     *
-     * <p>LibGDX framebuffers are not a stack: ending an inner framebuffer
-     * binds the default backbuffer. Any table effect that renders through an
-     * auxiliary framebuffer must therefore restore this capture explicitly,
-     * otherwise the remainder of the table is painted outside the modal
-     * backdrop and disappears from the blurred result.</p>
-     */
-    void resumeCaptureAfterNestedPass() {
-        if (backdrop == null) {
-            throw new IllegalStateException("Modal backdrop is not active");
+    /** Filters the pixels already composed by the live renderer, in place. */
+    void blurPresentedScene(Viewport viewport, SpriteBatch batch, boolean cache) {
+        while (!prepareNextBuffer(viewport)) {
+            // Startup preallocates one surface per turn. Runtime resize needs
+            // both surfaces before we can present this frame.
         }
-        backdrop.bind();
-        Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
-    }
-
-    void endCaptureAndDraw(Viewport viewport, SpriteBatch batch,
-            Matrix4 projection, Color clearColor) {
-        backdrop.end();
-
-        scratch.begin();
-        ScreenUtils.clear(clearColor, false);
-        Gdx.gl.glViewport(0, 0, scratch.getWidth(), scratch.getHeight());
-        batch.setProjectionMatrix(projection);
-        drawPass(batch, backdrop.getColorBufferTexture(),
-                viewport.getWorldWidth(), viewport.getWorldHeight(), 1f, 0f);
-        scratch.end();
-
-        ScreenUtils.clear(clearColor, false);
-        viewport.apply();
-        batch.setProjectionMatrix(projection);
-        drawPass(batch, scratch.getColorBufferTexture(),
-                viewport.getWorldWidth(), viewport.getWorldHeight(), 0f, 1f);
-    }
-
-    /**
-     * Completes the blur into the reusable backdrop itself and presents it.
-     * The lobby loading dialog uses this once, then redraws only its animated
-     * foreground while table resources are created on later render turns.
-     */
-    void endCaptureAndCache(Viewport viewport, SpriteBatch batch,
-            Matrix4 projection, Color clearColor) {
-        backdrop.end();
-
-        scratch.begin();
-        ScreenUtils.clear(clearColor, false);
-        Gdx.gl.glViewport(0, 0, scratch.getWidth(), scratch.getHeight());
-        batch.setProjectionMatrix(projection);
-        drawPass(batch, backdrop.getColorBufferTexture(),
-                viewport.getWorldWidth(), viewport.getWorldHeight(), 1f, 0f);
-        scratch.end();
-
-        backdrop.begin();
-        ScreenUtils.clear(clearColor, false);
-        Gdx.gl.glViewport(0, 0, backdrop.getWidth(), backdrop.getHeight());
-        batch.setProjectionMatrix(projection);
-        drawPass(batch, scratch.getColorBufferTexture(),
-                viewport.getWorldWidth(), viewport.getWorldHeight(), 0f, 1f);
-        backdrop.end();
-
-        cachedReady = true;
-        drawCached(viewport, batch, projection, clearColor);
-    }
-
-    boolean hasCachedFrame(int backBufferWidth, int backBufferHeight) {
-        return cachedReady
-                && !bufferHasDifferentSize(backdrop,
-                        captureDimension(backBufferWidth),
-                        captureDimension(backBufferHeight));
-    }
-
-    void drawCached(Viewport viewport, SpriteBatch batch,
-            Matrix4 projection, Color clearColor) {
-        if (!cachedReady || backdrop == null) {
-            throw new IllegalStateException("Modal backdrop cache is empty");
+        CaptureArea area = CaptureArea.of(viewport);
+        cachedArea = null;
+        boolean clipped = GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST);
+        boolean blending = beginPixelPass(batch, area);
+        try {
+            if (clipped) Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+            capturePresentedPixels(area);
+            scratch.begin();
+            try {
+                drawPass(batch, backdrop.getColorBufferTexture(), area.width(), area.height(), 1f, 0f);
+            } finally {
+                scratch.end();
+            }
+            if (cache) {
+                backdrop.begin();
+                try {
+                    drawPass(batch, scratch.getColorBufferTexture(), area.width(), area.height(), 0f, 1f);
+                } finally {
+                    backdrop.end();
+                }
+                cachedArea = area;
+                viewport.apply();
+                drawTexture(batch, backdrop.getColorBufferTexture(), area.width(), area.height());
+            } else {
+                viewport.apply();
+                drawPass(batch, scratch.getColorBufferTexture(), area.width(), area.height(), 0f, 1f);
+            }
+        } finally {
+            endPixelPass(viewport, batch, blending, clipped);
         }
-        ScreenUtils.clear(clearColor, false);
-        viewport.apply();
-        batch.setProjectionMatrix(projection);
+    }
+
+    private void capturePresentedPixels(CaptureArea area) {
+        if (GL.getCapabilities().OpenGL30) {
+            int drawn = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+            int read = GL11C.glGetInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
+            try {
+                // Equal source and destination extents also resolve window MSAA.
+                GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, drawn);
+                GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, backdrop.getFramebufferHandle());
+                GL30C.glBlitFramebuffer(area.x(), area.y(), area.x() + area.width(),
+                        area.y() + area.height(), 0, 0, area.width(), area.height(),
+                        GL20.GL_COLOR_BUFFER_BIT, GL20.GL_NEAREST);
+            } finally {
+                GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, drawn);
+                GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, read);
+            }
+        } else {
+            backdrop.getColorBufferTexture().bind(0);
+            Gdx.gl.glCopyTexSubImage2D(GL20.GL_TEXTURE_2D, 0, 0, 0,
+                    area.x(), area.y(), area.width(), area.height());
+        }
+    }
+
+    boolean hasCachedFrame(Viewport viewport) {
+        return cachedArea != null && cachedArea.equals(CaptureArea.of(viewport));
+    }
+
+    void drawCached(Viewport viewport, SpriteBatch batch, Color clearColor) {
+        if (!hasCachedFrame(viewport)) {
+            throw new IllegalStateException("Modal backdrop cache does not match the viewport");
+        }
+        boolean clipped = GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST);
+        boolean blending = beginPixelPass(batch, cachedArea);
+        try {
+            if (clipped) Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+            ScreenUtils.clear(clearColor, false);
+            viewport.apply();
+            drawTexture(batch, backdrop.getColorBufferTexture(), cachedArea.width(), cachedArea.height());
+        } finally {
+            endPixelPass(viewport, batch, blending, clipped);
+        }
+    }
+
+    private boolean beginPixelPass(SpriteBatch batch, CaptureArea area) {
+        savedProjection.set(batch.getProjectionMatrix());
+        savedTransform.set(batch.getTransformMatrix());
+        batch.setProjectionMatrix(pixelProjection.setToOrtho2D(0, 0, area.width(), area.height()));
+        batch.setTransformMatrix(identity);
+        boolean blending = batch.isBlendingEnabled();
+        batch.disableBlending();
+        return blending;
+    }
+
+    private void endPixelPass(Viewport viewport, SpriteBatch batch, boolean blending, boolean clipped) {
         batch.setShader(null);
+        batch.setProjectionMatrix(savedProjection);
+        batch.setTransformMatrix(savedTransform);
+        if (blending) batch.enableBlending();
+        if (clipped) Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        viewport.apply();
+    }
+
+    private void drawTexture(SpriteBatch batch, Texture texture, float width, float height) {
         batch.begin();
         batch.setColor(Color.WHITE);
-        Texture texture = backdrop.getColorBufferTexture();
-        batch.draw(texture, 0f, 0f, viewport.getWorldWidth(),
-                viewport.getWorldHeight(), 0, 0, texture.getWidth(),
-                texture.getHeight(), false, true);
+        batch.draw(texture, 0f, 0f, width, height, 0, 0,
+                texture.getWidth(), texture.getHeight(), false, true);
         batch.end();
-    }
-
-    int captureWidth() {
-        return backdrop == null ? 1 : backdrop.getWidth();
-    }
-
-    int captureHeight() {
-        return backdrop == null ? 1 : backdrop.getHeight();
     }
 
     static int captureDimension(int backBufferDimension) {
         return Math.max(1, backBufferDimension);
-    }
-
-    private void ensureBuffers(int backBufferWidth, int backBufferHeight) {
-        while (!prepareNextBuffer(backBufferWidth, backBufferHeight)) {
-            // Runtime resizes still complete synchronously before capture.
-            // Phased table startup calls prepareNextBuffer() directly.
-        }
     }
 
     private static boolean bufferHasDifferentSize(FrameBuffer buffer,
@@ -229,9 +242,9 @@ final class GdxModalBackdropBlur implements Disposable {
                 || buffer.getHeight() != height);
     }
 
-    private static FrameBuffer createBuffer(int width, int height, boolean scene) {
-        FrameBuffer buffer = scene ? new GdxSceneFrameBuffer(Pixmap.Format.RGBA8888, width, height, true)
-                : new FrameBuffer(Pixmap.Format.RGBA8888, width, height, false);
+    private static FrameBuffer createBuffer(int width, int height) {
+        FrameBuffer buffer = new FrameBuffer(Pixmap.Format.RGBA8888,
+                width, height, false);
         buffer.getColorBufferTexture().setFilter(
                 TextureFilter.Linear, TextureFilter.Linear);
         return buffer;
@@ -263,6 +276,6 @@ final class GdxModalBackdropBlur implements Disposable {
         if (scratch != null) scratch.dispose();
         backdrop = null;
         scratch = null;
-        cachedReady = false;
+        cachedArea = null;
     }
 }

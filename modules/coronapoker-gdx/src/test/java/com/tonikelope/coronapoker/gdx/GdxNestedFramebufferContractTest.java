@@ -29,20 +29,19 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
-    void cardLayerTakesPriorityOverTheModalCaptureWhenPassesNest()
+    void nestedPassRestoresTheNearestActiveCardLayerBeforeTheBackbuffer()
             throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));
         int method = table.indexOf(
                 "private void restoreParentFramebufferAfterNestedPass()");
         int card = table.indexOf(
                 "cardSmaaRenderer.resumeAfterNestedPass();", method);
-        int modal = table.indexOf(
-                "modalBackdropBlur.resumeCaptureAfterNestedPass();", method);
+        int fade = table.indexOf("handCardFadeLayer.bind();", method);
         int physical = table.indexOf("viewport.apply();", method);
 
         assertTrue(method >= 0);
-        assertTrue(card > method && modal > card && physical > modal,
-                "nested passes must restore card SMAA, modal capture and then the backbuffer");
+        assertTrue(card > method && fade > card && physical > fade,
+                "nested passes must restore card SMAA, hand-card fading or the backbuffer in that order");
     }
 
     @Test
@@ -89,16 +88,14 @@ final class GdxNestedFramebufferContractTest {
     }
 
     @Test
-    void modalBackdropExposesAnExplicitNestedPassRestore() throws IOException {
-        String blur = Files.readString(source("GdxModalBackdropBlur.java"));
-        int method = blur.indexOf("void resumeCaptureAfterNestedPass()");
-        int bind = blur.indexOf("backdrop.bind();", method);
-        int viewport = blur.indexOf("Gdx.gl.glViewport(", bind);
+    void modalBackdropFiltersOnlyAfterTheTableSceneIsComposed() throws IOException {
+        String table = Files.readString(source("CoronaPokerGdxTable.java"));
+        int scene = table.indexOf("drawTableScene();");
+        int blur = table.indexOf("modalBackdropBlur.blurPresentedScene(", scene);
+        int overlay = table.indexOf("drawUnifiedModalBackdrop();", blur);
 
-        assertTrue(method >= 0);
-        assertTrue(bind > method);
-        assertTrue(viewport > bind,
-                "rebinding must also restore the native capture viewport");
+        assertTrue(scene >= 0 && blur > scene && overlay > blur,
+                "the filter must sample the completed table before drawing modal chrome");
     }
 
     @Test

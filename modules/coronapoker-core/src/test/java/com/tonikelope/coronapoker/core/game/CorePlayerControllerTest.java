@@ -178,10 +178,11 @@ class CorePlayerControllerTest {
 
     @Test
     void openingNextHandConsumesCommittedRebuyBeforePendingPayout() {
-        CorePlayerController player = CorePlayerController.local("player");
+        CorePlayerController player = CorePlayerController.remote("player");
         player.setStack(0d);
         player.setBuyin(10);
         player.setPagar(2d);
+        player.getState().setRebuyPhase(PlayerState.RebuyPhase.REBOUGHT);
         AtomicInteger consumptions = new AtomicInteger();
         player.bindCommittedRebuy(() -> {
             consumptions.incrementAndGet();
@@ -194,6 +195,7 @@ class CorePlayerControllerTest {
         assertEquals(12d, player.getStack());
         assertEquals(20, player.getBuyin());
         assertEquals(0d, player.getPagar());
+        assertEquals(PlayerState.RebuyPhase.NONE, player.getState().rebuyPhase());
     }
 
     @Test
@@ -553,7 +555,9 @@ class CorePlayerControllerTest {
         CorePlayerController player = CorePlayerController.remote("warming");
         player.setStack(12d);
         player.setBuyin(20);
+        player.getState().setRebuyPhase(PlayerState.RebuyPhase.WAITING);
         player.setCalentando("CALENTANDO");
+        assertEquals(PlayerState.RebuyPhase.NONE, player.getState().rebuyPhase());
         player.setPresentationActionKind(PlayerState.ActionKind.ALL_IN);
         player.setPresentationActionLabel("ALL IN (+12)");
         player.applyShowdownResult(false, "COLOR");
@@ -575,6 +579,24 @@ class CorePlayerControllerTest {
         assertEquals("", state.publicHandName());
         assertEquals(List.of(), state.wonPotIndexes());
         assertEquals("", state.publicActionLabel());
+        assertEquals(PlayerState.RebuyPhase.NONE, state.rebuyPhase());
+    }
+
+    @Test
+    void departedSeatDiscardsRebuyAndTimeoutEvenIfNoticesArriveLate() {
+        CorePlayerController player = CorePlayerController.remote("remote");
+        PlayerState state = player.getState();
+        state.setRebuyPhase(PlayerState.RebuyPhase.REBOUGHT);
+        player.setTimeout(true);
+
+        player.setExit("SE VA");
+        assertEquals(PlayerState.RebuyPhase.NONE, state.snapshot().rebuyPhase());
+        assertFalse(state.snapshot().timedOut());
+
+        state.setRebuyPhase(PlayerState.RebuyPhase.REBOUGHT);
+        player.setTimeout(true);
+        assertEquals(PlayerState.RebuyPhase.NONE, state.snapshot().rebuyPhase());
+        assertFalse(state.snapshot().timedOut());
     }
 
     private static final class StubDealer implements DealerView {

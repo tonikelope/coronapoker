@@ -1367,6 +1367,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             TableSessionSummary summary = tableSummary(
                                     dealer, game, local,
                                     requestedCloseReason.get());
+                            boolean serverEnded = dealer.wasTerminatedByServer();
                             game.finish();
                             // Passive hot-join recovery suppresses provisional
                             // local presentation, but its own lifecycle close
@@ -1374,7 +1375,8 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             events.publishTerminal(sequence
                                     -> new TableVisualEvent.CloseTable(
                                             sequence, summary,
-                                            TableSnapshot.Street.FINISHED))
+                                            TableSnapshot.Street.FINISHED,
+                                            serverEnded))
                                     .whenComplete((ignored, failure) -> {
                                         TableSession active = tableReference.get();
                                         if (active != null) active.close();

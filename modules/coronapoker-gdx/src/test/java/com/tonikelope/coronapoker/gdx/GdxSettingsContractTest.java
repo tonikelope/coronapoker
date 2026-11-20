@@ -34,11 +34,13 @@ final class GdxSettingsContractTest {
 
     @Test
     void msaaRestartNoticeRequiresARealPendingBackBufferChange() {
-        assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 0));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(8, 4, 4));
+        assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4, 0));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 4, 8));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(8, 4, 8, 4));
+        assertTrue(GdxSettingsContract.requiresMsaaRestart(8, 2, 8, 4));
     }
 
     @Test
@@ -59,49 +61,53 @@ final class GdxSettingsContractTest {
 
     @Test
     void msaaSummaryIsSharedAndFollowsTheLiveLanguage() {
-        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
-                4, 4, new GdxGameText("es")));
-        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
-                4, 4, new GdxGameText("en")));
-        assertEquals("MSAA 4X",
-                GdxSettingsContract.msaaStatusLabel(4, 0,
-                        new GdxGameText("en")));
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaSelectedLabel(
+                4, new GdxGameText("es")));
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaSelectedLabel(
+                4, new GdxGameText("en")));
         assertEquals("SUAVE",
                 GdxSettingsContract.cardRenderingStatusLabel(1,
                         new GdxGameText("es")));
         assertEquals("NATIVE",
                 GdxSettingsContract.cardRenderingStatusLabel(0,
                         new GdxGameText("en")));
-        assertEquals("", GdxSettingsContract.msaaRestartStatus(
-                4, 4, new GdxGameText("es")));
+        assertEquals("", GdxSettingsContract.msaaStatusDetail(
+                4, 4, 4, new GdxGameText("es")));
         assertEquals("[!] RESTART PENDING (CURRENT MSAA DISABLED)",
-                GdxSettingsContract.msaaRestartStatus(4, 0,
+                GdxSettingsContract.msaaStatusDetail(4, 0, 0,
                         new GdxGameText("en")));
+        assertEquals("[!] DRIVER (CURRENT MSAA 4X)",
+                GdxSettingsContract.msaaStatusDetail(8, 8, 4,
+                        new GdxGameText("en")));
+        assertEquals("[!] CONTROLADOR (ACTUAL MSAA 4X)",
+                GdxSettingsContract.msaaStatusDetail(8, 8, 4,
+                        new GdxGameText("es")));
     }
 
     @Test
     void performanceImpactHighlightsOnlyMeaningfulRenderSettings() {
-        Properties properties = new Properties();
-
         assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
                 GdxSettingsContract.performanceImpact(
-                        "gdx_vsync", properties));
+                        "gdx_vsync"));
 
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
-                        "animacion_barajado", properties));
+                        "animacion_barajado"));
+        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+                GdxSettingsContract.performanceImpact(
+                        "animacion_fuego_allin"));
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 GdxSettingsContract.performanceImpact(
-                        "animacion_fuego_allin", properties));
+                        "animacion_apuestas"));
         assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
                 GdxSettingsContract.performanceImpact(
-                        "animacion_efecto_ganador", properties));
+                        "animacion_efecto_ganador"));
         assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
                 GdxSettingsContract.performanceImpact(
-                        "cinematicas_allin", properties));
+                        "cinematicas_allin"));
         assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
                 GdxSettingsContract.performanceImpact(
-                        "show_time", properties));
+                        "show_time"));
     }
 
     @Test
@@ -145,40 +151,13 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void graphicsImpactMatchesTheSelectedValue() {
-        assertPerformanceImpact("gdx_msaa_samples", "0",
-                GdxSettingsContract.PerformanceImpact.NONE);
-        assertPerformanceImpact("gdx_msaa_samples", "2",
-                GdxSettingsContract.PerformanceImpact.LOW);
-        assertPerformanceImpact("gdx_msaa_samples", "4",
-                GdxSettingsContract.PerformanceImpact.MEDIUM);
-        assertPerformanceImpact("gdx_msaa_samples", "8",
-                GdxSettingsContract.PerformanceImpact.HIGH);
-        assertPerformanceImpact("gdx_msaa_samples", "16",
-                GdxSettingsContract.PerformanceImpact.MEDIUM);
-        assertPerformanceImpact(GdxSettingsContract.CARD_RENDERING_KEY, "0",
-                GdxSettingsContract.PerformanceImpact.NONE);
-        assertPerformanceImpact(GdxSettingsContract.CARD_RENDERING_KEY, "1",
-                GdxSettingsContract.PerformanceImpact.HIGH);
-
-        assertPerformanceImpact("gdx_fps_limit", "0",
-                GdxSettingsContract.PerformanceImpact.NONE);
-        assertPerformanceImpact("gdx_fps_limit", "60",
-                GdxSettingsContract.PerformanceImpact.LOW);
-        assertPerformanceImpact("gdx_fps_limit", "120",
-                GdxSettingsContract.PerformanceImpact.MEDIUM);
-        assertPerformanceImpact("gdx_fps_limit", "144",
-                GdxSettingsContract.PerformanceImpact.MEDIUM);
-        assertPerformanceImpact("gdx_fps_limit", "240",
-                GdxSettingsContract.PerformanceImpact.HIGH);
-        assertPerformanceImpact("gdx_fps_limit", "360",
-                GdxSettingsContract.PerformanceImpact.MEDIUM);
-    }
-
-    private static void assertPerformanceImpact(String key, String value,
-            GdxSettingsContract.PerformanceImpact expected) {
-        assertEquals(expected, GdxSettingsContract.performanceImpact(
-                key, properties(key, value)), key + "=" + value);
+    void graphicsImpactIsRatedBySetting() {
+        for (String key : List.of(GdxSettingsContract.MSAA_KEY,
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_fps_limit",
+                GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY)) {
+            assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                    GdxSettingsContract.performanceImpact(key), key);
+        }
     }
 
     @Test
@@ -738,8 +717,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
-        assertEquals(6, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(26, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -766,10 +745,40 @@ final class GdxSettingsContractTest {
                 "animacion_fuego_allin",
                 "animacion_efecto_ganador",
                 "animacion_apuestas",
+                GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY,
                 GdxSettingsContract.STACK_BET_PREVIEW_KEY),
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+    }
+
+    @Test
+    void flyingChipShadowQualitySharesItsAnimationGroupAndRestoresHigh() {
+        var page = GdxSettingsContract.APPEARANCE_PAGES.get(0);
+        var rows = GdxSettingsContract.appearanceRows(page).stream()
+                .map(GdxSettingsContract.AppearanceAnimationRow::key).toList();
+        var choice = GdxAppearanceOptions.FLYING_CHIP_SHADOW_QUALITY;
+        int flyingChipsRow = rows.indexOf("animacion_apuestas");
+        assertTrue(GdxSettingsContract.appearanceGroups(page).contains(
+                new GdxSettingsContract.RowGroup(flyingChipsRow, flyingChipsRow + 1, 1)));
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(choice.key()));
+
+        Properties values = new Properties();
+        assertTrue(GdxAppearanceOptions.isDefault(choice, values));
+        assertTrue(GdxAppearanceOptions.enabled(choice, values));
+        GdxAppearanceOptions.select(choice, values, 1);
+        assertEquals("normal", values.getProperty(choice.key()));
+        values.setProperty("animacion_apuestas", "false");
+        assertFalse(GdxAppearanceOptions.enabled(choice, values));
+        values.setProperty("animacion_apuestas", "true");
+        values.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, "2d");
+        assertFalse(GdxAppearanceOptions.enabled(choice, values));
+        values.remove(GdxSettingsContract.TABLE_VIEW_KEY);
+        values.setProperty("animaciones", "false");
+        assertFalse(GdxAppearanceOptions.enabled(choice, values));
+
+        GdxSettingsContract.restoreAppearancePageDefaults(values, 1, true);
+        assertEquals("high", values.getProperty(choice.key()));
     }
 
     @Test

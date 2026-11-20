@@ -4527,7 +4527,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Set only after an authenticated SERVEREXIT/SERVEREXITRECOVER has been
     // accepted. The dealer tail must not answer that authoritative teardown
     // with a voluntary EXIT after the native outbox has already retired.
-    private volatile boolean authoritative_termination_received = false;
+    private volatile TableTerminationWire.ExitCommand authoritative_termination;
     // A voluntary client EXIT carries the cryptographic testament and must be
     // emitted exactly once. The explicit UI/GDX exit path and run()'s final
     // safety tail can race; without this gate the tail writes to an already
@@ -6520,7 +6520,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         TableTerminationWire.ExitCommand termination = TableTerminationWire.parse(
                 ("GAME#0#" + command).split("#", -1));
-        authoritative_termination_received = true;
+        authoritative_termination = termination;
         // MISDEAL is published immediately by the native channel callback but
         // its canonical refund normally runs on the dealer thread. The host's
         // ordered SERVEREXITRECOVER can reach this callback before that thread
@@ -6541,6 +6541,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         setFin_de_la_transmision(true);
         game_window.finishTransmission(true);
+    }
+
+    boolean wasTerminatedByServer() {
+        TableTerminationWire.ExitCommand termination = authoritative_termination;
+        return termination != null && !termination.recover();
     }
 
     /**
@@ -16217,6 +16222,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ? totalMillis : 0L;
         TurnState turn = gameSession().table().hand().turn();
         if (phase == TableVisualEvent.TurnTimer.Phase.START) {
+            // Clear the old timeout before publishing START so a concurrent
+            // roster snapshot cannot reinstate it after the renderer advances.
+            if (player.isActivo() && player.isTimeout()) player.setTimeout(false);
             turn.begin(nickname, turno,
                     Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(totalMillis)));
             if (gameSession().isPaused()) turn.setPaused(true);
@@ -29553,7 +29561,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // into a voluntary departure merely because its dealer loop ended.
         // Only an explicitly armed local termination may send the testament.
         if (shouldSendLocalExitAtDealerTail(localHost, force_recover,
-                authoritative_termination_received,
+                authoritative_termination != null,
                 passive_hot_join_exit_requested, termination_pending)) {
             sendLocalExitOnce(false);
         }

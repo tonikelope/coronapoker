@@ -2,9 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
-import com.badlogic.gdx.utils.BufferUtils;
 import com.tonikelope.coronapoker.core.CoronaPokerApplication;
 import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.NewGameSessionGateway;
@@ -32,6 +30,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11C;
+import org.lwjgl.opengl.GL13C;
+import org.lwjgl.opengl.GL30C;
 
 /** Single-window host for every native GDX screen and overlay. */
 final class GdxApplicationShell extends ApplicationAdapter {
@@ -61,7 +63,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
     private GdxProfileBackupTransfer.Request profileBackupRequest;
-    private LobbySession lobby;
+    private volatile LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private ShaderProgram allInFireShader;
     private volatile CoronaPokerGdxTable table;
@@ -123,14 +125,15 @@ final class GdxApplicationShell extends ApplicationAdapter {
      * alive while the frontend or table displays its confirmation dialog.
      */
     boolean requestWindowClose() {
-        CoronaPokerGdxTable current = table;
-        if (current != null) {
-            Gdx.app.postRunnable(current::requestWindowClose);
-            return false;
-        }
-        GdxFrontendScreen frontend = menu;
-        if (frontend == null || startupIntro != null) return true;
-        Gdx.app.postRunnable(frontend::requestApplicationExit);
+        if (menu == null || startupIntro != null) return true;
+        Gdx.app.postRunnable(() -> {
+            CoronaPokerGdxTable current = table;
+            if (current != null) {
+                current.requestWindowClose();
+            } else if (menu != null) {
+                menu.requestApplicationExit();
+            }
+        });
         return false;
     }
 
@@ -139,6 +142,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         if (!ACTIVE.compareAndSet(null, this)) {
             throw new IllegalStateException("Only one GDX application shell may be active");
         }
+        verifyGrantedBackBufferQuality();
         preferences = application.service(PreferencesService.class);
         GdxVisualEffects.synchronize(preferences.properties());
         deadlockWatchdog = new JvmDeadlockWatchdog(5_000L,
@@ -178,18 +182,28 @@ final class GdxApplicationShell extends ApplicationAdapter {
         // flag alone can otherwise remain tied to the primary display.
         applySelectedVsync(true);
         updateForegroundFrameRate(0f);
-        verifyGrantedBackBufferQuality();
         synchronizeScreenWakeLock();
     }
 
     private void verifyGrantedBackBufferQuality() {
-        java.nio.IntBuffer samples = BufferUtils.newIntBuffer(1);
-        Gdx.gl.glGetIntegerv(GL20.GL_SAMPLES, samples);
-        int grantedSamples = samples.get(0);
+        int grantedSamples = defaultFramebufferSamples();
         presentationSettings.setActualMsaaSamples(grantedSamples);
         System.out.println("GDX back buffer: requested MSAA "
-                + presentationSettings.requestedMsaaSamples()
+                + presentationSettings.windowMsaaRequest()
                 + "x, driver granted " + grantedSamples + " sample(s)");
+    }
+
+    static int defaultFramebufferSamples() {
+        if (!GL.getCapabilities().OpenGL30) {
+            return Math.max(0, GL11C.glGetInteger(GL13C.GL_SAMPLES));
+        }
+        int previous = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+        if (previous != 0) GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, 0);
+        try {
+            return Math.max(0, GL11C.glGetInteger(GL13C.GL_SAMPLES));
+        } finally {
+            if (previous != 0) GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, previous);
+        }
     }
 
     private void awaitTable(LobbySession lobby) {
@@ -228,6 +242,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
         GdxTableRenderer renderer = new GdxTableRenderer(session.commands());
         session.attach(renderer).whenComplete((ignored, failure) ->
                 Gdx.app.postRunnable(() -> {
+                    if (lobby != owner) {
+                        renderer.close();
+                        return;
+                    }
                     if (failure == null) {
                         application.tableEntered();
                     } else {
@@ -473,6 +491,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 case 2 -> flushPendingIdentityGameLogNotices();
                 case 3 -> {
                     table = pending.table;
+                    menu.transferLobbyNoticeTo(table);
                     table.continuePreparationAnimation(
                             menu.preparationAnimationTime());
                     menu.pokerVideoOverlay().minimizeForTable();
@@ -655,11 +674,19 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Gdx.input.setInputProcessor(menu);
     }
 
+    boolean showLobbyNotice(LobbySession owner, GdxTableDialog request) {
+        CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
+        if (owner != lobby || current == null) return false;
+        current.showDialog(request);
+        return true;
+    }
+
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        LobbySession owner = lobby;
         Gdx.app.postRunnable(() -> {
-            CoronaPokerGdxTable current = table;
-            if (current == null) {
+            CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
+            if (owner != lobby || current == null) {
                 request.dismiss();
             } else {
                 current.showDialog(request);
@@ -686,7 +713,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         }
 
         if (pendingIdentityPopups.isEmpty()) return;
-        CoronaPokerGdxTable current = table;
+        CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
         if (current != null) {
             IdentityTrustStore.IdentityChange change;
             while ((change = pendingIdentityPopups.poll()) != null) {

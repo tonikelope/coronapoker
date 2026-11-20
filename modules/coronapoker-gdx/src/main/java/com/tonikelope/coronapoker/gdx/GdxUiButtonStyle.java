@@ -1,6 +1,8 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 /** One renderer-native button material shared by every GDX screen. */
@@ -71,7 +73,7 @@ final class GdxUiButtonStyle {
                 ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE;
         Color fill = fill(tone, enabled, pressed);
         drawMaterial(shapes, x, y, width, height, border, fill, enabled,
-                hover, pressed, alpha, true);
+                hover, pressed ? 1f : 0f, alpha, true);
     }
 
     /** Compact icon material used inside an already framed toolbar. */
@@ -81,7 +83,7 @@ final class GdxUiButtonStyle {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         drawMaterial(shapes, x, y, width, height,
                 enabled ? resolveAccent(tone, hover, RESOLVED_ACCENT) : LINE,
-                fill(tone, enabled, pressed), enabled, hover, pressed, alpha,
+                fill(tone, enabled, pressed), enabled, hover, pressed ? 1f : 0f, alpha,
                 false);
     }
 
@@ -104,6 +106,16 @@ final class GdxUiButtonStyle {
             float surfaceGreen, float surfaceBlue, float surfaceAlpha,
             boolean enabled, float hoverAmount, boolean pressed, float alpha,
             Color hoverAccent) {
+        drawPalette(shapes, x, y, width, height, accent, surfaceRed,
+                surfaceGreen, surfaceBlue, surfaceAlpha, enabled, hoverAmount,
+                pressed ? 1f : 0f, alpha, hoverAccent);
+    }
+
+    static void drawPalette(ShapeRenderer shapes, float x, float y,
+            float width, float height, Color accent, float surfaceRed,
+            float surfaceGreen, float surfaceBlue, float surfaceAlpha,
+            boolean enabled, float hoverAmount, float pressedAmount,
+            float alpha, Color hoverAccent) {
         float hover = Math.max(0f, Math.min(1f, hoverAmount));
         CUSTOM_SURFACE.set(surfaceRed, surfaceGreen, surfaceBlue,
                 surfaceAlpha);
@@ -115,12 +127,26 @@ final class GdxUiButtonStyle {
         }
         drawMaterial(shapes, x, y, width, height,
                 border, CUSTOM_SURFACE, enabled, hover,
-                pressed, alpha, true);
+                pressedAmount, alpha, true);
+    }
+
+    static void drawToggleIcon(Batch batch, Texture off, Texture on,
+            float x, float y, float width, float height, Color tint,
+            float amount, float alpha) {
+        if (amount < 1f) {
+            batch.setColor(tint.r, tint.g, tint.b, (1f - amount) * alpha);
+            batch.draw(off, x, y, width, height);
+        }
+        if (amount > 0f) {
+            batch.setColor(tint.r, tint.g, tint.b, amount * alpha);
+            batch.draw(on, x, y, width, height);
+        }
+        batch.setColor(Color.WHITE);
     }
 
     private static void drawMaterial(ShapeRenderer shapes, float x, float y,
             float width, float height, Color border, Color fill,
-            boolean enabled, float hover, boolean pressed, float alpha,
+            boolean enabled, float hover, float pressed, float alpha,
             boolean borderVisible) {
         // All depth stays inside the exact control silhouette. External drop
         // shadows create doubled or protruding corners when HUD buttons sit
@@ -128,7 +154,7 @@ final class GdxUiButtonStyle {
         shapes.setColor(fill.r, fill.g, fill.b, fill.a * alpha);
         roundedRect(shapes, x, y, width, height, 14f);
         GdxGlassBevel.draw(shapes, x, y, width, height, 14f,
-                (pressed ? 0.07f : 0.16f) + 0.04f * hover,
+                0.16f - 0.09f * pressed + 0.04f * hover,
                 alpha);
         if (borderVisible || enabled && hover > 0.01f) {
             float thickness = 2f + hover;

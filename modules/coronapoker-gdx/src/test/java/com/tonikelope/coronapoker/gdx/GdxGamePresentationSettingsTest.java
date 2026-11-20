@@ -78,6 +78,21 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void flyingChipShadowQualityDefaultsHighAndRefreshesAtRuntime(@TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings = new GdxGamePresentationSettings(preferences);
+        String key = GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY;
+        assertFalse(settings.normalFlyingChipShadows());
+        preferences.properties().setProperty(key, "normal");
+        settings.refreshRuntimePreferences();
+        assertTrue(settings.normalFlyingChipShadows());
+        preferences.properties().setProperty(key, "invalid");
+        settings.refreshRuntimePreferences();
+        assertFalse(settings.normalFlyingChipShadows());
+    }
+
+    @Test
     void gameplayAnimationsHonorTheGlobalMasterAndSpecificSwitches(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(
@@ -344,9 +359,16 @@ final class GdxGamePresentationSettingsTest {
                 new PreferencesService(temporary.resolve("coronapoker.properties")));
 
         assertEquals(0, settings.actualMsaaSamples());
+        settings.selectMsaaSamples(8, false);
         settings.setActualMsaaSamples(4);
+        assertEquals(8, settings.windowMsaaRequest());
+        assertEquals(4, settings.actualMsaaSamples());
+        settings.selectMsaaSamples(2, false);
+        assertEquals(2, settings.requestedMsaaSamples());
+        assertEquals(8, settings.windowMsaaRequest());
         assertEquals(4, settings.actualMsaaSamples());
         settings.setActualMsaaSamples(-1);
+        assertEquals(2, settings.windowMsaaRequest());
         assertEquals(0, settings.actualMsaaSamples());
     }
 

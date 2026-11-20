@@ -291,6 +291,11 @@ final class GdxTableDialog {
     boolean gameOverFinalFrame() { return gameOverFinalFrame; }
     boolean isNotice() { return kind == Kind.ERROR
             || kind == Kind.ZERO_TRUST || kind == Kind.INFO; }
+    boolean canShowAfterTableEnd() {
+        return isNotice() && !complete() && !externallyControlled
+                && !deferCloseAfterDecision && seconds == 0 && showsPositive();
+    }
+
     boolean usesCanonicalConfirmationLayout() {
         return kind == Kind.CONFIRM && seconds == 0
                 && !hasStandaloneOption() && !deferCloseAfterDecision;

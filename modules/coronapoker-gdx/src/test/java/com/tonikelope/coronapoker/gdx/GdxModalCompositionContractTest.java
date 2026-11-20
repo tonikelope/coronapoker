@@ -16,7 +16,7 @@ final class GdxModalCompositionContractTest {
     void frontendUsesOneImmediateBackdropAndKeepsTheSignatureSharp()
             throws IOException {
         String source = source("GdxFrontendScreen.java");
-        int blur = source.indexOf("modalBackdropBlur.endCaptureAndDraw(");
+        int blur = source.indexOf("modalBackdropBlur.blurPresentedScene(");
         int restore = source.indexOf(
                 "restoreDefaultFrontendRenderState();", blur);
         int shade = source.indexOf("drawUnifiedModalBackdrop();", restore);
@@ -116,7 +116,7 @@ final class GdxModalCompositionContractTest {
     void tableUsesTheSameCompositionOrderAndCoversNestedConfirmation()
             throws IOException {
         String source = source("CoronaPokerGdxTable.java");
-        int blur = source.indexOf("modalBackdropBlur.endCaptureAndDraw(");
+        int blur = source.indexOf("modalBackdropBlur.blurPresentedScene(");
         int restore = source.indexOf("restoreDefaultTableRenderState();",
                 blur);
         int shade = source.indexOf("drawUnifiedModalBackdrop();", restore);

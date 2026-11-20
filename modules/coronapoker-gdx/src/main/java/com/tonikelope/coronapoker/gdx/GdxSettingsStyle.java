@@ -255,18 +255,21 @@ final class GdxSettingsStyle {
 
     static void drawToggle(ShapeRenderer shapes, float x, float y,
             float width, float animation, float alpha) {
-        float trackX = x + width - TOGGLE_WIDTH - TOGGLE_RIGHT_INSET;
+        drawSwitch(shapes, x + width - TOGGLE_WIDTH - TOGGLE_RIGHT_INSET,
+                y + TOGGLE_BOTTOM_INSET, 1f, animation, alpha);
+    }
+
+    static void drawSwitch(ShapeRenderer shapes, float trackX, float trackY,
+            float scale, float animation, float alpha) {
+        float height = TOGGLE_HEIGHT * scale;
         Color track = toggleTrack(animation);
         shapes.setColor(track.r, track.g, track.b, alpha);
-        roundedRect(shapes, trackX, y + TOGGLE_BOTTOM_INSET,
-                TOGGLE_WIDTH, TOGGLE_HEIGHT, TOGGLE_HEIGHT / 2f);
+        roundedRect(shapes, trackX, trackY, TOGGLE_WIDTH * scale, height, height / 2f);
         Color knob = toggleKnob(animation);
         shapes.setColor(knob.r, knob.g, knob.b, alpha);
         GdxAntialiasedRoundedRect.fillCircle(shapes,
-                trackX + TOGGLE_KNOB_START
-                        + TOGGLE_KNOB_TRAVEL * animation,
-                y + TOGGLE_BOTTOM_INSET + TOGGLE_HEIGHT / 2f,
-                TOGGLE_KNOB_RADIUS);
+                trackX + (TOGGLE_KNOB_START + TOGGLE_KNOB_TRAVEL * animation) * scale,
+                trackY + height / 2f, TOGGLE_KNOB_RADIUS * scale);
     }
 
     private static void roundedRect(ShapeRenderer shapes, float x, float y,

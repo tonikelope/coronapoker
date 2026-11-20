@@ -149,10 +149,21 @@ public class PlayerState {
     }
     public void setPosition(Position value) { position = Objects.requireNonNull(value, "position"); }
     public void setActive(boolean value) { active = value; }
-    public void setSpectator(boolean value) { spectator = value; }
+    public synchronized void setSpectator(boolean value) {
+        spectator = value;
+        if (value) rebuyPhase = RebuyPhase.NONE;
+    }
     public void setWarming(boolean value) { warming = value; }
-    public void setExited(boolean value) { exited = value; }
-    public void setTimedOut(boolean value) { timedOut = value; }
+    public synchronized void setExited(boolean value) {
+        exited = value;
+        if (value) {
+            timedOut = false;
+            rebuyPhase = RebuyPhase.NONE;
+        }
+    }
+    public synchronized void setTimedOut(boolean value) {
+        timedOut = value && !exited;
+    }
     public void setWinner(boolean value) { winner = value; }
     public void setShowingCards(boolean value) { showingCards = value; }
     public void setUnderTheGun(boolean value) { underTheGun = value; }
@@ -197,8 +208,9 @@ public class PlayerState {
                 ? List.copyOf(Objects.requireNonNull(communitySlots,
                         "communitySlots")) : List.of();
     }
-    public void setRebuyPhase(RebuyPhase value) {
-        rebuyPhase = Objects.requireNonNull(value, "rebuyPhase");
+    public synchronized void setRebuyPhase(RebuyPhase value) {
+        Objects.requireNonNull(value, "rebuyPhase");
+        rebuyPhase = spectator || exited ? RebuyPhase.NONE : value;
     }
     public void setImmediateRebuyAmount(int value) {
         if (value < 0) {

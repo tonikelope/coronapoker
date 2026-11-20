@@ -51,6 +51,36 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
+    void reflowMovesAWordToAThinLineBeforeJustifying() {
+        var layout = new GlyphLayout();
+        GdxUiDialogStyle.layoutTooltip(layout, messageFont(),
+                "a a a a b ccccccc ppp\n\na b", Color.WHITE, 100f, 100f);
+
+        assertEquals(4, layout.runs.size);
+        assertEquals(100f, layout.runs.get(0).width);
+        assertEquals(100f, layout.runs.get(1).width);
+        assertEquals('b', layout.runs.get(1).glyphs.first().id);
+        assertEquals(30f, layout.runs.get(2).width);
+        assertEquals(30f, layout.runs.get(3).width);
+        assertEquals(-48f, layout.runs.get(3).y);
+    }
+
+    @Test
+    void aFloatingTooltipCanWidenToAvoidWidowsAndKeepItsSeparateFooter() {
+        var layout = new GlyphLayout();
+        GdxUiDialogStyle.layoutTooltip(layout, messageFont(),
+                "aaaa bbbbb cccc ppppp\np:q",
+                Color.WHITE, 90f, 104f, 100f);
+
+        assertEquals(3, layout.runs.size);
+        assertTrue(layout.width > 90f && layout.width <= 104f);
+        assertEquals(1, GdxParagraphReflow.wordGaps(layout.runs.get(0)));
+        assertEquals(1, GdxParagraphReflow.wordGaps(layout.runs.get(1)));
+        assertEquals(30f, layout.runs.get(2).width);
+        assertEquals(0f, layout.runs.get(2).x);
+    }
+
+    @Test
     void hardBreaksAlignLeftAndTextFitsTheAvailableHeight() {
         var layout = new GlyphLayout();
         BitmapFont font = messageFont();
@@ -203,6 +233,44 @@ final class GdxUiDialogStyleTest {
         assertEquals("Mensaje sin detalle",
                 GdxUiDialogStyle.formatNoticeMessage(
                         "Mensaje sin detalle"));
+    }
+
+    @Test
+    void canonicalDialogsMakeRoomForOneLineWithoutMovingTheirButtons() {
+        var glyph = new GlyphLayout();
+        BitmapFont font = messageFont();
+        String message = "a ".repeat(41) + "b";
+        float textWidth = GdxUiDialogStyle.singleLineWidth(glyph, font, message);
+        var notice = GdxUiDialogStyle.noticeLayout(1920f, 1080f, textWidth);
+        var confirmation = GdxUiDialogStyle.confirmationLayout(1920f, 1080f, textWidth);
+        var defaultNotice = GdxUiDialogStyle.noticeLayout(1920f, 1080f);
+        var defaultConfirmation = GdxUiDialogStyle.confirmationLayout(1920f, 1080f);
+
+        assertTrue(textWidth > defaultNotice.message().width);
+        assertTrue(textWidth > defaultConfirmation.message().width);
+        for (Rectangle messageBounds : List.of(notice.message(), confirmation.message())) {
+            GdxUiDialogStyle.layoutMessage(glyph, font, message, Color.WHITE,
+                    messageBounds.width, messageBounds.height, Align.center);
+            assertEquals(1, glyph.runs.size);
+            assertTrue(glyph.runs.first().x >= 0f);
+        }
+        assertEquals(defaultNotice.button(), notice.button());
+        assertEquals(defaultConfirmation.negativeButton(), confirmation.negativeButton());
+        assertEquals(defaultConfirmation.positiveButton(), confirmation.positiveButton());
+        assertEquals(0f, GdxUiDialogStyle.singleLineWidth(glyph, font, "a\nb"));
+    }
+
+    @Test
+    void tooltipsUseDialogJustificationAndLeaveParagraphEndingsLeftAligned() {
+        var glyph = new GlyphLayout();
+        GdxUiDialogStyle.layoutTooltip(glyph, messageFont(), "a b c\r\n\r\np:q",
+                Color.WHITE, 36f, 80f);
+
+        assertEquals(3, glyph.runs.size);
+        assertEquals(36f, glyph.runs.first().width);
+        assertEquals(10f, glyph.runs.get(1).width);
+        assertEquals(30f, glyph.runs.get(2).width);
+        glyph.runs.forEach(line -> assertEquals(0f, line.x));
     }
 
     @Test

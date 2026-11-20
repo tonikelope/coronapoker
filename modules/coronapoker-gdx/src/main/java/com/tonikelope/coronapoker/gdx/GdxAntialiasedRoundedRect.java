@@ -213,6 +213,12 @@ final class GdxAntialiasedRoundedRect {
             float innerOffset, int corner, Color outer, Color inner) {
         float outerRadius = radius + outerOffset;
         float innerRadius = radius + innerOffset;
+        if (shapes instanceof GdxTableShapeRenderer tableShapes
+                && shapes.getCurrentType() == ShapeRenderer.ShapeType.Filled) {
+            tableShapes.filledBand(centerX, centerY, outerRadius, innerRadius,
+                    CORNER_X[corner], CORNER_Y[corner], outer, inner);
+            return;
+        }
         for (int step = 1; step <= CORNER_SEGMENTS; step++) {
             float outerPreviousX = centerX
                     + CORNER_X[corner][step - 1] * outerRadius;
@@ -241,6 +247,12 @@ final class GdxAntialiasedRoundedRect {
     private static void circleBand(ShapeRenderer shapes, float centerX,
             float centerY, float outerRadius, float innerRadius,
             Color outer, Color inner) {
+        if (shapes instanceof GdxTableShapeRenderer tableShapes
+                && shapes.getCurrentType() == ShapeRenderer.ShapeType.Filled) {
+            tableShapes.filledBand(centerX, centerY, outerRadius, innerRadius,
+                    CIRCLE_X, CIRCLE_Y, outer, inner);
+            return;
+        }
         for (int step = 1; step <= CIRCLE_SEGMENTS; step++) {
             float outerPreviousX = centerX
                     + CIRCLE_X[step - 1] * outerRadius;

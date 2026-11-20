@@ -39,34 +39,6 @@ final class GdxTableShapeRenderer extends ShapeRenderer {
         }
     }
 
-    void filledBand(float cx, float cy, float outerRadius, float innerRadius,
-            float[] unitX, float[] unitY, Color outer, Color inner) {
-        check(ShapeType.Filled, ShapeType.Line, (unitX.length - 1) * 6);
-        ImmediateModeRenderer renderer = getRenderer();
-        float outerColor = outer.toFloatBits();
-        float innerColor = inner.toFloatBits();
-        float outerPreviousX = cx + unitX[0] * outerRadius;
-        float outerPreviousY = cy + unitY[0] * outerRadius;
-        float innerPreviousX = cx + unitX[0] * innerRadius;
-        float innerPreviousY = cy + unitY[0] * innerRadius;
-        for (int step = 1; step < unitX.length; step++) {
-            float outerX = cx + unitX[step] * outerRadius;
-            float outerY = cy + unitY[step] * outerRadius;
-            float innerX = cx + unitX[step] * innerRadius;
-            float innerY = cy + unitY[step] * innerRadius;
-            vertex(renderer, outerPreviousX, outerPreviousY, outerColor);
-            vertex(renderer, outerX, outerY, outerColor);
-            vertex(renderer, innerX, innerY, innerColor);
-            vertex(renderer, outerPreviousX, outerPreviousY, outerColor);
-            vertex(renderer, innerX, innerY, innerColor);
-            vertex(renderer, innerPreviousX, innerPreviousY, innerColor);
-            outerPreviousX = outerX;
-            outerPreviousY = outerY;
-            innerPreviousX = innerX;
-            innerPreviousY = innerY;
-        }
-    }
-
     private static void vertex(ImmediateModeRenderer renderer, float x, float y, float packedColor) {
         renderer.color(packedColor);
         renderer.vertex(x, y, 0f);

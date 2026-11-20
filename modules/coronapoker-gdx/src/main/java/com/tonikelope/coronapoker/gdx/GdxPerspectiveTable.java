@@ -31,7 +31,6 @@ import java.util.Arrays;
 /** Table geometry in world space. The existing HUD keeps its own camera. */
 final class GdxPerspectiveTable implements Disposable {
 
-    private static final int CHIP_CROP_BLOCK_SIZE = 512;
     private static final float FOV = 36f;
     private static final float TABLE_ZOOM = 1.10f;
     private static final float ELEVATION = 37f;
@@ -302,9 +301,9 @@ final class GdxPerspectiveTable implements Disposable {
         shell = new GdxCardShell(msaaSamples);
         pocketShell = new GdxCardShell(msaaSamples);
         boardShell = new GdxCardShell(msaaSamples);
-        chipShell = new GdxCardShell(msaaSamples, CHIP_CROP_BLOCK_SIZE);
+        chipShell = new GdxCardShell(msaaSamples);
         // Keep airborne shadows on their own single-sample, native-resolution target.
-        flightShadowShell = new GdxCardShell(0, CHIP_CROP_BLOCK_SIZE, false);
+        flightShadowShell = new GdxCardShell(0, false);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();

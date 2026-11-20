@@ -125,6 +125,7 @@ final class GdxRiffleShuffle implements Disposable {
     private final OrthographicCamera front = new OrthographicCamera();
     private float meshTime = Float.NaN;
     private boolean shadowReady;
+    private GdxShuffleGeometry.Motion meshMotion;
 
     GdxRiffleShuffle() {
         shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -162,9 +163,14 @@ final class GdxRiffleShuffle implements Disposable {
     }
 
     void prepare(float elapsed, View view) {
-        float time = view == View.FRONT ? GdxShuffleGeometry.CYCLE_SECONDS : elapsed;
-        if (meshTime != time) {
-            geometry.update(time);
+        prepare(elapsed, view, GdxShuffleGeometry.Motion.ORIGINAL);
+    }
+
+    void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion) {
+        float time = view == View.FRONT ? motion.duration() : elapsed;
+        if (meshTime != time || meshMotion != motion) {
+            meshMotion = motion;
+            geometry.update(time, motion);
             mesh.setVertices(geometry.vertices);
             meshTime = time;
             shadowReady = false;
@@ -221,7 +227,11 @@ final class GdxRiffleShuffle implements Disposable {
             Gdx.gl.glViewport(x, y, width, height);
             float aspect = (float) width / height;
             Camera camera = view == View.OVERHEAD ? overhead : perspective;
-            camera.viewportWidth = view == View.OVERHEAD ? Math.max(2.05f, aspect) : width;
+            // Keep the original camera pose. The longer opening needs a small,
+            // fixed framing margin so neither outer corner exits the panel.
+            boolean extended = meshMotion != GdxShuffleGeometry.Motion.ORIGINAL;
+            perspective.fieldOfView = extended ? 22.25f : 20.25f;
+            camera.viewportWidth = view == View.OVERHEAD ? Math.max(extended ? 2.24f : 2.05f, aspect) : width;
             camera.viewportHeight = camera.viewportWidth / aspect;
             camera.update();
             shader.setUniformMatrix("u_camera", camera.combined);

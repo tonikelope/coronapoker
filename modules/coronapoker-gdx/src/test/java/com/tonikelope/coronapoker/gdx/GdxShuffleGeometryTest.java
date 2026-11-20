@@ -69,6 +69,90 @@ final class GdxShuffleGeometryTest {
         assertEquals(1.72f, CYCLE_SECONDS, .000001f);
     }
 
+    @Test
+    void fullDeckSeparatesIntoTwoFlatPacketsBeforeTheyBend() {
+        var motion = Motion.FULL_DECK;
+        double gauge = .27 / 88;
+        for (int tick = 0; tick <= 108; tick++) {
+            float frame = tick * .25f;
+            mesh.update(frame * FRAME_SECONDS, motion);
+            for (int order = 0; order < CARDS; order++) {
+                int root = vertex(order, 0, 0), tip = vertex(order, STRIPS, 0);
+                assertEquals(mesh.vertices[root + 1], mesh.vertices[tip + 1], .000001);
+                assertEquals(1, Math.abs(mesh.vertices[root] - mesh.vertices[tip]), .000001);
+                if (order >= 2) assertEquals(gauge,
+                        mesh.vertices[root + 1] - mesh.vertices[vertex(order - 2, 0, 0) + 1], .000001);
+                if (frame == 0) {
+                    int slot = order / 2 + ((order & 1) == 1 ? CARDS_PER_PACKET : 0);
+                    assertEquals((slot + 1) * gauge, mesh.vertices[root + 1], .000001);
+                    assertEquals(.5, Math.abs(mesh.vertices[root]), .000001);
+                }
+            }
+            if (frame >= 20) assertTrue(mesh.vertices[vertex(0, STRIPS, 0)]
+                    - mesh.vertices[vertex(1, STRIPS, 0)] > .039f);
+        }
+    }
+
+    @Test
+    void fullDeckRetainsItsGaugeAndClosesAtTheOriginalReleaseCadence() {
+        var motion = Motion.FULL_DECK;
+        for (int tick = 0; tick < (motion.leadFrames + FRAME_COUNT) * 2; tick++) {
+            mesh.update(tick * FRAME_SECONDS * .5f, motion);
+            for (int order = 0; order < CARDS; order++) {
+                int tip = vertex(order, STRIPS, 0), under = vertex(order, STRIPS, 2);
+                assertEquals(.27, 88 * Math.hypot(mesh.vertices[tip] - mesh.vertices[under],
+                        mesh.vertices[tip + 1] - mesh.vertices[under + 1]), .00002);
+                if (tick >= 2 * (motion.leadFrames + order + 5)) {
+                    assertEquals((order + 1) * .27, 88 * mesh.vertices[tip + 1], .00003);
+                }
+            }
+        }
+        mesh.update(motion.duration(), motion);
+        float[] squared = mesh.vertices.clone();
+        mesh.update(CYCLE_SECONDS, Motion.ORIGINAL);
+        assertArrayEquals(squared, mesh.vertices, .000001f);
+    }
+
+    @Test
+    void bridgeBendsTheInterleavedDeckAndReleasesFromTheBottomBeforeSquaring() {
+        var motion = Motion.BRIDGE;
+        float[] held = new float[CARDS];
+        for (int frame = 0; frame < motion.releaseFrames; frame++) {
+            mesh.update((motion.leadFrames + frame) * FRAME_SECONDS, motion);
+            for (int order = 0; order < CARDS; order++) {
+                int root = vertex(order, 0, 0);
+                int middle = vertex(order, STRIPS / 2, 0);
+                float rise = mesh.vertices[middle + 1] - mesh.vertices[root + 1];
+                if (frame == 83) {
+                    assertTrue(rise > .20f);
+                    held[order] = rise;
+                }
+                if (frame == 96) {
+                    if (order < 8) assertEquals(0f, rise, .000001f);
+                    if (order >= 32) assertEquals(held[order], rise, .000001f);
+                }
+                double length = 0, lastX = 0, lastY = 0;
+                for (int strip = 0; strip <= STRIPS; strip++) {
+                    int t = vertex(order, strip, 0), b = vertex(order, strip, 2);
+                    assertTrue(mesh.vertices[b + 1] >= -.000001f);
+                    double dx = mesh.vertices[t] - mesh.vertices[b];
+                    double dy = mesh.vertices[t + 1] - mesh.vertices[b + 1];
+                    assertEquals(.27, 88 * Math.hypot(dx, dy), .00003);
+                    double x = (mesh.vertices[t] + mesh.vertices[b]) * .5;
+                    double y = (mesh.vertices[t + 1] + mesh.vertices[b + 1]) * .5;
+                    if (strip > 0) length += Math.hypot(x - lastX, y - lastY);
+                    lastX = x;
+                    lastY = y;
+                }
+                assertEquals(88, 88 * length, .02);
+                if (frame == 113) assertEquals(.63f, Math.abs(mesh.vertices[root]), .000001f);
+            }
+        }
+        float[] finished = mesh.vertices.clone();
+        mesh.update(CYCLE_SECONDS, Motion.ORIGINAL);
+        assertArrayEquals(finished, mesh.vertices, .000001f);
+    }
+
     private static int vertex(int card, int strip, int corner) {
         return (card * VERTICES_PER_CARD + strip * VERTICES_PER_STRIP + corner) * FLOATS_PER_VERTEX;
     }

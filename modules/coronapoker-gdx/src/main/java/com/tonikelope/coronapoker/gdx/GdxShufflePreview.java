@@ -31,7 +31,7 @@ import java.util.Locale;
 /** Standalone side-by-side viewer. It does not open a game or a player profile. */
 public final class GdxShufflePreview extends ApplicationAdapter {
 
-    private static final float DURATION = GdxShuffleGeometry.CYCLE_SECONDS;
+    private GdxShuffleGeometry.Motion motion = GdxShuffleGeometry.Motion.BRIDGE;
     private static final Color BACKGROUND = Color.valueOf("101917");
     private static final Color TABLE = Color.valueOf("184137");
     private static final Color PANEL = Color.valueOf("23342f");
@@ -50,6 +50,10 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private final Rectangle play = new Rectangle(48, 63, 146, 47);
     private final Rectangle restart = new Rectangle(207, 63, 122, 47);
     private final Rectangle speed = new Rectangle(342, 63, 140, 47);
+    private static final GdxShuffleGeometry.Motion[] MOTIONS = GdxShuffleGeometry.Motion.values();
+    private final Rectangle[] motionControls = {
+        new Rectangle(48, 12, 208, 38), new Rectangle(268, 12, 208, 38), new Rectangle(488, 12, 256, 38)
+    };
     private final Rectangle deckControl = new Rectangle(40, 598, 282, 42);
     private final Rectangle backControl = new Rectangle(334, 598, 282, 42);
     private final Rectangle viewControl = new Rectangle(650, 598, 200, 42);
@@ -81,6 +85,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                 case "--capture" -> captures = Path.of(args[++i]);
                 case "--overhead" -> view = GdxRiffleShuffle.View.OVERHEAD;
                 case "--front" -> view = GdxRiffleShuffle.View.FRONT;
+                case "--full-deck" -> motion = GdxShuffleGeometry.Motion.FULL_DECK;
+                case "--classic" -> motion = GdxShuffleGeometry.Motion.ORIGINAL;
                 case "--gif" -> compare = false;
                 case "--deck" -> {
                     String deck = args[++i];
@@ -133,6 +139,10 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                     case Input.Keys.R -> elapsed = 0f;
                     case Input.Keys.V -> view = view.next();
                     case Input.Keys.F -> view = GdxRiffleShuffle.View.FRONT;
+                    case Input.Keys.M -> selectMotion(MOTIONS[(motion.ordinal() + 1) % MOTIONS.length]);
+                    case Input.Keys.NUM_1 -> selectMotion(GdxShuffleGeometry.Motion.ORIGINAL);
+                    case Input.Keys.NUM_2 -> selectMotion(GdxShuffleGeometry.Motion.FULL_DECK);
+                    case Input.Keys.NUM_3 -> selectMotion(GdxShuffleGeometry.Motion.BRIDGE);
                     case Input.Keys.C -> toggleComparison();
                     case Input.Keys.LEFT -> navigate(-1);
                     case Input.Keys.RIGHT -> navigate(1);
@@ -144,6 +154,14 @@ public final class GdxShufflePreview extends ApplicationAdapter {
             @Override public boolean touchDown(int x, int y, int index, int button) {
                 if (button != Input.Buttons.LEFT) return false;
                 toWorld(x, y);
+                if (!frontal()) {
+                    for (int i = 0; i < motionControls.length; i++) {
+                        if (motionControls[i].contains(pointer)) {
+                            selectMotion(MOTIONS[i]);
+                            return true;
+                        }
+                    }
+                }
                 if (!frontal() && timeline.contains(pointer)) {
                     scrubbing = true;
                     seek();
@@ -236,6 +254,12 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         }
     }
 
+    private void selectMotion(GdxShuffleGeometry.Motion selected) {
+        if (frontal() || selected == motion) return;
+        motion = selected;
+        elapsed = 0f;
+    }
+
     private void navigate(int direction) {
         if (frontal()) frontCard = Math.floorMod(frontCard + direction, GdxShuffleGeometry.CARDS);
         else step(direction * GdxShuffleGeometry.FRAME_SECONDS);
@@ -243,12 +267,12 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
     private void seek() {
         playing = false;
-        elapsed = MathUtils.clamp((pointer.x - timeline.x) / timeline.width, 0f, 1f) * DURATION;
+        elapsed = MathUtils.clamp((pointer.x - timeline.x) / timeline.width, 0f, 1f) * motion.duration();
     }
 
     private void step(float seconds) {
         playing = false;
-        elapsed = MathUtils.clamp(elapsed + seconds, 0f, DURATION);
+        elapsed = MathUtils.clamp(elapsed + seconds, 0f, motion.duration());
     }
 
     @Override
@@ -261,7 +285,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         if (captureDirectory != null) {
             elapsed = captureIndex * GdxShuffleGeometry.FRAME_SECONDS;
         } else if (playing && !frontal()) {
-            elapsed = (elapsed + Gdx.graphics.getDeltaTime() * SPEEDS[speedIndex]) % DURATION;
+            elapsed = (elapsed + Gdx.graphics.getDeltaTime() * SPEEDS[speedIndex]) % motion.duration();
         }
         ScreenUtils.clear(BACKGROUND, true);
         viewport.apply();
@@ -277,9 +301,12 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         fill(viewControl, PANEL);
         fill(compareControl, PANEL);
         if (!frontal()) {
+            for (int i = 0; i < motionControls.length; i++) {
+                fill(motionControls[i], motion == MOTIONS[i] ? ACCENT : PANEL);
+            }
             shapes.setColor(PANEL);
             shapes.rect(timeline.x, timeline.y + 10f, timeline.width, 4f);
-            float progressWidth = timeline.width * elapsed / DURATION;
+            float progressWidth = timeline.width * elapsed / motion.duration();
             shapes.setColor(ACCENT);
             shapes.rect(timeline.x, timeline.y + 10f, progressWidth, 4f);
             shapes.circle(timeline.x + progressWidth, timeline.y + 12f, 7f, 24);
@@ -291,7 +318,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         int nativeX = viewport.getScreenX() + Math.round(nativePanel.x * viewport.getScreenWidth() / 1280f);
         int nativeY = viewport.getScreenY() + Math.round(nativePanel.y * viewport.getScreenHeight() / 720f);
         boolean compareFilters = compare || frontal();
-        riffle.prepare(elapsed, view);
+        riffle.prepare(elapsed, view, motion);
         if (compareFilters) {
             int left = viewport.getScreenX() + Math.round(referencePanel.x * viewport.getScreenWidth() / 1280f);
             riffle.draw(left, nativeY, nativeWidth, nativeHeight, back, faces, view, true, frontCard, SCALES[scaleIndex]);
@@ -301,14 +328,14 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        Texture original = compareFilters || reference == null ? null : reference.frameAt(Math.min(elapsed + .00001f, DURATION - .001f));
+        Texture original = compareFilters || reference == null ? null : reference.frameAt(Math.min(motion.releaseTime(elapsed) + .00001f, GdxShuffleGeometry.CYCLE_SECONDS - .001f));
         if (original != null) {
             batch.draw(original, referencePanel.x, referencePanel.y,
                     referencePanel.width, referencePanel.height);
         }
         text("Visor de cartas", 40, 677, 1.9f, INK);
-        if (!frontal()) text("26 + 26 cartas    /    1,72 s", 1024, 667, 1.1f, MUTED);
-        text(compareFilters ? "CoronaPoker · Suave 16X" : (reference == null ? "Sin GIF de referencia" : "GIF de Blender"), 40, 581, 1.25f, INK);
+        if (!frontal()) text(String.format(SPANISH, "26 + 26 cartas    /    %.2f s", motion.duration()), 1024, 667, 1.1f, MUTED);
+        text(compareFilters ? "CoronaPoker · Suave 16X" : (reference == null ? "Sin GIF de referencia" : "GIF de Blender · mezcla original"), 40, 581, 1.25f, INK);
         text("Visor · Anisotrópico 16X", 650, 581, 1.25f, INK);
         button("Baraja · " + (deckIndex < 0 ? customDeck.getFileName() : GdxShuffleArtwork.DECKS[deckIndex]), deckControl, INK);
         button("Dorso · " + (backIndex < 0 ? customBack.getFileName() : GdxShuffleArtwork.DECKS[backIndex]), backControl, INK);
@@ -325,7 +352,10 @@ public final class GdxShufflePreview extends ApplicationAdapter {
             button(playing ? "Pausar" : "Reproducir", play, BACKGROUND);
             button("Reiniciar", restart, INK);
             button(SPEED_LABELS[speedIndex], speed, INK);
-            text("Espacio para pausar · Flechas por fotograma · F para ver de frente", 530, 92, 1.05f, MUTED);
+            for (int i = 0; i < motionControls.length; i++) {
+                button(MOTIONS[i].label, motionControls[i], motion == MOTIONS[i] ? BACKGROUND : INK);
+            }
+            text("Espacio · pausa     Flechas · fotograma     V · vista", 530, 92, 1.05f, MUTED);
         }
         batch.end();
         if (captureDirectory != null) capture();
@@ -345,7 +375,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private void button(String value, Rectangle bounds, Color color) {
         font.getData().setScale(1.12f);
         font.setColor(color);
-        font.draw(batch, value, bounds.x, bounds.y + 30f, bounds.width, Align.center, false);
+        font.draw(batch, value, bounds.x, bounds.y + bounds.height * .5f + 6.5f, bounds.width, Align.center, false);
     }
 
     private void capture() {
@@ -361,7 +391,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
             png.dispose();
             pixels.dispose();
         }
-        if (++captureIndex == GdxShuffleGeometry.FRAME_COUNT || frontal()) Gdx.app.exit();
+        if (++captureIndex == motion.leadFrames + motion.releaseFrames || frontal()) Gdx.app.exit();
     }
 
     @Override

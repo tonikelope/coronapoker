@@ -17,6 +17,16 @@ import com.badlogic.gdx.utils.Disposable;
 
 /** Draws the shuffle mesh from either table view, with shadows shared by both cameras. */
 final class GdxRiffleShuffle implements Disposable {
+    enum View {
+        PERSPECTIVE("Perspectiva 3D"), OVERHEAD("Cenital"), FRONT("Frontal");
+        final String label;
+        View(String label) { this.label = label; }
+        View next() { return switch (this) {
+            case PERSPECTIVE -> OVERHEAD;
+            case OVERHEAD -> FRONT;
+            case FRONT -> PERSPECTIVE;
+        }; }
+    }
 
     private static final int SHADOW_SIZE = 1024;
     private static final String SHADOW_VERTEX = """
@@ -58,12 +68,19 @@ final class GdxRiffleShuffle implements Disposable {
             precision highp float;
             #endif
             uniform sampler2D u_back;
-            uniform sampler2D u_faces;
+            uniform sampler2D u_face;
+            uniform float u_gameFilter;
+            uniform float u_frontView;
             uniform sampler2D u_shadow;
             uniform float u_shadowTexel;
             varying vec3 v_light;
             varying vec2 v_uv;
             varying vec2 v_material;
+            """ + CoronaPokerGdxTable.CARD_ARTWORK_SAMPLING_GLSL + """
+            vec3 artwork(sampler2D image, vec2 uv) {
+                if (u_gameFilter > 0.5) return sampleCardArtwork(image, uv).rgb;
+                return texture2D(image, uv).rgb;
+            }
             float visibility() {
                 vec2 packedDepth = texture2D(u_shadow, v_light.xy).rg;
                 float gap = v_light.z - dot(packedDepth, vec2(1.0, 1.0 / 255.0));
@@ -84,11 +101,13 @@ final class GdxRiffleShuffle implements Disposable {
                 if (id < -1.5) {
                     color = vec3(1.0, 0.99, 0.98);
                 } else if (id < -0.5) {
-                    color = texture2D(u_back, v_uv).rgb;
+                    color = artwork(u_back, v_uv);
                 } else {
-                    vec2 cell = vec2(mod(id, 8.0), floor(id / 8.0));
-                    vec2 inset = vec2(0.5 / 256.0, 0.5 / 352.0);
-                    color = texture2D(u_faces, (cell + mix(inset, vec2(1.0) - inset, v_uv)) / 8.0).rgb;
+                    color = artwork(u_face, v_uv);
+                }
+                if (u_frontView > 0.5) {
+                    gl_FragColor = vec4(color, 1.0);
+                    return;
                 }
                 float fillLight = id < -1.5 ? 0.95 : (id < -0.5 ? 0.78 : 0.94);
                 gl_FragColor = vec4(color * v_material.y * mix(fillLight, 1.0, visibility()), 1.0);
@@ -103,6 +122,9 @@ final class GdxRiffleShuffle implements Disposable {
     private final OrthographicCamera light = new OrthographicCamera(2.6f, 2.2f);
     private final PerspectiveCamera perspective = new PerspectiveCamera();
     private final OrthographicCamera overhead = new OrthographicCamera();
+    private final OrthographicCamera front = new OrthographicCamera();
+    private float meshTime = Float.NaN;
+    private boolean shadowReady;
 
     GdxRiffleShuffle() {
         shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -132,22 +154,22 @@ final class GdxRiffleShuffle implements Disposable {
         overhead.up.set(0f, 0f, -1f);
         overhead.near = .5f;
         overhead.far = 5f;
+        front.position.set(0f, 3f, 0f);
+        front.direction.set(0f, -1f, 0f);
+        front.up.set(-1f, 0f, 0f);
+        front.near = .5f;
+        front.far = 5f;
     }
 
-    void draw(float elapsed, int x, int y, int width, int height, Texture back, Texture faces, boolean fromAbove) {
-        float aspect = (float) width / height;
-        Camera camera = fromAbove ? overhead : perspective;
-        if (fromAbove) {
-            camera.viewportWidth = Math.max(2.05f, aspect);
-            camera.viewportHeight = camera.viewportWidth / aspect;
-        } else {
-            camera.viewportWidth = width;
-            camera.viewportHeight = height;
+    void prepare(float elapsed, View view) {
+        float time = view == View.FRONT ? GdxShuffleGeometry.CYCLE_SECONDS : elapsed;
+        if (meshTime != time) {
+            geometry.update(time);
+            mesh.setVertices(geometry.vertices);
+            meshTime = time;
+            shadowReady = false;
         }
-        camera.update();
-        geometry.update(elapsed);
-        mesh.setVertices(geometry.vertices);
-
+        if (view == View.FRONT || shadowReady) return;
         shadowMap.begin();
         Gdx.gl.glClearColor(1f, 1f, 1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
@@ -158,20 +180,65 @@ final class GdxRiffleShuffle implements Disposable {
         shadowShader.bind();
         shadowShader.setUniformMatrix("u_light", light.combined);
         mesh.render(shadowShader, GL20.GL_TRIANGLES);
-        shadowMap.end(x, y, width, height);
+        shadowMap.end();
+        shadowReady = true;
+    }
+
+    void draw(int x, int y, int width, int height, Texture back, GdxShuffleArtwork faces,
+            View view, boolean gameFilter, int face, float frontScale) {
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glEnable(GL20.GL_CULL_FACE);
+        Gdx.gl.glDepthFunc(GL20.GL_LEQUAL);
         shader.bind();
         shadowMap.getColorBufferTexture().bind(2);
-        faces.bind(1);
-        back.bind(0);
-        shader.setUniformMatrix("u_camera", camera.combined);
+        GdxShuffleArtwork.bind(back, 0, gameFilter);
         shader.setUniformMatrix("u_light", light.combined);
         shader.setUniformi("u_shadow", 2);
         shader.setUniformf("u_shadowTexel", 1f / SHADOW_SIZE);
         shader.setUniformi("u_back", 0);
-        shader.setUniformi("u_faces", 1);
-        mesh.render(shader, GL20.GL_TRIANGLES);
+        shader.setUniformi("u_face", 1);
+        shader.setUniformf("u_gameFilter", gameFilter ? 1f : 0f);
+        shader.setUniformf("u_frontView", view == View.FRONT ? 1f : 0f);
+        shader.setUniformf("u_artworkSmooth", 1f);
+        shader.setUniformf("u_artworkLodBias", -.25f);
+        shader.setUniformf("u_extraArtworkSampling", 0f);
+        shader.setUniformf("u_projectedArtwork", view == View.FRONT ? 0f : 88f / 63f);
+        mesh.bind(shader);
+        if (view == View.FRONT) {
+            // Draw the same squared card twice, face-on and without directional lighting.
+            int halfWidth = width / 2;
+            front.viewportHeight = Math.max(1.12f, .81f * height / halfWidth) / frontScale;
+            front.viewportWidth = front.viewportHeight * halfWidth / height;
+            front.update();
+            shader.setUniformMatrix("u_camera", front.combined);
+            Gdx.gl.glViewport(x, y, halfWidth, height);
+            GdxShuffleArtwork.bind(faces.face(face), 0, gameFilter);
+            drawCard(1);
+            Gdx.gl.glViewport(x + width - halfWidth, y, halfWidth, height);
+            GdxShuffleArtwork.bind(back, 0, gameFilter);
+            drawCard(1);
+        } else {
+            Gdx.gl.glViewport(x, y, width, height);
+            float aspect = (float) width / height;
+            Camera camera = view == View.OVERHEAD ? overhead : perspective;
+            camera.viewportWidth = view == View.OVERHEAD ? Math.max(2.05f, aspect) : width;
+            camera.viewportHeight = camera.viewportWidth / aspect;
+            camera.update();
+            shader.setUniformMatrix("u_camera", camera.combined);
+            for (int order = 0; order < GdxShuffleGeometry.CARDS; order++) {
+                GdxShuffleArtwork.bind(faces.face(GdxShuffleGeometry.faceIndex(order)), 1, gameFilter);
+                drawCard(order);
+            }
+        }
+        mesh.unbind(shader);
+        Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+    }
+
+    private void drawCard(int order) {
+        int count = GdxShuffleGeometry.INDICES_PER_CARD;
+        mesh.render(shader, GL20.GL_TRIANGLES, order * count, count, false);
     }
 
     @Override public void dispose() {

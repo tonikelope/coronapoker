@@ -3,52 +3,58 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.utils.Disposable;
 
-/** Builds the face atlas once when the viewer changes decks. */
-final class GdxShuffleArtwork {
+/** Both filters sample the same native-resolution textures and mip levels. */
+final class GdxShuffleArtwork implements Disposable {
     static final String[] DECKS = {"goliat", "goliat4", "coronapoker", "coronapoker4",
         "interstate60", "interstate60-goliat"};
     private static final String[] RANKS = {"2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"};
     private static final String[] SUITS = {"P", "T", "D", "C"};
-    private static final int TILE_W = 256;
-    private static final int TILE_H = 352;
+    private static final String[] SUIT_NAMES = {"picas", "tréboles", "diamantes", "corazones"};
+    private final Texture[] faces = new Texture[GdxShuffleGeometry.CARDS];
 
     static FileHandle directory(String deck) {
         return Gdx.files.internal("images/decks/" + deck);
     }
 
     static Texture back(FileHandle file) {
-        return filtered(new Texture(file, true));
+        return new Texture(file, true);
     }
 
-    static Texture faces(FileHandle hq) {
-        Pixmap atlas = new Pixmap(8 * TILE_W, 8 * TILE_H, Pixmap.Format.RGB888);
-        atlas.setBlending(Pixmap.Blending.None);
-        atlas.setFilter(Pixmap.Filter.BiLinear);
+    GdxShuffleArtwork(FileHandle hq) {
         try {
-            for (int id = 0; id < GdxShuffleGeometry.CARDS; id++) {
-                Pixmap face = new Pixmap(hq.child(RANKS[id % 13] + "_" + SUITS[id / 13] + ".jpg"));
-                try {
-                    atlas.drawPixmap(face, 0, 0, face.getWidth(), face.getHeight(),
-                            (id % 8) * TILE_W, (id / 8) * TILE_H, TILE_W, TILE_H);
-                } finally {
-                    face.dispose();
-                }
+            for (int id = 0; id < faces.length; id++) {
+                faces[id] = new Texture(hq.child(code(id) + ".jpg"), true);
             }
-            return filtered(new Texture(atlas, true));
-        } finally {
-            atlas.dispose();
+        } catch (RuntimeException failure) {
+            dispose();
+            throw failure;
         }
     }
 
-    private static Texture filtered(Texture texture) {
-        texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
-        texture.setAnisotropicFilter(16f);
-        return texture;
+    static String code(int id) {
+        return RANKS[id % 13] + "_" + SUITS[id / 13];
     }
 
-    private GdxShuffleArtwork() {}
+    static String label(int id) {
+        return RANKS[id % 13] + " de " + SUIT_NAMES[id / 13];
+    }
+
+    Texture face(int id) {
+        return faces[id];
+    }
+
+    static void bind(Texture texture, int unit, boolean gameFilter) {
+        texture.bind(unit);
+        texture.unsafeSetFilter(gameFilter ? TextureFilter.MipMapLinearNearest : TextureFilter.MipMapLinearLinear,
+                TextureFilter.Linear);
+        texture.unsafeSetAnisotropicFilter(gameFilter ? 1f : 16f);
+    }
+
+    @Override public void dispose() {
+        for (Texture face : faces) if (face != null) face.dispose();
+    }
 }

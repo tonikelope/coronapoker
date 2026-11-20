@@ -22,6 +22,7 @@ final class GdxShuffleGeometry {
     static final int STRIPS = 42;
     static final int VERTICES_PER_STRIP = 8;
     static final int VERTICES_PER_CARD = (STRIPS + 1) * VERTICES_PER_STRIP;
+    static final int INDICES_PER_CARD = (STRIPS * 4 + 2) * 6;
     static final int FLOATS_PER_VERTEX = 7;
 
     final float[] vertices = new float[CARDS * VERTICES_PER_CARD * FLOATS_PER_VERTEX];
@@ -41,7 +42,7 @@ final class GdxShuffleGeometry {
     }
 
     static short[] indices() {
-        short[] indices = new short[CARDS * (STRIPS * 4 + 2) * 6];
+        short[] indices = new short[CARDS * INDICES_PER_CARD];
         int next = 0;
         for (int card = 0; card < CARDS; card++) {
             int first = card * VERTICES_PER_CARD;
@@ -77,9 +78,7 @@ final class GdxShuffleGeometry {
         float base = (order + .5f) * THICKNESS;
         float spread = MathUtils.lerp(.325f, .405f, layer / (CARDS_PER_PACKET - 1f));
         float outer = .5f + spread * (1f - push);
-        // The last lifted face in the Blender sequence is the ace of hearts.
-        boolean firstHalf = layer == CARDS_PER_PACKET - 1 ? !left : left;
-        int face = firstHalf ? layer : CARDS_PER_PACKET + layer;
+        int face = faceIndex(order);
         float half = THICKNESS * .5f;
         for (int s = 0; s <= STRIPS; s++) {
             float u = alongCard[s];
@@ -109,6 +108,14 @@ final class GdxShuffleGeometry {
             vertex(x + nx, y + ny, z, 0, 0, -2, edgeLight);
             vertex(x - nx, y - ny, z, 0, 0, -2, edgeLight - .035f);
         }
+    }
+
+    static int faceIndex(int order) {
+        int layer = order / 2;
+        boolean left = (order & 1) != 0;
+        // The last lifted face in the Blender sequence is the ace of hearts.
+        boolean firstHalf = layer == CARDS_PER_PACKET - 1 ? !left : left;
+        return firstHalf ? layer : CARDS_PER_PACKET + layer;
     }
 
     private void vertex(float x, float y, float z, float u, float v, float material, float shade) {

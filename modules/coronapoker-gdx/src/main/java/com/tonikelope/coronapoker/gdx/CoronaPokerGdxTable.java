@@ -639,7 +639,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
      * sharpen or colour-process the card. Native mode retains the single
      * historical texture lookup.
      */
-    private static final String CARD_ARTWORK_SAMPLING_GLSL =
+    static final String CARD_ARTWORK_SAMPLING_GLSL =
             "uniform float u_artworkSmooth;\n"
             + "uniform float u_artworkLodBias;\n"
             + "uniform float u_extraArtworkSampling;\n"

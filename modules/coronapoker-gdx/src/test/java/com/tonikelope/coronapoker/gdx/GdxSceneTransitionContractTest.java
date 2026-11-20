@@ -96,8 +96,14 @@ final class GdxSceneTransitionContractTest {
 
         assertTrue(closeStart >= 0 && closeEnd > closeStart);
         String close = shell.substring(closeStart, closeEnd);
-        assertTrue(close.contains(
-                "Gdx.app.postRunnable(frontend::requestApplicationExit)"));
+        int dispatch = close.indexOf("Gdx.app.postRunnable(");
+        int sceneLookup = close.indexOf("CoronaPokerGdxTable current = table;");
+        int tableConfirmation = close.indexOf("current.requestWindowClose();");
+        int frontendConfirmation = close.indexOf("menu.requestApplicationExit();");
+        assertTrue(dispatch >= 0 && sceneLookup > dispatch,
+                "native close must resolve the active scene on the render thread");
+        assertTrue(tableConfirmation > sceneLookup && frontendConfirmation > sceneLookup,
+                "the active table or frontend must own the exit confirmation");
         assertFalse(close.contains("if (current == null) return true;"),
                 "window close must not bypass the frontend confirmation");
     }

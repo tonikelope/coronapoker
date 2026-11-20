@@ -283,6 +283,7 @@ can safely overlay the supported presentation assets:
 
 - **3D chip preview** pulses the chips for Call, the current Bet or Raise, or All-in in the same colour as your turn border while you hover over the controls on your turn. During the Auto call countdown, the same chips pulse in sync with the HUD. This preview is on by default under Appearance > Animations and effects.
 
+- **End-of-game notices** appear over the blurred balance summary and must be acknowledged before using its navigation buttons.
 - **End-of-game cards** under Appearance > Animations and effects controls how the balance cards enter the final summary. The animation is on by default. Turn it off to show the cards immediately in place. The final count has its own switch.
 - **Action confirmation** with an optional safety prompt before fold, all-in or raise.
 - **Straddle timeout** is a personal setting under Game Settings > Blinds. By default the player declines when time runs out.

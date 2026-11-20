@@ -1097,9 +1097,11 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
         }
     }
 
-    /** Terminal transition after the shared game session has finished. */
+    /** Terminal transition after the shared game session has finished.
+     * serverEnded is set locally when a client accepts the host's final exit.
+     */
     record CloseTable(long sequence, TableSessionSummary summary,
-            TableSnapshot.Street terminalStreet)
+            TableSnapshot.Street terminalStreet, boolean serverEnded)
             implements TableVisualEvent {
 
         public CloseTable {
@@ -1109,6 +1111,11 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
                 throw new IllegalArgumentException(
                         "Close-table street must be terminal");
             }
+        }
+
+        public CloseTable(long sequence, TableSessionSummary summary,
+                TableSnapshot.Street terminalStreet) {
+            this(sequence, summary, terminalStreet, false);
         }
 
         public CloseTable(long sequence) {

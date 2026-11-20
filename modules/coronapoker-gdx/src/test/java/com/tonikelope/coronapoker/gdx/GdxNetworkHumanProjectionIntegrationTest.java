@@ -15,6 +15,7 @@ import com.tonikelope.coronapoker.core.DatabaseService;
 import com.tonikelope.coronapoker.core.LobbyChatMessage;
 import com.tonikelope.coronapoker.core.LobbyCommand;
 import com.tonikelope.coronapoker.core.LobbySession;
+import com.tonikelope.coronapoker.core.LobbySnapshot;
 import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameRequest;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
@@ -2486,6 +2487,19 @@ class GdxNetworkHumanProjectionIntegrationTest {
                         Duration.ofSeconds(10));
                 hostRenderer.assertClosed();
                 clientRenderer.assertClosed();
+                assertFalse(hostRenderer.serverEnded.get(),
+                        "The host chose to exit locally");
+                assertTrue(clientRenderer.serverEnded.get(),
+                        "The client's terminal event must carry the host exit notice");
+                // Both renderers have retired their GAME channels. Closing the
+                // host lobby now sends its legacy EXIT before socket EOF.
+                await(() -> hostRenderer.detached.get() && clientRenderer.detached.get(),
+                        Duration.ofSeconds(5));
+                host.close();
+                await(() -> client.snapshot().phase() == LobbySnapshot.Phase.CLOSED,
+                        Duration.ofSeconds(5));
+                assertTrue(client.snapshot().statusDetail().isBlank(),
+                        "A trailing lobby exit must not create a duplicate notice");
             } finally {
                 client.close();
                 host.close();
@@ -4974,6 +4988,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
         private final AtomicBoolean ready = new AtomicBoolean();
         private final AtomicBoolean handStarted = new AtomicBoolean();
         private final AtomicBoolean sawPaused = new AtomicBoolean();
+        private final AtomicBoolean serverEnded = new AtomicBoolean();
+        private final AtomicBoolean detached = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
         private final AtomicReference<TableSessionSummary> summary
                 = new AtomicReference<>();
@@ -5002,6 +5018,7 @@ class GdxNetworkHumanProjectionIntegrationTest {
                 sawPaused.set(true);
             } else if (event instanceof TableVisualEvent.CloseTable close) {
                 summary.set(close.summary());
+                serverEnded.set(close.serverEnded());
                 closed.set(true);
             }
             return CompletableFuture.completedFuture(null);
@@ -5015,6 +5032,8 @@ class GdxNetworkHumanProjectionIntegrationTest {
                     state.get().actionControls());
         }
 
-        @Override public void close() { }
+        @Override public void close() {
+            detached.set(true);
+        }
     }
 }

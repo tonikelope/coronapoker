@@ -61,7 +61,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
     private GdxProfileBackupTransfer.Request profileBackupRequest;
-    private LobbySession lobby;
+    private volatile LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private ShaderProgram allInFireShader;
     private volatile CoronaPokerGdxTable table;
@@ -123,14 +123,15 @@ final class GdxApplicationShell extends ApplicationAdapter {
      * alive while the frontend or table displays its confirmation dialog.
      */
     boolean requestWindowClose() {
-        CoronaPokerGdxTable current = table;
-        if (current != null) {
-            Gdx.app.postRunnable(current::requestWindowClose);
-            return false;
-        }
-        GdxFrontendScreen frontend = menu;
-        if (frontend == null || startupIntro != null) return true;
-        Gdx.app.postRunnable(frontend::requestApplicationExit);
+        if (menu == null || startupIntro != null) return true;
+        Gdx.app.postRunnable(() -> {
+            CoronaPokerGdxTable current = table;
+            if (current != null) {
+                current.requestWindowClose();
+            } else if (menu != null) {
+                menu.requestApplicationExit();
+            }
+        });
         return false;
     }
 
@@ -228,6 +229,10 @@ final class GdxApplicationShell extends ApplicationAdapter {
         GdxTableRenderer renderer = new GdxTableRenderer(session.commands());
         session.attach(renderer).whenComplete((ignored, failure) ->
                 Gdx.app.postRunnable(() -> {
+                    if (lobby != owner) {
+                        renderer.close();
+                        return;
+                    }
                     if (failure == null) {
                         application.tableEntered();
                     } else {
@@ -473,6 +478,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
                 case 2 -> flushPendingIdentityGameLogNotices();
                 case 3 -> {
                     table = pending.table;
+                    menu.transferLobbyNoticeTo(table);
                     table.continuePreparationAnimation(
                             menu.preparationAnimationTime());
                     menu.pokerVideoOverlay().minimizeForTable();
@@ -655,11 +661,19 @@ final class GdxApplicationShell extends ApplicationAdapter {
         Gdx.input.setInputProcessor(menu);
     }
 
+    boolean showLobbyNotice(LobbySession owner, GdxTableDialog request) {
+        CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
+        if (owner != lobby || current == null) return false;
+        current.showDialog(request);
+        return true;
+    }
+
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        LobbySession owner = lobby;
         Gdx.app.postRunnable(() -> {
-            CoronaPokerGdxTable current = table;
-            if (current == null) {
+            CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
+            if (owner != lobby || current == null) {
                 request.dismiss();
             } else {
                 current.showDialog(request);
@@ -686,7 +700,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
         }
 
         if (pendingIdentityPopups.isEmpty()) return;
-        CoronaPokerGdxTable current = table;
+        CoronaPokerGdxTable current = table != null ? table : suspendedFinalTable;
         if (current != null) {
             IdentityTrustStore.IdentityChange change;
             while ((change = pendingIdentityPopups.poll()) != null) {

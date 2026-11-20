@@ -66,6 +66,7 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.core.game.AutoActionResolver;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
 import com.tonikelope.coronapoker.core.game.GameTiming;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
@@ -5450,7 +5451,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Objects.requireNonNull(barrier, "barrier");
         if (event instanceof TableVisualEvent.HotJoinState
                 || event instanceof TableVisualEvent.CloseTable close
-                && close.summary().reason() != TableSessionSummary.CloseReason.COMPLETED) {
+                && (close.serverEnded()
+                    || close.summary().reason() != TableSessionSummary.CloseReason.COMPLETED)) {
             cancelDeferredPresentation();
         } else if (!deferredVisualEvents.isEmpty() || waitsForPresentation(event)) {
             deferredVisualEvents.addLast(new PendingVisualEvent(event, barrier));
@@ -5509,7 +5511,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void applyVisualEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
         if (event instanceof TableVisualEvent.CloseTable close) {
-            if (close.summary().reason() == TableSessionSummary.CloseReason.COMPLETED) {
+            if (!close.serverEnded()
+                    && close.summary().reason() == TableSessionSummary.CloseReason.COMPLETED) {
                 collectCompletedHandCards(new CompletableFuture<>());
             } else {
                 resetHandCardCollection();
@@ -5527,11 +5530,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // immediately rebuilds its recovery lobby; remote clients keep
                 // the stopped table visible under a five-second notice, then
                 // reconnect automatically.
-                while (activeDialog != null) {
-                    activeDialog.dismiss();
-                    activeDialog = dialogQueue.pollFirst();
-                }
-                dialogQueue.clear();
+                finishTableDialogs(false);
                 uiLayer = UI_NONE;
                 finalContinueRequested = true;
                 if (tableHost) {
@@ -5551,12 +5550,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 throw new IllegalStateException(
                         "A GDX final table summary is already active");
             }
-            while (activeDialog != null) {
-                activeDialog.dismiss();
-                activeDialog = dialogQueue.pollFirst();
-            }
-            dialogQueue.clear();
+            finishTableDialogs(true);
             uiLayer = UI_NONE;
+            tableIdentityDialog = null;
+            closeChipCatalog();
+            clearChipCatalogReturn();
+            imagePreview.dispose();
+            tableGallery.close();
+            rulesWindow.close();
+            finalSummaryPointerCaptured = false;
+            finalSummaryPointerTarget = -1;
             voiceCapture.reset();
             voicePointer.clear();
             voiceKey = Input.Keys.UNKNOWN;
@@ -5573,6 +5576,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             finalSummaryPage = 0;
             finalSummaryScreenshotTaken = false;
             finalExitPending = false;
+            if (close.serverEnded()) {
+                GdxTableDialog notice = new GdxGameDialogSink(gameText).request(
+                        GdxTableDialog.Kind.INFO,
+                        gameText.translate("game.el_servidor_ha_terminado_la"),
+                        GameDialogSink.Icon.EXIT, 0, 0);
+                if (activeDialog != null) dialogQueue.addFirst(activeDialog);
+                activeDialog = notice;
+                notice.opened(totalTime);
+            }
             TableSessionSummary.PlayerBalance localBalance
                     = finalSummary.localBalance();
             boolean hasAnimatedResult = localBalance != null
@@ -7210,8 +7222,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         pointerRepeatHits.clear();
-        boolean preparationModal = !intro && preparationPhase
-                != TableVisualEvent.PreparationStatus.Phase.READY;
+        boolean preparationModal = finalSummary == null && !intro
+                && preparationPhase != TableVisualEvent.PreparationStatus.Phase.READY;
         boolean blockingBlur = hasBlurredTableModal(preparationModal);
         boolean nestedTableModal = hasNestedTableModal();
         boolean pausedBackdrop = finalSummary == null && !intro
@@ -7372,6 +7384,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (mediaFrontend != null) {
             mediaFrontend.drawTableMediaTooltip(!showMedia || galleryOwnsHover || rulesOwnsHover);
         }
+        if (finalSummary == null || activeDialog == null) drawTableTransientOverlay();
+        if (screenshotRequested && !screenshotReadback.hasPending()) {
+            screenshotRequested = false;
+            captureScreenshot();
+        }
+    }
+
+    private void drawTableTransientOverlay() {
         String voiceProgress = voiceSending ? "gdx.lobby.voice_sending"
                 : voiceCapture.progressKey("gdx.lobby.voice_recording");
         if (voiceProgress != null) {
@@ -7389,10 +7409,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     / GdxTransientNoticeLayout.FADE_SECONDS, 0f, 1f);
             GdxTransientNoticeLayout.drawCentered(shapes, batch, viewport, uiFont,
                     glyph, nativeTextTiers(uiFont), crispButtonText, tableToast, ORANGE, alpha);
-        }
-        if (screenshotRequested && !screenshotReadback.hasPending()) {
-            screenshotRequested = false;
-            captureScreenshot();
         }
     }
 
@@ -8370,8 +8386,39 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void finishTableDialogs(boolean keepNotices) {
+        if (activeDialog != null) dialogQueue.addFirst(activeDialog);
+        activeDialog = null;
+        dialogAmountEdit.blur();
+        int remaining = dialogQueue.size();
+        while (remaining-- > 0) {
+            GdxTableDialog dialog = dialogQueue.removeFirst();
+            if (keepNotices && dialog.canShowAfterTableEnd()) {
+                dialogQueue.addLast(dialog);
+            } else {
+                dialog.dismiss();
+            }
+        }
+        activeDialog = dialogQueue.pollFirst();
+        if (activeDialog != null) activeDialog.opened(totalTime);
+    }
+
     void showDialog(GdxTableDialog request) {
         Objects.requireNonNull(request, "request");
+        if (request.complete()) return;
+        if (disposed) {
+            request.dismiss();
+            return;
+        }
+        if (finalSummary != null && !request.canShowAfterTableEnd()
+                && request != terminationConfirmation) {
+            request.dismiss();
+            return;
+        }
+        if (finalSummary != null) {
+            finalSummaryPointerCaptured = false;
+            finalSummaryPointerTarget = -1;
+        }
         if (request.isVerificationWait()) {
             verificationWaits.removeIf(GdxTableDialog::complete);
             if (!request.complete()) verificationWaits.addLast(request);
@@ -11871,23 +11918,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         terminationConfirmation = null;
         armedHudTarget = 0;
         uiLayer = UI_NONE;
-        // The confirmation remains active until the next render tick. Remove
-        // it and every queued modal immediately so a stale dialog cannot cover
-        // the terminal acknowledgement or accept a duplicate command while
-        // the authoritative dealer shutdown is in progress.
-        if (activeDialog != null && !activeDialog.complete()) {
-            activeDialog.dismiss();
-        }
-        activeDialog = null;
+        // Resolve live decisions so they cannot block the dealer's shutdown.
+        // Keep any notices that still need user acknowledgement.
+        finishTableDialogs(!recoverable);
         if (autoActionDialog != null && !autoActionDialog.complete()) {
             autoActionDialog.dismiss();
         }
         autoActionDialog = null;
-        while (!dialogQueue.isEmpty()) {
-            GdxTableDialog queued = dialogQueue.removeFirst();
-            if (!queued.complete()) queued.dismiss();
-        }
-        dialogAmountEdit.blur();
         try {
             submit(command);
         } catch (RuntimeException failure) {
@@ -20707,7 +20744,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     boolean isClientTransportReconnecting() {
-        return tableChat != null && !tableHost
+        return finalSummary == null && tableChat != null && !tableHost
                 && tableChat.snapshot().phase()
                         == com.tonikelope.coronapoker.core.LobbySnapshot.Phase.RECONNECTING;
     }
@@ -32189,8 +32226,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void handleFinalSummaryTarget(int target) {
-        if (finalExitPending || finalSummary == null
-                || uiLayer != UI_NONE) return;
+        if (!finalSummaryNavigationAvailable()) return;
         if (handleFinalSummaryNavigationAction(target)) return;
         float width = viewport.getWorldWidth();
         int visible = finalSummaryVisibleCards(width);
@@ -32203,9 +32239,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private boolean finalSummaryNavigationAvailable() {
+        return finalSummary != null && !finalExitPending && uiLayer == UI_NONE
+                && activeDialog == null;
+    }
+
     boolean handleFinalSummaryNavigationAction(int action) {
-        if (finalExitPending || finalSummary == null
-                || uiLayer != UI_NONE) return false;
+        if (!finalSummaryNavigationAvailable()) return false;
         if (action == 0) {
             if (retainedFinalMenuAction != null) {
                 beginFinalExitPending();
@@ -32625,7 +32665,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFinalExitPending(width, height);
         }
 
-        if (!finalSummaryScreenshotTaken
+        if (!finalSummaryScreenshotTaken && activeDialog == null
                 && tablePreference("screenshot_fin_timba", false)
                 && finalSummaryScreenshotReady(elapsed, local, summary.reason(),
                         finalCounterAnimationEnabled())) {

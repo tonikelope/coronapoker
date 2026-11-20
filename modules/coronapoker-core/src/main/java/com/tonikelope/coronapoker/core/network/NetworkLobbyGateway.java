@@ -1572,8 +1572,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
             if (!source.isCurrent(generation)) return null;
             switch (parts[0]) {
                 case "EXIT" -> {
-                    if (fromClient) removePeer(source.remoteNickname, true);
-                    else { publish(LobbySnapshot.Phase.CLOSED, "El servidor ha cancelado la timba"); close(); }
+                    if (fromClient) {
+                        removePeer(source.remoteNickname, true);
+                    } else if (!gameChannel.isTerminating()) {
+                        // A lobby EXIT can trail SERVEREXIT on the same socket.
+                        // Let the accepted table termination drain and own its notice.
+                        publish(LobbySnapshot.Phase.CLOSED,
+                                "El servidor ha cancelado la timba");
+                        close();
+                    }
                 }
                 case "KICKED" -> { publish(LobbySnapshot.Phase.CLOSED, "Has sido expulsado de la timba"); close(); }
                 case "KICKED_FLOOD" -> {

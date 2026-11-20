@@ -61,6 +61,7 @@ import com.tonikelope.coronapoker.core.RecoverableGameRepository;
 import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.network.UpnpPortReservation;
 import com.tonikelope.coronapoker.core.network.LobbyConnectionRefusedException;
 import com.tonikelope.coronapoker.BuyinRules;
@@ -561,6 +562,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String frontendNoticeTitle = "";
     private String frontendNoticeMessage = "";
     private boolean frontendNoticeError;
+    private GdxTableDialog frontendLobbyNotice;
     private boolean modAdultWarning;
     private boolean avatarSelectionPending;
     private AvatarCropSession avatarCropSession;
@@ -2466,10 +2468,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (connection != null) connection.setUpnp(false);
             verifiedUpnpPort = -1;
         }
+        boolean error = fatal || upnpFailure;
         detail = lobbyNetworkStatusText(detail, gameText);
-        showFrontendNotice(gameText.translate(fatal || upnpFailure
-                ? "gdx.dialog.error" : "gdx.dialog.information"), detail,
-                fatal || upnpFailure);
+        if (detail.isBlank()) return;
+        GdxTableDialog notice = new GdxGameDialogSink(gameText).request(
+                error ? GdxTableDialog.Kind.ERROR : GdxTableDialog.Kind.INFO,
+                detail, GameDialogSink.Icon.NONE, 0, 0);
+        GdxApplicationShell shell = GdxApplicationShell.active();
+        if (shell != null && shell.showLobbyNotice(lobbySession, notice)) return;
+        showFrontendNotice(notice.title(), notice.message(), error);
+        frontendLobbyNotice = notice;
+    }
+
+    void transferLobbyNoticeTo(CoronaPokerGdxTable table) {
+        if (frontendLobbyNotice == null) return;
+        GdxTableDialog notice = frontendLobbyNotice;
+        dismissFrontendNotice();
+        table.showDialog(notice);
     }
 
     private void loadLobbyPublicAddress(boolean host) {
@@ -8824,6 +8839,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /** Clears every transient whose ownership ends with the lobby screen. */
     private void clearLobbyScreenState() {
+        if (frontendLobbyNotice != null) dismissFrontendNotice();
         lobbyLocalAddress = GdxLocalServerAddresses.LOOPBACK_NAME;
         lobbyChatHistory.clear();
         lobbyChatLayout = null;
@@ -11744,6 +11760,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void showFrontendNotice(String title, String message,
             boolean error) {
+        frontendLobbyNotice = null;
         frontendNoticeTitle = Objects.requireNonNullElse(title, "");
         frontendNoticeMessage = Objects.requireNonNullElse(message, "");
         frontendNoticeError = error;
@@ -11751,6 +11768,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void dismissFrontendNotice() {
+        frontendLobbyNotice = null;
         frontendNoticeTitle = "";
         frontendNoticeMessage = "";
         frontendNoticeError = false;

@@ -719,6 +719,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
+    private final GdxCardZoomSlider cardZoomSlider = new GdxCardZoomSlider();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private final GdxPointerHold scrollPointer = new GdxPointerHold();
     private float scrollDragGrabOffset;
@@ -989,10 +990,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             throw new IllegalStateException("Avatar shader: "
                     + avatarShader.getLog());
         }
-        String handFragment = ROUNDED_TEXTURE_FRAGMENT_SHADER.replace("void main()",
-                CoronaPokerGdxTable.CARD_ARTWORK_SAMPLING_GLSL + "void main()")
-                .replace("texture2D(u_texture, v_texCoords)", "sampleCardArtwork(u_texture, v_texCoords)");
-        handCardShader = new ShaderProgram(SPRITE_VERTEX_SHADER, handFragment);
+        handCardShader = new ShaderProgram(CoronaPokerGdxTable.CARD_VERTEX_SHADER,
+                CoronaPokerGdxTable.CARD_FRAGMENT_SHADER);
         if (!handCardShader.isCompiled()) throw new IllegalStateException(handCardShader.getLog());
         roundedTextureShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
                 ROUNDED_TEXTURE_FRAGMENT_SHADER);
@@ -1426,6 +1425,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsRowsActive = false;
         settingsDebugViewport.set(0f, 0f, 0f, 0f);
         shuffleAngleSlider.hide();
+        cardZoomSlider.hide();
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
         // picker, otherwise that stale layer is composed over the dialog.
@@ -5984,13 +5984,20 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         handCardShader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));
         handCardShader.setUniformf("u_projectedArtwork", 0f);
         handCardShader.setUniformf("u_extraArtworkSampling", 0f);
-        handCardShader.setUniformf("u_cornerRadius", 0.045f);
-        handCardShader.setUniformf("u_edgeSoftness", 0.004f);
+        handCardShader.setUniformf("u_cornerRadius", CoronaPokerGdxTable.cardCornerRadius());
+        handCardShader.setUniformi("u_frontTexture", 0);
+        handCardShader.setUniformf("u_flipAngle", 0f);
+        handCardShader.setUniformf("u_perspective", 0f);
+        handCardShader.setUniformf("u_overlay", 0f, 0f, 0f, 0f);
+        handCardShader.setUniformf("u_cardAspect", HAND_GENERATOR_CARD_HEIGHT / HAND_GENERATOR_CARD_WIDTH);
+        float canvas = CoronaPokerGdxTable.cardShaderCanvasScale();
+        handCardShader.setUniformf("u_canvasScale", canvas);
         for (int index = 0; index < example.cards().size(); index++) {
-            Rectangle bounds = handGeneratorCardBounds(
-                    example.cards().size(), index);
+            Rectangle bounds = handGeneratorCardBounds(example.cards().size(), index);
+            float width = bounds.width * canvas, height = bounds.height * canvas;
             batch.draw(handGeneratorCardTexture(example.cards().get(index)),
-                    bounds.x, bounds.y, bounds.width, bounds.height);
+                    bounds.x - (width - bounds.width) * .5f, bounds.y - (height - bounds.height) * .5f,
+                    width, height);
         }
         batch.flush();
         batch.setShader(null);
@@ -8958,6 +8965,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeSettings(boolean save) {
+        cardZoomSlider.cancel();
         shuffleAngleSlider.cancel();
         imagePreview.dispose();
         settingsShortcutCaptureId = null;
@@ -9877,6 +9885,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "verde".equalsIgnoreCase(
                                             configuredFelt())),
                             Dropdown.FELT, true);
+                } else if (row == GdxSettingsContract.APPEARANCE_HAND_ZOOM_ROW) {
+                    drawCardZoomRow(bounds, rows, false);
                 } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
                     settingsStepper(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
@@ -10059,7 +10069,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float currentY = rows.rowY(row);
             GdxSettingsContract.AppearanceAnimationRow animationRow =
                     animationRows.get(row);
-            if (animationRow.shuffleAngle()) {
+            if (animationRow.shuffleZoom()) {
+                var bounds = GdxSettingsLayout.groupedRow(baseX, currentY, baseWidth, row, groups, rowCount);
+                drawCardZoomRow(bounds, rows, true);
+                settingsTooltip(bounds, GdxCardZoom.SHUFFLE_LABEL);
+            } else if (animationRow.shuffleAngle()) {
                 Rectangle bounds = GdxSettingsLayout.groupedRow(baseX, currentY, baseWidth, row, groups, rowCount);
                 boolean enabled = GdxShuffleAngle.enabled(initialProperties);
                 int angle = GdxShuffleAngle.value(initialProperties);
@@ -10116,6 +10130,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
+    }
+
+    private void drawCardZoomRow(Rectangle row, GdxSettingsLayout.PixelRows rows, boolean shuffle) {
+        boolean perspective = GdxAppearanceOptions.perspectiveTable(initialProperties);
+        var zoom = shuffle ? GdxCardZoom.shuffle(perspective) : GdxCardZoom.hand(perspective);
+        boolean enabled = !shuffle || GdxShuffleAngle.enabled(initialProperties);
+        int value = zoom.percent(initialProperties);
+        cardZoomSlider.draw(shapes, row, rows, zoom, value, enabled, 1f);
+        float baseline = row.y + row.height * .5f + 9f;
+        String label = gameText.translate(shuffle ? GdxCardZoom.SHUFFLE_LABEL : GdxCardZoom.HAND_LABEL);
+        textFit(smallFont, uppercase(label) + (perspective ? " · 3D" : " · 2D"), row.x + 18f, baseline,
+                enabled ? Color.WHITE : DISABLED, false, row.width * .42f - 30f);
+        textFit(smallFont, zoom.display(value), row.x + row.width - 53f, baseline, enabled ? GOLD : DISABLED, true, 96f);
     }
 
     private void drawSettingsRowScrollbar(float x,
@@ -16640,7 +16667,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (button == Input.Buttons.LEFT && surface == Surface.SETTINGS && dropdown == Dropdown.NONE
                 && !hasNestedFrontendModal() && !frontendNoticeOwnsPointer()
-                && shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)) return true;
+                && (shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
+                        || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties))) return true;
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if (avatarCropSession == null && dropdown != Dropdown.NONE
                 && button == Input.Buttons.LEFT
@@ -16730,7 +16758,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (surface == Surface.SETTINGS && dropdown == Dropdown.NONE && !hasNestedFrontendModal()
-                && shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)) return true;
+                && (shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
+                        || cardZoomSlider.drag(pointer.x, pointerIndex, initialProperties))) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDragged(pointer.x, pointer.y, pointerIndex);
             return true;
@@ -16803,7 +16832,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (button == Input.Buttons.LEFT && shuffleAngleSlider.release(pointerIndex)) return true;
+        if (button == Input.Buttons.LEFT && (shuffleAngleSlider.release(pointerIndex) || cardZoomSlider.release(pointerIndex))) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -18177,7 +18206,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
-        if (b == Input.Buttons.LEFT && shuffleAngleSlider.release(p)) return true;
+        if (b == Input.Buttons.LEFT && (shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;

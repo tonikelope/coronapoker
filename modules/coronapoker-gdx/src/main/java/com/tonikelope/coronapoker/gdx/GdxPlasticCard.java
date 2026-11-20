@@ -8,10 +8,14 @@ import com.badlogic.gdx.math.Vector3;
 /** Inextensible transverse arcs with a small corner lead for a plastic card. */
 final class GdxPlasticCard {
 
+    static final float CORNER_RADIUS_MM = 3.2f;
+    static final float CORNER_WIDTH_RATIO = CORNER_RADIUS_MM / 63f;
+    static final float THICKNESS_MM = .32f;
+
     private GdxPlasticCard() { }
 
     static float thickness(float width) {
-        return width * 0.0048f;
+        return width * (THICKNESS_MM / 63f);
     }
 
     /**

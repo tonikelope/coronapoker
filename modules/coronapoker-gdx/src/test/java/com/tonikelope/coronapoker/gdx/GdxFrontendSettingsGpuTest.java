@@ -140,6 +140,7 @@ final class GdxFrontendSettingsGpuTest {
             }
         }
         session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
+        verifyZoomTracks(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         verifyAngleTrack(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
         for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
@@ -171,6 +172,58 @@ final class GdxFrontendSettingsGpuTest {
         Object texture = field(screen, "feltTexture");
         screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
         assertSame(texture, field(screen, "feltTexture"));
+    }
+
+    private static void verifyZoomTracks(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
+            java.util.Properties properties) throws Exception {
+        var slider = field(owner, "cardZoomSlider");
+        var viewport = (Viewport) field(owner, "viewport");
+        var scroll = owner.getClass().getDeclaredField("settingsAppearanceScroll");
+        scroll.setAccessible(true);
+        var saved = (java.util.Properties) properties.clone();
+        try {
+            for (var zoom : GdxCardZoom.values()) {
+                boolean perspective = zoom == GdxCardZoom.HAND_3D || zoom == GdxCardZoom.SHUFFLE_3D;
+                properties.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, perspective ? "3d" : "2d");
+                invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, zoom.isShuffle() ? 1 : 0);
+                var other = zoom.isShuffle() ? GdxCardZoom.shuffle(!perspective) : GdxCardZoom.hand(!perspective);
+                int initial = zoom.percent(properties), otherValue = other.percent(properties);
+                Rectangle plus = (Rectangle) field(slider, "plus"), minus = (Rectangle) field(slider, "minus");
+                for (int offset = 0; offset < 1100; offset += 48) {
+                    scroll.setFloat(owner, offset);
+                    render.run();
+                    if (field(slider, "visible") == zoom && ((Rectangle) field(slider, "hit"))
+                            .contains(plus.x + plus.width / 2, plus.y + plus.height / 2)) break;
+                }
+                assertSame(zoom, field(slider, "visible"));
+                for (Rectangle button : List.of(plus, minus)) {
+                    var p = viewport.project(button.getCenter(new Vector2()));
+                    int x = Math.round(p.x), y = HEIGHT - 1 - Math.round(p.y);
+                    assertTrue(input.touchDown(x, y, 0, Input.Buttons.LEFT));
+                    assertTrue(input.touchUp(x, y, 0, Input.Buttons.LEFT));
+                    assertEquals(button == plus ? initial + 5 : initial, zoom.percent(properties));
+                }
+                var track = (Rectangle) field(slider, "track");
+                var start = viewport.project(new Vector2(track.x, track.y + track.height / 2));
+                var end = viewport.project(new Vector2(track.x + track.width, track.y + track.height / 2));
+                int y = HEIGHT - 1 - Math.round(start.y);
+                assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT));
+                assertEquals(GdxCardZoom.MIN, zoom.percent(properties));
+                assertTrue(input.touchDragged(Math.round(end.x), y, 0));
+                assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));
+                assertEquals(zoom.max, zoom.percent(properties));
+                assertEquals(otherValue, other.percent(properties));
+            }
+        } finally {
+            for (var zoom : GdxCardZoom.values()) restoreKey(properties, saved, zoom.key);
+            restoreKey(properties, saved, GdxSettingsContract.TABLE_VIEW_KEY);
+            scroll.setFloat(owner, 0f);
+        }
+    }
+
+    private static void restoreKey(java.util.Properties properties, java.util.Properties saved, String key) {
+        if (saved.containsKey(key)) properties.setProperty(key, saved.getProperty(key));
+        else properties.remove(key);
     }
 
     private static void verifyAngleTrack(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
@@ -240,6 +293,7 @@ final class GdxFrontendSettingsGpuTest {
             invoke(table, "openSettings", new Class<?>[0]);
             var session = (GdxSettingsSession) field(table, "settingsSession");
             session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
+            verifyZoomTracks(table, table.inputProcessor(), table::render, preferences.properties());
             verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());
             verifyShuffleAngleLock(table, preferences.properties());
             invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
@@ -280,35 +334,26 @@ final class GdxFrontendSettingsGpuTest {
         assertTrue(input.touchDown(Math.round(start.x), touchY, 0, Input.Buttons.LEFT));
         int initialAngle = GdxShuffleAngle.value(properties);
         assertTrue(initialAngle > 60 && initialAngle < 80);
-        var size = GdxAppearanceOptions.SHUFFLE_SIZE;
-        var selectArgs = new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class};
-        var openArgs = new Class<?>[]{GdxAppearanceOptions.Choice.class};
-        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 1);
-        invoke(table, "openSettingsAppearanceSelectionList", openArgs, size);
-        assertEquals("APPEARANCE_CHOICE", field(table, "settingsSelectionList").toString());
+        properties.setProperty(GdxCardZoom.SHUFFLE_2D.key, "115");
+        properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "175");
         var started = new CompletableFuture<Void>();
         table.acceptEvent(new TableVisualEvent.Shuffle(3, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
         assertTrue(started.isDone());
         var shuffle = field(table, "liveShuffle");
         assertEquals(initialAngle, field(shuffle, "angle"));
-        assertEquals(2, field(shuffle, "sizeMultiplier"));
-        assertEquals("NONE", field(table, "settingsSelectionList").toString());
-        invoke(table, "openSettingsAppearanceSelectionList", openArgs, size);
-        assertEquals("NONE", field(table, "settingsSelectionList").toString());
-        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 2);
-        assertEquals("2", properties.getProperty(size.key()));
+        assertEquals(115, field(shuffle, "zoom2D"));
+        assertEquals(175, field(shuffle, "zoom3D"));
+        properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "250");
+        assertEquals(175, invoke(table, "shuffleZoom", new Class<?>[]{boolean.class}, true));
         input.touchDragged(Math.round(end.x), touchY, 0);
         input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
         table.render();
+        assertNull(field(field(table, "cardZoomSlider"), "visible"));
         assertEquals(0f, hit.width);
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
         invoke(table, "restoreTableAppearanceDefaults", new Class<?>[0]);
         assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
-        assertEquals("2", properties.getProperty(size.key()));
-        properties.setProperty(size.key(), "1");
-        assertEquals(2, invoke(table, "shuffleSizeMultiplier", new Class<?>[0]));
-        properties.setProperty(size.key(), "2");
         // Cancelling uncommitted settings may restore the next hand's preference.
         properties.setProperty(GdxShuffleAngle.KEY, "15");
         assertEquals(initialAngle, invoke(table, "shuffleAngle", new Class<?>[0]));
@@ -331,8 +376,6 @@ final class GdxFrontendSettingsGpuTest {
         table.render();
         assertTrue(finished.isDone());
         assertNull(field(table, "liveShuffle"));
-        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 2);
-        assertEquals("3", properties.getProperty(size.key()));
         assertTrue(hit.width > 0f);
         assertTrue(input.touchDown((int) end.x, touchY, 0, Input.Buttons.LEFT));
         input.touchUp((int) end.x, touchY, 0, Input.Buttons.LEFT);

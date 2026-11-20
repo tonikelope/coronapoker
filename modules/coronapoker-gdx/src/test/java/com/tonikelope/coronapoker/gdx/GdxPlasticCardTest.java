@@ -128,7 +128,7 @@ final class GdxPlasticCardTest {
         GdxPlasticCard.flight(current, 100f, 140f, 1f, 1f, 0.9999f);
         GdxPlasticCard.flight(previous, 100f, 140f, 1f, 1f, 1f);
         assertTrue(current.dst(previous) < 0.01f);
-        assertEquals(0.48f, GdxPlasticCard.thickness(100f), 0.0001f);
+        assertEquals(.32f, GdxPlasticCard.thickness(63f), .0001f);
     }
 
     @Test void theFinalHandoffDoesNotPopOrBounce() {

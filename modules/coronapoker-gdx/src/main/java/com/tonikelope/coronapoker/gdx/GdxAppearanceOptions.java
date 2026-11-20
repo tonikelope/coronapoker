@@ -60,12 +60,7 @@ final class GdxAppearanceOptions {
             "CALIDAD SOMBRAS", "high", new String[]{"high", "normal"},
             new String[]{"ALTA", "NORMAL"});
 
-    static final Choice SHUFFLE_SIZE = exact(GdxSettingsContract.SHUFFLE_SIZE_KEY,
-            "TAMAÑO", "1", new String[]{"1", "2", "3"},
-            new String[]{"COMUNITARIAS", "COMUNITARIAS ×2", "COMUNITARIAS ×3"});
-
     static final List<Choice> ANIMATION_CHOICES = List.of(
-            SHUFFLE_SIZE,
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -141,7 +136,6 @@ final class GdxAppearanceOptions {
 
     static String parentKey(Choice choice) {
         return switch (choice.key()) {
-            case GdxSettingsContract.SHUFFLE_SIZE_KEY -> "animacion_barajado";
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";

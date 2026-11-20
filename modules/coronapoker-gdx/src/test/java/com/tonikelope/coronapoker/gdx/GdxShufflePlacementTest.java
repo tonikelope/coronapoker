@@ -24,7 +24,7 @@ final class GdxShufflePlacementTest {
                 low = Math.min(low, modded.vertices[i+1]);
                 high = Math.max(high, modded.vertices[i+1]);
             }
-            if (time == 0f || time == 4.46f) assertEquals(52f * .27f, (high - low) * 88f, .0001f);
+            if (time == 0f || time == 4.46f) assertEquals(52f * .32f, (high - low) * 88f, .0001f);
         }
     }
 

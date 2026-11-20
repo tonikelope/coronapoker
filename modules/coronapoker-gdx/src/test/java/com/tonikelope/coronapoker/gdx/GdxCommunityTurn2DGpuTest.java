@@ -163,7 +163,6 @@ final class GdxCommunityTurn2DGpuTest {
         shader.setUniformi("u_texture", 0);
         shader.setUniformi("u_frontTexture", 1);
         shader.setUniformf("u_cornerRadius", CoronaPokerGdxTable.cardCornerRadius());
-        shader.setUniformf("u_edgeSoftness", CoronaPokerGdxTable.cardEdgeSoftness());
         shader.setUniformf("u_perspective", 0f);
         shader.setUniformf("u_flipAngle", angle);
         shader.setUniformf("u_cardAspect", CARD_HEIGHT / CARD_WIDTH);

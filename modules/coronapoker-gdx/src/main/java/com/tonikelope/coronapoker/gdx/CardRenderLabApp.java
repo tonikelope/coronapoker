@@ -139,8 +139,6 @@ final class CardRenderLabApp extends ApplicationAdapter {
         cardShader.setUniformi("u_frontTexture", 1);
         cardShader.setUniformf("u_cornerRadius",
                 CoronaPokerGdxTable.cardCornerRadius());
-        cardShader.setUniformf("u_edgeSoftness",
-                CoronaPokerGdxTable.cardEdgeSoftness());
         cardShader.setUniformf("u_perspective", 0f);
         cardShader.setUniformf("u_flipAngle", MathUtils.PI);
         cardShader.setUniformf("u_cardAspect", cardHeight / cardWidth);

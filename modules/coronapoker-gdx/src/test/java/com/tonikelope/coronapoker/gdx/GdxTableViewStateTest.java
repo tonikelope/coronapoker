@@ -198,8 +198,7 @@ final class GdxTableViewStateTest {
                 CoronaPokerGdxTable.cardMinificationFilter());
         assertEquals(1f, CoronaPokerGdxTable.cardAnisotropyLevel());
         assertEquals(4, CoronaPokerGdxTable.cardEdgeSupersampleCount());
-        assertEquals(0.30f,
-                CoronaPokerGdxTable.cardEdgeSubsampleSoftnessPixels());
+        assertEquals(GdxCardContour.RADIUS, CoronaPokerGdxTable.cardCornerRadius());
         assertEquals(0.05f, CoronaPokerGdxTable.cardEdgeGuardUv());
         assertEquals(1.5f, CoronaPokerGdxTable.cardShaderCanvasScale());
         assertEquals(0f, CoronaPokerGdxTable.cardArtworkLodBias(

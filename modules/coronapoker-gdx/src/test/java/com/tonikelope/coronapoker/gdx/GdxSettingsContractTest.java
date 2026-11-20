@@ -15,6 +15,39 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsContractTest {
 
     @Test
+    void cardZoomPersistsIndependentlyForBothViews(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        Path file = dir.resolve("preferences.properties");
+        var prefs = new com.tonikelope.coronapoker.core.PreferencesService(file);
+        prefs.start();
+        Properties p = prefs.properties();
+        assertEquals(130, GdxCardZoom.HAND_2D.percent(p));
+        assertEquals(100, GdxCardZoom.HAND_3D.percent(p));
+        for (var zoom : List.of(GdxCardZoom.SHUFFLE_2D, GdxCardZoom.SHUFFLE_3D)) {
+            assertEquals(100, zoom.percent(p));
+            assertEquals(155, zoom.snap(153));
+            assertEquals(50, zoom.snap(13));
+            assertEquals(300, zoom.snap(303));
+        }
+        p.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, "2");
+        assertEquals(200, GdxCardZoom.SHUFFLE_3D.percent(p));
+        p.setProperty(GdxCardZoom.SHUFFLE_2D.key, "165");
+        assertEquals(200, GdxCardZoom.SHUFFLE_3D.percent(p));
+        p.setProperty(GdxCardZoom.SHUFFLE_3D.key, "180");
+        p.setProperty(GdxCardZoom.HAND_2D.key, "135");
+        p.setProperty(GdxCardZoom.HAND_3D.key, "110");
+        try {
+            prefs.save();
+        } finally {
+            prefs.close();
+        }
+        var loaded = new com.tonikelope.coronapoker.core.PreferencesService(file).properties();
+        assertEquals(135, GdxCardZoom.HAND_2D.percent(loaded));
+        assertEquals(110, GdxCardZoom.HAND_3D.percent(loaded));
+        assertEquals(165, GdxCardZoom.SHUFFLE_2D.percent(loaded));
+        assertEquals(180, GdxCardZoom.SHUFFLE_3D.percent(loaded));
+    }
+
+    @Test
     void tableViewDefaultsToThreeDimensionsAndResetsWithMesa() {
         Properties properties = new Properties();
         assertTrue(GdxAppearanceOptions.perspectiveTable(properties));
@@ -717,7 +750,7 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
-        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
         assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
@@ -726,7 +759,7 @@ final class GdxSettingsContractTest {
                 "efecto_relieve",
                 "cinematicas_allin",
                 "cinematicas_gameover",
-                "animacion_barajado", GdxShuffleAngle.KEY, GdxSettingsContract.SHUFFLE_SIZE_KEY,
+                "animacion_barajado", GdxShuffleAngle.KEY, GdxCardZoom.SHUFFLE_LABEL,
                 "animacion_reparto",
                 "reparto_velocidad",
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
@@ -750,24 +783,6 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
-    }
-
-    @Test
-    void shuffleSizeUsesOnlyTheThreeCommunityCardMultipliers() {
-        var settings = new Properties();
-        var size = GdxAppearanceOptions.SHUFFLE_SIZE;
-        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(size.key()));
-        assertEquals(java.util.List.of("1", "2", "3"), size.values());
-        assertEquals("animacion_barajado", GdxAppearanceOptions.parentKey(size));
-        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
-        GdxAppearanceOptions.select(size, settings, 2);
-        assertEquals("COMUNITARIAS ×3", GdxAppearanceOptions.selectedLabel(size, settings, new GdxGameText("es")));
-        settings.setProperty("animacion_barajado", "false");
-        assertFalse(GdxAppearanceOptions.enabled(size, settings));
-        GdxSettingsContract.restoreAppearancePageDefaults(settings, 1, true);
-        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
-        settings.setProperty(size.key(), "4");
-        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
     }
 
     @Test

@@ -18,7 +18,7 @@ final class GdxShuffleGeometryTest {
                     int top = vertex(card, strip, 0), bottom = vertex(card, strip, 2);
                     double dx = mesh.vertices[top] - mesh.vertices[bottom];
                     double dy = mesh.vertices[top + 1] - mesh.vertices[bottom + 1];
-                    assertEquals(.27, 88 * Math.hypot(dx, dy), .00002);
+                    assertEquals(.32, 88 * Math.hypot(dx, dy), .00002);
                     double x = (mesh.vertices[top] + mesh.vertices[bottom]) * .5;
                     double y = (mesh.vertices[top + 1] + mesh.vertices[bottom + 1]) * .5;
                     if (strip > 0) length += Math.hypot(x - lastX, y - lastY);
@@ -26,7 +26,7 @@ final class GdxShuffleGeometryTest {
                     lastY = y;
                 }
                 assertEquals(88, 88 * length, .02);
-                assertEquals((card + 1) * .27, 88 * mesh.vertices[vertex(card, 0, 0) + 1], .00002);
+                assertEquals((card + 1) * .32, 88 * mesh.vertices[vertex(card, 0, 0) + 1], .00002);
             }
         }
     }
@@ -42,7 +42,7 @@ final class GdxShuffleGeometryTest {
             mesh.update((card + .5f) * FRAME_SECONDS);
             assertTrue(mesh.vertices[tip] < held);
             mesh.update((card + 5) * FRAME_SECONDS);
-            assertEquals((card + 1) * .27, 88 * mesh.vertices[tip], .00002);
+            assertEquals((card + 1) * .32, 88 * mesh.vertices[tip], .00002);
             assertEquals(card % 2 == 0, mesh.vertices[vertex(card, 0, 0)] > 0f);
         }
     }
@@ -65,14 +65,14 @@ final class GdxShuffleGeometryTest {
                 }
             }
         }
-        assertEquals(14.04, mesh.vertices[vertex(51, 0, 0) + 1] * 88, .00002);
+        assertEquals(16.64, mesh.vertices[vertex(51, 0, 0) + 1] * 88, .00002);
         assertEquals(1.72f, CYCLE_SECONDS, .000001f);
     }
 
     @Test
     void fullDeckSeparatesIntoTwoFlatPacketsBeforeTheyBend() {
         var motion = Motion.FULL_DECK;
-        double gauge = .27 / 88;
+        double gauge = .32 / 88;
         for (int tick = 0; tick <= 88; tick++) {
             float frame = tick * .25f;
             mesh.update(frame * FRAME_SECONDS, motion);
@@ -100,7 +100,7 @@ final class GdxShuffleGeometryTest {
             for (int tick = 0; tick < motion.leadFrames * 4; tick++) {
                 mesh.update(tick * .25f * FRAME_SECONDS, motion);
                 assertEquals(0f, mesh.vertices[vertex(0, 0, 2) + 1], .000001f);
-                assertEquals(14.04, mesh.vertices[vertex(51, 0, 0) + 1] * 88, .00002);
+                assertEquals(16.64, mesh.vertices[vertex(51, 0, 0) + 1] * 88, .00002);
             }
             original.update(0f);
             mesh.update(Math.nextDown(motion.leadFrames * FRAME_SECONDS), motion);
@@ -122,10 +122,10 @@ final class GdxShuffleGeometryTest {
             mesh.update(tick * FRAME_SECONDS * .5f, motion);
             for (int order = 0; order < CARDS; order++) {
                 int tip = vertex(order, STRIPS, 0), under = vertex(order, STRIPS, 2);
-                assertEquals(.27, 88 * Math.hypot(mesh.vertices[tip] - mesh.vertices[under],
+                assertEquals(.32, 88 * Math.hypot(mesh.vertices[tip] - mesh.vertices[under],
                         mesh.vertices[tip + 1] - mesh.vertices[under + 1]), .00002);
                 if (tick >= 2 * (motion.leadFrames + order + 5)) {
-                    assertEquals((order + 1) * .27, 88 * mesh.vertices[tip + 1], .00003);
+                    assertEquals((order + 1) * .32, 88 * mesh.vertices[tip + 1], .00003);
                 }
             }
         }
@@ -164,7 +164,7 @@ final class GdxShuffleGeometryTest {
                     assertTrue(mesh.vertices[b + 1] >= -.000001f);
                     double dx = mesh.vertices[t] - mesh.vertices[b];
                     double dy = mesh.vertices[t + 1] - mesh.vertices[b + 1];
-                    assertEquals(.27, 88 * Math.hypot(dx, dy), .00003);
+                    assertEquals(.32, 88 * Math.hypot(dx, dy), .00003);
                     double x = (mesh.vertices[t] + mesh.vertices[b]) * .5;
                     double y = (mesh.vertices[t + 1] + mesh.vertices[b + 1]) * .5;
                     if (strip > 0) length += Math.hypot(x - lastX, y - lastY);
@@ -259,7 +259,7 @@ final class GdxShuffleGeometryTest {
                     double y = (mesh.vertices[t + 1] + mesh.vertices[b + 1]) * .5;
                     if (strip > 0) length += Math.hypot(x - lastX, y - lastY);
                     assertTrue(mesh.vertices[b + 1] >= -.000001f);
-                    assertEquals(.27, 88 * Math.hypot(mesh.vertices[t] - mesh.vertices[b],
+                    assertEquals(.32, 88 * Math.hypot(mesh.vertices[t] - mesh.vertices[b],
                             mesh.vertices[t + 1] - mesh.vertices[b + 1]), .00003);
                     lastX = x;
                     lastY = y;

@@ -297,7 +297,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
-            case GdxSettingsContract.SHUFFLE_SIZE_KEY -> "gdx.settings.tooltip.shuffle_size";
+            case GdxCardZoom.HAND_LABEL, "zoom_mano_2d", "zoom_mano_3d" -> "gdx.settings.tooltip.hand_zoom";
+            case GdxCardZoom.SHUFFLE_LABEL, "zoom_barajado_2d", "zoom_barajado_3d" -> "gdx.settings.tooltip.shuffle_zoom";
             case GdxShuffleAngle.KEY -> "gdx.settings.tooltip.shuffle_angle";
             case "animacion_reparto" ->
                 "gdx.settings.tooltip.animation_deal";

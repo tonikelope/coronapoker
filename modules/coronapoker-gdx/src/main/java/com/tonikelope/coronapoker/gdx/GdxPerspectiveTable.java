@@ -126,9 +126,9 @@ final class GdxPerspectiveTable implements Disposable {
             varying float v_light;
             varying vec3 v_normal;
             varying vec3 v_position;
-            """ + CARD_PROJECTION_SAMPLER + """
+            """ + CARD_PROJECTION_SAMPLER + "\n#define CARD_CORNER_RADIUS " + GdxPlasticCard.CORNER_WIDTH_RATIO + "\n" + """
             float cardDistance(vec2 uv) {
-                float radius = 0.075;
+                float radius = CARD_CORNER_RADIUS;
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;
                 return length(max(side, 0.0)) + min(max(side.x, side.y), 0.0) - radius;
             }
@@ -862,7 +862,7 @@ final class GdxPerspectiveTable implements Disposable {
         private final float flightSeconds;
         private float dealerU, dealerV;
         private GdxCardDealMotion.Route route;
-        private float width, height, camera;
+        private float width, height, camera, cardWidth, cardHeight;
 
         DealRoute() {
             style = GdxPlasticCard.STANDARD;
@@ -907,7 +907,7 @@ final class GdxPerspectiveTable implements Disposable {
             plan.dealerV = sourceY / height;
         }
         if (plan.route == null || plan.width != width || plan.height != height
-                || plan.camera != cameraProgress) {
+                || plan.camera != cameraProgress || plan.cardWidth != w || plan.cardHeight != h) {
             float launchHeight = w * (0.055f + plan.style.tempo() * 0.34f);
             dealOriginAtHeight(plan.source, plan.dealerU * width, plan.dealerV * height, launchHeight);
             dealPlanningTarget.set(dealTarget.x, lowestLayer, dealTarget.z);
@@ -925,6 +925,8 @@ final class GdxPerspectiveTable implements Disposable {
             plan.width = width;
             plan.height = height;
             plan.camera = cameraProgress;
+            plan.cardWidth = w;
+            plan.cardHeight = h;
         }
         float pathProgress = community ? GdxCardDealMotion.communityProgress(progress, plan.flightSeconds, w, plan.route)
                 : progress;

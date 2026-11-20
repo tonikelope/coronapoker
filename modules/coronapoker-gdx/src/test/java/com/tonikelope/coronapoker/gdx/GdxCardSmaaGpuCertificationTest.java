@@ -126,8 +126,7 @@ final class GdxCardSmaaGpuCertificationTest {
             card.bind(0);
             shader.setUniformi("u_texture", 0);
             shader.setUniformi("u_frontTexture", 1);
-            shader.setUniformf("u_cornerRadius", 0.075f);
-            shader.setUniformf("u_edgeSoftness", 0.006f);
+            shader.setUniformf("u_cornerRadius", CoronaPokerGdxTable.cardCornerRadius());
             shader.setUniformf("u_perspective", 0f);
             shader.setUniformf("u_flipAngle", 0f);
             shader.setUniformf("u_cardAspect", 80f / 70f);

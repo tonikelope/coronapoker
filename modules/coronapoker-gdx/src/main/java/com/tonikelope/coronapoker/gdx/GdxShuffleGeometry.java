@@ -79,9 +79,9 @@ final class GdxShuffleGeometry {
     private static final int PUSH_START = 65;
     private static final int PUSH_END = FRAME_COUNT - 1;
     static final float STANDARD_ASPECT = 63f / 88f;
-    private static final float THICKNESS = .27f / 88f;
+    private static final float THICKNESS = GdxPlasticCard.THICKNESS_MM / 88f;
     static final float STACK_HEIGHT = CARDS * THICKNESS;
-    private static final float CORNER = 3.2f / 88f;
+    private static final float CORNER = GdxPlasticCard.CORNER_RADIUS_MM / 88f;
     private static final float OPENING_TRAVEL = .52f;
     // The opening and layer stagger bound every card's outer edge across the full shuffle.
     static final float MAX_HALF_SPAN = .5f + OPENING_TRAVEL + spread(CARDS_PER_PACKET - 1) - spread(0);
@@ -161,7 +161,7 @@ final class GdxShuffleGeometry {
 
     void update(float elapsed, Motion motion, float aspect) {
         // Only the transverse dimension follows the artwork. Both the bend
-        // along the 88 mm edge and each sheet's 0.27 mm thickness stay physical.
+        // along the 88 mm edge and each sheet's 0.32 mm thickness stay physical.
         widthScale = aspect / STANDARD_ASPECT;
         float leadFrame = elapsed / FRAME_SECONDS;
         if (leadFrame < motion.leadFrames) {
